@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await put(
       `waitlist/${key}.json`,
       JSON.stringify({ email: clean, joinedAt: new Date().toISOString() }),
-      { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
     res.status(200).json({ ok: true })
   } catch {
