@@ -1,0 +1,28 @@
+:root {
+  /* Earth-at-night palette: deep orbital navy, city-light amber, atmosphere blue */
+  --bg: #05070e;
+  --surface: rgba(12, 17, 30, 0.86);
+  --surface-solid: #0c111e;
+  --line: rgba(120, 150, 205, 0.16);
+  --line-strong: rgba(120, 150, 205, 0.32);
+  --text: #e8ecf4;
+  --muted: #7c8aa5;
+  --gold: #f0b429;
+  --gold-dim: rgba(240, 180, 41, 0.14);
+  --sky: #7dd8ff;
+  --ok: #43d9a3;
+  --warn: #e8a33d;
+  --crit: #e5484d;
+
+  --font-display: 'Unbounded', system-ui, sans-serif;
+  --font-body: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius: 10px;
+  --radius-lg: 18px;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
