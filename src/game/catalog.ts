@@ -1,4 +1,4 @@
-import type { Job, ShopItem } from './types'
+import type { Job, LifeEvent, ShopItem } from './types'
 
 export const FOUNDER_BALANCE = 200_000
 export const FOUNDER_SLOTS = 2_000
@@ -41,6 +41,25 @@ export const JOBS: Job[] = [
   { id: 'retail', title: 'Shop Manager', wage: 24, requiredLevel: 2, flavor: 'Keys to the store, keys to the schedule.' },
   { id: 'analyst', title: 'Data Analyst', wage: 36, requiredLevel: 3, flavor: 'You see the patterns before anyone else.' },
   { id: 'developer', title: 'Software Developer', wage: 48, requiredLevel: 4, flavor: 'You build the systems this world runs on.' },
+]
+
+/** Chance per tick that life throws something at you (~every 4 real minutes) */
+export const EVENT_CHANCE = 0.004
+/** Businesses keep earning while you're away, up to this many game minutes */
+export const OFFLINE_CAP_MINUTES = 3 * 1440
+
+export const LIFE_EVENTS: LifeEvent[] = [
+  { text: 'You found $20 on the sidewalk.', money: 20 },
+  { text: 'A stranger paid for your lunch. People are good.', effects: { hunger: 15 } },
+  { text: 'Caught in the rain — those shoes are done.', money: -15 },
+  { text: 'Free street concert on your block tonight.', effects: { fun: 14 } },
+  { text: 'Cracked phone screen. Ouch.', money: -40 },
+  { text: 'Someone ordered pizza for the whole building.', effects: { hunger: 10, fun: 5 } },
+  { text: 'Slept like a stone. Today is yours.', effects: { energy: 12 } },
+  { text: 'You won the neighborhood raffle.', money: 75 },
+  { text: 'A famous food blogger reviewed your business!', money: 150, requiresBusiness: true },
+  { text: 'Surprise inspection — a small compliance fine.', money: -60, requiresBusiness: true },
+  { text: 'A tour bus stopped right outside your business.', money: 120, requiresBusiness: true },
 ]
 
 export const itemById = (id: string): ShopItem | undefined => SHOP_ITEMS.find((i) => i.id === id)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FOUNDER_BALANCE, FOUNDER_SLOTS } from '../../game/catalog'
 import { formatMoney } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
@@ -11,6 +11,14 @@ function WaitlistForm() {
     localStorage.getItem(WAITLIST_KEY) ? 'done' : 'idle',
   )
   const [error, setError] = useState('')
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/waitlist')
+      .then((r) => r.json())
+      .then((d: { count?: number }) => setCount(d.count ?? 0))
+      .catch(() => {})
+  }, [])
 
   if (state === 'done') {
     return <p className="waitlist-done">✓ You're on the founder waitlist. We'll email you before the online launch.</p>
@@ -45,6 +53,7 @@ function WaitlistForm() {
     >
       <p className="waitlist-pitch">
         Founder slots go live with the online release — first come, first served.
+        {count >= 10 && <strong> {count.toLocaleString()} already waiting.</strong>}
       </p>
       <div className="welcome-row">
         <input

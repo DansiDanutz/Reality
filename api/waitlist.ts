@@ -1,14 +1,34 @@
 import { createHash } from 'node:crypto'
-import { put } from '@vercel/blob'
+import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 /**
- * Founder waitlist signup. Each email is stored as one blob keyed by its
- * hash — idempotent, race-free, and never exposes the address in the key.
+ * Founder waitlist. POST {email} signs up — each address is stored as one
+ * blob keyed by its hash (idempotent, race-free, address never in the key).
+ * GET returns the signup count for social proof.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    try {
+      let count = 0
+      let cursor: string | undefined
+      // Paginate defensively; 10 pages = 10k signups is plenty for the beta
+      for (let page = 0; page < 10; page++) {
+        const batch = await list({ prefix: 'waitlist/', cursor, limit: 1000 })
+        count += batch.blobs.length
+        if (!batch.hasMore || !batch.cursor) break
+        cursor = batch.cursor
+      }
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
+      res.status(200).json({ ok: true, count })
+    } catch {
+      res.status(200).json({ ok: true, count: 0 })
+    }
+    return
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return

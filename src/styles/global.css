@@ -18,7 +18,7 @@ body {
 .app { position: relative; height: 100%; }
 
 /* ── Globe ─────────────────────────────────────────────── */
-.globe-stage { position: absolute; inset: 0; }
+.globe-stage, .globe-loading { position: absolute; inset: 0; }
 .globe-stage.is-placing { cursor: crosshair; }
 .globe-tip {
   font-family: var(--font-mono);

@@ -1,4 +1,5 @@
-import type { Needs, PlacedAsset } from './types'
+import { EVENT_CHANCE, LIFE_EVENTS, MINUTES_PER_TICK, OFFLINE_CAP_MINUTES } from './catalog'
+import type { LifeEvent, Needs, PlacedAsset } from './types'
 
 /** Need decay per game hour */
 const DECAY_PER_HOUR: Needs = { hunger: 2.2, energy: 1.4, hygiene: 1.1, fun: 1.6 }
@@ -60,3 +61,31 @@ export const formatClock = (minutes: number) => {
 }
 
 export const xpForLevel = (level: number) => level * 100
+
+/**
+ * Roll for a random life event. `rng` is injectable for tests.
+ * Returns null on the (very common) quiet tick.
+ */
+export function rollEvent(hasBusiness: boolean, rng: () => number = Math.random): LifeEvent | null {
+  if (rng() > EVENT_CHANCE) return null
+  const pool = LIFE_EVENTS.filter((e) => !e.requiresBusiness || hasBusiness)
+  return pool[Math.floor(rng() * pool.length)] ?? null
+}
+
+/**
+ * Income earned by businesses while the player was away.
+ * The citizen pauses (no need decay, no clock) but the world keeps paying —
+ * capped so a long absence doesn't print money.
+ */
+export function offlineEarnings(assets: PlacedAsset[], elapsedMs: number): { assets: PlacedAsset[]; total: number } {
+  const gameMinutes = Math.min((elapsedMs / 1000) * MINUTES_PER_TICK, OFFLINE_CAP_MINUTES)
+  if (gameMinutes < 30) return { assets, total: 0 }
+  let total = 0
+  const updated = assets.map((a) => {
+    if (a.incomePerDay <= 0) return a
+    const earned = (a.incomePerDay / 1440) * gameMinutes
+    total += earned
+    return { ...a, pendingIncome: a.pendingIncome + earned }
+  })
+  return { assets: updated, total }
+}

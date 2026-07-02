@@ -52,3 +52,11 @@ export interface Citizen {
   founderNumber: number
   createdAt: number
 }
+
+export interface LifeEvent {
+  text: string
+  money?: number
+  effects?: Partial<Needs>
+  /** Only fires for players who own at least one business */
+  requiresBusiness?: boolean
+}

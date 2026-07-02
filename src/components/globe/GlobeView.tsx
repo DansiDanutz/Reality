@@ -64,6 +64,18 @@ export default function GlobeView() {
     [assets],
   )
 
+  // Trade routes: chain your holdings across the planet in purchase order
+  const arcs = useMemo(
+    () =>
+      assets.slice(1).map((a, i) => ({
+        startLat: assets[i].lat,
+        startLng: assets[i].lng,
+        endLat: a.lat,
+        endLng: a.lng,
+      })),
+    [assets],
+  )
+
   return (
     <div className={`globe-stage${placing ? ' is-placing' : ''}`} aria-hidden>
       <Globe
@@ -71,6 +83,7 @@ export default function GlobeView() {
         width={size.w}
         height={size.h}
         backgroundColor="rgba(0,0,0,0)"
+        backgroundImageUrl="/night-sky.jpg"
         globeMaterial={NIGHT_EARTH}
         showAtmosphere
         atmosphereColor="#3a6bb5"
@@ -87,6 +100,13 @@ export default function GlobeView() {
         pointAltitude={0.035}
         pointRadius={0.42}
         pointLabel={(d) => `<div class="globe-tip">${(d as { name: string }).name}</div>`}
+        arcsData={arcs}
+        arcColor={() => ['rgba(240, 180, 41, 0.95)', 'rgba(125, 216, 255, 0.8)']}
+        arcAltitudeAutoScale={0.4}
+        arcStroke={0.55}
+        arcDashLength={0.55}
+        arcDashGap={0.9}
+        arcDashAnimateTime={2600}
         ringsData={points}
         ringLat="lat"
         ringLng="lng"

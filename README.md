@@ -30,7 +30,11 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | Shop — food, lifestyle, homes, businesses | ✅ |
 | Businesses placed anywhere on Earth, passive income | ✅ |
 | Founder grant ($200,000) | ✅ (simulated locally in beta) |
+| Offline earnings — businesses pay while you're away (capped at 3 game days) | ✅ |
+| Random life events | ✅ |
+| Trade-route arcs between your holdings on the globe | ✅ |
 | Save game (browser localStorage) | ✅ |
+| Engine test suite (`npm test`) | ✅ |
 | Online multiplayer, real founder registry, player trading | 🔜 see [ROADMAP](docs/ROADMAP.md) |
 
 ## Documentation

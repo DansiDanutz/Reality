@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
-import { advance, applyEffects, clamp, formatMoney, xpForLevel } from '../game/engine'
+import { advance, applyEffects, clamp, formatMoney, offlineEarnings, rollEvent, xpForLevel } from '../game/engine'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, MINUTES_PER_TICK, itemById, jobById } from '../game/catalog'
 
 export type PanelId = 'shop' | 'work' | 'assets' | null
@@ -16,6 +16,7 @@ interface GameState {
   jobId: string | null
   shiftsWorked: number
   minutes: number
+  lastSeenAt: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
   /** Item awaiting a globe click for placement */
@@ -25,6 +26,7 @@ interface GameState {
 
   createCitizen: (name: string) => void
   tick: () => void
+  applyOfflineEarnings: () => void
   consume: (itemId: string) => void
   sleep: () => void
   takeJob: (jobId: string) => void
@@ -46,6 +48,7 @@ const FRESH = {
   jobId: null as string | null,
   shiftsWorked: 0,
   minutes: 8 * 60, // day 1, 08:00
+  lastSeenAt: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
   placing: null as ShopItem | null,
@@ -77,7 +80,32 @@ export const useGame = create<GameState>()(
         const s = get()
         if (!s.citizen) return
         const w = advance({ minutes: s.minutes, needs: s.needs, health: s.health, assets: s.assets }, MINUTES_PER_TICK)
-        set({ minutes: w.minutes, needs: w.needs, health: w.health, assets: w.assets })
+
+        const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
+        if (event) {
+          set({
+            minutes: w.minutes,
+            health: w.health,
+            assets: w.assets,
+            needs: event.effects ? applyEffects(w.needs, event.effects) : w.needs,
+            money: Math.max(0, s.money + (event.money ?? 0)),
+            lastSeenAt: Date.now(),
+            log: note(s.log, event.text),
+          })
+        } else {
+          set({ minutes: w.minutes, needs: w.needs, health: w.health, assets: w.assets, lastSeenAt: Date.now() })
+        }
+      },
+
+      applyOfflineEarnings: () => {
+        const s = get()
+        if (!s.citizen || !s.lastSeenAt) return
+        const { assets, total } = offlineEarnings(s.assets, Date.now() - s.lastSeenAt)
+        if (total < 1) return
+        set({
+          assets,
+          log: note(s.log, `While you were away, your businesses earned ${formatMoney(Math.floor(total))}. Collect it in Assets.`),
+        })
       },
 
       consume: (itemId) => {
