@@ -1,4 +1,4 @@
-import { EVENT_CHANCE, LIFE_EVENTS, MINUTES_PER_TICK, OFFLINE_CAP_MINUTES } from './catalog'
+import { EVENT_CHANCE, LIFE_EVENTS, MINUTES_PER_TICK, OFFLINE_CAP_MINUTES, itemById } from './catalog'
 import type { LifeEvent, Needs, PlacedAsset } from './types'
 
 /** Need decay per game hour */
@@ -61,6 +61,36 @@ export const formatClock = (minutes: number) => {
 }
 
 export const xpForLevel = (level: number) => level * 100
+
+/** Apply an XP gain, cascading through as many level-ups as it earns */
+export function applyXp(level: number, xp: number, gain: number): { level: number; xp: number; levelsGained: number } {
+  let l = level
+  let x = xp + gain
+  let gained = 0
+  while (x >= xpForLevel(l)) {
+    x -= xpForLevel(l)
+    l += 1
+    gained += 1
+  }
+  return { level: l, xp: x, levelsGained: gained }
+}
+
+/**
+ * Total wage bonus from owned career gear. Gear stacks, but only your best
+ * vehicle counts — you commute on one ride, not the whole garage.
+ */
+export function wageBonusFrom(inventory: Record<string, number>): number {
+  let gear = 0
+  let bestVehicle = 0
+  for (const [id, qty] of Object.entries(inventory)) {
+    if (qty <= 0) continue
+    const item = itemById(id)
+    if (!item?.wageBonus) continue
+    if (item.category === 'vehicles') bestVehicle = Math.max(bestVehicle, item.wageBonus)
+    else gear += item.wageBonus
+  }
+  return gear + bestVehicle
+}
 
 /**
  * Roll for a random life event. `rng` is injectable for tests.

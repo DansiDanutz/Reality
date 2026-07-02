@@ -7,7 +7,17 @@ export interface Needs {
 
 export type NeedKey = keyof Needs
 
-export type ShopCategory = 'food' | 'lifestyle' | 'home' | 'business'
+export type ShopCategory =
+  | 'food'
+  | 'drinks'
+  | 'clothing'
+  | 'electronics'
+  | 'furniture'
+  | 'vehicles'
+  | 'education'
+  | 'leisure'
+  | 'home'
+  | 'business'
 
 export interface ShopItem {
   id: string
@@ -15,14 +25,20 @@ export interface ShopItem {
   category: ShopCategory
   price: number
   description: string
-  /** Instant need restoration when consumed */
+  /** Instant need restoration when used */
   effects?: Partial<Needs>
-  /** Game hours the action takes (consumables) */
+  /** Game hours the action takes (consumables/durable use) */
   hours?: number
   /** Passive income for placed businesses, per game day */
   incomePerDay?: number
   /** Must be placed on the globe after purchase */
   placeable?: boolean
+  /** Owned once, kept forever. With `effects`: reusable. With `wageBonus`: passive career perk */
+  durable?: boolean
+  /** Fraction added to every wage (0.05 = +5%), for durables */
+  wageBonus?: number
+  /** XP granted instantly on purchase (education) */
+  grantXp?: number
 }
 
 export interface Job {

@@ -11,8 +11,20 @@
 
 ## Faucets & sinks (beta)
 
-**Faucets** (money in): wages, business income.
-**Sinks** (money out): food ($4–32), lifestyle ($8–60), property ($28k–180k), businesses ($18k–190k).
+**Faucets** (money in): wages (boosted by owned gear), business income.
+**Sinks** (money out): the Market — 78 items across 10 categories:
+
+| Category | Range | What money buys |
+|----------|-------|-----------------|
+| Food & Drinks | $4–85 | Need restoration (survival spending) |
+| Clothing / Electronics / Vehicles | $90–38k | Durable career gear → +1–9% wage each; only your best vehicle counts |
+| Furniture | $90–1.6k | Reusable home comforts (nap, cook, shower at home) |
+| Education | $150–25k | Instant XP → levels → unlock better careers |
+| Leisure | $8–450 | Fun restoration |
+| Homes | $16k–450k | Placeable; better sleep, free hygiene |
+| Businesses | $18k–1.2M | Placeable passive income |
+
+Wage gear totals under +60% even if you buy everything (enforced by test). Education is the bridge between wage-labor and capital: an MBA costs $25k and unlocks the top career instantly.
 
 Beta is single-player, so property/business purchases are pure sinks against system faucets. In the online release the economy inverts: shop purchases route to *player-owned* businesses, and the system only mints money for wages and founder grants.
 
@@ -26,7 +38,7 @@ Beta is single-player, so property/business purchases are pure sinks against sys
 | Restaurant | $150,000 | $2,000 | ~75 days |
 | Tech Startup | $190,000 | $2,700 | ~70 days |
 
-Payback is deliberately flat (~75 game days ≈ 3 real hours of play) with a slight edge for bigger capital — rewarding accumulation without punishing small starts. Tuning target for online: payback stretches to weeks and depends on location competition.
+Payback is deliberately flat (60–90 game days, test-enforced) with a slight edge for bigger capital — rewarding accumulation without punishing small starts. The ladder now extends past the founder grant: Boutique Hotel ($260k), Solar Farm ($340k), Skyscraper Hotel ($600k), Regional Airline ($1.2M) and the Private Island home ($450k) are flagged **endgame** — goals that even founders must build toward. Tuning target for online: payback stretches to weeks and depends on location competition.
 
 ## Founder math
 

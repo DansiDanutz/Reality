@@ -2,8 +2,8 @@ import { Suspense, lazy, useEffect } from 'react'
 import ActionDock from './components/hud/ActionDock'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
+import Market from './components/market/Market'
 import AssetsPanel from './components/panels/AssetsPanel'
-import ShopPanel from './components/panels/ShopPanel'
 import Welcome from './components/panels/Welcome'
 import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
@@ -45,10 +45,10 @@ export default function App() {
           <TopBar />
           <NeedsPanel />
           <ActionDock />
-          {panel && (
+          {panel === 'shop' && <Market />}
+          {(panel === 'work' || panel === 'assets') && (
             <div className="drawer">
               <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
-              {panel === 'shop' && <ShopPanel />}
               {panel === 'work' && <WorkPanel />}
               {panel === 'assets' && <AssetsPanel />}
             </div>

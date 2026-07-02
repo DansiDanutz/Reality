@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { EVENT_CHANCE, LIFE_EVENTS, SHOP_ITEMS, FOUNDER_BALANCE } from './catalog'
-import { advance, applyEffects, clamp, formatClock, offlineEarnings, rollEvent, xpForLevel } from './engine'
+import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, SHOP_ITEMS, FOUNDER_BALANCE } from './catalog'
+import { advance, applyEffects, applyXp, clamp, formatClock, offlineEarnings, rollEvent, wageBonusFrom, xpForLevel } from './engine'
 import type { PlacedAsset } from './types'
 
 const baseSlice = () => ({
@@ -131,6 +131,24 @@ describe('formatting & progression', () => {
     expect(xpForLevel(5)).toBe(500)
   })
 
+  test('applyXp cascades through multiple level-ups', () => {
+    // Level 1 with 0 XP + 350 XP → clears 100 (L2) and 200 (L3), 50 left over
+    expect(applyXp(1, 0, 350)).toEqual({ level: 3, xp: 50, levelsGained: 2 })
+    expect(applyXp(2, 50, 20)).toEqual({ level: 2, xp: 70, levelsGained: 0 })
+  })
+
+  test('wageBonusFrom sums owned career gear only', () => {
+    // suit +5%, laptop +6%, noodles no bonus, unowned designer ignored
+    expect(wageBonusFrom({ suit: 1, laptop: 1, noodles: 3, designer: 0 })).toBeCloseTo(0.11)
+    expect(wageBonusFrom({})).toBe(0)
+  })
+
+  test('only the best vehicle counts toward the wage bonus', () => {
+    // bike +2%, car +7% → car wins; suit +5% still stacks
+    expect(wageBonusFrom({ bike: 1, car: 1 })).toBeCloseTo(0.07)
+    expect(wageBonusFrom({ bike: 1, car: 1, suit: 1 })).toBeCloseTo(0.12)
+  })
+
   test('clamp', () => {
     expect(clamp(-5)).toBe(0)
     expect(clamp(105)).toBe(100)
@@ -138,6 +156,11 @@ describe('formatting & progression', () => {
 })
 
 describe('economy invariants', () => {
+  test('item ids are unique', () => {
+    const ids = SHOP_ITEMS.map((i) => i.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
   test('every business pays back in 60–90 game days', () => {
     for (const item of SHOP_ITEMS.filter((i) => i.incomePerDay)) {
       const payback = item.price / item.incomePerDay!
@@ -146,16 +169,44 @@ describe('economy invariants', () => {
     }
   })
 
-  test('a founder can afford every single item', () => {
+  test('a founder can afford everything except flagged endgame items', () => {
     for (const item of SHOP_ITEMS) {
-      expect(item.price, item.name).toBeLessThanOrEqual(FOUNDER_BALANCE)
+      if (ENDGAME_IDS.includes(item.id)) {
+        expect(item.price, item.name).toBeGreaterThan(FOUNDER_BALANCE)
+      } else {
+        expect(item.price, item.name).toBeLessThanOrEqual(FOUNDER_BALANCE)
+      }
     }
   })
 
-  test('consumables restore something; placeables never have effects', () => {
+  test('every item does something', () => {
     for (const item of SHOP_ITEMS) {
-      if (item.placeable) expect(item.effects, item.name).toBeUndefined()
-      else expect(item.effects, item.name).toBeDefined()
+      const doesSomething = Boolean(item.effects || item.placeable || item.wageBonus || item.grantXp)
+      expect(doesSomething, item.name).toBe(true)
     }
+  })
+
+  test('placeables never have instant effects or perks', () => {
+    for (const item of SHOP_ITEMS.filter((i) => i.placeable)) {
+      expect(item.effects, item.name).toBeUndefined()
+      expect(item.wageBonus, item.name).toBeUndefined()
+      expect(item.durable, item.name).toBeUndefined()
+    }
+  })
+
+  test('wage-bonus and XP items are durable or instant, never consumable stock', () => {
+    for (const item of SHOP_ITEMS.filter((i) => i.wageBonus)) {
+      expect(item.durable, item.name).toBe(true)
+    }
+    for (const item of SHOP_ITEMS.filter((i) => i.grantXp)) {
+      expect(item.durable, item.name).toBeUndefined()
+      expect(item.effects, item.name).toBeUndefined()
+    }
+  })
+
+  test('owning every wage item keeps the total bonus under +60%', () => {
+    const all: Record<string, number> = {}
+    for (const item of SHOP_ITEMS.filter((i) => i.wageBonus)) all[item.id] = 1
+    expect(wageBonusFrom(all)).toBeLessThan(0.6)
   })
 })

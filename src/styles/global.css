@@ -299,6 +299,144 @@ body {
   border-radius: var(--radius);
 }
 
+/* ── Market ────────────────────────────────────────────── */
+.market {
+  position: absolute;
+  top: 64px; left: 50%; bottom: 18px;
+  transform: translateX(-50%);
+  width: min(1060px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  z-index: 20;
+  animation: drawer-in var(--duration-normal) var(--ease-out);
+}
+.market-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.market-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.market-count { color: var(--muted); font-family: var(--font-body); font-size: 12px; letter-spacing: 0.06em; }
+.market-search {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(120, 150, 205, 0.08);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 8px 16px;
+}
+.market-search::placeholder { color: var(--muted); }
+.market-balance { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.market-close { position: static; }
+
+.market-body { display: flex; flex: 1; min-height: 0; }
+.market-rail {
+  width: 176px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 12px 8px;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+.rail-btn:hover { color: var(--text); background: rgba(120, 150, 205, 0.08); }
+.rail-btn.active { color: var(--gold); background: var(--gold-dim); }
+.rail-icon { width: 18px; text-align: center; }
+.rail-count { margin-left: auto; font-family: var(--font-mono); font-size: 11px; opacity: 0.7; }
+
+.market-grid-wrap { flex: 1; overflow-y: auto; padding: 16px; }
+.market-empty { color: var(--muted); padding: 24px; text-align: center; }
+.market-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  gap: 10px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  background: rgba(120, 150, 205, 0.06);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color var(--duration-fast), transform var(--duration-fast) var(--ease-out);
+}
+.card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+.card.owned { border-color: rgba(125, 216, 255, 0.35); }
+.card-top { display: flex; align-items: baseline; gap: 8px; }
+.card-name { font-weight: 600; font-size: 14px; }
+.card-endgame {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid rgba(240, 180, 41, 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.card-ownedtag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sky);
+}
+.card-desc { font-size: 12px; color: var(--muted); flex: 1; }
+.card-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+}
+.chip.ok { color: var(--ok); border-color: rgba(67, 217, 163, 0.3); }
+.chip.gold { color: var(--gold); border-color: rgba(240, 180, 41, 0.35); }
+.chip.sky { color: var(--sky); border-color: rgba(125, 216, 255, 0.3); }
+.card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.card-price { font-size: 13px; font-weight: 600; color: var(--gold); }
+.card-actions { display: flex; gap: 6px; }
+
 /* ── Welcome ───────────────────────────────────────────── */
 .welcome-backdrop {
   position: absolute;
@@ -383,6 +521,13 @@ body {
   .dock-log { max-width: 46vw; }
   .drawer { top: 108px; right: 12px; bottom: 12px; width: calc(100vw - 24px); }
   .welcome { padding: 28px 22px; }
+  .market { top: 108px; bottom: 12px; width: calc(100vw - 24px); }
+  .market-head { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+  .market-search { order: 3; flex-basis: 100%; }
+  .market-rail { width: 64px; }
+  .rail-btn { justify-content: center; padding: 8px 4px; }
+  .rail-btn .rail-count, .rail-btn:not(.rail-icon) { font-size: 0; }
+  .rail-icon { font-size: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

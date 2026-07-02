@@ -27,7 +27,8 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | Needs simulation — food, energy, hygiene, fun, health | ✅ |
 | Time — 1 real second = 10 game minutes | ✅ |
 | Jobs & shifts — 5 careers, XP, level-ups | ✅ |
-| Shop — food, lifestyle, homes, businesses | ✅ |
+| The Market — 78 items in 10 categories with search: food, drinks, clothing, electronics, furniture, vehicles, education, leisure, homes, businesses | ✅ |
+| Career gear with wage bonuses · education with instant XP · endgame purchases up to a $1.2M airline | ✅ |
 | Businesses placed anywhere on Earth, passive income | ✅ |
 | Founder grant ($200,000) | ✅ (simulated locally in beta) |
 | Offline earnings — businesses pay while you're away (capped at 3 game days) | ✅ |

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
-import { advance, applyEffects, clamp, formatMoney, offlineEarnings, rollEvent, xpForLevel } from '../game/engine'
+import { advance, applyEffects, applyXp, clamp, formatMoney, offlineEarnings, rollEvent, wageBonusFrom } from '../game/engine'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, MINUTES_PER_TICK, itemById, jobById } from '../game/catalog'
 
 export type PanelId = 'shop' | 'work' | 'assets' | null
@@ -120,7 +120,8 @@ export const useGame = create<GameState>()(
           health: w.health,
           assets: w.assets,
           needs: applyEffects(w.needs, item.effects),
-          inventory: { ...s.inventory, [itemId]: owned - 1 },
+          // Durables are reusable — consumables burn one from the inventory
+          inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
           log: note(s.log, `${item.name} — done.`),
         })
       },
@@ -155,23 +156,25 @@ export const useGame = create<GameState>()(
           return
         }
         const w = advance({ minutes: s.minutes, needs: s.needs, health: s.health, assets: s.assets }, 6 * 60)
-        const pay = job.wage * 6
-        const xp = s.xp + 20
-        const levelUp = xp >= xpForLevel(s.level)
+        const bonus = wageBonusFrom(s.inventory)
+        const pay = Math.round(job.wage * 6 * (1 + bonus))
+        const prog = applyXp(s.level, s.xp, 20)
         set({
           minutes: w.minutes,
           health: w.health,
           assets: w.assets,
           needs: applyEffects(w.needs, { energy: -18, hunger: -10, hygiene: -8, fun: -6 }),
           money: s.money + pay,
-          xp: levelUp ? xp - xpForLevel(s.level) : xp,
-          level: levelUp ? s.level + 1 : s.level,
+          xp: prog.xp,
+          level: prog.level,
           shiftsWorked: s.shiftsWorked + 1,
           log: note(
             s.log,
-            levelUp
-              ? `Shift done: +${formatMoney(pay)}. Promoted to level ${s.level + 1}!`
-              : `Shift done: +${formatMoney(pay)}.`,
+            prog.levelsGained > 0
+              ? `Shift done: +${formatMoney(pay)}. Promoted to level ${prog.level}!`
+              : bonus > 0
+                ? `Shift done: +${formatMoney(pay)} (gear bonus +${Math.round(bonus * 100)}%).`
+                : `Shift done: +${formatMoney(pay)}.`,
           ),
         })
       },
@@ -180,6 +183,7 @@ export const useGame = create<GameState>()(
         const s = get()
         const item = itemById(itemId)
         if (!item || s.money < item.price) return
+
         if (item.placeable) {
           set({
             money: s.money - item.price,
@@ -187,13 +191,33 @@ export const useGame = create<GameState>()(
             panel: null,
             log: note(s.log, `${item.name} purchased. Click anywhere on Earth to place it.`),
           })
-        } else {
+          return
+        }
+
+        if (item.grantXp) {
+          const prog = applyXp(s.level, s.xp, item.grantXp)
           set({
             money: s.money - item.price,
-            inventory: { ...s.inventory, [itemId]: (s.inventory[itemId] ?? 0) + 1 },
-            log: note(s.log, `Bought ${item.name}.`),
+            xp: prog.xp,
+            level: prog.level,
+            log: note(
+              s.log,
+              prog.levelsGained > 0
+                ? `${item.name} complete: +${item.grantXp} XP — you reached level ${prog.level}!`
+                : `${item.name} complete: +${item.grantXp} XP.`,
+            ),
           })
+          return
         }
+
+        // Durables are owned once
+        if (item.durable && (s.inventory[itemId] ?? 0) > 0) return
+
+        set({
+          money: s.money - item.price,
+          inventory: { ...s.inventory, [itemId]: (s.inventory[itemId] ?? 0) + 1 },
+          log: note(s.log, `Bought ${item.name}.`),
+        })
       },
 
       placeAt: (lat, lng) => {
