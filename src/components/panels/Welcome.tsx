@@ -3,6 +3,69 @@ import { FOUNDER_BALANCE, FOUNDER_SLOTS } from '../../game/catalog'
 import { formatMoney } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
+const WAITLIST_KEY = 'reality-waitlist-joined'
+
+function WaitlistForm() {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>(
+    localStorage.getItem(WAITLIST_KEY) ? 'done' : 'idle',
+  )
+  const [error, setError] = useState('')
+
+  if (state === 'done') {
+    return <p className="waitlist-done">✓ You're on the founder waitlist. We'll email you before the online launch.</p>
+  }
+
+  return (
+    <form
+      className="waitlist"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        setState('busy')
+        setError('')
+        try {
+          const res = await fetch('/api/waitlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          })
+          const data = (await res.json()) as { ok: boolean; error?: string }
+          if (data.ok) {
+            localStorage.setItem(WAITLIST_KEY, '1')
+            setState('done')
+          } else {
+            setError(data.error ?? 'Something went wrong. Try again.')
+            setState('error')
+          }
+        } catch {
+          setError('Could not reach the waitlist server. Check your connection and try again.')
+          setState('error')
+        }
+      }}
+    >
+      <p className="waitlist-pitch">
+        Founder slots go live with the online release — first come, first served.
+      </p>
+      <div className="welcome-row">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@email.com"
+          aria-label="Email for the founder waitlist"
+          required
+        />
+        {/* Honeypot — hidden from humans, catnip for bots */}
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden className="hp" />
+        <button className="btn small" type="submit" disabled={state === 'busy'}>
+          {state === 'busy' ? 'Joining…' : 'Join waitlist'}
+        </button>
+      </div>
+      {error && <p className="waitlist-error" role="alert">{error}</p>}
+    </form>
+  )
+}
+
 export default function Welcome() {
   const [name, setName] = useState('')
   const createCitizen = useGame((s) => s.createCitizen)
@@ -40,6 +103,7 @@ export default function Welcome() {
             </button>
           </div>
         </form>
+        <WaitlistForm />
         <p className="welcome-note">Beta: your world is saved in this browser. Online citizenship arrives with the server release.</p>
       </div>
     </div>
