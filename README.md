@@ -31,6 +31,7 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | Career gear with wage bonuses · education with instant XP · endgame purchases up to a $1.2M airline | ✅ |
 | Businesses placed anywhere on Earth, passive income | ✅ |
 | Founder grant ($200,000) | ✅ (simulated locally in beta) |
+| Guided onboarding — 7 objectives with XP rewards | ✅ |
 | Offline earnings — businesses pay while you're away (capped at 3 game days) | ✅ |
 | Random life events | ✅ |
 | Trade-route arcs between your holdings on the globe | ✅ |

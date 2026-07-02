@@ -299,6 +299,93 @@ body {
   border-radius: var(--radius);
 }
 
+/* ── Tutorial (objectives) ─────────────────────────────── */
+.tutorial {
+  position: absolute;
+  top: 74px; left: 22px;
+  width: 264px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  z-index: 10;
+  animation: welcome-in 500ms var(--ease-out);
+}
+.tutorial-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 8px;
+}
+.tutorial-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sky);
+}
+.tutorial-progress { margin-left: auto; font-size: 11px; color: var(--muted); }
+.tutorial-min {
+  width: 22px; height: 22px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.tutorial-min:hover { color: var(--text); background: rgba(120, 150, 205, 0.12); }
+.tutorial-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 10px;
+}
+.tstep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.tstep.current { background: rgba(120, 150, 205, 0.08); color: var(--text); }
+.tstep.claimed { opacity: 0.45; }
+.tstep.claimed .tstep-title { text-decoration: line-through; }
+.tstep-mark {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--gold);
+}
+.tstep.claimed .tstep-mark { color: var(--ok); }
+.tstep-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tstep-title { font-weight: 500; }
+.tstep-detail { font-size: 11px; color: var(--muted); }
+.tutorial-pill {
+  position: absolute;
+  top: 74px; left: 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--sky);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  z-index: 10;
+}
+.tutorial-pill:hover { color: var(--text); }
+
 /* ── Market ────────────────────────────────────────────── */
 .market {
   position: absolute;
@@ -517,11 +604,14 @@ body {
   .topbar-status { gap: 16px; margin-left: 0; order: 3; width: 100%; }
   .needs { left: 12px; bottom: 12px; padding: 12px 12px 8px; gap: 10px; }
   .need-track { height: 52px; }
-  .dock { bottom: 12px; left: auto; right: 12px; transform: none; align-items: flex-end; }
-  .dock-log { max-width: 46vw; }
+  .dock { bottom: 128px; left: auto; right: 12px; transform: none; align-items: flex-end; }
+  .dock-log { max-width: 80vw; }
   .drawer { top: 108px; right: 12px; bottom: 12px; width: calc(100vw - 24px); }
   .welcome { padding: 28px 22px; }
   .market { top: 108px; bottom: 12px; width: calc(100vw - 24px); }
+  .tutorial { top: 128px; left: 12px; width: min(240px, calc(100vw - 24px)); }
+  .tutorial-pill { top: 128px; left: 12px; }
+  .topbar-status { padding-right: 0; }
   .market-head { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
   .market-search { order: 3; flex-basis: 100%; }
   .market-rail { width: 64px; }

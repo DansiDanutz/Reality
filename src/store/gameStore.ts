@@ -15,6 +15,11 @@ interface GameState {
   xp: number
   jobId: string | null
   shiftsWorked: number
+  timesEaten: number
+  timesSlept: number
+  totalCollected: number
+  tutorialClaimed: string[]
+  tutorialHidden: boolean
   minutes: number
   lastSeenAt: number
   inventory: Record<string, number>
@@ -35,6 +40,8 @@ interface GameState {
   placeAt: (lat: number, lng: number) => void
   cancelPlacing: () => void
   collectIncome: () => void
+  claimTutorial: (stepId: string, xp: number) => void
+  toggleTutorial: () => void
   setPanel: (panel: PanelId) => void
   reset: () => void
 }
@@ -47,6 +54,11 @@ const FRESH = {
   xp: 0,
   jobId: null as string | null,
   shiftsWorked: 0,
+  timesEaten: 0,
+  timesSlept: 0,
+  totalCollected: 0,
+  tutorialClaimed: [] as string[],
+  tutorialHidden: false,
   minutes: 8 * 60, // day 1, 08:00
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
@@ -122,6 +134,7 @@ export const useGame = create<GameState>()(
           needs: applyEffects(w.needs, item.effects),
           // Durables are reusable — consumables burn one from the inventory
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
+          timesEaten: (item.effects.hunger ?? 0) > 0 ? s.timesEaten + 1 : s.timesEaten,
           log: note(s.log, `${item.name} — done.`),
         })
       },
@@ -135,6 +148,7 @@ export const useGame = create<GameState>()(
           health: w.health,
           assets: w.assets,
           needs: { ...w.needs, energy: hasHome ? 100 : 80, hygiene: hasHome ? clamp(w.needs.hygiene + 30) : w.needs.hygiene },
+          timesSlept: s.timesSlept + 1,
           log: note(s.log, hasHome ? 'Slept at home. Fully recharged.' : 'Slept rough. A home would help.'),
         })
       },
@@ -256,9 +270,29 @@ export const useGame = create<GameState>()(
         set({
           money: s.money + Math.floor(total),
           assets: s.assets.map((a) => ({ ...a, pendingIncome: 0 })),
+          totalCollected: s.totalCollected + Math.floor(total),
           log: note(s.log, `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
         })
       },
+
+      claimTutorial: (stepId, xp) => {
+        const s = get()
+        if (s.tutorialClaimed.includes(stepId)) return
+        const prog = applyXp(s.level, s.xp, xp)
+        set({
+          tutorialClaimed: [...s.tutorialClaimed, stepId],
+          xp: prog.xp,
+          level: prog.level,
+          log: note(
+            s.log,
+            prog.levelsGained > 0
+              ? `Objective complete: +${xp} XP — level ${prog.level}!`
+              : `Objective complete: +${xp} XP.`,
+          ),
+        })
+      },
+
+      toggleTutorial: () => set({ tutorialHidden: !get().tutorialHidden }),
 
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),

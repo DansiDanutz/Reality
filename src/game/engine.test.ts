@@ -155,6 +155,38 @@ describe('formatting & progression', () => {
   })
 })
 
+describe('tutorial', async () => {
+  const { TUTORIAL_STEPS } = await import('./tutorial')
+
+  const fresh = { timesEaten: 0, timesSlept: 0, jobId: null, shiftsWorked: 0, assets: [], totalCollected: 0 }
+
+  test('step ids are unique and every step starts incomplete', () => {
+    const ids = TUTORIAL_STEPS.map((s) => s.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const step of TUTORIAL_STEPS) {
+      expect(step.isDone(fresh), step.id).toBe(false)
+      expect(step.xp, step.id).toBeGreaterThan(0)
+    }
+  })
+
+  test('a completed first week finishes every step', () => {
+    const veteran = {
+      timesEaten: 3,
+      timesSlept: 2,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      assets: [
+        { id: 'h', itemId: 'studio', kind: 'home' as const, name: 'Studio', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 },
+        { id: 'b', itemId: 'foodcart', kind: 'business' as const, name: 'Cart', lat: 0, lng: 0, incomePerDay: 230, pendingIncome: 0, placedAtMinute: 0 },
+      ],
+      totalCollected: 120,
+    }
+    for (const step of TUTORIAL_STEPS) {
+      expect(step.isDone(veteran), step.id).toBe(true)
+    }
+  })
+})
+
 describe('economy invariants', () => {
   test('item ids are unique', () => {
     const ids = SHOP_ITEMS.map((i) => i.id)

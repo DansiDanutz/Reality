@@ -1,0 +1,62 @@
+import { TUTORIAL_STEPS } from '../../game/tutorial'
+import { useGame } from '../../store/gameStore'
+
+export default function TutorialPanel() {
+  const citizen = useGame((s) => s.citizen)
+  const timesEaten = useGame((s) => s.timesEaten)
+  const timesSlept = useGame((s) => s.timesSlept)
+  const jobId = useGame((s) => s.jobId)
+  const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const assets = useGame((s) => s.assets)
+  const totalCollected = useGame((s) => s.totalCollected)
+  const claimed = useGame((s) => s.tutorialClaimed)
+  const hidden = useGame((s) => s.tutorialHidden)
+  const claimTutorial = useGame((s) => s.claimTutorial)
+  const toggleTutorial = useGame((s) => s.toggleTutorial)
+
+  if (!citizen) return null
+  if (claimed.length >= TUTORIAL_STEPS.length) return null
+
+  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, assets, totalCollected }
+  const doneCount = TUTORIAL_STEPS.filter((s) => claimed.includes(s.id)).length
+  const current = TUTORIAL_STEPS.find((s) => !claimed.includes(s.id))
+
+  if (hidden) {
+    return (
+      <button className="tutorial-pill" onClick={toggleTutorial}>
+        Objectives {doneCount}/{TUTORIAL_STEPS.length}
+      </button>
+    )
+  }
+
+  return (
+    <aside className="tutorial" aria-label="Objectives">
+      <div className="tutorial-head">
+        <span className="tutorial-title">First days in Reality</span>
+        <span className="tutorial-progress mono">{doneCount}/{TUTORIAL_STEPS.length}</span>
+        <button className="tutorial-min" aria-label="Minimize objectives" onClick={toggleTutorial}>–</button>
+      </div>
+      <ol className="tutorial-list">
+        {TUTORIAL_STEPS.map((step) => {
+          const isClaimed = claimed.includes(step.id)
+          const isDone = step.isDone(snapshot)
+          const isCurrent = current?.id === step.id
+          return (
+            <li key={step.id} className={`tstep${isClaimed ? ' claimed' : ''}${isCurrent ? ' current' : ''}`}>
+              <span className="tstep-mark" aria-hidden>{isClaimed ? '✓' : isDone ? '!' : '○'}</span>
+              <span className="tstep-body">
+                <span className="tstep-title">{step.title}</span>
+                {isCurrent && !isDone && <span className="tstep-detail">{step.detail}</span>}
+              </span>
+              {isDone && !isClaimed && (
+                <button className="btn small primary" onClick={() => claimTutorial(step.id, step.xp)}>
+                  +{step.xp} XP
+                </button>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </aside>
+  )
+}
