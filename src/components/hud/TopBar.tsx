@@ -12,15 +12,21 @@ export default function TopBar() {
   if (!citizen) return null
   const { day, time } = formatClock(minutes)
 
-  const toggle = (id: 'shop' | 'work' | 'assets') => setPanel(panel === id ? null : id)
+  const toggle = (id: 'shop' | 'work' | 'assets' | 'top') => setPanel(panel === id ? null : id)
 
   return (
     <header className="topbar">
       <div className="topbar-brand">
         <span className="wordmark">REALITY</span>
-        <span className="founder-chip" title="Founder slots are simulated in the local beta">
-          Founder #{String(citizen.founderNumber).padStart(4, '0')}
-        </span>
+        {citizen.founderNumber > 0 ? (
+          <span className="founder-chip" title={citizen.online ? 'Your founder slot in the live world registry' : 'Claiming your slot when the world is reachable'}>
+            Founder #{String(citizen.founderNumber).padStart(4, '0')}
+          </span>
+        ) : (
+          <span className="founder-chip" title="Registering with the world…">
+            {citizen.online === false ? 'Offline' : 'Citizen'}
+          </span>
+        )}
       </div>
 
       <div className="topbar-status">
@@ -42,6 +48,7 @@ export default function TopBar() {
         <button className={panel === 'shop' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('shop')}>Shop</button>
         <button className={panel === 'work' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('work')}>Work</button>
         <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
+        <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
       </nav>
     </header>
   )

@@ -584,6 +584,25 @@ body {
 .welcome-row input::placeholder { color: var(--muted); }
 .welcome-note { font-size: 12px; color: var(--muted); }
 
+.welcome-slots { font-size: 11px; color: var(--gold); letter-spacing: 0.08em; text-align: left; }
+
+.lb-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(120, 150, 205, 0.06);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.lb-row.me { border-color: rgba(240, 180, 41, 0.5); background: var(--gold-dim); }
+.lb-rank { width: 24px; color: var(--muted); font-size: 12px; }
+.lb-row:nth-child(1) .lb-rank { color: var(--gold); }
+.lb-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-worth { color: var(--gold); font-size: 12px; }
+
 .waitlist {
   display: flex;
   flex-direction: column;

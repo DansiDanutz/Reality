@@ -75,6 +75,16 @@ export function applyXp(level: number, xp: number, gain: number): { level: numbe
   return { level: l, xp: x, levelsGained: gained }
 }
 
+/** Cash + owned inventory + placed assets at purchase price + uncollected income */
+export function netWorthOf(money: number, inventory: Record<string, number>, assets: PlacedAsset[]): number {
+  const inventoryValue = Object.entries(inventory).reduce(
+    (sum, [id, qty]) => sum + (itemById(id)?.price ?? 0) * Math.max(0, qty),
+    0,
+  )
+  const assetValue = assets.reduce((sum, a) => sum + (itemById(a.itemId)?.price ?? 0) + a.pendingIncome, 0)
+  return Math.round(money + inventoryValue + assetValue)
+}
+
 /**
  * Total wage bonus from owned career gear. Gear stacks, but only your best
  * vehicle counts — you commute on one ride, not the whole garage.

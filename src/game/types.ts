@@ -67,6 +67,10 @@ export interface Citizen {
   name: string
   founderNumber: number
   createdAt: number
+  /** Set once registered with the live world server */
+  citizenId?: string
+  token?: string
+  online?: boolean
 }
 
 export interface LifeEvent {

@@ -1,0 +1,79 @@
+import { createHash, randomUUID } from 'node:crypto'
+import { list, put } from '@vercel/blob'
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+
+const FOUNDER_SLOTS = 2_000
+
+async function claimedSlots(): Promise<number> {
+  let count = 0
+  let cursor: string | undefined
+  for (let page = 0; page < 3; page++) {
+    const batch = await list({ prefix: 'founders/', cursor, limit: 1000 })
+    count += batch.blobs.length
+    if (!batch.hasMore || !batch.cursor) break
+    cursor = batch.cursor
+  }
+  return count
+}
+
+/**
+ * Citizen registration + the real founder registry.
+ * A slot blob can only be created once (allowOverwrite: false), so two
+ * citizens can never hold the same founder number. First come, first served,
+ * exactly 2,000.
+ */
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, error: 'Method not allowed' })
+    return
+  }
+
+  const { name } = (req.body ?? {}) as { name?: string }
+  const clean = String(name ?? '').trim()
+  if (clean.length < 2 || clean.length > 24) {
+    res.status(400).json({ ok: false, error: 'Name must be 2–24 characters.' })
+    return
+  }
+
+  try {
+    const citizenId = randomUUID()
+    const token = randomUUID()
+    const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
+
+    let founderNumber: number | null = null
+    let n = (await claimedSlots()) + 1
+    for (let attempt = 0; attempt < 6 && n <= FOUNDER_SLOTS; attempt++) {
+      try {
+        await put(`founders/${String(n).padStart(4, '0')}.json`, JSON.stringify({ citizenId, at: new Date().toISOString() }), {
+          access: 'private',
+          addRandomSuffix: false,
+          allowOverwrite: false,
+          contentType: 'application/json',
+        })
+        founderNumber = n
+        break
+      } catch {
+        n += 1 // someone claimed it a heartbeat before us — take the next slot
+      }
+    }
+
+    // Citizen record: identity + auth live in the pathname so later requests
+    // can verify a token with a single prefix lookup.
+    await put(
+      `citizens/${citizenId}__${tokenHash}__${founderNumber ?? 0}.json`,
+      JSON.stringify({ name: clean, createdAt: new Date().toISOString() }),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
+    )
+
+    res.status(200).json({
+      ok: true,
+      citizenId,
+      token,
+      founderNumber,
+      slotsClaimed: founderNumber ?? FOUNDER_SLOTS,
+      slotsTotal: FOUNDER_SLOTS,
+    })
+  } catch {
+    res.status(500).json({ ok: false, error: 'Registration is briefly unavailable. Try again in a minute.' })
+  }
+}

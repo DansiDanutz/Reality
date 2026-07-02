@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Globe, { type GlobeMethods } from 'react-globe.gl'
 import { Color, MeshPhongMaterial } from 'three'
+import { itemById } from '../../game/catalog'
+import { useGame } from '../../store/gameStore'
 
 const NIGHT_EARTH = new MeshPhongMaterial({
   color: new Color('#0a1322'),
@@ -8,12 +10,19 @@ const NIGHT_EARTH = new MeshPhongMaterial({
   emissiveIntensity: 0.4,
   transparent: false,
 })
-import { useGame } from '../../store/gameStore'
 
 interface CountryFeature {
   type: string
   properties: Record<string, unknown>
   geometry: unknown
+}
+
+interface WorldAsset {
+  cid: string
+  itemId: string
+  kind: string
+  lat: number
+  lng: number
 }
 
 export default function GlobeView() {
@@ -24,6 +33,22 @@ export default function GlobeView() {
   const assets = useGame((s) => s.assets)
   const placing = useGame((s) => s.placing)
   const placeAt = useGame((s) => s.placeAt)
+  const citizenId = useGame((s) => s.citizen?.citizenId)
+  const [world, setWorld] = useState<WorldAsset[]>([])
+
+  // Other citizens' holdings — the world looks inhabited
+  useEffect(() => {
+    const load = () =>
+      fetch('/api/world')
+        .then((r) => r.json())
+        .then((d: { ok: boolean; assets: WorldAsset[] }) => {
+          if (d.ok) setWorld(d.assets)
+        })
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     fetch('/countries.geojson')
@@ -53,18 +78,30 @@ export default function GlobeView() {
     if (controls) controls.autoRotate = !placing
   }, [placing])
 
-  const points = useMemo(
-    () =>
-      assets.map((a) => ({
-        lat: a.lat,
-        lng: a.lng,
-        name: a.name,
-        kind: a.kind,
-      })),
-    [assets],
-  )
+  const points = useMemo(() => {
+    const mine = assets.map((a) => ({
+      lat: a.lat,
+      lng: a.lng,
+      name: a.name,
+      kind: a.kind,
+      own: true,
+    }))
+    const myCid = citizenId?.slice(0, 8)
+    const others = world
+      .filter((w) => w.cid !== myCid)
+      .map((w) => ({
+        lat: w.lat,
+        lng: w.lng,
+        name: `${itemById(w.itemId)?.name ?? 'Property'} — another citizen`,
+        kind: w.kind,
+        own: false,
+      }))
+    return [...others, ...mine]
+  }, [assets, world, citizenId])
 
-  // Trade routes: chain your holdings across the planet in purchase order
+  const ownPoints = useMemo(() => points.filter((p) => p.own), [points])
+
+  // Trade routes: chain your own holdings across the planet in purchase order
   const arcs = useMemo(
     () =>
       assets.slice(1).map((a, i) => ({
@@ -96,9 +133,13 @@ export default function GlobeView() {
         pointsData={points}
         pointLat="lat"
         pointLng="lng"
-        pointColor={(d) => ((d as { kind: string }).kind === 'home' ? '#7dd8ff' : '#f0b429')}
-        pointAltitude={0.035}
-        pointRadius={0.42}
+        pointColor={(d) => {
+          const p = d as { kind: string; own: boolean }
+          if (!p.own) return 'rgba(167, 139, 250, 0.75)'
+          return p.kind === 'home' ? '#7dd8ff' : '#f0b429'
+        }}
+        pointAltitude={(d) => ((d as { own: boolean }).own ? 0.035 : 0.02)}
+        pointRadius={(d) => ((d as { own: boolean }).own ? 0.42 : 0.3)}
         pointLabel={(d) => `<div class="globe-tip">${(d as { name: string }).name}</div>`}
         arcsData={arcs}
         arcColor={() => ['rgba(240, 180, 41, 0.95)', 'rgba(125, 216, 255, 0.8)']}
@@ -107,7 +148,7 @@ export default function GlobeView() {
         arcDashLength={0.55}
         arcDashGap={0.9}
         arcDashAnimateTime={2600}
-        ringsData={points}
+        ringsData={ownPoints}
         ringLat="lat"
         ringLng="lng"
         ringColor={() => (t: number) => `rgba(240, 180, 41, ${1 - t})`}

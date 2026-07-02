@@ -77,7 +77,15 @@ function WaitlistForm() {
 
 export default function Welcome() {
   const [name, setName] = useState('')
+  const [slotsClaimed, setSlotsClaimed] = useState<number | null>(null)
   const createCitizen = useGame((s) => s.createCitizen)
+
+  useEffect(() => {
+    fetch('/api/world')
+      .then((r) => r.json())
+      .then((d: { stats?: { founders?: number } }) => setSlotsClaimed(d.stats?.founders ?? null))
+      .catch(() => {})
+  }, [])
 
   return (
     <div className="welcome-backdrop">
@@ -111,6 +119,11 @@ export default function Welcome() {
               Claim founder slot
             </button>
           </div>
+          {slotsClaimed !== null && (
+            <p className="welcome-slots mono">
+              {Math.max(0, FOUNDER_SLOTS - slotsClaimed).toLocaleString()} of {FOUNDER_SLOTS.toLocaleString()} founder slots left
+            </p>
+          )}
         </form>
         <WaitlistForm />
         <p className="welcome-note">Beta: your world is saved in this browser. Online citizenship arrives with the server release.</p>

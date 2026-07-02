@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, SHOP_ITEMS, FOUNDER_BALANCE } from './catalog'
-import { advance, applyEffects, applyXp, clamp, formatClock, offlineEarnings, rollEvent, wageBonusFrom, xpForLevel } from './engine'
+import { advance, applyEffects, applyXp, clamp, formatClock, netWorthOf, offlineEarnings, rollEvent, wageBonusFrom, xpForLevel } from './engine'
 import type { PlacedAsset } from './types'
 
 const baseSlice = () => ({
@@ -141,6 +141,13 @@ describe('formatting & progression', () => {
     // suit +5%, laptop +6%, noodles no bonus, unowned designer ignored
     expect(wageBonusFrom({ suit: 1, laptop: 1, noodles: 3, designer: 0 })).toBeCloseTo(0.11)
     expect(wageBonusFrom({})).toBe(0)
+  })
+
+  test('netWorthOf counts cash, inventory, assets, and pending income', () => {
+    // $1,000 cash + 2× noodles ($8) + food cart ($18,000) + $50 pending
+    const assets = [{ ...business(230), itemId: 'foodcart', pendingIncome: 50 }]
+    expect(netWorthOf(1000, { noodles: 2 }, assets)).toBe(1000 + 8 + 18000 + 50)
+    expect(netWorthOf(0, {}, [])).toBe(0)
   })
 
   test('only the best vehicle counts toward the wage bonus', () => {

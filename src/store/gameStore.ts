@@ -1,10 +1,24 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
-import { advance, applyEffects, applyXp, clamp, formatMoney, offlineEarnings, rollEvent, wageBonusFrom } from '../game/engine'
+import { advance, applyEffects, applyXp, clamp, formatMoney, netWorthOf, offlineEarnings, rollEvent, wageBonusFrom } from '../game/engine'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, MINUTES_PER_TICK, itemById, jobById } from '../game/catalog'
 
-export type PanelId = 'shop' | 'work' | 'assets' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | null
+
+/** Post to the live world, silently tolerating offline/dev environments */
+async function tryPost(path: string, body: unknown): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return (await res.json()) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
 
 interface GameState {
   citizen: Citizen | null
@@ -30,6 +44,8 @@ interface GameState {
   log: string[]
 
   createCitizen: (name: string) => void
+  registerOnline: () => Promise<void>
+  reportScore: () => Promise<void>
   tick: () => void
   applyOfflineEarnings: () => void
   consume: (itemId: string) => void
@@ -77,14 +93,72 @@ export const useGame = create<GameState>()(
       ...FRESH,
 
       createCitizen: (name) => {
-        // Beta: founder slots are simulated locally. The live registry ships
-        // with the server milestone (see docs/ROADMAP.md).
-        const founderNumber = 1 + Math.floor(Math.random() * 500)
         set({
-          citizen: { name: name.trim(), founderNumber, createdAt: Date.now() },
+          citizen: { name: name.trim(), founderNumber: 0, createdAt: Date.now() },
           ...FRESH,
-          money: founderNumber > 0 ? FOUNDER_BALANCE : CITIZEN_BALANCE,
-          log: [`Welcome to Reality, ${name.trim()}. Founder grant deposited: ${formatMoney(FOUNDER_BALANCE)}.`],
+          money: FOUNDER_BALANCE,
+          log: [`Welcome to Reality, ${name.trim()}. Claiming your founder slot…`],
+        })
+        void get().registerOnline()
+      },
+
+      registerOnline: async () => {
+        const s = get()
+        if (!s.citizen || s.citizen.token) return
+        const d = await tryPost('/api/register', { name: s.citizen.name })
+        const cur = get()
+        if (!cur.citizen || cur.citizen.token) return
+
+        if (!d?.ok) {
+          // Offline or dev environment — play locally, retry on next load
+          set({ citizen: { ...cur.citizen, online: false } })
+          return
+        }
+
+        const founderNumber = (d.founderNumber as number | null) ?? 0
+        const isFounder = founderNumber > 0
+        set({
+          citizen: {
+            ...cur.citizen,
+            citizenId: d.citizenId as string,
+            token: d.token as string,
+            founderNumber,
+            online: true,
+          },
+          // Slots full → regular citizen grant (only downgrade an untouched balance)
+          money: isFounder ? cur.money : Math.min(cur.money, CITIZEN_BALANCE),
+          log: note(
+            cur.log,
+            isFounder
+              ? `Founder #${String(founderNumber).padStart(4, '0')} — yours forever. ${formatMoney(FOUNDER_BALANCE)} deposited.`
+              : `All 2,000 founder slots are claimed. Citizen grant: ${formatMoney(CITIZEN_BALANCE)}.`,
+          ),
+        })
+
+        // Sync any assets placed before registration (migrating saves)
+        const { citizen, assets } = get()
+        for (const a of assets) {
+          void tryPost('/api/world', {
+            citizenId: citizen?.citizenId,
+            token: citizen?.token,
+            assetId: a.id,
+            itemId: a.itemId,
+            kind: a.kind,
+            lat: a.lat,
+            lng: a.lng,
+          })
+        }
+        void get().reportScore()
+      },
+
+      reportScore: async () => {
+        const s = get()
+        if (!s.citizen?.token) return
+        await tryPost('/api/leaderboard', {
+          citizenId: s.citizen.citizenId,
+          token: s.citizen.token,
+          name: s.citizen.name,
+          netWorth: netWorthOf(s.money, s.inventory, s.assets),
         })
       },
 
@@ -254,6 +328,17 @@ export const useGame = create<GameState>()(
           placing: null,
           log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
+        if (s.citizen?.token) {
+          void tryPost('/api/world', {
+            citizenId: s.citizen.citizenId,
+            token: s.citizen.token,
+            assetId: asset.id,
+            itemId: asset.itemId,
+            kind: asset.kind,
+            lat: asset.lat,
+            lng: asset.lng,
+          })
+        }
       },
 
       cancelPlacing: () => {
