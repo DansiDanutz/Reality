@@ -1,0 +1,21 @@
+- generic [ref=e6]:
+  - paragraph [ref=e7]: A second Earth. One economy. Real rules.
+  - heading "REALITY" [level=1] [ref=e8]
+  - paragraph [ref=e9]:
+    - text: Eat. Sleep. Work. Build. Every citizen starts with nothing but time — except the first 2,000 founders, who receive
+    - strong [ref=e10]: $200,000
+    - text: to start the world's economy. Buy businesses, place them anywhere on the planet, and get paid while you live your life.
+  - generic [ref=e11]:
+    - generic [ref=e12]: Citizen name
+    - generic [ref=e13]:
+      - textbox "Citizen name" [active] [ref=e14]:
+        - /placeholder: What should Earth call you?
+      - button "Claim founder slot" [disabled] [ref=e15]
+  - generic [ref=e16]:
+    - paragraph [ref=e17]: Founder slots go live with the online release — first come, first served.
+    - generic [ref=e18]:
+      - textbox "Email for the founder waitlist" [ref=e19]:
+        - /placeholder: you@email.com
+      - textbox [ref=e20]
+      - button "Join waitlist" [ref=e21] [cursor=pointer]
+  - paragraph [ref=e22]: "Beta: your world is saved in this browser. Online citizenship arrives with the server release."

@@ -13,11 +13,16 @@ Single-player life sim on the 3D Earth: needs, jobs, shop, placeable homes & bus
 
 ## Phase 1 — The World Comes Online
 
-- Accounts + server-authoritative simulation (see ARCHITECTURE)
-- **Real founder registry** — exactly 2,000, first-come, verified
-- World persists 24/7; businesses earn while you're away
-- Global map shows *everyone's* businesses — the world starts looking inhabited
-- Leaderboards: net worth, portfolio yield, oldest citizen
+**Phase 1a — shipped ✅**
+- ✅ **Real founder registry** — exactly 2,000, first-come, atomic slot claims, live counter on the welcome screen
+- ✅ Citizen identity — token-based registration, existing saves migrate automatically
+- ✅ Global map shows *everyone's* businesses (violet beacons) — the world looks inhabited
+- ✅ Net-worth leaderboard (Top panel)
+
+**Phase 1b — next**
+- Server-authoritative simulation (intents, ledger) — see ARCHITECTURE
+- Move registry/world/leaderboard from Blob to Postgres
+- World persists 24/7 server-side; anti-cheat on score reporting
 
 ## Phase 2 — Society
 

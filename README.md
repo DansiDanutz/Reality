@@ -30,14 +30,17 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | The Market — 78 items in 10 categories with search: food, drinks, clothing, electronics, furniture, vehicles, education, leisure, homes, businesses | ✅ |
 | Career gear with wage bonuses · education with instant XP · endgame purchases up to a $1.2M airline | ✅ |
 | Businesses placed anywhere on Earth, passive income | ✅ |
-| Founder grant ($200,000) | ✅ (simulated locally in beta) |
+| **Real founder registry** — exactly 2,000 slots, first-come, live counter | ✅ online |
+| **Shared world map** — see every citizen's businesses on the globe | ✅ online |
+| **Global net-worth leaderboard** | ✅ online |
+| Founder grant ($200,000) | ✅ |
 | Guided onboarding — 7 objectives with XP rewards | ✅ |
 | Offline earnings — businesses pay while you're away (capped at 3 game days) | ✅ |
 | Random life events | ✅ |
 | Trade-route arcs between your holdings on the globe | ✅ |
 | Save game (browser localStorage) | ✅ |
 | Engine test suite (`npm test`) | ✅ |
-| Online multiplayer, real founder registry, player trading | 🔜 see [ROADMAP](docs/ROADMAP.md) |
+| Server-authoritative simulation, player-to-player trading | 🔜 see [ROADMAP](docs/ROADMAP.md) |
 
 ## Documentation
 

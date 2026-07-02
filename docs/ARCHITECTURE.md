@@ -43,6 +43,24 @@ apps/server    — Node + Fastify + WebSocket
 3. **Intents, not state** — clients send `{action: 'workShift'}`, the server runs the same `advance()` the client predicts with. Divergence = correction frame.
 4. **Founder registry** is a single Postgres sequence with a `WHERE count <= 2000` guard — boring and correct.
 
+## Phase 1a: the online layer (shipped)
+
+Three serverless endpoints back the live world, storing everything in Vercel Blob:
+
+- **`/api/register`** — the founder registry. A slot blob is created with
+  `allowOverwrite: false`, so creation is first-writer-wins: two citizens can
+  never hold the same number. Citizens get a `citizenId` + bearer token;
+  the token hash lives in the citizen blob's pathname so auth is one prefix lookup.
+- **`/api/world`** — shared map. Asset data is encoded in blob pathnames
+  (`world/{cid}/{assetId}__{itemId}__{kind}__{lat}__{lng}.json`), so GET is a
+  single `list()` with zero content reads. Writes require a valid token.
+- **`/api/leaderboard`** — one pathname-encoded score blob per citizen,
+  replaced on update; GET lists, parses, sorts.
+
+This is deliberately a beta trust model: clients self-report scores and asset
+placements. Phase 1b moves storage to Postgres and the simulation server-side.
+The client degrades gracefully offline (local play, retry on next load).
+
 ## Deployment
 
 Static build (`npm run build` → `dist/`) deploys anywhere: Vercel, Cloudflare Pages, Railway, GitHub Pages. No env vars, no secrets in the beta.
