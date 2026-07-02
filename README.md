@@ -6,6 +6,8 @@ The first **2,000 founders** receive **$200,000** in-game to bootstrap the world
 
 ![status](https://img.shields.io/badge/status-open%20beta-f0b429) ![stack](https://img.shields.io/badge/stack-React%20%2B%20Three.js-5b8def)
 
+### ▶️ [Play the beta now — reality-gamma.vercel.app](https://reality-gamma.vercel.app)
+
 ## Play it locally in 30 seconds
 
 ```bash
