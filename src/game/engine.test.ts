@@ -216,8 +216,9 @@ describe('progression & worth', () => {
   })
 
   test('netWorthOf counts cash, inventory, assets, and pending income', () => {
-    const assets = [{ ...business(230), itemId: 'foodcart', pendingIncome: 50 }]
-    expect(netWorthOf(1000, { noodles: 2 }, assets)).toBe(1000 + 8 + 18000 + 50)
+    const assets = [{ ...business(200), itemId: 'foodcart', pendingIncome: 50 }]
+    // $1,000 cash + 2× noodles ($2 each) + food cart ($15,000) + $50 pending
+    expect(netWorthOf(1000, { noodles: 2 }, assets)).toBe(1000 + 4 + 15000 + 50)
     expect(netWorthOf(0, {}, [])).toBe(0)
   })
 })

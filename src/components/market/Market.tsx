@@ -110,6 +110,17 @@ export default function Market() {
               const soldToYou = item.durable && owned > 0
               return (
                 <li className={`card${soldToYou ? ' owned' : ''}`} key={item.id}>
+                  <img
+                    className="card-img"
+                    src={`/market/${item.id}.jpg`}
+                    alt=""
+                    loading="lazy"
+                    width={512}
+                    height={384}
+                    onError={(e) => {
+                      ;(e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
                   <div className="card-top">
                     <span className="card-name">{item.name}</span>
                     {isEndgame && <span className="card-endgame">endgame</span>}

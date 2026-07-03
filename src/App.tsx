@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect } from 'react'
 import ActionDock from './components/hud/ActionDock'
+import AvatarCard from './components/hud/AvatarCard'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
 import TutorialPanel from './components/hud/TutorialPanel'
@@ -55,7 +56,10 @@ export default function App() {
       {citizen && (
         <>
           <TopBar />
-          <TutorialPanel />
+          <div className="left-rail">
+            <TutorialPanel />
+            <AvatarCard />
+          </div>
           <NeedsPanel />
           <ActionDock />
           {panel === 'shop' && <Market />}

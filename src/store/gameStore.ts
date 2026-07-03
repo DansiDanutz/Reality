@@ -13,7 +13,7 @@ import {
   wageBonusFrom,
   type Activity,
 } from '../game/engine'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/catalog'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, type AvatarId } from '../game/catalog'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | null
 
@@ -57,8 +57,10 @@ interface GameState {
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
+  avatarId: AvatarId
 
   createCitizen: (name: string) => void
+  setAvatar: (id: AvatarId) => void
   registerOnline: () => Promise<void>
   reportScore: () => Promise<void>
   linkGoogle: (credential: string) => Promise<string | null>
@@ -100,6 +102,7 @@ const FRESH = {
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
+  avatarId: 'maya' as AvatarId,
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -462,6 +465,7 @@ export const useGame = create<GameState>()(
         })
       },
 
+      setAvatar: (id) => set({ avatarId: id }),
       toggleTutorial: () => set({ tutorialHidden: !get().tutorialHidden }),
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),

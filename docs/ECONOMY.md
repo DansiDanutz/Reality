@@ -28,17 +28,24 @@ Wage gear totals under +60% even if you buy everything (enforced by test). Educa
 
 Beta is single-player, so property/business purchases are pure sinks against system faucets. In the online release the economy inverts: shop purchases route to *player-owned* businesses, and the system only mints money for wages and founder grants.
 
-## Business yields
+## Business yields (REAL-world prices, income per REAL day)
 
 | Business | Price | Income/day | Payback |
 |----------|-------|-----------:|--------:|
-| Food Cart | $18,000 | $230 | ~78 days |
-| Coffee Shop | $58,000 | $760 | ~76 days |
-| Fitness Studio | $95,000 | $1,250 | ~76 days |
-| Restaurant | $150,000 | $2,000 | ~75 days |
-| Tech Startup | $190,000 | $2,700 | ~70 days |
+| Food Cart | $15,000 | $200 | ~75 days |
+| Barbershop | $60,000 | $800 | ~75 days |
+| Tech Startup | $95,000 | $1,300 | ~73 days |
+| Coffee Shop | $120,000 | $1,600 | ~75 days |
+| Fitness Studio | $180,000 | $2,400 | ~75 days |
+| Restaurant † | $400,000 | $5,400 | ~74 days |
+| Boutique Hotel † | $850,000 | $11,500 | ~74 days |
+| Skyscraper Hotel † | $4M | $55,000 | ~73 days |
+| Regional Airline † | $12M | $165,000 | ~73 days |
 
-Payback is deliberately flat (60–90 game days, test-enforced) with a slight edge for bigger capital — rewarding accumulation without punishing small starts. The ladder now extends past the founder grant: Boutique Hotel ($260k), Solar Farm ($340k), Skyscraper Hotel ($600k), Regional Airline ($1.2M) and the Private Island home ($450k) are flagged **endgame** — goals that even founders must build toward. Tuning target for online: payback stretches to weeks and depends on location competition.
+† = endgame (above the founder grant). Prices mirror real startup costs; payback stays
+flat at 60–90 **real** days (test-enforced) — generous vs. real life, honest to Rule #1.
+Homes run $45k (micro studio) to $6M (private island); the founder grant buys a real
+city apartment, not a mansion — exactly like $200k in the real world.
 
 ## Founder math
 
