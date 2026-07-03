@@ -60,6 +60,11 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'juice', name: 'Fresh Juice', category: 'drinks', price: 7, hours: 0.25, description: 'Cold-pressed sunshine.', effects: { energy: 8, hydration: 30, hunger: 6 } },
   { id: 'bubbletea', name: 'Bubble Tea', category: 'drinks', price: 7, hours: 0.5, description: 'Half drink, half dessert, all joy.', effects: { fun: 8, hydration: 25, hunger: 5 } },
   { id: 'smoothie', name: 'Power Smoothie', category: 'drinks', price: 9, hours: 0.25, description: 'A meal in disguise.', effects: { hunger: 12, hydration: 25, energy: 6 } },
+  // Seasonal specials — stocked by the REAL season outside your window
+  { id: 'hotchocolate', name: 'Hot Chocolate', category: 'drinks', price: 5, hours: 0.25, season: 'winter', description: 'Winter in a mug, whipped cream optional.', effects: { hydration: 15, fun: 10, energy: 3 } },
+  { id: 'spicedchai', name: 'Spiced Chai', category: 'drinks', price: 5, hours: 0.25, season: 'winter', description: 'Cinnamon-warm against the cold.', effects: { hydration: 18, energy: 8, fun: 5 } },
+  { id: 'icedlemonade', name: 'Iced Lemonade', category: 'drinks', price: 4, hours: 0.25, season: 'summer', description: 'Squeezed this morning, gone in a minute.', effects: { hydration: 35, fun: 6 } },
+  { id: 'icedcoffee', name: 'Cold Brew on Ice', category: 'drinks', price: 5, hours: 0.25, season: 'summer', description: 'Summer fuel, extra condensation.', effects: { hydration: 14, energy: 12, fun: 3 } },
 
   // ── Clothing (career gear — dress for the job) ──────────
   { id: 'uniform', name: 'Work Uniform', category: 'clothing', price: 60, durable: true, wageBonus: 0.02, description: 'Look the part, get the shifts.' },
@@ -142,6 +147,9 @@ export const JOBS: Job[] = [
   { id: 'barista', title: 'Barista', wage: 15, requiredLevel: 1, flavor: 'Latte art and rush hours.' },
   { id: 'courier', title: 'Courier', wage: 16, requiredLevel: 1, flavor: 'The city moves because you do.' },
   { id: 'retail', title: 'Shop Manager', wage: 22, requiredLevel: 2, flavor: 'Keys to the store, keys to the schedule.' },
+  // Society careers — education opens these doors (levels come from learning)
+  { id: 'teacher', title: 'Teacher', wage: 26, requiredLevel: 2, flavor: 'Thirty futures per classroom, every single day.' },
+  { id: 'nurse', title: 'Nurse', wage: 32, requiredLevel: 3, flavor: 'The city heals on your shift.' },
   { id: 'analyst', title: 'Data Analyst', wage: 35, requiredLevel: 3, flavor: 'You see the patterns before anyone else.' },
   { id: 'developer', title: 'Software Developer', wage: 55, requiredLevel: 4, flavor: 'You build the systems this world runs on.' },
 ]
@@ -170,6 +178,16 @@ export const LIFE_EVENTS: LifeEvent[] = [
   { text: 'A street cat adopted you for one sunny hour.', effects: { fun: 10 } },
   { text: 'Sudden heatwave — you needed twice the water today.', effects: { hydration: -15 } },
   { text: 'Blood-donation drive: juice, cookies, good karma.', effects: { hunger: 6, fun: 8, energy: -6 } },
+  { text: 'The farmers\' market gave you the last crate of peaches.', effects: { hunger: 10, fun: 6 } },
+  { text: 'Your bus broke down — you walked the last two kilometers.', effects: { energy: -8, fun: -4 } },
+  { text: 'A busker played your song. You tipped what it was worth.', money: -5, effects: { fun: 12 } },
+  { text: 'Library late fee. Worth every day of it.', money: -6, effects: { fun: 4 } },
+  { text: 'You fixed a neighbor\'s laptop. They insisted on paying.', money: 45, effects: { fun: 4 } },
+  { text: 'Power cut on the block — cold dinner by candlelight.', effects: { hunger: -8, fun: 3 } },
+  { text: 'A pop-up vaccination van: free checkup, clean bill.', effects: { fun: 2, energy: 4 } },
+  { text: 'You joined a pickup football game in the park.', effects: { fun: 16, energy: -10, hygiene: -8, hydration: -10 } },
+  { text: 'Found your winter coat — with $10 in the pocket.', money: 10 },
+  { text: 'Neighborhood cleanup day. Sore arms, proud street.', effects: { fun: 8, energy: -8, hygiene: -6 } },
   // ── Business owner life ─────────────────────────────────
   { text: 'A famous food blogger reviewed your business!', money: 150, requiresBusiness: true },
   { text: 'Surprise inspection — a small compliance fine.', money: -60, requiresBusiness: true },

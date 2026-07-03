@@ -41,6 +41,8 @@ export interface ShopItem {
   wageBonus?: number
   /** XP granted instantly on purchase (education) */
   grantXp?: number
+  /** Only stocked in this real season at the citizen's real latitude (Rule #1) */
+  season?: 'winter' | 'summer'
 }
 
 export interface Job {

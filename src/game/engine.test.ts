@@ -3,6 +3,7 @@ import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, SHOP_ITEMS, FOUNDER_BALANCE } f
 import {
   AUTO_MEAL_COST,
   AUTO_WATER_COST,
+  PENDING_CAP_DAYS,
   SHIFT_HOURS,
   XP_PER_SHIFT,
   advanceLife,
@@ -192,9 +193,20 @@ describe('liveRealtime — the single simulation path', () => {
     expect(out.summary.join(' ')).toContain('food-bank')
   })
 
-  test('businesses earn while you are away, uncapped real time', () => {
+  test('businesses earn while you are away — but the till only holds 3 days', () => {
+    // The anti-idle rule: money waits for you, it doesn't compound forever.
     const out = liveRealtime(base({ assets: [business(240)] }), 0, 5 * 24 * HOUR)
-    expect(out.assets[0].pendingIncome).toBeCloseTo(240 * 5, 0)
+    expect(out.assets[0].pendingIncome).toBeCloseTo(240 * PENDING_CAP_DAYS, 0)
+  })
+
+  test('under the cap, income accrues in full', () => {
+    const out = liveRealtime(base({ assets: [business(240)] }), 0, 2 * 24 * HOUR)
+    expect(out.assets[0].pendingIncome).toBeCloseTo(480, 0)
+  })
+
+  test('a long absence mentions the full till', () => {
+    const out = liveRealtime(base({ assets: [business(240)], money: 100_000 }), 0, 6 * 24 * HOUR)
+    expect(out.summary.join(' ')).toMatch(/till/i)
   })
 })
 
@@ -590,5 +602,31 @@ describe('cost of living (cashflowOf)', async () => {
   test('no wage without a job', () => {
     const f = cashflowOf({ assets: [], hasHome: false, wage: 0, shiftsWorked: 50, wageBonus: 0 })
     expect(f.wagesPerDay).toBe(0)
+  })
+})
+
+describe('seasons are real (Rule #1)', async () => {
+  const { seasonOf } = await import('./engine')
+
+  test('January is winter in Cluj, summer in Sydney', () => {
+    expect(seasonOf(1, 46.7)).toBe('winter')
+    expect(seasonOf(1, -33.9)).toBe('summer')
+  })
+
+  test('July flips the hemispheres', () => {
+    expect(seasonOf(7, 46.7)).toBe('summer')
+    expect(seasonOf(7, -33.9)).toBe('winter')
+  })
+
+  test('spring and autumn stock no seasonal specials', () => {
+    expect(seasonOf(4, 46.7)).toBe('mid')
+    expect(seasonOf(10, -33.9)).toBe('mid')
+  })
+
+  test('seasonal drinks exist for both seasons and do something', () => {
+    const seasonal = SHOP_ITEMS.filter((i) => i.season)
+    expect(seasonal.filter((i) => i.season === 'winter').length).toBeGreaterThanOrEqual(2)
+    expect(seasonal.filter((i) => i.season === 'summer').length).toBeGreaterThanOrEqual(2)
+    for (const item of seasonal) expect(item.effects, item.name).toBeDefined()
   })
 })

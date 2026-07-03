@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
-import { formatMoney } from '../../game/engine'
+import { formatMoney, seasonOf } from '../../game/engine'
 import type { ShopCategory, ShopItem } from '../../game/types'
 import { useGame } from '../../store/gameStore'
 
@@ -35,10 +35,15 @@ export default function Market() {
   const buy = useGame((s) => s.buy)
   const consume = useGame((s) => s.consume)
   const setPanel = useGame((s) => s.setPanel)
+  const spawnLat = useGame((s) => s.citizen?.spawnLat)
+
+  // Rule #1: the shelves follow the REAL season outside the player's window
+  const season = seasonOf(new Date().getMonth() + 1, spawnLat ?? 45)
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = SHOP_ITEMS.filter((i) => {
+      if (i.season && i.season !== season) return false
       if (tab !== 'all' && i.category !== tab) return false
       if (affordableOnly && i.price > money) return false
       if (q && !`${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q)) return false
@@ -47,9 +52,10 @@ export default function Market() {
     if (sort === 'low') return [...filtered].sort((a, b) => a.price - b.price)
     if (sort === 'high') return [...filtered].sort((a, b) => b.price - a.price)
     return filtered
-  }, [tab, query, sort, affordableOnly, money])
+  }, [tab, query, sort, affordableOnly, money, season])
 
-  const countFor = (c: ShopCategory) => SHOP_ITEMS.filter((i) => i.category === c).length
+  const countFor = (c: ShopCategory) =>
+    SHOP_ITEMS.filter((i) => i.category === c && (!i.season || i.season === season)).length
 
   return (
     <div className="market" role="dialog" aria-label="Reality Market">

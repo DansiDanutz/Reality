@@ -28,6 +28,12 @@ export const SLEEP_HOURS = 8
 export const AUTO_MEAL_COST = 12
 export const AUTO_WATER_COST = 1
 export const XP_PER_SHIFT = 40
+/**
+ * A business till holds this many days of income, then overflows. Money
+ * waits for you — it doesn't compound forever. The anti-idle rule: an
+ * empire you never visit is an empire that stops paying.
+ */
+export const PENDING_CAP_DAYS = 3
 
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
@@ -75,7 +81,7 @@ export function advanceLife(slice: WorldSlice, minutes: number, mode: LifeMode):
 
   const assets = slice.assets.map((a) =>
     a.incomePerDay > 0
-      ? { ...a, pendingIncome: a.pendingIncome + (a.incomePerDay / 24) * h }
+      ? { ...a, pendingIncome: Math.min(a.pendingIncome + (a.incomePerDay / 24) * h, a.incomePerDay * PENDING_CAP_DAYS) }
       : a,
   )
 
@@ -198,6 +204,8 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   if (usedFoodBank) summary.push('got a food-bank meal')
   if (autoSleeps > 0) summary.push(`slept ${autoSleeps} night${autoSleeps > 1 ? 's' : ''}`)
   if (wagesEarned > 0) summary.push(`finished ${shiftsCompleted} shift${shiftsCompleted > 1 ? 's' : ''} (+$${wagesEarned})`)
+  if (world.assets.some((a) => a.incomePerDay > 0 && a.pendingIncome >= a.incomePerDay * PENDING_CAP_DAYS - 0.01))
+    summary.push('a till filled up — it holds 3 days, then customers walk past')
 
   return {
     ...world,
@@ -387,6 +395,21 @@ export function reachOf(level: number, businesses: number, hasHome: boolean, net
   if (level >= 3 || businesses >= 1)
     return { tier: 2, km: 80, label: 'your province', next: 'Level 5 plus a home (or a second business) unlocks your country.' }
   return { tier: 1, km: 15, label: 'your city', next: 'Reach level 3 or open your first business to unlock your province.' }
+}
+
+/**
+ * Real seasons at real latitudes (Rule #1): the market stocks what the
+ * weather outside the player's actual window calls for.
+ */
+export type Season = 'winter' | 'summer' | 'mid'
+
+export function seasonOf(month: number, lat: number): Season {
+  const northWinter = month === 12 || month <= 2
+  const northSummer = month >= 6 && month <= 8
+  if (!northWinter && !northSummer) return 'mid'
+  const isNorth = lat >= 0
+  if (northWinter) return isNorth ? 'winter' : 'summer'
+  return isNorth ? 'summer' : 'winter'
 }
 
 /** Great-circle distance in km (haversine) */
