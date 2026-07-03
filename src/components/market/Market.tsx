@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
 import { formatMoney, seasonOf } from '../../game/engine'
 import type { ShopCategory, ShopItem } from '../../game/types'
+import { useFocusTrap } from '../../lib/useFocusTrap'
 import { useGame } from '../../store/gameStore'
 
 type Tab = ShopCategory | 'all'
@@ -57,8 +58,10 @@ export default function Market() {
   const countFor = (c: ShopCategory) =>
     SHOP_ITEMS.filter((i) => i.category === c && (!i.season || i.season === season)).length
 
+  const trapRef = useFocusTrap<HTMLDivElement>()
+
   return (
-    <div className="market" role="dialog" aria-label="Reality Market">
+    <div className="market" ref={trapRef} role="dialog" aria-modal="true" aria-label="Reality Market">
       <header className="market-head">
         <h2 className="market-title">
           Market<span className="market-count"> · {SHOP_ITEMS.length} items</span>

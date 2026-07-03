@@ -20,7 +20,17 @@ import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
 import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
+import { useFocusTrap } from './lib/useFocusTrap'
 import { useGame } from './store/gameStore'
+
+// Human-readable dialog labels so screen readers announce the drawer's purpose.
+const PANEL_LABELS: Record<string, string> = {
+  work: 'Work',
+  assets: 'Your assets',
+  top: 'Leaderboard',
+  profile: 'Profile',
+  health: 'Health guide',
+}
 
 // MapLibre is heavy — split it out so the shell paints instantly
 const WorldMap = lazy(() => import('./components/map/WorldMap'))
@@ -33,6 +43,9 @@ export default function App() {
   const targetsSeen = useGame((s) => s.targetsSeen)
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
+
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health'
+  const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // The heartbeat of the world: one tick per real second. The first tick
   // after load also settles everything that happened while you were away —
@@ -100,8 +113,8 @@ export default function App() {
           <HudDock />
           <ActionDock />
           {panel === 'shop' && <Market />}
-          {(panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health') && (
-            <div className="drawer">
+          {drawerOpen && (
+            <div className="drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label={PANEL_LABELS[panel] ?? 'Panel'}>
               <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
               {panel === 'work' && <WorkPanel />}
               {panel === 'assets' && <AssetsPanel />}
