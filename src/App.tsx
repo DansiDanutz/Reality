@@ -2,8 +2,11 @@ import { Suspense, lazy, useEffect } from 'react'
 import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
+import HudDock from './components/hud/HudDock'
+import HudWindow from './components/hud/HudWindow'
 import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
+import { TUTORIAL_STEPS } from './game/tutorial'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
 import TutorialPanel from './components/hud/TutorialPanel'
@@ -27,6 +30,7 @@ export default function App() {
   const panel = useGame((s) => s.panel)
   const streetMode = useGame((s) => s.streetMode)
   const targetsSeen = useGame((s) => s.targetsSeen)
+  const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
 
   // The heartbeat of the world: one tick per real second. The first tick
@@ -72,13 +76,24 @@ export default function App() {
         <>
           <TopBar />
           <Toasts />
-          <MoodCard />
           <AwayReport />
-          <div className="left-rail">
-            <TutorialPanel />
+          {!tutorialDone && (
+            <HudWindow id="objectives">
+              <TutorialPanel />
+            </HudWindow>
+          )}
+          <HudWindow id="citizen">
             <AvatarCard />
-          </div>
-          <NeedsPanel />
+          </HudWindow>
+          <HudWindow id="vitals">
+            <NeedsPanel />
+          </HudWindow>
+          {!streetMode && (
+            <HudWindow id="guide">
+              <MoodCard />
+            </HudWindow>
+          )}
+          <HudDock />
           <ActionDock />
           {panel === 'shop' && <Market />}
           {(panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health') && (

@@ -339,6 +339,119 @@ body {
   border-radius: var(--radius);
 }
 
+/* ── HUD windows: the player owns the screen ───────────── */
+.hud-window {
+  position: absolute;
+  z-index: 10;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  max-height: 78vh;
+}
+.hud-window.dragging { opacity: 0.88; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7); }
+.hud-grip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  cursor: grab;
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+  touch-action: none;
+}
+.hud-grip:active { cursor: grabbing; }
+.hud-grip-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hud-min {
+  width: 22px;
+  height: 22px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.hud-min:hover { color: var(--text); background: rgba(120, 150, 205, 0.12); }
+.hud-body { overflow-y: auto; }
+/* The window supplies the chrome — cards inside become bare content */
+.hud-body > * {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  transform: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  animation: none !important;
+  z-index: auto !important;
+}
+/* Cards that anchor children absolutely stay their own positioning context */
+.hud-body > .needs { position: relative !important; }
+.hud-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  border-right: 2px solid var(--line-strong);
+  border-bottom: 2px solid var(--line-strong);
+  border-radius: 0 0 8px 0;
+  touch-action: none;
+}
+.hud-resize:hover { border-color: var(--sky); }
+
+.hud-dock {
+  position: absolute;
+  bottom: 22px;
+  right: 22px;
+  z-index: 12;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+}
+.dock-slot {
+  width: 40px;
+  height: 40px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+.dock-slot.filled { border-style: solid; border-color: var(--line-strong); }
+.dock-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  background: rgba(120, 150, 205, 0.1);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.dock-icon:hover { transform: translateY(-2px); background: rgba(120, 150, 205, 0.2); }
+
 /* ── Left rail (objectives + avatar) ───────────────────── */
 .left-rail {
   position: absolute;

@@ -79,6 +79,12 @@ interface GameState {
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
+  /** Player-owned HUD layout: card positions (% of viewport), width, minimized */
+  hudLayout: Record<string, { x?: number; y?: number; w?: number; min?: boolean }>
+  hudDockOrder: string[]
+  patchCard: (id: string, patch: { x?: number; y?: number; w?: number; min?: boolean }) => void
+  setDockOrder: (order: string[]) => void
+  resetHudLayout: () => void
 
   setStreetMode: (on: boolean) => void
   openMarket: (focus?: ShopCategory) => void
@@ -137,6 +143,8 @@ const FRESH = {
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
   soundOn: true,
+  hudLayout: {} as Record<string, { x?: number; y?: number; w?: number; min?: boolean }>,
+  hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide'] as string[],
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -396,6 +404,10 @@ export const useGame = create<GameState>()(
       dismissAwayReport: () => set({ awayReport: null }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
       toggleSound: () => set({ soundOn: !get().soundOn }),
+      patchCard: (id, patch) =>
+        set({ hudLayout: { ...get().hudLayout, [id]: { ...get().hudLayout[id], ...patch } } }),
+      setDockOrder: (order) => set({ hudDockOrder: order }),
+      resetHudLayout: () => set({ hudLayout: {} }),
 
       openMarket: (focus) => set({ marketFocus: focus ?? null, panel: 'shop' }),
 

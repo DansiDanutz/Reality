@@ -11,9 +11,7 @@ export default function TutorialPanel() {
   const assets = useGame((s) => s.assets)
   const totalCollected = useGame((s) => s.totalCollected)
   const claimed = useGame((s) => s.tutorialClaimed)
-  const hidden = useGame((s) => s.tutorialHidden)
   const claimTutorial = useGame((s) => s.claimTutorial)
-  const toggleTutorial = useGame((s) => s.toggleTutorial)
 
   if (!citizen) return null
   if (claimed.length >= TUTORIAL_STEPS.length) return null
@@ -22,20 +20,11 @@ export default function TutorialPanel() {
   const doneCount = TUTORIAL_STEPS.filter((s) => claimed.includes(s.id)).length
   const current = TUTORIAL_STEPS.find((s) => !claimed.includes(s.id))
 
-  if (hidden) {
-    return (
-      <button className="tutorial-pill" onClick={toggleTutorial}>
-        Objectives {doneCount}/{TUTORIAL_STEPS.length}
-      </button>
-    )
-  }
-
   return (
     <aside className="tutorial" aria-label="Objectives">
       <div className="tutorial-head">
         <span className="tutorial-title">First days in Reality</span>
         <span className="tutorial-progress mono">{doneCount}/{TUTORIAL_STEPS.length}</span>
-        <button className="tutorial-min" aria-label="Minimize objectives" onClick={toggleTutorial}>–</button>
       </div>
       <ol className="tutorial-list">
         {TUTORIAL_STEPS.map((step) => {
