@@ -225,6 +225,27 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   deep-dive. Fine while traffic is small; revisit when the numbers get big
   enough to warrant slicing.
 
+## Fixed in loop 17 (2026-07-03)
+
+- **Real weather on the street** (issue #11): Street Mode now pulls current
+  conditions from Open-Meteo (free, no key) and renders rain or snow. Rain =
+  one merged `THREE.Points` particle field (2,200 streaks) + wet-road color
+  tint + doubled fog density; snow = slower, drifting white particles, and
+  **only in the real winter hemisphere** (`shouldSnow` gates on month +
+  latitude, mirroring `seasonOf`). One particle system = one draw call; the
+  field follows the camera so the storm stays local. prefers-reduced-motion
+  users see the wet/snowy ground tint but no streaks. Fire-and-forget: any
+  fetch failure collapses to clear. Verified end-to-end with mocked OSM +
+  Open-Meteo: scene builds, 10 draw calls total, rain code 63 → particles.
+- **Drive-by fix:** `canopyGeos` was being merged with `trunkMat` (a pre-
+  existing typo from loop 7) — tree canopies rendered trunk-brown. Fixed to
+  `canopyMat`; trees are green again.
+- *Self-criticism:* weather is fetched once on scene entry, not refreshed
+  mid-session — fine for a street visit, but a long walk won't see the rain
+  stop. Particle count (2,200 rain / 1,400 snow) is my call without
+  weak-phone profiling; revisit if fps reports come in. Thunderstorm codes
+  (95-99) render as plain rain — no lightning yet.
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
