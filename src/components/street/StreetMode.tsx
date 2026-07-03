@@ -3,6 +3,7 @@ import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
 import { startAmbience, stopAmbience } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
+import { fetchWeather, shouldSnow } from './weather'
 import type { StreetMarker, StreetSceneHandle } from './streetScene'
 
 /** Real local hour at the street's location — the sky follows Rule #1 */
@@ -41,21 +42,37 @@ export default function StreetMode() {
     if (!containerRef.current || !anchor) return
     let disposed = false
     const markers: StreetMarker[] = assets.map((a) => ({ id: a.id, lat: a.lat, lng: a.lng, name: a.name, kind: a.kind }))
-    void import('./streetScene')
-      .then(({ createStreetScene }) =>
-        createStreetScene(containerRef.current!, anchor, hourAt(anchor.lat, anchor.lng), markers, (near) =>
-          setNearId(near?.id ?? null),
-        ),
-      )
+    // Real weather at the street's location (Rule #1): rain renders any time;
+    // snow only in the real winter hemisphere. Fire-and-forget — defaults clear.
+    const month = new Date().getMonth() + 1
+    void Promise.all([fetchWeather(anchor.lat, anchor.lng), import('./streetScene')])
+      .then(([rawWeather, { createStreetScene }]) => {
+        if (disposed) return
+        const weather = shouldSnow(rawWeather, month, anchor.lat)
+          ? rawWeather
+          : rawWeather.condition === 'snow'
+            ? { condition: 'clear' as const }
+            : rawWeather
+        return createStreetScene(
+          containerRef.current!,
+          anchor,
+          hourAt(anchor.lat, anchor.lng),
+          markers,
+          (near) => setNearId(near?.id ?? null),
+          weather,
+        )
+      })
       .then((scene) => {
         if (disposed) {
-          scene.dispose()
+          scene?.dispose()
           return
         }
-        sceneRef.current = scene
-        setStatus('ready')
-        if (import.meta.env.DEV) {
-          ;(window as unknown as { __streetStats?: unknown }).__streetStats = scene.getStats
+        sceneRef.current = scene ?? null
+        if (scene) {
+          setStatus('ready')
+          if (import.meta.env.DEV) {
+            ;(window as unknown as { __streetStats?: unknown }).__streetStats = scene.getStats
+          }
         }
       })
       .catch(() => setStatus('error'))
