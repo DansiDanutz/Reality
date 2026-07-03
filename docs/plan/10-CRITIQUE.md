@@ -61,6 +61,18 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   content, feature ×2, RFC) — chapter 06 checklist complete except the Builder
   badge pipeline.
 
+## Fixed in loop 6 (2026-07-03)
+
+- **Territorial progression shipped** (Dan's design law: "build your reality in your
+  area"): `reachOf()` 5-tier ladder — city 15 km → province 80 km → country 450 km →
+  continent 2,500 km → the world; unlocks tied to level, businesses, home, net worth.
+  `placeAt` rejects out-of-reach builds with a teaching message ("That spot is 1,593 km
+  away — your reach is your province…"), gold dashed reach ring + dimmed world on the
+  map, expansion toast, reach stat in Profile, target #4 in the intro. 4 engine tests.
+  *Self-criticism:* work/gigs are not yet reach-gated (only building is) — acceptable
+  while jobs are abstract, must gate when jobs become map-placed. Reach ring radius is
+  drawn planar-ish at small scales; fine ≤2,500 km, revisit for tier-4 visuals.
+
 ## Open — ranked by (retention × effort)
 
 1. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
