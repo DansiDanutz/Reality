@@ -53,10 +53,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }
+
+    // Plausibility cap until the server owns the simulation (Phase 1b):
+    // founder grant + a generous $100k per day of citizenship
+    let cappedWorth = worth
+    try {
+      const citizenBlob = await list({ prefix: `citizens/${citizenId}__`, limit: 1 })
+      if (citizenBlob.blobs[0]) {
+        const record = (await (await fetch(citizenBlob.blobs[0].downloadUrl)).json()) as { createdAt?: string }
+        const ageDays = record.createdAt
+          ? Math.max(0, (Date.now() - new Date(record.createdAt).getTime()) / 86_400_000)
+          : 0
+        const maxPlausible = 200_000 + Math.ceil(ageDays + 1) * 100_000
+        cappedWorth = Math.min(worth, maxPlausible)
+      }
+    } catch {
+      /* cap is best-effort */
+    }
+
     // Replace this citizen's previous score, then write the new one
     const old = await list({ prefix: `scores/${citizenId}__`, limit: 10 })
     if (old.blobs.length > 0) await del(old.blobs.map((b) => b.url))
-    await put(`scores/${citizenId}__${worth}__${cleanName}.json`, '1', {
+    await put(`scores/${citizenId}__${cappedWorth}__${cleanName}.json`, '1', {
       access: 'private',
       addRandomSuffix: false,
       allowOverwrite: true,

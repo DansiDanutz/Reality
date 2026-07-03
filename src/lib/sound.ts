@@ -42,3 +42,47 @@ export function playChime(kind: 'gold' | 'sky' | 'ok'): void {
   const now = context.currentTime
   p.freqs.forEach((f, i) => tone(context, f, now + i * p.step, p.dur, p.peak))
 }
+
+// ── Street ambience: a soft city-night hum, fully synthesized ──
+let ambience: { gain: GainNode; source: AudioBufferSourceNode } | null = null
+
+export function startAmbience(): void {
+  const context = ensureContext()
+  if (!context || ambience) return
+  // 2s of gentle brown noise, looped through a low-pass — distant city air
+  const length = context.sampleRate * 2
+  const buffer = context.createBuffer(1, length, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  let lastOut = 0
+  for (let i = 0; i < length; i++) {
+    const white = Math.random() * 2 - 1
+    lastOut = (lastOut + 0.02 * white) / 1.02
+    data[i] = lastOut * 3.5
+  }
+  const source = context.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+  const filter = context.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 320
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0, context.currentTime)
+  gain.gain.linearRampToValueAtTime(0.05, context.currentTime + 1.2)
+  source.connect(filter).connect(gain).connect(context.destination)
+  source.start()
+  ambience = { gain, source }
+}
+
+export function stopAmbience(): void {
+  if (!ambience || !ctx) return
+  const { gain, source } = ambience
+  ambience = null
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5)
+  setTimeout(() => {
+    try {
+      source.stop()
+    } catch {
+      /* already stopped */
+    }
+  }, 600)
+}

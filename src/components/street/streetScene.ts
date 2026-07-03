@@ -46,17 +46,22 @@ function makeFacadeTexture(night: boolean): THREE.CanvasTexture {
 }
 
 export interface StreetMarker {
+  id: string
   lat: number
   lng: number
   name: string
   kind: 'home' | 'business'
 }
 
+/** How close (meters) you must stand to "be at" one of your properties */
+const PROXIMITY_M = 16
+
 export async function createStreetScene(
   container: HTMLElement,
   center: { lat: number; lng: number },
   localHour: number,
   markers: StreetMarker[] = [],
+  onProximity?: (marker: StreetMarker | null) => void,
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
   const { buildings, roads } = await fetchNeighborhood(center.lat, center.lng)
@@ -175,9 +180,11 @@ export async function createStreetScene(
 
   // ── Your holdings: golden beacons you can walk to ───────
   const beaconBeams: THREE.Mesh[] = []
+  const beaconSpots: { marker: StreetMarker; x: number; z: number }[] = []
   for (const marker of markers) {
     const p = toLocalMeters(marker.lat, marker.lng, center.lat, center.lng)
     if (Math.hypot(p.x, p.z) > STREET_RADIUS_M) continue
+    beaconSpots.push({ marker, x: p.x, z: p.z })
     const color = marker.kind === 'home' ? 0x7dd8ff : 0xf0b429
     const beam = new THREE.Mesh(
       new THREE.CylinderGeometry(0.9, 1.6, 90, 12, 1, true),
@@ -212,6 +219,7 @@ export async function createStreetScene(
   let raf = 0
   let last = performance.now()
   let fps = 60
+  let lastNearId: string | null = null
   const animate = () => {
     raf = requestAnimationFrame(animate)
     const now = performance.now()
@@ -221,6 +229,21 @@ export async function createStreetScene(
     // Beacons breathe so they read as alive, not architecture
     const pulse = 0.22 + 0.1 * Math.sin(now / 700)
     for (const beam of beaconBeams) (beam.material as THREE.MeshBasicMaterial).opacity = pulse
+
+    // Standing at one of your properties?
+    if (onProximity) {
+      let near: StreetMarker | null = null
+      for (const spot of beaconSpots) {
+        if (Math.hypot(camera.position.x - spot.x, camera.position.z - spot.z) <= PROXIMITY_M) {
+          near = spot.marker
+          break
+        }
+      }
+      if (near?.id !== lastNearId) {
+        lastNearId = near?.id ?? null
+        onProximity(near)
+      }
+    }
 
     if (controls.isLocked) {
       const speed = WALK_SPEED * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? RUN_MULTIPLIER : 1)

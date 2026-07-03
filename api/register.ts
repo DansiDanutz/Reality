@@ -51,6 +51,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       allowOverwrite: true,
       contentType: 'application/json',
     })
+    // Every citizen name in Reality is unique — a name is an identity claim
+    const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    try {
+      await put(`names/${slug}.json`, JSON.stringify({ at: new Date().toISOString() }), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: false,
+        contentType: 'application/json',
+      })
+    } catch {
+      res.status(409).json({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
+      return
+    }
+
     const citizenId = randomUUID()
     const token = randomUUID()
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)

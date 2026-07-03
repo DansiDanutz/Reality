@@ -199,28 +199,46 @@ export const useGame = create<GameState>()(
       registerOnline: async () => {
         const s = get()
         if (!s.citizen || s.citizen.token) return
-        const d = await tryPost('/api/register', { name: s.citizen.name })
+        let d = await tryPost('/api/register', { name: s.citizen.name })
         const cur = get()
         if (!cur.citizen || cur.citizen.token) return
 
         if (!d?.ok) {
-          set({ citizen: { ...cur.citizen, online: false } })
-          return
+          // Unique names: on collision, take a numbered variant and retry once
+          if (d?.code === 'name_taken') {
+            const variant = `${cur.citizen.name.slice(0, 19)}-${Math.floor(100 + Math.random() * 900)}`
+            set({
+              citizen: { ...cur.citizen, name: variant },
+              log: note(cur.log, `"${cur.citizen.name}" was already a citizen — you are ${variant}.`),
+            })
+            const retry = await tryPost('/api/register', { name: variant })
+            if (retry?.ok) {
+              d = retry
+            } else {
+              set({ citizen: { ...get().citizen!, online: false } })
+              return
+            }
+          } else {
+            set({ citizen: { ...cur.citizen, online: false } })
+            return
+          }
         }
 
         const founderNumber = (d.founderNumber as number | null) ?? 0
         const isFounder = founderNumber > 0
+        const latest = get()
+        if (!latest.citizen) return
         set({
           citizen: {
-            ...cur.citizen,
+            ...latest.citizen,
             citizenId: d.citizenId as string,
             token: d.token as string,
             founderNumber,
             online: true,
           },
-          money: isFounder ? cur.money : Math.min(cur.money, CITIZEN_BALANCE),
+          money: isFounder ? latest.money : Math.min(latest.money, CITIZEN_BALANCE),
           log: note(
-            cur.log,
+            latest.log,
             isFounder
               ? `Founder #${String(founderNumber).padStart(4, '0')} — yours forever. ${formatMoney(FOUNDER_BALANCE)} deposited.`
               : `All 2,000 founder slots are claimed. Citizen grant: ${formatMoney(CITIZEN_BALANCE)}.`,

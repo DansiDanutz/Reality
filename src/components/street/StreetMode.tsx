@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../../game/clock'
+import { formatMoney } from '../../game/engine'
+import { startAmbience, stopAmbience } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
-import type { StreetSceneHandle } from './streetScene'
+import type { StreetMarker, StreetSceneHandle } from './streetScene'
 
 /** Real local hour at the street's location — the sky follows Rule #1 */
 function hourAt(lat: number, lng: number): number {
@@ -20,8 +22,12 @@ export default function StreetMode() {
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
   const setStreetMode = useGame((s) => s.setStreetMode)
+  const setPanel = useGame((s) => s.setPanel)
+  const collectIncome = useGame((s) => s.collectIncome)
+  const soundOn = useGame((s) => s.soundOn)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [fps, setFps] = useState(0)
+  const [nearId, setNearId] = useState<string | null>(null)
 
   const home = assets.find((a) => a.kind === 'home') ?? assets[0]
   const anchor = home ?? (citizen?.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
@@ -29,10 +35,12 @@ export default function StreetMode() {
   useEffect(() => {
     if (!containerRef.current || !anchor) return
     let disposed = false
-    const markers = assets.map((a) => ({ lat: a.lat, lng: a.lng, name: a.name, kind: a.kind }))
+    const markers: StreetMarker[] = assets.map((a) => ({ id: a.id, lat: a.lat, lng: a.lng, name: a.name, kind: a.kind }))
     void import('./streetScene')
       .then(({ createStreetScene }) =>
-        createStreetScene(containerRef.current!, anchor, hourAt(anchor.lat, anchor.lng), markers),
+        createStreetScene(containerRef.current!, anchor, hourAt(anchor.lat, anchor.lng), markers, (near) =>
+          setNearId(near?.id ?? null),
+        ),
       )
       .then((scene) => {
         if (disposed) {
@@ -53,7 +61,16 @@ export default function StreetMode() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // The street hums at night when sound is on
+  useEffect(() => {
+    if (soundOn && status === 'ready') startAmbience()
+    else stopAmbience()
+    return () => stopAmbience()
+  }, [soundOn, status])
+
   if (!anchor) return null
+  const nearAsset = nearId ? assets.find((a) => a.id === nearId) : null
+  const pending = assets.reduce((sum, a) => sum + a.pendingIncome, 0)
 
   return (
     <div className="street">
@@ -71,6 +88,25 @@ export default function StreetMode() {
             Try from a home in a bigger town.
           </p>
           <button className="btn" onClick={() => setStreetMode(false)}>Back to the map</button>
+        </div>
+      )}
+      {nearAsset && (
+        <div className="street-door" role="status">
+          <p className="away-eyebrow">{nearAsset.kind === 'home' ? 'your home' : 'your business'}</p>
+          <p className="street-door-name">{nearAsset.name}</p>
+          {nearAsset.kind === 'business' && (
+            <p className="street-door-sub mono">
+              {formatMoney(nearAsset.incomePerDay)}/day · {formatMoney(Math.floor(nearAsset.pendingIncome))} waiting
+            </p>
+          )}
+          <div className="away-actions">
+            {pending >= 1 && (
+              <button className="btn small primary" onClick={collectIncome}>
+                Collect {formatMoney(Math.floor(pending))}
+              </button>
+            )}
+            <button className="btn small ghost" onClick={() => setPanel('assets')}>Manage</button>
+          </div>
         </div>
       )}
       <div className="street-hint">
