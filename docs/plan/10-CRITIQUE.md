@@ -293,16 +293,22 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   merge-only `main` — two feature branches, two PRs, CI-gated squash-merges,
   one clean rebase when main moved underneath the second PR. No direct
   commits to `main`, no orphaned work.
-- *Self-criticism:* the `inert` wrapper covers the top-level drawer/Market
-  dialogs only — Street Mode's own door card isn't a true modal and wasn't
-  brought under this pattern. Grocery freshness is shown as a static list
-  in the Kitchen panel, not integrated into the Market's own item cards yet.
+- *Self-criticism:* Grocery freshness is shown as a static list in the
+  Kitchen panel, not integrated into the Market's own item cards yet.
 - *Correction (same day):* the previous entry claimed cooking has no
   completion sound — false. The "ready" toast reuses `withToast(..., 'ok')`,
   and every toast chimes via the shared `Toasts` component regardless of
   which event produced it (shift complete, promotions, reach expansion,
   and now meals all fire the same way). Verified by reading the exact
   code path rather than assuming from the toast text alone.
+- *Correction #2 (loop 19):* also walked back "Street Mode's door card
+  isn't a true modal" — that framing was wrong, not just incomplete. The
+  door card is an ambient status HUD you see WHILE still walking (WASD
+  stays live); trapping focus or `inert`-ing the background the way a
+  dialog does would break movement the instant a property came into
+  range. The real, narrower gap was a missing `aria-label` on the
+  `role="status"` region — fixed and verified live (announces "Home
+  nearby: Studio" / "Business nearby: …") without touching gameplay.
 
 ## Open — ranked by (retention × effort)
 
