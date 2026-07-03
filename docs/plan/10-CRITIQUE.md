@@ -22,33 +22,35 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   real-price citations, and the never-pay-to-win pledge; BUILDERS.md onboards
   contributor + their Claude.
 
+## Fixed in loop 2 (2026-07-03)
+
+- ~~**No juice**~~ → toast system (level-ups, shift pay, collects, live events) +
+  animated count-up balance. Sound still open (below).
+- ~~**Away-report is a log line**~~ → welcome-back card with Collect CTA (loop 1).
+- ~~**No XP visibility in HUD**~~ → XP progress ring around the avatar (loop 1).
+- ~~**No registration rate limit**~~ → per-IP daily throttle (loop 1).
+- ~~**Events stale (11)**~~ → 32 events, uniqueness + magnitude bounds test-enforced;
+  data-PR-able by contributors.
+- ~~**No PWA**~~ → manifest + icons + theme color; installable on phones.
+- ~~**Street Mode has no reason to return**~~ *(first step)* → your holdings shine as
+  breathing gold/blue beacons in the scene: walk to what you own. Entering buildings
+  still open (below).
+
 ## Open — ranked by (retention × effort)
 
-1. **No juice.** Money changes, level-ups, and collects have zero animation or sound.
-   Addictiveness lives in feedback. → Count-up on balance, collect burst, level-up
-   toast, soft purchase click. (High impact, ~1 day.)
-2. **The away-report is a log line.** It should be a *welcome-back card* — the single
-   most-read surface in a realtime game. Show money delta, needs, one CTA ("Collect
-   $823"). (High, small.)
-3. **No XP/level visibility in the HUD** — progression is the addiction spine and it's
-   hidden in Profile. → thin XP ring around the avatar card portrait.
-4. **Leaderboard names collide and are gameable** (no uniqueness, self-reported worth).
-   Acceptable in beta; dies at Phase 1b (server-authoritative, unique names).
-5. **Registration has no rate limit** → founder-slot bot risk on a viral day. Add IP
-   throttle to /api/register now; real fix is Phase 1b one-Google-one-citizen.
-6. **Street Mode is a postcard, not a place**: no collision, no entering buildings, no
-   avatar body. It astonishes once; it needs a *reason to return* (enter your own
-   business, find collectibles, see other citizens).
-7. **Events are static and rare** — 11 events get stale within a week. The events
-   system should be data-PR-able (ties into BUILDERS ladder) with city/season variety.
-8. **Economy long-idle exploit**: businesses accrue uncapped while costs are tiny;
-   wealth-scaled costs (property tax) are designed (03) but not implemented — fine
-   until P2P, must land with it.
-9. **Mobile is functional, not native**: dock crowding grows (6 buttons), Street Mode
-   needs touch look/walk. A PWA manifest is cheap and missing.
-10. **Accessibility debt**: needs bars are color-only (add value numbers on hover ✓/
-    labels exist, but colorblind-safe patterns missing); Street Mode has no
-    reduced-motion path.
+1. **Sound.** Toasts are silent; a soft collect chime, level fanfare, and street
+   ambience (night crickets/city hum) would double the juice. (Web Audio, no assets
+   needed — synthesize.)
+2. **Leaderboard names collide and are gameable** (self-reported worth). Beta-acceptable;
+   dies at Phase 1b (server-authoritative, unique names).
+3. **Enter your buildings** in Street Mode: a door + interior card (revenue today,
+   customers, a "manage" panel) turns the postcard into a place.
+4. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
+   needed with P2P (Phase 2).
+5. **Touch controls for Street Mode** (PWA now installable — walking needs thumbs).
+6. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
+7. **Onboarding funnel analytics** (01's event list) — we are flying blind on drop-off
+   until a lightweight, privacy-clean counter lands (Phase 1b at latest).
 
 ## Accepted (consciously, for now)
 

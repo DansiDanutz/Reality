@@ -386,6 +386,41 @@ body {
 .avatar-portrait img { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: 11px; }
 .avatar-portrait .avatar-empty { border-radius: 11px; }
 
+.toasts {
+  position: absolute;
+  top: 66px;
+  right: 22px;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  max-width: 340px;
+  text-align: right;
+  animation: toast-in 320ms var(--ease-out);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(16px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+.toast.gold { color: var(--gold); border-color: rgba(240, 180, 41, 0.5); }
+.toast.ok { color: var(--ok); border-color: rgba(67, 217, 163, 0.4); }
+.toast.sky { color: var(--sky); border-color: rgba(125, 216, 255, 0.4); }
+
 .away-card {
   position: absolute;
   top: 66px;

@@ -29,8 +29,11 @@ export default function StreetMode() {
   useEffect(() => {
     if (!containerRef.current || !anchor) return
     let disposed = false
+    const markers = assets.map((a) => ({ lat: a.lat, lng: a.lng, name: a.name, kind: a.kind }))
     void import('./streetScene')
-      .then(({ createStreetScene }) => createStreetScene(containerRef.current!, anchor, hourAt(anchor.lat, anchor.lng)))
+      .then(({ createStreetScene }) =>
+        createStreetScene(containerRef.current!, anchor, hourAt(anchor.lat, anchor.lng), markers),
+      )
       .then((scene) => {
         if (disposed) {
           scene.dispose()

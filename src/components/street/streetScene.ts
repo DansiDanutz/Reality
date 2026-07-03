@@ -45,10 +45,18 @@ function makeFacadeTexture(night: boolean): THREE.CanvasTexture {
   return texture
 }
 
+export interface StreetMarker {
+  lat: number
+  lng: number
+  name: string
+  kind: 'home' | 'business'
+}
+
 export async function createStreetScene(
   container: HTMLElement,
   center: { lat: number; lng: number },
   localHour: number,
+  markers: StreetMarker[] = [],
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
   const { buildings, roads } = await fetchNeighborhood(center.lat, center.lng)
@@ -165,6 +173,24 @@ export async function createStreetScene(
     scene.add(mesh)
   })
 
+  // ── Your holdings: golden beacons you can walk to ───────
+  const beaconBeams: THREE.Mesh[] = []
+  for (const marker of markers) {
+    const p = toLocalMeters(marker.lat, marker.lng, center.lat, center.lng)
+    if (Math.hypot(p.x, p.z) > STREET_RADIUS_M) continue
+    const color = marker.kind === 'home' ? 0x7dd8ff : 0xf0b429
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.9, 1.6, 90, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, fog: false }),
+    )
+    beam.position.set(p.x, 45, p.z)
+    scene.add(beam)
+    beaconBeams.push(beam)
+    const glow = new THREE.PointLight(color, 30, 40, 1.6)
+    glow.position.set(p.x, 6, p.z)
+    scene.add(glow)
+  }
+
   // ── First-person controls ────────────────────────────────
   const controls = new PointerLockControls(camera, renderer.domElement)
   const keys = new Set<string>()
@@ -192,6 +218,9 @@ export async function createStreetScene(
     const dt = Math.min((now - last) / 1000, 0.1)
     last = now
     fps = fps * 0.95 + (1 / Math.max(dt, 1e-4)) * 0.05
+    // Beacons breathe so they read as alive, not architecture
+    const pulse = 0.22 + 0.1 * Math.sin(now / 700)
+    for (const beam of beaconBeams) (beam.material as THREE.MeshBasicMaterial).opacity = pulse
 
     if (controls.isLocked) {
       const speed = WALK_SPEED * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? RUN_MULTIPLIER : 1)

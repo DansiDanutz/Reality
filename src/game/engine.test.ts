@@ -236,6 +236,20 @@ describe('rollEvent', () => {
     expect(rollEvent(false, () => EVENT_CHANCE / 2)).not.toBeNull()
   })
 
+  test('the event pool is deep enough to stay fresh', () => {
+    expect(LIFE_EVENTS.length).toBeGreaterThanOrEqual(30)
+    const texts = LIFE_EVENTS.map((e) => e.text)
+    expect(new Set(texts).size).toBe(texts.length)
+    // every event does something
+    for (const e of LIFE_EVENTS) {
+      expect(Boolean(e.money || e.effects), e.text).toBe(true)
+    }
+    // no event is economy-breaking
+    for (const e of LIFE_EVENTS) {
+      if (e.money) expect(Math.abs(e.money), e.text).toBeLessThanOrEqual(200)
+    }
+  })
+
   test('never gives business events to players without a business', () => {
     for (let i = 0; i < LIFE_EVENTS.length; i++) {
       const rng = (() => {

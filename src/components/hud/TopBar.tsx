@@ -1,6 +1,6 @@
 import { dayOfLife, localClock, zoneFor } from '../../game/clock'
-import { formatMoney } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
+import AnimatedMoney from './AnimatedMoney'
 
 export default function TopBar() {
   const citizen = useGame((s) => s.citizen)
@@ -49,7 +49,7 @@ export default function TopBar() {
         </div>
         <div className="stat stat-money">
           <span className="stat-label">balance</span>
-          <span className="stat-value mono gold">{formatMoney(money)}</span>
+          <span className="stat-value mono gold"><AnimatedMoney value={money} /></span>
         </div>
       </div>
 

@@ -74,6 +74,9 @@ interface GameState {
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
+  /** Feedback toasts (not persisted) */
+  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[]
+  popToast: (id: number) => void
 
   setStreetMode: (on: boolean) => void
   openMarket: (focus?: ShopCategory) => void
@@ -130,9 +133,17 @@ const FRESH = {
   lastFoodBankAt: 0,
   targetsSeen: false,
   awayReport: null as string | null,
+  toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
+
+let toastId = 0
+const withToast = (
+  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
+  text: string,
+  tone: 'gold' | 'ok' | 'sky',
+) => [...toasts.slice(-3), { id: ++toastId, text, tone }]
 
 export const useGame = create<GameState>()(
   persist(
@@ -306,14 +317,17 @@ export const useGame = create<GameState>()(
         )
 
         let log = s.log
+        let toasts = s.toasts
         let { level, xp } = s
         if (out.xpGained > 0) {
           const prog = applyXp(level, xp, out.xpGained)
+          if (prog.level > level) toasts = withToast(toasts, `Level ${prog.level} reached!`, 'sky')
           level = prog.level
           xp = prog.xp
         }
         if (out.shiftsCompleted > 0 && !wasAway) {
           log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}.`)
+          toasts = withToast(toasts, `Shift complete +${formatMoney(out.wagesEarned)}`, 'gold')
         }
         let awayReport = s.awayReport
         if (wasAway && (out.summary.length > 0 || out.assets.some((a) => a.pendingIncome > 1))) {
@@ -336,6 +350,7 @@ export const useGame = create<GameState>()(
             if (event.effects) needs = applyEffects(needs, event.effects)
             money = Math.max(0, money + (event.money ?? 0))
             log = note(log, event.text)
+            toasts = withToast(toasts, event.text, (event.money ?? 0) > 0 ? 'gold' : 'sky')
           }
         }
 
@@ -352,11 +367,13 @@ export const useGame = create<GameState>()(
           lastFountainAt: out.lastFountainAt,
           lastFoodBankAt: out.lastFoodBankAt,
           awayReport,
+          toasts,
           log,
         })
       },
 
       dismissAwayReport: () => set({ awayReport: null }),
+      popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 
       openMarket: (focus) => set({ marketFocus: focus ?? null, panel: 'shop' }),
 
@@ -546,6 +563,7 @@ export const useGame = create<GameState>()(
           money: s.money + Math.floor(total),
           assets: s.assets.map((a) => ({ ...a, pendingIncome: 0 })),
           totalCollected: s.totalCollected + Math.floor(total),
+          toasts: withToast(s.toasts, `Collected ${formatMoney(Math.floor(total))}`, 'gold'),
           log: note(s.log, `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
         })
       },
@@ -602,7 +620,7 @@ export const useGame = create<GameState>()(
       },
       partialize: (state) =>
         Object.fromEntries(
-          Object.entries(state).filter(([key]) => key !== 'streetMode' && key !== 'awayReport'),
+          Object.entries(state).filter(([key]) => key !== 'streetMode' && key !== 'awayReport' && key !== 'toasts'),
         ) as GameState,
     },
   ),

@@ -147,6 +147,7 @@ export const JOBS: Job[] = [
 ]
 
 export const LIFE_EVENTS: LifeEvent[] = [
+  // ── Everyday life ───────────────────────────────────────
   { text: 'You found $20 on the sidewalk.', money: 20 },
   { text: 'A stranger paid for your lunch. People are good.', effects: { hunger: 15 } },
   { text: 'Caught in the rain — those shoes are done.', money: -15 },
@@ -155,9 +156,31 @@ export const LIFE_EVENTS: LifeEvent[] = [
   { text: 'Someone ordered pizza for the whole building.', effects: { hunger: 10, fun: 5 } },
   { text: 'Slept like a stone. Today is yours.', effects: { energy: 12 } },
   { text: 'You won the neighborhood raffle.', money: 75 },
+  { text: 'An old friend called out of nowhere. An hour flew by.', effects: { fun: 18 } },
+  { text: 'The bakery gave you yesterday\'s bread for free.', effects: { hunger: 12 } },
+  { text: 'You returned a lost wallet. The reward was real.', money: 40 },
+  { text: 'Parking ticket. The sign was definitely hidden.', money: -35 },
+  { text: 'A neighbor shared soup from home.', effects: { hunger: 14, hydration: 6 } },
+  { text: 'You gave directions to tourists; they bought you coffee.', effects: { energy: 8, fun: 5 } },
+  { text: 'Left the window open — slept badly in the noise.', effects: { energy: -10 } },
+  { text: 'Free water bottles at the marathon checkpoint.', effects: { hydration: 25 } },
+  { text: 'Grocery flash sale — you stocked up smart.', money: -8, effects: { hunger: 20 } },
+  { text: 'Your card got skimmed. The bank refunded most of it.', money: -25 },
+  { text: 'You helped carry a couch upstairs. Sweaty, but they paid.', money: 30, effects: { energy: -8, hygiene: -6 } },
+  { text: 'A street cat adopted you for one sunny hour.', effects: { fun: 10 } },
+  { text: 'Sudden heatwave — you needed twice the water today.', effects: { hydration: -15 } },
+  { text: 'Blood-donation drive: juice, cookies, good karma.', effects: { hunger: 6, fun: 8, energy: -6 } },
+  // ── Business owner life ─────────────────────────────────
   { text: 'A famous food blogger reviewed your business!', money: 150, requiresBusiness: true },
   { text: 'Surprise inspection — a small compliance fine.', money: -60, requiresBusiness: true },
   { text: 'A tour bus stopped right outside your business.', money: 120, requiresBusiness: true },
+  { text: 'Your best regular brought five friends.', money: 85, requiresBusiness: true },
+  { text: 'A pipe burst overnight. The plumber was fast, not cheap.', money: -110, requiresBusiness: true },
+  { text: 'A local influencer tagged your storefront.', money: 95, requiresBusiness: true },
+  { text: 'Supplier mixed up the order — free extra stock.', money: 60, requiresBusiness: true },
+  { text: 'Graffiti on the shutters. Cleanup crew booked.', money: -45, requiresBusiness: true },
+  { text: 'The morning rush broke your daily record.', money: 130, requiresBusiness: true },
+  { text: 'A film crew rented your frontage for an afternoon.', money: 200, requiresBusiness: true },
 ]
 
 export const itemById = (id: string): ShopItem | undefined => SHOP_ITEMS.find((i) => i.id === id)
