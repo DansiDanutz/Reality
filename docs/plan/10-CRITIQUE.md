@@ -96,14 +96,24 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   building meshes (frustum-culled, acceptable) and 36 night PointLights (the
   next thing to cheapen if weak-phone reports come in).
 
+## Fixed in loop 8 (2026-07-03)
+
+- **Funnel analytics live** (01's exact event list): `/api/track` claim-once blob
+  per (milestone, anonymous id) — physically cannot double-count; stores only the
+  milestone + day. `/api/funnel` public aggregate (open development = public
+  numbers). Client honors DNT, dedupes locally, fire-and-forget. All 12
+  milestones wired welcome_seen → d7_return. Verified in prod: duplicate POST
+  counts once, bad events 400, funnel reads in journey order; test data wiped.
+- *Self-criticism:* client marks an event sent BEFORE the network call — a failed
+  first attempt undercounts (chosen over retry-spam; revisit with Phase 1b).
+  No dashboard UI yet — numbers are a curl away, good enough until real traffic.
+
 ## Open — ranked by (retention × effort)
 
 1. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
    needed with P2P (Phase 2).
-3. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
-4. **Onboarding funnel analytics** (01's event list) — flying blind on drop-off until
-   a lightweight, privacy-clean counter lands (Phase 1b at latest).
-5. **Phase 1b is now the top structural item**: server authority unlocks true
+2. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
+3. **Phase 1b is now the top structural item**: server authority unlocks true
    leaderboards, presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
 
 ## Accepted (consciously, for now)
