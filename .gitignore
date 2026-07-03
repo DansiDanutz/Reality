@@ -26,3 +26,7 @@ dist-ssr
 .vercel
 .env*.local
 .env*
+
+# Agent/test scratch — never commit these into the tree
+.playwright-mcp/
+*.patch

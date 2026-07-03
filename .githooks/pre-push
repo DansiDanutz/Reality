@@ -1,0 +1,30 @@
+#!/bin/sh
+# Reality pre-push guard — keeps `main` safe and pushes green.
+# Installed by scripts/setup.sh (git config core.hooksPath .githooks).
+
+# 1. `main` is merge-only. Never push to it directly (branch protection also
+#    blocks this server-side; this just fails faster with a clearer message).
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "✗ Refusing to push to main — it is protected and merge-only."
+      echo "  Open a PR from your branch instead (see AGENTS.md)."
+      exit 1
+      ;;
+  esac
+done
+
+# 2. Run the exact gate CI runs, so you never push red.
+#    Bypass in a pinch with:  SKIP_VERIFY=1 git push
+if [ "$SKIP_VERIFY" = "1" ]; then
+  echo "⚠ SKIP_VERIFY=1 — skipping the local gate (CI will still check)."
+  exit 0
+fi
+
+echo "→ pre-push: running the gate (vitest + build)…"
+if ! npm run verify; then
+  echo "✗ Gate failed — fix it before pushing (or 'SKIP_VERIFY=1 git push' to bypass)."
+  exit 1
+fi
+echo "✓ Gate passed — pushing."
+exit 0
