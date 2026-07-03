@@ -1,10 +1,67 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { buildAvatarPrompt, validateAvatarParams } from '../src/lib/avatarPrompt'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const GENERATIONS_PER_DAY = 5
+
+// Kept in sync with src/lib/avatarPrompt.ts (api functions must be
+// self-contained — Vercel does not bundle imports from src/)
+const HAIR_COLORS = ['black', 'dark brown', 'light brown', 'blonde', 'red', 'gray', 'white']
+const HAIR_STYLES = ['short', 'medium-length', 'long', 'curly', 'wavy', 'buzz-cut', 'bald', 'ponytail']
+const EYE_COLORS = ['brown', 'hazel', 'green', 'blue', 'gray']
+
+interface AvatarParams {
+  gender: 'male' | 'female'
+  age: number
+  heightCm: number
+  weightKg: number
+  hairColor: string
+  hairStyle: string
+  eyeColor: string
+}
+
+function validateAvatarParams(p: unknown): p is AvatarParams {
+  if (!p || typeof p !== 'object') return false
+  const a = p as Record<string, unknown>
+  return (
+    (a.gender === 'male' || a.gender === 'female') &&
+    typeof a.age === 'number' && a.age >= 18 && a.age <= 90 &&
+    typeof a.heightCm === 'number' && a.heightCm >= 140 && a.heightCm <= 215 &&
+    typeof a.weightKg === 'number' && a.weightKg >= 40 && a.weightKg <= 200 &&
+    HAIR_COLORS.includes(String(a.hairColor)) &&
+    HAIR_STYLES.includes(String(a.hairStyle)) &&
+    EYE_COLORS.includes(String(a.eyeColor))
+  )
+}
+
+function buildWord(heightCm: number, weightKg: number): string {
+  const bmi = weightKg / Math.pow(heightCm / 100, 2)
+  if (bmi < 18.5) return 'slim'
+  if (bmi < 23) return 'lean'
+  if (bmi < 27) return 'average'
+  if (bmi < 32) return 'sturdy'
+  return 'heavyset'
+}
+
+function heightWord(heightCm: number): string {
+  if (heightCm < 160) return 'short'
+  if (heightCm < 178) return 'of average height'
+  if (heightCm < 190) return 'tall'
+  return 'very tall'
+}
+
+function buildAvatarPrompt(p: AvatarParams): string {
+  const person = p.gender === 'male' ? 'man' : 'woman'
+  const hair = p.hairStyle === 'bald' ? 'a shaved bald head' : `${p.hairStyle} ${p.hairColor} hair`
+  return (
+    `Video game avatar portrait: a ${p.age}-year-old ${person}, ${heightWord(p.heightCm)} (about ${p.heightCm} cm) ` +
+    `with a ${buildWord(p.heightCm, p.weightKg)} build (about ${p.weightKg} kg), ${hair}, ${p.eyeColor} eyes. ` +
+    `Head and shoulders, facing the camera with a confident, friendly half-smile. ` +
+    `Stylized-realistic 3D game character render, soft studio key light with a warm amber rim light, ` +
+    `deep navy background, clean and professional, no text, no logos, no watermark.`
+  )
+}
 
 async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
