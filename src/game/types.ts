@@ -18,6 +18,7 @@ export type ShopCategory =
   | 'vehicles'
   | 'education'
   | 'leisure'
+  | 'pets'
   | 'home'
   | 'business'
 

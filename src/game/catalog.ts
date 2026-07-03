@@ -32,6 +32,7 @@ export const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [
   { id: 'vehicles', label: 'Vehicles', icon: '🛵' },
   { id: 'education', label: 'Education', icon: '🎓' },
   { id: 'leisure', label: 'Leisure', icon: '🎡' },
+  { id: 'pets', label: 'Pets', icon: '🐾' },
   { id: 'home', label: 'Homes', icon: '⌂' },
   { id: 'business', label: 'Businesses', icon: '◆' },
 ]
@@ -49,6 +50,17 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'sushi', name: 'Sushi Set', category: 'food', price: 24, hours: 1, description: 'Precision on a plate.', effects: { hunger: 45, fun: 5 } },
   { id: 'restaurant', name: 'Restaurant Dinner', category: 'food', price: 45, hours: 2, description: 'Table service, real plates, a small luxury.', effects: { hunger: 55, fun: 12 } },
   { id: 'finedining', name: 'Fine Dining', category: 'food', price: 150, hours: 3, description: 'Seven courses. You earned this.', effects: { hunger: 70, fun: 25 } },
+  // Street foods of the real world — real corner prices
+  { id: 'shawarma', name: 'Shawarma Wrap', category: 'food', price: 6, hours: 0.5, description: 'Spinning since morning, perfect by noon.', effects: { hunger: 32, fun: 3 } },
+  { id: 'banhmi', name: 'Bánh Mì', category: 'food', price: 5, hours: 0.5, description: 'Saigon on a baguette.', effects: { hunger: 28, fun: 4 } },
+  { id: 'arepa', name: 'Arepa con Queso', category: 'food', price: 4, hours: 0.5, description: 'Griddled corn, melted middle.', effects: { hunger: 24, fun: 3 } },
+  { id: 'pierogi', name: 'Pierogi Plate', category: 'food', price: 7, hours: 0.5, description: 'Grandmother-approved dumplings.', effects: { hunger: 34, fun: 3 } },
+  { id: 'samosa', name: 'Samosas (3)', category: 'food', price: 3, hours: 0.25, description: 'Crisp corners, spiced heart.', effects: { hunger: 18, fun: 3 } },
+  { id: 'taiyaki', name: 'Taiyaki', category: 'food', price: 4, hours: 0.25, description: 'A fish-shaped pastry with no fish in it.', effects: { hunger: 12, fun: 8 } },
+  { id: 'poutine', name: 'Poutine', category: 'food', price: 9, hours: 0.5, description: 'Fries, gravy, squeaky cheese. Apologize later.', effects: { hunger: 36, fun: 6 } },
+  { id: 'currywurst', name: 'Currywurst', category: 'food', price: 5, hours: 0.25, description: 'Berlin\'s answer to every question.', effects: { hunger: 26, fun: 4 } },
+  { id: 'padthai', name: 'Pad Thai Box', category: 'food', price: 8, hours: 0.5, description: 'Wok-fired, lime on top.', effects: { hunger: 35, fun: 5 } },
+  { id: 'mamaliga', name: 'Mămăligă cu Brânză', category: 'food', price: 6, hours: 0.5, description: 'Romanian comfort: polenta, cheese, sour cream.', effects: { hunger: 33, fun: 5 } },
 
   // ── Drinks (hydration is the most urgent human need) ────
   { id: 'water', name: 'Bottled Water', category: 'drinks', price: 1, hours: 0.1, description: 'The first need. Your body is ~60% of this.', effects: { hydration: 50 } },
@@ -118,6 +130,11 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'themepark', name: 'Theme Park Day', category: 'leisure', price: 120, hours: 8, description: 'Scream therapy, professionally administered.', effects: { fun: 65 } },
   { id: 'spa', name: 'Spa Day', category: 'leisure', price: 150, hours: 4, description: 'Emerge as a new person.', effects: { hygiene: 60, fun: 20 } },
   { id: 'weekendtrip', name: 'Weekend Trip', category: 'leisure', price: 600, hours: 24, description: 'New city, no plans, full battery.', effects: { fun: 90, energy: -10 } },
+
+  // ── Pets (companions — joy that greets you at the door) ──
+  { id: 'goldfish', name: 'Goldfish', category: 'pets', price: 15, durable: true, hours: 0.25, description: 'Watch it circle. Somehow it helps.', effects: { fun: 6 } },
+  { id: 'cat', name: 'Cat', category: 'pets', price: 150, durable: true, hours: 1, description: 'Adopted from the shelter. It owns you now.', effects: { fun: 18 } },
+  { id: 'dog', name: 'Dog', category: 'pets', price: 300, durable: true, hours: 1, description: 'A walk, a ball, a best friend.', effects: { fun: 25, energy: -6, hygiene: -4 } },
 
   // ── Homes (placeable, real-market prices) ───────────────
   { id: 'microstudio', name: 'Micro Studio', category: 'home', price: 45_000, placeable: true, description: 'Small door, big deal: it\'s yours.' },
