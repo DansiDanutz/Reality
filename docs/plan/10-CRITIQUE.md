@@ -42,18 +42,28 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   confirm) on every toast, zero asset downloads, persisted 🔊/🔇 toggle in the nav.
   Street ambience still open (small, next loop).
 
+## Fixed in loop 4 (2026-07-03)
+
+- ~~**Names collide / leaderboard gameable**~~ *(beta-grade fix)* → citizen names are
+  now globally unique (atomic claim; client auto-retries a numbered variant), and
+  reported net worth is capped to a plausibility curve (grant + $100k per day of
+  citizenship). Full fix remains Phase 1b server authority.
+- ~~**Enter your buildings**~~ *(v1)* → walk within 16m of your property in Street
+  Mode and its door card appears: name, $/day, money waiting, **Collect right there
+  on the street**, Manage opens Assets. Verified end-to-end with the chime.
+- **Street ambience** → synthesized night-city hum while walking, respects mute.
+
 ## Open — ranked by (retention × effort)
 
-1. **Leaderboard names collide and are gameable** (self-reported worth). Beta-acceptable;
-   dies at Phase 1b (server-authoritative, unique names).
-3. **Enter your buildings** in Street Mode: a door + interior card (revenue today,
-   customers, a "manage" panel) turns the postcard into a place.
-4. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
+1. **Touch controls for Street Mode** (PWA installable — walking needs thumbs:
+   virtual joystick + drag-look).
+2. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
    needed with P2P (Phase 2).
-5. **Touch controls for Street Mode** (PWA now installable — walking needs thumbs).
-6. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
-7. **Onboarding funnel analytics** (01's event list) — we are flying blind on drop-off
-   until a lightweight, privacy-clean counter lands (Phase 1b at latest).
+3. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
+4. **Onboarding funnel analytics** (01's event list) — flying blind on drop-off until
+   a lightweight, privacy-clean counter lands (Phase 1b at latest).
+5. **Phase 1b is now the top structural item**: server authority unlocks true
+   leaderboards, presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
 
 ## Accepted (consciously, for now)
 
