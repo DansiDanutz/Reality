@@ -104,3 +104,19 @@ she'll own something someday. Canon variant: `assets/characters/maya-v1.png`
   sheets, then `show_characters action=train`) so Maya stays pixel-consistent across
   future stills, ads, and video.
 - Her job IDs can seed image→video (Seedance/Kling) for the launch TikTok clip.
+
+## The Guide — the living state character (HUD, right side)
+
+Reality's mascot-grade companion (from Dan's reference sheet: navy/orange
+hooded jersey #7, Pixar-style 3D). He IS the simulation:
+
+- **Four mood states** driven by `moodOf()` every tick: happy-and-energetic
+  (his target), hungry (also thirst), tired, upset (pain or joylessness).
+  Art: `public/character/t1-{mood}.png`, identity-locked generations from the
+  reference (nano banana pro; jobs c38b6c78/13948d1f/61c1f1ba/7d6472d6;
+  reference media 3d22499b, archived at assets/characters/state-character-ref.jpg).
+- **He guides**: `adviceOf()` (engine, test-locked ladder) gives one first-person
+  line + one CTA — survival → collect → job → home → business → fun → expand.
+- **Achievement tiers** change his look via `tierOf()`: t1 starter (shipped),
+  t2 established (level 5+ / first business), t3 mogul (5 businesses / $1M) —
+  t2/t3 art pending, falls back to t1 automatically.

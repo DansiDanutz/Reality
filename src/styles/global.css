@@ -421,6 +421,62 @@ body {
 .toast.ok { color: var(--ok); border-color: rgba(67, 217, 163, 0.4); }
 .toast.sky { color: var(--sky); border-color: rgba(125, 216, 255, 0.4); }
 
+/* ── Mood card: the living citizen, right side ─────────── */
+.mood-card {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 168px;
+  padding: 12px 14px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  text-align: center;
+  transition: border-color 600ms var(--ease-out);
+}
+.mood-card.mood-happy { border-color: rgba(67, 217, 163, 0.4); }
+.mood-card.mood-hungry { border-color: rgba(240, 180, 41, 0.45); }
+.mood-card.mood-tired { border-color: rgba(125, 216, 255, 0.4); }
+.mood-card.mood-upset { border-color: rgba(229, 72, 77, 0.45); }
+.mood-img {
+  width: 132px;
+  height: 132px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.mood-card.mood-happy .mood-img { animation: mood-bounce 2.4s ease-in-out infinite; }
+@keyframes mood-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.mood-label { font-weight: 600; font-size: 13px; }
+.mood-say {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text);
+  background: rgba(120, 150, 205, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 9px;
+  font-style: italic;
+}
+@media (max-width: 900px) {
+  .mood-card { width: 148px; padding: 8px; top: auto; bottom: 128px; transform: none; }
+  .mood-img { width: 96px; height: 96px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mood-card.mood-happy .mood-img { animation: none; }
+}
+
 .away-card {
   position: absolute;
   top: 66px;

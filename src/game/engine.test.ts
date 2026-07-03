@@ -262,6 +262,78 @@ describe('rollEvent', () => {
   })
 })
 
+describe('the guide (adviceOf)', async () => {
+  const { adviceOf } = await import('./engine')
+  const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }
+  const base = {
+    needs: fine,
+    health: 100,
+    money: 500,
+    jobId: 'barista' as string | null,
+    activity: null,
+    hasHome: true,
+    businesses: 1,
+    pendingIncome: 0,
+  }
+
+  test('survival always outranks wealth', () => {
+    expect(adviceOf({ ...base, health: 20, pendingIncome: 9999 }).action).toBe('eat')
+    expect(adviceOf({ ...base, needs: { ...fine, hydration: 10 }, pendingIncome: 9999 }).action).toBe('drink')
+    expect(adviceOf({ ...base, needs: { ...fine, hunger: 10 } }).action).toBe('eat')
+    expect(adviceOf({ ...base, needs: { ...fine, energy: 10 } }).action).toBe('sleep')
+  })
+
+  test('a broke thirsty citizen is not told to buy water', () => {
+    const a = adviceOf({ ...base, money: 0, needs: { ...fine, hydration: 10 } })
+    expect(a.action).not.toBe('drink')
+  })
+
+  test('the ladder: money waiting, then job, then home, then business', () => {
+    expect(adviceOf({ ...base, pendingIncome: 120 }).action).toBe('collect')
+    expect(adviceOf({ ...base, jobId: null }).action).toBe('find-job')
+    expect(adviceOf({ ...base, hasHome: false, money: 60_000 }).action).toBe('buy-home')
+    expect(adviceOf({ ...base, businesses: 0, money: 20_000 }).action).toBe('buy-business')
+  })
+
+  test('during activities he narrates instead of nagging', () => {
+    const sleeping = { kind: 'sleep' as const, startedAt: 0, endsAt: 1 }
+    expect(adviceOf({ ...base, activity: sleeping }).action).toBe('none')
+  })
+
+  test('when life is good, the default is honest work', () => {
+    const a = adviceOf(base)
+    expect(a.action).toBe('start-shift')
+    expect(a.text.length).toBeGreaterThan(10)
+  })
+})
+
+describe('mood & tiers', async () => {
+  const { moodOf, tierOf } = await import('./engine')
+  const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }
+
+  test('his target state: happy and energetic when cared for', () => {
+    expect(moodOf(fine, 100)).toBe('happy')
+  })
+
+  test('mood priority mirrors felt urgency', () => {
+    expect(moodOf(fine, 20)).toBe('upset') // pain first
+    expect(moodOf({ ...fine, hydration: 10 }, 100)).toBe('hungry') // thirst reads as craving
+    expect(moodOf({ ...fine, hunger: 10 }, 100)).toBe('hungry')
+    expect(moodOf({ ...fine, energy: 15 }, 100)).toBe('tired')
+    expect(moodOf({ ...fine, fun: 10 }, 100)).toBe('upset')
+    // hungry beats tired when both are low
+    expect(moodOf({ ...fine, hunger: 10, energy: 10 }, 100)).toBe('hungry')
+  })
+
+  test('achievements change his look', () => {
+    expect(tierOf(1, 0, 5_000)).toBe(1)
+    expect(tierOf(5, 0, 5_000)).toBe(2)
+    expect(tierOf(1, 1, 5_000)).toBe(2)
+    expect(tierOf(2, 5, 5_000)).toBe(3)
+    expect(tierOf(2, 1, 1_200_000)).toBe(3)
+  })
+})
+
 describe('progression & worth', () => {
   test('applyXp cascades through multiple level-ups', () => {
     expect(applyXp(1, 0, 350)).toEqual({ level: 3, xp: 50, levelsGained: 2 })

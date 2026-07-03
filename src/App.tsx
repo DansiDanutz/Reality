@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from 'react'
 import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
+import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
@@ -71,6 +72,7 @@ export default function App() {
         <>
           <TopBar />
           <Toasts />
+          <MoodCard />
           <AwayReport />
           <div className="left-rail">
             <TutorialPanel />

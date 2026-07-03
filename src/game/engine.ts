@@ -271,6 +271,105 @@ export function wageBonusFrom(inventory: Record<string, number>): number {
 }
 
 /**
+ * The citizen's visible mood — his target is to be happy and energetic.
+ * Priority mirrors felt urgency: pain (health) > body (thirst/hunger) >
+ * sleep > spirit (fun). The character art reacts to this every tick.
+ */
+export type Mood = 'happy' | 'hungry' | 'tired' | 'upset'
+
+export function moodOf(needs: Needs, health: number): Mood {
+  if (health < 35) return 'upset'
+  if ((needs.hydration ?? 75) < 25 || needs.hunger < 25) return 'hungry'
+  if (needs.energy < 28) return 'tired'
+  if (needs.fun < 20) return 'upset'
+  return 'happy'
+}
+
+/**
+ * Achievement tier — the character's look grows with the citizen's life.
+ * Tier 1: starter. Tier 2: established (level 5+ or first business).
+ * Tier 3: mogul (5+ businesses or $1M net worth).
+ */
+export function tierOf(level: number, businesses: number, netWorth: number): 1 | 2 | 3 {
+  if (businesses >= 5 || netWorth >= 1_000_000) return 3
+  if (level >= 5 || businesses >= 1) return 2
+  return 1
+}
+
+/**
+ * The guide: your citizen tells you, in his own voice, the single best next
+ * move. One ladder, strictly ordered by urgency — survival, then work, then
+ * wealth, then joy. Every line ends in exactly one actionable step.
+ */
+export type AdviceAction =
+  | 'drink'
+  | 'eat'
+  | 'sleep'
+  | 'find-job'
+  | 'start-shift'
+  | 'leisure'
+  | 'collect'
+  | 'buy-home'
+  | 'buy-business'
+  | 'none'
+
+export interface Advice {
+  text: string
+  action: AdviceAction
+  cta?: string
+}
+
+export interface AdviceInput {
+  needs: Needs
+  health: number
+  money: number
+  jobId: string | null
+  activity: Activity | null
+  hasHome: boolean
+  businesses: number
+  pendingIncome: number
+}
+
+const CHEAPEST_HOME = 45_000
+const CHEAPEST_BUSINESS = 15_000
+
+export function adviceOf(i: AdviceInput): Advice {
+  const hydration = i.needs.hydration ?? 75
+
+  // Survival first — the body always outranks the wallet
+  if (i.health < 35)
+    return { text: "I'm not doing well. Water, food and a night's sleep — that's how I heal.", action: 'eat', cta: 'Feed me' }
+  if (hydration < 30 && i.money >= 1)
+    return { text: "I'm thirsty. One dollar, one bottle — easiest fix in the world.", action: 'drink', cta: 'Drink $1' }
+  if (i.needs.hunger < 30)
+    return { text: "My stomach is growling. Let's eat something real.", action: 'eat', cta: 'Open the food market' }
+  if (i.activity?.kind === 'sleep')
+    return { text: 'Recharging… wake me early if you need me.', action: 'none' }
+  if (i.activity?.kind === 'shift')
+    return { text: "On the clock. Money lands when the shift ends — see you there.", action: 'none' }
+  if (i.needs.energy < 28)
+    return { text: "I'm running on fumes. A real night's sleep and I'm a new man.", action: 'sleep', cta: 'Sleep' }
+
+  // Money waiting is money forgotten
+  if (i.pendingIncome >= 50)
+    return { text: `Our businesses are holding ${formatMoney(Math.floor(i.pendingIncome))} for us. Shall we?`, action: 'collect', cta: 'Collect' }
+
+  // The ladder: job → home → business → more
+  if (!i.jobId)
+    return { text: "I need work — everything in this city starts with a paycheck.", action: 'find-job', cta: 'Find me a job' }
+  if (!i.hasHome && i.money >= CHEAPEST_HOME)
+    return { text: "We can afford our own door now. A home makes every night count.", action: 'buy-home', cta: 'Buy a home' }
+  if (i.businesses === 0 && i.money >= CHEAPEST_BUSINESS)
+    return { text: "Working for others is chapter one. Let's open our first business.", action: 'buy-business', cta: 'Open a business' }
+  if (i.needs.fun < 30)
+    return { text: "All work, no play… I'm fading. Take me somewhere fun.", action: 'leisure', cta: 'Have some fun' }
+  if (i.businesses >= 1 && i.money >= CHEAPEST_BUSINESS * 3)
+    return { text: 'The first one pays. The second one compounds. Expand?', action: 'buy-business', cta: 'Expand the empire' }
+
+  return { text: "Life is good. A shift today keeps the dream funded.", action: 'start-shift', cta: 'Work a shift' }
+}
+
+/**
  * Roll for a random life event. `rng` is injectable for tests.
  * Returns null on the (very common) quiet tick.
  */
