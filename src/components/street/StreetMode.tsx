@@ -116,7 +116,11 @@ export default function StreetMode() {
         </div>
       )}
       {nearAsset && (
-        <div className="street-door" role="status">
+        <div
+          className="street-door"
+          role="status"
+          aria-label={`${nearAsset.kind === 'home' ? 'Home' : 'Business'} nearby: ${nearAsset.name}`}
+        >
           <p className="away-eyebrow">{nearAsset.kind === 'home' ? 'your home' : 'your business'}</p>
           <p className="street-door-name">{nearAsset.name}</p>
           {nearAsset.kind === 'business' && (
