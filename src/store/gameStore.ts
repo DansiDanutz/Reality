@@ -814,6 +814,10 @@ export const useGame = create<GameState>()(
       },
 
       generateAvatar: async (params) => {
+        // A citizen created offline (or whose first registration didn't stick)
+        // has no token yet — register on demand so the studio just works instead
+        // of dead-ending on "connect first".
+        if (get().citizen && !get().citizen?.token) await get().registerOnline()
         const s = get()
         if (!s.citizen?.token) return 'Connect to the world first — the avatar studio needs an online citizen.'
         const d = await tryPost('/api/avatar', {
