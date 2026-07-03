@@ -132,9 +132,12 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'weekendtrip', name: 'Weekend Trip', category: 'leisure', price: 600, hours: 24, description: 'New city, no plans, full battery.', effects: { fun: 90, energy: -10 } },
 
   // ── Pets (companions — joy that greets you at the door) ──
-  { id: 'goldfish', name: 'Goldfish', category: 'pets', price: 15, durable: true, hours: 0.25, description: 'Watch it circle. Somehow it helps.', effects: { fun: 6 } },
-  { id: 'cat', name: 'Cat', category: 'pets', price: 150, durable: true, hours: 1, description: 'Adopted from the shelter. It owns you now.', effects: { fun: 18 } },
-  { id: 'dog', name: 'Dog', category: 'pets', price: 300, durable: true, hours: 1, description: 'A walk, a ball, a best friend.', effects: { fun: 25, energy: -6, hygiene: -4 } },
+  // Pets are alive: each has a hunger meter that decays on real time and a
+  // daily food cost. A fed pet gives its full fun bonus when you play with it;
+  // a neglected one goes quiet (no bonus) but never dies — this game is kind.
+  { id: 'goldfish', name: 'Goldfish', category: 'pets', price: 15, durable: true, hours: 0.25, description: 'Watch it circle. Somehow it helps.', effects: { fun: 6 }, pet: { foodCostPerDay: 1, fun: 6 } },
+  { id: 'cat', name: 'Cat', category: 'pets', price: 150, durable: true, hours: 1, description: 'Adopted from the shelter. It owns you now.', effects: { fun: 18 }, pet: { foodCostPerDay: 2, fun: 18 } },
+  { id: 'dog', name: 'Dog', category: 'pets', price: 300, durable: true, hours: 1, description: 'A walk, a ball, a best friend.', effects: { fun: 25, energy: -6, hygiene: -4 }, pet: { foodCostPerDay: 3, fun: 25 } },
 
   // ── Homes (placeable, real-market prices) ───────────────
   { id: 'microstudio', name: 'Micro Studio', category: 'home', price: 45_000, placeable: true, description: 'Small door, big deal: it\'s yours.' },

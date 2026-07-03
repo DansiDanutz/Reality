@@ -4,21 +4,25 @@ import {
   AUTO_MEAL_COST,
   AUTO_WATER_COST,
   PENDING_CAP_DAYS,
+  PET_QUIET_THRESHOLD,
   SHIFT_HOURS,
   XP_PER_SHIFT,
   advanceLife,
   applyEffects,
   applyXp,
   clamp,
+  feedPet,
   liveRealtime,
   netWorthOf,
+  petFunBonus,
+  petUpkeepPerDay,
   rollEvent,
   wageBonusFrom,
   xpForLevel,
   type Activity,
 } from './engine'
 import { dayOfLife, localClock, zoneFor } from './clock'
-import type { PlacedAsset } from './types'
+import type { Pet, PlacedAsset } from './types'
 
 const HOUR = 3_600_000
 
@@ -677,5 +681,90 @@ describe('holding costs (upkeepPerDayOf)', async () => {
     expect(out.upkeepPaid).toBeGreaterThan(0)
     expect(out.money).toBeLessThan(100_000 + out.wagesEarned)
     expect(out.summary.join(' ')).toMatch(/upkeep|opex|overhead/i)
+  })
+})
+
+describe('pets are alive (issue #9)', () => {
+  const pet = (itemId: string, hunger = 100): Pet => ({ itemId, hunger, petId: `${itemId}-1` })
+  const base = (over: Partial<Parameters<typeof liveRealtime>[0]> = {}) => ({
+    ...world(),
+    money: 1000,
+    activity: null as Activity | null,
+    hasHome: false,
+    wageBonus: 0,
+    ...over,
+  })
+
+  test('a pet gets hungry on real time — the bar empties about once a day', () => {
+    // No money ⇒ no auto-feed, so we measure the raw decay rate
+    const out = liveRealtime(base({ money: 0, pets: [pet('dog')] }), 0, 24 * HOUR)
+    expect(out.pets[0].hunger).toBeLessThanOrEqual(2)
+  })
+
+  test('hunger never drops below 0 (no overflow into next day)', () => {
+    const out = liveRealtime(base({ money: 0, pets: [pet('dog', 5)] }), 0, 3 * 24 * HOUR)
+    expect(out.pets[0].hunger).toBeGreaterThanOrEqual(0)
+    expect(out.pets[0].hunger).toBeLessThanOrEqual(0.01)
+  })
+
+  test('a neglected pet goes quiet but NEVER dies — the game is kind', () => {
+    // A week away, no money to feed: the dog hits 0 hunger and stays there
+    const out = liveRealtime(base({ money: 0, pets: [pet('dog', 10)] }), 0, 7 * 24 * HOUR)
+    expect(out.pets[0].hunger).toBe(0)
+    // No error, no death flag, pet still present
+    expect(out.pets.length).toBe(1)
+  })
+
+  test('away and funded, the citizen auto-feeds a hungry pet from the wallet', () => {
+    const out = liveRealtime(base({ money: 1000, pets: [pet('dog', 20)] }), 0, 26 * HOUR)
+    expect(out.petFoodPaid).toBeGreaterThanOrEqual(3) // at least one $3 feeding
+    expect(out.pets[0].hunger).toBeGreaterThan(PET_QUIET_THRESHOLD)
+    expect(out.summary.join(' ')).toMatch(/pet/i)
+  })
+
+  test('a broke citizen cannot auto-feed — the pet goes quiet, not unfed-at-cost', () => {
+    const out = liveRealtime(base({ money: 0, pets: [pet('dog', 20)] }), 0, 24 * HOUR)
+    expect(out.petFoodPaid).toBe(0)
+    expect(out.pets[0].hunger).toBeLessThanOrEqual(PET_QUIET_THRESHOLD)
+  })
+
+  test('petFunBonus scales with hunger and zeroes below the quiet threshold', () => {
+    expect(petFunBonus(pet('dog', 100))).toBe(25) // full ceiling
+    expect(petFunBonus(pet('dog', 60))).toBeGreaterThan(0)
+    expect(petFunBonus(pet('dog', 60))).toBeLessThan(25)
+    expect(petFunBonus(pet('dog', PET_QUIET_THRESHOLD))).toBe(0) // at threshold: quiet
+    expect(petFunBonus(pet('dog', 0))).toBe(0) // neglected: no joy
+  })
+
+  test('a pricier pet gives more joy (dog > cat > goldfish)', () => {
+    expect(petFunBonus(pet('dog', 100))).toBeGreaterThan(petFunBonus(pet('cat', 100)))
+    expect(petFunBonus(pet('cat', 100))).toBeGreaterThan(petFunBonus(pet('goldfish', 100)))
+  })
+
+  test('feedPet tops the bar to full and charges the daily food cost', () => {
+    const half = feedPet(pet('dog', 50), 1000)
+    expect(half.pet.hunger).toBe(100)
+    expect(half.cost).toBe(3)
+    // already full → no-op, no charge
+    expect(feedPet(pet('dog', 100), 1000).cost).toBe(0)
+    // can't afford → no-op
+    expect(feedPet(pet('dog', 50), 2).cost).toBe(0)
+    expect(feedPet(pet('dog', 50), 2).pet.hunger).toBe(50)
+  })
+
+  test('economy guard: owning every pet costs far less than a day of the worst job', () => {
+    // dog + cat + goldfish = $6/day; a barista shift at rank 1 pays $120/day.
+    const worstJobDay = 16 * SHIFT_HOURS
+    const allPets = SHOP_ITEMS.filter((i) => i.pet).map((i) => pet(i.id))
+    expect(petUpkeepPerDay(allPets)).toBeLessThan(worstJobDay / 4)
+    expect(petUpkeepPerDay(allPets)).toBeGreaterThan(0)
+  })
+
+  test('pet upkeep is honestly cheaper than business opex', async () => {
+    // The economy sink ladder: living < pet < business. Joy should never cost
+    // more than a fraction of an enterprise.
+    const { upkeepPerDayOf } = await import('./engine')
+    const pets = SHOP_ITEMS.filter((i) => i.pet).map((i) => pet(i.id))
+    expect(petUpkeepPerDay(pets)).toBeLessThan(upkeepPerDayOf([business(200)]))
   })
 })
