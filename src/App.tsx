@@ -76,57 +76,63 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [setPanel])
 
+  // A true modal dialog hides the rest of the app from assistive tech and
+  // keyboard focus, not just visually — `inert` does both in one attribute.
+  const dialogOpen = drawerOpen || panel === 'shop'
+
   return (
     <div className="app">
-      <Suspense fallback={<div className="globe-loading" aria-hidden />}>
-        <WorldMap />
-      </Suspense>
-      {!citizen && <Welcome />}
-      {citizen && !targetsSeen && <TargetsIntro />}
-      {citizen && streetMode && (
-        <Suspense fallback={<div className="street-overlay"><p className="street-loading">Lacing up…</p></div>}>
-          <StreetMode />
+      <div inert={dialogOpen || undefined} aria-hidden={dialogOpen || undefined}>
+        <Suspense fallback={<div className="globe-loading" aria-hidden />}>
+          <WorldMap />
         </Suspense>
-      )}
-      {citizen && (
-        <>
-          <TopBar />
-          <Toasts />
-          <AwayReport />
-          {!tutorialDone && (
-            <HudWindow id="objectives">
-              <TutorialPanel />
+        {!citizen && <Welcome />}
+        {citizen && !targetsSeen && <TargetsIntro />}
+        {citizen && streetMode && (
+          <Suspense fallback={<div className="street-overlay"><p className="street-loading">Lacing up…</p></div>}>
+            <StreetMode />
+          </Suspense>
+        )}
+        {citizen && (
+          <>
+            <TopBar />
+            <Toasts />
+            <AwayReport />
+            {!tutorialDone && (
+              <HudWindow id="objectives">
+                <TutorialPanel />
+              </HudWindow>
+            )}
+            <HudWindow id="citizen">
+              <AvatarCard />
             </HudWindow>
-          )}
-          <HudWindow id="citizen">
-            <AvatarCard />
-          </HudWindow>
-          <HudWindow id="vitals">
-            <NeedsPanel />
-          </HudWindow>
-          {!streetMode && (
-            <HudWindow id="guide">
-              <MoodCard />
+            <HudWindow id="vitals">
+              <NeedsPanel />
             </HudWindow>
-          )}
-          <HudWindow id="finance">
-            <FinanceCard />
-          </HudWindow>
-          <HudDock />
-          <ActionDock />
-          {panel === 'shop' && <Market />}
-          {drawerOpen && (
-            <div className="drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label={PANEL_LABELS[panel] ?? 'Panel'}>
-              <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
-              {panel === 'work' && <WorkPanel />}
-              {panel === 'assets' && <AssetsPanel />}
-              {panel === 'top' && <LeaderboardPanel />}
-              {panel === 'profile' && <ProfilePanel />}
-              {panel === 'health' && <HealthGuide />}
-              {panel === 'cook' && <KitchenPanel />}
-            </div>
-          )}
-        </>
+            {!streetMode && (
+              <HudWindow id="guide">
+                <MoodCard />
+              </HudWindow>
+            )}
+            <HudWindow id="finance">
+              <FinanceCard />
+            </HudWindow>
+            <HudDock />
+            <ActionDock />
+          </>
+        )}
+      </div>
+      {panel === 'shop' && <Market />}
+      {drawerOpen && (
+        <div className="drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label={PANEL_LABELS[panel] ?? 'Panel'}>
+          <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
+          {panel === 'work' && <WorkPanel />}
+          {panel === 'assets' && <AssetsPanel />}
+          {panel === 'top' && <LeaderboardPanel />}
+          {panel === 'profile' && <ProfilePanel />}
+          {panel === 'health' && <HealthGuide />}
+          {panel === 'cook' && <KitchenPanel />}
+        </div>
       )}
     </div>
   )
