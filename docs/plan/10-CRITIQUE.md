@@ -131,13 +131,28 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   hunger, no walks needed, no street presence) — fine for beta, revisit when
   avatars walk. Seasonal stock uses spawn latitude, not current-view latitude.
 
+## Fixed in loop 11 (2026-07-03)
+
+- **Wealth-scaled holding costs shipped** (was the #3 open item, pulled forward
+  since the core sink doesn't need P2P): businesses pay 10% opex, homes pay
+  ~1.5%/yr property tax, deducted continuously in `liveRealtime` (floored at $0,
+  dignity floor still saves the broke), surfaced as an 'upkeep' row in the
+  Finance card + away report. Conservative & test-locked: a business always nets
+  positive, starter living stays affordable; idle empires bleed. Rates in two
+  constants for easy tuning. Verified in browser: Coffee Shop + apartment →
+  −$167/day upkeep, net still +$1,524. 77 tests.
+- *Self-criticism:* rates are my call while Dan's away — the money *feel* wants
+  his sign-off; flagged for review. Progressive brackets (higher marginal rate
+  on mega-empires) still deferred to the P2P/Phase-2 tax system; this is a flat
+  rate, which is the honest 80%.
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
    presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
 2. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
-3. Property tax / wealth-scaled costs — with P2P (Phase 2).
-4. VoiceOver pass + panel focus traps (a11y follow-through).
+3. VoiceOver pass + panel focus traps (a11y follow-through).
+4. Progressive tax brackets on holdings — with P2P (Phase 2).
 
 ## Accepted (consciously, for now)
 
