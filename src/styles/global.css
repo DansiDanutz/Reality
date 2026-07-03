@@ -649,6 +649,48 @@ body {
   color: var(--muted);
   margin-top: 6px;
 }
+/* ── Street mode ───────────────────────────────────────── */
+.street { position: absolute; inset: 0; z-index: 6; background: #05070e; }
+.street-canvas, .street-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.street-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  background: rgba(5, 7, 14, 0.72);
+  text-align: center;
+}
+.street-loading {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--sky);
+  letter-spacing: 0.06em;
+  line-height: 1.8;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.street-overlay .btn { justify-self: center; }
+.street-hint {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 8px 7px 16px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
 /* ── Avatar studio ─────────────────────────────────────── */
 .studio { display: flex; flex-direction: column; gap: 12px; }
 .studio-head { display: flex; align-items: center; gap: 14px; }

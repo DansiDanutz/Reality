@@ -55,6 +55,13 @@ export default function ActionDock() {
   return (
     <div className="dock">
       <div className="dock-actions">
+        <button
+          className="btn"
+          onClick={() => useGame.getState().setStreetMode(true)}
+          title="Walk your real streets in first person"
+        >
+          Walk
+        </button>
         <button className="btn" onClick={() => setPanel('shop')} title="Buy food in the Market, then Use it">
           Eat
         </button>

@@ -15,10 +15,12 @@ import { useGame } from './store/gameStore'
 
 // MapLibre is heavy — split it out so the shell paints instantly
 const WorldMap = lazy(() => import('./components/map/WorldMap'))
+const StreetMode = lazy(() => import('./components/street/StreetMode'))
 
 export default function App() {
   const citizen = useGame((s) => s.citizen)
   const panel = useGame((s) => s.panel)
+  const streetMode = useGame((s) => s.streetMode)
   const setPanel = useGame((s) => s.setPanel)
 
   // The heartbeat of the world: one tick per real second. The first tick
@@ -54,6 +56,11 @@ export default function App() {
         <WorldMap />
       </Suspense>
       {!citizen && <Welcome />}
+      {citizen && streetMode && (
+        <Suspense fallback={<div className="street-overlay"><p className="street-loading">Lacing up…</p></div>}>
+          <StreetMode />
+        </Suspense>
+      )}
       {citizen && (
         <>
           <TopBar />

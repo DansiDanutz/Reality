@@ -59,7 +59,10 @@ interface GameState {
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
+  /** First-person Street Mode (not persisted) */
+  streetMode: boolean
 
+  setStreetMode: (on: boolean) => void
   createCitizen: (name: string, spawn?: SpawnLocation | null) => void
   ensureSpawn: () => Promise<void>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
@@ -104,6 +107,7 @@ const FRESH = {
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
+  streetMode: false,
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -515,9 +519,14 @@ export const useGame = create<GameState>()(
       },
 
       toggleTutorial: () => set({ tutorialHidden: !get().tutorialHidden }),
+      setStreetMode: (on) => set({ streetMode: on, panel: null }),
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),
     }),
-    { name: SAVE_KEY },
+    {
+      name: SAVE_KEY,
+      partialize: (state) =>
+        Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'streetMode')) as GameState,
+    },
   ),
 )
