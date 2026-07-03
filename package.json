@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify": "vitest run && npm run build",
+    "setup": "sh scripts/setup.sh"
   },
   "dependencies": {
     "@types/three": "^0.185.0",

@@ -11,6 +11,25 @@ impossible *if* these rules are followed.
 
 ---
 
+## Quick start (new session or fresh checkout)
+
+```bash
+./scripts/setup.sh                           # deps + pre-push guard (safe to re-run)
+git fetch origin
+git switch -c fix/my-thing origin/main       # feat/ fix/ docs/ chore/ rfc/
+#  …work…
+npm run verify                               # vitest + build — the exact CI gate
+git push -u origin fix/my-thing
+gh pr create --fill                          # CI 'verify' green + up-to-date → squash-merge
+```
+
+`./scripts/setup.sh` installs a **pre-push hook** that blocks pushes to `main`
+and runs the gate — so you physically can't push red or to the wrong place.
+That, plus branch protection on GitHub, is your safety net; the rules below are
+the *why*.
+
+---
+
 ## The five hard rules
 
 1. **One checkout per agent.** An agent works in exactly one working copy and
