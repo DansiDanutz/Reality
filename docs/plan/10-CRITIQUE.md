@@ -87,11 +87,14 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
 - **Finance dashboard card**: net/real-day P&L (passive + wages − cost of living;
   homes make living cheaper), career progress. Starts docked; the dock adopts
   new cards into stale saved layouts.
-- *Self-criticism:* road/sidewalk/dash meshes are per-segment (thousands of draw
-  calls in dense cities — 130fps on M-series, weak phones will chug; needs
-  geometry merging next time Street Mode is touched). Trees cap at 150 globally,
-  not per-view. Jump has no landing sound. Night-time verification not re-run
-  after the environment rewrite (day verified end-to-end).
+- *Self-criticism:* Trees cap at 150 globally, not per-view. Jump has no landing
+  sound.
+- ~~Per-segment street meshes~~ → **fixed same day**: mergeGeometries per surface
+  type (roads/paths/walks/dashes/lawns/trees/lamps → 8 meshes, ~241 draw calls in
+  dense Bucharest, 128fps at night). Night mode re-verified (stars, lit facades,
+  lamp pools) via new dev-only `?hour=N` override. Remaining perf debt: 664
+  building meshes (frustum-culled, acceptable) and 36 night PointLights (the
+  next thing to cheapen if weak-phone reports come in).
 
 ## Open — ranked by (retention × effort)
 
