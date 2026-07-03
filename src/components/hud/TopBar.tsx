@@ -12,7 +12,7 @@ export default function TopBar() {
   if (!citizen) return null
   const { day, time } = formatClock(minutes)
 
-  const toggle = (id: 'shop' | 'work' | 'assets' | 'top') => setPanel(panel === id ? null : id)
+  const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile') => setPanel(panel === id ? null : id)
 
   return (
     <header className="topbar">
@@ -49,6 +49,7 @@ export default function TopBar() {
         <button className={panel === 'work' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('work')}>Work</button>
         <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
         <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
+        <button className={panel === 'profile' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('profile')}>Profile</button>
       </nav>
     </header>
   )

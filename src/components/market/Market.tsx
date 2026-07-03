@@ -22,9 +22,13 @@ function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] 
   return out
 }
 
+type SortOrder = 'featured' | 'low' | 'high'
+
 export default function Market() {
   const [tab, setTab] = useState<Tab>('all')
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<SortOrder>('featured')
+  const [affordableOnly, setAffordableOnly] = useState(false)
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
   const buy = useGame((s) => s.buy)
@@ -33,12 +37,16 @@ export default function Market() {
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return SHOP_ITEMS.filter((i) => {
+    const filtered = SHOP_ITEMS.filter((i) => {
       if (tab !== 'all' && i.category !== tab) return false
+      if (affordableOnly && i.price > money) return false
       if (q && !`${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [tab, query])
+    if (sort === 'low') return [...filtered].sort((a, b) => a.price - b.price)
+    if (sort === 'high') return [...filtered].sort((a, b) => b.price - a.price)
+    return filtered
+  }, [tab, query, sort, affordableOnly, money])
 
   const countFor = (c: ShopCategory) => SHOP_ITEMS.filter((i) => i.category === c).length
 
@@ -78,7 +86,22 @@ export default function Market() {
         </nav>
 
         <div className="market-grid-wrap">
-          {items.length === 0 && <p className="market-empty">Nothing matches "{query}" here.</p>}
+          <div className="market-controls">
+            <button
+              className={affordableOnly ? 'tab active' : 'tab'}
+              aria-pressed={affordableOnly}
+              onClick={() => setAffordableOnly(!affordableOnly)}
+            >
+              I can afford
+            </button>
+            <button className={sort === 'low' ? 'tab active' : 'tab'} onClick={() => setSort(sort === 'low' ? 'featured' : 'low')}>
+              Price ↑
+            </button>
+            <button className={sort === 'high' ? 'tab active' : 'tab'} onClick={() => setSort(sort === 'high' ? 'featured' : 'high')}>
+              Price ↓
+            </button>
+          </div>
+          {items.length === 0 && <p className="market-empty">Nothing matches here.</p>}
           <ul className="market-grid">
             {items.map((item) => {
               const owned = inventory[item.id] ?? 0

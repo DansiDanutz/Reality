@@ -1,7 +1,48 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FOUNDER_BALANCE, FOUNDER_SLOTS } from '../../game/catalog'
 import { formatMoney } from '../../game/engine'
+import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
+
+/** Continue an existing life from a Google-linked cloud save */
+function GoogleRestore() {
+  const buttonRef = useRef<HTMLDivElement>(null)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !buttonRef.current) return
+    void mountGoogleButton(buttonRef.current, async (credential) => {
+      setMessage('Looking up your life…')
+      try {
+        const res = await fetch('/api/auth-google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential }),
+        })
+        const d = (await res.json()) as { ok: boolean; save?: string | null; error?: string }
+        if (d.ok && d.save) {
+          localStorage.setItem('reality-save-v1', d.save)
+          location.reload()
+        } else if (d.ok) {
+          setMessage('No saved life on this Google account yet — create your citizen above, then link Google in your Profile.')
+        } else {
+          setMessage(d.error ?? 'Sign-in failed. Try again.')
+        }
+      } catch {
+        setMessage('Could not reach the server. Try again.')
+      }
+    })
+  }, [])
+
+  if (!GOOGLE_CLIENT_ID) return null
+  return (
+    <div className="welcome-google">
+      <p className="welcome-or">already a citizen on another device?</p>
+      <div className="welcome-google-btn" ref={buttonRef} />
+      {message && <p className="welcome-note" role="status">{message}</p>}
+    </div>
+  )
+}
 
 const WAITLIST_KEY = 'reality-waitlist-joined'
 
@@ -125,8 +166,9 @@ export default function Welcome() {
             </p>
           )}
         </form>
+        <GoogleRestore />
         <WaitlistForm />
-        <p className="welcome-note">Beta: your world is saved in this browser. Online citizenship arrives with the server release.</p>
+        <p className="welcome-note">Beta: your world is saved in this browser — link Google in your Profile to back it up.</p>
       </div>
     </div>
   )

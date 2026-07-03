@@ -71,6 +71,11 @@ export interface Citizen {
   citizenId?: string
   token?: string
   online?: boolean
+  /** Set once a Google account is linked — enables cloud saves */
+  googleSub?: string
+  googleEmail?: string
+  googleName?: string
+  googlePicture?: string
 }
 
 export interface LifeEvent {

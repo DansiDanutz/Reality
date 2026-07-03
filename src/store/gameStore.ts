@@ -4,7 +4,9 @@ import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
 import { advance, applyEffects, applyXp, clamp, formatMoney, netWorthOf, offlineEarnings, rollEvent, wageBonusFrom } from '../game/engine'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, MINUTES_PER_TICK, itemById, jobById } from '../game/catalog'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | null
+
+const SAVE_KEY = 'reality-save-v1'
 
 /** Post to the live world, silently tolerating offline/dev environments */
 async function tryPost(path: string, body: unknown): Promise<Record<string, unknown> | null> {
@@ -43,9 +45,13 @@ interface GameState {
   panel: PanelId
   log: string[]
 
+  cloudSyncedAt: number | null
+
   createCitizen: (name: string) => void
   registerOnline: () => Promise<void>
   reportScore: () => Promise<void>
+  linkGoogle: (credential: string) => Promise<string | null>
+  pushCloudSave: () => Promise<void>
   tick: () => void
   applyOfflineEarnings: () => void
   consume: (itemId: string) => void
@@ -82,6 +88,7 @@ const FRESH = {
   placing: null as ShopItem | null,
   panel: null as PanelId,
   log: [] as string[],
+  cloudSyncedAt: null as number | null,
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -160,6 +167,43 @@ export const useGame = create<GameState>()(
           name: s.citizen.name,
           netWorth: netWorthOf(s.money, s.inventory, s.assets),
         })
+      },
+
+      linkGoogle: async (credential) => {
+        const s = get()
+        if (!s.citizen?.token) return 'Connect to the world first — Google linking needs an online citizen.'
+        const d = await tryPost('/api/auth-google', {
+          credential,
+          citizenId: s.citizen.citizenId,
+          token: s.citizen.token,
+        })
+        if (!d?.ok) return (d?.error as string) ?? 'Google sign-in failed. Try again.'
+        const profile = d.profile as { email?: string; name?: string; picture?: string; sub?: string }
+        set({
+          citizen: {
+            ...get().citizen!,
+            googleSub: profile.sub,
+            googleEmail: profile.email,
+            googleName: profile.name,
+            googlePicture: profile.picture,
+          },
+          log: note(get().log, `Google account linked: ${profile.email}. Your life is backed up.`),
+        })
+        void get().pushCloudSave()
+        return null
+      },
+
+      pushCloudSave: async () => {
+        const s = get()
+        if (!s.citizen?.token || !s.citizen.googleSub) return
+        const save = localStorage.getItem(SAVE_KEY)
+        if (!save) return
+        const d = await tryPost('/api/cloud-save', {
+          citizenId: s.citizen.citizenId,
+          token: s.citizen.token,
+          save,
+        })
+        if (d?.ok) set({ cloudSyncedAt: Date.now() })
       },
 
       tick: () => {

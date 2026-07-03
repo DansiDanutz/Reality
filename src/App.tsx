@@ -6,6 +6,7 @@ import TutorialPanel from './components/hud/TutorialPanel'
 import Market from './components/market/Market'
 import AssetsPanel from './components/panels/AssetsPanel'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
+import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
 import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
@@ -26,7 +27,10 @@ export default function App() {
     useGame.getState().applyOfflineEarnings()
     void useGame.getState().registerOnline()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
-    const scoreId = setInterval(() => void useGame.getState().reportScore(), 120_000)
+    const scoreId = setInterval(() => {
+      void useGame.getState().reportScore()
+      void useGame.getState().pushCloudSave()
+    }, 120_000)
     return () => {
       clearInterval(tickId)
       clearInterval(scoreId)
@@ -55,12 +59,13 @@ export default function App() {
           <NeedsPanel />
           <ActionDock />
           {panel === 'shop' && <Market />}
-          {(panel === 'work' || panel === 'assets' || panel === 'top') && (
+          {(panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile') && (
             <div className="drawer">
               <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
               {panel === 'work' && <WorkPanel />}
               {panel === 'assets' && <AssetsPanel />}
               {panel === 'top' && <LeaderboardPanel />}
+              {panel === 'profile' && <ProfilePanel />}
             </div>
           )}
         </>
