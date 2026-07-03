@@ -3,6 +3,7 @@ import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, RECIPES, SHOP_ITEMS, FOUNDER_BA
 import {
   AUTO_MEAL_COST,
   AUTO_WATER_COST,
+  COOK_MINUTES,
   PENDING_CAP_DAYS,
   PET_QUIET_THRESHOLD,
   SHIFT_HOURS,
@@ -20,6 +21,7 @@ import {
   petFunBonus,
   petUpkeepPerDay,
   rollEvent,
+  spoilGroceries,
   wageBonusFrom,
   xpForLevel,
   type Activity,
@@ -177,6 +179,28 @@ describe('liveRealtime — the single simulation path', () => {
     expect(out.shiftsCompleted).toBe(1)
     expect(out.xpGained).toBeGreaterThanOrEqual(1)
     expect(out.xpGained).toBeLessThan(XP_PER_SHIFT)
+  })
+
+  test('cooking takes real time — the meal lands only once the timer ends', () => {
+    const grilledcheese: Activity = {
+      kind: 'cook', startedAt: 0, endsAt: COOK_MINUTES * 60_000, title: 'Grilled Cheese', recipeId: 'grilledcheese',
+    }
+    const midway = liveRealtime(base({ activity: grilledcheese }), 0, (COOK_MINUTES / 2) * 60_000)
+    expect(midway.activity).not.toBeNull() // still on the stove
+    expect(midway.mealsCooked).toBe(0)
+    expect(midway.needs.hunger).toBeLessThanOrEqual(80) // no free meal yet
+
+    const done = liveRealtime(base({ activity: grilledcheese }), 0, COOK_MINUTES * 60_000 + 1000)
+    expect(done.activity).toBeNull()
+    expect(done.mealsCooked).toBe(1)
+    expect(done.needs.hunger).toBeGreaterThan(80) // the recipe's effects landed
+  })
+
+  test('cooking drains like an ordinary awake hour, not a work shift', () => {
+    const cook: Activity = { kind: 'cook', startedAt: 0, endsAt: COOK_MINUTES * 60_000, recipeId: 'grilledcheese' }
+    const cooking = liveRealtime(base({ activity: cook }), 0, 10 * 60_000)
+    const awake = liveRealtime(base(), 0, 10 * 60_000)
+    expect(cooking.needs.energy).toBeCloseTo(awake.needs.energy, 3)
   })
 
   test('the dignity floor: a broke, parched citizen gets the fountain once a day', () => {
@@ -823,5 +847,52 @@ describe('cooking (cook-combos)', () => {
       const secondary = (r.effects.fun ?? 0) + (r.effects.energy ?? 0)
       expect(secondary, r.name).toBeGreaterThan(0) // the reward for cooking
     }
+  })
+})
+
+describe('grocery spoilage — real shelf life, Rule #1', () => {
+  const DAY = 24 * HOUR
+
+  test('fresh groceries are untouched', () => {
+    const out = spoilGroceries({ chicken: 1 }, { chicken: 0 }, 1 * DAY)
+    expect(out.inventory.chicken).toBe(1)
+    expect(out.spoiled).toEqual([])
+  })
+
+  test('a grocery past its shelf life spoils to zero and drops off the clock', () => {
+    // Chicken's real shelf life is 2 days
+    const out = spoilGroceries({ chicken: 3 }, { chicken: 0 }, 2 * DAY + 1000)
+    expect(out.inventory.chicken).toBe(0)
+    expect(out.restockedAt.chicken).toBeUndefined()
+    expect(out.spoiled).toEqual(['Chicken Breast'])
+  })
+
+  test('dry goods outlast a normal playtest', () => {
+    const out = spoilGroceries({ rice: 5 }, { rice: 0 }, 30 * DAY)
+    expect(out.inventory.rice).toBe(5)
+    expect(out.spoiled).toEqual([])
+  })
+
+  test('items with no shelf life (non-groceries) are never touched', () => {
+    const out = spoilGroceries({ water: 5 }, {}, 999 * DAY)
+    expect(out.inventory.water).toBe(5)
+  })
+
+  test('liveRealtime carries spoilage through — a long absence loses old chicken', () => {
+    const base = {
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      assets: [] as PlacedAsset[],
+      money: 1000,
+      activity: null as Activity | null,
+      hasHome: false,
+      wageBonus: 0,
+      inventory: { chicken: 2 },
+      groceryRestockedAt: { chicken: 0 },
+    }
+    const out = liveRealtime(base, 0, 3 * DAY)
+    expect(out.inventory.chicken).toBe(0)
+    expect(out.spoiled).toContain('Chicken Breast')
+    expect(out.summary.join(' ')).toMatch(/spoiled/i)
   })
 })

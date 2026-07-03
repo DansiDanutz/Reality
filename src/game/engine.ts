@@ -1,4 +1,4 @@
-import { EVENT_CHANCE, LIFE_EVENTS, itemById } from './catalog'
+import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
 import type { LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
 /**
@@ -61,13 +61,21 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift'
+  kind: 'sleep' | 'shift' | 'cook'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
   wage?: number
   title?: string
+  /** Recipe being cooked, for 'cook' activities */
+  recipeId?: string
 }
+
+/**
+ * Cooking takes real time — pacing, not an instant snack (loop-16 debt: "a
+ * 'cooking takes 20 real minutes' activity would make the kitchen feel real").
+ */
+export const COOK_MINUTES = 20
 
 /** Hours an activity spans — shifts pay for exactly the hours they cover */
 export const activityHours = (a: Activity): number => Math.max(0, (a.endsAt - a.startedAt) / 3_600_000)
@@ -121,6 +129,10 @@ export interface LiveInput extends WorldSlice {
   lastFoodBankAt?: number
   /** Pets the citizen owns — each has its own hunger meter (Rule #1) */
   pets?: Pet[]
+  /** Grocery stock; spoils on its own real-time shelf life */
+  inventory?: Record<string, number>
+  /** ms timestamp each grocery id was last restocked — the spoilage clock */
+  groceryRestockedAt?: Record<string, number>
 }
 
 export interface LiveOutput extends WorldSlice {
@@ -139,12 +151,19 @@ export interface LiveOutput extends WorldSlice {
   pets: Pet[]
   /** Real dollars spent auto-feeding pets while the citizen was away */
   petFoodPaid: number
+  /** A 'cook' activity that finished during this span */
+  mealsCooked: number
+  inventory: Record<string, number>
+  groceryRestockedAt: Record<string, number>
+  /** Names of groceries that spoiled past their real shelf life this span */
+  spoiled: string[]
   summary: string[]
 }
 
 const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
+  if (activity.kind === 'cook') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }
 
@@ -168,6 +187,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   let wagesEarned = 0
   let upkeepPaid = 0
   let petFoodPaid = 0
+  let mealsCooked = 0
   let lastFountainAt = input.lastFountainAt ?? 0
   let lastFoodBankAt = input.lastFoodBankAt ?? 0
   let usedFountain = false
@@ -199,6 +219,12 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
         wagesEarned += pay
         shiftsCompleted += 1
         xpGained += Math.max(1, Math.round((XP_PER_SHIFT * hours) / SHIFT_HOURS))
+      } else if (activity.kind === 'cook') {
+        const recipe = activity.recipeId ? recipeById(activity.recipeId) : undefined
+        if (recipe) {
+          world = { ...world, needs: applyEffects(world.needs, recipe.effects) }
+          mealsCooked += 1
+        }
       }
       activity = null
     }
@@ -265,6 +291,13 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   if (world.assets.some((a) => a.incomePerDay > 0 && a.pendingIncome >= a.incomePerDay * PENDING_CAP_DAYS - 0.01))
     summary.push('a till filled up — it holds 3 days, then customers walk past')
   if (upkeepPaid >= 1) summary.push(`paid $${Math.round(upkeepPaid)} in upkeep (opex + property tax)`)
+  if (mealsCooked > 0) summary.push('a meal came off the stove')
+
+  // Groceries spoil on their own real shelf life (Rule #1) — a threshold
+  // check, not a continuous decay, so one pass at the end of the span is
+  // exact whether this call covers a second or a week away.
+  const spoilage = spoilGroceries(input.inventory ?? {}, input.groceryRestockedAt ?? {}, end)
+  if (spoilage.spoiled.length > 0) summary.push(`${spoilage.spoiled.join(', ')} spoiled — buy fresh`)
 
   return {
     ...world,
@@ -281,8 +314,40 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     lastFoodBankAt,
     pets,
     petFoodPaid,
+    mealsCooked,
+    inventory: spoilage.inventory,
+    groceryRestockedAt: spoilage.restockedAt,
+    spoiled: spoilage.spoiled,
     summary,
   }
+}
+
+/**
+ * A grocery spoils once its real shelf life has fully elapsed since it was
+ * last restocked — then it's gone, not gradually rotten (kind to the player,
+ * honest to the fridge). Buying more resets the clock (buy() does this).
+ */
+export function spoilGroceries(
+  inventory: Record<string, number>,
+  restockedAt: Record<string, number>,
+  now: number,
+): { inventory: Record<string, number>; restockedAt: Record<string, number>; spoiled: string[] } {
+  const nextInventory = { ...inventory }
+  const nextRestockedAt = { ...restockedAt }
+  const spoiled: string[] = []
+  for (const [id, qty] of Object.entries(inventory)) {
+    if (qty <= 0) continue
+    const item = itemById(id)
+    if (!item?.shelfLifeDays) continue
+    const boughtAt = restockedAt[id]
+    if (boughtAt === undefined) continue
+    if (now - boughtAt >= item.shelfLifeDays * 24 * 3_600_000) {
+      nextInventory[id] = 0
+      delete nextRestockedAt[id]
+      spoiled.push(item.name)
+    }
+  }
+  return { inventory: nextInventory, restockedAt: nextRestockedAt, spoiled }
 }
 
 export function applyEffects(needs: Needs, effects: Partial<Needs>): Needs {

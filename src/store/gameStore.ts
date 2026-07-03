@@ -10,6 +10,7 @@ import {
   applyXp,
   canCook,
   careerRankOf,
+  COOK_MINUTES,
   distanceKm,
   feedPet,
   formatMoney,
@@ -67,6 +68,8 @@ interface GameState {
   assets: PlacedAsset[]
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
   pets: Pet[]
+  /** ms timestamp each grocery id was last restocked — the spoilage clock */
+  groceryRestockedAt: Record<string, number>
   /** Item awaiting a map click for placement */
   placing: ShopItem | null
   panel: PanelId
@@ -149,6 +152,7 @@ const FRESH = {
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
   pets: [] as Pet[],
+  groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
   panel: null as PanelId,
   log: [] as string[],
@@ -361,6 +365,8 @@ export const useGame = create<GameState>()(
             lastFountainAt: s.lastFountainAt,
             lastFoodBankAt: s.lastFoodBankAt,
             pets: s.pets,
+            inventory: s.inventory,
+            groceryRestockedAt: s.groceryRestockedAt,
           },
           from,
           now,
@@ -378,6 +384,18 @@ export const useGame = create<GameState>()(
         if (out.shiftsCompleted > 0 && !wasAway) {
           log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}.`)
           toasts = withToast(toasts, `Shift complete +${formatMoney(out.wagesEarned)}`, 'gold')
+        }
+        let timesEaten = s.timesEaten
+        if (out.mealsCooked > 0) {
+          timesEaten += out.mealsCooked
+          const name = s.activity?.kind === 'cook' ? s.activity.title : 'Dinner'
+          if (!wasAway) {
+            log = note(log, `${name} is ready.`)
+            toasts = withToast(toasts, `${name} is ready 🍽️`, 'ok')
+          }
+        }
+        if (out.spoiled.length > 0 && !wasAway) {
+          toasts = withToast(toasts, `${out.spoiled.join(', ')} spoiled`, 'sky')
         }
         let awayReport = s.awayReport
         if (wasAway && (out.summary.length > 0 || out.assets.some((a) => a.pendingIncome > 1))) {
@@ -446,6 +464,9 @@ export const useGame = create<GameState>()(
           lastFountainAt: out.lastFountainAt,
           lastFoodBankAt: out.lastFoodBankAt,
           pets: out.pets,
+          inventory: out.inventory,
+          groceryRestockedAt: out.groceryRestockedAt,
+          timesEaten,
           reachTier,
           awayReport,
           toasts,
@@ -544,7 +565,7 @@ export const useGame = create<GameState>()(
 
       cook: (recipeId) => {
         const s = get()
-        if (s.activity?.kind === 'sleep') return
+        if (s.activity) return
         const recipe = recipeById(recipeId)
         if (!recipe) return
         if (!hasKitchen(s.inventory, s.assets)) {
@@ -555,14 +576,15 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, `Missing ingredients for ${recipe.name} — stock up in Groceries.`) })
           return
         }
+        // Ingredients go in now; the meal itself lands when the timer ends —
+        // cooking takes real minutes, it isn't an instant snack (loop 16 debt).
         const inventory = { ...s.inventory }
         for (const [id, qty] of Object.entries(recipe.ingredients)) inventory[id] = (inventory[id] ?? 0) - qty
+        const now = Date.now()
         set({
-          needs: applyEffects(s.needs, recipe.effects),
           inventory,
-          timesEaten: s.timesEaten + 1,
-          toasts: withToast(s.toasts, `Cooked ${recipe.name} ${recipe.emoji}`, 'ok'),
-          log: note(s.log, `Cooked ${recipe.name} at home — cheaper and better than takeout.`),
+          activity: { kind: 'cook', startedAt: now, endsAt: now + COOK_MINUTES * 60_000, title: recipe.name, recipeId },
+          log: note(s.log, `${recipe.name} ${recipe.emoji} is on the stove — ready in ${COOK_MINUTES} minutes.`),
         })
       },
 
@@ -611,6 +633,11 @@ export const useGame = create<GameState>()(
         if (!a) return
         if (a.kind === 'sleep') {
           set({ activity: null, log: note(s.log, 'Up early. The day is yours.') })
+          return
+        }
+        if (a.kind === 'cook') {
+          // Ingredients went in already — walk away from the stove and the meal is wasted, not refunded.
+          set({ activity: null, log: note(s.log, `Left the stove — ${a.title ?? 'the meal'} went to waste.`) })
           return
         }
         // Leaving a shift early: pro-rata pay, no XP
@@ -680,6 +707,10 @@ export const useGame = create<GameState>()(
         set({
           money: s.money - item.price,
           inventory: { ...s.inventory, [itemId]: (s.inventory[itemId] ?? 0) + 1 },
+          // A fresh purchase resets the spoilage clock — groceries only
+          groceryRestockedAt: item.shelfLifeDays
+            ? { ...s.groceryRestockedAt, [itemId]: Date.now() }
+            : s.groceryRestockedAt,
           log: note(s.log, `Bought ${item.name}.`),
         })
       },

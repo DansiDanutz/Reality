@@ -36,15 +36,16 @@ export default function ActionDock() {
   // Real time, real commitments: an activity runs on the actual clock
   if (activity) {
     const isSleep = activity.kind === 'sleep'
+    const isCook = activity.kind === 'cook'
+    const label = isSleep ? 'Sleeping' : isCook ? `Cooking · ${activity.title}` : `On shift · ${activity.title}`
     return (
       <div className="dock placing-banner">
         <span className="placing-pulse" />
         <span>
-          {isSleep ? 'Sleeping' : `On shift · ${activity.title}`} — {isSleep ? 'wakes' : 'ends'} in{' '}
-          <strong className="mono">{countdown(activity.endsAt)}</strong>
+          {label} — {isSleep ? 'wakes' : 'ends'} in <strong className="mono">{countdown(activity.endsAt)}</strong>
         </span>
         <button className="btn ghost" onClick={leaveActivity}>
-          {isSleep ? 'Wake up now' : 'Leave early'}
+          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : 'Leave early'}
         </button>
       </div>
     )

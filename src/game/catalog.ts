@@ -71,14 +71,16 @@ export const SHOP_ITEMS: ShopItem[] = [
 
   // ── Groceries (raw ingredients — cook them into meals, see RECIPES) ──
   // Edible raw in a pinch, but their real value is combined at a kitchen.
-  { id: 'rice', name: 'Bag of Rice', category: 'groceries', price: 2, description: 'A week of dinners waiting to happen.', effects: { hunger: 6 } },
-  { id: 'pasta', name: 'Dried Pasta', category: 'groceries', price: 2, description: 'Boils in ten minutes, feeds you all week.', effects: { hunger: 6 } },
-  { id: 'bread', name: 'Fresh Bread', category: 'groceries', price: 2, description: 'The base of a hundred cheap meals.', effects: { hunger: 8 } },
-  { id: 'eggs', name: 'Half-dozen Eggs', category: 'groceries', price: 3, description: 'Breakfast, binder, or dinner in a pan.', effects: { hunger: 8 } },
-  { id: 'tomato', name: 'Ripe Tomatoes', category: 'groceries', price: 3, description: 'Sauce, salad, or straight off the vine.', effects: { hunger: 5 } },
-  { id: 'veggies', name: 'Fresh Vegetables', category: 'groceries', price: 4, description: 'Whatever the market had this morning.', effects: { hunger: 6, fun: 1 } },
-  { id: 'cheese', name: 'Block of Cheese', category: 'groceries', price: 4, description: 'Makes everything better, melts into most things.', effects: { hunger: 8, fun: 2 } },
-  { id: 'chicken', name: 'Chicken Breast', category: 'groceries', price: 6, description: 'Protein for the pan — the centre of a real dinner.', effects: { hunger: 10 } },
+  // Shelf life is the REAL pantry/fridge life of each food (Rule #1) — dry
+  // goods keep for a year, raw chicken wants using in two days.
+  { id: 'rice', name: 'Bag of Rice', category: 'groceries', price: 2, description: 'A week of dinners waiting to happen.', effects: { hunger: 6 }, shelfLifeDays: 365 },
+  { id: 'pasta', name: 'Dried Pasta', category: 'groceries', price: 2, description: 'Boils in ten minutes, feeds you all week.', effects: { hunger: 6 }, shelfLifeDays: 365 },
+  { id: 'bread', name: 'Fresh Bread', category: 'groceries', price: 2, description: 'The base of a hundred cheap meals.', effects: { hunger: 8 }, shelfLifeDays: 5 },
+  { id: 'eggs', name: 'Half-dozen Eggs', category: 'groceries', price: 3, description: 'Breakfast, binder, or dinner in a pan.', effects: { hunger: 8 }, shelfLifeDays: 21 },
+  { id: 'tomato', name: 'Ripe Tomatoes', category: 'groceries', price: 3, description: 'Sauce, salad, or straight off the vine.', effects: { hunger: 5 }, shelfLifeDays: 5 },
+  { id: 'veggies', name: 'Fresh Vegetables', category: 'groceries', price: 4, description: 'Whatever the market had this morning.', effects: { hunger: 6, fun: 1 }, shelfLifeDays: 5 },
+  { id: 'cheese', name: 'Block of Cheese', category: 'groceries', price: 4, description: 'Makes everything better, melts into most things.', effects: { hunger: 8, fun: 2 }, shelfLifeDays: 21 },
+  { id: 'chicken', name: 'Chicken Breast', category: 'groceries', price: 6, description: 'Protein for the pan — the centre of a real dinner.', effects: { hunger: 10 }, shelfLifeDays: 2 },
 
   // ── Drinks (hydration is the most urgent human need) ────
   { id: 'water', name: 'Bottled Water', category: 'drinks', price: 1, hours: 0.1, description: 'The first need. Your body is ~60% of this.', effects: { hydration: 50 } },

@@ -10,7 +10,13 @@ export default function AvatarCard() {
 
   if (!citizen) return null
 
-  const status = activity ? (activity.kind === 'sleep' ? 'Sleeping' : `On shift · ${activity.title}`) : 'Living'
+  const status = activity
+    ? activity.kind === 'sleep'
+      ? 'Sleeping'
+      : activity.kind === 'cook'
+        ? `Cooking · ${activity.title}`
+        : `On shift · ${activity.title}`
+    : 'Living'
   // Progression is the spine — wear it as a ring around your face
   const progress = Math.min(100, (xp / xpForLevel(level)) * 100)
 

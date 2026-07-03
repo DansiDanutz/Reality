@@ -51,6 +51,8 @@ export interface ShopItem {
    * bonus, a neglected one goes quiet but never dies (this game is kind).
    */
   pet?: PetConfig
+  /** Groceries only: real days until this item spoils since it was last bought (Rule #1) */
+  shelfLifeDays?: number
 }
 
 export interface PetConfig {
