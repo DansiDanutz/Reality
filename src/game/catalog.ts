@@ -4,15 +4,11 @@ export const FOUNDER_BALANCE = 200_000
 export const FOUNDER_SLOTS = 2_000
 export const CITIZEN_BALANCE = 2_500
 
-/** Real seconds per tick */
+/** Real seconds per tick — Rule #1: the world runs on real time */
 export const TICK_SECONDS = 1
-/** Game minutes that pass per tick — 1 game day ≈ 2.4 real minutes */
-export const MINUTES_PER_TICK = 10
 
 /** Chance per tick that life throws something at you (~every 4 real minutes) */
 export const EVENT_CHANCE = 0.004
-/** Businesses keep earning while you're away, up to this many game minutes */
-export const OFFLINE_CAP_MINUTES = 3 * 1440
 
 /** Endgame purchases priced above the founder grant — long-term goals, not day-one buys */
 export const ENDGAME_IDS = ['island', 'boutiquehotel', 'solarfarm', 'skyhotel', 'airline']

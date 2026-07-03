@@ -7,6 +7,7 @@ export default function TutorialPanel() {
   const timesSlept = useGame((s) => s.timesSlept)
   const jobId = useGame((s) => s.jobId)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const activity = useGame((s) => s.activity)
   const assets = useGame((s) => s.assets)
   const totalCollected = useGame((s) => s.totalCollected)
   const claimed = useGame((s) => s.tutorialClaimed)
@@ -17,7 +18,7 @@ export default function TutorialPanel() {
   if (!citizen) return null
   if (claimed.length >= TUTORIAL_STEPS.length) return null
 
-  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, assets, totalCollected }
+  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, activity, assets, totalCollected }
   const doneCount = TUTORIAL_STEPS.filter((s) => claimed.includes(s.id)).length
   const current = TUTORIAL_STEPS.find((s) => !claimed.includes(s.id))
 

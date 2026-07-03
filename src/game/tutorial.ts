@@ -1,3 +1,4 @@
+import type { Activity } from './engine'
 import type { PlacedAsset } from './types'
 
 /** The slice of game state the tutorial reads to judge progress */
@@ -6,6 +7,7 @@ export interface TutorialSnapshot {
   timesSlept: number
   jobId: string | null
   shiftsWorked: number
+  activity: Activity | null
   assets: PlacedAsset[]
   totalCollected: number
 }
@@ -39,15 +41,15 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'shift',
-    title: 'Work your first shift',
-    detail: 'Six game hours. Keep your energy and food up.',
+    title: 'Start your first shift',
+    detail: 'A shift is 8 real hours — clock in and live your day.',
     xp: 50,
-    isDone: (s) => s.shiftsWorked >= 1,
+    isDone: (s) => s.shiftsWorked >= 1 || s.activity?.kind === 'shift',
   },
   {
     id: 'sleep',
     title: 'Get a night\'s sleep',
-    detail: 'Sleep restores energy — fully, once you own a home.',
+    detail: 'Sleep restores energy through the real night — more at home.',
     xp: 25,
     isDone: (s) => s.timesSlept >= 1,
   },

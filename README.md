@@ -23,9 +23,9 @@ Open http://localhost:5173, claim your founder slot, and start living.
 
 | System | Status |
 |--------|--------|
-| 3D hex-tile Earth (rotate, zoom, click-to-place) | ✅ |
+| Real Earth — spinning globe that becomes a 3D city with real streets & buildings | ✅ |
 | Needs simulation — food, energy, hygiene, fun, health | ✅ |
-| Time — 1 real second = 10 game minutes | ✅ |
+| **Real time (Rule #1)** — real local clocks per home timezone; 8-real-hour shifts; your citizen self-cares (and spends) while you're away | ✅ |
 | Jobs & shifts — 5 careers, XP, level-ups | ✅ |
 | The Market — 78 items in 10 categories with search: food, drinks, clothing, electronics, furniture, vehicles, education, leisure, homes, businesses | ✅ |
 | Career gear with wage bonuses · education with instant XP · endgame purchases up to a $1.2M airline | ✅ |

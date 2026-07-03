@@ -20,11 +20,11 @@ export default function App() {
   const panel = useGame((s) => s.panel)
   const setPanel = useGame((s) => s.setPanel)
 
-  // The heartbeat of the world: one tick per real second.
-  // On load: pay out offline earnings, connect to the live world (also
-  // migrates pre-online saves), and report net worth every two minutes.
+  // The heartbeat of the world: one tick per real second. The first tick
+  // after load also settles everything that happened while you were away —
+  // one simulation path, real time in and out of the app.
   useEffect(() => {
-    useGame.getState().applyOfflineEarnings()
+    useGame.getState().tick()
     void useGame.getState().registerOnline()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {

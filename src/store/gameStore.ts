@@ -1,8 +1,19 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
-import { advance, applyEffects, applyXp, clamp, formatMoney, netWorthOf, offlineEarnings, rollEvent, wageBonusFrom } from '../game/engine'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, MINUTES_PER_TICK, itemById, jobById } from '../game/catalog'
+import {
+  SHIFT_HOURS,
+  SLEEP_HOURS,
+  applyEffects,
+  applyXp,
+  formatMoney,
+  liveRealtime,
+  netWorthOf,
+  rollEvent,
+  wageBonusFrom,
+  type Activity,
+} from '../game/engine'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/catalog'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | null
 
@@ -36,15 +47,15 @@ interface GameState {
   totalCollected: number
   tutorialClaimed: string[]
   tutorialHidden: boolean
-  minutes: number
+  /** What the citizen is doing right now, in real time */
+  activity: Activity | null
   lastSeenAt: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
-  /** Item awaiting a globe click for placement */
+  /** Item awaiting a map click for placement */
   placing: ShopItem | null
   panel: PanelId
   log: string[]
-
   cloudSyncedAt: number | null
 
   createCitizen: (name: string) => void
@@ -53,11 +64,11 @@ interface GameState {
   linkGoogle: (credential: string) => Promise<string | null>
   pushCloudSave: () => Promise<void>
   tick: () => void
-  applyOfflineEarnings: () => void
   consume: (itemId: string) => void
-  sleep: () => void
+  startSleep: () => void
+  startShift: () => void
+  leaveActivity: () => void
   takeJob: (jobId: string) => void
-  workShift: () => void
   buy: (itemId: string) => void
   placeAt: (lat: number, lng: number) => void
   cancelPlacing: () => void
@@ -81,7 +92,7 @@ const FRESH = {
   totalCollected: 0,
   tutorialClaimed: [] as string[],
   tutorialHidden: false,
-  minutes: 8 * 60, // day 1, 08:00
+  activity: null as Activity | null,
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
@@ -104,6 +115,7 @@ export const useGame = create<GameState>()(
           citizen: { name: name.trim(), founderNumber: 0, createdAt: Date.now() },
           ...FRESH,
           money: FOUNDER_BALANCE,
+          lastSeenAt: Date.now(),
           log: [`Welcome to Reality, ${name.trim()}. Claiming your founder slot…`],
         })
         void get().registerOnline()
@@ -117,7 +129,6 @@ export const useGame = create<GameState>()(
         if (!cur.citizen || cur.citizen.token) return
 
         if (!d?.ok) {
-          // Offline or dev environment — play locally, retry on next load
           set({ citizen: { ...cur.citizen, online: false } })
           return
         }
@@ -132,7 +143,6 @@ export const useGame = create<GameState>()(
             founderNumber,
             online: true,
           },
-          // Slots full → regular citizen grant (only downgrade an untouched balance)
           money: isFounder ? cur.money : Math.min(cur.money, CITIZEN_BALANCE),
           log: note(
             cur.log,
@@ -142,7 +152,6 @@ export const useGame = create<GameState>()(
           ),
         })
 
-        // Sync any assets placed before registration (migrating saves)
         const { citizen, assets } = get()
         for (const a of assets) {
           void tryPost('/api/world', {
@@ -206,68 +215,134 @@ export const useGame = create<GameState>()(
         if (d?.ok) set({ cloudSyncedAt: Date.now() })
       },
 
+      // The heartbeat. One simulation path for everything: a 1-second live
+      // tick and a 3-day absence run through the same realtime engine.
       tick: () => {
         const s = get()
         if (!s.citizen) return
-        const w = advance({ minutes: s.minutes, needs: s.needs, health: s.health, assets: s.assets }, MINUTES_PER_TICK)
-
-        const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
-        if (event) {
-          set({
-            minutes: w.minutes,
-            health: w.health,
-            assets: w.assets,
-            needs: event.effects ? applyEffects(w.needs, event.effects) : w.needs,
-            money: Math.max(0, s.money + (event.money ?? 0)),
-            lastSeenAt: Date.now(),
-            log: note(s.log, event.text),
-          })
-        } else {
-          set({ minutes: w.minutes, needs: w.needs, health: w.health, assets: w.assets, lastSeenAt: Date.now() })
+        const now = Date.now()
+        const from = s.lastSeenAt || now
+        if (now <= from) {
+          set({ lastSeenAt: now })
+          return
         }
-      },
 
-      applyOfflineEarnings: () => {
-        const s = get()
-        if (!s.citizen || !s.lastSeenAt) return
-        const { assets, total } = offlineEarnings(s.assets, Date.now() - s.lastSeenAt)
-        if (total < 1) return
+        const wasAway = now - from > 15 * 60_000
+        const out = liveRealtime(
+          {
+            needs: s.needs,
+            health: s.health,
+            assets: s.assets,
+            money: s.money,
+            activity: s.activity,
+            hasHome: s.assets.some((a) => a.kind === 'home'),
+            wageBonus: wageBonusFrom(s.inventory),
+          },
+          from,
+          now,
+        )
+
+        let log = s.log
+        let { level, xp } = s
+        if (out.xpGained > 0) {
+          const prog = applyXp(level, xp, out.xpGained)
+          level = prog.level
+          xp = prog.xp
+        }
+        if (out.shiftsCompleted > 0 && !wasAway) {
+          log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}.`)
+        }
+        if (wasAway && (out.summary.length > 0 || out.assets.some((a) => a.pendingIncome > 1))) {
+          const income = out.assets.reduce((sum, a) => sum + a.pendingIncome, 0) - s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
+          const parts = [...out.summary]
+          if (income >= 1) parts.push(`businesses earned ${formatMoney(Math.floor(income))}`)
+          if (parts.length > 0) log = note(log, `While you were away, your citizen ${parts.join(', ')}.`)
+        }
+
+        // A little chaos, only during live play
+        let needs = out.needs
+        let money = out.money
+        if (!wasAway && !s.activity) {
+          const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
+          if (event) {
+            if (event.effects) needs = applyEffects(needs, event.effects)
+            money = Math.max(0, money + (event.money ?? 0))
+            log = note(log, event.text)
+          }
+        }
+
         set({
-          assets,
-          log: note(s.log, `While you were away, your businesses earned ${formatMoney(Math.floor(total))}. Collect it in Assets.`),
+          needs,
+          health: out.health,
+          assets: out.assets,
+          money,
+          activity: out.activity,
+          shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+          level,
+          xp,
+          lastSeenAt: now,
+          log,
         })
       },
 
       consume: (itemId) => {
         const s = get()
+        if (s.activity?.kind === 'sleep') return
         const item = itemById(itemId)
         if (!item || !item.effects) return
         const owned = s.inventory[itemId] ?? 0
         if (owned <= 0) return
-        const w = advance({ minutes: s.minutes, needs: s.needs, health: s.health, assets: s.assets }, (item.hours ?? 0) * 60)
         set({
-          minutes: w.minutes,
-          health: w.health,
-          assets: w.assets,
-          needs: applyEffects(w.needs, item.effects),
-          // Durables are reusable — consumables burn one from the inventory
+          needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
           timesEaten: (item.effects.hunger ?? 0) > 0 ? s.timesEaten + 1 : s.timesEaten,
           log: note(s.log, `${item.name} — done.`),
         })
       },
 
-      sleep: () => {
+      startSleep: () => {
         const s = get()
+        if (s.activity) return
+        const now = Date.now()
         const hasHome = s.assets.some((a) => a.kind === 'home')
-        const w = advance({ minutes: s.minutes, needs: s.needs, health: s.health, assets: s.assets }, 7 * 60)
         set({
-          minutes: w.minutes,
-          health: w.health,
-          assets: w.assets,
-          needs: { ...w.needs, energy: hasHome ? 100 : 80, hygiene: hasHome ? clamp(w.needs.hygiene + 30) : w.needs.hygiene },
+          activity: { kind: 'sleep', startedAt: now, endsAt: now + SLEEP_HOURS * 3_600_000 },
           timesSlept: s.timesSlept + 1,
-          log: note(s.log, hasHome ? 'Slept at home. Fully recharged.' : 'Slept rough. A home would help.'),
+          log: note(s.log, hasHome ? 'Lights out at home. Energy refills through the night.' : 'Sleeping rough. A home would make this count for more.'),
+        })
+      },
+
+      startShift: () => {
+        const s = get()
+        if (s.activity) return
+        const job = s.jobId ? jobById(s.jobId) : undefined
+        if (!job) return
+        if (s.needs.energy < 25 || s.needs.hunger < 15 || s.health < 20) {
+          set({ log: note(s.log, 'Too worn down to work. Eat and sleep first.') })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: { kind: 'shift', startedAt: now, endsAt: now + SHIFT_HOURS * 3_600_000, wage: job.wage, title: job.title },
+          log: note(s.log, `Clocked in as ${job.title}. ${SHIFT_HOURS}-hour shift — pay lands when it ends.`),
+        })
+      },
+
+      leaveActivity: () => {
+        const s = get()
+        const a = s.activity
+        if (!a) return
+        if (a.kind === 'sleep') {
+          set({ activity: null, log: note(s.log, 'Up early. The day is yours.') })
+          return
+        }
+        // Leaving a shift early: pro-rata pay, no XP
+        const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
+        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)))
+        set({
+          activity: null,
+          money: s.money + pay,
+          log: note(s.log, pay > 0 ? `Left the shift early: +${formatMoney(pay)}, no experience earned.` : 'Left the shift before it started paying.'),
         })
       },
 
@@ -277,38 +352,6 @@ export const useGame = create<GameState>()(
         if (!job) return
         if (s.level < job.requiredLevel) return
         set({ jobId, log: note(s.log, `Hired: ${job.title} at ${formatMoney(job.wage)}/h.`) })
-      },
-
-      workShift: () => {
-        const s = get()
-        const job = s.jobId ? jobById(s.jobId) : undefined
-        if (!job) return
-        if (s.needs.energy < 25 || s.needs.hunger < 15 || s.health < 20) {
-          set({ log: note(s.log, 'Too worn down to work. Eat and sleep first.') })
-          return
-        }
-        const w = advance({ minutes: s.minutes, needs: s.needs, health: s.health, assets: s.assets }, 6 * 60)
-        const bonus = wageBonusFrom(s.inventory)
-        const pay = Math.round(job.wage * 6 * (1 + bonus))
-        const prog = applyXp(s.level, s.xp, 20)
-        set({
-          minutes: w.minutes,
-          health: w.health,
-          assets: w.assets,
-          needs: applyEffects(w.needs, { energy: -18, hunger: -10, hygiene: -8, fun: -6 }),
-          money: s.money + pay,
-          xp: prog.xp,
-          level: prog.level,
-          shiftsWorked: s.shiftsWorked + 1,
-          log: note(
-            s.log,
-            prog.levelsGained > 0
-              ? `Shift done: +${formatMoney(pay)}. Promoted to level ${prog.level}!`
-              : bonus > 0
-                ? `Shift done: +${formatMoney(pay)} (gear bonus +${Math.round(bonus * 100)}%).`
-                : `Shift done: +${formatMoney(pay)}.`,
-          ),
-        })
       },
 
       buy: (itemId) => {
@@ -342,7 +385,6 @@ export const useGame = create<GameState>()(
           return
         }
 
-        // Durables are owned once
         if (item.durable && (s.inventory[itemId] ?? 0) > 0) return
 
         set({
@@ -365,7 +407,7 @@ export const useGame = create<GameState>()(
           lng,
           incomePerDay: item.incomePerDay ?? 0,
           pendingIncome: 0,
-          placedAtMinute: s.minutes,
+          placedAtMinute: 0,
         }
         set({
           assets: [...s.assets, asset],
@@ -388,7 +430,6 @@ export const useGame = create<GameState>()(
       cancelPlacing: () => {
         const s = get()
         if (!s.placing) return
-        // Refund — nothing was placed.
         set({ money: s.money + s.placing.price, placing: null, log: note(s.log, `${s.placing.name} refunded.`) })
       },
 
@@ -422,10 +463,9 @@ export const useGame = create<GameState>()(
       },
 
       toggleTutorial: () => set({ tutorialHidden: !get().tutorialHidden }),
-
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),
     }),
-    { name: 'reality-save-v1' },
+    { name: SAVE_KEY },
   ),
 )

@@ -7,14 +7,16 @@ export default function WorkPanel() {
   const xp = useGame((s) => s.xp)
   const jobId = useGame((s) => s.jobId)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const activity = useGame((s) => s.activity)
   const takeJob = useGame((s) => s.takeJob)
-  const workShift = useGame((s) => s.workShift)
+  const startShift = useGame((s) => s.startShift)
 
   return (
     <section className="panel" aria-label="Work">
       <h2 className="panel-title">Work</h2>
       <p className="panel-sub">
-        Level {level} · {xp}/{xpForLevel(level)} XP · {shiftsWorked} shifts worked. A shift lasts 6 in-game hours.
+        Level {level} · {xp}/{xpForLevel(level)} XP · {shiftsWorked} shifts worked. A shift is 8 real
+        hours — clock in, live your day, pay lands when it ends. Leave early for pro-rata pay, no XP.
       </p>
 
       <ul className="item-list">
@@ -31,7 +33,9 @@ export default function WorkPanel() {
               <div className="item-buy">
                 <span className="item-price mono">{formatMoney(job.wage)}/h</span>
                 {current ? (
-                  <button className="btn small primary" onClick={workShift}>Work shift</button>
+                  <button className="btn small primary" disabled={!!activity} onClick={startShift}>
+                    {activity ? 'Busy' : 'Start shift'}
+                  </button>
                 ) : (
                   <button className="btn small" disabled={locked} onClick={() => takeJob(job.id)}>Take job</button>
                 )}

@@ -4,22 +4,37 @@
 
 Live a second life on a real Earth. The same loops as real life — eat, sleep, work, spend — but compressed, visible, and winnable. The long game is escaping wage labor: turn salary into capital, capital into businesses, businesses into an empire on the map.
 
-## Time
+## Time — Rule #1: everything is REAL time
 
-- 1 real second = **10 game minutes**; a game day ≈ 2.4 real minutes.
-- Time-consuming actions (meals, shifts, sleep) fast-forward the clock and apply the same decay/income rules as ambient time, so there is one consistent simulation path (`advance()` in `src/game/engine.ts`).
-- Beta: time only advances while the game is open. Server release: the world runs 24/7.
+Reality runs on the actual clock. This is the game's founding rule and its name.
 
-## Needs (0–100)
+- **1 hour in the world = 1 hour of your life.** No compression, no fast-forward.
+- **Local time is real local time.** Your HUD clock shows the actual time where
+  your citizen lives — buy a home in Romania and you live on Romania's clock
+  (IANA timezone from the home's coordinates, DST included).
+- **The map is the real Earth** — real streets, real buildings, standing empty
+  until players claim and use them.
+- **Commitments are real**: a shift is 8 real hours (pay lands when it ends;
+  leave early for pro-rata pay and no XP). Sleep is a real night — energy
+  refills continuously, so waking early is always fair.
+- **Life goes on without you.** Away from the game, your citizen takes care of
+  themselves: they buy meals when hungry (~$12 from your balance) and sleep when
+  exhausted. Businesses keep earning per real day. If your money runs out, they
+  starve and health drains — the cost of living is real too.
+- One simulation path: everything routes through `liveRealtime()` in
+  `src/game/engine.ts` — a 1-second live tick and a 3-day absence are computed
+  by the same function.
 
-| Need | Decay/game-hour | Restored by |
-|------|-----------------|-------------|
-| Food | 2.2 | Buying and eating food (shop) |
-| Energy | 1.4 | Sleep (100 at home, 80 rough) |
-| Hygiene | 1.1 | Public shower ($8), home shower (free with sleep) |
-| Fun | 1.6 | Movies, gym, concerts, dinners out |
+## Needs (0–100) — tuned to human rhythms, per REAL hour
 
-**Health**: drains 2/h while food or energy is at 0; regenerates 1/h while both are above 60. Working is blocked below 20 health, 25 energy, or 15 food — the simulation forces the real-life loop.
+| Need | Awake | Working | Sleeping (home / rough) | Restored by |
+|------|-------|---------|--------------------------|-------------|
+| Food | −4.5 | −6.0 | −1.5 / −2.0 | Eating ~3× a real day |
+| Energy | −4.5 | −7.5 | **+16 / +11** | A real night's sleep |
+| Hygiene | −3.0 | −4.0 | +4 (home shower) / −1 | Showers |
+| Fun | −3.5 | −4.5 | 0 / −1 | Leisure |
+
+**Health**: drains 3/h while food or energy is at 0; regenerates 2/h while both are above 60. Working is blocked below 20 health, 25 energy, or 15 food — the simulation forces the real-life loop.
 
 ## Work & progression
 

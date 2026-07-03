@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { dayOfLife } from '../../game/clock'
 import { formatMoney, netWorthOf, xpForLevel } from '../../game/engine'
 import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
@@ -58,14 +59,13 @@ export default function ProfilePanel() {
   const assets = useGame((s) => s.assets)
   const level = useGame((s) => s.level)
   const xp = useGame((s) => s.xp)
-  const minutes = useGame((s) => s.minutes)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
 
   if (!citizen) return null
 
   const netWorth = netWorthOf(money, inventory, assets)
   const dailyYield = assets.reduce((sum, a) => sum + a.incomePerDay, 0)
-  const daysLived = Math.floor(minutes / 1440)
+  const daysLived = dayOfLife(citizen.createdAt)
   const businesses = assets.filter((a) => a.kind === 'business').length
   const homes = assets.filter((a) => a.kind === 'home').length
 

@@ -1,16 +1,24 @@
-import { formatClock, formatMoney } from '../../game/engine'
+import { dayOfLife, localClock, zoneFor } from '../../game/clock'
+import { formatMoney } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 export default function TopBar() {
   const citizen = useGame((s) => s.citizen)
   const money = useGame((s) => s.money)
-  const minutes = useGame((s) => s.minutes)
   const level = useGame((s) => s.level)
+  const assets = useGame((s) => s.assets)
   const panel = useGame((s) => s.panel)
   const setPanel = useGame((s) => s.setPanel)
+  // Re-render every tick so the real clock stays live
+  useGame((s) => s.lastSeenAt)
 
   if (!citizen) return null
-  const { day, time } = formatClock(minutes)
+
+  // Rule #1: real time. The clock shows the actual local time where the
+  // citizen lives — their home's timezone once they own one.
+  const home = assets.find((a) => a.kind === 'home')
+  const clock = localClock(home ? zoneFor(home.lat, home.lng) : undefined)
+  const day = dayOfLife(citizen.createdAt)
 
   const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile') => setPanel(panel === id ? null : id)
 
@@ -35,8 +43,8 @@ export default function TopBar() {
           <span className="stat-value">{citizen.name} · L{level}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">day {day}</span>
-          <span className="stat-value mono">{time}</span>
+          <span className="stat-label">{clock.place} · day {day}</span>
+          <span className="stat-value mono">{clock.time}</span>
         </div>
         <div className="stat stat-money">
           <span className="stat-label">balance</span>
