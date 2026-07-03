@@ -586,12 +586,12 @@ describe('cost of living (cashflowOf)', async () => {
     expect(owner.livingCostPerDay).toBeLessThan(renter.livingCostPerDay)
   })
 
-  test('the numbers add up: net = passive + wages − living', () => {
+  test('the numbers add up: net = passive + wages − living − upkeep', () => {
     const f = cashflowOf({ assets: [business], hasHome: true, wage: 20, shiftsWorked: 10, wageBonus: 0.05 })
     expect(f.passivePerDay).toBe(200)
     const mult = careerRankOf(10).wageMultiplier
     expect(f.wagesPerDay).toBe(Math.round(20 * mult * 1.05 * SHIFT_HOURS))
-    expect(f.netPerDay).toBe(f.passivePerDay + f.wagesPerDay - f.livingCostPerDay)
+    expect(f.netPerDay).toBe(f.passivePerDay + f.wagesPerDay - f.livingCostPerDay - f.upkeepPerDay)
   })
 
   test('any job at rank 1 covers the cost of living (no dead-end economy)', () => {
@@ -602,6 +602,13 @@ describe('cost of living (cashflowOf)', async () => {
   test('no wage without a job', () => {
     const f = cashflowOf({ assets: [], hasHome: false, wage: 0, shiftsWorked: 50, wageBonus: 0 })
     expect(f.wagesPerDay).toBe(0)
+  })
+
+  test('a business always nets positive after opex — upkeep never a trap', () => {
+    const f = cashflowOf({ assets: [business], hasHome: false, wage: 0, shiftsWorked: 0, wageBonus: 0 })
+    expect(f.upkeepPerDay).toBeGreaterThan(0)
+    expect(f.upkeepPerDay).toBeLessThan(business.incomePerDay)
+    expect(f.passivePerDay - f.upkeepPerDay).toBeGreaterThan(0)
   })
 })
 
@@ -628,5 +635,47 @@ describe('seasons are real (Rule #1)', async () => {
     expect(seasonal.filter((i) => i.season === 'winter').length).toBeGreaterThanOrEqual(2)
     expect(seasonal.filter((i) => i.season === 'summer').length).toBeGreaterThanOrEqual(2)
     for (const item of seasonal) expect(item.effects, item.name).toBeDefined()
+  })
+})
+
+describe('holding costs (upkeepPerDayOf)', async () => {
+  const { upkeepPerDayOf } = await import('./engine')
+  const biz = (income: number, itemId = 'foodcart'): PlacedAsset => ({
+    id: `b-${income}`, itemId, kind: 'business', name: 'Biz',
+    lat: 0, lng: 0, incomePerDay: income, pendingIncome: 0, placedAtMinute: 0,
+  })
+  const home = (itemId: string): PlacedAsset => ({
+    id: itemId, itemId, kind: 'home', name: 'Home',
+    lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0,
+  })
+
+  test('no holdings, no upkeep', () => {
+    expect(upkeepPerDayOf([])).toBe(0)
+  })
+
+  test('business opex is a fraction of its income, never all of it', () => {
+    const u = upkeepPerDayOf([biz(200)])
+    expect(u).toBeGreaterThan(0)
+    expect(u).toBeLessThan(200)
+  })
+
+  test('a pricier home is taxed more than a cheap one', () => {
+    expect(upkeepPerDayOf([home('villa')])).toBeGreaterThan(upkeepPerDayOf([home('microstudio')]))
+  })
+
+  test('upkeep scales with the size of the empire', () => {
+    expect(upkeepPerDayOf([biz(200), biz(200)])).toBeCloseTo(2 * upkeepPerDayOf([biz(200)]))
+  })
+
+  test('a real absence bleeds upkeep from the wallet', () => {
+    const rich = { ...world(), assets: [business(2000)] }
+    const out = liveRealtime(
+      { ...rich, money: 100_000, activity: null, hasHome: false, wageBonus: 0 },
+      0,
+      4 * 24 * HOUR,
+    )
+    expect(out.upkeepPaid).toBeGreaterThan(0)
+    expect(out.money).toBeLessThan(100_000 + out.wagesEarned)
+    expect(out.summary.join(' ')).toMatch(/upkeep|opex|overhead/i)
   })
 })

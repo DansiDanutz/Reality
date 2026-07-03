@@ -35,6 +35,15 @@ export const XP_PER_SHIFT = 40
  */
 export const PENDING_CAP_DAYS = 3
 
+/**
+ * Holding costs — a business runs on staff, rent and supplies; a home pays
+ * property tax. Real money out the door every day (Rule #1). Tuned gentle:
+ * a business always nets positive, but an idle empire genuinely bleeds, which
+ * is the point — wealth you never touch slowly costs you (plan 03's wealth sink).
+ */
+export const BUSINESS_OPEX_RATE = 0.1 // of gross daily income
+export const HOME_TAX_DAILY = 0.00004 // ~1.5%/yr of a home's value
+
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
@@ -107,6 +116,7 @@ export interface LiveOutput extends WorldSlice {
   autoDrinks: number
   autoSleeps: number
   wagesEarned: number
+  upkeepPaid: number
   lastFountainAt: number
   lastFoodBankAt: number
   summary: string[]
@@ -135,6 +145,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   let autoDrinks = 0
   let autoSleeps = 0
   let wagesEarned = 0
+  let upkeepPaid = 0
   let lastFountainAt = input.lastFountainAt ?? 0
   let lastFoodBankAt = input.lastFoodBankAt ?? 0
   let usedFountain = false
@@ -165,6 +176,15 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
         xpGained += Math.max(1, Math.round((XP_PER_SHIFT * hours) / SHIFT_HOURS))
       }
       activity = null
+    }
+
+    // Holding costs bleed continuously — opex and property tax, floored at $0
+    // (you can't pay what you don't have; the dignity floor still keeps you alive)
+    const upkeep = upkeepPerDayOf(world.assets) * (minutes / 60 / 24)
+    if (upkeep > 0 && money > 0) {
+      const paid = Math.min(money, upkeep)
+      money -= paid
+      upkeepPaid += paid
     }
 
     // The dignity floor: a broke citizen never death-spirals. Once a real
@@ -206,6 +226,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   if (wagesEarned > 0) summary.push(`finished ${shiftsCompleted} shift${shiftsCompleted > 1 ? 's' : ''} (+$${wagesEarned})`)
   if (world.assets.some((a) => a.incomePerDay > 0 && a.pendingIncome >= a.incomePerDay * PENDING_CAP_DAYS - 0.01))
     summary.push('a till filled up — it holds 3 days, then customers walk past')
+  if (upkeepPaid >= 1) summary.push(`paid $${Math.round(upkeepPaid)} in upkeep (opex + property tax)`)
 
   return {
     ...world,
@@ -217,6 +238,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     autoDrinks,
     autoSleeps,
     wagesEarned,
+    upkeepPaid,
     lastFountainAt,
     lastFoodBankAt,
     summary,
@@ -355,7 +377,21 @@ export interface Cashflow {
   /** One full shift a day at the current job, rank and gear included */
   wagesPerDay: number
   livingCostPerDay: number
+  /** Business opex + home property tax on everything you hold */
+  upkeepPerDay: number
   netPerDay: number
+}
+
+/**
+ * Daily holding cost of a portfolio: business operating costs (a fraction of
+ * gross income) plus property tax on homes (a fraction of their value).
+ */
+export function upkeepPerDayOf(assets: PlacedAsset[]): number {
+  return assets.reduce((sum, a) => {
+    if (a.kind === 'business') return sum + a.incomePerDay * BUSINESS_OPEX_RATE
+    const value = itemById(a.itemId)?.price ?? 0
+    return sum + value * HOME_TAX_DAILY
+  }, 0)
 }
 
 const MEALS_PER_DAY = 3
@@ -370,7 +406,14 @@ export function cashflowOf(i: CashflowInput): Cashflow {
     i.wage > 0
       ? Math.round(i.wage * careerRankOf(i.shiftsWorked).wageMultiplier * (1 + i.wageBonus) * SHIFT_HOURS)
       : 0
-  return { passivePerDay, wagesPerDay, livingCostPerDay, netPerDay: passivePerDay + wagesPerDay - livingCostPerDay }
+  const upkeepPerDay = Math.round(upkeepPerDayOf(i.assets))
+  return {
+    passivePerDay,
+    wagesPerDay,
+    livingCostPerDay,
+    upkeepPerDay,
+    netPerDay: passivePerDay + wagesPerDay - livingCostPerDay - upkeepPerDay,
+  }
 }
 
 /**

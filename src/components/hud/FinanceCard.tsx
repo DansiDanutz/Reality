@@ -38,6 +38,7 @@ export default function FinanceCard() {
     { label: 'businesses', value: flow.passivePerDay, kind: 'in' },
     { label: job ? `wages (${job.title})` : 'wages (no job)', value: flow.wagesPerDay, kind: 'in' },
     { label: hasHome ? 'living (home cooking)' : 'living (eating out)', value: -flow.livingCostPerDay, kind: 'out' },
+    ...(flow.upkeepPerDay > 0 ? [{ label: 'upkeep (opex + tax)', value: -flow.upkeepPerDay, kind: 'out' as const }] : []),
   ]
 
   return (
