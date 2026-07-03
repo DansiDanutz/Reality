@@ -295,9 +295,14 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   commits to `main`, no orphaned work.
 - *Self-criticism:* the `inert` wrapper covers the top-level drawer/Market
   dialogs only — Street Mode's own door card isn't a true modal and wasn't
-  brought under this pattern. Cooking has no landing "ding" sound (every
-  other completion in this game chimes). Grocery freshness is shown as a
-  static list, not integrated into the Market's own item cards yet.
+  brought under this pattern. Grocery freshness is shown as a static list
+  in the Kitchen panel, not integrated into the Market's own item cards yet.
+- *Correction (same day):* the previous entry claimed cooking has no
+  completion sound — false. The "ready" toast reuses `withToast(..., 'ok')`,
+  and every toast chimes via the shared `Toasts` component regardless of
+  which event produced it (shift complete, promotions, reach expansion,
+  and now meals all fire the same way). Verified by reading the exact
+  code path rather than assuming from the toast text alone.
 
 ## Open — ranked by (retention × effort)
 
