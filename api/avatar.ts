@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { list, put } from '@vercel/blob'
+import { get, list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -108,19 +108,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
     try {
-      const batch = await list({ prefix: `avatars/${cid}.png`, limit: 1 })
-      if (!batch.blobs[0]) {
+      // Avatars are stored PRIVATE — their URLs are not publicly fetchable, so
+      // read the bytes with the store token (get() is also strongly consistent,
+      // unlike list(), so a just-generated avatar is retrievable immediately).
+      const result = await get(`avatars/${cid}.png`, {
+        access: 'private',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      })
+      if (!result || result.statusCode !== 200) {
         res.status(404).end()
         return
       }
-      const img = await fetch(batch.blobs[0].downloadUrl)
-      if (!img.ok) {
-        res.status(404).end()
-        return
-      }
+      const bytes = Buffer.from(await new Response(result.stream).arrayBuffer())
       res.setHeader('Content-Type', 'image/png')
       res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=3600')
-      res.status(200).send(Buffer.from(await img.arrayBuffer()))
+      res.status(200).send(bytes)
     } catch {
       res.status(500).end()
     }
