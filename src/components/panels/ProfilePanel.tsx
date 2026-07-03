@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayOfLife } from '../../game/clock'
-import { formatMoney, netWorthOf, xpForLevel } from '../../game/engine'
+import { formatMoney, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
 import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
 import AvatarStudio from './AvatarStudio'
@@ -70,7 +70,9 @@ export default function ProfilePanel() {
   const businesses = assets.filter((a) => a.kind === 'business').length
   const homes = assets.filter((a) => a.kind === 'home').length
 
+  const reach = reachOf(level, businesses, homes > 0, netWorth)
   const stats: { label: string; value: string }[] = [
+    { label: 'reach', value: Number.isFinite(reach.km) ? `${reach.label} · ${reach.km} km` : reach.label },
     { label: 'net worth', value: formatMoney(netWorth) },
     { label: 'cash', value: formatMoney(money) },
     { label: 'portfolio yield', value: `${formatMoney(dailyYield)}/day` },

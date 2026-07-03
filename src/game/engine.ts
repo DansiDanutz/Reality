@@ -297,6 +297,40 @@ export function tierOf(level: number, businesses: number, netWorth: number): 1 |
 }
 
 /**
+ * Territorial progression — Rule: you build your reality in YOUR area first.
+ * A reach radius around the hometown grows with achievement. The whole map
+ * is visible; only your earned region is buildable.
+ */
+export interface Reach {
+  tier: 1 | 2 | 3 | 4 | 5
+  km: number
+  label: string
+  /** What unlocks the next tier — shown to the player on rejection */
+  next?: string
+}
+
+export function reachOf(level: number, businesses: number, hasHome: boolean, netWorth: number): Reach {
+  if (level >= 12 || netWorth >= 5_000_000) return { tier: 5, km: Infinity, label: 'the world' }
+  if (level >= 8 || businesses >= 5 || netWorth >= 1_000_000)
+    return { tier: 4, km: 2_500, label: 'your continent', next: 'Level 12 or $5M net worth unlocks the world.' }
+  if (level >= 5 && (hasHome || businesses >= 2))
+    return { tier: 3, km: 450, label: 'your country', next: 'Level 8, five businesses, or $1M unlocks your continent.' }
+  if (level >= 3 || businesses >= 1)
+    return { tier: 2, km: 80, label: 'your province', next: 'Level 5 plus a home (or a second business) unlocks your country.' }
+  return { tier: 1, km: 15, label: 'your city', next: 'Reach level 3 or open your first business to unlock your province.' }
+}
+
+/** Great-circle distance in km (haversine) */
+export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const rad = Math.PI / 180
+  const dLat = (lat2 - lat1) * rad
+  const dLng = (lng2 - lng1) * rad
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2
+  return 6_371 * 2 * Math.asin(Math.sqrt(a))
+}
+
+/**
  * The guide: your citizen tells you, in his own voice, the single best next
  * move. One ladder, strictly ordered by urgency — survival, then work, then
  * wealth, then joy. Every line ends in exactly one actionable step.

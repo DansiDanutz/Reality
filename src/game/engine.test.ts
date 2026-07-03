@@ -307,6 +307,41 @@ describe('the guide (adviceOf)', async () => {
   })
 })
 
+describe('territorial progression (reachOf)', async () => {
+  const { reachOf, distanceKm } = await import('./engine')
+
+  test('you start in your city and earn the world', () => {
+    expect(reachOf(1, 0, false, 5_000)).toMatchObject({ tier: 1, km: 15 })
+    expect(reachOf(3, 0, false, 5_000).tier).toBe(2) // level path
+    expect(reachOf(1, 1, false, 5_000).tier).toBe(2) // first business path
+    expect(reachOf(5, 0, true, 5_000).tier).toBe(3) // level 5 + home
+    expect(reachOf(5, 2, false, 5_000).tier).toBe(3) // level 5 + 2 businesses
+    expect(reachOf(8, 0, false, 5_000).tier).toBe(4)
+    expect(reachOf(1, 0, false, 1_500_000).tier).toBe(4)
+    expect(reachOf(12, 0, false, 0).tier).toBe(5)
+    expect(reachOf(12, 0, false, 0).km).toBe(Infinity)
+  })
+
+  test('every finite tier tells you how to unlock the next', () => {
+    for (const reach of [reachOf(1, 0, false, 0), reachOf(3, 0, false, 0), reachOf(5, 0, true, 0), reachOf(8, 0, false, 0)]) {
+      expect(reach.next, reach.label).toBeTruthy()
+    }
+  })
+
+  test('distanceKm is sane: Bucharest to Cluj ≈ 320 km', () => {
+    const d = distanceKm(44.43, 26.1, 46.77, 23.6)
+    expect(d).toBeGreaterThan(280)
+    expect(d).toBeLessThan(340)
+    expect(distanceKm(10, 10, 10, 10)).toBeCloseTo(0)
+  })
+
+  test('a fresh citizen can build at home but not in another country', () => {
+    const reach = reachOf(1, 0, false, 0)
+    expect(distanceKm(46.71, 23.5, 46.72, 23.52)).toBeLessThan(reach.km) // next street: yes
+    expect(distanceKm(46.71, 23.5, 48.85, 2.35)).toBeGreaterThan(reach.km) // Paris: no
+  })
+})
+
 describe('mood & tiers', async () => {
   const { moodOf, tierOf } = await import('./engine')
   const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }

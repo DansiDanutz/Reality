@@ -2,7 +2,24 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { itemById } from '../../game/catalog'
+import { netWorthOf, reachOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
+
+/** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
+function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
+  const ring: [number, number][] = []
+  const rad = Math.PI / 180
+  const d = km / 6_371
+  const lat1 = lat * rad
+  const lng1 = lng * rad
+  for (let i = 0; i <= points; i++) {
+    const brng = (i / points) * 2 * Math.PI
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng))
+    const lng2 = lng1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2))
+    ring.push([((lng2 / rad + 540) % 360) - 180, lat2 / rad])
+  }
+  return ring
+}
 
 /** Free OpenStreetMap vector tiles — every street and building on Earth */
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
@@ -56,6 +73,9 @@ export default function WorldMap() {
   const citizenId = useGame((s) => s.citizen?.citizenId)
   const spawnLat = useGame((s) => s.citizen?.spawnLat)
   const spawnLng = useGame((s) => s.citizen?.spawnLng)
+  const level = useGame((s) => s.level)
+  const money = useGame((s) => s.money)
+  const inventory = useGame((s) => s.inventory)
   const [world, setWorld] = useState<WorldAsset[]>([])
   const introDone = useRef(false)
 
@@ -203,6 +223,75 @@ export default function WorldMap() {
       cancelled = true
     }
   }, [styleReady, assets, spawnLat, spawnLng, SHOW_STREET_CHARACTER])
+
+  // Your reach: see the whole world, build only in your earned region.
+  // A golden boundary around home; the lands beyond dim until unlocked.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !styleReady) return
+    const center =
+      spawnLat !== undefined && spawnLng !== undefined
+        ? { lat: spawnLat, lng: spawnLng }
+        : assets[0] ?? null
+    const reach = center
+      ? reachOf(level, assets.filter((a) => a.kind === 'business').length, assets.some((a) => a.kind === 'home'), netWorthOf(money, inventory, assets))
+      : null
+
+    const empty = { type: 'FeatureCollection', features: [] } as const
+    let ringData: unknown = empty
+    let dimData: unknown = empty
+    if (center && reach && Number.isFinite(reach.km)) {
+      const ring = circleRing(center.lat, center.lng, reach.km)
+      ringData = {
+        type: 'FeatureCollection',
+        features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ring } }],
+      }
+      // World with a hole = everything beyond your reach, gently dimmed
+      dimData = {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'Polygon',
+              coordinates: [
+                [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]],
+                [...ring].reverse(),
+              ],
+            },
+          },
+        ],
+      }
+    }
+
+    type GeoData = Parameters<maplibregl.GeoJSONSource['setData']>[0]
+    const ringSrc = map.getSource('reach-ring') as maplibregl.GeoJSONSource | undefined
+    if (ringSrc) {
+      ringSrc.setData(ringData as GeoData)
+      ;(map.getSource('reach-dim') as maplibregl.GeoJSONSource).setData(dimData as GeoData)
+    } else {
+      map.addSource('reach-ring', { type: 'geojson', data: ringData as GeoData })
+      map.addSource('reach-dim', { type: 'geojson', data: dimData as GeoData })
+      map.addLayer({
+        id: 'reach-dim',
+        type: 'fill',
+        source: 'reach-dim',
+        paint: { 'fill-color': '#05070e', 'fill-opacity': 0.38 },
+      })
+      map.addLayer({
+        id: 'reach-ring',
+        type: 'line',
+        source: 'reach-ring',
+        paint: {
+          'line-color': '#f0b429',
+          'line-width': 2.5,
+          'line-opacity': 0.85,
+          'line-dasharray': [2.5, 2],
+        },
+      })
+    }
+  }, [styleReady, spawnLat, spawnLng, assets, level, money, inventory])
 
   // Empire routes: great-circle lines chaining your holdings in purchase order
   useEffect(() => {

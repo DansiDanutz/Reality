@@ -8,9 +8,11 @@ import {
   SLEEP_HOURS,
   applyEffects,
   applyXp,
+  distanceKm,
   formatMoney,
   liveRealtime,
   netWorthOf,
+  reachOf,
   rollEvent,
   wageBonusFrom,
   type Activity,
@@ -71,6 +73,8 @@ interface GameState {
   lastFoodBankAt: number
   /** One-time "How Reality works" targets screen */
   targetsSeen: boolean
+  /** Territorial progression: highest reach tier celebrated so far */
+  reachTier: number
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
@@ -140,6 +144,7 @@ const FRESH = {
   lastFountainAt: 0,
   lastFoodBankAt: 0,
   targetsSeen: false,
+  reachTier: 1,
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
   soundOn: true,
@@ -370,6 +375,22 @@ export const useGame = create<GameState>()(
           }
         }
 
+        // Territorial progression: celebrate when the citizen's reach grows
+        let reachTier = s.reachTier
+        {
+          const reach = reachOf(
+            level,
+            out.assets.filter((a) => a.kind === 'business').length,
+            out.assets.some((a) => a.kind === 'home'),
+            netWorthOf(out.money, s.inventory, out.assets),
+          )
+          if (reach.tier > reachTier) {
+            reachTier = reach.tier
+            toasts = withToast(toasts, `🌍 Your reach expanded: ${reach.label}!`, 'gold')
+            log = note(log, `Your reach expanded — you can now build across ${reach.label}.`)
+          }
+        }
+
         // A little chaos, only during live play
         let needs = out.needs
         let money = out.money
@@ -395,6 +416,7 @@ export const useGame = create<GameState>()(
           lastSeenAt: now,
           lastFountainAt: out.lastFountainAt,
           lastFoodBankAt: out.lastFoodBankAt,
+          reachTier,
           awayReport,
           toasts,
           log,
@@ -554,6 +576,33 @@ export const useGame = create<GameState>()(
         const s = get()
         const item = s.placing
         if (!item) return
+
+        // Build your reality in YOUR area first. The map is visible
+        // everywhere; only your earned region is buildable.
+        const center =
+          s.citizen?.spawnLat !== undefined
+            ? { lat: s.citizen.spawnLat, lng: s.citizen.spawnLng! }
+            : s.assets[0] ?? null
+        if (center) {
+          const reach = reachOf(
+            s.level,
+            s.assets.filter((a) => a.kind === 'business').length,
+            s.assets.some((a) => a.kind === 'home'),
+            netWorthOf(s.money, s.inventory, s.assets),
+          )
+          const d = distanceKm(center.lat, center.lng, lat, lng)
+          if (d > reach.km) {
+            const where = s.citizen?.homeCity ? ` around ${s.citizen.homeCity}` : ''
+            set({
+              toasts: withToast(s.toasts, `Beyond your reach — build in ${reach.label} first`, 'sky'),
+              log: note(
+                s.log,
+                `That spot is ${Math.round(d)} km away — your reach is ${reach.label} (${reach.km} km${where}). ${reach.next ?? ''}`,
+              ),
+            })
+            return
+          }
+        }
         const asset: PlacedAsset = {
           id: `${item.id}-${Date.now()}`,
           itemId: item.id,
