@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
+import type { Citizen, Needs, Pet, PlacedAsset, ShopItem } from '../game/types'
 import {
   GIG_MINUTES,
   GIG_WAGE,
@@ -10,9 +10,11 @@ import {
   applyXp,
   careerRankOf,
   distanceKm,
+  feedPet,
   formatMoney,
   liveRealtime,
   netWorthOf,
+  petFunBonus,
   reachOf,
   rollEvent,
   wageBonusFrom,
@@ -61,6 +63,8 @@ interface GameState {
   lastSeenAt: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
+  /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
+  pets: Pet[]
   /** Item awaiting a map click for placement */
   placing: ShopItem | null
   panel: PanelId
@@ -106,6 +110,10 @@ interface GameState {
   pushCloudSave: () => Promise<void>
   tick: () => void
   consume: (itemId: string) => void
+  /** Feed one pet — tops up its hunger, charges the daily food cost */
+  feedPet: (petId: string) => void
+  /** Play with a pet — grants fun scaled by how well-fed it is */
+  playWithPet: (petId: string) => void
   startSleep: () => void
   startShift: () => void
   leaveActivity: () => void
@@ -137,6 +145,7 @@ const FRESH = {
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
+  pets: [] as Pet[],
   placing: null as ShopItem | null,
   panel: null as PanelId,
   log: [] as string[],
@@ -348,6 +357,7 @@ export const useGame = create<GameState>()(
             wageBonus: wageBonusFrom(s.inventory),
             lastFountainAt: s.lastFountainAt,
             lastFoodBankAt: s.lastFoodBankAt,
+            pets: s.pets,
           },
           from,
           now,
@@ -432,6 +442,7 @@ export const useGame = create<GameState>()(
           lastSeenAt: now,
           lastFountainAt: out.lastFountainAt,
           lastFoodBankAt: out.lastFoodBankAt,
+          pets: out.pets,
           reachTier,
           awayReport,
           toasts,
@@ -492,6 +503,39 @@ export const useGame = create<GameState>()(
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
           timesEaten: (item.effects.hunger ?? 0) > 0 ? s.timesEaten + 1 : s.timesEaten,
           log: note(s.log, `${item.name} — done.`),
+        })
+      },
+
+      // Pet care — feed one companion. No-op if it's full, broke, or missing.
+      feedPet: (petId) => {
+        const s = get()
+        if (s.activity?.kind === 'sleep') return
+        const pet = s.pets.find((p) => p.petId === petId)
+        if (!pet) return
+        const { pet: fed, cost } = feedPet(pet, s.money)
+        if (cost === 0) return
+        set({
+          money: s.money - cost,
+          pets: s.pets.map((p) => (p.petId === petId ? fed : p)),
+          log: note(s.log, `Fed ${itemById(pet.itemId)?.name ?? 'your pet'} (−${formatMoney(cost)}). It perked right up.`),
+        })
+      },
+
+      // Pet care — play with one companion. Joy scales with how fed it is;
+      // a neglected pet gives nothing (it just wants to be left alone).
+      playWithPet: (petId) => {
+        const s = get()
+        if (s.activity?.kind === 'sleep') return
+        const pet = s.pets.find((p) => p.petId === petId)
+        if (!pet) return
+        const fun = petFunBonus(pet)
+        if (fun <= 0) {
+          set({ log: note(s.log, `${itemById(pet.itemId)?.name ?? 'Your pet'} is too hungry to play — feed it first.`) })
+          return
+        }
+        set({
+          needs: applyEffects(s.needs, { fun }),
+          log: note(s.log, `Played with ${itemById(pet.itemId)?.name ?? 'your pet'}. +${fun} fun.`),
         })
       },
 
@@ -593,6 +637,18 @@ export const useGame = create<GameState>()(
         }
 
         if (item.durable && (s.inventory[itemId] ?? 0) > 0) return
+
+        // A pet becomes a living companion with its own hunger meter, not an
+        // inventory row — same pattern as placed assets (per-instance state).
+        if (item.pet) {
+          const newPet: Pet = { itemId, hunger: 100, petId: `${itemId}-${Date.now()}` }
+          set({
+            money: s.money - item.price,
+            pets: [...s.pets, newPet],
+            log: note(s.log, `Adopted ${item.name}. Feed it ${formatMoney(item.pet.foodCostPerDay)}/day or it goes quiet.`),
+          })
+          return
+        }
 
         set({
           money: s.money - item.price,
@@ -727,13 +783,14 @@ export const useGame = create<GameState>()(
     }),
     {
       name: SAVE_KEY,
-      version: 2,
-      // v2 adds hydration — give citizens from older saves a healthy default
+      version: 3,
+      // v2 adds hydration; v3 adds pets — old saves get an empty menagerie
       migrate: (persisted) => {
         const state = persisted as GameState
         if (state?.needs && state.needs.hydration === undefined) {
           state.needs = { ...state.needs, hydration: 75 }
         }
+        if (state && !state.pets) state.pets = []
         return state
       },
       partialize: (state) =>

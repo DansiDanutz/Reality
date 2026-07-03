@@ -172,6 +172,26 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   VoiceOver/NVDA gesture pass still not done on hardware — the semantics are
   right, the lived screen-reader test is pending real users.
 
+## Fixed in loop 13 (2026-07-03)
+
+- **Pets are alive** (issue #9, and the loop-10 debt: "pets are consume-button
+  joy, not living companions"): each adopted pet now has a hunger meter that
+  empties ~once per real day (Rule #1). Feeding costs real money by size
+  ($1/$2/$3 goldfish/cat/dog); a fed pet gives its full fun bonus when you
+  play with it, a hungry one (<20) goes quiet and gives nothing. **Never dies
+  — the game is kind.** Engine-pure in `src/game/`: `petFunBonus`, `feedPet`,
+  `petUpkeepPerDay`, hunger decay + away auto-feed threaded into the one
+  simulation path (`liveRealtime`, via an optional `pets` field so the 15
+  pre-existing realtime tests stayed green untouched). 10 new tests lock the
+  behavior + the economy guard (all three pets ≪ a quarter of a worst-job
+  day; cheaper than a single business's opex). Market card shows a live hunger
+  bar + Feed/Play; save migration to v3 gives old citizens an empty menagerie.
+- *Self-criticism:* a citizen can own one of each pet only (buy-guarded like
+  durables) — multi-pet households and street-walking dogs deferred to the
+  avatar-walks work. Pet auto-feed shares the away-self-care tick, so a very
+  long absence with low funds will quietly let pets go hungry (correct, but
+  the away report doesn't name them individually yet — only "fed the pets").
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,

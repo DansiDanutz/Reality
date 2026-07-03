@@ -44,6 +44,29 @@ export interface ShopItem {
   grantXp?: number
   /** Only stocked in this real season at the citizen's real latitude (Rule #1) */
   season?: 'winter' | 'summer'
+  /**
+   * Pet definition — a pet is a companion with its own hunger meter. Feeding
+   * costs real money per real day (Rule #1); a fed pet gives a bigger fun
+   * bonus, a neglected one goes quiet but never dies (this game is kind).
+   */
+  pet?: PetConfig
+}
+
+export interface PetConfig {
+  /** Daily food cost in real dollars, by the pet's size — the upkeep of joy */
+  foodCostPerDay: number
+  /** Fun granted when the pet is played with, scaling down as it goes hungry */
+  fun: number
+}
+
+/** A pet the citizen owns — hunger is its one vital, like the citizen's needs. */
+export interface Pet {
+  /** ShopItem id this pet was bought from (goldfish | cat | dog) */
+  itemId: string
+  /** 100 = full, 0 = ravenous. Decays on real time, never kills. */
+  hunger: number
+  /** Stable instance id so a citizen can own two of the same kind one day */
+  petId: string
 }
 
 export interface Job {

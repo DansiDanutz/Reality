@@ -1,5 +1,5 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById } from './catalog'
-import type { LifeEvent, Needs, PlacedAsset } from './types'
+import type { LifeEvent, Needs, Pet, PlacedAsset } from './types'
 
 /**
  * Rule #1: Reality runs on REAL time. One hour in the world is one hour of
@@ -43,6 +43,20 @@ export const PENDING_CAP_DAYS = 3
  */
 export const BUSINESS_OPEX_RATE = 0.1 // of gross daily income
 export const HOME_TAX_DAILY = 0.00004 // ~1.5%/yr of a home's value
+
+/**
+ * Pets are alive on real time (Rule #1). A pet eats about once a day, so its
+ * hunger bar empties across a real day — same cadence as the citizen's. A
+ * neglected pet (hunger < PET_QUIET_THRESHOLD) stops giving its fun bonus but
+ * never dies: this game is kind. Tuning guard: even a dog ($3/day) is far
+ * below a day of the lowest wage, so pet upkeep never dead-ends the loop.
+ */
+export const PET_HUNGER_PER_DAY = 100 // the bar empties once per real day
+export const PET_QUIET_THRESHOLD = 20 // below this, the pet goes quiet (no fun)
+/** One feed tops the bar up; the cost is the pet's daily food cost (Rule #1). */
+export const PET_FEED_AMOUNT = 100
+/** Away auto-feed kicks in before a pet goes quiet, like the citizen self-care. */
+export const PET_AUTOFEED_THRESHOLD = 25
 
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
@@ -105,6 +119,8 @@ export interface LiveInput extends WorldSlice {
   /** Recovery-floor cooldowns (public fountain / food bank), ms timestamps */
   lastFountainAt?: number
   lastFoodBankAt?: number
+  /** Pets the citizen owns — each has its own hunger meter (Rule #1) */
+  pets?: Pet[]
 }
 
 export interface LiveOutput extends WorldSlice {
@@ -119,6 +135,10 @@ export interface LiveOutput extends WorldSlice {
   upkeepPaid: number
   lastFountainAt: number
   lastFoodBankAt: number
+  /** Pets after the span, with decayed (and possibly auto-fed) hunger */
+  pets: Pet[]
+  /** Real dollars spent auto-feeding pets while the citizen was away */
+  petFoodPaid: number
   summary: string[]
 }
 
@@ -139,6 +159,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   let world: WorldSlice = { needs: input.needs, health: input.health, assets: input.assets }
   let money = input.money
   let activity = input.activity
+  let pets = (input.pets ?? []).map((p) => ({ ...p }))
   let shiftsCompleted = 0
   let xpGained = 0
   let autoMeals = 0
@@ -146,6 +167,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   let autoSleeps = 0
   let wagesEarned = 0
   let upkeepPaid = 0
+  let petFoodPaid = 0
   let lastFountainAt = input.lastFountainAt ?? 0
   let lastFoodBankAt = input.lastFoodBankAt ?? 0
   let usedFountain = false
@@ -162,7 +184,10 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   for (let guard = 0; t < end && guard < 24 * 31 + 8; guard++) {
     const chunkEnd = Math.min(end, activity ? activity.endsAt : end, t + 60 * 60_000)
     const minutes = Math.max(0, (chunkEnd - t) / 60_000)
+    const days = minutes / 60 / 24
     world = advanceLife(world, minutes, modeOf(activity, input.hasHome))
+    // Pets get hungry on the same real clock as the citizen
+    if (pets.length) pets = pets.map((p) => ({ ...p, hunger: clamp(p.hunger - PET_HUNGER_PER_DAY * days) }))
     t = chunkEnd
 
     // Resolve a finished activity — pay for exactly the hours it spanned
@@ -180,7 +205,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
 
     // Holding costs bleed continuously — opex and property tax, floored at $0
     // (you can't pay what you don't have; the dignity floor still keeps you alive)
-    const upkeep = upkeepPerDayOf(world.assets) * (minutes / 60 / 24)
+    const upkeep = upkeepPerDayOf(world.assets) * days
     if (upkeep > 0 && money > 0) {
       const paid = Math.min(money, upkeep)
       money -= paid
@@ -203,6 +228,18 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
 
     // Away-mode self care: water first (it matters most), then food, then sleep
     if (!activity && end - t > AWAY_THRESHOLD_MS) {
+      // Pets eat too: the citizen tops up any pet about to go quiet, paying
+      // from the wallet — joy has a price, even while you're away.
+      if (pets.some((p) => p.hunger <= PET_AUTOFEED_THRESHOLD)) {
+        const feedable = pets.filter((p) => p.hunger <= PET_AUTOFEED_THRESHOLD)
+        for (const p of feedable) {
+          const cfg = itemById(p.itemId)?.pet
+          if (!cfg || money < cfg.foodCostPerDay) continue
+          money -= cfg.foodCostPerDay
+          petFoodPaid += cfg.foodCostPerDay
+          p.hunger = clamp(p.hunger + PET_FEED_AMOUNT)
+        }
+      }
       if (world.needs.hydration <= 30 && money >= AUTO_WATER_COST) {
         money -= AUTO_WATER_COST
         world = { ...world, needs: { ...world.needs, hydration: clamp(world.needs.hydration + 50) } }
@@ -224,6 +261,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   if (usedFoodBank) summary.push('got a food-bank meal')
   if (autoSleeps > 0) summary.push(`slept ${autoSleeps} night${autoSleeps > 1 ? 's' : ''}`)
   if (wagesEarned > 0) summary.push(`finished ${shiftsCompleted} shift${shiftsCompleted > 1 ? 's' : ''} (+$${wagesEarned})`)
+  if (petFoodPaid >= 1) summary.push(`fed the pets (−$${Math.round(petFoodPaid)})`)
   if (world.assets.some((a) => a.incomePerDay > 0 && a.pendingIncome >= a.incomePerDay * PENDING_CAP_DAYS - 0.01))
     summary.push('a till filled up — it holds 3 days, then customers walk past')
   if (upkeepPaid >= 1) summary.push(`paid $${Math.round(upkeepPaid)} in upkeep (opex + property tax)`)
@@ -241,6 +279,8 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     upkeepPaid,
     lastFountainAt,
     lastFoodBankAt,
+    pets,
+    petFoodPaid,
     summary,
   }
 }
@@ -253,6 +293,36 @@ export function applyEffects(needs: Needs, effects: Partial<Needs>): Needs {
     hygiene: clamp(needs.hygiene + (effects.hygiene ?? 0)),
     fun: clamp(needs.fun + (effects.fun ?? 0)),
   }
+}
+
+/**
+ * How much fun a pet grants right now. A well-fed pet gives its full ceiling;
+ * as it gets hungry the bonus fades linearly; below the quiet threshold it
+ * gives nothing (it's listless, not dead). Pure — used by the store's
+ * "Play with pet" action.
+ */
+export function petFunBonus(pet: Pet): number {
+  if (pet.hunger <= PET_QUIET_THRESHOLD) return 0
+  const cfg = itemById(pet.itemId)?.pet
+  if (!cfg) return 0
+  const fraction = (pet.hunger - PET_QUIET_THRESHOLD) / (100 - PET_QUIET_THRESHOLD)
+  return Math.round(cfg.fun * fraction)
+}
+
+/** Total daily food cost across every pet the citizen owns — for the dashboard. */
+export function petUpkeepPerDay(pets: Pet[]): number {
+  return pets.reduce((sum, p) => sum + (itemById(p.itemId)?.pet?.foodCostPerDay ?? 0), 0)
+}
+
+/**
+ * Feed one pet. Returns the new pet + the dollars it cost (0 if it couldn't be
+ * fed — full belly or unaffordable). Pure; the store applies the side effects.
+ */
+export function feedPet(pet: Pet, money: number): { pet: Pet; cost: number } {
+  if (pet.hunger >= 100) return { pet, cost: 0 }
+  const cfg = itemById(pet.itemId)?.pet
+  if (!cfg || money < cfg.foodCostPerDay) return { pet, cost: 0 }
+  return { pet: { ...pet, hunger: clamp(pet.hunger + PET_FEED_AMOUNT) }, cost: cfg.foodCostPerDay }
 }
 
 export const formatMoney = (n: number) =>
