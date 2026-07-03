@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, SHOP_ITEMS, FOUNDER_BALANCE } from './catalog'
+import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, RECIPES, SHOP_ITEMS, FOUNDER_BALANCE, itemById } from './catalog'
 import {
   AUTO_MEAL_COST,
   AUTO_WATER_COST,
@@ -10,9 +10,12 @@ import {
   advanceLife,
   applyEffects,
   applyXp,
+  canCook,
   clamp,
   feedPet,
+  hasKitchen,
   liveRealtime,
+  missingFor,
   netWorthOf,
   petFunBonus,
   petUpkeepPerDay,
@@ -766,5 +769,59 @@ describe('pets are alive (issue #9)', () => {
     const { upkeepPerDayOf } = await import('./engine')
     const pets = SHOP_ITEMS.filter((i) => i.pet).map((i) => pet(i.id))
     expect(petUpkeepPerDay(pets)).toBeLessThan(upkeepPerDayOf([business(200)]))
+  })
+})
+
+describe('cooking (cook-combos)', () => {
+  const homeAsset: PlacedAsset = {
+    id: 'h1', itemId: 'studio', kind: 'home', name: 'Studio', lat: 0, lng: 0,
+    incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0,
+  }
+
+  test('recipe ids are unique and each cooks into a real meal', () => {
+    const ids = RECIPES.map((r) => r.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const r of RECIPES) {
+      expect(Object.keys(r.ingredients).length, r.name).toBeGreaterThan(0)
+      expect((r.effects.hunger ?? 0), r.name).toBeGreaterThan(0)
+    }
+  })
+
+  test('every recipe ingredient is a real grocery item', () => {
+    for (const r of RECIPES) {
+      for (const id of Object.keys(r.ingredients)) {
+        const item = itemById(id)
+        expect(item, `${r.name} → ${id}`).toBeTruthy()
+        expect(item?.category, id).toBe('groceries')
+      }
+    }
+  })
+
+  test('a kitchen is a home, the Full Kitchen, or a Hot Plate — nothing else', () => {
+    expect(hasKitchen({}, [homeAsset])).toBe(true)
+    expect(hasKitchen({ hotplate: 1 }, [])).toBe(true)
+    expect(hasKitchen({ kitchen: 1 }, [])).toBe(true)
+    expect(hasKitchen({ noodles: 5 }, [])).toBe(false)
+    expect(hasKitchen({}, [])).toBe(false)
+  })
+
+  test('you can only cook once the ingredients are in the fridge', () => {
+    const recipe = RECIPES.find((r) => r.id === 'grilledcheese')!
+    expect(canCook(recipe, {})).toBe(false)
+    expect(canCook(recipe, { bread: 1 })).toBe(false) // still short cheese
+    expect(canCook(recipe, { bread: 1, cheese: 1 })).toBe(true)
+    expect(missingFor(recipe, { bread: 1 }).map((m) => m.id)).toEqual(['cheese'])
+  })
+
+  test('cooking beats eating out: cheaper per unit of hunger, and adds fun or energy', () => {
+    for (const r of RECIPES) {
+      const cost = Object.entries(r.ingredients).reduce(
+        (sum, [id, qty]) => sum + (itemById(id)?.price ?? 0) * qty, 0,
+      )
+      const costPerHunger = cost / (r.effects.hunger ?? 1)
+      expect(costPerHunger, r.name).toBeLessThan(0.3) // below the cheapest street food
+      const secondary = (r.effects.fun ?? 0) + (r.effects.energy ?? 0)
+      expect(secondary, r.name).toBeGreaterThan(0) // the reward for cooking
+    }
   })
 })

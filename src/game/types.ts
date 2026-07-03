@@ -11,6 +11,7 @@ export type NeedKey = keyof Needs
 
 export type ShopCategory =
   | 'food'
+  | 'groceries'
   | 'drinks'
   | 'clothing'
   | 'electronics'
@@ -75,6 +76,22 @@ export interface Job {
   wage: number
   requiredLevel: number
   flavor: string
+}
+
+/**
+ * A cook-combo: raw groceries (by item id → quantity) become a home-cooked meal.
+ * Cooking is cheaper per unit of hunger than eating out and adds fun/energy —
+ * the payoff for owning a kitchen (a home, the Full Kitchen, or a Hot Plate).
+ */
+export interface Recipe {
+  id: string
+  name: string
+  emoji: string
+  /** Grocery item id → quantity consumed from inventory */
+  ingredients: Record<string, number>
+  /** Need restoration when the meal is cooked */
+  effects: Partial<Needs>
+  description: string
 }
 
 export type AssetKind = 'home' | 'business'

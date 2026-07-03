@@ -1,4 +1,4 @@
-import type { Job, LifeEvent, ShopCategory, ShopItem } from './types'
+import type { Job, LifeEvent, Recipe, ShopCategory, ShopItem } from './types'
 
 export const FOUNDER_BALANCE = 200_000
 export const FOUNDER_SLOTS = 2_000
@@ -25,6 +25,7 @@ export const ENDGAME_IDS = [
 
 export const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [
   { id: 'food', label: 'Food', icon: '🍜' },
+  { id: 'groceries', label: 'Groceries', icon: '🧺' },
   { id: 'drinks', label: 'Drinks', icon: '☕' },
   { id: 'clothing', label: 'Clothing', icon: '👔' },
   { id: 'electronics', label: 'Electronics', icon: '📱' },
@@ -68,6 +69,17 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'tteokbokki', name: 'Tteokbokki', category: 'food', price: 6, hours: 0.5, description: 'Chewy rice cakes in gochujang fire. Seoul pojangmacha staple.', effects: { hunger: 28, fun: 7 } },
   { id: 'simit', name: 'Simit', category: 'food', price: 3, hours: 0.25, description: 'Istanbul sesame bread ring, eaten warm on the ferry across the Bosphorus.', effects: { hunger: 18, fun: 4 } },
 
+  // ── Groceries (raw ingredients — cook them into meals, see RECIPES) ──
+  // Edible raw in a pinch, but their real value is combined at a kitchen.
+  { id: 'rice', name: 'Bag of Rice', category: 'groceries', price: 2, description: 'A week of dinners waiting to happen.', effects: { hunger: 6 } },
+  { id: 'pasta', name: 'Dried Pasta', category: 'groceries', price: 2, description: 'Boils in ten minutes, feeds you all week.', effects: { hunger: 6 } },
+  { id: 'bread', name: 'Fresh Bread', category: 'groceries', price: 2, description: 'The base of a hundred cheap meals.', effects: { hunger: 8 } },
+  { id: 'eggs', name: 'Half-dozen Eggs', category: 'groceries', price: 3, description: 'Breakfast, binder, or dinner in a pan.', effects: { hunger: 8 } },
+  { id: 'tomato', name: 'Ripe Tomatoes', category: 'groceries', price: 3, description: 'Sauce, salad, or straight off the vine.', effects: { hunger: 5 } },
+  { id: 'veggies', name: 'Fresh Vegetables', category: 'groceries', price: 4, description: 'Whatever the market had this morning.', effects: { hunger: 6, fun: 1 } },
+  { id: 'cheese', name: 'Block of Cheese', category: 'groceries', price: 4, description: 'Makes everything better, melts into most things.', effects: { hunger: 8, fun: 2 } },
+  { id: 'chicken', name: 'Chicken Breast', category: 'groceries', price: 6, description: 'Protein for the pan — the centre of a real dinner.', effects: { hunger: 10 } },
+
   // ── Drinks (hydration is the most urgent human need) ────
   { id: 'water', name: 'Bottled Water', category: 'drinks', price: 1, hours: 0.1, description: 'The first need. Your body is ~60% of this.', effects: { hydration: 50 } },
   { id: 'soda', name: 'Craft Soda', category: 'drinks', price: 3, hours: 0.25, description: 'Fizzy optimism.', effects: { hydration: 20, fun: 5 } },
@@ -102,6 +114,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'laptop', name: 'Laptop Pro', category: 'electronics', price: 2_499, durable: true, wageBonus: 0.06, description: 'Work from anywhere on Earth. Literally.' },
 
   // ── Furniture ───────────────────────────────────────────
+  { id: 'hotplate', name: 'Hot Plate & Pans', category: 'furniture', price: 40, durable: true, description: 'One burner and a good pan — enough to actually cook, home or not.', effects: { hunger: 6 } },
   { id: 'plants', name: 'House Plants', category: 'furniture', price: 45, durable: true, hours: 0.25, description: 'Alive, green, and quietly encouraging.', effects: { fun: 6 } },
   { id: 'bookshelf', name: 'Bookshelf', category: 'furniture', price: 180, durable: true, hours: 2, description: 'A room with a library in it.', effects: { fun: 12 } },
   { id: 'showerset', name: 'Rain Shower Set', category: 'furniture', price: 250, durable: true, hours: 0.5, description: 'Hotel mornings, every morning.', effects: { hygiene: 50 } },
@@ -227,5 +240,17 @@ export const LIFE_EVENTS: LifeEvent[] = [
   { text: 'A film crew rented your frontage for an afternoon.', money: 200, requiresBusiness: true },
 ]
 
+// Cook-combos: raw groceries → a real meal. Cheaper per unit of hunger than
+// eating out, and each adds fun or energy — the reward for having a kitchen.
+export const RECIPES: Recipe[] = [
+  { id: 'grilledcheese', name: 'Grilled Cheese', emoji: '🧀', ingredients: { bread: 1, cheese: 1 }, effects: { hunger: 34, fun: 6 }, description: 'Golden, crisp, five minutes flat.' },
+  { id: 'bigbreakfast', name: 'Big Breakfast', emoji: '🍳', ingredients: { eggs: 1, bread: 1, tomato: 1 }, effects: { hunger: 40, energy: 12, fun: 5 }, description: 'Eggs, toast, grilled tomato — the day starts here.' },
+  { id: 'friedrice', name: 'Fried Rice', emoji: '🍚', ingredients: { rice: 1, eggs: 1, veggies: 1 }, effects: { hunger: 46, energy: 3, fun: 6 }, description: 'Yesterday\'s rice, tonight\'s dinner.' },
+  { id: 'pastapomodoro', name: 'Pasta al Pomodoro', emoji: '🍝', ingredients: { pasta: 1, tomato: 1, cheese: 1 }, effects: { hunger: 48, fun: 8 }, description: 'Three ingredients, a hundred good nights.' },
+  { id: 'omelette', name: 'Veggie Omelette', emoji: '🥚', ingredients: { eggs: 1, veggies: 1, cheese: 1 }, effects: { hunger: 44, energy: 8, fun: 4 }, description: 'Folded over whatever\'s in the fridge.' },
+  { id: 'chickendinner', name: 'Chicken Dinner', emoji: '🍗', ingredients: { chicken: 1, veggies: 1, rice: 1 }, effects: { hunger: 60, energy: 6, fun: 8 }, description: 'A plate that means you\'ve made it home.' },
+]
+
 export const itemById = (id: string): ShopItem | undefined => SHOP_ITEMS.find((i) => i.id === id)
 export const jobById = (id: string): Job | undefined => JOBS.find((j) => j.id === id)
+export const recipeById = (id: string): Recipe | undefined => RECIPES.find((r) => r.id === id)

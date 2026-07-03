@@ -14,6 +14,7 @@ import TutorialPanel from './components/hud/TutorialPanel'
 import Market from './components/market/Market'
 import AssetsPanel from './components/panels/AssetsPanel'
 import HealthGuide from './components/panels/HealthGuide'
+import KitchenPanel from './components/panels/KitchenPanel'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
 import TargetsIntro from './components/panels/TargetsIntro'
 import ProfilePanel from './components/panels/ProfilePanel'
@@ -30,6 +31,7 @@ const PANEL_LABELS: Record<string, string> = {
   top: 'Leaderboard',
   profile: 'Profile',
   health: 'Health guide',
+  cook: 'Kitchen',
 }
 
 // MapLibre is heavy — split it out so the shell paints instantly
@@ -44,7 +46,7 @@ export default function App() {
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // The heartbeat of the world: one tick per real second. The first tick
@@ -121,6 +123,7 @@ export default function App() {
               {panel === 'top' && <LeaderboardPanel />}
               {panel === 'profile' && <ProfilePanel />}
               {panel === 'health' && <HealthGuide />}
+              {panel === 'cook' && <KitchenPanel />}
             </div>
           )}
         </>

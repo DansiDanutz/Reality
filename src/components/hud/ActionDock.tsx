@@ -65,6 +65,9 @@ export default function ActionDock() {
         <button className="btn" onClick={() => useGame.getState().openMarket('food')} title="Open the Market on food">
           Eat
         </button>
+        <button className="btn" onClick={() => setPanel('cook')} title="Cook cheap groceries into real meals at home">
+          Cook
+        </button>
         <button className="btn" onClick={startSleep} title="Sleep through the night (8 real hours — wake early anytime)">
           Sleep
         </button>

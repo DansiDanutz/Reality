@@ -333,6 +333,26 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .item-buy { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .item-price { font-size: 13px; font-weight: 600; color: var(--gold); }
 
+/* ── Kitchen (cook-combos) ─────────────────────────────── */
+.kitchen-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--gold-dim);
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  border-radius: var(--radius);
+}
+.recipe-ingredients { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+.ingredient { font-family: var(--font-mono); font-size: 11px; }
+.ingredient.ok { color: var(--ok); }
+.ingredient.short { color: var(--muted); }
+.recipe-effects { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kitchen-shop { align-self: flex-start; margin-top: 4px; }
+
 .assets-summary {
   display: flex;
   justify-content: space-between;

@@ -1,5 +1,5 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById } from './catalog'
-import type { LifeEvent, Needs, Pet, PlacedAsset } from './types'
+import type { LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
 /**
  * Rule #1: Reality runs on REAL time. One hour in the world is one hour of
@@ -323,6 +323,28 @@ export function feedPet(pet: Pet, money: number): { pet: Pet; cost: number } {
   const cfg = itemById(pet.itemId)?.pet
   if (!cfg || money < cfg.foodCostPerDay) return { pet, cost: 0 }
   return { pet: { ...pet, hunger: clamp(pet.hunger + PET_FEED_AMOUNT) }, cost: cfg.foodCostPerDay }
+}
+
+// ── Cooking ────────────────────────────────────────────────
+// A kitchen is what turns raw groceries into meals: any home has one, and so
+// does the Full Kitchen or the cheap Hot Plate. Detection stays here in the
+// pure sim so client and server agree on who can cook.
+export const KITCHEN_ITEM_IDS = ['hotplate', 'kitchen']
+
+export function hasKitchen(inventory: Record<string, number>, assets: PlacedAsset[]): boolean {
+  if (assets.some((a) => a.kind === 'home')) return true
+  return KITCHEN_ITEM_IDS.some((id) => (inventory[id] ?? 0) > 0)
+}
+
+/** Which ingredients a recipe still needs (empty ⇒ ready to cook). */
+export function missingFor(recipe: Recipe, inventory: Record<string, number>): { id: string; need: number; have: number }[] {
+  return Object.entries(recipe.ingredients)
+    .map(([id, need]) => ({ id, need, have: inventory[id] ?? 0 }))
+    .filter((x) => x.have < x.need)
+}
+
+export function canCook(recipe: Recipe, inventory: Record<string, number>): boolean {
+  return missingFor(recipe, inventory).length === 0
 }
 
 export const formatMoney = (n: number) =>

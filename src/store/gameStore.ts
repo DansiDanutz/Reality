@@ -8,10 +8,12 @@ import {
   SLEEP_HOURS,
   applyEffects,
   applyXp,
+  canCook,
   careerRankOf,
   distanceKm,
   feedPet,
   formatMoney,
+  hasKitchen,
   liveRealtime,
   netWorthOf,
   petFunBonus,
@@ -21,12 +23,12 @@ import {
   type Activity,
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/catalog'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
 import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | null
 
 const SAVE_KEY = 'reality-save-v1'
 
@@ -114,6 +116,7 @@ interface GameState {
   feedPet: (petId: string) => void
   /** Play with a pet — grants fun scaled by how well-fed it is */
   playWithPet: (petId: string) => void
+  cook: (recipeId: string) => void
   startSleep: () => void
   startShift: () => void
   leaveActivity: () => void
@@ -536,6 +539,30 @@ export const useGame = create<GameState>()(
         set({
           needs: applyEffects(s.needs, { fun }),
           log: note(s.log, `Played with ${itemById(pet.itemId)?.name ?? 'your pet'}. +${fun} fun.`),
+        })
+      },
+
+      cook: (recipeId) => {
+        const s = get()
+        if (s.activity?.kind === 'sleep') return
+        const recipe = recipeById(recipeId)
+        if (!recipe) return
+        if (!hasKitchen(s.inventory, s.assets)) {
+          set({ log: note(s.log, 'No kitchen yet — a $40 Hot Plate or any home lets you cook.') })
+          return
+        }
+        if (!canCook(recipe, s.inventory)) {
+          set({ log: note(s.log, `Missing ingredients for ${recipe.name} — stock up in Groceries.`) })
+          return
+        }
+        const inventory = { ...s.inventory }
+        for (const [id, qty] of Object.entries(recipe.ingredients)) inventory[id] = (inventory[id] ?? 0) - qty
+        set({
+          needs: applyEffects(s.needs, recipe.effects),
+          inventory,
+          timesEaten: s.timesEaten + 1,
+          toasts: withToast(s.toasts, `Cooked ${recipe.name} ${recipe.emoji}`, 'ok'),
+          log: note(s.log, `Cooked ${recipe.name} at home — cheaper and better than takeout.`),
         })
       },
 
