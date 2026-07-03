@@ -16,9 +16,11 @@ impossible *if* these rules are followed.
 1. **One checkout per agent.** An agent works in exactly one working copy and
    never touches another agent's copy.
    - Claude Code → `~/Fable` (canonical)
-   - Codex → `~/Documents/Reality`
-   - No third copy of this repo should exist. Do not clone a new one; use a
-     [git worktree](#worktrees) if you need parallel branches.
+   - Codex → `~/ZCodeProject/Reality` (canonical)
+   - Any other local clone (e.g. an old `~/Documents/Reality`) is a stale
+     duplicate — retire it, don't work from two copies, never sit two copies on
+     `main`. Need parallel branches? Use a [git worktree](#worktrees) off your
+     one checkout, not a second clone.
 
 2. **Never commit to `main` locally.** `main` only advances by **merging a PR**
    on GitHub. Do not `git commit` on a local `main`; do not `git push origin
