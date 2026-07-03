@@ -166,6 +166,22 @@ export default function WorldMap() {
     ]
   }, [assets, world, citizenId])
 
+  // Citizen One walks the streets around your home (street zoom)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !styleReady) return
+    const anchor = assets.find((a) => a.kind === 'home') ?? assets[0]
+    if (!anchor || map.getLayer('citizen-one')) return
+    let cancelled = false
+    void import('./CharacterLayer').then(({ createCharacterLayer }) => {
+      if (cancelled || !mapRef.current || mapRef.current.getLayer('citizen-one')) return
+      mapRef.current.addLayer(createCharacterLayer({ lat: anchor.lat, lng: anchor.lng }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [styleReady, assets])
+
   // Empire routes: great-circle lines chaining your holdings in purchase order
   useEffect(() => {
     const map = mapRef.current
