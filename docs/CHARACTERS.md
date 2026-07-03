@@ -4,6 +4,24 @@ Every character in Reality is generated to one standard, established by Characte
 This document is the canon: who exists, what they look like, and the exact recipe for
 casting the next one.
 
+## Character #000 — Dan, The Architect
+
+![The Architect](../assets/characters/architect-v2.png)
+
+**The founder.** Before the first citizen claimed a slot, someone had to build the
+planet. Dan stands in the mission-control room at night, arms crossed, the Earth
+burning gold behind him — the world he's handing over to 2,000 founders. Canon:
+`assets/characters/architect-v2.png` (editorial alternate: `architect-v1.png`).
+
+**Visual canon**: rectangular glasses, short spiked dark hair, groomed short beard,
+charcoal hoodie under dark jacket, **amber-gold globe pin** (his one gold item),
+Earth-at-night screen backdrop, warm amber rim + cool blue fill.
+
+**Provenance**: Nano Banana Pro (identity-referenced from Dan's real portraits),
+3:4, ~2 credits/run.
+- Reference media_ids: `eb2a1c23-8194-403f-a68d-201d9996f441`, `640cf46b-d875-4dca-b8b0-06f74a07c72f`
+- Job IDs: v1 `d0f4eca3-8ad1-44df-aba1-c4a334b20dc9` · v2 (canon) `d2e42fba-3cb6-47ed-b0a5-5ca5f459a848`
+
 ## Character #001 — Maya Reyes
 
 ![Maya Reyes](../assets/characters/maya-v1.png)
