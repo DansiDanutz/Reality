@@ -108,13 +108,23 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   first attempt undercounts (chosen over retry-spam; revisit with Phase 1b).
   No dashboard UI yet — numbers are a curl away, good enough until real traffic.
 
+## Fixed in loop 9 (2026-07-03)
+
+- **Accessibility shipped** (issues #6, #7 closed): need bars carry numeric
+  readouts + ⚠ at critical + role=meter ARIA — color is never the only signal.
+  prefers-reduced-motion now governs JS motion too: no globe spin, instant
+  intro jump, no head-bob/beacon pulse. Focus ring on every button.
+- *Self-criticism:* not yet audited with an actual screen reader (VoiceOver
+  pass pending); panel drawers still lack focus trapping; contrast of
+  .street-hint muted text on busy skies unmeasured.
+
 ## Open — ranked by (retention × effort)
 
 1. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
    needed with P2P (Phase 2).
-2. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
-3. **Phase 1b is now the top structural item**: server authority unlocks true
-   leaderboards, presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
+2. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
+   presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
+3. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
 
 ## Accepted (consciously, for now)
 
