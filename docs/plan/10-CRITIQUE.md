@@ -225,6 +225,30 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   deep-dive. Fine while traffic is small; revisit when the numbers get big
   enough to warrant slicing.
 
+## Fixed in loop 16 (2026-07-03)
+
+- **Cooking shipped** (Content-Roadmap Wave 1's "groceries as ingredients →
+  cook combos"): a new **Groceries** shelf (8 raw ingredients, edible raw in a
+  pinch so they still pass "every item does something") plus **6 recipes**.
+  Cooking needs a kitchen — any home, the $8k Full Kitchen, or a new **$40 Hot
+  Plate** so a $2,500 non-founder can still opt in — then consumes the
+  ingredients and returns a meal that beats eating out on cost-per-hunger while
+  adding fun or energy: the payoff for owning a kitchen (Rule #4/#5, and it
+  makes the home path in UC-6 pull its weight). Engine-pure in `src/game/`:
+  `hasKitchen`, `canCook`, `missingFor`, `RECIPES`; the `cook` action mirrors
+  the tested `consume` path; a Kitchen panel (focus-trapped like every dialog,
+  per loop 12) + a dock **Cook** button drive it. 5 cooking constitution tests
+  (recipe→ingredient referential integrity, the kitchen gate, cost-per-hunger
+  beats street food). Verified in a real browser: Hot Plate + bread + cheese →
+  Grilled Cheese cooked, food 40→74 (exactly +34), ingredients consumed, the
+  durable Hot Plate kept, chime + toast fired. 92 tests.
+- *Self-criticism:* recipes are instant like every other meal — cooking costs
+  no game-time, so a stocked fridge is a burst of cheap hunger with no pacing
+  (matches `consume`, but a "cooking takes 20 real minutes" activity would make
+  the kitchen feel real). Ingredients don't spoil, so groceries are just a
+  cheaper food SKU with a combine step; freshness/waste is the honest next
+  idea. No cuisine synergy with the 25 street foods yet (loop-14's open thread).
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
@@ -232,7 +256,9 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
 2. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
 3. `inert` background behind open dialogs + VoiceOver/NVDA hardware pass
    (a11y last mile — semantics now correct, lived test pending).
-4. Progressive tax brackets on holdings — with P2P (Phase 2).
+4. Cooking depth: a timed cooking activity + ingredient spoilage, so the
+   kitchen has pacing and groceries have a freshness stake (loop-16 debt).
+5. Progressive tax brackets on holdings — with P2P (Phase 2).
 
 ## Accepted (consciously, for now)
 
