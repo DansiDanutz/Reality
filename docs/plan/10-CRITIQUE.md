@@ -270,16 +270,43 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   weak-phone profiling; revisit if fps reports come in. Thunderstorm codes
   (95-99) render as plain rain — no lightning yet.
 
+## Fixed in loop 18 (2026-07-03, David remote — first loop under AGENTS.md branch workflow)
+
+- **`inert` behind every open dialog** (#17): Market and drawer panels already
+  trapped Tab focus (loop 12), but the map, HUD windows, dock, and toasts
+  stayed in the accessibility tree and tab order behind them. One wrapper
+  around that content toggles the native `inert` attribute (React 19) +
+  `aria-hidden` alongside `dialogOpen` — screen readers skip it, Tab can't
+  reach it, no manual restore needed. Verified: background `.focus()` calls
+  are refused while a dialog is open; Escape still closes both dialog types.
+- **Cooking depth** (#18, closes loop-16's own debt): cooking is now a real
+  timed `Activity` (`kind: 'cook'`) — ingredients go in at the stove, the
+  meal lands `COOK_MINUTES` (20) real minutes later, exactly like a shift.
+  Groceries spoil on their REAL shelf life since last restocked (dry goods
+  ~a year, bread/tomato/veggies 5 days, raw chicken 2 days, eggs/cheese ~3
+  weeks) — one threshold check inside the existing `liveRealtime()` pass, so
+  a long absence loses old chicken correctly, no separate simulation path.
+  7 new tests; verified end-to-end in a real browser (separate worktree +
+  alt-port dev server): meal landed with the right effects and toast, aged
+  chicken spoiled and dropped off the freshness list.
+- **Governance note**: this is the first loop run under `AGENTS.md`'s
+  merge-only `main` — two feature branches, two PRs, CI-gated squash-merges,
+  one clean rebase when main moved underneath the second PR. No direct
+  commits to `main`, no orphaned work.
+- *Self-criticism:* the `inert` wrapper covers the top-level drawer/Market
+  dialogs only — Street Mode's own door card isn't a true modal and wasn't
+  brought under this pattern. Cooking has no landing "ding" sound (every
+  other completion in this game chimes). Grocery freshness is shown as a
+  static list, not integrated into the Market's own item cards yet.
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
    presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
 2. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
-3. `inert` background behind open dialogs + VoiceOver/NVDA hardware pass
-   (a11y last mile — semantics now correct, lived test pending).
-4. Cooking depth: a timed cooking activity + ingredient spoilage, so the
-   kitchen has pacing and groceries have a freshness stake (loop-16 debt).
-5. Progressive tax brackets on holdings — with P2P (Phase 2).
+3. VoiceOver/NVDA hardware pass (a11y last mile — semantics now correct,
+   lived test still pending).
+4. Progressive tax brackets on holdings — with P2P (Phase 2).
 
 ## Accepted (consciously, for now)
 
