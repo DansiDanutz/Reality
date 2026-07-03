@@ -17,17 +17,34 @@ body {
 
 .app { position: relative; height: 100%; }
 
-/* ── Globe ─────────────────────────────────────────────── */
-.globe-stage, .globe-loading { position: absolute; inset: 0; }
-.globe-stage.is-placing { cursor: crosshair; }
-.globe-tip {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--surface-solid);
-  border: 1px solid var(--line-strong);
-  padding: 4px 8px;
+/* ── World map ─────────────────────────────────────────── */
+/* !important: maplibre's stylesheet loads later and resets position to relative */
+.map-stage, .globe-loading { position: absolute !important; inset: 0; width: 100%; height: 100%; }
+.map-stage.is-placing, .map-stage.is-placing .maplibregl-canvas { cursor: crosshair !important; }
+.map-stage .maplibregl-ctrl-attrib {
+  background: rgba(5, 7, 14, 0.6);
   border-radius: 6px;
-  color: var(--gold);
+}
+.map-stage .maplibregl-ctrl-attrib a { color: var(--muted); }
+
+.map-beacon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(5, 7, 14, 0.85);
+  cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(240, 180, 41, 0.55);
+}
+.map-beacon.biz { background: var(--gold); animation: beacon-pulse 2.2s ease-out infinite; }
+.map-beacon.home { background: var(--sky); animation: beacon-pulse-sky 2.2s ease-out infinite; }
+.map-beacon.other { width: 12px; height: 12px; background: #a78bfa; opacity: 0.85; }
+@keyframes beacon-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(240, 180, 41, 0.55); }
+  100% { box-shadow: 0 0 0 16px rgba(240, 180, 41, 0); }
+}
+@keyframes beacon-pulse-sky {
+  0% { box-shadow: 0 0 0 0 rgba(125, 216, 255, 0.55); }
+  100% { box-shadow: 0 0 0 16px rgba(125, 216, 255, 0); }
 }
 
 /* ── Buttons ───────────────────────────────────────────── */

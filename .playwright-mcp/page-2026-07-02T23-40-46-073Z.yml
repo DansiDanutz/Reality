@@ -1,0 +1,57 @@
+- generic [ref=f4e3]:
+  - generic "explorer-map" [ref=f4e5]:
+    - region "Map" [ref=f4e6]
+  - generic [ref=f4e7]:
+    - img "The Stadium Course at TPC Sawgrass" [ref=f4e8]
+    - generic [ref=f4e9]:
+      - button "explore" [ref=f4e10] [cursor=pointer]:
+        - generic [ref=f4e11]:
+          - img "explore" [ref=f4e12]
+          - generic [ref=f4e13]: Explore
+      - button "search" [ref=f4e14] [cursor=pointer]:
+        - generic [ref=f4e15]:
+          - img "search" [ref=f4e16]
+          - generic [ref=f4e17]: Search
+      - button "directions" [ref=f4e18] [cursor=pointer]:
+        - generic [ref=f4e19]:
+          - img "directions" [ref=f4e20]
+          - generic [ref=f4e21]: Directions
+      - button "tenants" [ref=f4e22] [cursor=pointer]:
+        - generic [ref=f4e23]:
+          - img "tenants" [ref=f4e24]
+          - generic [ref=f4e25]: Directory
+      - button "promotions" [ref=f4e26] [cursor=pointer]:
+        - generic [ref=f4e27]:
+          - img "promotions" [ref=f4e28]
+          - generic [ref=f4e29]: Promotions
+    - generic [ref=f4e31]:
+      - img
+      - generic [ref=f4e32]:
+        - generic "Players" [ref=f4e33] [cursor=pointer]:
+          - img "Players" [ref=f4e34]
+          - generic [ref=f4e35]: Players
+        - generic "Entry" [ref=f4e36] [cursor=pointer]:
+          - img "Entry" [ref=f4e37]
+          - generic [ref=f4e38]: Entry
+        - generic "Holes" [ref=f4e39] [cursor=pointer]:
+          - img "Holes" [ref=f4e40]
+          - generic [ref=f4e41]: Holes
+        - generic "Food" [ref=f4e42] [cursor=pointer]:
+          - img "Food" [ref=f4e43]
+          - generic [ref=f4e44]: Food
+        - generic "Shop" [ref=f4e45] [cursor=pointer]:
+          - img "Shop" [ref=f4e46]
+          - generic [ref=f4e47]: Shop
+      - img
+  - generic [ref=f4e49]:
+    - generic [ref=f4e50]:
+      - img "The Stadium Course at TPC Sawgrass" [ref=f4e51]
+      - generic:
+        - paragraph
+        - paragraph
+    - generic [ref=f4e53]:
+      - button "FETCHING LIVE INFO" [disabled]:
+        - generic:
+          - generic:
+            - text: FETCHING LIVE INFO
+            - generic: .

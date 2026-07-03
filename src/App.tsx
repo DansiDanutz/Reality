@@ -11,8 +11,8 @@ import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
 import { useGame } from './store/gameStore'
 
-// Three.js + the globe are ~600 kB gzipped — split them out so the shell paints instantly
-const GlobeView = lazy(() => import('./components/globe/GlobeView'))
+// MapLibre is heavy — split it out so the shell paints instantly
+const WorldMap = lazy(() => import('./components/map/WorldMap'))
 
 export default function App() {
   const citizen = useGame((s) => s.citizen)
@@ -45,7 +45,7 @@ export default function App() {
   return (
     <div className="app">
       <Suspense fallback={<div className="globe-loading" aria-hidden />}>
-        <GlobeView />
+        <WorldMap />
       </Suspense>
       {!citizen && <Welcome />}
       {citizen && (
