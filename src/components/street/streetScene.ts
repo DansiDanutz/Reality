@@ -9,6 +9,7 @@ import {
   roadWidth,
   toLocalMeters,
 } from './osm'
+import type { Weather } from './weather'
 
 /**
  * Street Mode — stand on your real street, first person.
@@ -178,6 +179,7 @@ export async function createStreetScene(
   localHour: number,
   markers: StreetMarker[] = [],
   onProximity?: (marker: StreetMarker | null) => void,
+  weather: Weather = { condition: 'clear' },
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
   const calmMotion =
@@ -185,10 +187,19 @@ export async function createStreetScene(
   const { buildings, roads, greens, trees } = await fetchNeighborhood(center.lat, center.lng)
   if (buildings.length === 0) throw new Error('empty-neighborhood')
 
+  // The active precipitation effect: rain renders whenever Open-Meteo reports
+  // it; snow only in the real winter at this latitude. Calm-motion users see
+  // the wet/snowy ground tint but no streaks — atmosphere without motion.
+  const raining = weather.condition === 'rain'
+  const snowing = weather.condition === 'snow'
+  const precip = !calmMotion && (raining || snowing) ? (snowing ? 'snow' : 'rain') : null
+
   const scene = new THREE.Scene()
   const skyColor = night ? 0x0a1424 : 0x9cc4e8
   scene.background = new THREE.Color(skyColor)
-  scene.fog = new THREE.FogExp2(skyColor, night ? 0.0042 : 0.0015)
+  // Rain doubles the fog density — the world closes in, as it does in a downpour
+  const fogBase = night ? 0.0042 : 0.0015
+  scene.fog = new THREE.FogExp2(skyColor, precip === 'rain' ? fogBase * 2 : fogBase)
 
   const camera = new THREE.PerspectiveCamera(72, container.clientWidth / container.clientHeight, 0.1, 1200)
   camera.position.set(0, EYE_HEIGHT, 0)
@@ -256,7 +267,10 @@ export async function createStreetScene(
   addMerged(scene, greenGeos, parkMat)
 
   // ── Roads: real widths, sidewalks, lane markings ─────────
-  const roadMat = new THREE.MeshLambertMaterial({ color: night ? 0x1a2333 : 0x3f4750 })
+  // Wet asphalt reads darker and bluer — rain changes the road, not just the sky
+  const dryRoad = night ? 0x1a2333 : 0x3f4750
+  const wetRoad = night ? 0x0c1018 : 0x1f242c
+  const roadMat = new THREE.MeshLambertMaterial({ color: precip === 'rain' ? wetRoad : dryRoad })
   const pathMat = new THREE.MeshLambertMaterial({ color: night ? 0x1c2230 : 0x8d8676 })
   const sidewalkMat = new THREE.MeshLambertMaterial({ color: night ? 0x232c3d : 0x9aa1ab })
   const markMat = new THREE.MeshBasicMaterial({ color: night ? 0x6b7994 : 0xe8e4d8 })
@@ -432,6 +446,36 @@ export async function createStreetScene(
   canopyGeo.dispose()
   addMerged(scene, trunkGeos, trunkMat)
   addMerged(scene, canopyGeos, canopyMat)
+
+  // ── Weather: one merged particle system (rain OR snow) ──
+  // One THREE.Points, one draw call — never per-drop meshes. Particles wrap
+  // around the player in a box; each frame they fall and, on hitting the
+  // ground, respawn overhead so the storm never runs dry.
+  const precipCount = precip === 'rain' ? 2200 : precip === 'snow' ? 1400 : 0
+  let precipPoints: THREE.Points | null = null
+  const precipVel = new Float32Array(precipCount)
+  const precipBox = 80 // half-extent around the camera
+  if (precip && precipCount > 0) {
+    const positions = new Float32Array(precipCount * 3)
+    for (let i = 0; i < precipCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * precipBox * 2
+      positions[i * 3 + 1] = Math.random() * 40
+      positions[i * 3 + 2] = (Math.random() - 0.5) * precipBox * 2
+      // Rain falls fast and straight; snow drifts down slowly with sway
+      precipVel[i] = precip === 'rain' ? 18 + Math.random() * 8 : 1.2 + Math.random() * 0.8
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    const mat = new THREE.PointsMaterial({
+      color: precip === 'rain' ? 0x9fb8d8 : 0xffffff,
+      size: precip === 'rain' ? 0.18 : 0.32,
+      transparent: true,
+      opacity: precip === 'rain' ? 0.55 : 0.85,
+      fog: true,
+    })
+    precipPoints = new THREE.Points(geo, mat)
+    scene.add(precipPoints)
+  }
 
   // ── Your holdings: golden beacons you can walk to ───────
   const beaconBeams: THREE.Mesh[] = []
@@ -664,6 +708,25 @@ export async function createStreetScene(
       const bob = grounded && !calmMotion ? Math.sin(bobPhase) * 0.05 * Math.min(1, speed / WALK_SPEED) : 0
       p.y = EYE_HEIGHT + jumpOffset + bob
     }
+
+    // Precipitation: fall, wrap overhead, follow the camera so the storm is always local
+    if (precipPoints) {
+      const positions = precipPoints.geometry.attributes.position.array as Float32Array
+      for (let i = 0; i < precipVel.length; i++) {
+        positions[i * 3 + 1] -= precipVel[i] * dt
+        // snow sways sideways; rain stays vertical (driven by wind would be overkill)
+        if (precip === 'snow') positions[i * 3] += Math.sin(now / 900 + i) * dt * 0.5
+        if (positions[i * 3 + 1] < 0) {
+          positions[i * 3 + 1] = 40
+          positions[i * 3] = p.x + (Math.random() - 0.5) * precipBox * 2
+          positions[i * 3 + 2] = p.z + (Math.random() - 0.5) * precipBox * 2
+        }
+      }
+      // keep the whole field centered on the player — they walk, the storm follows
+      precipPoints.position.x = p.x
+      precipPoints.position.z = p.z
+      precipPoints.geometry.attributes.position.needsUpdate = true
+    }
     renderer.render(scene, camera)
   }
   animate()
@@ -699,6 +762,10 @@ export async function createStreetScene(
         const mesh = obj as THREE.Mesh
         if (mesh.geometry) mesh.geometry.dispose()
       })
+      if (precipPoints) {
+        precipPoints.geometry.dispose()
+        ;(precipPoints.material as THREE.Material).dispose()
+      }
     },
   }
 }
