@@ -9,4 +9,9 @@ Life-simulation game on a 3D Earth. React 19 + TS + Vite, react-globe.gl, Zustan
 - Verify with `npm run build` (tsc + vite). Dev server: `npm run dev`.
 - Beta is client-only (localStorage saves). Server architecture is specified in `docs/ARCHITECTURE.md` — don't improvise a different one.
 
-_Last verified: 2026-07-02_
+## Collaboration (multiple agents work this repo)
+- **Read [AGENTS.md](AGENTS.md) before any git work.** `main` is protected and merge-only — never commit to `main` or push to it directly; branch off current `origin/main`, PR, let CI (`verify`) merge it.
+- This checkout (`~/Fable`) is Claude Code's canonical copy. Do not touch other Reality checkouts (`~/Documents/Reality` is Codex's). One checkout per agent.
+- Never end a session with a dirty working tree — commit to a branch or stash and report. See [docs/AUDIT-2026-07-03.md](docs/AUDIT-2026-07-03.md) for the incident that set these rules.
+
+_Last verified: 2026-07-03_

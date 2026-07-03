@@ -25,6 +25,27 @@ cd Reality && npm install && npm run dev
 - Skills/education system (courses that unlock careers)
 - Localization
 
+## Branch & PR workflow (required — `main` is protected)
+
+`main` is **merge-only**: it never accepts a direct push. Every change lands
+through a pull request that passes CI.
+
+```bash
+git fetch origin
+git switch -c feat/my-thing origin/main   # always branch off current main
+# … work …
+npx vitest run && npm run build           # must be green
+git push -u origin feat/my-thing
+gh pr create --fill                        # CI 'verify' + up-to-date branch gate the merge
+```
+
+A branch that is behind `main` cannot be merged — rebase onto `origin/main`
+first. Merged branches auto-delete. Never force-push anything but your own
+feature branch (`--force-with-lease`).
+
+**AI agents:** read [AGENTS.md](AGENTS.md) — one checkout per agent, one branch
+per task, never commit to `main` or to another agent's copy.
+
 ## PR format
 
 Conventional commits (`feat:`, `fix:`, `docs:`…). Describe the player-facing change first, the code second. Screenshots or clips for anything visual.

@@ -1,0 +1,16 @@
+# Code ownership — surfaces the right reviewer on a PR.
+# Reality is agent-built; @DansiDanutz is the human backstop for the
+# sensitive areas (economy constitution, plan of record, server contracts).
+
+# The game engine + economy constitution — balance changes are high-stakes.
+/src/game/            @DansiDanutz
+
+# The plan of record and the honest loop ledger.
+/docs/plan/           @DansiDanutz
+
+# Serverless functions must stay self-contained (no src/ imports).
+/api/                 @DansiDanutz
+
+# CI, protection-adjacent config, and agent coordination rules.
+/.github/             @DansiDanutz
+/AGENTS.md            @DansiDanutz
