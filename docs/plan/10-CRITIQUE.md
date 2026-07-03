@@ -73,6 +73,26 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   while jobs are abstract, must gate when jobs become map-placed. Reach ring radius is
   drawn planar-ish at small scales; fine ≤2,500 km, revisit for tier-4 visuals.
 
+## Fixed in loop 7 (2026-07-03)
+
+- **Street Mode is a place now, not a diorama**: grass ground, OSM parks as
+  brighter lawns, roads at real widths with sidewalks + dashed markings, trees
+  (mapped + park-scattered + ambient fill for towns with zero micro-mapped
+  greenery), day clouds. Movement became physical: acceleration/momentum,
+  collision with real building footprints (wall sliding), jump with gravity,
+  head-bob, touch jump button, WASD works before pointer lock.
+- **Career ladder** (08's progression chapter): Rookie→Veteran by shifts worked,
+  wages ×1.0→×1.7, promotion toasts. Seniority is time-earned, never bought —
+  monetization constitution holds.
+- **Finance dashboard card**: net/real-day P&L (passive + wages − cost of living;
+  homes make living cheaper), career progress. Starts docked; the dock adopts
+  new cards into stale saved layouts.
+- *Self-criticism:* road/sidewalk/dash meshes are per-segment (thousands of draw
+  calls in dense cities — 130fps on M-series, weak phones will chug; needs
+  geometry merging next time Street Mode is touched). Trees cap at 150 globally,
+  not per-view. Jump has no landing sound. Night-time verification not re-run
+  after the environment rewrite (day verified end-to-end).
+
 ## Open — ranked by (retention × effort)
 
 1. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
