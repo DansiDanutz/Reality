@@ -532,3 +532,63 @@ describe('economy invariants', () => {
     expect(AUTO_MEAL_COST * 3).toBeLessThan(worstJobDay)
   })
 })
+
+describe('career ladder (careerRankOf)', async () => {
+  const { careerRankOf, nextRankOf, CAREER_RANKS } = await import('./engine')
+
+  test('ranks climb with shifts worked and multipliers only grow', () => {
+    expect(careerRankOf(0).rank).toBe(1)
+    expect(careerRankOf(0).wageMultiplier).toBe(1)
+    let prev = careerRankOf(0)
+    for (const r of CAREER_RANKS) {
+      const got = careerRankOf(r.shiftsRequired)
+      expect(got.rank).toBe(r.rank)
+      expect(got.wageMultiplier).toBeGreaterThanOrEqual(prev.wageMultiplier)
+      prev = got
+    }
+  })
+
+  test('nextRankOf reports shifts still to work, null at the top', () => {
+    const next = nextRankOf(0)
+    expect(next).not.toBeNull()
+    expect(next!.shiftsToGo).toBe(next!.shiftsRequired)
+    expect(nextRankOf(10_000)).toBeNull()
+  })
+
+  test('promotions are earned with time, never bought: top multiplier is modest', () => {
+    const top = CAREER_RANKS[CAREER_RANKS.length - 1]
+    expect(top.wageMultiplier).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('cost of living (cashflowOf)', async () => {
+  const { cashflowOf, careerRankOf } = await import('./engine')
+  const business: PlacedAsset = {
+    id: 'b1', itemId: 'foodcart', kind: 'business', name: 'Food Cart',
+    lat: 0, lng: 0, incomePerDay: 200, pendingIncome: 0, placedAtMinute: 0,
+  }
+
+  test('a home makes daily life cheaper (cook, do not buy every meal)', () => {
+    const renter = cashflowOf({ assets: [], hasHome: false, wage: 15, shiftsWorked: 0, wageBonus: 0 })
+    const owner = cashflowOf({ assets: [], hasHome: true, wage: 15, shiftsWorked: 0, wageBonus: 0 })
+    expect(owner.livingCostPerDay).toBeLessThan(renter.livingCostPerDay)
+  })
+
+  test('the numbers add up: net = passive + wages − living', () => {
+    const f = cashflowOf({ assets: [business], hasHome: true, wage: 20, shiftsWorked: 10, wageBonus: 0.05 })
+    expect(f.passivePerDay).toBe(200)
+    const mult = careerRankOf(10).wageMultiplier
+    expect(f.wagesPerDay).toBe(Math.round(20 * mult * 1.05 * SHIFT_HOURS))
+    expect(f.netPerDay).toBe(f.passivePerDay + f.wagesPerDay - f.livingCostPerDay)
+  })
+
+  test('any job at rank 1 covers the cost of living (no dead-end economy)', () => {
+    const f = cashflowOf({ assets: [], hasHome: false, wage: 15, shiftsWorked: 0, wageBonus: 0 })
+    expect(f.wagesPerDay).toBeGreaterThan(f.livingCostPerDay)
+  })
+
+  test('no wage without a job', () => {
+    const f = cashflowOf({ assets: [], hasHome: false, wage: 0, shiftsWorked: 50, wageBonus: 0 })
+    expect(f.wagesPerDay).toBe(0)
+  })
+})

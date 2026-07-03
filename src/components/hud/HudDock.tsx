@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGame } from '../../store/gameStore'
-import { CARD_META, type CardId } from './HudWindow'
+import { CARD_DEFAULTS, CARD_META, type CardId } from './HudWindow'
 
 const SLOTS = 6
 
@@ -15,12 +15,14 @@ export default function HudDock() {
   const patchCard = useGame((s) => s.patchCard)
   const [dragId, setDragId] = useState<string | null>(null)
 
-  const minimized = order.filter((id) => hudLayout[id]?.min)
+  // Saved orders may predate newer cards — append any the player hasn't met yet
+  const fullOrder = [...order, ...Object.keys(CARD_META).filter((id) => !order.includes(id))]
+  const minimized = fullOrder.filter((id) => hudLayout[id]?.min ?? CARD_DEFAULTS[id as CardId]?.min)
   if (minimized.length === 0) return null
 
   const dropOn = (slotIndex: number) => {
     if (!dragId) return
-    const next = order.filter((id) => id !== dragId)
+    const next = fullOrder.filter((id) => id !== dragId)
     // Position among minimized icons: insert before whichever id sits in that slot
     const target = minimized.filter((id) => id !== dragId)[slotIndex]
     const at = target ? next.indexOf(target) : next.length

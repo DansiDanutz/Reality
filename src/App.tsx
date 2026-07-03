@@ -3,6 +3,7 @@ import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import HudDock from './components/hud/HudDock'
+import FinanceCard from './components/hud/FinanceCard'
 import HudWindow from './components/hud/HudWindow'
 import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
@@ -93,6 +94,9 @@ export default function App() {
               <MoodCard />
             </HudWindow>
           )}
+          <HudWindow id="finance">
+            <FinanceCard />
+          </HudWindow>
           <HudDock />
           <ActionDock />
           {panel === 'shop' && <Market />}

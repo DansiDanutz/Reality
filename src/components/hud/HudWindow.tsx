@@ -7,13 +7,15 @@ import { useGame } from '../../store/gameStore'
  * layout survives any device; minimized cards live as icons in the HudDock.
  */
 
-export type CardId = 'objectives' | 'citizen' | 'vitals' | 'guide'
+export type CardId = 'objectives' | 'citizen' | 'vitals' | 'guide' | 'finance'
 
-export const CARD_DEFAULTS: Record<CardId, { x: number; y: number; w: number }> = {
+export const CARD_DEFAULTS: Record<CardId, { x: number; y: number; w: number; min?: boolean }> = {
   objectives: { x: 1.8, y: 8.5, w: 264 },
   citizen: { x: 1.8, y: 56, w: 264 },
   vitals: { x: 1.8, y: 76, w: 380 },
   guide: { x: 84, y: 34, w: 176 },
+  // Starts in the dock — one click away, zero clutter for new players
+  finance: { x: 68, y: 8.5, w: 250, min: true },
 }
 
 export const CARD_META: Record<CardId, { title: string; icon: string }> = {
@@ -21,6 +23,7 @@ export const CARD_META: Record<CardId, { title: string; icon: string }> = {
   citizen: { title: 'Citizen', icon: '🪪' },
   vitals: { title: 'Vitals', icon: '❤️' },
   guide: { title: 'Guide', icon: '🧭' },
+  finance: { title: 'Finance', icon: '💰' },
 }
 
 const MIN_W = 150
@@ -37,7 +40,7 @@ export default function HudWindow({ id, children }: HudWindowProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   const def = CARD_DEFAULTS[id]
-  const pos = { ...def, min: false, ...layout }
+  const pos = { min: false, ...def, ...layout }
   if (pos.min) return null
 
   const beginDrag = (e: React.PointerEvent) => {

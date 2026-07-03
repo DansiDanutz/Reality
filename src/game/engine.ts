@@ -297,6 +297,75 @@ export function tierOf(level: number, businesses: number, netWorth: number): 1 |
 }
 
 /**
+ * Career ladder — the same job pays more as YOU get better at it. Ranks are
+ * earned with shifts actually worked (real time), never bought: education
+ * buys levels (access to better jobs), but seniority only comes from showing up.
+ */
+export interface CareerRank {
+  rank: number
+  title: string
+  wageMultiplier: number
+  shiftsRequired: number
+}
+
+export const CAREER_RANKS: CareerRank[] = [
+  { rank: 1, title: 'Rookie', wageMultiplier: 1.0, shiftsRequired: 0 },
+  { rank: 2, title: 'Reliable', wageMultiplier: 1.1, shiftsRequired: 5 },
+  { rank: 3, title: 'Senior', wageMultiplier: 1.25, shiftsRequired: 15 },
+  { rank: 4, title: 'Lead', wageMultiplier: 1.45, shiftsRequired: 35 },
+  { rank: 5, title: 'Veteran', wageMultiplier: 1.7, shiftsRequired: 70 },
+]
+
+export function careerRankOf(shiftsWorked: number): CareerRank {
+  let current = CAREER_RANKS[0]
+  for (const r of CAREER_RANKS) if (shiftsWorked >= r.shiftsRequired) current = r
+  return current
+}
+
+/** The rank still ahead, with how many shifts remain — null at the top */
+export function nextRankOf(shiftsWorked: number): (CareerRank & { shiftsToGo: number }) | null {
+  const ahead = CAREER_RANKS.find((r) => r.shiftsRequired > shiftsWorked)
+  return ahead ? { ...ahead, shiftsToGo: ahead.shiftsRequired - shiftsWorked } : null
+}
+
+/**
+ * Daily cashflow — the dashboard's truth. Living costs mirror the away-mode
+ * self-care rates: ~3 meals + ~2 bottles of water a real day. A home lets
+ * you cook (groceries beat takeout), so ownership lowers the daily burn.
+ */
+export interface CashflowInput {
+  assets: PlacedAsset[]
+  hasHome: boolean
+  /** Hourly wage of the current job; 0 = unemployed */
+  wage: number
+  shiftsWorked: number
+  wageBonus: number
+}
+
+export interface Cashflow {
+  passivePerDay: number
+  /** One full shift a day at the current job, rank and gear included */
+  wagesPerDay: number
+  livingCostPerDay: number
+  netPerDay: number
+}
+
+const MEALS_PER_DAY = 3
+const WATER_PER_DAY = 2
+const HOME_MEAL_COST = 9 // groceries + your own stove
+
+export function cashflowOf(i: CashflowInput): Cashflow {
+  const passivePerDay = Math.round(i.assets.reduce((sum, a) => sum + a.incomePerDay, 0))
+  const mealCost = i.hasHome ? HOME_MEAL_COST : AUTO_MEAL_COST
+  const livingCostPerDay = MEALS_PER_DAY * mealCost + WATER_PER_DAY * AUTO_WATER_COST
+  const wagesPerDay =
+    i.wage > 0
+      ? Math.round(i.wage * careerRankOf(i.shiftsWorked).wageMultiplier * (1 + i.wageBonus) * SHIFT_HOURS)
+      : 0
+  return { passivePerDay, wagesPerDay, livingCostPerDay, netPerDay: passivePerDay + wagesPerDay - livingCostPerDay }
+}
+
+/**
  * Territorial progression — Rule: you build your reality in YOUR area first.
  * A reach radius around the hometown grows with achievement. The whole map
  * is visible; only your earned region is buildable.

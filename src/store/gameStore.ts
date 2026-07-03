@@ -8,6 +8,7 @@ import {
   SLEEP_HOURS,
   applyEffects,
   applyXp,
+  careerRankOf,
   distanceKm,
   formatMoney,
   liveRealtime,
@@ -149,7 +150,7 @@ const FRESH = {
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
   soundOn: true,
   hudLayout: {} as Record<string, { x?: number; y?: number; w?: number; min?: boolean }>,
-  hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide'] as string[],
+  hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide', 'finance'] as string[],
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -377,6 +378,16 @@ export const useGame = create<GameState>()(
 
         // Territorial progression: celebrate when the citizen's reach grows
         let reachTier = s.reachTier
+        // Seniority: shifts finished this tick may cross a promotion threshold
+        if (out.shiftsCompleted > 0) {
+          const before = careerRankOf(s.shiftsWorked)
+          const after = careerRankOf(s.shiftsWorked + out.shiftsCompleted)
+          if (after.rank > before.rank) {
+            toasts = withToast(toasts, `📈 Promoted: ${after.title} — wages +${Math.round((after.wageMultiplier - 1) * 100)}% at every job!`, 'gold')
+            log = note(log, `Promotion earned: ${after.title}. Every future shift pays ${Math.round((after.wageMultiplier - 1) * 100)}% more.`)
+          }
+        }
+
         {
           const reach = reachOf(
             level,
@@ -500,9 +511,19 @@ export const useGame = create<GameState>()(
           return
         }
         const now = Date.now()
+        const rank = careerRankOf(s.shiftsWorked)
         set({
-          activity: { kind: 'shift', startedAt: now, endsAt: now + SHIFT_HOURS * 3_600_000, wage: job.wage, title: job.title },
-          log: note(s.log, `Clocked in as ${job.title}. ${SHIFT_HOURS}-hour shift — pay lands when it ends.`),
+          activity: {
+            kind: 'shift',
+            startedAt: now,
+            endsAt: now + SHIFT_HOURS * 3_600_000,
+            wage: job.wage * rank.wageMultiplier,
+            title: job.title,
+          },
+          log: note(
+            s.log,
+            `Clocked in as ${job.title}${rank.rank > 1 ? ` (${rank.title}, +${Math.round((rank.wageMultiplier - 1) * 100)}%)` : ''}. ${SHIFT_HOURS}-hour shift — pay lands when it ends.`,
+          ),
         })
       },
 

@@ -29,6 +29,7 @@ export default function StreetMode() {
   const [fps, setFps] = useState(0)
   const [nearId, setNearId] = useState<string | null>(null)
 
+  const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const home = assets.find((a) => a.kind === 'home') ?? assets[0]
   const anchor = home ?? (citizen?.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
 
@@ -49,6 +50,9 @@ export default function StreetMode() {
         }
         sceneRef.current = scene
         setStatus('ready')
+        if (import.meta.env.DEV) {
+          ;(window as unknown as { __streetStats?: unknown }).__streetStats = scene.getStats()
+        }
       })
       .catch(() => setStatus('error'))
     const fpsId = setInterval(() => setFps(sceneRef.current?.getFps() ?? 0), 1000)
@@ -109,11 +113,16 @@ export default function StreetMode() {
           </div>
         </div>
       )}
+      {isTouch && status === 'ready' && (
+        <button className="street-jump" onClick={() => sceneRef.current?.jump()} aria-label="Jump">
+          ↥
+        </button>
+      )}
       <div className="street-hint">
         <span>
-          {typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
-            ? 'Left thumb walks · right thumb looks'
-            : 'Click to look around · WASD to walk · Shift to run'}
+          {isTouch
+            ? 'Left thumb walks · right thumb looks · ↥ jumps'
+            : 'Click to look around · WASD walks · Shift runs · Space jumps'}
           {status === 'ready' && fps > 0 ? ` · ${fps} fps` : ''}
         </span>
         <button className="btn small ghost" onClick={() => setStreetMode(false)}>Leave the street</button>
