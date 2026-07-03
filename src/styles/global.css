@@ -352,6 +352,21 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .ingredient.short { color: var(--muted); }
 .recipe-effects { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .kitchen-shop { align-self: flex-start; margin-top: 4px; }
+.kitchen-callout.cooking { background: rgba(125, 216, 255, 0.1); border-color: rgba(125, 216, 255, 0.35); }
+.grocery-freshness {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.grocery-freshness .stale { color: var(--warn); }
 
 .assets-summary {
   display: flex;
