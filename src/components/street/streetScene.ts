@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import {
   STREET_RADIUS_M,
   buildingHeight,
@@ -33,7 +34,7 @@ export interface StreetSceneHandle {
   getFps: () => number
   lock: () => void
   jump: () => void
-  getStats: () => { trees: number; buildings: number; roadSegments: number; greens: number }
+  getStats: () => { trees: number; buildings: number; roadSegments: number; greens: number; drawCalls: number }
 }
 
 /** Procedural facade: scattered warm-lit windows on dark stone — the Hogwarts trick */
@@ -103,6 +104,23 @@ export interface StreetMarker {
 const PROXIMITY_M = 16
 
 type Ring = { x: number; z: number }[]
+
+/** A ground-plane quad, pre-transformed for merging (one mesh per material, not per segment) */
+function flatQuad(len: number, width: number, angle: number, x: number, y: number, z: number): THREE.BufferGeometry {
+  const g = new THREE.PlaneGeometry(len, width)
+  g.rotateZ(angle)
+  g.rotateX(-Math.PI / 2)
+  g.translate(x, y, z)
+  return g
+}
+
+/** Merge accumulated geometries into a single mesh; frees the inputs */
+function addMerged(scene: THREE.Scene, geos: THREE.BufferGeometry[], material: THREE.Material): void {
+  if (geos.length === 0) return
+  const merged = mergeGeometries(geos)
+  for (const g of geos) g.dispose()
+  if (merged) scene.add(new THREE.Mesh(merged, material))
+}
 
 /** Ray-cast point-in-polygon in local meters (x/z plane) */
 function insideRing(x: number, z: number, ring: Ring): boolean {
@@ -221,17 +239,19 @@ export async function createStreetScene(
   // ── Parks and greens: brighter, cared-for grass ──────────
   const parkMat = new THREE.MeshLambertMaterial({ color: night ? 0x11201a : 0x6f9450 })
   const greenRings: Ring[] = []
+  const greenGeos: THREE.BufferGeometry[] = []
   for (const green of greens) {
     const ring: Ring = (green.geometry ?? []).map((g) => toLocalMeters(g.lat, g.lon, center.lat, center.lng))
     if (ring.length < 3) continue
     greenRings.push(ring)
     const shape = new THREE.Shape()
     ring.forEach((p, i) => (i === 0 ? shape.moveTo(p.x, -p.z) : shape.lineTo(p.x, -p.z)))
-    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), parkMat)
-    mesh.rotation.x = -Math.PI / 2
-    mesh.position.y = 0.02
-    scene.add(mesh)
+    const geo = new THREE.ShapeGeometry(shape)
+    geo.rotateX(-Math.PI / 2)
+    geo.translate(0, 0.02, 0)
+    greenGeos.push(geo)
   }
+  addMerged(scene, greenGeos, parkMat)
 
   // ── Roads: real widths, sidewalks, lane markings ─────────
   const roadMat = new THREE.MeshLambertMaterial({ color: night ? 0x1a2333 : 0x3f4750 })
@@ -241,6 +261,10 @@ export async function createStreetScene(
   const lampSpots: THREE.Vector3[] = []
   const roadsideTreeSpots: { x: number; z: number }[] = []
   const roadSegments: { ax: number; az: number; bx: number; bz: number; halfWidth: number }[] = []
+  const roadGeos: THREE.BufferGeometry[] = []
+  const pathGeos: THREE.BufferGeometry[] = []
+  const walkGeos: THREE.BufferGeometry[] = []
+  const dashGeos: THREE.BufferGeometry[] = []
   for (const road of roads) {
     const width = roadWidth(road.tags?.highway)
     const car = isCarRoad(road.tags?.highway)
@@ -260,30 +284,20 @@ export async function createStreetScene(
       const pz = dx / len
 
       roadSegments.push({ ax: a.x, az: a.z, bx: b.x, bz: b.z, halfWidth: width / 2 })
-      const seg = new THREE.Mesh(new THREE.PlaneGeometry(len, width), car ? roadMat : pathMat)
-      seg.rotation.x = -Math.PI / 2
-      seg.rotation.z = angle
-      seg.position.set(midX, 0.05, midZ)
-      scene.add(seg)
+      ;(car ? roadGeos : pathGeos).push(flatQuad(len, width, angle, midX, 0.05, midZ))
 
       if (car) {
         // sidewalks hugging both curbs
         for (const side of [-1, 1]) {
-          const walk = new THREE.Mesh(new THREE.PlaneGeometry(len, 1.6), sidewalkMat)
-          walk.rotation.x = -Math.PI / 2
-          walk.rotation.z = angle
-          walk.position.set(midX + px * side * (width / 2 + 0.9), 0.04, midZ + pz * side * (width / 2 + 0.9))
-          scene.add(walk)
+          walkGeos.push(
+            flatQuad(len, 1.6, angle, midX + px * side * (width / 2 + 0.9), 0.04, midZ + pz * side * (width / 2 + 0.9)),
+          )
         }
         // dashed center line
         const dashes = Math.floor(len / 6)
         for (let d = 0; d < dashes; d++) {
           const t = (d + 0.5) / dashes
-          const dash = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.18), markMat)
-          dash.rotation.x = -Math.PI / 2
-          dash.rotation.z = angle
-          dash.position.set(a.x + dx * t, 0.08, a.z + dz * t)
-          scene.add(dash)
+          dashGeos.push(flatQuad(2.2, 0.18, angle, a.x + dx * t, 0.08, a.z + dz * t))
         }
         if (night && i % 4 === 0 && lampSpots.length < MAX_LAMPS) {
           lampSpots.push(new THREE.Vector3(midX + px * (width / 2 + 2), 0, midZ + pz * (width / 2 + 2)))
@@ -294,21 +308,30 @@ export async function createStreetScene(
       }
     }
   }
+  // One draw call per surface type, not one per segment — phones matter
+  addMerged(scene, roadGeos, roadMat)
+  addMerged(scene, pathGeos, pathMat)
+  addMerged(scene, walkGeos, sidewalkMat)
+  addMerged(scene, dashGeos, markMat)
 
   // ── Street lamps: warm pools of light ────────────────────
   const poleMat = new THREE.MeshLambertMaterial({ color: 0x151a24 })
   const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffc36b })
+  const poleProto = new THREE.CylinderGeometry(0.09, 0.12, 4.6, 6)
+  const bulbProto = new THREE.SphereGeometry(0.22, 8, 8)
+  const poleGeos: THREE.BufferGeometry[] = []
+  const bulbGeos: THREE.BufferGeometry[] = []
   for (const spot of lampSpots) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 4.6, 6), poleMat)
-    pole.position.set(spot.x, 2.3, spot.z)
-    scene.add(pole)
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), bulbMat)
-    bulb.position.set(spot.x, 4.7, spot.z)
-    scene.add(bulb)
+    poleGeos.push(poleProto.clone().translate(spot.x, 2.3, spot.z))
+    bulbGeos.push(bulbProto.clone().translate(spot.x, 4.7, spot.z))
     const glow = new THREE.PointLight(0xffb95e, 14, 26, 1.8)
     glow.position.set(spot.x, 4.4, spot.z)
     scene.add(glow)
   }
+  poleProto.dispose()
+  bulbProto.dispose()
+  addMerged(scene, poleGeos, poleMat)
+  addMerged(scene, bulbGeos, bulbMat)
 
   // ── Buildings: the real ones around you (and solid) ─────
   const facade = makeFacadeTexture(night)
@@ -343,20 +366,22 @@ export async function createStreetScene(
   const canopyGeo = new THREE.IcosahedronGeometry(1.5, 1)
   const trunkMat = new THREE.MeshLambertMaterial({ color: 0x3d2f22 })
   const canopyMat = new THREE.MeshLambertMaterial({ color: night ? 0x13241a : 0x4a7038 })
+  const trunkGeos: THREE.BufferGeometry[] = []
+  const canopyGeos: THREE.BufferGeometry[] = []
   let treeCount = 0
   const plantTree = (x: number, z: number) => {
     if (treeCount >= MAX_TREES || collides(x, z, solids)) return
     treeCount += 1
     const s = 0.8 + Math.random() * 0.9
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat)
-    trunk.position.set(x, 0.9 * s, z)
-    trunk.scale.setScalar(s)
-    scene.add(trunk)
-    const canopy = new THREE.Mesh(canopyGeo, canopyMat)
-    canopy.position.set(x, (1.8 + 1.1) * s, z)
-    canopy.scale.set(s * (0.9 + Math.random() * 0.3), s, s * (0.9 + Math.random() * 0.3))
-    canopy.rotation.y = Math.random() * Math.PI
-    scene.add(canopy)
+    const trunk = trunkGeo.clone()
+    trunk.scale(s, s, s)
+    trunk.translate(x, 0.9 * s, z)
+    trunkGeos.push(trunk)
+    const canopy = canopyGeo.clone()
+    canopy.scale(s * (0.9 + Math.random() * 0.3), s, s * (0.9 + Math.random() * 0.3))
+    canopy.rotateY(Math.random() * Math.PI)
+    canopy.translate(x, (1.8 + 1.1) * s, z)
+    canopyGeos.push(canopy)
   }
   for (const t of trees) {
     const p = toLocalMeters(t.lat, t.lon, center.lat, center.lng)
@@ -401,6 +426,10 @@ export async function createStreetScene(
     if (nearRoad(x, z)) continue
     plantTree(x, z)
   }
+  trunkGeo.dispose()
+  canopyGeo.dispose()
+  addMerged(scene, trunkGeos, trunkMat)
+  addMerged(scene, canopyGeos, canopyMat)
 
   // ── Your holdings: golden beacons you can walk to ───────
   const beaconBeams: THREE.Mesh[] = []
@@ -641,7 +670,13 @@ export async function createStreetScene(
       wantJump = true
     },
     getFps: () => Math.round(fps),
-    getStats: () => ({ trees: treeCount, buildings: solids.length, roadSegments: roadSegments.length, greens: greenRings.length }),
+    getStats: () => ({
+      trees: treeCount,
+      buildings: solids.length,
+      roadSegments: roadSegments.length,
+      greens: greenRings.length,
+      drawCalls: renderer.info.render.calls,
+    }),
     dispose: () => {
       cancelAnimationFrame(raf)
       document.removeEventListener('keydown', onKeyDown)

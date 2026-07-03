@@ -7,6 +7,10 @@ import type { StreetMarker, StreetSceneHandle } from './streetScene'
 
 /** Real local hour at the street's location — the sky follows Rule #1 */
 function hourAt(lat: number, lng: number): number {
+  if (import.meta.env.DEV) {
+    const forced = Number(new URLSearchParams(window.location.search).get('hour'))
+    if (Number.isFinite(forced) && forced >= 0 && forced < 24) return forced
+  }
   try {
     return Number(
       new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: zoneFor(lat, lng) }).format(new Date()),
@@ -51,7 +55,7 @@ export default function StreetMode() {
         sceneRef.current = scene
         setStatus('ready')
         if (import.meta.env.DEV) {
-          ;(window as unknown as { __streetStats?: unknown }).__streetStats = scene.getStats()
+          ;(window as unknown as { __streetStats?: unknown }).__streetStats = scene.getStats
         }
       })
       .catch(() => setStatus('error'))
