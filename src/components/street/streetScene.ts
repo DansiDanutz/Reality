@@ -198,15 +198,67 @@ export async function createStreetScene(
     scene.add(glow)
   }
 
-  // ── First-person controls ────────────────────────────────
+  // ── First-person controls (mouse+keys, or thumbs on touch) ──
+  const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const controls = new PointerLockControls(camera, renderer.domElement)
   const keys = new Set<string>()
   const onKeyDown = (e: KeyboardEvent) => keys.add(e.code)
   const onKeyUp = (e: KeyboardEvent) => keys.delete(e.code)
   document.addEventListener('keydown', onKeyDown)
   document.addEventListener('keyup', onKeyUp)
-  const onClick = () => controls.lock()
+  const onClick = () => {
+    if (!isTouch) controls.lock()
+  }
   renderer.domElement.addEventListener('click', onClick)
+
+  // Touch: left half = walk stick, right half = look. Manual yaw/pitch.
+  camera.rotation.order = 'YXZ'
+  let yaw = 0
+  let pitch = 0
+  const touchMove = { dx: 0, dy: 0 }
+  const active: Record<number, { zone: 'move' | 'look'; x: number; y: number }> = {}
+  const onTouchStart = (e: TouchEvent) => {
+    e.preventDefault()
+    for (const t of Array.from(e.changedTouches)) {
+      active[t.identifier] = {
+        zone: t.clientX < window.innerWidth / 2 ? 'move' : 'look',
+        x: t.clientX,
+        y: t.clientY,
+      }
+    }
+  }
+  const onTouchMove = (e: TouchEvent) => {
+    e.preventDefault()
+    for (const t of Array.from(e.changedTouches)) {
+      const start = active[t.identifier]
+      if (!start) continue
+      if (start.zone === 'move') {
+        touchMove.dx = Math.max(-1, Math.min(1, (t.clientX - start.x) / 60))
+        touchMove.dy = Math.max(-1, Math.min(1, (t.clientY - start.y) / 60))
+      } else {
+        yaw -= (t.clientX - start.x) * 0.006
+        pitch = Math.max(-1.35, Math.min(1.35, pitch - (t.clientY - start.y) * 0.005))
+        start.x = t.clientX
+        start.y = t.clientY
+      }
+    }
+  }
+  const onTouchEnd = (e: TouchEvent) => {
+    for (const t of Array.from(e.changedTouches)) {
+      const start = active[t.identifier]
+      if (start?.zone === 'move') {
+        touchMove.dx = 0
+        touchMove.dy = 0
+      }
+      delete active[t.identifier]
+    }
+  }
+  if (isTouch) {
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false })
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false })
+    renderer.domElement.addEventListener('touchend', onTouchEnd)
+    renderer.domElement.addEventListener('touchcancel', onTouchEnd)
+  }
 
   const onResize = () => {
     camera.aspect = container.clientWidth / container.clientHeight
@@ -245,13 +297,25 @@ export async function createStreetScene(
       }
     }
 
-    if (controls.isLocked) {
+    if (isTouch) {
+      camera.rotation.y = yaw
+      camera.rotation.x = pitch
+      if (touchMove.dx !== 0 || touchMove.dy !== 0) {
+        const speed = WALK_SPEED * 1.6 * dt
+        const fwd = -touchMove.dy * speed
+        const str = touchMove.dx * speed
+        camera.position.x += -Math.sin(yaw) * fwd + Math.cos(yaw) * str
+        camera.position.z += -Math.cos(yaw) * fwd - Math.sin(yaw) * str
+      }
+    } else if (controls.isLocked) {
       const speed = WALK_SPEED * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? RUN_MULTIPLIER : 1)
       const forward = Number(keys.has('KeyW')) - Number(keys.has('KeyS'))
       const strafe = Number(keys.has('KeyD')) - Number(keys.has('KeyA'))
       if (forward !== 0) controls.moveForward(forward * speed * dt)
       if (strafe !== 0) controls.moveRight(strafe * speed * dt)
-      // Stay inside the loaded neighborhood
+    }
+    // Stay inside the loaded neighborhood, feet on the ground
+    {
       const p = camera.position
       const dist = Math.hypot(p.x, p.z)
       if (dist > STREET_RADIUS_M) {
@@ -273,6 +337,10 @@ export async function createStreetScene(
       document.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('resize', onResize)
       renderer.domElement.removeEventListener('click', onClick)
+      renderer.domElement.removeEventListener('touchstart', onTouchStart)
+      renderer.domElement.removeEventListener('touchmove', onTouchMove)
+      renderer.domElement.removeEventListener('touchend', onTouchEnd)
+      renderer.domElement.removeEventListener('touchcancel', onTouchEnd)
       if (controls.isLocked) controls.unlock()
       controls.disconnect()
       renderer.dispose()

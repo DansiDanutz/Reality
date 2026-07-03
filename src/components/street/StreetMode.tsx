@@ -110,7 +110,12 @@ export default function StreetMode() {
         </div>
       )}
       <div className="street-hint">
-        <span>Click to look around · WASD to walk · Shift to run{status === 'ready' && fps > 0 ? ` · ${fps} fps` : ''}</span>
+        <span>
+          {typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+            ? 'Left thumb walks · right thumb looks'
+            : 'Click to look around · WASD to walk · Shift to run'}
+          {status === 'ready' && fps > 0 ? ` · ${fps} fps` : ''}
+        </span>
         <button className="btn small ghost" onClick={() => setStreetMode(false)}>Leave the street</button>
       </div>
     </div>
