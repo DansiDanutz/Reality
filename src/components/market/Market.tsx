@@ -25,7 +25,8 @@ function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] 
 type SortOrder = 'featured' | 'low' | 'high'
 
 export default function Market() {
-  const [tab, setTab] = useState<Tab>('all')
+  // Quick actions (Eat, Drink) can aim the Market at a category
+  const [tab, setTab] = useState<Tab>(() => useGame.getState().marketFocus ?? 'all')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOrder>('featured')
   const [affordableOnly, setAffordableOnly] = useState(false)

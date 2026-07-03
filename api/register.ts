@@ -36,6 +36,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Bot brake: a handful of citizens per IP per day is plenty for humans
+    const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
+    const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
+    const day = new Date().toISOString().slice(0, 10)
+    const recent = await list({ prefix: `regip/${ipHash}__${day}`, limit: 6 })
+    if (recent.blobs.length >= 5) {
+      res.status(429).json({ ok: false, error: 'Too many new citizens from this connection today. Try again tomorrow.' })
+      return
+    }
+    await put(`regip/${ipHash}__${day}__${Date.now()}.json`, '1', {
+      access: 'private',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json',
+    })
     const citizenId = randomUUID()
     const token = randomUUID()
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)

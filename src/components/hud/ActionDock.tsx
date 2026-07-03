@@ -57,16 +57,23 @@ export default function ActionDock() {
       <div className="dock-actions">
         <button
           className="btn"
-          onClick={() => useGame.getState().setStreetMode(true)}
-          title="Walk your real streets in first person"
+          onClick={() => useGame.getState().quickDrink()}
+          title="One tap: buy and drink a $1 bottle of water"
         >
-          Walk
+          Drink $1
         </button>
-        <button className="btn" onClick={() => setPanel('shop')} title="Buy food in the Market, then Use it">
+        <button className="btn" onClick={() => useGame.getState().openMarket('food')} title="Open the Market on food">
           Eat
         </button>
         <button className="btn" onClick={startSleep} title="Sleep through the night (8 real hours — wake early anytime)">
           Sleep
+        </button>
+        <button
+          className="btn"
+          onClick={() => useGame.getState().startGig()}
+          title="A 30-real-minute delivery gig — no job needed"
+        >
+          Gig 30m
         </button>
         <button
           className="btn primary"
@@ -74,6 +81,13 @@ export default function ActionDock() {
           title={job ? `Start an 8-hour shift as ${job.title}` : 'Find a job'}
         >
           {job ? `Work · ${job.title}` : 'Find a job'}
+        </button>
+        <button
+          className="btn ghost"
+          onClick={() => useGame.getState().setStreetMode(true)}
+          title="Walk your real streets in first person"
+        >
+          Walk
         </button>
       </div>
       {log[0] && <p className="dock-log" role="status">{log[0]}</p>}

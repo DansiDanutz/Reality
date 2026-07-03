@@ -40,6 +40,13 @@ export interface Activity {
   title?: string
 }
 
+/** Hours an activity spans — shifts pay for exactly the hours they cover */
+export const activityHours = (a: Activity): number => Math.max(0, (a.endsAt - a.startedAt) / 3_600_000)
+
+/** Quick gigs: half-hour jobs anyone can take, no employer needed */
+export const GIG_MINUTES = 30
+export const GIG_WAGE = 14
+
 export interface WorldSlice {
   needs: Needs
   health: number
@@ -80,6 +87,9 @@ export interface LiveInput extends WorldSlice {
   activity: Activity | null
   hasHome: boolean
   wageBonus: number
+  /** Recovery-floor cooldowns (public fountain / food bank), ms timestamps */
+  lastFountainAt?: number
+  lastFoodBankAt?: number
 }
 
 export interface LiveOutput extends WorldSlice {
@@ -91,6 +101,8 @@ export interface LiveOutput extends WorldSlice {
   autoDrinks: number
   autoSleeps: number
   wagesEarned: number
+  lastFountainAt: number
+  lastFoodBankAt: number
   summary: string[]
 }
 
@@ -117,7 +129,12 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
   let autoDrinks = 0
   let autoSleeps = 0
   let wagesEarned = 0
+  let lastFountainAt = input.lastFountainAt ?? 0
+  let lastFoodBankAt = input.lastFoodBankAt ?? 0
+  let usedFountain = false
+  let usedFoodBank = false
   const summary: string[] = []
+  const DAY_MS = 24 * 3_600_000
 
   let t = Math.min(fromMs, toMs)
   const end = toMs
@@ -131,16 +148,31 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     world = advanceLife(world, minutes, modeOf(activity, input.hasHome))
     t = chunkEnd
 
-    // Resolve a finished activity
+    // Resolve a finished activity — pay for exactly the hours it spanned
     if (activity && t >= activity.endsAt) {
       if (activity.kind === 'shift') {
-        const pay = Math.round((activity.wage ?? 0) * SHIFT_HOURS * (1 + input.wageBonus))
+        const hours = activityHours(activity)
+        const pay = Math.round((activity.wage ?? 0) * hours * (1 + input.wageBonus))
         money += pay
         wagesEarned += pay
         shiftsCompleted += 1
-        xpGained += XP_PER_SHIFT
+        xpGained += Math.max(1, Math.round((XP_PER_SHIFT * hours) / SHIFT_HOURS))
       }
       activity = null
+    }
+
+    // The dignity floor: a broke citizen never death-spirals. Once a real
+    // day each: the public fountain and a food-bank meal — free, and
+    // miserable enough to never be a strategy.
+    if (world.needs.hydration <= 12 && money < AUTO_WATER_COST && (lastFountainAt === 0 || t - lastFountainAt >= DAY_MS)) {
+      lastFountainAt = t
+      usedFountain = true
+      world = { ...world, needs: { ...world.needs, hydration: clamp(world.needs.hydration + 35) } }
+    }
+    if (world.needs.hunger <= 10 && money < AUTO_MEAL_COST && (lastFoodBankAt === 0 || t - lastFoodBankAt >= DAY_MS)) {
+      lastFoodBankAt = t
+      usedFoodBank = true
+      world = { ...world, needs: { ...world.needs, hunger: clamp(world.needs.hunger + 30) } }
     }
 
     // Away-mode self care: water first (it matters most), then food, then sleep
@@ -162,10 +194,25 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
 
   if (autoDrinks > 0) summary.push(`drank ${autoDrinks} bottle${autoDrinks > 1 ? 's' : ''} of water (−$${autoDrinks * AUTO_WATER_COST})`)
   if (autoMeals > 0) summary.push(`ate ${autoMeals} meal${autoMeals > 1 ? 's' : ''} (−$${autoMeals * AUTO_MEAL_COST})`)
+  if (usedFountain) summary.push('drank from the public fountain')
+  if (usedFoodBank) summary.push('got a food-bank meal')
   if (autoSleeps > 0) summary.push(`slept ${autoSleeps} night${autoSleeps > 1 ? 's' : ''}`)
   if (wagesEarned > 0) summary.push(`finished ${shiftsCompleted} shift${shiftsCompleted > 1 ? 's' : ''} (+$${wagesEarned})`)
 
-  return { ...world, money, activity, shiftsCompleted, xpGained, autoMeals, autoDrinks, autoSleeps, wagesEarned, summary }
+  return {
+    ...world,
+    money,
+    activity,
+    shiftsCompleted,
+    xpGained,
+    autoMeals,
+    autoDrinks,
+    autoSleeps,
+    wagesEarned,
+    lastFountainAt,
+    lastFoodBankAt,
+    summary,
+  }
 }
 
 export function applyEffects(needs: Needs, effects: Partial<Needs>): Needs {

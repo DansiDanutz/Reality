@@ -4,6 +4,7 @@ import {
   AUTO_MEAL_COST,
   AUTO_WATER_COST,
   SHIFT_HOURS,
+  XP_PER_SHIFT,
   advanceLife,
   applyEffects,
   applyXp,
@@ -159,6 +160,36 @@ describe('liveRealtime — the single simulation path', () => {
     )
     expect(out.autoMeals).toBe(0)
     expect(out.health).toBeLessThan(100)
+  })
+
+  test('a 30-minute gig pays for exactly half an hour', () => {
+    const gig: Activity = { kind: 'shift', startedAt: 0, endsAt: 30 * 60_000, wage: 14, title: 'Delivery gig' }
+    const out = liveRealtime(base({ activity: gig }), 0, 31 * 60_000)
+    expect(out.wagesEarned).toBe(7) // $14/h × 0.5h
+    expect(out.shiftsCompleted).toBe(1)
+    expect(out.xpGained).toBeGreaterThanOrEqual(1)
+    expect(out.xpGained).toBeLessThan(XP_PER_SHIFT)
+  })
+
+  test('the dignity floor: a broke, parched citizen gets the fountain once a day', () => {
+    const broke = base({ money: 0, needs: { hunger: 60, hydration: 5, energy: 60, hygiene: 60, fun: 60 } })
+    const out = liveRealtime(broke, 0, 6 * HOUR)
+    expect(out.lastFountainAt).toBeGreaterThan(0)
+    expect(out.needs.hydration).toBeGreaterThan(0)
+    expect(out.summary.join(' ')).toContain('fountain')
+    // second run inside the same day: no second fountain
+    const again = liveRealtime(
+      { ...broke, needs: { ...broke.needs, hydration: 5 }, lastFountainAt: out.lastFountainAt, lastFoodBankAt: 0 },
+      6 * HOUR,
+      8 * HOUR,
+    )
+    expect(again.lastFountainAt).toBe(out.lastFountainAt)
+  })
+
+  test('the food bank catches a starving broke citizen', () => {
+    const out = liveRealtime(base({ money: 0, needs: { hunger: 4, hydration: 60, energy: 60, hygiene: 60, fun: 60 } }), 0, 6 * HOUR)
+    expect(out.lastFoodBankAt).toBeGreaterThan(0)
+    expect(out.summary.join(' ')).toContain('food-bank')
   })
 
   test('businesses earn while you are away, uncapped real time', () => {

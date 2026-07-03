@@ -1,21 +1,28 @@
+import { xpForLevel } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 export default function AvatarCard() {
   const citizen = useGame((s) => s.citizen)
   const level = useGame((s) => s.level)
+  const xp = useGame((s) => s.xp)
   const activity = useGame((s) => s.activity)
   const setPanel = useGame((s) => s.setPanel)
 
   if (!citizen) return null
 
   const status = activity ? (activity.kind === 'sleep' ? 'Sleeping' : `On shift · ${activity.title}`) : 'Living'
+  // Progression is the spine — wear it as a ring around your face
+  const progress = Math.min(100, (xp / xpForLevel(level)) * 100)
 
   return (
     <div className="avatar-card">
       <button
         className="avatar-portrait"
+        style={{
+          background: `conic-gradient(var(--gold) ${progress * 3.6}deg, rgba(240,180,41,0.15) 0deg)`,
+        }}
         onClick={() => setPanel('profile')}
-        title={citizen.avatarUrl ? 'Open your profile' : 'Create your avatar in the Profile studio'}
+        title={`Level ${level} — ${Math.round(progress)}% to next · ${citizen.avatarUrl ? 'open your profile' : 'create your avatar in the Profile studio'}`}
       >
         {citizen.avatarUrl ? (
           <img src={citizen.avatarUrl} alt="Your avatar" width={72} height={72} />

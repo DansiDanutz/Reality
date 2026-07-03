@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Citizen, Needs, PlacedAsset, ShopItem } from '../game/types'
 import {
+  GIG_MINUTES,
+  GIG_WAGE,
   SHIFT_HOURS,
   SLEEP_HOURS,
   applyEffects,
@@ -13,6 +15,7 @@ import {
   wageBonusFrom,
   type Activity,
 } from '../game/engine'
+import type { ShopCategory } from '../game/types'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/catalog'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
@@ -61,8 +64,22 @@ interface GameState {
   cloudSyncedAt: number | null
   /** First-person Street Mode (not persisted) */
   streetMode: boolean
+  /** Category the Market should open on (set by quick actions) */
+  marketFocus: ShopCategory | null
+  /** Recovery-floor cooldowns */
+  lastFountainAt: number
+  lastFoodBankAt: number
+  /** One-time "How Reality works" targets screen */
+  targetsSeen: boolean
+  /** Welcome-back card content after time away (not persisted) */
+  awayReport: string | null
+  dismissAwayReport: () => void
 
   setStreetMode: (on: boolean) => void
+  openMarket: (focus?: ShopCategory) => void
+  quickDrink: () => void
+  startGig: () => void
+  markTargetsSeen: () => void
   createCitizen: (name: string, spawn?: SpawnLocation | null) => void
   ensureSpawn: () => Promise<void>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
@@ -108,6 +125,11 @@ const FRESH = {
   log: [] as string[],
   cloudSyncedAt: null as number | null,
   streetMode: false,
+  marketFocus: null as ShopCategory | null,
+  lastFountainAt: 0,
+  lastFoodBankAt: 0,
+  targetsSeen: false,
+  awayReport: null as string | null,
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -276,6 +298,8 @@ export const useGame = create<GameState>()(
             activity: s.activity,
             hasHome: s.assets.some((a) => a.kind === 'home'),
             wageBonus: wageBonusFrom(s.inventory),
+            lastFountainAt: s.lastFountainAt,
+            lastFoodBankAt: s.lastFoodBankAt,
           },
           from,
           now,
@@ -291,11 +315,16 @@ export const useGame = create<GameState>()(
         if (out.shiftsCompleted > 0 && !wasAway) {
           log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}.`)
         }
+        let awayReport = s.awayReport
         if (wasAway && (out.summary.length > 0 || out.assets.some((a) => a.pendingIncome > 1))) {
           const income = out.assets.reduce((sum, a) => sum + a.pendingIncome, 0) - s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
           const parts = [...out.summary]
           if (income >= 1) parts.push(`businesses earned ${formatMoney(Math.floor(income))}`)
-          if (parts.length > 0) log = note(log, `While you were away, your citizen ${parts.join(', ')}.`)
+          if (parts.length > 0) {
+            const report = `While you were away, your citizen ${parts.join(', ')}.`
+            log = note(log, report)
+            awayReport = report
+          }
         }
 
         // A little chaos, only during live play
@@ -320,9 +349,46 @@ export const useGame = create<GameState>()(
           level,
           xp,
           lastSeenAt: now,
+          lastFountainAt: out.lastFountainAt,
+          lastFoodBankAt: out.lastFoodBankAt,
+          awayReport,
           log,
         })
       },
+
+      dismissAwayReport: () => set({ awayReport: null }),
+
+      openMarket: (focus) => set({ marketFocus: focus ?? null, panel: 'shop' }),
+
+      // One tap, one dollar, half the water bar — hydration without friction
+      quickDrink: () => {
+        const s = get()
+        if (s.activity?.kind === 'sleep') return
+        const water = itemById('water')
+        if (!water?.effects || s.money < water.price) return
+        set({
+          money: s.money - water.price,
+          needs: applyEffects(s.needs, water.effects),
+          log: note(s.log, 'Water. Your body says thanks.'),
+        })
+      },
+
+      // A half-hour delivery gig — no employer needed, always available
+      startGig: () => {
+        const s = get()
+        if (s.activity) return
+        if (s.needs.energy < 15 || s.health < 20) {
+          set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.') })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: { kind: 'shift', startedAt: now, endsAt: now + GIG_MINUTES * 60_000, wage: GIG_WAGE, title: 'Delivery gig' },
+          log: note(s.log, `Gig accepted: ${GIG_MINUTES} real minutes, ${formatMoney(Math.round((GIG_WAGE * GIG_MINUTES) / 60))} on completion.`),
+        })
+      },
+
+      markTargetsSeen: () => set({ targetsSeen: true }),
 
       consume: (itemId) => {
         const s = get()
@@ -535,7 +601,9 @@ export const useGame = create<GameState>()(
         return state
       },
       partialize: (state) =>
-        Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'streetMode')) as GameState,
+        Object.fromEntries(
+          Object.entries(state).filter(([key]) => key !== 'streetMode' && key !== 'awayReport'),
+        ) as GameState,
     },
   ),
 )

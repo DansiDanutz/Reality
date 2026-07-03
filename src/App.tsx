@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react'
 import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
+import AwayReport from './components/hud/AwayReport'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
 import TutorialPanel from './components/hud/TutorialPanel'
@@ -8,6 +9,7 @@ import Market from './components/market/Market'
 import AssetsPanel from './components/panels/AssetsPanel'
 import HealthGuide from './components/panels/HealthGuide'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
+import TargetsIntro from './components/panels/TargetsIntro'
 import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
 import WorkPanel from './components/panels/WorkPanel'
@@ -22,6 +24,7 @@ export default function App() {
   const citizen = useGame((s) => s.citizen)
   const panel = useGame((s) => s.panel)
   const streetMode = useGame((s) => s.streetMode)
+  const targetsSeen = useGame((s) => s.targetsSeen)
   const setPanel = useGame((s) => s.setPanel)
 
   // The heartbeat of the world: one tick per real second. The first tick
@@ -57,6 +60,7 @@ export default function App() {
         <WorldMap />
       </Suspense>
       {!citizen && <Welcome />}
+      {citizen && !targetsSeen && <TargetsIntro />}
       {citizen && streetMode && (
         <Suspense fallback={<div className="street-overlay"><p className="street-loading">Lacing up…</p></div>}>
           <StreetMode />
@@ -65,6 +69,7 @@ export default function App() {
       {citizen && (
         <>
           <TopBar />
+          <AwayReport />
           <div className="left-rail">
             <TutorialPanel />
             <AvatarCard />
