@@ -27,6 +27,7 @@ export default function App() {
   useEffect(() => {
     useGame.getState().tick()
     void useGame.getState().registerOnline()
+    void useGame.getState().ensureSpawn()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()

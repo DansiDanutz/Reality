@@ -13,7 +13,9 @@ import {
   wageBonusFrom,
   type Activity,
 } from '../game/engine'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, type AvatarId } from '../game/catalog'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/catalog'
+import { type AvatarParams } from '../lib/avatarPrompt'
+import { detectLocation, type SpawnLocation } from '../lib/geo'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | null
 
@@ -57,10 +59,10 @@ interface GameState {
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
-  avatarId: AvatarId
 
-  createCitizen: (name: string) => void
-  setAvatar: (id: AvatarId) => void
+  createCitizen: (name: string, spawn?: SpawnLocation | null) => void
+  ensureSpawn: () => Promise<void>
+  generateAvatar: (params: AvatarParams) => Promise<string | null>
   registerOnline: () => Promise<void>
   reportScore: () => Promise<void>
   linkGoogle: (credential: string) => Promise<string | null>
@@ -102,7 +104,6 @@ const FRESH = {
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
-  avatarId: 'maya' as AvatarId,
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -113,15 +114,46 @@ export const useGame = create<GameState>()(
       citizen: null,
       ...FRESH,
 
-      createCitizen: (name) => {
+      createCitizen: (name, spawn) => {
         set({
-          citizen: { name: name.trim(), founderNumber: 0, createdAt: Date.now() },
+          citizen: {
+            name: name.trim(),
+            founderNumber: 0,
+            createdAt: Date.now(),
+            homeCity: spawn?.city,
+            homeCountry: spawn?.country,
+            spawnLat: spawn?.lat,
+            spawnLng: spawn?.lng,
+          },
           ...FRESH,
           money: FOUNDER_BALANCE,
           lastSeenAt: Date.now(),
-          log: [`Welcome to Reality, ${name.trim()}. Claiming your founder slot…`],
+          log: [
+            spawn?.city
+              ? `Your life begins in ${spawn.city}${spawn.country ? `, ${spawn.country}` : ''}. Claiming your founder slot…`
+              : `Welcome to Reality, ${name.trim()}. Claiming your founder slot…`,
+          ],
         })
         void get().registerOnline()
+      },
+
+      // Backfill a hometown for citizens created before IP spawn existed
+      ensureSpawn: async () => {
+        const s = get()
+        if (!s.citizen || s.citizen.spawnLat !== undefined) return
+        const spawn = await detectLocation()
+        const cur = get()
+        if (!spawn || !cur.citizen || cur.citizen.spawnLat !== undefined) return
+        set({
+          citizen: {
+            ...cur.citizen,
+            homeCity: spawn.city,
+            homeCountry: spawn.country,
+            spawnLat: spawn.lat,
+            spawnLng: spawn.lng,
+          },
+          log: note(cur.log, `Hometown detected: ${spawn.city ?? 'your city'}${spawn.country ? `, ${spawn.country}` : ''}.`),
+        })
       },
 
       registerOnline: async () => {
@@ -465,7 +497,23 @@ export const useGame = create<GameState>()(
         })
       },
 
-      setAvatar: (id) => set({ avatarId: id }),
+      generateAvatar: async (params) => {
+        const s = get()
+        if (!s.citizen?.token) return 'Connect to the world first — the avatar studio needs an online citizen.'
+        const d = await tryPost('/api/avatar', {
+          citizenId: s.citizen.citizenId,
+          token: s.citizen.token,
+          params,
+        })
+        if (!d?.ok) return (d?.error as string) ?? 'The avatar studio is unreachable. Try again.'
+        set({
+          citizen: { ...get().citizen!, avatarUrl: d.url as string },
+          log: note(get().log, 'Your avatar is ready — that\'s you now.'),
+        })
+        void get().pushCloudSave()
+        return null
+      },
+
       toggleTutorial: () => set({ tutorialHidden: !get().tutorialHidden }),
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),

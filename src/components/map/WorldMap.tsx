@@ -54,7 +54,10 @@ export default function WorldMap() {
   const assets = useGame((s) => s.assets)
   const placing = useGame((s) => s.placing)
   const citizenId = useGame((s) => s.citizen?.citizenId)
+  const spawnLat = useGame((s) => s.citizen?.spawnLat)
+  const spawnLng = useGame((s) => s.citizen?.spawnLng)
   const [world, setWorld] = useState<WorldAsset[]>([])
+  const introDone = useRef(false)
 
   // Other citizens' holdings — the world looks inhabited
   useEffect(() => {
@@ -105,6 +108,7 @@ export default function WorldMap() {
     const stop = () => {
       interacted = true
     }
+    ;(map as unknown as { __stopSpin?: () => void }).__stopSpin = stop
     map.on('mousedown', stop)
     map.on('touchstart', stop)
     map.on('wheel', stop)
@@ -166,11 +170,25 @@ export default function WorldMap() {
     ]
   }, [assets, world, citizenId])
 
-  // Citizen One walks the streets around your home (street zoom)
+  // Your life starts in your own town: open the map on the citizen's real
+  // city (home once they own one, else the IP-detected hometown).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !styleReady || introDone.current) return
+    const home = assets.find((a) => a.kind === 'home')
+    const target = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : null)
+    if (!target) return
+    introDone.current = true
+    ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
+    map.flyTo({ center: [target.lng, target.lat], zoom: 13.5, duration: 6000, essential: false })
+  }, [styleReady, assets, spawnLat, spawnLng])
+
+  // Citizen One walks the streets — around home, or his real hometown
   useEffect(() => {
     const map = mapRef.current
     if (!map || !styleReady) return
-    const anchor = assets.find((a) => a.kind === 'home') ?? assets[0]
+    const home = assets.find((a) => a.kind === 'home') ?? assets[0]
+    const anchor = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : null)
     if (!anchor || map.getLayer('citizen-one')) return
     let cancelled = false
     void import('./CharacterLayer').then(({ createCharacterLayer }) => {
@@ -180,7 +198,7 @@ export default function WorldMap() {
     return () => {
       cancelled = true
     }
-  }, [styleReady, assets])
+  }, [styleReady, assets, spawnLat, spawnLng])
 
   // Empire routes: great-circle lines chaining your holdings in purchase order
   useEffect(() => {

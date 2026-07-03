@@ -67,10 +67,17 @@ export interface Citizen {
   name: string
   founderNumber: number
   createdAt: number
+  /** Real-world hometown, resolved from IP at creation — where life starts */
+  homeCity?: string
+  homeCountry?: string
+  spawnLat?: number
+  spawnLng?: number
   /** Set once registered with the live world server */
   citizenId?: string
   token?: string
   online?: boolean
+  /** Their AI-generated avatar (from the Profile avatar studio) */
+  avatarUrl?: string
   /** Set once a Google account is linked — enables cloud saves */
   googleSub?: string
   googleEmail?: string

@@ -159,13 +159,5 @@ export const LIFE_EVENTS: LifeEvent[] = [
   { text: 'A tour bus stopped right outside your business.', money: 120, requiresBusiness: true },
 ]
 
-/** Playable character portraits from the character bible (docs/CHARACTERS.md) */
-export const AVATARS = [
-  { id: 'maya', name: 'Maya Reyes', src: '/avatars/maya.jpg' },
-  { id: 'architect', name: 'The Architect', src: '/avatars/architect.jpg' },
-] as const
-
-export type AvatarId = (typeof AVATARS)[number]['id']
-
 export const itemById = (id: string): ShopItem | undefined => SHOP_ITEMS.find((i) => i.id === id)
 export const jobById = (id: string): Job | undefined => JOBS.find((j) => j.id === id)

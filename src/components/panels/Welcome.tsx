@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FOUNDER_BALANCE, FOUNDER_SLOTS } from '../../game/catalog'
 import { formatMoney } from '../../game/engine'
+import { detectLocation, type SpawnLocation } from '../../lib/geo'
 import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
 
@@ -119,7 +120,13 @@ function WaitlistForm() {
 export default function Welcome() {
   const [name, setName] = useState('')
   const [slotsClaimed, setSlotsClaimed] = useState<number | null>(null)
+  const [spawn, setSpawn] = useState<SpawnLocation | null>(null)
   const createCitizen = useGame((s) => s.createCitizen)
+
+  // Rule #1: your life starts in your own town
+  useEffect(() => {
+    void detectLocation().then(setSpawn)
+  }, [])
 
   useEffect(() => {
     fetch('/api/world')
@@ -143,7 +150,7 @@ export default function Welcome() {
           className="welcome-form"
           onSubmit={(e) => {
             e.preventDefault()
-            if (name.trim().length >= 2) createCitizen(name)
+            if (name.trim().length >= 2) createCitizen(name, spawn)
           }}
         >
           <label className="welcome-label" htmlFor="citizen-name">Citizen name</label>
@@ -160,6 +167,11 @@ export default function Welcome() {
               Claim founder slot
             </button>
           </div>
+          {spawn?.city && (
+            <p className="welcome-spawn mono">
+              📍 Your life begins in {spawn.city}{spawn.country ? `, ${spawn.country}` : ''} — your real city, your real time.
+            </p>
+          )}
           {slotsClaimed !== null && (
             <p className="welcome-slots mono">
               {Math.max(0, FOUNDER_SLOTS - slotsClaimed).toLocaleString()} of {FOUNDER_SLOTS.toLocaleString()} founder slots left

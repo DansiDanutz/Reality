@@ -262,6 +262,41 @@ describe('tutorial', async () => {
   })
 })
 
+describe('avatar studio', async () => {
+  const { buildAvatarPrompt, buildWord, validateAvatarParams } = await import('../lib/avatarPrompt')
+
+  const valid = {
+    gender: 'female' as const,
+    age: 34,
+    heightCm: 170,
+    weightKg: 62,
+    hairColor: 'red' as const,
+    hairStyle: 'long' as const,
+    eyeColor: 'green' as const,
+  }
+
+  test('the prompt carries every self-description the player set', () => {
+    const prompt = buildAvatarPrompt(valid)
+    for (const piece of ['34-year-old woman', '170 cm', '62 kg', 'long red hair', 'green eyes']) {
+      expect(prompt).toContain(piece)
+    }
+  })
+
+  test('build words follow BMI', () => {
+    expect(buildWord(180, 55)).toBe('slim')
+    expect(buildWord(180, 100)).toBe('sturdy')
+    expect(buildWord(160, 110)).toBe('heavyset')
+  })
+
+  test('validation rejects out-of-range and unknown values', () => {
+    expect(validateAvatarParams(valid)).toBe(true)
+    expect(validateAvatarParams({ ...valid, age: 12 })).toBe(false)
+    expect(validateAvatarParams({ ...valid, hairColor: 'neon pink' })).toBe(false)
+    expect(validateAvatarParams({ ...valid, weightKg: 500 })).toBe(false)
+    expect(validateAvatarParams(null)).toBe(false)
+  })
+})
+
 describe('economy invariants', () => {
   test('item ids are unique', () => {
     const ids = SHOP_ITEMS.map((i) => i.id)

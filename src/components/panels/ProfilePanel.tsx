@@ -3,6 +3,7 @@ import { dayOfLife } from '../../game/clock'
 import { formatMoney, netWorthOf, xpForLevel } from '../../game/engine'
 import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
+import AvatarStudio from './AvatarStudio'
 
 function GoogleLink() {
   const citizen = useGame((s) => s.citizen)
@@ -83,8 +84,8 @@ export default function ProfilePanel() {
   return (
     <section className="panel" aria-label="Profile">
       <div className="profile-head">
-        {citizen.googlePicture ? (
-          <img className="profile-avatar" src={citizen.googlePicture} alt="" width={52} height={52} referrerPolicy="no-referrer" />
+        {citizen.avatarUrl ? (
+          <img className="profile-avatar" src={citizen.avatarUrl} alt="" width={52} height={52} />
         ) : (
           <span className="profile-avatar profile-initial">{citizen.name.charAt(0).toUpperCase()}</span>
         )}
@@ -97,6 +98,9 @@ export default function ProfilePanel() {
           )}
         </div>
       </div>
+
+      <h3 className="profile-section-title">Avatar studio</h3>
+      <AvatarStudio />
 
       <div className="profile-level">
         <span className="stat-label">level {level} · {xp}/{xpForLevel(level)} xp</span>

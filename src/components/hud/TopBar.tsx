@@ -15,9 +15,10 @@ export default function TopBar() {
   if (!citizen) return null
 
   // Rule #1: real time. The clock shows the actual local time where the
-  // citizen lives — their home's timezone once they own one.
+  // citizen lives — their owned home, else their real hometown.
   const home = assets.find((a) => a.kind === 'home')
-  const clock = localClock(home ? zoneFor(home.lat, home.lng) : undefined)
+  const anchor = home ?? (citizen.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
+  const clock = localClock(anchor ? zoneFor(anchor.lat, anchor.lng) : undefined)
   const day = dayOfLife(citizen.createdAt)
 
   const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile') => setPanel(panel === id ? null : id)

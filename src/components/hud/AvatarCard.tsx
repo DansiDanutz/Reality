@@ -1,29 +1,27 @@
-import { AVATARS } from '../../game/catalog'
 import { useGame } from '../../store/gameStore'
 
 export default function AvatarCard() {
   const citizen = useGame((s) => s.citizen)
   const level = useGame((s) => s.level)
   const activity = useGame((s) => s.activity)
-  const avatarId = useGame((s) => s.avatarId)
-  const setAvatar = useGame((s) => s.setAvatar)
   const setPanel = useGame((s) => s.setPanel)
 
   if (!citizen) return null
 
-  const avatar = AVATARS.find((a) => a.id === avatarId) ?? AVATARS[0]
-  const next = AVATARS[(AVATARS.findIndex((a) => a.id === avatar.id) + 1) % AVATARS.length]
-  const picture = citizen.googlePicture ?? avatar.src
   const status = activity ? (activity.kind === 'sleep' ? 'Sleeping' : `On shift · ${activity.title}`) : 'Living'
 
   return (
     <div className="avatar-card">
       <button
         className="avatar-portrait"
-        onClick={() => setAvatar(next.id)}
-        title={citizen.googlePicture ? 'Your Google photo' : `Playing as ${avatar.name} — click to switch to ${next.name}`}
+        onClick={() => setPanel('profile')}
+        title={citizen.avatarUrl ? 'Open your profile' : 'Create your avatar in the Profile studio'}
       >
-        <img src={picture} alt={`Avatar: ${avatar.name}`} width={72} height={72} referrerPolicy="no-referrer" />
+        {citizen.avatarUrl ? (
+          <img src={citizen.avatarUrl} alt="Your avatar" width={72} height={72} />
+        ) : (
+          <span className="avatar-empty" aria-hidden>{citizen.name.charAt(0).toUpperCase()}</span>
+        )}
       </button>
       <button className="avatar-meta" onClick={() => setPanel('profile')} title="Open profile">
         <span className="avatar-name">{citizen.name}</span>
