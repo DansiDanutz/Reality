@@ -61,6 +61,12 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'currywurst', name: 'Currywurst', category: 'food', price: 5, hours: 0.25, description: 'Berlin\'s answer to every question.', effects: { hunger: 26, fun: 4 } },
   { id: 'padthai', name: 'Pad Thai Box', category: 'food', price: 8, hours: 0.5, description: 'Wok-fired, lime on top.', effects: { hunger: 35, fun: 5 } },
   { id: 'mamaliga', name: 'Mămăligă cu Brânză', category: 'food', price: 6, hours: 0.5, description: 'Romanian comfort: polenta, cheese, sour cream.', effects: { hunger: 33, fun: 5 } },
+  // Five more streets, five more cultures (issue #10)
+  { id: 'alpastor', name: 'Tacos al Pastor', category: 'food', price: 7, hours: 0.5, description: 'Trompo-spit pork, pineapple, a squeeze of lime. Mexico City after midnight.', effects: { hunger: 30, fun: 6 } },
+  { id: 'injera', name: 'Injera & Wat', category: 'food', price: 8, hours: 1, description: 'Sourdough crepe torn into spiced lentils. Addis Ababa, shared plate.', effects: { hunger: 34, fun: 4 } },
+  { id: 'jianbing', name: 'Jianbing', category: 'food', price: 5, hours: 0.25, description: 'Beijing breakfast crepe: egg, crisp, chili, cilantro, folded fast.', effects: { hunger: 26, fun: 5 } },
+  { id: 'tteokbokki', name: 'Tteokbokki', category: 'food', price: 6, hours: 0.5, description: 'Chewy rice cakes in gochujang fire. Seoul pojangmacha staple.', effects: { hunger: 28, fun: 7 } },
+  { id: 'simit', name: 'Simit', category: 'food', price: 3, hours: 0.25, description: 'Istanbul sesame bread ring, eaten warm on the ferry across the Bosphorus.', effects: { hunger: 18, fun: 4 } },
 
   // ── Drinks (hydration is the most urgent human need) ────
   { id: 'water', name: 'Bottled Water', category: 'drinks', price: 1, hours: 0.1, description: 'The first need. Your body is ~60% of this.', effects: { hydration: 50 } },
