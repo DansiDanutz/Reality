@@ -53,11 +53,17 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   on the street**, Manage opens Assets. Verified end-to-end with the chime.
 - **Street ambience** → synthesized night-city hum while walking, respects mute.
 
+## Fixed in loop 5 (2026-07-03)
+
+- ~~**Touch controls for Street Mode**~~ → left thumb walks, right thumb looks;
+  desktop pointer-lock unchanged; hint adapts. (Real-device pass still wanted.)
+- **Contributor ladder seeded** → 5 labels + 8 GitHub issues (good-first-item ×4,
+  content, feature ×2, RFC) — chapter 06 checklist complete except the Builder
+  badge pipeline.
+
 ## Open — ranked by (retention × effort)
 
-1. **Touch controls for Street Mode** (PWA installable — walking needs thumbs:
-   virtual joystick + drag-look).
-2. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
+1. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
    needed with P2P (Phase 2).
 3. **Accessibility**: colorblind-safe need bars, reduced-motion Street Mode path.
 4. **Onboarding funnel analytics** (01's event list) — flying blind on drop-off until
