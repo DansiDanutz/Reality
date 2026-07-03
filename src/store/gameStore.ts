@@ -20,6 +20,7 @@ import {
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/catalog'
+import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
@@ -188,6 +189,7 @@ export const useGame = create<GameState>()(
               : `Welcome to Reality, ${name.trim()}. Claiming your founder slot…`,
           ],
         })
+        track('citizen_created')
         void get().registerOnline()
       },
 
@@ -378,6 +380,9 @@ export const useGame = create<GameState>()(
 
         // Territorial progression: celebrate when the citizen's reach grows
         let reachTier = s.reachTier
+        // The habit metric: still living this life a week later (Rule of retention)
+        if (now - s.citizen.createdAt >= 7 * 24 * 3_600_000) track('d7_return')
+
         // Seniority: shifts finished this tick may cross a promotion threshold
         if (out.shiftsCompleted > 0) {
           const before = careerRankOf(s.shiftsWorked)
@@ -465,6 +470,7 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.') })
           return
         }
+        track('first_shift_started')
         const now = Date.now()
         set({
           activity: { kind: 'shift', startedAt: now, endsAt: now + GIG_MINUTES * 60_000, wage: GIG_WAGE, title: 'Delivery gig' },
@@ -510,6 +516,7 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Too worn down to work. Eat and sleep first.') })
           return
         }
+        track('first_shift_started')
         const now = Date.now()
         const rank = careerRankOf(s.shiftsWorked)
         set({
@@ -557,6 +564,7 @@ export const useGame = create<GameState>()(
         const s = get()
         const item = itemById(itemId)
         if (!item || s.money < item.price) return
+        track('first_purchase')
 
         if (item.placeable) {
           set({
@@ -640,6 +648,7 @@ export const useGame = create<GameState>()(
           placing: null,
           log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
+        track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
         if (s.citizen?.token) {
           void tryPost('/api/world', {
             citizenId: s.citizen.citizenId,
@@ -663,6 +672,7 @@ export const useGame = create<GameState>()(
         const s = get()
         const total = s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
         if (total < 1) return
+        track('first_collect')
         set({
           money: s.money + Math.floor(total),
           assets: s.assets.map((a) => ({ ...a, pendingIncome: 0 })),
@@ -702,12 +712,16 @@ export const useGame = create<GameState>()(
           citizen: { ...get().citizen!, avatarUrl: d.url as string },
           log: note(get().log, 'Your avatar is ready — that\'s you now.'),
         })
+        track('avatar_created')
         void get().pushCloudSave()
         return null
       },
 
       toggleTutorial: () => set({ tutorialHidden: !get().tutorialHidden }),
-      setStreetMode: (on) => set({ streetMode: on, panel: null }),
+      setStreetMode: (on) => {
+        if (on) track('walk_mode_entered')
+        set({ streetMode: on, panel: null })
+      },
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),
     }),

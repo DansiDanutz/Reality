@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FOUNDER_BALANCE, FOUNDER_SLOTS } from '../../game/catalog'
 import { formatMoney } from '../../game/engine'
+import { track } from '../../lib/analytics'
 import { detectLocation, type SpawnLocation } from '../../lib/geo'
 import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
@@ -125,7 +126,11 @@ export default function Welcome() {
 
   // Rule #1: your life starts in your own town
   useEffect(() => {
-    void detectLocation().then(setSpawn)
+    track('welcome_seen')
+    void detectLocation().then((s) => {
+      setSpawn(s)
+      if (s) track('spawn_detected')
+    })
   }, [])
 
   useEffect(() => {

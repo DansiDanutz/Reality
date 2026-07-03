@@ -3,6 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { itemById } from '../../game/catalog'
 import { netWorthOf, reachOf } from '../../game/engine'
+import { track } from '../../lib/analytics'
 import { useGame } from '../../store/gameStore'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
@@ -147,6 +148,7 @@ export default function WorldMap() {
       const z = map.getZoom()
       if (z >= TILT_ZOOM && map.getPitch() < 20) map.easeTo({ pitch: 58, duration: 900 })
       if (z < TILT_ZOOM - 1.5 && map.getPitch() > 40) map.easeTo({ pitch: 0, duration: 700 })
+      if (z >= 15) track('first_zoom_to_street')
     })
 
     return () => {
