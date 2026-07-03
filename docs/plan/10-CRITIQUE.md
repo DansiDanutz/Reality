@@ -207,6 +207,24 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   but the food category still has no "cuisine synergy" (e.g. a regional
   combo bonus), which is the honest next idea if food ever needs depth.
 
+## Fixed in loop 15 (2026-07-03)
+
+- **Funnel dashboard page shipped** (issue #12): `?funnel` renders
+  `GET /api/funnel` as a 12-step horizontal funnel, journey-ordered, with a
+  div-as-bar per milestone sized to the top of funnel and the drop-off %
+  between each step (color-graded green/amber/red). End-to-end retention line
+  at the foot. The route is decided in `main.tsx` *before* React mounts, so
+  the game's App never runs its hooks on the dashboard path — a quiet,
+  separate report, not a HUD element. Earth-at-night palette, no chart libs,
+  responsive (rows collapse on phone). Graceful empty/error/loading states.
+  Verified live with mocked data: 1000→920→640→…→90 rendered with correct
+  drop-offs (−8%, …) and 9% end-to-end retention.
+- *Self-criticism:* the dashboard is read-only and unauthenticated — anyone
+  can hit `?funnel`. That's intentional (loop-8: "open development = public
+  numbers") but it also means no CSV export, no date range, no per-step
+  deep-dive. Fine while traffic is small; revisit when the numbers get big
+  enough to warrant slicing.
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
