@@ -1,5 +1,28 @@
 # Reality — Character Bible
 
+## THE game character — "Citizen One" (walks the streets)
+
+![Citizen One](../assets/characters/citizen-one/front.png)
+
+The in-world playable character: a professional man in his early 30s — tailored
+charcoal-navy suit, white open collar, **amber-gold lapel pin** (the brand mark),
+brown derby shoes. Designed to production standard for street-level play:
+
+- **Rig-ready A-pose turnaround**: `assets/characters/citizen-one/{front,side,back}.png`
+  (identity-locked across views, neutral seamless background)
+- **Animated 3D model**: `assets/characters/citizen-one/citizen-one.glb` —
+  textured, rigged, bound to the `Confident_Walk` clip (Higgsfield
+  `multi_image_to_3d` from all three views + rigging + animation, 38 credits)
+- Style: stylized-realistic 3D game render (not photo) so he sits naturally
+  on the map at street zoom
+- Provenance job IDs: front `5026844d-852d-472a-a2d0-af7ca6341161`,
+  side `fd26b5b4-b82a-42fe-bf4f-84723ad2a871`, back `6802cd6b-e63b-405b-9128-fb5336aa98fd`,
+  3D `a8e0e796-d76a-487f-8016-74308dd78513`
+
+New in-world characters (outfits, future NPCs) must follow this exact pipeline:
+front A-pose → identity-locked side + back → `multi_image_to_3d` with texture,
+rigging, and a library animation clip.
+
 Every character in Reality is generated to one standard, established by Character #001.
 This document is the canon: who exists, what they look like, and the exact recipe for
 casting the next one.
