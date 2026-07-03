@@ -192,6 +192,21 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   long absence with low funds will quietly let pets go hungry (correct, but
   the away report doesn't name them individually yet — only "fed the pets").
 
+## Fixed in loop 14 (2026-07-03)
+
+- **Five more regional street foods** (issue #10): Tacos al Pastor (Mexico),
+  Injera & Wat (Ethiopia), Jianbing (China), Tteokbokki (Korea), Simit
+  (Türkiye) — five cultures not yet on the shelf, now 25 food items total.
+  Every one inside the issue's tuning band (price $3–12, hunger 12–36, fun
+  3–8); the unique-id + does-something invariants (already test-enforced)
+  held without a new test. Simit honestly costs under $1 in Istanbul — I
+  lifted it to the $3 band floor as the "ferry-station price" rather than
+  break the catalog's economy scale; the cheapest snack row stays honest.
+- *Self-criticism:* these are effect-clones of existing foods with new
+  flavor text — no new mechanic. That's the right scope for a good-first-item,
+  but the food category still has no "cuisine synergy" (e.g. a regional
+  combo bonus), which is the honest next idea if food ever needs depth.
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
