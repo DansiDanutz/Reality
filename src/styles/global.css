@@ -63,7 +63,7 @@ body {
 .btn:hover:not(:disabled) { background: rgba(120, 150, 205, 0.22); border-color: rgba(140, 170, 220, 0.5); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn:focus-visible, .tab:focus-visible, .nav-btn:focus-visible, input:focus-visible {
+button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--sky);
   outline-offset: 2px;
 }
@@ -193,6 +193,10 @@ body {
 .need-fill.ok { background: linear-gradient(to top, var(--ok), #7be8c4); box-shadow: 0 0 12px rgba(67, 217, 163, 0.4); }
 .need-fill.low { background: linear-gradient(to top, var(--warn), #f5c76a); box-shadow: 0 0 12px rgba(232, 163, 61, 0.4); }
 .need-fill.crit { background: linear-gradient(to top, var(--crit), #f2767a); box-shadow: 0 0 12px rgba(229, 72, 77, 0.5); }
+.need-value { font-size: 10px; font-weight: 600; }
+.need-value.ok { color: var(--ok); }
+.need-value.low { color: var(--warn); }
+.need-value.crit { color: var(--crit); }
 .need-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 
 /* ── Action dock (bottom center) ───────────────────────── */

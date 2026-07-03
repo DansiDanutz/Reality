@@ -34,11 +34,26 @@ export default function NeedsPanel() {
       </div>
       {NEEDS.map(({ key, label }) => {
         const v = needs[key]
+        const t = tone(v)
         return (
-          <div className="need" key={key} title={`${label}: ${Math.round(v)}/100`}>
+          <div
+            className="need"
+            key={key}
+            title={`${label}: ${Math.round(v)}/100`}
+            role="meter"
+            aria-label={label}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(v)}
+          >
             <div className="need-track">
-              <div className={`need-fill ${tone(v)}`} style={{ height: `${v}%` }} />
+              <div className={`need-fill ${t}`} style={{ height: `${v}%` }} />
             </div>
+            {/* The number carries the warning too — color is never the only signal */}
+            <span className={`need-value mono ${t}`}>
+              {t === 'crit' ? '⚠' : ''}
+              {Math.round(v)}
+            </span>
             <span className="need-label">{label}</span>
           </div>
         )

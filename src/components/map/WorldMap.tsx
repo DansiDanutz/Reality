@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { itemById } from '../../game/catalog'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { track } from '../../lib/analytics'
+import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
@@ -125,7 +126,8 @@ export default function WorldMap() {
     })
 
     // Slow ambient spin while zoomed out, until the player takes the wheel
-    let interacted = false
+    // (people who ask for reduced motion never get the spin at all)
+    let interacted = prefersReducedMotion()
     const stop = () => {
       interacted = true
     }
@@ -202,7 +204,8 @@ export default function WorldMap() {
     if (!target) return
     introDone.current = true
     ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
-    map.flyTo({ center: [target.lng, target.lat], zoom: 13.5, duration: 6000, essential: false })
+    if (prefersReducedMotion()) map.jumpTo({ center: [target.lng, target.lat], zoom: 13.5 })
+    else map.flyTo({ center: [target.lng, target.lat], zoom: 13.5, duration: 6000, essential: false })
   }, [styleReady, assets, spawnLat, spawnLng])
 
   // Citizen One on the streets — parked until player avatars drive the

@@ -180,6 +180,8 @@ export async function createStreetScene(
   onProximity?: (marker: StreetMarker | null) => void,
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
+  const calmMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const { buildings, roads, greens, trees } = await fetchNeighborhood(center.lat, center.lng)
   if (buildings.length === 0) throw new Error('empty-neighborhood')
 
@@ -558,8 +560,10 @@ export async function createStreetScene(
     last = now
     fps = fps * 0.95 + (1 / Math.max(dt, 1e-4)) * 0.05
     // Beacons breathe so they read as alive, not architecture
-    const pulse = 0.22 + 0.1 * Math.sin(now / 700)
-    for (const beam of beaconBeams) (beam.material as THREE.MeshBasicMaterial).opacity = pulse
+    if (!calmMotion) {
+      const pulse = 0.22 + 0.1 * Math.sin(now / 700)
+      for (const beam of beaconBeams) (beam.material as THREE.MeshBasicMaterial).opacity = pulse
+    }
 
     // Standing at one of your properties?
     if (onProximity) {
@@ -657,7 +661,7 @@ export async function createStreetScene(
       }
       const speed = Math.hypot(vel.x, vel.z)
       if (grounded && speed > 0.3) bobPhase += dt * (6 + speed * 1.2)
-      const bob = grounded ? Math.sin(bobPhase) * 0.05 * Math.min(1, speed / WALK_SPEED) : 0
+      const bob = grounded && !calmMotion ? Math.sin(bobPhase) * 0.05 * Math.min(1, speed / WALK_SPEED) : 0
       p.y = EYE_HEIGHT + jumpOffset + bob
     }
     renderer.render(scene, camera)
