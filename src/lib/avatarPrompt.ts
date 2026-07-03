@@ -54,14 +54,23 @@ export function heightWord(heightCm: number): string {
   return 'very tall'
 }
 
+/**
+ * The house art direction — every citizen's avatar comes out in ONE consistent
+ * look: a polished Pixar/Disney-style stylized 3D character in the game's
+ * signature navy-blue + orange outfit. The player's own description (age,
+ * gender, build, hair, eyes) rides on top so it's still them, in our world.
+ */
 export function buildAvatarPrompt(p: AvatarParams): string {
   const person = p.gender === 'male' ? 'man' : 'woman'
   const hair = p.hairStyle === 'bald' ? 'a shaved bald head' : `${p.hairStyle} ${p.hairColor} hair`
   return (
-    `Video game avatar portrait: a ${p.age}-year-old ${person}, ${heightWord(p.heightCm)} (about ${p.heightCm} cm) ` +
-    `with a ${buildWord(p.heightCm, p.weightKg)} build (about ${p.weightKg} kg), ${hair}, ${p.eyeColor} eyes. ` +
-    `Head and shoulders, facing the camera with a confident, friendly half-smile. ` +
-    `Stylized-realistic 3D game character render, soft studio key light with a warm amber rim light, ` +
-    `deep navy background, clean and professional, no text, no logos, no watermark.`
+    `Stylized 3D animated character portrait in the polished look of a modern Pixar / Disney feature film. ` +
+    `The character is a ${p.age}-year-old ${person}, ${heightWord(p.heightCm)} (about ${p.heightCm} cm) ` +
+    `with a ${buildWord(p.heightCm, p.weightKg)} build (about ${p.weightKg} kg), ${hair}, large expressive ${p.eyeColor} eyes, ` +
+    `and a warm, confident, friendly half-smile. ` +
+    `Wearing a navy-blue athletic adventure outfit with bright orange accent trim — the game's signature style. ` +
+    `Head and shoulders, facing the camera. Soft rounded stylized features, smooth clean subsurface shading, ` +
+    `cinematic soft key light with a warm amber rim light, deep navy studio background. ` +
+    `Appealing high-quality character design, vibrant, clean. No text, no logos, no watermark.`
   )
 }
