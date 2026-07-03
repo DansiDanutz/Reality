@@ -9,6 +9,8 @@ export default function TopBar() {
   const assets = useGame((s) => s.assets)
   const panel = useGame((s) => s.panel)
   const setPanel = useGame((s) => s.setPanel)
+  const soundOn = useGame((s) => s.soundOn)
+  const toggleSound = useGame((s) => s.toggleSound)
   // Re-render every tick so the real clock stays live
   useGame((s) => s.lastSeenAt)
 
@@ -59,6 +61,14 @@ export default function TopBar() {
         <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
         <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
         <button className={panel === 'profile' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('profile')}>Profile</button>
+        <button
+          className="nav-btn nav-sound"
+          aria-label={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+          title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+          onClick={toggleSound}
+        >
+          {soundOn ? '🔊' : '🔇'}
+        </button>
       </nav>
     </header>
   )

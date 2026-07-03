@@ -36,12 +36,15 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   breathing gold/blue beacons in the scene: walk to what you own. Entering buildings
   still open (below).
 
+## Fixed in loop 3 (2026-07-03)
+
+- ~~**Sound**~~ → synthesized Web Audio chimes (money arpeggio, progress ping, soft
+  confirm) on every toast, zero asset downloads, persisted 🔊/🔇 toggle in the nav.
+  Street ambience still open (small, next loop).
+
 ## Open — ranked by (retention × effort)
 
-1. **Sound.** Toasts are silent; a soft collect chime, level fanfare, and street
-   ambience (night crickets/city hum) would double the juice. (Web Audio, no assets
-   needed — synthesize.)
-2. **Leaderboard names collide and are gameable** (self-reported worth). Beta-acceptable;
+1. **Leaderboard names collide and are gameable** (self-reported worth). Beta-acceptable;
    dies at Phase 1b (server-authoritative, unique names).
 3. **Enter your buildings** in Street Mode: a door + interior card (revenue today,
    customers, a "manage" panel) turns the postcard into a place.

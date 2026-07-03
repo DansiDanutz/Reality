@@ -77,6 +77,8 @@ interface GameState {
   /** Feedback toasts (not persisted) */
   toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[]
   popToast: (id: number) => void
+  soundOn: boolean
+  toggleSound: () => void
 
   setStreetMode: (on: boolean) => void
   openMarket: (focus?: ShopCategory) => void
@@ -134,6 +136,7 @@ const FRESH = {
   targetsSeen: false,
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
+  soundOn: true,
 }
 
 const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
@@ -374,6 +377,7 @@ export const useGame = create<GameState>()(
 
       dismissAwayReport: () => set({ awayReport: null }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
+      toggleSound: () => set({ soundOn: !get().soundOn }),
 
       openMarket: (focus) => set({ marketFocus: focus ?? null, panel: 'shop' }),
 
