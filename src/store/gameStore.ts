@@ -17,7 +17,7 @@ import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById } from '../game/cat
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | null
 
 const SAVE_KEY = 'reality-save-v1'
 
@@ -88,7 +88,7 @@ interface GameState {
 
 const FRESH = {
   money: 0,
-  needs: { hunger: 85, energy: 90, hygiene: 90, fun: 70 } as Needs,
+  needs: { hunger: 85, hydration: 85, energy: 90, hygiene: 90, fun: 70 } as Needs,
   health: 100,
   level: 1,
   xp: 0,
@@ -525,6 +525,15 @@ export const useGame = create<GameState>()(
     }),
     {
       name: SAVE_KEY,
+      version: 2,
+      // v2 adds hydration — give citizens from older saves a healthy default
+      migrate: (persisted) => {
+        const state = persisted as GameState
+        if (state?.needs && state.needs.hydration === undefined) {
+          state.needs = { ...state.needs, hydration: 75 }
+        }
+        return state
+      },
       partialize: (state) =>
         Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'streetMode')) as GameState,
     },

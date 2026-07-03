@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, SHOP_ITEMS, FOUNDER_BALANCE } from './catalog'
 import {
   AUTO_MEAL_COST,
+  AUTO_WATER_COST,
   SHIFT_HOURS,
   advanceLife,
   applyEffects,
@@ -20,7 +21,7 @@ import type { PlacedAsset } from './types'
 const HOUR = 3_600_000
 
 const world = () => ({
-  needs: { hunger: 80, energy: 80, hygiene: 80, fun: 80 },
+  needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
   health: 100,
   assets: [] as PlacedAsset[],
 })
@@ -47,7 +48,7 @@ describe('advanceLife (real-time rates)', () => {
   })
 
   test('a night of home sleep refills energy; rough sleep refills less', () => {
-    const tired = { ...world(), needs: { hunger: 60, energy: 10, hygiene: 60, fun: 60 } }
+    const tired = { ...world(), needs: { hunger: 60, hydration: 60, energy: 10, hygiene: 60, fun: 60 } }
     const home = advanceLife(tired, 8 * 60, 'sleepingHome')
     expect(home.needs.energy).toBe(100) // +16/h over 8h, capped
     const rough = advanceLife(tired, 8 * 60, 'sleepingRough')
@@ -62,17 +63,30 @@ describe('advanceLife (real-time rates)', () => {
   })
 
   test('starvation drains health; thriving regenerates it', () => {
-    const starving = advanceLife({ ...world(), needs: { hunger: 0, energy: 50, hygiene: 50, fun: 50 } }, 60, 'awake')
+    const starving = advanceLife({ ...world(), needs: { hunger: 0, hydration: 50, energy: 50, hygiene: 50, fun: 50 } }, 60, 'awake')
     expect(starving.health).toBeCloseTo(97)
     const thriving = advanceLife({ ...world(), health: 50 }, 60, 'awake')
     expect(thriving.health).toBeCloseTo(52)
+  })
+
+  test('dehydration is the fastest killer — the real rule of 3s', () => {
+    const parched = advanceLife({ ...world(), needs: { hunger: 50, hydration: 0, energy: 50, hygiene: 50, fun: 50 } }, 60, 'awake')
+    expect(parched.health).toBeCloseTo(94) // −6/h, twice starvation
+    // no regeneration while dehydrated, even when fed and rested
+    const dry = advanceLife({ ...world(), health: 50, needs: { hunger: 80, hydration: 40, energy: 80, hygiene: 80, fun: 80 } }, 60, 'awake')
+    expect(dry.health).toBeCloseTo(50)
+  })
+
+  test('the water bar covers about a real day awake', () => {
+    const w = advanceLife({ ...world(), needs: { ...world().needs, hydration: 100 } }, 24 * 60, 'awake')
+    expect(w.needs.hydration).toBeLessThan(2)
   })
 
   test('does not mutate input and clamps to [0,100]', () => {
     const w = world()
     advanceLife(w, 600, 'awake')
     expect(w.needs.hunger).toBe(80)
-    const drained = advanceLife({ ...world(), needs: { hunger: 1, energy: 1, hygiene: 1, fun: 1 } }, 6000, 'awake')
+    const drained = advanceLife({ ...world(), needs: { hunger: 1, hydration: 1, energy: 1, hygiene: 1, fun: 1 } }, 6000, 'awake')
     for (const v of Object.values(drained.needs)) expect(v).toBeGreaterThanOrEqual(0)
   })
 
@@ -110,29 +124,36 @@ describe('liveRealtime — the single simulation path', () => {
 
   test('waking early is natural: sleep regen is continuous', () => {
     const sleep: Activity = { kind: 'sleep', startedAt: 0, endsAt: 8 * HOUR }
-    const tired = base({ needs: { hunger: 60, energy: 20, hygiene: 60, fun: 60 }, hasHome: true, activity: sleep })
+    const tired = base({ needs: { hunger: 60, hydration: 60, energy: 20, hygiene: 60, fun: 60 }, hasHome: true, activity: sleep })
     const out = liveRealtime(tired, 0, 3 * HOUR) // only 3 hours in
     expect(out.needs.energy).toBeCloseTo(20 + 16 * 3)
     expect(out.activity).not.toBeNull() // still asleep
   })
 
   test('away for a day, the citizen feeds itself from your wallet', () => {
-    const out = liveRealtime(base({ needs: { hunger: 30, energy: 80, hygiene: 80, fun: 80 } }), 0, 24 * HOUR)
+    const out = liveRealtime(base({ needs: { hunger: 30, hydration: 80, energy: 80, hygiene: 80, fun: 80 } }), 0, 24 * HOUR)
     expect(out.autoMeals).toBeGreaterThan(0)
-    expect(out.money).toBe(1000 - out.autoMeals * AUTO_MEAL_COST)
+    expect(out.money).toBe(1000 - out.autoMeals * AUTO_MEAL_COST - out.autoDrinks * AUTO_WATER_COST)
     expect(out.needs.hunger).toBeGreaterThan(0)
     expect(out.summary.join(' ')).toContain('meal')
   })
 
+  test('away and thirsty, the citizen buys water before anything else', () => {
+    const out = liveRealtime(base({ needs: { hunger: 80, hydration: 25, energy: 80, hygiene: 80, fun: 80 } }), 0, 24 * HOUR)
+    expect(out.autoDrinks).toBeGreaterThan(0)
+    expect(out.needs.hydration).toBeGreaterThan(0)
+    expect(out.summary.join(' ')).toContain('water')
+  })
+
   test('away and exhausted, the citizen sleeps on its own', () => {
-    const out = liveRealtime(base({ needs: { hunger: 80, energy: 10, hygiene: 80, fun: 80 } }), 0, 12 * HOUR)
+    const out = liveRealtime(base({ needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 } }), 0, 12 * HOUR)
     expect(out.autoSleeps).toBeGreaterThan(0)
     expect(out.needs.energy).toBeGreaterThan(10)
   })
 
   test('broke and away, the citizen starves and health drops', () => {
     const out = liveRealtime(
-      base({ money: 0, needs: { hunger: 10, energy: 80, hygiene: 80, fun: 80 } }),
+      base({ money: 0, needs: { hunger: 10, hydration: 80, energy: 80, hygiene: 80, fun: 80 } }),
       0,
       3 * 24 * HOUR,
     )
@@ -169,7 +190,7 @@ describe('real-time clock', () => {
 
 describe('applyEffects', () => {
   test('adds and clamps to [0, 100]', () => {
-    const needs = applyEffects({ hunger: 95, energy: 5, hygiene: 50, fun: 50 }, { hunger: 20, energy: -20 })
+    const needs = applyEffects({ hunger: 95, hydration: 50, energy: 5, hygiene: 50, fun: 50 }, { hunger: 20, energy: -20, hydration: 60 })
     expect(needs.hunger).toBe(100)
     expect(needs.energy).toBe(0)
   })

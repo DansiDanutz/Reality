@@ -6,6 +6,7 @@ import TopBar from './components/hud/TopBar'
 import TutorialPanel from './components/hud/TutorialPanel'
 import Market from './components/market/Market'
 import AssetsPanel from './components/panels/AssetsPanel'
+import HealthGuide from './components/panels/HealthGuide'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
 import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
@@ -71,13 +72,14 @@ export default function App() {
           <NeedsPanel />
           <ActionDock />
           {panel === 'shop' && <Market />}
-          {(panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile') && (
+          {(panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health') && (
             <div className="drawer">
               <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
               {panel === 'work' && <WorkPanel />}
               {panel === 'assets' && <AssetsPanel />}
               {panel === 'top' && <LeaderboardPanel />}
               {panel === 'profile' && <ProfilePanel />}
+              {panel === 'health' && <HealthGuide />}
             </div>
           )}
         </>

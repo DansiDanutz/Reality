@@ -1,5 +1,7 @@
 export interface Needs {
   hunger: number
+  /** Water — the most urgent human need (≈3 days survivable vs weeks for food) */
+  hydration: number
   energy: number
   hygiene: number
   fun: number

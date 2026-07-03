@@ -39,7 +39,7 @@ export const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [
 // Prices are REAL-world USD — Rule #1 extends to the economy.
 export const SHOP_ITEMS: ShopItem[] = [
   // ── Food ────────────────────────────────────────────────
-  { id: 'noodles', name: 'Instant Noodles', category: 'food', price: 2, hours: 0.5, description: 'Cheap, fast, gets you through a shift.', effects: { hunger: 18 } },
+  { id: 'noodles', name: 'Instant Noodles', category: 'food', price: 2, hours: 0.5, description: 'Cheap, fast, gets you through a shift.', effects: { hunger: 18, hydration: 8 } },
   { id: 'sandwich', name: 'Street Sandwich', category: 'food', price: 8, hours: 0.5, description: 'Honest food from the corner stand.', effects: { hunger: 30 } },
   { id: 'tacos', name: 'Street Tacos', category: 'food', price: 9, hours: 0.5, description: 'Three for the road.', effects: { hunger: 26, fun: 4 } },
   { id: 'groceries', name: 'Home-cooked Meal', category: 'food', price: 9, hours: 1, description: 'Groceries and a stove. The sustainable option.', effects: { hunger: 42 } },
@@ -50,15 +50,16 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'restaurant', name: 'Restaurant Dinner', category: 'food', price: 45, hours: 2, description: 'Table service, real plates, a small luxury.', effects: { hunger: 55, fun: 12 } },
   { id: 'finedining', name: 'Fine Dining', category: 'food', price: 150, hours: 3, description: 'Seven courses. You earned this.', effects: { hunger: 70, fun: 25 } },
 
-  // ── Drinks ──────────────────────────────────────────────
-  { id: 'soda', name: 'Craft Soda', category: 'drinks', price: 3, hours: 0.25, description: 'Fizzy optimism.', effects: { fun: 5 } },
-  { id: 'coffee', name: 'Coffee', category: 'drinks', price: 4, hours: 0.25, description: 'The engine of civilization.', effects: { energy: 10 } },
-  { id: 'energydrink', name: 'Energy Drink', category: 'drinks', price: 4, hours: 0.25, description: 'Wings sold separately.', effects: { energy: 14, fun: 2 } },
-  { id: 'espresso', name: 'Double Espresso', category: 'drinks', price: 5, hours: 0.25, description: 'For days that start too early.', effects: { energy: 16 } },
-  { id: 'matcha', name: 'Matcha Latte', category: 'drinks', price: 6, hours: 0.5, description: 'Calm energy, green and steady.', effects: { energy: 12, fun: 4 } },
-  { id: 'juice', name: 'Fresh Juice', category: 'drinks', price: 7, hours: 0.25, description: 'Cold-pressed sunshine.', effects: { energy: 8, hunger: 6 } },
-  { id: 'bubbletea', name: 'Bubble Tea', category: 'drinks', price: 7, hours: 0.5, description: 'Half drink, half dessert, all joy.', effects: { fun: 8, hunger: 5 } },
-  { id: 'smoothie', name: 'Power Smoothie', category: 'drinks', price: 9, hours: 0.25, description: 'A meal in disguise.', effects: { hunger: 12, energy: 6 } },
+  // ── Drinks (hydration is the most urgent human need) ────
+  { id: 'water', name: 'Bottled Water', category: 'drinks', price: 1, hours: 0.1, description: 'The first need. Your body is ~60% of this.', effects: { hydration: 50 } },
+  { id: 'soda', name: 'Craft Soda', category: 'drinks', price: 3, hours: 0.25, description: 'Fizzy optimism.', effects: { hydration: 20, fun: 5 } },
+  { id: 'coffee', name: 'Coffee', category: 'drinks', price: 4, hours: 0.25, description: 'The engine of civilization.', effects: { energy: 10, hydration: 8 } },
+  { id: 'energydrink', name: 'Energy Drink', category: 'drinks', price: 4, hours: 0.25, description: 'Wings sold separately.', effects: { energy: 14, hydration: 15, fun: 2 } },
+  { id: 'espresso', name: 'Double Espresso', category: 'drinks', price: 5, hours: 0.25, description: 'For days that start too early.', effects: { energy: 16, hydration: 4 } },
+  { id: 'matcha', name: 'Matcha Latte', category: 'drinks', price: 6, hours: 0.5, description: 'Calm energy, green and steady.', effects: { energy: 12, hydration: 20, fun: 4 } },
+  { id: 'juice', name: 'Fresh Juice', category: 'drinks', price: 7, hours: 0.25, description: 'Cold-pressed sunshine.', effects: { energy: 8, hydration: 30, hunger: 6 } },
+  { id: 'bubbletea', name: 'Bubble Tea', category: 'drinks', price: 7, hours: 0.5, description: 'Half drink, half dessert, all joy.', effects: { fun: 8, hydration: 25, hunger: 5 } },
+  { id: 'smoothie', name: 'Power Smoothie', category: 'drinks', price: 9, hours: 0.25, description: 'A meal in disguise.', effects: { hunger: 12, hydration: 25, energy: 6 } },
 
   // ── Clothing (career gear — dress for the job) ──────────
   { id: 'uniform', name: 'Work Uniform', category: 'clothing', price: 60, durable: true, wageBonus: 0.02, description: 'Look the part, get the shifts.' },
@@ -104,7 +105,7 @@ export const SHOP_ITEMS: ShopItem[] = [
 
   // ── Leisure ─────────────────────────────────────────────
   { id: 'shower_public', name: 'Public Shower', category: 'leisure', price: 5, hours: 1, description: 'The city gym locker room. It works.', effects: { hygiene: 45 } },
-  { id: 'gym', name: 'Gym Session', category: 'leisure', price: 15, hours: 2, description: 'Sweat now, feel unstoppable later.', effects: { fun: 15, hygiene: -10, energy: -8 } },
+  { id: 'gym', name: 'Gym Session', category: 'leisure', price: 15, hours: 2, description: 'Sweat now, feel unstoppable later.', effects: { fun: 15, hygiene: -10, energy: -8, hydration: -12 } },
   { id: 'movie', name: 'Movie Night', category: 'leisure', price: 15, hours: 3, description: 'Two hours somewhere else entirely.', effects: { fun: 28 } },
   { id: 'museum', name: 'Museum Visit', category: 'leisure', price: 20, hours: 2, description: 'Five thousand years in an afternoon.', effects: { fun: 12 } },
   { id: 'karaoke', name: 'Karaoke Night', category: 'leisure', price: 40, hours: 3, description: 'You CAN sing. Tonight you can.', effects: { fun: 30 } },

@@ -150,6 +150,29 @@ body {
   box-shadow: var(--shadow);
   z-index: 10;
 }
+.needs { position: absolute; }
+.needs-info {
+  position: absolute;
+  top: 6px; right: 8px;
+  width: 18px; height: 18px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+  background: rgba(120, 150, 205, 0.1);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color var(--duration-fast), border-color var(--duration-fast);
+}
+.needs-info:hover { color: var(--sky); border-color: rgba(125, 216, 255, 0.5); }
+.guide-section { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: rgba(120, 150, 205, 0.06); border: 1px solid var(--line); border-radius: var(--radius); }
+.guide-title { font-size: 14px; font-weight: 600; }
+.guide-real { font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.guide-game { font-size: 12.5px; color: var(--text); line-height: 1.55; }
+.guide-game strong { color: var(--sky); }
 .needs-health { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-right: 6px; }
 .needs-health-label { font-size: 10px; letter-spacing: 0.14em; color: var(--muted); }
 .needs-health-value { font-size: 20px; font-weight: 600; }
