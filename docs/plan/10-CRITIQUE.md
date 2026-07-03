@@ -146,12 +146,39 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   on mega-empires) still deferred to the P2P/Phase-2 tax system; this is a flat
   rate, which is the honest 80%.
 
+## Fixed in loop 12 (2026-07-03)
+
+- **Panel focus traps shipped** (the loop-9 a11y debt): one reusable
+  `useFocusTrap` hook (`src/lib/useFocusTrap.ts`) now governs every modal — the
+  five-panel drawer and the Market. On open it moves focus inside; Tab and
+  Shift+Tab cycle within the dialog instead of leaking to the map behind;
+  Escape closes; and focus **returns to the button that opened it** so keyboard
+  users never lose their place. Drawer + Market now carry `role="dialog"`,
+  `aria-modal="true"`, and a human `aria-label` (per-panel name). Verified in a
+  real browser: opener focused → open → focus inside → Tab wraps last→first,
+  Shift+Tab wraps first→last across 10 controls → Escape closes → focus
+  restored; Market identical. Build + 77 tests green.
+- **Street hint legibility fixed** (loop-9's "contrast on busy skies
+  unmeasured"): the control hint sat as `--muted` on the translucent
+  `--surface`, which over a full-daylight street scene measured ~4.0:1 — under
+  AA. It now carries its own near-opaque dark backing (`rgba(6,9,16,0.92)`),
+  lifted text (`#b9c4da`), and a text-shadow: ~9.6:1 even against a
+  worst-case white-sky bleed — AAA.
+- *Self-criticism:* the trap makes the dialog modal for keyboard, but the
+  content *behind* it is not yet `inert`/`aria-hidden`, so a screen reader can
+  still wander into the map while a panel is open — the honest last mile of
+  "aria-modal". Switching sub-panels within the open drawer (Work→Assets)
+  keeps focus trapped but doesn't re-focus the new panel's first control.
+  VoiceOver/NVDA gesture pass still not done on hardware — the semantics are
+  right, the lived screen-reader test is pending real users.
+
 ## Open — ranked by (retention × effort)
 
 1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
    presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
 2. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
-3. VoiceOver pass + panel focus traps (a11y follow-through).
+3. `inert` background behind open dialogs + VoiceOver/NVDA hardware pass
+   (a11y last mile — semantics now correct, lived test pending).
 4. Progressive tax brackets on holdings — with P2P (Phase 2).
 
 ## Accepted (consciously, for now)
