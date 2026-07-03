@@ -118,13 +118,26 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
   pass pending); panel drawers still lack focus trapping; contrast of
   .street-hint muted text on busy skies unmeasured.
 
+## Fixed in loop 10 (2026-07-03)
+
+- **The till fills up** (long-idle exploit closed for beta): pendingIncome caps
+  at 3 days per business — money waits, it doesn't compound; the away report
+  says "a till filled up". Full property tax still lands with P2P (Phase 2).
+- **Issue ladder cleared** (#1–#5 all closed): Teacher & Nurse careers,
+  hemisphere-aware seasonal drinks (Rule #1 reaches the shelves), 10 life
+  events, Pets 🐾 (goldfish/cat/dog), 10 regional street foods incl.
+  mămăligă cu brânză. 71 tests.
+- *Self-criticism:* pets are consume-button joy, not living companions (no
+  hunger, no walks needed, no street presence) — fine for beta, revisit when
+  avatars walk. Seasonal stock uses spawn latitude, not current-view latitude.
+
 ## Open — ranked by (retention × effort)
 
-1. **Economy long-idle exploit**: wealth-scaled costs (property tax) designed in 03,
-   needed with P2P (Phase 2).
-2. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
+1. **Phase 1b is THE top item**: server authority unlocks true leaderboards,
    presence, and the P2P economy. Needs Dan's one dashboard click (Neon).
-3. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
+2. Guide tier-2/3 outfit art (needs Higgsfield MCP re-auth).
+3. Property tax / wealth-scaled costs — with P2P (Phase 2).
+4. VoiceOver pass + panel focus traps (a11y follow-through).
 
 ## Accepted (consciously, for now)
 
