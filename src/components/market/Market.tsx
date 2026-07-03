@@ -109,7 +109,7 @@ export default function Market() {
               const isEndgame = ENDGAME_IDS.includes(item.id)
               const soldToYou = item.durable && owned > 0
               return (
-                <li className={`card${soldToYou ? ' owned' : ''}`} key={item.id}>
+                <li className={`card${soldToYou ? ' owned' : ''}`} key={item.id} title={item.description}>
                   <img
                     className="card-img"
                     src={`/market/${item.id}.jpg`}
@@ -123,13 +123,12 @@ export default function Market() {
                   />
                   <div className="card-top">
                     <span className="card-name">{item.name}</span>
-                    {isEndgame && <span className="card-endgame">endgame</span>}
+                    {isEndgame && <span className="card-endgame" title="Priced above the founder grant — a goal to build toward">★</span>}
                     {owned > 0 && !item.durable && <em className="item-owned">×{owned}</em>}
                     {soldToYou && <span className="card-ownedtag">owned</span>}
                   </div>
-                  <p className="card-desc">{item.description}</p>
                   <div className="card-chips">
-                    {chips(item).map((c) => (
+                    {chips(item).slice(0, 2).map((c) => (
                       <span key={c.text} className={`chip ${c.tone}`}>{c.text}</span>
                     ))}
                   </div>
@@ -141,7 +140,7 @@ export default function Market() {
                       )}
                       {!soldToYou && (
                         <button className="btn small primary" disabled={!affordable} onClick={() => buy(item.id)}>
-                          {item.placeable ? 'Buy & place' : item.grantXp ? 'Enroll' : 'Buy'}
+                          {item.placeable ? 'Place' : item.grantXp ? 'Enroll' : 'Buy'}
                         </button>
                       )}
                     </div>

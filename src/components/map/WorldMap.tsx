@@ -183,8 +183,12 @@ export default function WorldMap() {
     map.flyTo({ center: [target.lng, target.lat], zoom: 13.5, duration: 6000, essential: false })
   }, [styleReady, assets, spawnLat, spawnLng])
 
-  // Citizen One walks the streets — around home, or his real hometown
+  // Citizen One on the streets — parked until player avatars drive the
+  // character (David's call: not yet). Flip to true to bring him back;
+  // CharacterLayer.ts and the rigged GLB stay ready.
+  const SHOW_STREET_CHARACTER = false
   useEffect(() => {
+    if (!SHOW_STREET_CHARACTER) return
     const map = mapRef.current
     if (!map || !styleReady) return
     const home = assets.find((a) => a.kind === 'home') ?? assets[0]
@@ -198,7 +202,7 @@ export default function WorldMap() {
     return () => {
       cancelled = true
     }
-  }, [styleReady, assets, spawnLat, spawnLng])
+  }, [styleReady, assets, spawnLat, spawnLng, SHOW_STREET_CHARACTER])
 
   // Empire routes: great-circle lines chaining your holdings in purchase order
   useEffect(() => {
