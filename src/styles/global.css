@@ -1294,25 +1294,157 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .waitlist-error { font-size: 12px; color: var(--crit); text-align: left; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
-/* ── Responsive ────────────────────────────────────────── */
-@media (max-width: 760px) {
-  .topbar { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
-  .topbar-status { gap: 16px; margin-left: 0; order: 3; width: 100%; }
-  .needs { left: 12px; bottom: 12px; padding: 12px 12px 8px; gap: 10px; }
-  .need-track { height: 52px; }
-  .dock { bottom: 128px; left: auto; right: 12px; transform: none; align-items: flex-end; }
-  .dock-log { max-width: 80vw; }
+/* ── Responsive ──────────────────────────────────────────
+   Reality is desktop-first. On phones we keep every surface usable
+   *without* redesigning it: the only structural change is that the
+   free-form HUD windows drop their desktop pixel positions and snap to
+   a small set of mobile slots. No `src/game/` touch — layout only.
+
+   Breakpoints mirror the issue's acceptance widths (320 / 375 / 768):
+   - ≤768px: tablet → wrap the topbar, condense the HUD, reflow market.
+   - ≤640px: phone → HUD windows pinned to slots, drag/resize off.
+   - ≤380px: narrow phone → tighten padding/font so 320px doesn't overflow.
+*/
+
+/* ── ≤768px: tablet / small landscape ──────────────────── */
+@media (max-width: 768px) {
+  /* Topbar: brand row, then nav, then stats — each wraps, none overflow. */
+  .topbar { flex-wrap: wrap; gap: 8px 14px; padding: 10px 12px; }
+  .topbar-brand { flex-shrink: 0; }
+  .topbar-nav {
+    order: 2;
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .nav-btn { padding: 8px 10px; min-height: 36px; }
+  .topbar-status { gap: 14px; margin-left: 0; order: 3; width: 100%; padding-right: 0; }
+
+  /* HUD dock (minimized icons) — stays bottom-right, sits above the action dock. */
+  .hud-dock { right: 12px; bottom: 76px; }
+
+  /* Drawer panels fill the viewport minus the topbar; close button stays put. */
   .drawer { top: 108px; right: 12px; bottom: 12px; width: calc(100vw - 24px); }
+  .drawer-close { width: 36px; height: 36px; }
+
   .welcome { padding: 28px 22px; }
+
+  /* Market: fill width, head controls wrap, rail collapses to icons. */
   .market { top: 108px; bottom: 12px; width: calc(100vw - 24px); }
-  .left-rail { top: 128px; left: 12px; width: min(240px, calc(100vw - 24px)); }
-  .topbar-status { padding-right: 0; }
   .market-head { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
   .market-search { order: 3; flex-basis: 100%; }
   .market-rail { width: 64px; }
   .rail-btn { justify-content: center; padding: 8px 4px; }
   .rail-btn .rail-count, .rail-btn:not(.rail-icon) { font-size: 0; }
   .rail-icon { font-size: 16px; }
+
+  .left-rail { top: 128px; left: 12px; width: min(240px, calc(100vw - 24px)); }
+
+  /* The HUD guide card defaults to x:84% which is tuned for ≥1024px desktop.
+     On a 768px tablet its 176px width runs off the right edge (84%×768+176=821).
+     Clamp it to the viewport here; ≤640px gets the full mobile slot treatment. */
+  .hud-window[data-card="guide"] {
+    left: auto !important; right: 12px !important;
+  }
+  /* Vitals defaults to a 380px card at x:1.8% — fits 768 fine, but cap so a
+     player-dragged wide card can't push past the right edge in tablet range. */
+  .hud-window { max-width: calc(100vw - 24px) !important; }
+}
+
+/* ── ≤640px: phone — HUD snaps to mobile slots ─────────── */
+@media (max-width: 640px) {
+  /* The HUD windows store desktop positions as inline `left/top/width`.
+     On a phone those numbers push cards off-screen (a 380px vitals card
+     on a 320px viewport). Pin each card to a non-overlapping mobile slot
+     with internal scroll, and freeze the desktop drag/resize (see the
+     isDesktop() guard in HudWindow.tsx). `!important` is the established
+     pattern here — `.hud-body > *` already uses it to override inline pos.
+
+     Slot map (left column stacks under the topbar; mood floats top-right):
+       objectives  top-left, below topbar, body scrolls
+       citizen     below objectives,       body scrolls
+       vitals      bottom-left, above the action dock
+       guide       top-right corner (mood character)
+       finance     shares vitals' slot when restored (minimized by default) */
+  .hud-window {
+    position: fixed !important;
+    transform: none !important;
+  }
+  .hud-window > .hud-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .hud-resize { display: none !important; }
+
+  .hud-window[data-card="objectives"] {
+    left: 8px !important; top: 108px !important;
+    width: calc(100vw - 160px) !important;   /* leave 140px + gutter for the mood card */
+    max-height: 124px !important;
+  }
+  .hud-window[data-card="citizen"] {
+    left: 8px !important; top: 240px !important;  /* 108 + 124 + 8 */
+    width: calc(100vw - 160px) !important;
+    max-height: 80px !important;
+  }
+  .hud-window[data-card="vitals"] {
+    left: 8px !important; bottom: 96px !important; top: auto !important;
+    width: calc(100vw - 16px) !important;
+    max-height: 140px !important;
+  }
+  .hud-window[data-card="guide"] {
+    left: auto !important; right: 8px !important; top: 108px !important; bottom: auto !important;
+    width: 140px !important;
+    max-height: 188px !important;
+  }
+  .hud-window[data-card="finance"] {
+    left: 8px !important; right: auto !important; bottom: 96px !important; top: auto !important;
+    width: calc(100vw - 16px) !important;
+    max-height: 140px !important;
+  }
+
+  /* The needs panel and mood card inside the window chrome reflow to fit. */
+  .needs { position: relative !important; left: auto; bottom: auto; padding: 10px 10px 6px; gap: 8px; }
+  .need-track { height: 44px; width: 10px; }
+  .need-label { font-size: 9px; }
+  .mood-card { position: relative !important; right: auto; top: auto; transform: none; width: 100%; padding: 8px; }
+  .mood-img { width: 88px; height: 88px; }
+  .mood-say { font-size: 11px; padding: 6px 8px; }
+
+  /* Action dock: bottom-full-width row, internally scrollable. */
+  .dock { left: 8px !important; right: 8px !important; bottom: 8px !important; transform: none !important; align-items: stretch; }
+  .dock-actions { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 8px; gap: 6px; }
+  .dock-actions::-webkit-scrollbar { display: none; }
+  .dock-actions .btn { flex-shrink: 0; min-height: 40px; }
+  .dock-log { max-width: calc(100vw - 32px); }
+  .placing-banner { flex-wrap: wrap; }
+
+  /* Street controls never sit under the HUD. */
+  .street-jump { right: 12px; bottom: 150px; width: 52px; height: 52px; }
+  .street-door { left: 12px; right: 12px; transform: none; min-width: 0; width: auto; bottom: 150px; }
+  .street-hint { left: 12px; right: 12px; transform: none; white-space: normal; text-align: center; }
+
+  /* Topbar: collapse the status stats to one tight row. */
+  .topbar-status .stat-label { font-size: 9px; }
+  .topbar-status .stat-value { font-size: 12px; }
+  .stat-money .stat-value { font-size: 13px; }
+}
+
+/* ── ≤380px: narrow phone (iPhone SE / Galaxy Fold inner) ─
+   The acceptance gate is "no horizontal scroll at 320px". */
+@media (max-width: 380px) {
+  .topbar { padding: 8px 10px; gap: 6px 10px; }
+  .topbar-nav { gap: 2px; }
+  .nav-btn { padding: 7px 8px; font-size: 12px; min-height: 36px; }
+  .topbar-status { gap: 10px; }
+  .founder-chip { font-size: 10px; padding: 2px 8px; }
+  .wordmark { font-size: 16px; letter-spacing: 0.18em; }
+
+  /* Market tiles: one column at this width. */
+  .market-grid { grid-template-columns: 1fr; }
+  .market-head { padding: 10px 12px; gap: 8px; }
+  .market-title { font-size: 14px; }
+
+  /* HUD slots tighten to the 8px gutters. */
+  .hud-window[data-card="objectives"],
+  .hud-window[data-card="citizen"] { width: calc(50vw - 10px) !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
