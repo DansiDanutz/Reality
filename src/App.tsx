@@ -82,7 +82,10 @@ export default function App() {
   const dialogOpen = drawerOpen || panel === 'shop'
 
   return (
-    <div className="app">
+    <div className="app" id="main-content" role="main" tabIndex={-1}>
+      <a className="skip-link" href="#main-content">
+        Skip to the world map
+      </a>
       <OfflineBanner />
       <div inert={dialogOpen || undefined} aria-hidden={dialogOpen || undefined}>
         <Suspense fallback={<div className="globe-loading" aria-hidden />}>

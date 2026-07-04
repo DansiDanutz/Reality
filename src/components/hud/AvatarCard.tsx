@@ -28,15 +28,21 @@ export default function AvatarCard() {
           background: `conic-gradient(var(--gold) ${progress * 3.6}deg, rgba(240,180,41,0.15) 0deg)`,
         }}
         onClick={() => setPanel('profile')}
+        aria-label={`Level ${level}, ${Math.round(progress)}% to next. ${citizen.avatarUrl ? 'Open your profile' : 'Create your avatar in the Profile studio'}`}
         title={`Level ${level} — ${Math.round(progress)}% to next · ${citizen.avatarUrl ? 'open your profile' : 'create your avatar in the Profile studio'}`}
       >
         {citizen.avatarUrl ? (
-          <img src={citizen.avatarUrl} alt="Your avatar" width={72} height={72} />
+          <img src={citizen.avatarUrl} alt="" width={72} height={72} />
         ) : (
           <span className="avatar-empty" aria-hidden>{citizen.name.charAt(0).toUpperCase()}</span>
         )}
       </button>
-      <button className="avatar-meta" onClick={() => setPanel('profile')} title="Open profile">
+      <button
+        className="avatar-meta"
+        onClick={() => setPanel('profile')}
+        aria-label={`Open ${citizen.name}'s profile`}
+        title="Open profile"
+      >
         <span className="avatar-name">{citizen.name}</span>
         <span className="avatar-sub">
           L{level}
