@@ -1,7 +1,6 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useRef, useState } from 'react'
-import { itemById } from '../../game/catalog'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
@@ -174,25 +173,88 @@ export default function WorldMap() {
     }
   }, [styleReady])
 
-  // Beacons: your holdings gold/blue, other citizens violet
+  // Your holdings: gold/sky pulsing beacons (DOM markers — few, always visible).
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     markersRef.current.forEach((m) => m.remove())
+    markersRef.current = assets.map((a) =>
+      new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true) }).setLngLat([a.lng, a.lat]).addTo(map),
+    )
+  }, [assets])
+
+  // Other citizens' properties: a clustered GeoJSON source (issue #33). When
+  // the world has many properties, individual DOM markers overlap into mush at
+  // low zoom — a cluster source merges nearby ones into a count badge that
+  // splits apart as you zoom in. Built once on style load, then `setData` on
+  // world updates (no layer churn).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !styleReady) return
+    const SOURCE = 'world-properties'
     const myCid = citizenId?.slice(0, 8)
-    markersRef.current = [
-      ...world
-        .filter((w) => w.cid !== myCid)
-        .map((w) =>
-          new maplibregl.Marker({ element: beaconElement(w.kind, `${itemById(w.itemId)?.name ?? 'Property'} — another citizen`, false) })
-            .setLngLat([w.lng, w.lat])
-            .addTo(map),
-        ),
-      ...assets.map((a) =>
-        new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true) }).setLngLat([a.lng, a.lat]).addTo(map),
-      ),
-    ]
-  }, [assets, world, citizenId])
+    const features = world
+      .filter((w) => w.cid !== myCid)
+      .map((w) => ({
+        type: 'Feature' as const,
+        properties: { kind: w.kind },
+        geometry: { type: 'Point' as const, coordinates: [w.lng, w.lat] },
+      }))
+    const data = { type: 'FeatureCollection' as const, features }
+    const src = map.getSource(SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (src) {
+      src.setData(data)
+      return
+    }
+    map.addSource(SOURCE, { type: 'geojson', data, cluster: true, clusterRadius: 48, clusterMaxZoom: 14 })
+    // Individual violet dots (small enough to read at street zoom).
+    map.addLayer({
+      id: `${SOURCE}-dots`,
+      type: 'circle',
+      source: SOURCE,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-radius': 5,
+        'circle-color': '#a78bfa',
+        'circle-opacity': 0.85,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#05070e',
+      },
+    })
+    // Cluster halo + count.
+    map.addLayer({
+      id: `${SOURCE}-cluster`,
+      type: 'circle',
+      source: SOURCE,
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-radius': ['step', ['get', 'point_count'], 16, 10, 22, 50, 28],
+        'circle-color': '#7c3aed',
+        'circle-opacity': 0.7,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': 'rgba(167, 139, 250, 0.6)',
+      },
+    })
+    map.addLayer({
+      id: `${SOURCE}-count`,
+      type: 'symbol',
+      source: SOURCE,
+      filter: ['has', 'point_count'],
+      layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12, 'text-font': ['Noto Sans Regular'] },
+      paint: { 'text-color': '#ffffff' },
+    })
+    // Clicking a cluster zooms into it until it splits.
+    map.on('click', `${SOURCE}-cluster`, (e) => {
+      const feat = e.features?.[0]
+      if (!feat) return
+      const cid = feat.properties?.cluster_id
+      if (cid === undefined) return
+      const src2 = map.getSource(SOURCE) as maplibregl.GeoJSONSource
+      src2.getClusterExpansionZoom(cid).then((zoom) => {
+        map.easeTo({ center: [feat.geometry.coordinates[0], feat.geometry.coordinates[1]], zoom, duration: 800 })
+      })
+    })
+  }, [world, citizenId, styleReady])
 
   // Your life starts in your own town: open the map on the citizen's real
   // city (home once they own one, else the IP-detected hometown).
@@ -298,6 +360,25 @@ export default function WorldMap() {
     }
   }, [styleReady, spawnLat, spawnLng, assets, level, money, inventory])
 
+  // "Fly to my holdings" (issue #33): frame every placed asset at once. With
+  // a single asset this is just a center+zoom; with 2+ it fits them all with
+  // padding. No-op when the player owns nothing yet.
+  const flyToHoldings = () => {
+    const map = mapRef.current
+    if (!map || assets.length === 0) return
+    ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
+    if (assets.length === 1) {
+      map.flyTo({ center: [assets[0].lng, assets[0].lat], zoom: 14, duration: 1800, essential: true })
+    } else {
+      const lngs = assets.map((a) => a.lng)
+      const lats = assets.map((a) => a.lat)
+      map.fitBounds(
+        [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: 120, maxZoom: 15, duration: 1800, essential: true },
+      )
+    }
+  }
+
   // Empire routes: great-circle lines chaining your holdings in purchase order
   useEffect(() => {
     const map = mapRef.current
@@ -330,5 +411,19 @@ export default function WorldMap() {
     }
   }, [assets, styleReady])
 
-  return <div ref={containerRef} className={`map-stage${placing ? ' is-placing' : ''}`} aria-hidden />
+  return (
+    <>
+      <div ref={containerRef} className={`map-stage${placing ? ' is-placing' : ''}`} aria-hidden />
+      {assets.length >= 2 && (
+        <button
+          className="map-fly-btn"
+          onClick={flyToHoldings}
+          aria-label="Fly to my holdings"
+          title="Frame all my properties"
+        >
+          🎯 My holdings
+        </button>
+      )}
+    </>
+  )
 }
