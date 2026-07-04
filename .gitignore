@@ -30,3 +30,9 @@ dist-ssr
 # Agent/test scratch — never commit these into the tree
 .playwright-mcp/
 *.patch
+
+# Playwright (issue #35) — test artifacts, never commit
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
