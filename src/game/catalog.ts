@@ -21,6 +21,7 @@ export const ENDGAME_IDS = [
   'solarfarm',
   'skyhotel',
   'airline',
+  'vineyard',
 ]
 
 export const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [
@@ -179,6 +180,10 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'restaurant_biz', name: 'Restaurant', category: 'business', price: 400_000, placeable: true, incomePerDay: 5_400, description: 'High stakes, full tables, real margins.' },
   { id: 'nightclub', name: 'Nightclub', category: 'business', price: 500_000, placeable: true, incomePerDay: 6_800, description: 'The city needs somewhere to be at 2am.' },
   { id: 'boutiquehotel', name: 'Boutique Hotel', category: 'business', price: 850_000, placeable: true, incomePerDay: 11_500, description: 'Twelve rooms, five stars, one owner.' },
+  // ── New businesses (issue #36) — priced to keep the 60–90 day payback invariant ──
+  { id: 'laundromat', name: 'Laundromat', category: 'business', price: 45_000, placeable: true, incomePerDay: 650, description: 'Coins in, cycles running, every single night.' },
+  { id: 'gallery', name: 'Art Gallery', category: 'business', price: 175_000, placeable: true, incomePerDay: 2_300, description: 'Quiet walls, serious collectors, real margins.' },
+  { id: 'vineyard', name: 'Vineyard', category: 'business', price: 700_000, placeable: true, incomePerDay: 9_000, description: 'A hillside, a harvest, a label with your name.' },
   { id: 'solarfarm', name: 'Solar Farm', category: 'business', price: 1_100_000, placeable: true, incomePerDay: 15_000, description: 'The sun works every shift.' },
   { id: 'skyhotel', name: 'Skyscraper Hotel', category: 'business', price: 4_000_000, placeable: true, incomePerDay: 55_000, description: 'A landmark with your name on the deed.' },
   { id: 'airline', name: 'Regional Airline', category: 'business', price: 12_000_000, placeable: true, incomePerDay: 165_000, description: 'Own the routes between your empire.' },
@@ -193,6 +198,10 @@ export const JOBS: Job[] = [
   { id: 'nurse', title: 'Nurse', wage: 32, requiredLevel: 3, flavor: 'The city heals on your shift.' },
   { id: 'analyst', title: 'Data Analyst', wage: 35, requiredLevel: 3, flavor: 'You see the patterns before anyone else.' },
   { id: 'developer', title: 'Software Developer', wage: 55, requiredLevel: 4, flavor: 'You build the systems this world runs on.' },
+  // Skilled trades — apprenticeship ladder (issue #36)
+  { id: 'mechanic', title: 'Mechanic', wage: 24, requiredLevel: 2, flavor: 'Every engine in the city tells you its story.' },
+  { id: 'electrician', title: 'Electrician', wage: 38, requiredLevel: 3, flavor: 'You wire the lights this world runs on.' },
+  { id: 'pilot', title: 'Pilot', wage: 60, requiredLevel: 4, flavor: 'Your office is above the weather.' },
 ]
 
 export const LIFE_EVENTS: LifeEvent[] = [
@@ -240,6 +249,14 @@ export const LIFE_EVENTS: LifeEvent[] = [
   { text: 'Graffiti on the shutters. Cleanup crew booked.', money: -45, requiresBusiness: true },
   { text: 'The morning rush broke your daily record.', money: 130, requiresBusiness: true },
   { text: 'A film crew rented your frontage for an afternoon.', money: 200, requiresBusiness: true },
+  // ── More everyday life (issue #36) ──────────────────────
+  { text: 'A neighbor lent you their e-bike for the day — you got everywhere.', effects: { energy: 8, fun: 7 } },
+  { text: 'The corner deli flagged you down for free samples.', effects: { hunger: 10, fun: 4 } },
+  { text: 'A pigeon got too friendly — you needed a car wash.', money: -18 },
+  // ── More business-owner life (issue #36) ────────────────
+  { text: 'A corporate client signed a recurring contract at your business.', money: 175, requiresBusiness: true },
+  { text: 'A freezer failed overnight — inventory loss stings.', money: -140, requiresBusiness: true },
+  { text: 'City listed your storefront in a "best of" guide. Lines formed.', money: 110, requiresBusiness: true },
 ]
 
 // Cook-combos: raw groceries → a real meal. Cheaper per unit of hunger than
