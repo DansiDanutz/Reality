@@ -52,6 +52,7 @@ export default function HudDock() {
                 onDragStart={() => setDragId(id)}
                 onDragEnd={() => setDragId(null)}
                 onClick={() => patchCard(id, { min: false })}
+                aria-label={`Restore ${CARD_META[id].title}`}
                 title={`${CARD_META[id].title} — click to restore, drag to arrange`}
               >
                 <span aria-hidden>{CARD_META[id].icon}</span>
