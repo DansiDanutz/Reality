@@ -29,6 +29,13 @@ export const CARD_META: Record<CardId, { title: string; icon: string }> = {
 const MIN_W = 150
 const MAX_W = 520
 
+// Phones pin HUD cards to fixed slots (see global.css ≤640px). On them the
+// desktop drag/resize handlers fight the CSS, so we no-op both below that
+// width. Checked at pointer-down time so no re-render/state is involved and
+// the persisted desktop layout is untouched when the viewport widens again.
+const isDesktop = () =>
+  typeof window === 'undefined' || window.matchMedia('(min-width: 641px)').matches
+
 interface HudWindowProps {
   id: CardId
   children: ReactNode
@@ -45,6 +52,7 @@ export default function HudWindow({ id, children }: HudWindowProps) {
 
   const beginDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
+    if (!isDesktop()) return // mobile: cards are pinned, dragging is off
     e.preventDefault()
     const el = ref.current
     if (!el) return
@@ -73,6 +81,7 @@ export default function HudWindow({ id, children }: HudWindowProps) {
   }
 
   const beginResize = (e: React.PointerEvent) => {
+    if (!isDesktop()) return // mobile: resize handle is hidden + disabled
     e.preventDefault()
     e.stopPropagation()
     const el = ref.current
