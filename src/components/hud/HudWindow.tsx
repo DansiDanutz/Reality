@@ -74,15 +74,16 @@ export default function HudWindow({ id, children }: HudWindowProps) {
 
   const def = CARD_DEFAULTS[id]
   const pos = { min: false, ...def, ...layout }
-  if (pos.min) return null
 
   // If the viewport shrank after a card was last positioned (e.g. player saved
   // a layout on desktop, reloaded in a narrow window), its persisted % can now
   // place it fully off-screen. Re-clamp on mount + whenever the window resizes
   // so no card is ever stranded past the edge. (Desktop only — mobile pins to
   // fixed slots via CSS.) Persist once per change so it sticks.
+  // Must run before the pos.min early return — hooks can't sit below a
+  // conditional return (the hook count would change on minimize/restore).
   useEffect(() => {
-    if (!isDesktop()) return
+    if (pos.min || !isDesktop()) return
     const el = ref.current
     if (!el) return
     const reclamp = () => {
@@ -105,7 +106,9 @@ export default function HudWindow({ id, children }: HudWindowProps) {
     window.addEventListener('resize', reclamp)
     return () => window.removeEventListener('resize', reclamp)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pos.x, pos.y, id])
+  }, [pos.x, pos.y, pos.min, id])
+
+  if (pos.min) return null
 
   const beginDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
