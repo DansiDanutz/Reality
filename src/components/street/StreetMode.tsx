@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
-import { startAmbience, stopAmbience } from '../../lib/sound'
+import { playThud, startAmbience, stopAmbience } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
 import { fetchWeather, shouldSnow } from './weather'
 import type { StreetMarker, StreetSceneHandle } from './streetScene'
@@ -60,6 +60,11 @@ export default function StreetMode() {
           markers,
           (near) => setNearId(near?.id ?? null),
           weather,
+          // Landing thud — read soundOn live (the scene runs outside React's
+          // render cycle, so a captured `soundOn` would go stale on mute toggle).
+          () => {
+            if (useGame.getState().soundOn) playThud()
+          },
         )
       })
       .then((scene) => {

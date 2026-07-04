@@ -572,6 +572,9 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .toast.gold { color: var(--gold); border-color: rgba(240, 180, 41, 0.5); }
 .toast.ok { color: var(--ok); border-color: rgba(67, 217, 163, 0.4); }
 .toast.sky { color: var(--sky); border-color: rgba(125, 216, 255, 0.4); }
+/* Warm "meal cooked" — distinct from a purchase (gold) or progress (sky).
+   Reads as a kitchen timer: warm amber on a soft warm-orange border. */
+.toast.meal { color: var(--gold); border-color: rgba(232, 163, 61, 0.55); background: rgba(240, 180, 41, 0.08); }
 
 /* ── Mood card: the living citizen, right side ─────────── */
 .mood-card {
