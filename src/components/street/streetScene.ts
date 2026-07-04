@@ -485,6 +485,33 @@ export async function createStreetScene(
   addMerged(scene, trunkGeos, trunkMat)
   addMerged(scene, canopyGeos, canopyMat)
 
+  // ── Ambient pedestrians (issue #37) ────────────────────
+  // A small pool of low-poly walkers strolling the road centerlines. They're
+  // atmosphere, not characters — cheap capsule instances (one InstancedMesh =
+  // one draw call regardless of count), animated along precomputed road
+  // segments. Skipped entirely under prefers-reduced-motion (calmMotion).
+  const PEDESTRIAN_COUNT = 14
+  const pedGeo = new THREE.CapsuleGeometry(0.22, 1.1, 4, 8) // body + head-ish lump
+  const pedMat = new THREE.MeshLambertMaterial({ color: night ? 0x2a3548 : 0x6a7282 })
+  // Each pedestrian: a road segment, a position t in [0,1], a speed, a direction.
+  const pedestrians: { seg: (typeof roadSegments)[number]; t: number; speed: number; dir: 1 | -1 }[] = []
+  const pedMesh = new THREE.InstancedMesh(pedGeo, pedMat, PEDESTRIAN_COUNT)
+  pedMesh.count = 0
+  if (!calmMotion && roadSegments.length > 0) {
+    for (let i = 0; i < PEDESTRIAN_COUNT; i++) {
+      const seg = roadSegments[Math.floor(Math.random() * roadSegments.length)]
+      pedestrians.push({
+        seg,
+        t: Math.random(),
+        speed: 0.04 + Math.random() * 0.05, // ~0.04–0.09 along-segment per second
+        dir: Math.random() < 0.5 ? 1 : -1,
+      })
+    }
+    pedMesh.count = PEDESTRIAN_COUNT
+    scene.add(pedMesh)
+  }
+  const pedDummy = new THREE.Object3D() // scratch matrix holder
+
   // ── Weather: one merged particle system (rain OR snow) ──
   // One THREE.Points, one draw call — never per-drop meshes. Particles wrap
   // around the player in a box; each frame they fall and, on hitting the
@@ -648,6 +675,33 @@ export async function createStreetScene(
       for (const beam of beaconBeams) (beam.material as THREE.MeshBasicMaterial).opacity = pulse
     }
 
+    // Ambient pedestrians stroll along their road segments (issue #37).
+    // Each advances t by speed*dt*dir, wraps at the segment ends, and the
+    // instance matrix is updated. One InstancedMesh → one draw call total.
+    if (pedMesh.count > 0) {
+      for (let i = 0; i < pedestrians.length; i++) {
+        const p = pedestrians[i]
+        p.t += p.speed * dt * p.dir
+        if (p.t > 1) { p.t = 1; p.dir = -1 as 1 | -1 }
+        if (p.t < 0) { p.t = 0; p.dir = 1 as 1 | -1 }
+        // Walk on the sidewalk offset (perpendicular to the road direction).
+        const x = p.seg.ax + (p.seg.bx - p.seg.ax) * p.t
+        const z = p.seg.az + (p.seg.bz - p.seg.az) * p.t
+        const dx = p.seg.bx - p.seg.ax
+        const dz = p.seg.bz - p.seg.az
+        const len = Math.hypot(dx, dz) || 1
+        // Perpendicular unit, push to the sidewalk edge (~halfWidth + 1m).
+        const offset = p.seg.halfWidth + 1
+        const px = (-dz / len) * offset
+        const pz = (dx / len) * offset
+        pedDummy.position.set(x + px, 0.95, z + pz) // capsule center ~1m up
+        pedDummy.rotation.y = Math.atan2(dx * p.dir, -dz * p.dir)
+        pedDummy.updateMatrix()
+        pedMesh.setMatrixAt(i, pedDummy.matrix)
+      }
+      pedMesh.instanceMatrix.needsUpdate = true
+    }
+
     // Standing at one of your properties?
     if (onProximity) {
       let near: StreetMarker | null = null
@@ -806,6 +860,7 @@ export async function createStreetScene(
       controls.disconnect()
       renderer.dispose()
       renderer.domElement.remove()
+      pedGeo.dispose()
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh
         if (mesh.geometry) mesh.geometry.dispose()
