@@ -33,7 +33,11 @@ export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' 
 
 const SAVE_KEY = 'reality-save-v1'
 
-/** Post to the live world, silently tolerating offline/dev environments */
+/**
+ * Post to the live world, silently tolerating offline/dev environments.
+ * Reports connection health to the store so the offline banner can surface.
+ * (Defined before the store; reaches in via useGame.getState() at call time.)
+ */
 async function tryPost(path: string, body: unknown): Promise<Record<string, unknown> | null> {
   try {
     const res = await fetch(path, {
@@ -41,8 +45,11 @@ async function tryPost(path: string, body: unknown): Promise<Record<string, unkn
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    return (await res.json()) as Record<string, unknown>
+    const data = (await res.json()) as Record<string, unknown>
+    useGame.getState().markApiOk()
+    return data
   } catch {
+    useGame.getState().markApiOffline()
     return null
   }
 }
@@ -94,6 +101,13 @@ interface GameState {
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
+  /** Connection health (not persisted) — set by /api/* call sites via markApiOk/markApiOffline */
+  online: boolean
+  /** ms timestamp the user dismissed the current offline banner (not persisted) */
+  dismissedOfflineAt: number
+  markApiOk: () => void
+  markApiOffline: () => void
+  dismissOffline: () => void
   /** Player-owned HUD layout: card positions (% of viewport), width, minimized */
   hudLayout: Record<string, { x?: number; y?: number; w?: number; min?: boolean }>
   hudDockOrder: string[]
@@ -165,6 +179,11 @@ const FRESH = {
   reachTier: 1,
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
+  // Optimistic: assume online until an /api/* call proves otherwise. The banner
+  // only surfaces when something actually fails, so a cold start in airplane
+  // mode isn't greeted with a false "offline" claim before any fetch.
+  online: true,
+  dismissedOfflineAt: 0,
   soundOn: true,
   hudLayout: {} as Record<string, { x?: number; y?: number; w?: number; min?: boolean }>,
   hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide', 'finance'] as string[],
@@ -477,6 +496,13 @@ export const useGame = create<GameState>()(
       dismissAwayReport: () => set({ awayReport: null }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
       toggleSound: () => set({ soundOn: !get().soundOn }),
+      // Connection health — called by /api/* sites (tryPost, fetches in panels).
+      // A single success flips back to online and re-arms the banner.
+      markApiOk: () => {
+        if (!get().online) set({ online: true, dismissedOfflineAt: 0 })
+      },
+      markApiOffline: () => set({ online: false }),
+      dismissOffline: () => set({ dismissedOfflineAt: Date.now() }),
       patchCard: (id, patch) =>
         set({ hudLayout: { ...get().hudLayout, [id]: { ...get().hudLayout[id], ...patch } } }),
       setDockOrder: (order) => set({ hudDockOrder: order }),
@@ -857,7 +883,14 @@ export const useGame = create<GameState>()(
       },
       partialize: (state) =>
         Object.fromEntries(
-          Object.entries(state).filter(([key]) => key !== 'streetMode' && key !== 'awayReport' && key !== 'toasts'),
+          Object.entries(state).filter(
+            ([key]) =>
+              key !== 'streetMode' &&
+              key !== 'awayReport' &&
+              key !== 'toasts' &&
+              key !== 'online' &&
+              key !== 'dismissedOfflineAt',
+          ),
         ) as GameState,
     },
   ),

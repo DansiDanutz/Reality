@@ -8,27 +8,43 @@ interface Row {
   netWorth: number
 }
 
+type LoadState = 'loading' | 'loaded' | 'offline'
+
 export default function LeaderboardPanel() {
   const citizen = useGame((s) => s.citizen)
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
   const assets = useGame((s) => s.assets)
   const reportScore = useGame((s) => s.reportScore)
-  const [rows, setRows] = useState<Row[] | null>(null)
+  const [state, setState] = useState<LoadState>('loading')
+  const [rows, setRows] = useState<Row[]>([])
   const [citizens, setCitizens] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
     void reportScore().then(() =>
       fetch('/api/leaderboard')
         .then((r) => r.json())
         .then((d: { ok: boolean; top: Row[]; citizens: number }) => {
+          if (cancelled) return
           if (d.ok) {
             setRows(d.top)
             setCitizens(d.citizens)
-          } else setRows([])
+            setState('loaded')
+            useGame.getState().markApiOk()
+          } else {
+            setState('loaded')
+          }
         })
-        .catch(() => setRows([])),
+        .catch(() => {
+          if (cancelled) return
+          setState('offline')
+          useGame.getState().markApiOffline()
+        }),
     )
+    return () => {
+      cancelled = true
+    }
   }, [reportScore])
 
   const myWorth = netWorthOf(money, inventory, assets)
@@ -42,11 +58,28 @@ export default function LeaderboardPanel() {
         <strong className="gold">{formatMoney(myWorth)}</strong>
       </p>
 
-      {rows === null && <p className="panel-sub">Reaching the world…</p>}
-      {rows !== null && rows.length === 0 && (
-        <p className="panel-sub">The leaderboard is empty or unreachable — you might be playing offline.</p>
+      {state === 'loading' && (
+        <ul className="lb-list" aria-label="Loading leaderboard" aria-busy="true">
+          {Array.from({ length: 5 }, (_, i) => (
+            <li key={i} className="lb-row lb-skeleton" aria-hidden>
+              <span className="lb-rank mono">{i + 1}</span>
+              <span className="lb-avatar" />
+              <span className="lb-name" />
+              <span className="lb-worth mono" />
+            </li>
+          ))}
+        </ul>
       )}
-      {rows !== null && rows.length > 0 && (
+      {state === 'offline' && (
+        <p className="panel-sub">
+          Can’t reach the world right now — showing your net worth locally. The leaderboard will reload when your
+          connection returns.
+        </p>
+      )}
+      {state === 'loaded' && rows.length === 0 && (
+        <p className="panel-sub">No citizens ranked yet. Be the first — your net worth is recorded automatically.</p>
+      )}
+      {state === 'loaded' && rows.length > 0 && (
         <ol className="lb-list">
           {rows.map((row, i) => (
             <li key={`${row.citizenId}-${i}`} className={`lb-row${row.name === myName ? ' me' : ''}`}>

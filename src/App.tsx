@@ -3,6 +3,7 @@ import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import HudDock from './components/hud/HudDock'
+import OfflineBanner from './components/hud/OfflineBanner'
 import FinanceCard from './components/hud/FinanceCard'
 import HudWindow from './components/hud/HudWindow'
 import MoodCard from './components/hud/MoodCard'
@@ -82,6 +83,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <OfflineBanner />
       <div inert={dialogOpen || undefined} aria-hidden={dialogOpen || undefined}>
         <Suspense fallback={<div className="globe-loading" aria-hidden />}>
           <WorldMap />
