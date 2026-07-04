@@ -30,7 +30,7 @@ the *why*.
 
 ---
 
-## The five hard rules
+## The six hard rules
 
 1. **One checkout per agent.** An agent works in exactly one working copy and
    never touches another agent's copy.
@@ -45,7 +45,19 @@ the *why*.
    on GitHub. Do not `git commit` on a local `main`; do not `git push origin
    main`. Both are rejected by branch protection anyway.
 
-3. **One branch per unit of work, always cut from *current* `origin/main`.**
+3. **Claim an issue before you start it.** Two agents built the same responsive
+   pass in parallel on 2026-07-04 because neither checked whether the other had
+   already claimed it — one PR merged, the other became wasted, conflicting
+   work. Before writing any code for issue `#N`:
+   ```bash
+   gh issue view N --repo DansiDanutz/Reality   # already assigned, or a PR linked? stop, pick another
+   git ls-remote --heads origin | grep -i <slug>  # a branch already exists for this? stop, don't duplicate it
+   gh issue edit N --repo DansiDanutz/Reality --add-assignee @me
+   ```
+   If it's already claimed or a branch/PR already exists for it, work a
+   *different* open issue instead.
+
+4. **One branch per unit of work, always cut from *current* `origin/main`.**
    ```bash
    git fetch origin
    git switch -c <type>/<slug> origin/main      # feat/ fix/ docs/ perf/ chore/ rfc/
@@ -53,10 +65,10 @@ the *why*.
    A branch that is behind `main` cannot be merged (protection requires it be up
    to date) — so rebase before you open/merge a PR, never merge a stale branch.
 
-4. **Green before you push.** `npx vitest run && npm run build` must pass
+5. **Green before you push.** `npx vitest run && npm run build` must pass
    locally. CI (`verify`) re-checks it and gates the merge.
 
-5. **No orphaned work.** Never end a session with uncommitted changes in a
+6. **No orphaned work.** Never end a session with uncommitted changes in a
    working tree. Commit to your branch and push, or `git stash` **and record it**
    in your report. Uncommitted WIP is how the kitchen feature was almost lost.
 
