@@ -16,7 +16,7 @@ export default function TutorialPanel() {
   if (!citizen) return null
   if (claimed.length >= TUTORIAL_STEPS.length) return null
 
-  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, activity, assets, totalCollected }
+  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, activity, assets, totalCollected, hasAvatar: !!citizen.avatarUrl }
   const doneCount = TUTORIAL_STEPS.filter((s) => claimed.includes(s.id)).length
   const current = TUTORIAL_STEPS.find((s) => !claimed.includes(s.id))
 

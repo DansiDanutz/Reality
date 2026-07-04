@@ -539,7 +539,16 @@ export const useGame = create<GameState>()(
         })
       },
 
-      markTargetsSeen: () => set({ targetsSeen: true }),
+      markTargetsSeen: () => {
+        set({ targetsSeen: true })
+        // One-time nudge (issue #38): once the player is past the intro, if they
+        // haven't generated an avatar yet, point them at the Profile studio. This
+        // is the only place it fires — markTargetsSeen is a one-shot transition.
+        const s = get()
+        if (s.citizen && !s.citizen.avatarUrl) {
+          set({ toasts: withToast(s.toasts, 'Give yourself a face — Profile → Create your avatar', 'sky') })
+        }
+      },
 
       consume: (itemId) => {
         const s = get()

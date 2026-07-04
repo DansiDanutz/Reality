@@ -442,7 +442,7 @@ describe('progression & worth', () => {
 describe('tutorial', async () => {
   const { TUTORIAL_STEPS } = await import('./tutorial')
 
-  const fresh = { timesEaten: 0, timesSlept: 0, jobId: null, shiftsWorked: 0, activity: null, assets: [], totalCollected: 0 }
+  const fresh = { timesEaten: 0, timesSlept: 0, jobId: null, shiftsWorked: 0, activity: null, assets: [], totalCollected: 0, hasAvatar: false }
 
   test('step ids are unique and every step starts incomplete', () => {
     const ids = TUTORIAL_STEPS.map((s) => s.id)
@@ -471,6 +471,7 @@ describe('tutorial', async () => {
         { id: 'b', itemId: 'foodcart', kind: 'business' as const, name: 'Cart', lat: 0, lng: 0, incomePerDay: 230, pendingIncome: 0, placedAtMinute: 0 },
       ],
       totalCollected: 120,
+      hasAvatar: true,
     }
     for (const step of TUTORIAL_STEPS) {
       expect(step.isDone(veteran), step.id).toBe(true)
