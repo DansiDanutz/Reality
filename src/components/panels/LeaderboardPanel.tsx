@@ -3,6 +3,7 @@ import { formatMoney, netWorthOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 interface Row {
+  citizenId: string
   name: string
   netWorth: number
 }
@@ -48,8 +49,23 @@ export default function LeaderboardPanel() {
       {rows !== null && rows.length > 0 && (
         <ol className="lb-list">
           {rows.map((row, i) => (
-            <li key={`${row.name}-${i}`} className={`lb-row${row.name === myName ? ' me' : ''}`}>
+            <li key={`${row.citizenId}-${i}`} className={`lb-row${row.name === myName ? ' me' : ''}`}>
               <span className="lb-rank mono">{i + 1}</span>
+              <span className="lb-avatar" aria-hidden>
+                <span className="lb-avatar-initial">{row.name.charAt(0).toUpperCase()}</span>
+                <img
+                  className="lb-avatar-img"
+                  src={`/api/avatar?cid=${row.citizenId}`}
+                  alt=""
+                  loading="lazy"
+                  width={28}
+                  height={28}
+                  onError={(e) => {
+                    // No avatar (404) → hide the img so the initial behind it shows.
+                    (e.target as HTMLImageElement).style.visibility = 'hidden'
+                  }}
+                />
+              </span>
               <span className="lb-name">{row.name}</span>
               <span className="lb-worth mono">{formatMoney(row.netWorth)}</span>
             </li>
