@@ -67,6 +67,16 @@ export default function App() {
     }
   }, [])
 
+  // On a phone/portrait-tablet's first load, tuck the less-urgent cards into the
+  // dock so the HUD isn't a stack of overlapping full-width windows. Vitals stays
+  // floating (glanceable health). Only runs once, and never overrides a saved layout.
+  useEffect(() => {
+    if (window.innerWidth > 820) return
+    const s = useGame.getState()
+    if (Object.keys(s.hudLayout).length > 0) return
+    for (const id of ['objectives', 'citizen', 'guide', 'finance']) s.patchCard(id, { min: true })
+  }, [])
+
   // Escape closes any open panel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
