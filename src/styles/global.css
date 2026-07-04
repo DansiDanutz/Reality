@@ -1384,6 +1384,14 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
     width: calc(100vw - 160px) !important;
     max-height: 80px !important;
   }
+  /* The narrow mobile slot is narrower than the avatar circle + a long name
+     naturally want. Without this, .avatar-name renders at its own content
+     width (ellipsis never triggers) and visually bleeds past the card into
+     whatever renders on top of it next (looked like the name was truncated
+     to "Mob" with no "…" — it wasn't clipped at all, just painted over). */
+  .avatar-card { min-width: 0; }
+  .avatar-meta { flex: 1 1 0; min-width: 0; }
+  .avatar-name { width: 100%; max-width: none; }
   .hud-window[data-card="vitals"] {
     left: 8px !important; bottom: 96px !important; top: auto !important;
     width: calc(100vw - 16px) !important;
