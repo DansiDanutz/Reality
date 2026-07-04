@@ -10,6 +10,8 @@ export interface TutorialSnapshot {
   activity: Activity | null
   assets: PlacedAsset[]
   totalCollected: number
+  /** True once the citizen has generated an avatar (issue #38 onboarding) */
+  hasAvatar: boolean
 }
 
 export interface TutorialStep {
@@ -22,9 +24,16 @@ export interface TutorialStep {
 
 /**
  * First Days in Reality — one pass through every core loop.
- * Order mirrors a real first session: survive, earn, own, profit.
+ * Order mirrors a real first session: see yourself, survive, earn, own, profit.
  */
 export const TUTORIAL_STEPS: TutorialStep[] = [
+  {
+    id: 'avatar',
+    title: 'Create your avatar',
+    detail: 'Profile → describe yourself, and the studio paints your face.',
+    xp: 25,
+    isDone: (s) => s.hasAvatar,
+  },
   {
     id: 'eat',
     title: 'Eat something',
