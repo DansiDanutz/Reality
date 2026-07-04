@@ -27,7 +27,13 @@ const FRICTION = 9 // exponential damping when no input
 const JUMP_SPEED = 4.6 // m/s upward
 const GRAVITY = 12.5 // m/s² (light on purpose — games breathe easier)
 const PLAYER_RADIUS = 0.45
+// Lamp poles still cap at 36 for visual density along the streets, but only
+// the nearest LAMP_LIGHT_BUDGET of them spawn a real (dynamic) THREE.PointLight.
+// The rest fake the warm pool with a cheap additive ground-glow disc so the
+// street still reads as lamplit — 8 dynamic lights instead of 36, which is
+// where weak GPUs fall off a cliff (per the loop-7 debt note in issue #29).
 const MAX_LAMPS = 36
+const LAMP_LIGHT_BUDGET = 8
 const MAX_TREES = 150
 
 export interface StreetSceneHandle {
@@ -35,7 +41,7 @@ export interface StreetSceneHandle {
   getFps: () => number
   lock: () => void
   jump: () => void
-  getStats: () => { trees: number; buildings: number; roadSegments: number; greens: number; drawCalls: number }
+  getStats: () => { trees: number; buildings: number; roadSegments: number; greens: number; lights: number; drawCalls: number }
 }
 
 /** Procedural facade: scattered warm-lit windows on dark stone — the Hogwarts trick */
@@ -331,23 +337,54 @@ export async function createStreetScene(
   addMerged(scene, dashGeos, markMat)
 
   // ── Street lamps: warm pools of light ────────────────────
+  // Performance (issue #29): 36 dynamic PointLights cripple weak GPUs. We keep
+  // 36 lamp POLES for visual density but only the nearest LAMP_LIGHT_BUDGET to
+  // the camera spawn get a real THREE.PointLight. The rest fake their warm
+  // ground pool with an additive disc — same mood, a quarter of the lights.
   const poleMat = new THREE.MeshLambertMaterial({ color: 0x151a24 })
   const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffc36b })
   const poleProto = new THREE.CylinderGeometry(0.09, 0.12, 4.6, 6)
   const bulbProto = new THREE.SphereGeometry(0.22, 8, 8)
   const poleGeos: THREE.BufferGeometry[] = []
   const bulbGeos: THREE.BufferGeometry[] = []
+  // Additive warm disc laid flat on the asphalt — fakes the light pool cheaply.
+  const glowDiscProto = new THREE.CircleGeometry(7, 14)
+  glowDiscProto.rotateX(-Math.PI / 2)
+  const glowDiscMat = new THREE.MeshBasicMaterial({
+    color: 0xffb95e,
+    transparent: true,
+    opacity: 0.16,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const glowDiscGeos: THREE.BufferGeometry[] = []
+  // Camera spawns at the origin — pick the nearest N lamp spots for real light.
+  const litSpots = [...lampSpots]
+    .map((spot) => ({ spot, d: spot.x * spot.x + spot.z * spot.z }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, LAMP_LIGHT_BUDGET)
+    .map((e) => e.spot)
+  const litSet = new Set(litSpots)
+  let lampLightCount = 0
   for (const spot of lampSpots) {
     poleGeos.push(poleProto.clone().translate(spot.x, 2.3, spot.z))
     bulbGeos.push(bulbProto.clone().translate(spot.x, 4.7, spot.z))
-    const glow = new THREE.PointLight(0xffb95e, 14, 26, 1.8)
-    glow.position.set(spot.x, 4.4, spot.z)
-    scene.add(glow)
+    if (litSet.has(spot)) {
+      const glow = new THREE.PointLight(0xffb95e, 14, 26, 1.8)
+      glow.position.set(spot.x, 4.4, spot.z)
+      scene.add(glow)
+      lampLightCount++
+    } else {
+      // No dynamic light — bake the warm pool as a flat additive disc instead.
+      glowDiscGeos.push(glowDiscProto.clone().translate(spot.x, 0.07, spot.z))
+    }
   }
   poleProto.dispose()
   bulbProto.dispose()
+  glowDiscProto.dispose()
   addMerged(scene, poleGeos, poleMat)
   addMerged(scene, bulbGeos, bulbMat)
+  addMerged(scene, glowDiscGeos, glowDiscMat)
 
   // ── Buildings: the real ones around you (and solid) ─────
   const facade = makeFacadeTexture(night)
@@ -742,6 +779,10 @@ export async function createStreetScene(
       buildings: solids.length,
       roadSegments: roadSegments.length,
       greens: greenRings.length,
+      // Count every light currently in the scene graph (PointLight + the
+      // DirectionalLight + ambient) — the before/after delta is the perf
+      // claim for issue #29. Counted live so culling changes show up too.
+      lights: scene.children.filter((c) => c instanceof THREE.Light).length,
       drawCalls: renderer.info.render.calls,
     }),
     dispose: () => {
