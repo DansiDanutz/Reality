@@ -90,7 +90,7 @@ interface GameState {
   awayReport: string | null
   dismissAwayReport: () => void
   /** Feedback toasts (not persisted) */
-  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[]
+  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[]
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
@@ -164,7 +164,7 @@ const FRESH = {
   targetsSeen: false,
   reachTier: 1,
   awayReport: null as string | null,
-  toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
+  toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
   soundOn: true,
   hudLayout: {} as Record<string, { x?: number; y?: number; w?: number; min?: boolean }>,
   hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide', 'finance'] as string[],
@@ -174,9 +174,9 @@ const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
 
 let toastId = 0
 const withToast = (
-  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' }[],
+  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
   text: string,
-  tone: 'gold' | 'ok' | 'sky',
+  tone: 'gold' | 'ok' | 'sky' | 'meal',
 ) => [...toasts.slice(-3), { id: ++toastId, text, tone }]
 
 export const useGame = create<GameState>()(
@@ -391,7 +391,7 @@ export const useGame = create<GameState>()(
           const name = s.activity?.kind === 'cook' ? s.activity.title : 'Dinner'
           if (!wasAway) {
             log = note(log, `${name} is ready.`)
-            toasts = withToast(toasts, `${name} is ready 🍽️`, 'ok')
+            toasts = withToast(toasts, `${name} is ready 🍽️`, 'meal')
           }
         }
         if (out.spoiled.length > 0 && !wasAway) {

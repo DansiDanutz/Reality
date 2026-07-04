@@ -186,6 +186,7 @@ export async function createStreetScene(
   markers: StreetMarker[] = [],
   onProximity?: (marker: StreetMarker | null) => void,
   weather: Weather = { condition: 'clear' },
+  onLand?: () => void,
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
   const calmMotion =
@@ -631,6 +632,7 @@ export async function createStreetScene(
   let lastNearId: string | null = null
   const vel = new THREE.Vector3() // world-space, y = vertical
   let jumpOffset = 0 // height above ground
+  let wasAirborne = false // for one-shot landing-thud detection (issue #30)
   let bobPhase = 0
   const fwdVec = new THREE.Vector3()
 
@@ -714,6 +716,11 @@ export async function createStreetScene(
       jumpOffset = Math.max(0, jumpOffset + vel.y * dt)
       if (jumpOffset === 0) vel.y = 0
     }
+    // Landing thud (issue #30): fire once on the airborne → grounded edge,
+    // never on every grounded frame. `onLand` is wired by StreetMode to a
+    // soundOn-gated playThud().
+    if (wasAirborne && grounded) onLand?.()
+    wasAirborne = !grounded
 
     // 4. Move with collision: slide along walls, never through them
     const p = camera.position
