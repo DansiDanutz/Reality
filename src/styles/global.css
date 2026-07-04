@@ -555,6 +555,24 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   transition: transform var(--duration-fast) var(--ease-out);
 }
 .dock-icon:hover { transform: translateY(-2px); background: rgba(120, 150, 205, 0.2); }
+/* Reset-layout control (issue #32) — same footprint as an icon slot, but
+   marked as an action: dashed outline + the ⟲ glyph. Sits at the dock's end
+   so it never collides with minimized-card slots. */
+.dock-reset {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color var(--duration-fast), border-color var(--duration-fast), transform var(--duration-fast) var(--ease-out);
+}
+.dock-reset:hover { color: var(--text); border-color: var(--line-strong); transform: translateY(-1px); }
+.dock-reset:active { transform: translateY(0); }
 
 /* ── Left rail (objectives + avatar) ───────────────────── */
 .left-rail {

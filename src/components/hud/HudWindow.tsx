@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -28,6 +28,9 @@ export const CARD_META: Record<CardId, { title: string; icon: string }> = {
 
 const MIN_W = 150
 const MAX_W = 520
+// Snap-to-edges: a card dropped within this many px of an edge pulls flush to
+// it, and a card whose center is in the snap zone clamps fully on-screen.
+const SNAP_PX = 24
 
 // Phones pin HUD cards to fixed slots (see global.css ≤640px). On them the
 // desktop drag/resize handlers fight the CSS, so we no-op both below that
@@ -35,6 +38,29 @@ const MAX_W = 520
 // the persisted desktop layout is untouched when the viewport widens again.
 const isDesktop = () =>
   typeof window === 'undefined' || window.matchMedia('(min-width: 641px)').matches
+
+/**
+ * Clamp a dropped card so it sits *fully* inside the viewport (top-left AND
+ * bottom-right), then snap to the nearest edge if within SNAP_PX. Returns the
+ * final pixel {x, y}. The old clamp only kept the top-left corner's *percent*
+ * in 0–96, which let a 380px card sit with its right edge off-screen.
+ */
+function clampAndSnap(left: number, top: number, width: number, height: number) {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  // Fully on-screen first: at least 70px of the card must stay visible on each
+  // axis even if the viewport is narrower than the card.
+  const maxX = Math.max(0, vw - Math.min(width, vw))
+  const maxY = Math.max(0, vh - Math.min(height, vh))
+  let x = Math.min(Math.max(left, 0), maxX)
+  let y = Math.min(Math.max(top, 0), maxY)
+  // Snap to edges: if within SNAP_PX, pull flush.
+  if (x <= SNAP_PX) x = 0
+  else if (x >= maxX - SNAP_PX) x = maxX
+  if (y <= SNAP_PX) y = 0
+  else if (y >= maxY - SNAP_PX) y = maxY
+  return { x, y }
+}
 
 interface HudWindowProps {
   id: CardId
@@ -50,6 +76,37 @@ export default function HudWindow({ id, children }: HudWindowProps) {
   const pos = { min: false, ...def, ...layout }
   if (pos.min) return null
 
+  // If the viewport shrank after a card was last positioned (e.g. player saved
+  // a layout on desktop, reloaded in a narrow window), its persisted % can now
+  // place it fully off-screen. Re-clamp on mount + whenever the window resizes
+  // so no card is ever stranded past the edge. (Desktop only — mobile pins to
+  // fixed slots via CSS.) Persist once per change so it sticks.
+  useEffect(() => {
+    if (!isDesktop()) return
+    const el = ref.current
+    if (!el) return
+    const reclamp = () => {
+      const r = el.getBoundingClientRect()
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const maxX = Math.max(0, vw - Math.min(r.width, vw))
+      const maxY = Math.max(0, vh - Math.min(r.height, vh))
+      const pxLeft = (pos.x / 100) * vw
+      const pxTop = (pos.y / 100) * vh
+      if (pxLeft > maxX + 1 || pxTop > maxY + 1 || pxLeft < -1 || pxTop < -1) {
+        const fixed = clampAndSnap(pxLeft, pxTop, r.width, r.height)
+        patchCard(id, {
+          x: (fixed.x / vw) * 100,
+          y: (fixed.y / vh) * 100,
+        })
+      }
+    }
+    reclamp()
+    window.addEventListener('resize', reclamp)
+    return () => window.removeEventListener('resize', reclamp)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos.x, pos.y, id])
+
   const beginDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return
     if (!isDesktop()) return // mobile: cards are pinned, dragging is off
@@ -61,8 +118,12 @@ export default function HudWindow({ id, children }: HudWindowProps) {
     const offsetY = e.clientY - rect.top
     el.classList.add('dragging')
     const onMove = (ev: PointerEvent) => {
-      const x = Math.min(Math.max(ev.clientX - offsetX, 2), window.innerWidth - 70)
-      const y = Math.min(Math.max(ev.clientY - offsetY, 2), window.innerHeight - 40)
+      // Live clamp during drag: keep the cursor anchored but never let the
+      // card's right/bottom edge leave the viewport.
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      const x = Math.min(Math.max(ev.clientX - offsetX, 0), Math.max(0, window.innerWidth - w))
+      const y = Math.min(Math.max(ev.clientY - offsetY, 0), Math.max(0, window.innerHeight - h))
       el.style.left = `${x}px`
       el.style.top = `${y}px`
     }
@@ -71,9 +132,11 @@ export default function HudWindow({ id, children }: HudWindowProps) {
       window.removeEventListener('pointerup', onUp)
       el.classList.remove('dragging')
       const r = el.getBoundingClientRect()
+      // Clamp fully on-screen + snap to the nearest edge, then persist as %.
+      const snapped = clampAndSnap(r.left, r.top, r.width, r.height)
       patchCard(id, {
-        x: Math.min(Math.max((r.left / window.innerWidth) * 100, 0), 96),
-        y: Math.min(Math.max((r.top / window.innerHeight) * 100, 0), 95),
+        x: (snapped.x / window.innerWidth) * 100,
+        y: (snapped.y / window.innerHeight) * 100,
       })
     }
     window.addEventListener('pointermove', onMove)

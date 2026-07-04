@@ -6,19 +6,22 @@ const SLOTS = 6
 
 /**
  * The player's dock: minimized cards become icons in slots. Click to
- * restore; drag between slots to arrange your own menu.
+ * restore; drag between slots to arrange your own menu. Also carries the
+ * "reset layout" control (issue #32) — the one place the player can always
+ * recover from having dragged cards off-screen, even when nothing is
+ * minimized (in which case the dock shows just the reset button).
  */
 export default function HudDock() {
   const hudLayout = useGame((s) => s.hudLayout)
   const order = useGame((s) => s.hudDockOrder)
   const setDockOrder = useGame((s) => s.setDockOrder)
   const patchCard = useGame((s) => s.patchCard)
+  const resetHudLayout = useGame((s) => s.resetHudLayout)
   const [dragId, setDragId] = useState<string | null>(null)
 
   // Saved orders may predate newer cards — append any the player hasn't met yet
   const fullOrder = [...order, ...Object.keys(CARD_META).filter((id) => !order.includes(id))]
   const minimized = fullOrder.filter((id) => hudLayout[id]?.min ?? CARD_DEFAULTS[id as CardId]?.min)
-  if (minimized.length === 0) return null
 
   const dropOn = (slotIndex: number) => {
     if (!dragId) return
@@ -32,7 +35,7 @@ export default function HudDock() {
   }
 
   return (
-    <div className="hud-dock" aria-label="Minimized cards">
+    <div className="hud-dock" aria-label="Minimized cards and layout controls">
       {Array.from({ length: SLOTS }, (_, i) => {
         const id = minimized[i] as CardId | undefined
         return (
@@ -57,6 +60,14 @@ export default function HudDock() {
           </div>
         )
       })}
+      <button
+        className="dock-reset"
+        onClick={resetHudLayout}
+        aria-label="Reset HUD layout to defaults"
+        title="Reset layout — restore all cards to their default positions"
+      >
+        ⟲
+      </button>
     </div>
   )
 }
