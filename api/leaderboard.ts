@@ -20,11 +20,11 @@ async function verifyCitizen(citizenId: string, token: string): Promise<boolean>
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
-      const rows: { name: string; netWorth: number }[] = []
+      const rows: { citizenId: string; name: string; netWorth: number }[] = []
       const batch = await list({ prefix: 'scores/', limit: 1000 })
       for (const blob of batch.blobs) {
-        const m = blob.pathname.match(/^scores\/[0-9a-f-]{36}__(\d+)__([a-z0-9-]{1,24})\.json$/)
-        if (m) rows.push({ name: m[2], netWorth: Number(m[1]) })
+        const m = blob.pathname.match(/^scores\/([0-9a-f-]{36})__(\d+)__([a-z0-9-]{1,24})\.json$/)
+        if (m) rows.push({ citizenId: m[1], name: m[3], netWorth: Number(m[2]) })
       }
       rows.sort((a, b) => b.netWorth - a.netWorth)
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
