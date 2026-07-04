@@ -84,7 +84,7 @@ export default function App() {
   return (
     <div className="app" id="main-content" role="main" tabIndex={-1}>
       <a className="skip-link" href="#main-content">
-        Skip to the world map
+        Skip to main content
       </a>
       <OfflineBanner />
       <div inert={dialogOpen || undefined} aria-hidden={dialogOpen || undefined}>

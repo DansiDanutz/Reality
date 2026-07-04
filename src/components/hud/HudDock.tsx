@@ -36,7 +36,7 @@ export default function HudDock() {
 
   return (
     <div className="hud-dock" aria-label="Minimized cards and layout controls">
-      {Array.from({ length: SLOTS }, (_, i) => {
+      {minimized.length > 0 && Array.from({ length: SLOTS }, (_, i) => {
         const id = minimized[i] as CardId | undefined
         return (
           <div

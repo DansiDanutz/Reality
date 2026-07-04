@@ -82,7 +82,7 @@ export default function LeaderboardPanel() {
       {state === 'loaded' && rows.length > 0 && (
         <ol className="lb-list">
           {rows.map((row, i) => (
-            <li key={`${row.citizenId}-${i}`} className={`lb-row${row.name === myName ? ' me' : ''}`}>
+            <li key={row.citizenId} className={`lb-row${row.name === myName ? ' me' : ''}`}>
               <span className="lb-rank mono">{i + 1}</span>
               <span className="lb-avatar" aria-hidden>
                 <span className="lb-avatar-initial">{row.name.charAt(0).toUpperCase()}</span>

@@ -15,16 +15,23 @@ async function verifyCitizen(citizenId: string, token: string): Promise<boolean>
 /**
  * Net-worth leaderboard. One blob per citizen —
  * `scores/{citizenId}__{netWorth}__{name}.json` — pathname-encoded so the
- * GET is a single list() with zero content reads.
+ * GET pages through list() results with zero content reads. Blob list order
+ * is not score order, so every score blob must be read before ranking —
+ * 3 pages of 1,000 covers all 2,000 founder slots (same bound as register.ts).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       const rows: { citizenId: string; name: string; netWorth: number }[] = []
-      const batch = await list({ prefix: 'scores/', limit: 1000 })
-      for (const blob of batch.blobs) {
-        const m = blob.pathname.match(/^scores\/([0-9a-f-]{36})__(\d+)__([a-z0-9-]{1,24})\.json$/)
-        if (m) rows.push({ citizenId: m[1], name: m[3], netWorth: Number(m[2]) })
+      let cursor: string | undefined
+      for (let page = 0; page < 3; page++) {
+        const batch = await list({ prefix: 'scores/', cursor, limit: 1000 })
+        for (const blob of batch.blobs) {
+          const m = blob.pathname.match(/^scores\/([0-9a-f-]{36})__(\d+)__([a-z0-9-]{1,24})\.json$/)
+          if (m) rows.push({ citizenId: m[1], name: m[3], netWorth: Number(m[2]) })
+        }
+        if (!batch.hasMore || !batch.cursor) break
+        cursor = batch.cursor
       }
       rows.sort((a, b) => b.netWorth - a.netWorth)
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
