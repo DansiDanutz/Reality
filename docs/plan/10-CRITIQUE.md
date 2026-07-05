@@ -371,3 +371,27 @@ Seven more PRs (#64–#70) addressing critique items from the batch-1 entry + ne
 4. **Notification permission UX is minimal.** The Profile section explains what you'll get, but there's no "preview" of a notification, and no per-type opt-out (a player might want streak alerts but not needs alerts). **Action:** per-type toggles in a follow-up.
 5. **Sound has no volume control.** It's binary on/off via the TopBar mute. A top game lets players set chime volume independent of system. **Action:** add a volume slider to the sound settings.
 6. **Daily challenges don't appear in notifications.** A "2/3 daily challenges done — 1 to go!" notification at risk-of-not-completing would be a strong return driver. **Action:** add a 4th notification type for daily-challenge progress in the evening.
+
+## Fixed in the depth/juice/polish loops (2026-07-05, batch 3)
+
+Twelve more PRs (#72–#81) addressing batch-2 critique items + new systems:
+
+- **#72 Panel tabs** — Goals/Grid/Collection panes. Fixes the urgent panel-weight issue; Goals is the default landing tab. *(critique batch-2 item #1)*
+- **#73 Business upgrades** — geometric cost curve (4×/level), linear income. The idle-game depth hook that sinks the ballooning founder balance.
+- **#74 Upgrade achievements** — Tastemaker (L3 silver) + Empire of One (L5 gold). Closes the loop between upgrades and the retention engine.
+- **#75 Away-return card enriched** — time-away eyebrow, gold pending income, streak-survival reassurance, Goals CTA. The highest-impact retention surface.
+- **#76 Goals HUD card** — replaces the tutorial objectives card post-onboarding. Always-visible streak + daily-challenge progress.
+- **#77 Celebration overlay** — full-card moments for legendary/gold/daily events. Per-tone gradients, glow, pop animation.
+- **#78 Level-up celebration** — every 5th level gets the sky-blue overlay. Catches level-ups from any XP source.
+- **#79 Notification toggles** — per-type opt-out (activity/streak/needs). *(critique batch-2 item #4)*
+- **#80 Life journal** — readable timeline of every event. Log cap 30→100. The emotional story layer.
+- **#81 Keyboard shortcuts** — D/S/W/C/M/G/J for power users. Guards against input/conflict.
+
+**Self-critique (what's still soft):**
+
+1. **No volume control, still.** *(critique batch-2 item #5, carried forward)* Sound is binary on/off. **Action:** add a volume slider.
+2. **Daily-challenge delta precision.** *(critique batch-2 item #3, carried forward)* `cashDelta` approximates via `wagesEarned + max(0, money - s.money)`. **Action:** add explicit `earnedThisTick` to engine output.
+3. **Journal entries are terse.** They read like log lines ("Shift complete: +$64") rather than narrative ("Worked the morning shift at the cafe — earned $64 toward rent"). **Action:** a content pass to make `note()` calls more narrative where it matters.
+4. **Celebration overlay can stack-delay.** If a legendary + gold + level-5 fire in the same tick (unlikely but possible), only the first-set celebration shows; the others are lost. The `!s.celebration` guard prevents stacking but also prevents queuing. **Action:** a 1-entry queue if this becomes visible.
+5. **No onboarding for keyboard shortcuts.** They're discoverable only via hover titles. **Action:** a one-time "?" hint or a settings reference.
+6. **Goals card and TutorialPanel have different visual languages.** The transition when the tutorial completes (TutorialPanel → GoalsCard) swaps component styles in the same HudWindow. **Action:** unify the card aesthetic.
