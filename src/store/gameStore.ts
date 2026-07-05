@@ -1434,12 +1434,20 @@ export const useGame = create<GameState>()(
         const total = s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
         if (total < 1) return
         track('first_collect')
+        // First-collection celebration — the moment the economy "works" for
+        // the player. A distinct toast so they feel the milestone.
+        const wasFirst = s.totalCollected === 0
+        const toasts = wasFirst
+          ? withToast(withToast(s.toasts, `💰 Your first income! The economy works.`, 'achieve'), `Collected ${formatMoney(Math.floor(total))}`, 'gold')
+          : withToast(s.toasts, `Collected ${formatMoney(Math.floor(total))}`, 'gold')
         set({
           money: s.money + Math.floor(total),
           assets: s.assets.map((a) => ({ ...a, pendingIncome: 0 })),
           totalCollected: s.totalCollected + Math.floor(total),
-          toasts: withToast(s.toasts, `Collected ${formatMoney(Math.floor(total))}`, 'gold'),
-          log: note(s.log, `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
+          toasts,
+          log: note(s.log, wasFirst
+            ? `Collected your first business income: ${formatMoney(Math.floor(total))}. The economy works.`
+            : `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
         })
       },
 
