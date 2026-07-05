@@ -322,6 +322,8 @@ export async function createStreetScene(
   const birds: { mesh: THREE.Mesh; speed: number; radius: number; angle: number; y: number; baseScale: number }[] = []
   let birdMat: THREE.MeshBasicMaterial
   let birdGeo: THREE.BufferGeometry
+  // Clouds drift slowly across the daytime sky (outer scope for animation).
+  const clouds: THREE.Mesh[] = []
   if (night) {
     const starCount = 1400
     const positions = new Float32Array(starCount * 3)
@@ -400,6 +402,7 @@ export async function createStreetScene(
       cloud.rotation.x = -Math.PI / 2
       cloud.scale.setScalar(0.7 + Math.random() * 1.8)
       scene.add(cloud)
+      clouds.push(cloud)
     }
     // ── Daytime birds: small dark V-shapes drifting across the sky ──
     // Declared in outer scope (above) for dispose; populated here for daytime.
@@ -1099,6 +1102,15 @@ export async function createStreetScene(
       precipPoints.geometry.attributes.position.needsUpdate = true
     }
     // Birds drift in slow circles overhead (daytime only). Each bird flies its
+    // Clouds drift slowly east-to-west, wrapping around the player. Slow
+    // (1.5 m/s) so the motion is barely perceptible per frame but unmistakable
+    // over a minute -- the sky is alive, not a painted backdrop.
+    for (const c of clouds) {
+      c.position.x -= 1.5 * dt
+      // Wrap: when a cloud drifts past the western edge, reset to the east.
+      if (c.position.x < p.x - 700) c.position.x = p.x + 700
+    }
+    // Birds: each flies its own
     // own radius + altitude, banking slightly on turns. The wing flap is a
     // cheap scale.y oscillation — enough to read as "alive" at sky distance.
     for (const b of birds) {
