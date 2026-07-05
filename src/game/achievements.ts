@@ -58,6 +58,15 @@ export interface Achievement {
   /** Small cash bounty on unlock (the society pays its achievers) */
   bounty: number
   isUnlocked: (s: AchievementSnapshot) => boolean
+  /**
+   * Optional numeric progress toward unlock. When present, the UI renders a
+   * progress bar (`current / target`); when absent, the achievement is
+   * treated as binary (locked/unlocked only).
+   *
+   * MUST agree with `isUnlocked`: for every snapshot, `progress(s).current >=
+   * progress(s).target` iff `isUnlocked(s)`. A drift-guard test enforces this.
+   */
+  progress?: (s: AchievementSnapshot) => { current: number; target: number }
 }
 
 export const CATEGORY_META: Record<AchievementCategory, { label: string; icon: string }> = {
@@ -92,6 +101,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Stay alive your first full real day.',
     category: 'survival', tier: 'bronze', xp: 50, bounty: 100,
     isUnlocked: (s) => s.daysLived >= 1,
+    progress: (s) => ({ current: s.daysLived, target: 1 }),
   },
   {
     id: 'survivor-7',
@@ -99,6 +109,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Survive seven real days. Most citizens don\'t come back this far.',
     category: 'survival', tier: 'silver', xp: 200, bounty: 1000,
     isUnlocked: (s) => s.daysLived >= 7,
+    progress: (s) => ({ current: s.daysLived, target: 7 }),
   },
   {
     id: 'survivor-30',
@@ -106,6 +117,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Thirty real days. You live here now.',
     category: 'survival', tier: 'gold', xp: 1000, bounty: 10000,
     isUnlocked: (s) => s.daysLived >= 30,
+    progress: (s) => ({ current: s.daysLived, target: 30 }),
   },
   {
     id: 'well-fed',
@@ -113,6 +125,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Eat 25 meals.',
     category: 'survival', tier: 'bronze', xp: 75, bounty: 200,
     isUnlocked: (s) => s.timesEaten >= 25,
+    progress: (s) => ({ current: s.timesEaten, target: 25 }),
   },
   {
     id: 'rested-soul',
@@ -120,6 +133,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Sleep 25 nights.',
     category: 'survival', tier: 'silver', xp: 150, bounty: 500,
     isUnlocked: (s) => s.timesSlept >= 25,
+    progress: (s) => ({ current: s.timesSlept, target: 25 }),
   },
 
   // ── Career ──────────────────────────────────────────────
@@ -129,6 +143,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Complete your first shift.',
     category: 'career', tier: 'bronze', xp: 50, bounty: 50,
     isUnlocked: (s) => s.shiftsWorked >= 1,
+    progress: (s) => ({ current: s.shiftsWorked, target: 1 }),
   },
   {
     id: 'reliable',
@@ -136,6 +151,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Work 10 shifts. Show up, every day.',
     category: 'career', tier: 'silver', xp: 200, bounty: 750,
     isUnlocked: (s) => s.shiftsWorked >= 10,
+    progress: (s) => ({ current: s.shiftsWorked, target: 10 }),
   },
   {
     id: 'workhorse',
@@ -143,6 +159,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Work 50 shifts. The city runs on you.',
     category: 'career', tier: 'gold', xp: 800, bounty: 5000,
     isUnlocked: (s) => s.shiftsWorked >= 50,
+    progress: (s) => ({ current: s.shiftsWorked, target: 50 }),
   },
   {
     id: 'hired-gun',
@@ -166,6 +183,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Collect $10,000 in total income.',
     category: 'wealth', tier: 'silver', xp: 200, bounty: 1000,
     isUnlocked: (s) => s.totalCollected >= 10_000,
+    progress: (s) => ({ current: s.totalCollected, target: 10_000 }),
   },
   {
     id: 'tycoon',
@@ -173,6 +191,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Collect $1,000,000 in total income.',
     category: 'wealth', tier: 'gold', xp: 1500, bounty: 25000,
     isUnlocked: (s) => s.totalCollected >= 1_000_000,
+    progress: (s) => ({ current: s.totalCollected, target: 1_000_000 }),
   },
   {
     id: 'first-home',
@@ -187,6 +206,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Reach $1,000,000 net worth.',
     category: 'wealth', tier: 'gold', xp: 1000, bounty: 15000,
     isUnlocked: (s) => s.netWorth >= 1_000_000,
+    progress: (s) => ({ current: s.netWorth, target: 1_000_000 }),
   },
 
   // ── Lifestyle ───────────────────────────────────────────
@@ -196,6 +216,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Reach level 5.',
     category: 'lifestyle', tier: 'bronze', xp: 100, bounty: 300,
     isUnlocked: (s) => s.level >= 5,
+    progress: (s) => ({ current: s.level, target: 5 }),
   },
   {
     id: 'established',
@@ -203,6 +224,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Reach level 10.',
     category: 'lifestyle', tier: 'silver', xp: 300, bounty: 1500,
     isUnlocked: (s) => s.level >= 10,
+    progress: (s) => ({ current: s.level, target: 10 }),
   },
   {
     id: 'pillar',
@@ -210,6 +232,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Reach level 20.',
     category: 'lifestyle', tier: 'gold', xp: 1200, bounty: 20000,
     isUnlocked: (s) => s.level >= 20,
+    progress: (s) => ({ current: s.level, target: 20 }),
   },
   {
     id: 'home-chef',
@@ -240,6 +263,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Own 10 distinct items.',
     category: 'collector', tier: 'bronze', xp: 100, bounty: 400,
     isUnlocked: (s) => s.distinctItemsOwned >= 10,
+    progress: (s) => ({ current: s.distinctItemsOwned, target: 10 }),
   },
   {
     id: 'collector-25',
@@ -247,6 +271,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Own 25 distinct items.',
     category: 'collector', tier: 'silver', xp: 250, bounty: 1200,
     isUnlocked: (s) => s.distinctItemsOwned >= 25,
+    progress: (s) => ({ current: s.distinctItemsOwned, target: 25 }),
   },
   {
     id: 'collector-50',
@@ -254,6 +279,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Own 50 distinct items.',
     category: 'collector', tier: 'gold', xp: 1000, bounty: 10000,
     isUnlocked: (s) => s.distinctItemsOwned >= 50,
+    progress: (s) => ({ current: s.distinctItemsOwned, target: 50 }),
   },
 
   // ── Veteran ─────────────────────────────────────────────
@@ -263,6 +289,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Open your first business.',
     category: 'veteran', tier: 'bronze', xp: 100, bounty: 500,
     isUnlocked: (s) => s.businesses >= 1,
+    progress: (s) => ({ current: s.businesses, target: 1 }),
   },
   {
     id: 'empire-3',
@@ -270,6 +297,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Own 3 businesses.',
     category: 'veteran', tier: 'silver', xp: 300, bounty: 2000,
     isUnlocked: (s) => s.businesses >= 3,
+    progress: (s) => ({ current: s.businesses, target: 3 }),
   },
   {
     id: 'empire-10',
@@ -277,6 +305,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     detail: 'Own 10 businesses.',
     category: 'veteran', tier: 'gold', xp: 1500, bounty: 30000,
     isUnlocked: (s) => s.businesses >= 10,
+    progress: (s) => ({ current: s.businesses, target: 10 }),
   },
 ]
 
