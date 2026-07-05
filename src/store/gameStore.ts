@@ -741,19 +741,35 @@ export const useGame = create<GameState>()(
         let toasts = s.toasts
         let { level, xp } = s
         const startingLevel = s.level // captured to detect a level-up at end-of-tick for the celebration
+        // These accumulate state that the tick derives. They were previously
+        // MUTATED IN PLACE on the get() snapshot before the final set() — which
+        // only worked because tick is synchronous. Locals honour the repo's
+        // immutability rule and mean a throw mid-tick can never leave getState()
+        // showing a granted reward that never persists.
+        let celebration = s.celebration
+        let celebrationQueue = s.celebrationQueue
+        let activeBoosters = s.activeBoosters
+        let combo = s.combo
+        let milestonesCelebrated = s.milestonesCelebrated
+        let luckyMomentsSeen = s.luckyMomentsSeen
+        let luckyMomentsSeenIds = s.luckyMomentsSeenIds
+        let goldenOpportunity = s.goldenOpportunity
+        let achievementsClaimed = s.achievementsClaimed
+        let streakBest = s.streakBest
+        let savingsGoalReached = s.savingsGoalReached
         // Show-or-queue a celebration. Declared early so every celebration
         // site (milestone, lucky, achievement, level, daily, savings) can use
         // it regardless of order in the tick. If none is showing, show
         // immediately; otherwise push to the queue (drained by dismissCelebration).
         const celebrate = (c: { icon: string; title: string; detail?: string; reward?: string; tone: 'legendary' | 'gold' | 'level' | 'daily' }) => {
-          if (!s.celebration) s.celebration = c
-          else s.celebrationQueue = [...s.celebrationQueue, c]
+          if (!celebration) celebration = c
+          else celebrationQueue = [...celebrationQueue, c]
         }
         // Clean expired boosters at the start of each tick.
-        const cleanBoosters = cleanExpiredBoosters(s.activeBoosters, now)
-        if (cleanBoosters.length !== s.activeBoosters.length) s.activeBoosters = cleanBoosters
+        const cleanBoosters = cleanExpiredBoosters(activeBoosters, now)
+        if (cleanBoosters.length !== activeBoosters.length) activeBoosters = cleanBoosters
         // Combo timeout: if the combo window expired, reset to 0.
-        if (s.combo > 0 && now - s.comboLastActionAt >= COMBO_WINDOW_MS) s.combo = 0
+        if (combo > 0 && now - s.comboLastActionAt >= COMBO_WINDOW_MS) combo = 0
         // Apply XP booster to engine XP gains.
         const xpMult = boosterMultiplier(cleanBoosters, 'xp', now)
         const boostedXP = out.xpGained * xpMult
@@ -829,10 +845,10 @@ export const useGame = create<GameState>()(
           const MILESTONE_WEEKS = [1, 2, 4, 8, 12, 26, 52]
           const weeksLived = Math.floor((now - s.citizen.createdAt) / WEEK_MS)
           const nextMilestone = MILESTONE_WEEKS.find(
-            (w) => w <= weeksLived && !s.milestonesCelebrated.includes(w),
+            (w) => w <= weeksLived && !milestonesCelebrated.includes(w),
           )
           if (nextMilestone) {
-            s.milestonesCelebrated = [...s.milestonesCelebrated, nextMilestone]
+            milestonesCelebrated = [...milestonesCelebrated, nextMilestone]
             track('week_milestone')
             const label = nextMilestone === 1 ? 'one week' : nextMilestone === 52 ? 'a full year' : `${nextMilestone} weeks`
             const reward = nextMilestone >= 52 ? 'a lifetime' : nextMilestone >= 12 ? 'a season' : 'a habit'
@@ -924,7 +940,7 @@ export const useGame = create<GameState>()(
           // is ~5% per tick for 20 min, guaranteeing a hit in the first
           // session. After the first moment, normal rarity resumes.
           const isNew = s.citizen && (now - s.citizen.createdAt < 20 * 60_000)
-          const needsFirstWin = s.luckyMomentsSeen === 0 && isNew
+          const needsFirstWin = luckyMomentsSeen === 0 && isNew
           // 5% per tick for 20 min => ~100% chance the first session lands one.
           // Uses pickLuckyMoment (no chance gate) so the weighted pick + cash
           // roll use the real RNG, undistorted by the boosted gate.
@@ -936,10 +952,10 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += lucky.money
-            s.luckyMomentsSeen = s.luckyMomentsSeen + 1
-            if (s.luckyMomentsSeen === 1) track('first_lucky')
-            if (!s.luckyMomentsSeenIds.includes(lucky.id)) {
-              s.luckyMomentsSeenIds = [...s.luckyMomentsSeenIds, lucky.id]
+            luckyMomentsSeen = luckyMomentsSeen + 1
+            if (luckyMomentsSeen === 1) track('first_lucky')
+            if (!luckyMomentsSeenIds.includes(lucky.id)) {
+              luckyMomentsSeenIds = [...luckyMomentsSeenIds, lucky.id]
             }
             const icon = RARITY_META[lucky.rarity].icon
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
@@ -962,23 +978,23 @@ export const useGame = create<GameState>()(
         // Golden opportunities — time-limited tap events during live play.
         // Rare by design (~every 30 min of live ticks — see OPPORTUNITY_CHANCE).
         // If one is already active, don't spawn another.
-        if (!wasAway && !s.goldenOpportunity) {
+        if (!wasAway && !goldenOpportunity) {
           const opp = rollOpportunity()
           if (opp) {
-            s.goldenOpportunity = { ...opp, spawnedAt: now }
+            goldenOpportunity = { ...opp, spawnedAt: now }
             toasts = withToast(toasts, `${opp.icon} Golden opportunity! Tap to claim — ${Math.round(OPPORTUNITY_WINDOW_MS / 1000)}s left.`, 'gold')
           }
         }
         // Expire unclaimed opportunities past their window.
-        if (s.goldenOpportunity && now - s.goldenOpportunity.spawnedAt > OPPORTUNITY_WINDOW_MS) {
-          s.goldenOpportunity = null
+        if (goldenOpportunity && now - goldenOpportunity.spawnedAt > OPPORTUNITY_WINDOW_MS) {
+          goldenOpportunity = null
         }
 
         // Auto-claim newly-unlocked achievements — the dopamine hit lands the
         // instant the player earns it (e.g. the 10th shift flips "Reliable"),
         // not on a manual panel visit. XP + bounty granted here, idempotently.
         const postState = { ...s, shiftsWorked: s.shiftsWorked + out.shiftsCompleted, level, timesEaten, money, needs, assets: out.assets, inventory: out.inventory }
-        const newlyEarned = newlyUnlocked(achievementSnapshotOf(postState), s.achievementsClaimed)
+        const newlyEarned = newlyUnlocked(achievementSnapshotOf(postState), achievementsClaimed)
         if (newlyEarned.length > 0) {
           const earnedIds = newlyEarned.map((a) => a.id)
           const totalXp = newlyEarned.reduce((sum, a) => sum + a.xp, 0)
@@ -1003,8 +1019,8 @@ export const useGame = create<GameState>()(
               tone: 'gold',
             })
           }
-          s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
-          if (s.achievementsClaimed.length === newlyEarned.length) track('first_achievement')
+          achievementsClaimed = [...achievementsClaimed, ...earnedIds]
+          if (achievementsClaimed.length === newlyEarned.length) track('first_achievement')
         }
 
         // Daily streak — the come-back-tomorrow hook. Computed against the
@@ -1023,8 +1039,8 @@ export const useGame = create<GameState>()(
         if (streakOut) {
           streakLength = streakOut.length
           streakLastClaimDay = todayDay
-          if (streakOut.length > s.streakBest) {
-            s.streakBest = streakOut.length
+          if (streakOut.length > streakBest) {
+            streakBest = streakOut.length
             if (streakOut.length === 7) track('streak_7')
           }
           // Day 1 (spawn day) and grace-day holds pay nothing and stay quiet.
@@ -1049,7 +1065,7 @@ export const useGame = create<GameState>()(
               ? `Welcome back. Your ${prev}-day streak reset — start fresh at day 1. 🔁`
               : `Welcome back. A new streak starts today. 🔁`
             toasts = withToast(toasts, msg, 'sky')
-            log = note(log, `Your ${prev}-day streak ended after a long absence. A new streak starts today. (Best ever: ${s.streakBest} days.)`)
+            log = note(log, `Your ${prev}-day streak ended after a long absence. A new streak starts today. (Best ever: ${streakBest} days.)`)
           }
         }
 
@@ -1095,10 +1111,10 @@ export const useGame = create<GameState>()(
         // chaos/lucky/achievement blocks above) so the net-worth read is
         // current. Gives purpose to the earning loop: "I'm saving for the
         // $50k studio" is a concrete, motivating goal the player chose.
-        if (s.savingsGoal > 0 && !s.savingsGoalReached) {
+        if (s.savingsGoal > 0 && !savingsGoalReached) {
           const netWorth = netWorthOf(money, s.inventory, out.assets)
           if (netWorth >= s.savingsGoal) {
-            s.savingsGoalReached = true
+            savingsGoalReached = true
             celebrate({
               icon: '🎯',
               title: 'Savings goal reached!',
@@ -1202,25 +1218,25 @@ export const useGame = create<GameState>()(
           inventory: out.inventory,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
-          achievementsClaimed: s.achievementsClaimed,
+          achievementsClaimed: achievementsClaimed,
           reachTier,
           streakLength,
           streakLastClaimDay,
-          streakBest: s.streakBest,
-          luckyMomentsSeen: s.luckyMomentsSeen,
-          luckyMomentsSeenIds: s.luckyMomentsSeenIds,
-          milestonesCelebrated: s.milestonesCelebrated,
+          streakBest: streakBest,
+          luckyMomentsSeen: luckyMomentsSeen,
+          luckyMomentsSeenIds: luckyMomentsSeenIds,
+          milestonesCelebrated: milestonesCelebrated,
           savingsGoal: s.savingsGoal,
-          savingsGoalReached: s.savingsGoalReached,
+          savingsGoalReached: savingsGoalReached,
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
           awayReport,
-          celebration: s.celebration,
-          celebrationQueue: s.celebrationQueue,
-          goldenOpportunity: s.goldenOpportunity,
-          activeBoosters: s.activeBoosters,
-          combo: s.combo,
+          celebration: celebration,
+          celebrationQueue: celebrationQueue,
+          goldenOpportunity: goldenOpportunity,
+          activeBoosters: activeBoosters,
+          combo: combo,
           comboLastActionAt: s.comboLastActionAt,
           toasts,
           log,
