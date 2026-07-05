@@ -312,7 +312,14 @@ export default function StreetMode() {
             <p className="street-controls-sub">Your citizen lives on real time. The sky, light, and weather follow the actual hour here.</p>
             <button
               className="btn primary"
-              onClick={() => { setShowControls(false); markStreetModeSeen() }}
+              onClick={() => {
+                setShowControls(false)
+                markStreetModeSeen()
+                // First-step welcome caption — fires when the player dismisses
+                // the controls overlay on their first visit.
+                setCaption('You step onto your real street for the first time.')
+                setTimeout(() => setCaption((c) => c === 'You step onto your real street for the first time.' ? null : c), 5_000)
+              }}
               autoFocus
             >
               Step outside
