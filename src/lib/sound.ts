@@ -5,15 +5,41 @@
  */
 
 let ctx: AudioContext | null = null
+/** Master gain — all tones route through here so volume is centrally controllable. */
+let masterGain: GainNode | null = null
+/** Current volume 0..1, persisted by the store. Defaults to 1 (full). */
+let volume = 1
 
 function ensureContext(): AudioContext | null {
   try {
-    if (!ctx) ctx = new AudioContext()
+    if (!ctx) {
+      ctx = new AudioContext()
+      masterGain = ctx.createGain()
+      masterGain.gain.value = volume
+      masterGain.connect(ctx.destination)
+    }
     if (ctx.state === 'suspended') void ctx.resume()
     return ctx
   } catch {
     return null
   }
+}
+
+/**
+ * Set the master volume (0..1). Persisted by the store; applied live so an
+ * in-flight chime responds to a slider drag. Safe to call before any sound
+ * has played (the gain node is created lazily in ensureContext).
+ */
+export function setSoundVolume(v: number): void {
+  volume = Math.max(0, Math.min(1, v))
+  if (masterGain && ctx) {
+    masterGain.gain.setValueAtTime(volume, ctx.currentTime)
+  }
+}
+
+/** Current volume 0..1 — the store reads this on load to hydrate the slider. */
+export function getSoundVolume(): number {
+  return volume
 }
 
 function tone(context: AudioContext, freq: number, start: number, duration: number, peak: number) {
@@ -24,9 +50,17 @@ function tone(context: AudioContext, freq: number, start: number, duration: numb
   gain.gain.setValueAtTime(0, start)
   gain.gain.linearRampToValueAtTime(peak, start + 0.012)
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
-  osc.connect(gain).connect(context.destination)
+  // Route through the master gain (volume control) instead of destination.
+  osc.connect(gain)
+  if (masterGain) gain.connect(masterGain)
+  else gain.connect(context.destination)
   osc.start(start)
   osc.stop(start + duration + 0.05)
+}
+
+/** The output node — master gain if initialized, else the raw destination. */
+function out(context: AudioContext): AudioNode {
+  return masterGain ?? context.destination
 }
 
 const PATTERNS: Record<ChimeKind, { freqs: number[]; step: number; dur: number; peak: number }> = {
@@ -82,7 +116,7 @@ export function playThud(): void {
   oscGain.gain.setValueAtTime(0.0001, now)
   oscGain.gain.linearRampToValueAtTime(0.12, now + 0.008)
   oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18)
-  osc.connect(oscGain).connect(context.destination)
+  osc.connect(oscGain).connect(out(context))
   osc.start(now)
   osc.stop(now + 0.22)
   // Brief noise click (the "step" transient) through a low-pass
@@ -98,7 +132,7 @@ export function playThud(): void {
   const noiseGain = context.createGain()
   noiseGain.gain.setValueAtTime(0.06, now)
   noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09)
-  noise.connect(filter).connect(noiseGain).connect(context.destination)
+  noise.connect(filter).connect(noiseGain).connect(out(context))
   noise.start(now)
   noise.stop(now + 0.1)
 }
@@ -128,7 +162,7 @@ export function startAmbience(): void {
   const gain = context.createGain()
   gain.gain.setValueAtTime(0, context.currentTime)
   gain.gain.linearRampToValueAtTime(0.05, context.currentTime + 1.2)
-  source.connect(filter).connect(gain).connect(context.destination)
+  source.connect(filter).connect(gain).connect(out(context))
   source.start()
   ambience = { gain, source }
 }

@@ -1758,6 +1758,22 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   cursor: pointer;
 }
 
+/* Sound section — mute toggle reuses .notif-toggle; volume slider below. */
+.sound-section { display: flex; flex-direction: column; gap: 8px; }
+.sound-volume {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+}
+.sound-volume-label { font-size: 13px; font-weight: 600; flex-shrink: 0; }
+.sound-volume input[type="range"] {
+  flex: 1;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.sound-volume-value { font-size: 12px; color: var(--muted); flex-shrink: 0; min-width: 36px; text-align: right; }
+
 /* Journal — the life-story timeline. */
 .journal-cta { margin-top: 8px; }
 .journal-list {

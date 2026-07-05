@@ -41,6 +41,7 @@ import {
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { track } from '../lib/analytics'
+import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
@@ -233,6 +234,9 @@ interface GameState {
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
+  /** Master sound volume 0..1 (persisted). Applied live via setSoundVolume. */
+  soundVolume: number
+  setSoundVolume: (v: number) => void
   /** Per-type notification opt-ins (only honored when system permission is granted). */
   notificationPrefs: { activity: boolean; streak: boolean; needs: boolean }
   setNotificationPref: (type: 'activity' | 'streak' | 'needs', on: boolean) => void
@@ -338,6 +342,7 @@ const FRESH = {
   online: true,
   dismissedOfflineAt: 0,
   soundOn: true,
+  soundVolume: 1,
   notificationPrefs: { activity: true, streak: true, needs: true } as { activity: boolean; streak: boolean; needs: boolean },
   hudLayout: {} as Record<string, { x?: number; y?: number; w?: number; min?: boolean }>,
   hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide', 'finance'] as string[],
@@ -918,6 +923,11 @@ export const useGame = create<GameState>()(
       dismissCelebration: () => set({ celebration: null }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
       toggleSound: () => set({ soundOn: !get().soundOn }),
+      setSoundVolume: (v) => {
+        const clamped = Math.max(0, Math.min(1, v))
+        applySoundVolume(clamped)
+        set({ soundVolume: clamped })
+      },
       setNotificationPref: (type, on) =>
         set({ notificationPrefs: { ...get().notificationPrefs, [type]: on } }),
       // Connection health — called by /api/* sites (tryPost, fetches in panels).
