@@ -34,6 +34,9 @@ export default function GoalsCard() {
   const done = summary?.done ?? 0
   const total = summary?.total ?? 0
   const allDone = summary?.allComplete ?? false
+  // "1 to go!" — the near-completion nudge. A player at 2/3 is one action
+  // away from the bonus; this makes that concrete and tappable.
+  const oneLeft = !allDone && total > 0 && done === total - 1
 
   return (
     <button
@@ -55,8 +58,8 @@ export default function GoalsCard() {
               style={{ width: `${(done / total) * 100}%` }}
             />
           </div>
-          <span className={`goals-card-count mono ${allDone ? 'done' : ''}`}>
-            {allDone ? 'All done! 🎉' : `${done}/${total} challenges`}
+          <span className={`goals-card-count mono ${allDone ? 'done' : oneLeft ? 'near' : ''}`}>
+            {allDone ? 'All done! 🎉' : oneLeft ? '1 to go!' : `${done}/${total} challenges`}
           </span>
         </>
       ) : (
