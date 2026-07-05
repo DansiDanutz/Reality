@@ -243,6 +243,26 @@ export async function createStreetScene(
     const starGeo = new THREE.BufferGeometry()
     starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xcfe0ff, size: 1.6, sizeAttenuation: false, fog: false })))
+    // The moon — a soft glowing disc high in the sky. A visual anchor for the
+    // night scene that the stars alone don't provide. Position is fixed (not
+    // time-tracked) so it's always "up there" regardless of when the player
+    // looks; the glow halo sells it as a light source rather than a sticker.
+    const moon = new THREE.Mesh(
+      new THREE.CircleGeometry(22, 32),
+      new THREE.MeshBasicMaterial({ color: 0xf4f0e0, transparent: true, opacity: 0.9, fog: false }),
+    )
+    // Glow halo — a larger, more transparent disc behind the moon.
+    const moonGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(40, 32),
+      new THREE.MeshBasicMaterial({ color: 0xf4f0e0, transparent: true, opacity: 0.12, fog: false, depthWrite: false }),
+    )
+    // Place at a fixed high angle — overhead-ish, slightly to one side.
+    const moonR = 880
+    moon.position.set(moonR * 0.35, moonR * 0.85, -moonR * 0.4)
+    moonGlow.position.copy(moon.position)
+    moonGlow.position.z -= 1 // just behind the moon
+    scene.add(moonGlow)
+    scene.add(moon)
   } else {
     const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, fog: false })
     const cloudGeo = new THREE.PlaneGeometry(90, 34)
