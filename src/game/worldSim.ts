@@ -817,9 +817,14 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
     const wage = business.wagePerHour ?? DEFAULT_WORKER_WAGE
     const due = roundMoney(wage * context.hours)
     if (due <= 0) continue
+    const retainedStaffIds: string[] = []
     for (const workerId of business.staffCitizenIds) {
       const worker = area.citizens.find((c) => c.id === workerId)
-      if (!worker || worker.state.kind !== 'active') continue
+      if (!worker) continue
+      if (worker.state.kind !== 'active') {
+        retainedStaffIds.push(workerId)
+        continue
+      }
       const paid = Math.min(due, business.cash)
       if (paid <= 0) continue
       business.cash = roundMoney(business.cash - paid)
@@ -832,7 +837,18 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
         amount: paid,
         memo: `${business.name} paid ${worker.name} for ${context.hours.toFixed(2)}h of work.`,
       })
+      if (paid >= due) {
+        retainedStaffIds.push(workerId)
+      } else if (worker.jobBusinessId === business.id) {
+        delete worker.jobBusinessId
+      }
     }
+    for (const workerId of business.staffCitizenIds) {
+      if (retainedStaffIds.includes(workerId)) continue
+      const worker = area.citizens.find((c) => c.id === workerId)
+      if (worker?.state.kind === 'active' && worker.jobBusinessId === business.id) delete worker.jobBusinessId
+    }
+    business.staffCitizenIds = retainedStaffIds
   }
 }
 

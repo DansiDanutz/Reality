@@ -594,7 +594,9 @@ describe('advanceWorldArea — local real-time economy', () => {
     const { area: out, summary } = advanceWorldArea(start, HOUR)
 
     expect(out.citizens[0].money).toBe(115)
+    expect(out.citizens[0].jobBusinessId).toBe('food1')
     expect(out.businesses[0].cash).toBe(85)
+    expect(out.businesses[0].staffCitizenIds).toEqual(['worker'])
     expect(summary.wagesPaid).toBe(15)
     expect(out.transactions[0]).toMatchObject({
       kind: 'worker_wage',
@@ -602,6 +604,55 @@ describe('advanceWorldArea — local real-time economy', () => {
       toId: 'worker',
       amount: 15,
     })
+  })
+
+  test('underfunded businesses pay what they can and lose active staff', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', { cash: 5, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(105)
+    expect(out.citizens[0].jobBusinessId).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(0)
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(summary.wagesPaid).toBe(5)
+    expect(out.transactions[0]).toMatchObject({
+      kind: 'worker_wage',
+      fromId: 'food1',
+      toId: 'worker',
+      amount: 5,
+    })
+  })
+
+  test('unpaid workers leave before they can boost service capacity', () => {
+    const start = area({
+      citizens: [
+        sim('payer1', { money: 100, health: 60 }),
+        sim('payer2', { money: 100, health: 60 }),
+        sim('worker', { jobBusinessId: 'clinic1' }),
+      ],
+      businesses: [business('clinic', 'clinic1', {
+        cash: 0,
+        staffCitizenIds: ['worker'],
+        wagePerHour: 15,
+        price: 90,
+        quality: 0.2,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBeUndefined()
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(out.businesses[0].cash).toBe(90)
+    expect(summary.purchases).toBe(1)
+    expect(summary.wagesPaid).toBe(0)
+    expect(out.transactions).toMatchObject([
+      { kind: 'customer_purchase', toId: 'clinic1', amount: 90 },
+    ])
   })
 
   test('same-business saturation splits demand and lowers profit per owner', () => {
@@ -897,7 +948,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       citizens: [owner, worker],
       businesses: [
         business('water', 'unstaffed', { ownerId: 'owner', quality: 1 }),
-        business('food', 'staffed', { ownerId: 'owner', staffCitizenIds: ['worker'], quality: 1 }),
+        business('food', 'staffed', { ownerId: 'owner', cash: 1_000, staffCitizenIds: ['worker'], quality: 1 }),
         business('housing', 'floor', { ownerId: 'owner', quality: MIN_BUSINESS_QUALITY }),
       ],
     })
