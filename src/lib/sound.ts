@@ -29,7 +29,7 @@ function tone(context: AudioContext, freq: number, start: number, duration: numb
   osc.stop(start + duration + 0.05)
 }
 
-const PATTERNS: Record<'gold' | 'sky' | 'ok' | 'meal', { freqs: number[]; step: number; dur: number; peak: number }> = {
+const PATTERNS: Record<ChimeKind, { freqs: number[]; step: number; dur: number; peak: number }> = {
   gold: { freqs: [523.25, 659.25, 783.99], step: 0.07, dur: 0.28, peak: 0.05 }, // C5-E5-G5
   sky: { freqs: [880, 1174.66], step: 0.09, dur: 0.22, peak: 0.045 }, // A5-D6
   ok: { freqs: [587.33], step: 0, dur: 0.18, peak: 0.035 }, // D5
@@ -37,9 +37,26 @@ const PATTERNS: Record<'gold' | 'sky' | 'ok' | 'meal', { freqs: number[]; step: 
   // chime, with a slightly longer settle. Reads as "food's ready, come eat"
   // rather than the bright ka-ching of spending money (issue #30).
   meal: { freqs: [392.0, 523.25], step: 0.1, dur: 0.34, peak: 0.05 }, // G4-C5
+  // Achievement unlock — a triumphant 4-note major arpeggio climbing to a
+  // high tonic. Longer and brighter than gold (money); this is THE reward
+  // sound. Distinct enough that the player learns "that one means I won".
+  achieve: { freqs: [523.25, 659.25, 783.99, 1046.5], step: 0.08, dur: 0.42, peak: 0.055 }, // C5-E5-G5-C6
+  // Streak flame — warm and sustaining, a perfect-fifth dyad with a slow
+  // swell. Reads as "the fire continues" rather than a one-shot win.
+  streak: { freqs: [659.25, 987.77], step: 0.12, dur: 0.5, peak: 0.045 }, // E5-B5
+  // Lucky moment — a magical shimmer, three high notes falling like coins
+  // from the sky. Distinct from the triumphant achieve chord; this is
+  // serendipity, not earned.
+  lucky: { freqs: [1318.51, 1567.98, 1318.51], step: 0.06, dur: 0.32, peak: 0.05 }, // E6-G6-E6
+  // Legendary — the jackpot. A full triumphant 5-note fanfare climbing past
+  // two octaves, louder and longer than anything else. The player should
+  // instinctively look up when this plays.
+  legendary: { freqs: [523.25, 659.25, 783.99, 1046.5, 1318.51], step: 0.09, dur: 0.6, peak: 0.065 }, // C5-E5-G5-C6-E6
 }
 
-export function playChime(kind: 'gold' | 'sky' | 'ok' | 'meal'): void {
+export type ChimeKind = 'gold' | 'sky' | 'ok' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary'
+
+export function playChime(kind: ChimeKind): void {
   const context = ensureContext()
   if (!context) return
   const p = PATTERNS[kind]
