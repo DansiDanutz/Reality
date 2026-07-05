@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { DEFAULT_BUSINESS_BLUEPRINTS, WORLD_SIM_HOUR_MS, type WorldArea, type WorldCitizen } from './worldSim'
+import {
+  DEFAULT_BUSINESS_BLUEPRINTS,
+  FOUNDER_STARTING_BALANCE,
+  WORLD_SIM_HOUR_MS,
+  type WorldArea,
+  type WorldCitizen,
+} from './worldSim'
 import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCodec'
 import { runWorldServerCommand, type WorldAreaRepository } from './worldSimServer'
 import type { Needs } from './types'
@@ -95,6 +101,38 @@ describe('runWorldServerCommand', () => {
     })
     expect(result.dashboard.firstBuild[0].kind).toBe('housing')
     expect(repo.saves).toBe(1)
+  })
+
+  test('creates new founder economy state from server rules instead of caller money', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await createArea(repo, citizen('founder', {
+      money: 999_999,
+      debt: 75,
+      debts: [{
+        id: 'old-debt',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 75,
+        issuedAt: 500,
+        memo: 'caller supplied debt',
+      }],
+      homeBusinessId: 'home-a',
+      jobBusinessId: 'job-a',
+      insuranceBusinessId: 'ins-a',
+      insurancePaidUntil: 2_000,
+      state: { kind: 'hospitalized', until: 10_000 },
+    }))
+
+    const founder = result.area.citizens[0]
+
+    expect(founder.money).toBe(FOUNDER_STARTING_BALANCE)
+    expect(founder.debt).toBe(0)
+    expect(founder.debts).toBeUndefined()
+    expect(founder.homeBusinessId).toBeUndefined()
+    expect(founder.jobBusinessId).toBeUndefined()
+    expect(founder.insuranceBusinessId).toBeUndefined()
+    expect(founder.insurancePaidUntil).toBeUndefined()
+    expect(founder.state).toEqual({ kind: 'active' })
   })
 
   test('rejects mismatched founder/claim and duplicate area creation', async () => {
@@ -335,18 +373,22 @@ describe('runWorldServerCommand', () => {
 
   test('applies debt repayment intents through server-owned state', async () => {
     const repo = new MemoryWorldRepo()
-    await createArea(repo, citizen('founder', {
-      money: 500,
-      debt: 75,
-      debts: [{
-        id: 'debt1',
-        kind: 'medical',
-        creditorId: 'system:hospital',
-        amount: 75,
-        issuedAt: 1_000,
-        memo: 'founder owes medical debt to system:hospital.',
-      }],
-    }))
+    const created = await createArea(repo)
+    await repo.saveArea({
+      ...created.area,
+      citizens: [citizen('founder', {
+        money: 500,
+        debt: 75,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'system:hospital',
+          amount: 75,
+          issuedAt: 1_000,
+          memo: 'founder owes medical debt to system:hospital.',
+        }],
+      })],
+    })
 
     const repaid = await runWorldServerCommand(repo, {
       type: 'applyIntent',
@@ -371,7 +413,7 @@ describe('runWorldServerCommand', () => {
       { kind: 'debt_repayment', fromId: 'founder', toId: 'system:hospital', amount: 25 },
     ])
     expect(saved?.citizens[0].debt).toBe(50)
-    expect(repo.saves).toBe(3)
+    expect(repo.saves).toBe(4)
   })
 
   test('failed intents return the advanced area but do not save invalid business mutations', async () => {

@@ -3,6 +3,7 @@ import {
   applyWorldIntent,
   areaNeedsDashboard,
   claimWorldArea,
+  FOUNDER_STARTING_BALANCE,
   type AdvanceWorldAreaResult,
   type AreaNeedsDashboard,
   type ClaimWorldAreaError,
@@ -100,7 +101,7 @@ async function createClaimedArea(
     id: areaId,
     name,
     now: command.now,
-    citizens: [command.founder],
+    citizens: [newAreaFounder(command.founder)],
     businesses: [],
     transactions: [],
   }
@@ -130,6 +131,19 @@ async function advanceStoredArea(
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
     summary: advanced.summary,
+  }
+}
+
+function newAreaFounder(founder: WorldCitizen): WorldCitizen {
+  return {
+    id: founder.id,
+    name: founder.name,
+    kind: founder.kind,
+    money: FOUNDER_STARTING_BALANCE,
+    debt: 0,
+    needs: { ...founder.needs },
+    health: founder.health,
+    state: { kind: 'active' },
   }
 }
 
