@@ -169,13 +169,21 @@ export function playThud(): void {
   noise.stop(now + 0.1)
 }
 
-// ── Street ambience: a soft city-night hum, fully synthesized ──
+// ── Street ambience: a soft city hum, fully synthesized, day/night aware ──
 let ambience: { gain: GainNode; source: AudioBufferSourceNode } | null = null
+let ambienceNight = false // tracks which mode is currently playing
 
-export function startAmbience(): void {
+export function startAmbience(night = false): void {
   const context = ensureContext()
-  if (!context || ambience) return
-  // 2s of gentle brown noise, looped through a low-pass — distant city air
+  if (!context) return
+  // If already playing in the requested mode, no-op. If playing in the other
+  // mode, restart with the new shaping (day ↔ night transition).
+  if (ambience && ambienceNight === night) return
+  if (ambience) stopAmbience()
+  ambienceNight = night
+  // 2s of gentle brown noise, looped through a low-pass — distant city air.
+  // Day: slightly brighter cutoff (480Hz — more "city air", distant traffic)
+  // and a touch louder. Night: deeper cutoff (320Hz — rumble, stillness).
   const length = context.sampleRate * 2
   const buffer = context.createBuffer(1, length, context.sampleRate)
   const data = buffer.getChannelData(0)
@@ -190,10 +198,10 @@ export function startAmbience(): void {
   source.loop = true
   const filter = context.createBiquadFilter()
   filter.type = 'lowpass'
-  filter.frequency.value = 320
+  filter.frequency.value = night ? 320 : 480
   const gain = context.createGain()
   gain.gain.setValueAtTime(0, context.currentTime)
-  gain.gain.linearRampToValueAtTime(0.05, context.currentTime + 1.2)
+  gain.gain.linearRampToValueAtTime(night ? 0.05 : 0.065, context.currentTime + 1.2)
   source.connect(filter).connect(gain).connect(out(context))
   source.start()
   ambience = { gain, source }

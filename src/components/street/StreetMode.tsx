@@ -95,12 +95,18 @@ export default function StreetMode() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // The street hums at night when sound is on
+  // The street hums — day or night shaped appropriately when sound is on.
+  // Night: deep rumble (320Hz cutoff). Day: brighter city-air (480Hz, louder).
   useEffect(() => {
-    if (soundOn && status === 'ready') startAmbience()
-    else stopAmbience()
+    if (!soundOn || status !== 'ready' || !anchor) {
+      stopAmbience()
+      return
+    }
+    const h = hourAt(anchor.lat, anchor.lng)
+    const night = h >= 19 || h < 6
+    startAmbience(night)
     return () => stopAmbience()
-  }, [soundOn, status])
+  }, [soundOn, status, anchor])
 
   if (!anchor) return null
   const nearAsset = nearId ? assets.find((a) => a.id === nearId) : null
