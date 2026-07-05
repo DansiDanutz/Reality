@@ -4,6 +4,7 @@ import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
 import GoalsCard from './components/hud/GoalsCard'
+import InstallBanner from './components/hud/InstallBanner'
 import HudDock from './components/hud/HudDock'
 import OfflineBanner from './components/hud/OfflineBanner'
 import FinanceCard from './components/hud/FinanceCard'
@@ -137,6 +138,7 @@ export default function App() {
             <Toasts />
             <CelebrationOverlay />
             <AwayReport />
+            <InstallBanner />
             {!tutorialDone ? (
               <HudWindow id="objectives">
                 <TutorialPanel />
