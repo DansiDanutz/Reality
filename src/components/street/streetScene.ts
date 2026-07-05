@@ -662,6 +662,7 @@ export async function createStreetScene(
   let jumpOffset = 0 // height above ground
   let wasAirborne = false // for one-shot landing-thud detection (issue #30)
   let bobPhase = 0
+  let breathePhase = 0 // idle breathing sway accumulator
   let landDip = 0 // camera compression on landing; decays to 0 (m)
   let baseRoll = 0 // smoothed strafe head-tilt (radians)
   const fwdVec = new THREE.Vector3()
@@ -833,6 +834,11 @@ export async function createStreetScene(
       const wasMoving = bobPhase > 0
       if (grounded && speed > 0.3) bobPhase += dt * (6 + speed * 1.2)
       else bobPhase = 0
+      // Idle breathing — when standing still, a very slow tiny vertical sway
+      // (sin at ~0.25Hz, 8mm). A frozen camera feels dead; this keeps even a
+      // stationary player visually "breathing". Skipped for reduced-motion.
+      breathePhase += dt * 1.6
+      const breathing = !calmMotion && grounded && speed <= 0.3 ? Math.sin(breathePhase) * 0.008 : 0
       const bob = grounded && !calmMotion ? Math.sin(bobPhase) * 0.05 * Math.min(1, speed / WALK_SPEED) : 0
       // Footstep: fire onStep once per bob cycle, at the moment the bob
       // crosses downward through zero (the foot-plant). Detecting the
@@ -854,7 +860,7 @@ export async function createStreetScene(
       const strafe = Number(keys.has('KeyD')) - Number(keys.has('KeyA'))
       const targetRoll = calmMotion ? 0 : -strafe * 0.025 * Math.min(1, speed / WALK_SPEED)
       baseRoll += (targetRoll - baseRoll) * Math.min(1, dt * 10)
-      p.y = EYE_HEIGHT + jumpOffset + bob - landDip
+      p.y = EYE_HEIGHT + jumpOffset + bob - landDip + breathing
       camera.rotation.z = baseRoll
       // Player shadow follows the camera x/z; shrinks + fades with jump height.
       shadow.position.x = p.x
