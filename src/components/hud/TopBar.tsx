@@ -1,5 +1,6 @@
 import { dayOfLife, localClock, zoneFor } from '../../game/clock'
-import { useGame } from '../../store/gameStore'
+import { newlyUnlocked } from '../../game/achievements'
+import { achievementSnapshotOf, useGame } from '../../store/gameStore'
 import AnimatedMoney from './AnimatedMoney'
 
 export default function TopBar() {
@@ -11,8 +12,13 @@ export default function TopBar() {
   const setPanel = useGame((s) => s.setPanel)
   const soundOn = useGame((s) => s.soundOn)
   const toggleSound = useGame((s) => s.toggleSound)
+  const achievementsClaimed = useGame((s) => s.achievementsClaimed)
   // Re-render every tick so the real clock stays live
   useGame((s) => s.lastSeenAt)
+
+  // Gold badge on 🏆 when an achievement is earned but not yet claimed (the
+  // 1-second window before tick auto-claims, or any edge case)
+  const readyCount = newlyUnlocked(achievementSnapshotOf(useGame.getState()), achievementsClaimed).length
 
   if (!citizen) return null
 
@@ -23,7 +29,7 @@ export default function TopBar() {
   const clock = localClock(anchor ? zoneFor(anchor.lat, anchor.lng) : undefined)
   const day = dayOfLife(citizen.createdAt)
 
-  const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile') => setPanel(panel === id ? null : id)
+  const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'achievements') => setPanel(panel === id ? null : id)
 
   return (
     <header className="topbar">
@@ -60,6 +66,15 @@ export default function TopBar() {
         <button className={panel === 'work' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('work')}>Work</button>
         <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
         <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
+        <button
+          className={panel === 'achievements' ? 'nav-btn active nav-badge' : 'nav-btn nav-badge'}
+          onClick={() => toggle('achievements')}
+          title="Achievements"
+          aria-label={`Achievements${readyCount > 0 ? `, ${readyCount} ready to claim` : ''}`}
+        >
+          🏆
+          {readyCount > 0 && <span className="nav-dot" aria-hidden />}
+        </button>
         <button className={panel === 'profile' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('profile')}>Profile</button>
         <button
           className="nav-btn nav-sound"

@@ -26,11 +26,12 @@ import {
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
+import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | null
 
 const SAVE_KEY = 'reality-save-v1'
 
@@ -69,6 +70,8 @@ interface GameState {
   totalCollected: number
   tutorialClaimed: string[]
   tutorialHidden: boolean
+  /** Achievement ids already claimed (XP + bounty granted). Idempotent. */
+  achievementsClaimed: string[]
   /** What the citizen is doing right now, in real time */
   activity: Activity | null
   lastSeenAt: number
@@ -148,6 +151,8 @@ interface GameState {
   cancelPlacing: () => void
   collectIncome: () => void
   claimTutorial: (stepId: string, xp: number) => void
+  /** Claim one achievement's XP + cash bounty (idempotent by id) */
+  claimAchievement: (achievementId: string) => void
   toggleTutorial: () => void
   setPanel: (panel: PanelId) => void
   reset: () => void
@@ -166,6 +171,7 @@ const FRESH = {
   totalCollected: 0,
   tutorialClaimed: [] as string[],
   tutorialHidden: false,
+  achievementsClaimed: [] as string[],
   activity: null as Activity | null,
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
@@ -204,6 +210,39 @@ const withToast = (
   text: string,
   tone: 'gold' | 'ok' | 'sky' | 'meal',
 ) => [...toasts.slice(-3), { id: ++toastId, text, tone }]
+
+/**
+ * Build the achievement snapshot from live game state. Centralised here so the
+ * panel and the auto-claimer see the exact same view. `distinctItemsOwned`
+ * counts every catalog item the citizen has ever possessed: current inventory,
+ * placed assets, and pets — the completionist's total.
+ */
+export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
+  const inventoryKinds = new Set(Object.keys(s.inventory))
+  const assetKinds = new Set(s.assets.map((a) => a.itemId))
+  const petKinds = new Set(s.pets.map((p) => p.itemId))
+  const distinctItemsOwned = new Set([...inventoryKinds, ...assetKinds, ...petKinds]).size
+  const DAY_MS = 24 * 3_600_000
+  const daysLived = s.citizen ? Math.floor((Date.now() - s.citizen.createdAt) / DAY_MS) : 0
+  return {
+    timesEaten: s.timesEaten,
+    timesSlept: s.timesSlept,
+    shiftsWorked: s.shiftsWorked,
+    jobId: s.jobId,
+    assets: s.assets,
+    businesses: s.assets.filter((a) => a.kind === 'business').length,
+    totalCollected: s.totalCollected,
+    netWorth: netWorthOf(s.money, s.inventory, s.assets),
+    level: s.level,
+    daysLived,
+    distinctItemsOwned,
+    hasCooked: s.groceryRestockedAt && Object.keys(s.groceryRestockedAt).length > 0,
+    hasPet: s.pets.length > 0,
+    hasAvatar: !!s.citizen?.avatarUrl,
+    activity: s.activity,
+    needs: s.needs,
+  }
+}
 
 export const useGame = create<GameState>()(
   persist(
@@ -493,6 +532,26 @@ export const useGame = create<GameState>()(
           }
         }
 
+        // Auto-claim newly-unlocked achievements — the dopamine hit lands the
+        // instant the player earns it (e.g. the 10th shift flips "Reliable"),
+        // not on a manual panel visit. XP + bounty granted here, idempotently.
+        const postState = { ...s, shiftsWorked: s.shiftsWorked + out.shiftsCompleted, level, timesEaten, money, needs, assets: out.assets, inventory: out.inventory }
+        const newlyEarned = newlyUnlocked(achievementSnapshotOf(postState), s.achievementsClaimed)
+        if (newlyEarned.length > 0) {
+          const earnedIds = newlyEarned.map((a) => a.id)
+          const totalXp = newlyEarned.reduce((sum, a) => sum + a.xp, 0)
+          const totalBounty = newlyEarned.reduce((sum, a) => sum + a.bounty, 0)
+          const prog = applyXp(level, xp, totalXp)
+          level = prog.level
+          xp = prog.xp
+          money += totalBounty
+          for (const a of newlyEarned) {
+            toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'gold')
+            log = note(log, `Achievement unlocked: ${a.title} — ${a.detail}`)
+          }
+          s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
+        }
+
         set({
           needs,
           health: out.health,
@@ -511,6 +570,7 @@ export const useGame = create<GameState>()(
           inventory: out.inventory,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
+          achievementsClaimed: s.achievementsClaimed,
           reachTier,
           awayReport,
           toasts,
@@ -881,6 +941,30 @@ export const useGame = create<GameState>()(
             prog.levelsGained > 0
               ? `Objective complete: +${xp} XP — level ${prog.level}!`
               : `Objective complete: +${xp} XP.`,
+          ),
+        })
+      },
+
+      // Achievements: idempotent — claiming twice is a no-op. Grants XP + cash
+      // bounty (the society pays its achievers). UI offers the claim button only
+      // when the achievement isUnlocked and not yet claimed.
+      claimAchievement: (achievementId) => {
+        const s = get()
+        if (s.achievementsClaimed.includes(achievementId)) return
+        const ach = ACHIEVEMENTS.find((a) => a.id === achievementId)
+        if (!ach) return
+        const prog = applyXp(s.level, s.xp, ach.xp)
+        set({
+          achievementsClaimed: [...s.achievementsClaimed, achievementId],
+          xp: prog.xp,
+          level: prog.level,
+          money: s.money + ach.bounty,
+          toasts: withToast(s.toasts, `🏆 ${ach.title} — +${ach.xp} XP, ${formatMoney(ach.bounty)}`, 'gold'),
+          log: note(
+            s.log,
+            prog.levelsGained > 0
+              ? `Achievement unlocked: ${ach.title} — +${ach.xp} XP, ${formatMoney(ach.bounty)}. Level ${prog.level}!`
+              : `Achievement unlocked: ${ach.title} — +${ach.xp} XP, ${formatMoney(ach.bounty)}.`,
           ),
         })
       },

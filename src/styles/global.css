@@ -430,6 +430,60 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 .panel-sub { font-size: 13px; color: var(--muted); }
 
+/* ── Achievements panel ────────────────────────────────── */
+.ach-summary {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface);
+}
+.ach-category { display: flex; flex-direction: column; gap: 8px; }
+.ach-cat-head {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+  padding-top: 8px; border-top: 1px solid var(--line);
+}
+.ach-cat-icon { font-size: 14px; }
+.ach-cat-name { color: var(--text); }
+.ach-cat-count { margin-left: auto; font-size: 10px; }
+.ach-grid { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 0; }
+.ach-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); transition: border-color var(--duration-fast) var(--ease-out);
+}
+.ach-card.claimed { border-color: rgba(240, 180, 41, 0.4); background: rgba(240, 180, 41, 0.06); }
+.ach-card.ready { border-color: var(--ok); box-shadow: 0 0 0 1px rgba(67, 217, 163, 0.2); }
+.ach-card.locked { opacity: 0.55; }
+.ach-card-head { display: flex; align-items: center; gap: 6px; }
+.ach-tier { font-size: 13px; }
+.ach-title { font-weight: 600; font-size: 13px; }
+.ach-detail { font-size: 11px; color: var(--muted); line-height: 1.35; margin: 0; flex: 1; }
+.ach-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
+.ach-reward { font-size: 10px; color: var(--muted); }
+.ach-status { font-size: 10px; font-weight: 600; }
+.ach-status.done { color: var(--gold); }
+.ach-status.locked { color: var(--muted); opacity: 0.7; }
+@media (max-width: 480px) {
+  .ach-grid { grid-template-columns: 1fr; }
+}
+
+/* Nav badge dot — signals "ready to claim" on the 🏆 button */
+.nav-badge { position: relative; }
+.nav-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 0 2px var(--surface-solid);
+  animation: nav-pulse 1.6s var(--ease-out) infinite;
+}
+@keyframes nav-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.7; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-dot { animation: none; }
+}
+
 .tabs { display: flex; gap: 6px; }
 .tab {
   font-family: var(--font-body);
