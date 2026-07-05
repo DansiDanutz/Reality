@@ -84,7 +84,12 @@ export function useNotifications(): void {
     }
 
     const decisions = decideNotifications(snap, logRef.current)
-    for (const d of decisions) {
+    // Filter by the player's per-type opt-ins. A player who finds needs-
+    // critical notifications naggy can turn them off without losing the
+    // streak-at-risk alert (the most retention-critical one).
+    const prefs = s.notificationPrefs
+    const allowed = decisions.filter((d) => prefs[d.tag] !== false)
+    for (const d of allowed) {
       try {
         new Notification(d.title, {
           body: d.body,

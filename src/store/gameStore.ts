@@ -233,6 +233,9 @@ interface GameState {
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
+  /** Per-type notification opt-ins (only honored when system permission is granted). */
+  notificationPrefs: { activity: boolean; streak: boolean; needs: boolean }
+  setNotificationPref: (type: 'activity' | 'streak' | 'needs', on: boolean) => void
   /** Connection health (not persisted) — set by /api/* call sites via markApiOk/markApiOffline */
   online: boolean
   /** ms timestamp the user dismissed the current offline banner (not persisted) */
@@ -335,6 +338,7 @@ const FRESH = {
   online: true,
   dismissedOfflineAt: 0,
   soundOn: true,
+  notificationPrefs: { activity: true, streak: true, needs: true } as { activity: boolean; streak: boolean; needs: boolean },
   hudLayout: {} as Record<string, { x?: number; y?: number; w?: number; min?: boolean }>,
   hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide', 'finance'] as string[],
 }
@@ -912,6 +916,8 @@ export const useGame = create<GameState>()(
       dismissCelebration: () => set({ celebration: null }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
       toggleSound: () => set({ soundOn: !get().soundOn }),
+      setNotificationPref: (type, on) =>
+        set({ notificationPrefs: { ...get().notificationPrefs, [type]: on } }),
       // Connection health — called by /api/* sites (tryPost, fetches in panels).
       // A single success flips back to online and re-arms the banner.
       markApiOk: () => {
