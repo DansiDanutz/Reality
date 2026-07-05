@@ -26,9 +26,14 @@ class MemoryWorldRepo implements WorldAreaRepository {
   private snapshots = new Map<string, string>()
   private revisions = new Map<string, number>()
   private shouldConflictNextSave = false
+  private founderClaimConflictOnSave: string | null = null
 
   conflictNextSave(): void {
     this.shouldConflictNextSave = true
+  }
+
+  conflictFounderClaimOnNextSave(founderCitizenId: string): void {
+    this.founderClaimConflictOnSave = founderCitizenId
   }
 
   async loadArea(areaId: string): Promise<WorldArea | null> {
@@ -74,6 +79,21 @@ class MemoryWorldRepo implements WorldAreaRepository {
       String(currentRevision ?? 0) !== options.expectedRevision
     ) {
       return { ok: false, error: 'write_conflict' }
+    }
+    if (
+      options.expectedFounderAreaEmpty &&
+      this.founderClaimConflictOnSave === options.expectedFounderAreaEmpty
+    ) {
+      this.founderClaimConflictOnSave = null
+      return { ok: false, error: 'write_conflict' }
+    }
+    if (options.expectedFounderAreaEmpty) {
+      for (const areaId of this.snapshots.keys()) {
+        const record = this.areaRecord(areaId)
+        if (record?.area.claim?.founderCitizenId === options.expectedFounderAreaEmpty && areaId !== area.id) {
+          return { ok: false, error: 'write_conflict' }
+        }
+      }
     }
     const nextRevision = (currentRevision ?? 0) + 1
     this.saves += 1
@@ -224,6 +244,34 @@ describe('runWorldServerCommand', () => {
   test('rejects claimed-area creation when storage reports a write race', async () => {
     const repo = new MemoryWorldRepo()
     repo.conflictNextSave()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'write_conflict' })
+    expect(await repo.loadArea('area-1')).toBeNull()
+    expect(repo.saves).toBe(0)
+    expect(repo.saveAttempts).toBe(1)
+  })
+
+  test('rejects claimed-area creation when the founder claim is taken during save', async () => {
+    const repo = new MemoryWorldRepo()
+    repo.conflictFounderClaimOnNextSave('founder')
 
     const result = await runWorldServerCommand(repo, {
       type: 'createClaimedArea',

@@ -31,6 +31,7 @@ export interface WorldAreaRecord {
 
 export interface SaveWorldAreaOptions {
   expectedRevision?: string | null
+  expectedFounderAreaEmpty?: string
 }
 
 export type SaveWorldAreaResult =
@@ -157,7 +158,10 @@ async function createClaimedArea(
     ...simCitizens.map((citizen, index) => simCitizenCreditTransaction(areaId, command.now, index + 2, citizen)),
   )
 
-  const saved = await saveStoredArea(repo, claimed.area, { expectedRevision: null })
+  const saved = await saveStoredArea(repo, claimed.area, {
+    expectedRevision: null,
+    expectedFounderAreaEmpty: command.authenticatedFounderId,
+  })
   if (!saved.ok) return { ok: false, error: saved.error }
   return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
 }
