@@ -580,6 +580,7 @@ export const useGame = create<GameState>()(
         let log = s.log
         let toasts = s.toasts
         let { level, xp } = s
+        const startingLevel = s.level // captured to detect a level-up at end-of-tick for the celebration
         if (out.xpGained > 0) {
           const prog = applyXp(level, xp, out.xpGained)
           if (prog.level > level) toasts = withToast(toasts, `Level ${prog.level} reached!`, 'sky')
@@ -774,6 +775,19 @@ export const useGame = create<GameState>()(
               : `Welcome back. A new streak starts today. 🔁`
             toasts = withToast(toasts, msg, 'sky')
             log = note(log, `Streak reset after a long absence (was ${prev} days). Day 1 of a new streak. Best streak ${s.streakBest} days is preserved.`)
+          }
+        }
+
+        // Level-up celebration — fires at milestone levels (every 5th). A
+        // regular level-up gets a toast; a 5th, 10th, 15th, 20th... gets the
+        // full overlay. Checked here (end of tick) so it catches level-ups
+        // from any XP source (engine, achievements, lucky, streak, daily).
+        if (level > startingLevel && level % 5 === 0 && level >= 5 && !s.celebration) {
+          s.celebration = {
+            icon: '⭐',
+            title: `Level ${level}!`,
+            detail: 'A new tier of achievements and reach may have unlocked.',
+            tone: 'level',
           }
         }
 
