@@ -92,6 +92,15 @@ export default function StreetMode() {
         // Surface the weather condition for the HUD indicator.
         const labels: Record<string, string> = { clear: 'Clear', rain: '🌧 Rain', snow: '❄ Snow', fog: '🌫 Fog', clouds: '☁ Cloudy', mist: '🌫 Mist' }
         setWeatherLabel(labels[weather.condition] ?? null)
+        // First-weather caption — a brief poetic line when the scene loads
+        // with active weather. Adds voice to the atmospheric moment.
+        if (weather.condition === 'rain') {
+          setCaption('The first rain on your street.')
+          setTimeout(() => setCaption(null), 4_000)
+        } else if (weather.condition === 'snow') {
+          setCaption('Snow falls where you live.')
+          setTimeout(() => setCaption(null), 4_000)
+        }
         return createStreetScene(
           containerRef.current!,
           anchor,
