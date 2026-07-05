@@ -13,7 +13,7 @@
  *
  * Three boosters, each with a cost, duration, and multiplier:
  *   Wage Boost:  2x shift wages for 30 min,  $1,000
- *   XP Surge:    2x all XP for 30 min,       $800
+ *   XP Surge:    2x action XP for 30 min,    $800
  *   Income Rush: 2x business income for 30m, $2,000
  *
  * Only one of each type active at a time. Stackable across types (wage + XP
@@ -50,7 +50,7 @@ export const BOOSTERS: Record<BoosterType, BoosterDef> = {
     cost: 800,
     multiplier: 2,
     durationMs: 30 * 60_000,
-    description: '2x all XP for 30 minutes.',
+    description: '2x action XP for 30 minutes.',
   },
   income: {
     id: 'income',

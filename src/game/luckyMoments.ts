@@ -163,6 +163,25 @@ const MOMENT_POOL: readonly MomentDef[] = [
 /** Total weight across the pool — precomputed for the sampler. */
 const TOTAL_WEIGHT = MOMENT_POOL.reduce((s, d) => s + d.weight, 0)
 
+function weightedPick(pool: readonly MomentDef[], totalWeight: number, rng: () => number): MomentDef {
+  let roll = rng() * totalWeight
+  let def = pool[0]
+  for (const d of pool) {
+    roll -= d.weight
+    if (roll <= 0) {
+      def = d
+      break
+    }
+  }
+  return def
+}
+
+function toLuckyMoment(def: MomentDef, rng: () => number): LuckyMoment {
+  const cash = Math.round((def.cashMin + rng() * (def.cashMax - def.cashMin)) / 50) * 50
+  const xp = Math.round(cash / 50)
+  return { id: def.id, text: def.text, money: cash, xp, rarity: def.rarity }
+}
+
 /**
  * Pick a moment from the pool using weighted sampling, then roll its cash.
  * Exported separately from {@link rollLuckyMoment} so tests can exercise the
@@ -171,20 +190,17 @@ const TOTAL_WEIGHT = MOMENT_POOL.reduce((s, d) => s + d.weight, 0)
  * @param rng  Injectable RNG (default Math.random).
  */
 export function pickLuckyMoment(rng: () => number = Math.random): LuckyMoment {
-  // Weighted pick across the pool.
-  let roll = rng() * TOTAL_WEIGHT
-  let def = MOMENT_POOL[0]
-  for (const d of MOMENT_POOL) {
-    roll -= d.weight
-    if (roll <= 0) {
-      def = d
-      break
-    }
-  }
-  // Uniform cash in [min, max], rounded to the nearest $50 for tidiness.
-  const cash = Math.round((def.cashMin + rng() * (def.cashMax - def.cashMin)) / 50) * 50
-  const xp = Math.round(cash / 50)
-  return { id: def.id, text: def.text, money: cash, xp, rarity: def.rarity }
+  return toLuckyMoment(weightedPick(MOMENT_POOL, TOTAL_WEIGHT, rng), rng)
+}
+
+/**
+ * First-session guarantee variant: keeps the tutorial windfall exciting while
+ * preventing a brand-new citizen from landing a $2.6k-$5k legendary grant.
+ */
+export function pickFirstLuckyMoment(rng: () => number = Math.random): LuckyMoment {
+  const firstWinPool = MOMENT_POOL.filter((d) => d.rarity === 'lucky')
+  const totalWeight = firstWinPool.reduce((s, d) => s + d.weight, 0)
+  return toLuckyMoment(weightedPick(firstWinPool, totalWeight, rng), rng)
 }
 
 /**

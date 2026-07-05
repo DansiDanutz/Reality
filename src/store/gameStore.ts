@@ -30,7 +30,7 @@ import { zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
-import { rollLuckyMoment, pickLuckyMoment, RARITY_META } from '../game/luckyMoments'
+import { rollLuckyMoment, pickFirstLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
 import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
@@ -947,10 +947,10 @@ export const useGame = create<GameState>()(
           const isNew = s.citizen && (now - s.citizen.createdAt < 20 * 60_000)
           const needsFirstWin = luckyMomentsSeen === 0 && isNew
           // 5% per tick for 20 min => ~100% chance the first session lands one.
-          // Uses pickLuckyMoment (no chance gate) so the weighted pick + cash
-          // roll use the real RNG, undistorted by the boosted gate.
+          // Uses a tier-1-only picker so the tutorial hit is exciting without
+          // exceeding the citizen grant before the core economy loop starts.
           const lucky = needsFirstWin
-            ? (Math.random() < 0.05 ? pickLuckyMoment() : null)
+            ? (Math.random() < 0.05 ? pickFirstLuckyMoment() : null)
             : rollLuckyMoment()
           if (lucky) {
             const prog = applyXp(level, xp, lucky.xp)

@@ -1236,7 +1236,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   position: absolute;
   top: 66px;
   right: 22px;
-  z-index: 14;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
