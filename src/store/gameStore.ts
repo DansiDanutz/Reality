@@ -1343,10 +1343,17 @@ export const useGame = create<GameState>()(
         // inventory row — same pattern as placed assets (per-instance state).
         if (item.pet) {
           const newPet: Pet = { itemId, hunger: 100, petId: `${itemId}-${Date.now()}` }
+          // First-pet celebration — the moment the citizen becomes a pet parent.
+          const wasFirstPet = s.pets.length === 0
           set({
             money: s.money - item.price,
             pets: [...s.pets, newPet],
-            log: note(s.log, `Adopted ${item.name}. Feed it ${formatMoney(item.pet.foodCostPerDay)}/day or it goes quiet.`),
+            toasts: wasFirstPet
+              ? withToast(s.toasts, `🐾 A pet! ${item.name} joins your life. Feed it daily.`, 'achieve')
+              : s.toasts,
+            log: note(s.log, wasFirstPet
+              ? `Adopted your first pet: ${item.name}. Feed it ${formatMoney(item.pet.foodCostPerDay)}/day or it goes quiet.`
+              : `Adopted ${item.name}. Feed it ${formatMoney(item.pet.foodCostPerDay)}/day or it goes quiet.`),
           })
           return
         }
