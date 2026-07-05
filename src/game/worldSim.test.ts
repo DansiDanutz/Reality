@@ -1065,6 +1065,41 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [
+        sim('stable'),
+        sim('thirsty', { needs: fullNeeds({ hydration: 50 }) }),
+        sim('danger', {
+          needs: fullNeeds({ hunger: 10, energy: 10 }),
+          health: COLLAPSE_HEALTH + 10,
+        }),
+        sim('hospitalized', { state: { kind: 'hospitalized', until: 3 * HOUR } }),
+      ],
+    }))
+
+    expect(dash.survival).toMatchObject({
+      stableCitizens: 1,
+      warningCitizens: 1,
+      dangerCitizens: 1,
+      hospitalizedCitizens: 1,
+    })
+    expect(dash.survival.signals.find((signal) => signal.citizenId === 'thirsty')).toMatchObject({
+      kind: 'sim',
+      risk: 'warning',
+      warnings: ['water'],
+    })
+    expect(dash.survival.signals.find((signal) => signal.citizenId === 'danger')).toMatchObject({
+      risk: 'danger',
+      warnings: ['food', 'rest', 'health'],
+    })
+    expect(dash.survival.signals.find((signal) => signal.citizenId === 'hospitalized')).toMatchObject({
+      risk: 'hospitalized',
+      warnings: ['health'],
+      hospitalizedUntil: 3 * HOUR,
+    })
+  })
+
   test('dashboard treats expired insurance as current insurance demand', () => {
     const dash = areaNeedsDashboard(area({
       now: 2 * HOUR,

@@ -84,6 +84,12 @@ describe('runWorldServerCommand', () => {
       openPositions: 0,
       understaffedBusinesses: 0,
     })
+    expect(result.dashboard.survival).toMatchObject({
+      stableCitizens: 1,
+      warningCitizens: 0,
+      dangerCitizens: 0,
+      hospitalizedCitizens: 0,
+    })
     expect(result.dashboard.firstBuild[0].kind).toBe('housing')
     expect(repo.saves).toBe(1)
   })

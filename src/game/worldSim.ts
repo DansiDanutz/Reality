@@ -127,6 +127,26 @@ export interface AreaJobsDashboard {
   understaffedBusinesses: number
 }
 
+export type WorldSurvivalRiskLevel = 'stable' | 'warning' | 'danger' | 'hospitalized'
+export type WorldSurvivalWarningKind = 'water' | 'food' | 'rest' | 'health'
+
+export interface CitizenSurvivalSignal {
+  citizenId: string
+  name: string
+  kind: WorldCitizenKind
+  risk: WorldSurvivalRiskLevel
+  warnings: WorldSurvivalWarningKind[]
+  hospitalizedUntil?: number
+}
+
+export interface AreaSurvivalDashboard {
+  stableCitizens: number
+  warningCitizens: number
+  dangerCitizens: number
+  hospitalizedCitizens: number
+  signals: CitizenSurvivalSignal[]
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -138,6 +158,7 @@ export interface AreaNeedsDashboard {
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
   jobs: AreaJobsDashboard
+  survival: AreaSurvivalDashboard
   firstBuild: FirstBuildRecommendation[]
 }
 
@@ -256,6 +277,13 @@ export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
+
+const SURVIVAL_WARNING_HYDRATION = 50
+const SURVIVAL_WARNING_HUNGER = 50
+const SURVIVAL_WARNING_ENERGY = 35
+const SURVIVAL_WARNING_HEALTH = 65
+const SURVIVAL_DANGER_NEED_LEVEL = 10
+const SURVIVAL_DANGER_HEALTH = COLLAPSE_HEALTH + 10
 
 const ACTIVE_NEED_RATES: Needs = {
   hunger: 3.8,
@@ -432,6 +460,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     licenseSlots,
     saturation,
     jobs: jobsDashboard(area, activeCitizens),
+    survival: survivalDashboard(area),
     firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation }),
   }
 }
@@ -505,6 +534,50 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
     unemployedCitizens: activeCitizens.length - employedCitizens,
     openPositions,
     understaffedBusinesses,
+  }
+}
+
+function survivalDashboard(area: WorldArea): AreaSurvivalDashboard {
+  const signals = area.citizens.map(citizenSurvivalSignal)
+  return {
+    stableCitizens: signals.filter((signal) => signal.risk === 'stable').length,
+    warningCitizens: signals.filter((signal) => signal.risk === 'warning').length,
+    dangerCitizens: signals.filter((signal) => signal.risk === 'danger').length,
+    hospitalizedCitizens: signals.filter((signal) => signal.risk === 'hospitalized').length,
+    signals,
+  }
+}
+
+function citizenSurvivalSignal(citizen: WorldCitizen): CitizenSurvivalSignal {
+  if (citizen.state.kind === 'hospitalized') {
+    return {
+      citizenId: citizen.id,
+      name: citizen.name,
+      kind: citizen.kind,
+      risk: 'hospitalized',
+      warnings: ['health'],
+      hospitalizedUntil: citizen.state.until,
+    }
+  }
+
+  const warnings: WorldSurvivalWarningKind[] = []
+  if (citizen.needs.hydration <= SURVIVAL_WARNING_HYDRATION) warnings.push('water')
+  if (citizen.needs.hunger <= SURVIVAL_WARNING_HUNGER) warnings.push('food')
+  if (citizen.needs.energy <= SURVIVAL_WARNING_ENERGY) warnings.push('rest')
+  if (citizen.health <= SURVIVAL_WARNING_HEALTH) warnings.push('health')
+
+  const danger =
+    citizen.needs.hydration <= SURVIVAL_DANGER_NEED_LEVEL ||
+    citizen.needs.hunger <= SURVIVAL_DANGER_NEED_LEVEL ||
+    citizen.needs.energy <= SURVIVAL_DANGER_NEED_LEVEL ||
+    citizen.health <= SURVIVAL_DANGER_HEALTH
+
+  return {
+    citizenId: citizen.id,
+    name: citizen.name,
+    kind: citizen.kind,
+    risk: danger ? 'danger' : warnings.length > 0 ? 'warning' : 'stable',
+    warnings,
   }
 }
 
