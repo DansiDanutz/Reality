@@ -187,6 +187,7 @@ export async function createStreetScene(
   onProximity?: (marker: StreetMarker | null) => void,
   weather: Weather = { condition: 'clear' },
   onLand?: () => void,
+  onStep?: () => void,
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
   const calmMotion =
@@ -829,8 +830,21 @@ export async function createStreetScene(
         p.z *= STREET_RADIUS_M / dist
       }
       const speed = Math.hypot(vel.x, vel.z)
+      const wasMoving = bobPhase > 0
       if (grounded && speed > 0.3) bobPhase += dt * (6 + speed * 1.2)
+      else bobPhase = 0
       const bob = grounded && !calmMotion ? Math.sin(bobPhase) * 0.05 * Math.min(1, speed / WALK_SPEED) : 0
+      // Footstep: fire onStep once per bob cycle, at the moment the bob
+      // crosses downward through zero (the foot-plant). Detecting the
+      // sin sign flip from + to - gives one trigger per stride. The
+      // bobPhase is reset to 0 when standing still, so a stationary
+      // player never triggers a step.
+      if (onStep && grounded && bobPhase > 0) {
+        const prevSin = Math.sin(bobPhase - dt * (6 + speed * 1.2))
+        const curSin = Math.sin(bobPhase)
+        if (prevSin > 0 && curSin <= 0) onStep()
+      }
+      void wasMoving
       // Landing dip decays exponentially (~150ms half-life). Applied to y so
       // the camera compresses downward on impact, then recovers.
       landDip *= Math.exp(-dt * 8)
