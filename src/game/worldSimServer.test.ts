@@ -78,6 +78,8 @@ describe('runWorldServerCommand', () => {
     expect(result.dashboard.realPopulation).toBe(1)
     expect(result.dashboard.realDemand.housing).toBe(1)
     expect(result.dashboard.simDemand.housing).toBe(0)
+    expect(result.dashboard.capacity.housing).toBe(0)
+    expect(result.dashboard.shortage.housing).toBe(1)
     expect(result.dashboard.existingBusinesses).toEqual([])
     expect(result.dashboard.jobs).toEqual({
       employedCitizens: 0,

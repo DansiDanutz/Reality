@@ -1071,6 +1071,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.realDemand.water).toBe(1)
     expect(dash.realDemand.food).toBe(0)
     expect(dash.supply.water).toBe(2)
+    expect(dash.capacity.water).toBe(48)
+    expect(dash.shortage.water).toBe(0)
     expect(dash.licenseSlots.water).toBe(1)
     expect(dash.saturation.water).toBe(2)
     expect(dash.existingBusinesses).toHaveLength(3)
@@ -1096,6 +1098,24 @@ describe('advanceWorldArea — local real-time economy', () => {
       estimatedHourlyWageCost: 16,
       estimatedHourlyProfit: 40,
     })
+  })
+
+  test('dashboard reports unserved shortage when demand exceeds local capacity', () => {
+    const thirstyCitizens = Array.from({ length: 30 }, (_, i) => sim(`c${i}`, {
+      needs: fullNeeds({ hydration: 40 }),
+      homeBusinessId: 'home1',
+      insuranceBusinessId: 'ins1',
+      insurancePaidUntil: 2 * HOUR,
+    }))
+    const dash = areaNeedsDashboard(area({
+      now: HOUR,
+      citizens: thirstyCitizens,
+      businesses: [business('water', 'water1', { quality: 0.2 })],
+    }))
+
+    expect(dash.demand.water).toBe(30)
+    expect(dash.capacity.water).toBe(4)
+    expect(dash.shortage.water).toBe(26)
   })
 
   test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {

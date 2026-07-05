@@ -170,6 +170,8 @@ export interface AreaNeedsDashboard {
   simDemand: Record<WorldBusinessKind, number>
   realDemand: Record<WorldBusinessKind, number>
   supply: Record<WorldBusinessKind, number>
+  capacity: Record<WorldBusinessKind, number>
+  shortage: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
   existingBusinesses: AreaBusinessDashboard[]
@@ -446,16 +448,22 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
 export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const activeCitizens = area.citizens.filter((c) => c.state.kind === 'active')
   const supply = zeroKindRecord()
-  for (const business of area.businesses) supply[business.kind] += 1
+  const capacity = zeroKindRecord()
+  for (const business of area.businesses) {
+    supply[business.kind] += 1
+    capacity[business.kind] += serviceCapacity(area, business, 1)
+  }
 
   const demand = zeroKindRecord()
   const simDemand = zeroKindRecord()
   const realDemand = zeroKindRecord()
+  const shortage = zeroKindRecord()
   for (const citizen of activeCitizens) {
     addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
   }
   for (const kind of BUSINESS_KINDS) {
     demand[kind] = simDemand[kind] + realDemand[kind]
+    shortage[kind] = Math.max(0, demand[kind] - capacity[kind])
   }
 
   const licenseSlots = zeroKindRecord()
@@ -473,6 +481,8 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     simDemand,
     realDemand,
     supply,
+    capacity,
+    shortage,
     licenseSlots,
     saturation,
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
