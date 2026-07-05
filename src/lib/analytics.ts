@@ -21,6 +21,15 @@ export const FUNNEL_EVENTS = [
   'first_collect',
   'd7_return',
   'tutorial_complete',
+  // Retention engine events — measure the new systems so we can tune them.
+  'first_achievement',       // first achievement claimed
+  'first_lucky',             // first lucky moment witnessed
+  'streak_7',                // reached a 7-day streak
+  'daily_complete',          // completed all 3 daily challenges
+  'first_upgrade',           // first business upgrade purchased
+  'business_maxed',          // reached L10 on a business
+  'week_milestone',          // crossed a weekly milestone (1/2/4/8/...)
+  'notifications_enabled',   // granted notification permission
 ] as const
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number]

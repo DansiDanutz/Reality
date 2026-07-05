@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { track } from './analytics'
 import { zoneFor } from '../game/clock'
 import { challengesForDay, challengeProgress } from '../game/dailyChallenges'
 import { decideNotifications, markNotified, NOTIFICATION_REASONS, type NotificationLog, type NotificationSnapshot } from '../game/notifications'
@@ -39,7 +40,13 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   if (Notification.permission === 'granted') return 'granted'
   if (Notification.permission === 'denied') return 'denied'
   try {
-    return await Notification.requestPermission()
+    const result = await Notification.requestPermission()
+    if (result === 'granted') {
+      // Analytics: fire-and-forget — measures what % of players enable the
+      // retention-critical notification system.
+      try { track('notifications_enabled') } catch { /* ignore */ }
+    }
+    return result
   } catch {
     return null
   }
