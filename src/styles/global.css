@@ -362,7 +362,17 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .needs-illness:hover, .needs-illness:focus-visible { background: rgba(228, 168, 82, 0.22); }
 .needs-illness-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
 .needs-illness-hours { font-size: 11px; }
-.need { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.need {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  /* Now an interactive button: reset the native chrome, keep the layout */
+  background: none; border: none; font: inherit; color: inherit;
+  padding: 4px 2px; margin: 0; border-radius: 8px; cursor: pointer;
+  transition: background var(--duration-fast, 150ms) var(--ease-out), transform var(--duration-fast, 150ms) var(--ease-out);
+}
+.need:hover { background: rgba(120, 150, 205, 0.08); }
+.need:hover .need-track { border-color: rgba(125, 216, 255, 0.55); }
+.need:active { transform: translateY(1px); }
+.need:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
 .need-track {
   width: 12px; height: 72px;
   background: rgba(120, 150, 205, 0.1);
@@ -391,6 +401,17 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .need-value.low { color: var(--warn); }
 .need-value.crit { color: var(--crit); }
 .need-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* Banner shown when the Market is filtered to one vital (clicked from Vitals) */
+.market-need-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px; padding: 8px 12px;
+  background: rgba(125, 216, 255, 0.08);
+  border: 1px solid rgba(125, 216, 255, 0.25);
+  border-radius: 8px;
+  font-size: 13px; color: var(--text);
+}
+.market-need-banner strong { color: var(--sky); }
 
 /* ── Action dock (bottom center) ───────────────────────── */
 .dock {

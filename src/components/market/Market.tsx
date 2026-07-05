@@ -1,17 +1,26 @@
 import { useMemo, useState } from 'react'
 import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
 import { formatMoney, seasonOf } from '../../game/engine'
-import type { Pet, ShopCategory, ShopItem } from '../../game/types'
+import type { NeedKey, Pet, ShopCategory, ShopItem } from '../../game/types'
 import { useFocusTrap } from '../../lib/useFocusTrap'
 import { useGame } from '../../store/gameStore'
 
 type Tab = ShopCategory | 'all'
 
+/** Player-facing name for each vital, matching the Vitals HUD labels */
+const NEED_LABEL: Record<NeedKey, string> = {
+  hydration: 'Water',
+  hunger: 'Food',
+  energy: 'Energy',
+  hygiene: 'Hygiene',
+  fun: 'Fun',
+}
+
 /** Human-readable effect chips for an item card */
 function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] {
   const out: { text: string; tone: 'ok' | 'gold' | 'sky' }[] = []
   if (item.effects) {
-    const label: Record<string, string> = { hunger: 'food', energy: 'energy', hygiene: 'hygiene', fun: 'fun' }
+    const label: Record<string, string> = { hunger: 'food', hydration: 'water', energy: 'energy', hygiene: 'hygiene', fun: 'fun' }
     for (const [k, v] of Object.entries(item.effects)) {
       if (v) out.push({ text: `${v > 0 ? '+' : ''}${v} ${label[k]}`, tone: v > 0 ? 'ok' : 'sky' })
     }
@@ -59,6 +68,8 @@ function PetRow({
 export default function Market() {
   // Quick actions (Eat, Drink) can aim the Market at a category
   const [tab, setTab] = useState<Tab>(() => useGame.getState().marketFocus ?? 'all')
+  // Clicking a Vitals bar aims the Market at items that restore that vital
+  const [need, setNeed] = useState<NeedKey | null>(() => useGame.getState().marketNeed)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOrder>('featured')
   const [affordableOnly, setAffordableOnly] = useState(false)
@@ -80,14 +91,17 @@ export default function Market() {
     const filtered = SHOP_ITEMS.filter((i) => {
       if (i.season && i.season !== season) return false
       if (tab !== 'all' && i.category !== tab) return false
+      if (need && (i.effects?.[need] ?? 0) <= 0) return false
       if (affordableOnly && i.price > money) return false
       if (q && !`${i.name} ${i.description} ${i.category}`.toLowerCase().includes(q)) return false
       return true
     })
     if (sort === 'low') return [...filtered].sort((a, b) => a.price - b.price)
     if (sort === 'high') return [...filtered].sort((a, b) => b.price - a.price)
+    // When focused on a vital, lead with what restores it most
+    if (need) return [...filtered].sort((a, b) => (b.effects?.[need] ?? 0) - (a.effects?.[need] ?? 0))
     return filtered
-  }, [tab, query, sort, affordableOnly, money, season])
+  }, [tab, need, query, sort, affordableOnly, money, season])
 
   const countFor = (c: ShopCategory) =>
     SHOP_ITEMS.filter((i) => i.category === c && (!i.season || i.season === season)).length
@@ -114,14 +128,23 @@ export default function Market() {
 
       <div className="market-body">
         <nav className="market-rail" aria-label="Categories">
-          <button className={tab === 'all' ? 'rail-btn active' : 'rail-btn'} onClick={() => setTab('all')}>
+          <button
+            className={tab === 'all' && !need ? 'rail-btn active' : 'rail-btn'}
+            onClick={() => {
+              setTab('all')
+              setNeed(null)
+            }}
+          >
             <span className="rail-icon">✦</span> Everything
           </button>
           {CATEGORIES.map((c) => (
             <button
               key={c.id}
-              className={tab === c.id ? 'rail-btn active' : 'rail-btn'}
-              onClick={() => setTab(c.id)}
+              className={tab === c.id && !need ? 'rail-btn active' : 'rail-btn'}
+              onClick={() => {
+                setTab(c.id)
+                setNeed(null)
+              }}
             >
               <span className="rail-icon" aria-hidden>{c.icon}</span> {c.label}
               <span className="rail-count">{countFor(c.id)}</span>
@@ -145,6 +168,16 @@ export default function Market() {
               Price ↓
             </button>
           </div>
+          {need && (
+            <div className="market-need-banner" role="status">
+              <span>
+                Showing what restores <strong>{NEED_LABEL[need]}</strong>, most effective first
+              </span>
+              <button className="tab" onClick={() => setNeed(null)}>
+                Clear
+              </button>
+            </div>
+          )}
           {items.length === 0 && <p className="market-empty">Nothing matches here.</p>}
           <ul className="market-grid">
             {items.map((item) => {
