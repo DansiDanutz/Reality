@@ -55,6 +55,11 @@ export type WorldServerCommand =
     now: number
   }
   | {
+    type: 'readFounderArea'
+    authenticatedFounderId: string
+    now: number
+  }
+  | {
     type: 'applyIntent'
     areaId: string
     now: number
@@ -101,6 +106,8 @@ export async function runWorldServerCommand(
       return createClaimedArea(repo, command)
     case 'advance':
       return advanceStoredArea(repo, command.areaId, command.now)
+    case 'readFounderArea':
+      return readFounderArea(repo, command.authenticatedFounderId, command.now)
     case 'applyIntent':
       return applyIntentToStoredArea(repo, command.areaId, command.now, command.authenticatedCitizenId, command.intent)
   }
@@ -179,6 +186,32 @@ async function advanceStoredArea(
   if (!loaded) return { ok: false, error: 'area_not_found' }
   const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
+
+  const advanced = advanceWorldArea(area, now)
+  const saved = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
+  if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
+  return {
+    ok: true,
+    area: advanced.area,
+    dashboard: areaNeedsDashboard(advanced.area),
+    summary: advanced.summary,
+  }
+}
+
+async function readFounderArea(
+  repo: WorldAreaRepository,
+  authenticatedFounderId: string,
+  now: number,
+): Promise<WorldServerCommandResult> {
+  const founderId = authenticatedFounderId.trim()
+  if (!founderId) return { ok: false, error: 'founder_not_found' }
+  if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
+
+  const loaded = await repo.loadAreaByFounder(founderId)
+  if (!loaded) return { ok: false, error: 'area_not_found' }
+  const { area } = loaded
+  if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
+  if (now === area.now) return { ok: true, area, dashboard: areaNeedsDashboard(area) }
 
   const advanced = advanceWorldArea(area, now)
   const saved = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })

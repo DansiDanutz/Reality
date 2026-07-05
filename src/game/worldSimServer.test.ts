@@ -816,6 +816,88 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 
+  test('reads a founder area by authenticated founder and advances server time', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: ' founder ',
+      now: 1_000 + HOUR,
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected founder area read to succeed')
+    expect(result.area.id).toBe('area-1')
+    expect(result.area.now).toBe(1_000 + HOUR)
+    expect(result.area.citizens[0].needs.hydration).toBeLessThan(50)
+    expect(result.dashboard.realPopulation).toBe(1)
+    expect(result.summary?.purchases).toBe(0)
+    expect(saved?.now).toBe(1_000 + HOUR)
+    expect(repo.saves).toBe(2)
+  })
+
+  test('reads the current founder area without saving when no time elapsed', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected current founder area read to succeed')
+    expect(result.area.id).toBe('area-1')
+    expect(result.area.now).toBe(1_000)
+    expect(result.summary).toBeUndefined()
+    expect(repo.saves).toBe(1)
+  })
+
+  test('rejects founder area reads without a claimed area', async () => {
+    const blankRepo = new MemoryWorldRepo()
+    const blankFounder = await runWorldServerCommand(blankRepo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: '  ',
+      now: 1_000,
+    })
+
+    const missingRepo = new MemoryWorldRepo()
+    const missingFounder = await runWorldServerCommand(missingRepo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+    })
+
+    expect(blankFounder).toEqual({ ok: false, error: 'founder_not_found' })
+    expect(missingFounder).toEqual({ ok: false, error: 'area_not_found' })
+    expect(blankRepo.loads).toBe(0)
+    expect(missingRepo.loads).toBe(1)
+    expect(blankRepo.saves + missingRepo.saves).toBe(0)
+  })
+
+  test('rejects write conflicts while reading and advancing a founder area', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
+    repo.conflictNextSave()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: 'founder',
+      now: 1_000 + HOUR,
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'write_conflict' })
+    expect(result.area?.now).toBe(1_000)
+    expect(saved?.now).toBe(1_000)
+    expect(saved?.citizens[0].needs.hydration).toBe(50)
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
+  })
+
   test('rejects write conflicts during server time advancement', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
