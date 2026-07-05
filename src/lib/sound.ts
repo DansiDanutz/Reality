@@ -227,16 +227,17 @@ export function stopAmbience(): void {
  * beyond the visual. Each call picks one randomly. Very quiet (0.02 peak)
  * and low-passed so it reads as "far away", not "in your ear".
  */
-const AMBIENT_ONE_SHOTS: { freq: number; type: OscillatorType; dur: number; slide: number }[] = [
-  { freq: 880, type: 'sine', dur: 1.4, slide: 1.18 },     // siren rising
-  { freq: 1046, type: 'sine', dur: 1.2, slide: 0.85 },     // siren falling
-  { freq: 180, type: 'sawtooth', dur: 0.3, slide: 0.7 },   // dog bark (low)
-  { freq: 220, type: 'triangle', dur: 0.8, slide: 0.6 },   // distant horn
+const AMBIENT_ONE_SHOTS: { freq: number; type: OscillatorType; dur: number; slide: number; label: string }[] = [
+  { freq: 880, type: 'sine', dur: 1.4, slide: 1.18, label: 'A siren, somewhere far' },
+  { freq: 1046, type: 'sine', dur: 1.2, slide: 0.85, label: 'A siren fades' },
+  { freq: 180, type: 'sawtooth', dur: 0.3, slide: 0.7, label: 'A dog barks, twice' },
+  { freq: 220, type: 'triangle', dur: 0.8, slide: 0.6, label: 'A distant horn' },
 ]
 
-export function playAmbientOneShot(): void {
+/** Play a random ambient one-shot. Returns the label for captioning, or null if audio failed. */
+export function playAmbientOneShot(): string | null {
   const context = ensureContext()
-  if (!context) return
+  if (!context) return null
   const shot = AMBIENT_ONE_SHOTS[Math.floor(Math.random() * AMBIENT_ONE_SHOTS.length)]
   const now = context.currentTime
   const osc = context.createOscillator()
@@ -253,4 +254,5 @@ export function playAmbientOneShot(): void {
   osc.connect(filter).connect(gain).connect(out(context))
   osc.start(now)
   osc.stop(now + shot.dur + 0.05)
+  return shot.label
 }
