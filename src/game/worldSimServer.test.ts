@@ -73,6 +73,8 @@ describe('runWorldServerCommand', () => {
 
     expect(result.area.claim).toMatchObject({ founderCitizenId: 'founder', radiusKm: 2 })
     expect(result.dashboard.realPopulation).toBe(1)
+    expect(result.dashboard.realDemand.housing).toBe(1)
+    expect(result.dashboard.simDemand.housing).toBe(0)
     expect(result.dashboard.firstBuild[0].kind).toBe('housing')
     expect(repo.saves).toBe(1)
   })

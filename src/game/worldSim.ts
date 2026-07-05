@@ -105,6 +105,8 @@ export interface AreaNeedsDashboard {
   simPopulation: number
   realPopulation: number
   demand: Record<WorldBusinessKind, number>
+  simDemand: Record<WorldBusinessKind, number>
+  realDemand: Record<WorldBusinessKind, number>
   supply: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
@@ -341,12 +343,13 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   for (const business of area.businesses) supply[business.kind] += 1
 
   const demand = zeroKindRecord()
+  const simDemand = zeroKindRecord()
+  const realDemand = zeroKindRecord()
   for (const citizen of activeCitizens) {
-    if (citizen.needs.hydration < 70) demand.water += 1
-    if (citizen.needs.hunger < 70) demand.food += 1
-    if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
-    if (citizen.health < 80) demand.clinic += 1
-    if (!citizen.insuranceBusinessId) demand.insurance += 1
+    addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand)
+  }
+  for (const kind of BUSINESS_KINDS) {
+    demand[kind] = simDemand[kind] + realDemand[kind]
   }
 
   const licenseSlots = zeroKindRecord()
@@ -361,6 +364,8 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     simPopulation: area.citizens.filter((c) => c.kind === 'sim').length,
     realPopulation: area.citizens.filter((c) => c.kind === 'real').length,
     demand,
+    simDemand,
+    realDemand,
     supply,
     licenseSlots,
     saturation,
@@ -409,6 +414,14 @@ function buildRecommendation(
     saturated,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
   }
+}
+
+function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>): void {
+  if (citizen.needs.hydration < 70) demand.water += 1
+  if (citizen.needs.hunger < 70) demand.food += 1
+  if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
+  if (citizen.health < 80) demand.clinic += 1
+  if (!citizen.insuranceBusinessId) demand.insurance += 1
 }
 
 function priorityOf(input: { demand: number; supply: number; essential: boolean; licensed: boolean; saturated: boolean }): FirstBuildPriority {
