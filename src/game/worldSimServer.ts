@@ -44,6 +44,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'invalid_area_identity'
   | 'founder_mismatch'
   | 'actor_mismatch'
   | 'time_moved_backward'
@@ -89,11 +90,15 @@ async function createClaimedArea(
   ) {
     return { ok: false, error: 'founder_mismatch' }
   }
-  if (await repo.loadArea(command.areaId)) return { ok: false, error: 'area_exists' }
+  const areaId = command.areaId.trim()
+  const name = command.name.trim()
+  if (!areaId || !name) return { ok: false, error: 'invalid_area_identity' }
+
+  if (await repo.loadArea(areaId)) return { ok: false, error: 'area_exists' }
 
   const seed: WorldArea = {
-    id: command.areaId,
-    name: command.name.trim(),
+    id: areaId,
+    name,
     now: command.now,
     citizens: [command.founder],
     businesses: [],

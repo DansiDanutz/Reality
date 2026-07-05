@@ -136,6 +136,31 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('rejects invalid area identity before loading or saving state', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: '  ',
+      name: '  ',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'invalid_area_identity' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
   test('rejects duplicate area creation', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)
