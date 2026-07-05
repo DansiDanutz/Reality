@@ -239,6 +239,8 @@ interface GameState {
   dismissAwayReport: () => void
   /** Transient celebration overlay (not persisted) — set for the biggest moments only. */
   celebration: { icon: string; title: string; detail?: string; reward?: string; tone: 'legendary' | 'gold' | 'level' | 'daily' } | null
+  /** Queue of pending celebrations (not persisted) — shown one at a time, FIFO. */
+  celebrationQueue: { icon: string; title: string; detail?: string; reward?: string; tone: 'legendary' | 'gold' | 'level' | 'daily' }[]
   dismissCelebration: () => void
   /** Feedback toasts (not persisted) */
   toasts: { id: number; text: string; tone: ToastTone }[]
@@ -349,6 +351,7 @@ const FRESH = {
   savingsGoalReached: false,
   awayReport: null as string | null,
   celebration: null as GameState['celebration'],
+  celebrationQueue: [] as GameState['celebrationQueue'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
   // only surfaces when something actually fails, so a cold start in airplane
@@ -606,6 +609,14 @@ export const useGame = create<GameState>()(
         let toasts = s.toasts
         let { level, xp } = s
         const startingLevel = s.level // captured to detect a level-up at end-of-tick for the celebration
+        // Show-or-queue a celebration. Declared early so every celebration
+        // site (milestone, lucky, achievement, level, daily, savings) can use
+        // it regardless of order in the tick. If none is showing, show
+        // immediately; otherwise push to the queue (drained by dismissCelebration).
+        const celebrate = (c: { icon: string; title: string; detail?: string; reward?: string; tone: 'legendary' | 'gold' | 'level' | 'daily' }) => {
+          if (!s.celebration) s.celebration = c
+          else s.celebrationQueue = [...s.celebrationQueue, c]
+        }
         if (out.xpGained > 0) {
           const prog = applyXp(level, xp, out.xpGained)
           if (prog.level > level) toasts = withToast(toasts, `Level ${prog.level} reached!`, 'sky')
@@ -670,17 +681,17 @@ export const useGame = create<GameState>()(
           const nextMilestone = MILESTONE_WEEKS.find(
             (w) => w <= weeksLived && !s.milestonesCelebrated.includes(w),
           )
-          if (nextMilestone && !s.celebration) {
+          if (nextMilestone) {
             s.milestonesCelebrated = [...s.milestonesCelebrated, nextMilestone]
             track('week_milestone')
             const label = nextMilestone === 1 ? 'one week' : nextMilestone === 52 ? 'a full year' : `${nextMilestone} weeks`
             const reward = nextMilestone >= 52 ? 'a lifetime' : nextMilestone >= 12 ? 'a season' : 'a habit'
-            s.celebration = {
+            celebrate({
               icon: '⏳',
               title: `${label.charAt(0).toUpperCase() + label.slice(1)} in Reality`,
               detail: `You've kept this life going for ${label}. That's ${reward} — and the world is richer for it.`,
               tone: 'gold',
-            }
+            })
             toasts = withToast(toasts, `⏳ ${nextMilestone === 1 ? 'A week' : nextMilestone + ' weeks'} in Reality. You've built something real.`, 'achieve')
             log = note(log, `${label.charAt(0).toUpperCase() + label.slice(1)} milestone reached.`)
           }
@@ -773,13 +784,13 @@ export const useGame = create<GameState>()(
             // Legendary jackpots earn a full celebration overlay — they're
             // once-in-a-lifetime events that deserve more than a toast.
             if (lucky.rarity === 'legendary') {
-              s.celebration = {
+              celebrate({
                 icon: '🌟',
                 title: 'LEGENDARY!',
                 detail: lucky.text,
                 reward: `+${formatMoney(lucky.money)} · +${lucky.xp} XP`,
                 tone: 'legendary',
-              }
+              })
             }
           }
         }
@@ -805,14 +816,14 @@ export const useGame = create<GameState>()(
           // Gold-tier achievements earn a celebration overlay — they're the
           // long-term grails (level 20, 30-day streak, 10 businesses...).
           const gold = newlyEarned.find((a) => a.tier === 'gold')
-          if (gold && !s.celebration) {
-            s.celebration = {
+          if (gold) {
+            celebrate({
               icon: '🥇',
               title: gold.title,
               detail: gold.detail,
               reward: `+${gold.xp} XP · ${formatMoney(gold.bounty)}`,
               tone: 'gold',
-            }
+            })
           }
           s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
           if (s.achievementsClaimed.length === newlyEarned.length) track('first_achievement')
@@ -869,13 +880,13 @@ export const useGame = create<GameState>()(
         // regular level-up gets a toast; a 5th, 10th, 15th, 20th... gets the
         // full overlay. Checked here (end of tick) so it catches level-ups
         // from any XP source (engine, achievements, lucky, streak, daily).
-        if (level > startingLevel && level % 5 === 0 && level >= 5 && !s.celebration) {
-          s.celebration = {
+        if (level > startingLevel && level % 5 === 0 && level >= 5) {
+          celebrate({
             icon: '⭐',
             title: `Level ${level}!`,
             detail: 'A new tier of achievements and reach may have unlocked.',
             tone: 'level',
-          }
+          })
         }
 
         // Daily challenges — counters reset at local midnight, increment by
@@ -898,14 +909,12 @@ export const useGame = create<GameState>()(
           const netWorth = netWorthOf(money, s.inventory, out.assets)
           if (netWorth >= s.savingsGoal) {
             s.savingsGoalReached = true
-            if (!s.celebration) {
-              s.celebration = {
-                icon: '🎯',
-                title: 'Savings goal reached!',
-                detail: `You hit your ${formatMoney(s.savingsGoal)} target. Time to spend it — or set a new goal.`,
-                tone: 'gold',
-              }
-            }
+            celebrate({
+              icon: '🎯',
+              title: 'Savings goal reached!',
+              detail: `You hit your ${formatMoney(s.savingsGoal)} target. Time to spend it — or set a new goal.`,
+              tone: 'gold',
+            })
             toasts = withToast(toasts, `🎯 Savings goal reached — ${formatMoney(s.savingsGoal)}!`, 'achieve')
             log = note(log, `🎯 Reached your savings goal of ${formatMoney(s.savingsGoal)}. Time to spend it — or set a new one.`)
           }
@@ -972,15 +981,13 @@ export const useGame = create<GameState>()(
                 track('daily_complete')
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
                 log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(DAILY_COMPLETE_BONUS.cash)} and ${DAILY_COMPLETE_BONUS.xp} XP.`)
-                if (!s.celebration) {
-                  s.celebration = {
-                    icon: '🎯',
-                    title: 'All 3 daily challenges!',
-                    detail: 'A perfect day. Come back tomorrow for a fresh set.',
-                    reward: `+${formatMoney(DAILY_COMPLETE_BONUS.cash)} · +${DAILY_COMPLETE_BONUS.xp} XP`,
-                    tone: 'daily',
-                  }
-                }
+                celebrate({
+                  icon: '🎯',
+                  title: 'All 3 daily challenges!',
+                  detail: 'A perfect day. Come back tomorrow for a fresh set.',
+                  reward: `+${formatMoney(DAILY_COMPLETE_BONUS.cash)} · +${DAILY_COMPLETE_BONUS.xp} XP`,
+                  tone: 'daily',
+                })
               }
             }
           }
@@ -1019,13 +1026,21 @@ export const useGame = create<GameState>()(
           dailyBonusClaimed,
           awayReport,
           celebration: s.celebration,
+          celebrationQueue: s.celebrationQueue,
           toasts,
           log,
         })
       },
 
       dismissAwayReport: () => set({ awayReport: null }),
-      dismissCelebration: () => set({ celebration: null }),
+      dismissCelebration: () => set((state) => {
+        // Drain the queue: if a celebration is queued, show it next; else clear.
+        const queue = state.celebrationQueue
+        if (queue.length > 0) {
+          return { celebration: queue[0], celebrationQueue: queue.slice(1) }
+        }
+        return { celebration: null }
+      }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
       toggleSound: () => set({ soundOn: !get().soundOn }),
       setSoundVolume: (v) => {
@@ -1433,10 +1448,15 @@ export const useGame = create<GameState>()(
           log: note(s.log, `${asset.name} upgraded to level ${out.newLevel} (income ${formatMoney(out.newIncome)}/day) for ${formatMoney(out.cost)}.`),
           // Maxing a business (L10) is a multi-month achievement — the
           // geometric cost curve means ~$millions invested. It earns the
-          // gold-tier celebration overlay.
-          celebration: out.newLevel >= MAX_BUSINESS_LEVEL && !s.celebration
-            ? { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }
+          // gold-tier celebration overlay (queued if another is showing).
+          celebration: out.newLevel >= MAX_BUSINESS_LEVEL
+            ? (!s.celebration
+                ? { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }
+                : s.celebration)
             : s.celebration,
+          celebrationQueue: out.newLevel >= MAX_BUSINESS_LEVEL && s.celebration
+            ? [...s.celebrationQueue, { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }]
+            : s.celebrationQueue,
         })
       },
 
@@ -1537,6 +1557,7 @@ export const useGame = create<GameState>()(
               key !== 'streetMode' &&
               key !== 'awayReport' &&
               key !== 'celebration' &&
+              key !== 'celebrationQueue' &&
               key !== 'toasts' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',

@@ -20,6 +20,7 @@ import { useGame } from '../../store/gameStore'
  */
 export default function CelebrationOverlay() {
   const celebration = useGame((s) => s.celebration)
+  const queueLength = useGame((s) => s.celebrationQueue.length)
   const dismissCelebration = useGame((s) => s.dismissCelebration)
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function CelebrationOverlay() {
   if (!celebration) return null
 
   const tone = celebration.tone
+  const total = queueLength + 1 // current + queued
   return (
     <div
       className={`celebration celebration-${tone}`}
@@ -45,7 +47,9 @@ export default function CelebrationOverlay() {
         {celebration.reward && (
           <p className="celebration-reward mono">{celebration.reward}</p>
         )}
-        <span className="celebration-tap">tap to continue</span>
+        <span className="celebration-tap">
+          {total > 1 ? `tap to continue · 1 of ${total}` : 'tap to continue'}
+        </span>
       </div>
     </div>
   )
