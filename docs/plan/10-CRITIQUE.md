@@ -436,3 +436,26 @@ Eight more PRs (#108–#115) — critique resolution + atmospheric depth:
 2. **The sun/moon are fixed-position, not time-tracked.** They don't move across the sky over a real day -- they're always "up there". A real day/night cycle would arc them. **Action:** arc the sun/moon by local hour if we want true astronomical realism (low priority -- the static placement reads fine).
 3. **Atmosphere is scene-only.** The main map (3D globe) has none of the day/night weather/atmosphere that Street Mode now has. **Action:** consider a globe-level day/night terminator or weather overlay (large effort).
 4. **No content for the thought-of-the-day beyond 15 lines.** A daily player will cycle through them all in ~2 weeks. **Action:** expand the pool to 30-50 lines, or theme them by season.
+
+## Fixed in the cinematic/movement loops (2026-07-05, batch 6)
+
+Seven more PRs (#119–#129) — Street Mode cinematic polish + quality:
+
+- **#119 In-app confirm dialog** — replaces jarring window.confirm for "Start a new life".
+- **#120 Hour-based sky gradient** — 9 color stops, smooth dawn/dusk transitions.
+- **#121 Golden-hour lighting** — directional light tracks the hour: warm at dawn/dusk, bright midday, dim blue night.
+- **#122 Arcing sun + moon** — they move across the sky based on the real local hour; shadows follow the arc.
+- **#123 Drifting clouds** — 14 daytime clouds drift east-to-west slowly.
+- **#124 Tree canopy sway** — merged canopy mesh sways with the wind phase.
+- **#125 Time-aware greeting** — "Good evening" prefix on the street hint.
+- **#126 First-visit controls overlay** — one-time onboarding for Street Mode movement.
+- **#127 Distant skyline** — ring of ~70 silhouettes at the fog edge for depth.
+- **#128 Landing shake** — horizontal jitter on hard landings, decaying in 80ms.
+- **#129 Auto-hide hint** — controls hint collapses after 8s or first keydown.
+
+**Remaining self-critique:**
+
+1. **No live-player validation.** *(carried forward since batch 1)* The entire cinematic + retention engine is designed from theory. **Action:** unblocked when Dan opens Neon (Phase 1b).
+2. **Sun/moon arc is a half-circle, not a true ellipse.** The arc uses sin/cos in a vertical plane, which is a semicircle — real solar arcs are elliptical due to latitude + season. **Action:** use the citizen's latitude for a proper solar elevation calculation (low priority — the semicircle reads fine).
+3. **Distant skyline is uniform.** The 70 silhouettes are randomly sized but all the same color; a real skyline has depth variation (closer = lighter, farther = darker). **Action:** two rings at different radii with different fog density.
+4. **No weather effect on the sky gradient.** Rain/snow doesn't darken the sky (only the fog). **Action:** blend the sky color toward grey when raining.
