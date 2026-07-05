@@ -80,14 +80,35 @@ export default function App() {
     }
   }, [])
 
-  // Escape closes any open panel
+  // Escape closes any open panel; single-key shortcuts fire the core actions
+  // when the player isn't typing in an input. Power-user convenience that
+  // makes the game feel responsive — the difference between a toy and a tool.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPanel(null)
+      if (e.key === 'Escape') {
+        setPanel(null)
+        return
+      }
+      // Skip when the player is typing, using a modifier, or a dialog is open
+      // (the action dock buttons are the canonical UI; shortcuts are a bonus).
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const s = useGame.getState()
+      if (!s.citizen || drawerOpen || s.placing) return
+      switch (e.key.toLowerCase()) {
+        case 'd': s.quickDrink(); break
+        case 's': s.startSleep(); break
+        case 'w': s.startGig(); break
+        case 'c': s.collectIncome(); break
+        case 'g': s.setPanel('achievements'); break
+        case 'j': s.setPanel('journal'); break
+        case 'm': s.openMarket(); break
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setPanel])
+  }, [setPanel, drawerOpen])
 
   // A true modal dialog hides the rest of the app from assistive tech and
   // keyboard focus, not just visually — `inert` does both in one attribute.
