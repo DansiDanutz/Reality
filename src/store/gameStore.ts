@@ -29,6 +29,7 @@ import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from 
 import { zoneFor } from '../game/clock'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
+import { rollLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
@@ -571,6 +572,23 @@ export const useGame = create<GameState>()(
             money = Math.max(0, money + (event.money ?? 0))
             log = note(log, event.text)
             toasts = withToast(toasts, event.text, (event.money ?? 0) > 0 ? 'gold' : 'sky')
+          }
+        }
+
+        // Rare lucky moments — the variable-ratio jackpot. Distinct from
+        // rollEvent above: ~0.05%/live-tick, $1k-50k rewards. Fires regardless
+        // of activity (it's *news*, not chaos) but never during away spans.
+        if (!wasAway) {
+          const lucky = rollLuckyMoment()
+          if (lucky) {
+            const prog = applyXp(level, xp, lucky.xp)
+            level = prog.level
+            xp = prog.xp
+            money += lucky.money
+            const icon = RARITY_META[lucky.rarity].icon
+            const label = RARITY_META[lucky.rarity].label.toUpperCase()
+            toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, 'gold')
+            log = note(log, `${label} lucky moment: ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`)
           }
         }
 
