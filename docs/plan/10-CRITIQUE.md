@@ -330,3 +330,23 @@ softened. An item leaves this list only by being fixed or consciously accepted.*
 *"What did a real player feel that we didn't fix?"* — until we have real players,
 this critique is a mirror; after launch it must be fed by analytics (01's funnel) and
 playtests, not by us.
+
+## Fixed in the retention-engine loops (2026-07-05)
+
+Six PRs (#57–#62) shipped the full retention engine — every mechanic a top life-sim needs to keep players coming back. All engine-pure (src/game/ stays framework-free), all tested, all merge-gated.
+
+- **#57 Achievements** — 25 achievements across 6 categories, bronze/silver/gold tiers, auto-claim in tick with a 🏆 toast. *The completionist grid.*
+- **#58 Daily streak** — timezone-aware, escalating rewards ($50 → $100k), one-day forgiveness, 3-day reset, local-midnight claim. *The come-back-tomorrow hook.*
+- **#59 Lucky moments** — 0.05%/tick, $1k–$50k jackpots across 10 story-rich moments in 3 rarity tiers. Distinct from the existing rollEvent chaos layer (0.4%/tick, $-140..+200). *The variable-ratio dopamine engine.*
+- **#60 Lifetime stats** — meals, sleeps, income collected, achievements, best streak, lucky moments, pets surfaced in the Profile panel. *The accumulation hook.*
+- **#61 Collection view** — Pokédex-style grid of discovered vs undiscovered lucky moments, grouped by rarity. Hidden until first discovery to avoid spoilers. *The "find them all" chase.*
+- **#62 Next-goals preview** — career-rank progress bar + tomorrow's streak reward + 3 nearest unclaimed achievements, all in one glance at the top of the Achievements panel. *The "what now?" hook that combats choice paralysis.*
+
+**Self-critique (what's still soft):**
+
+1. **No live-player validation yet.** The whole engine is designed from first principles (Variable-Ratio schedules from Skinner box research, completionist drive from Pokémon/Animal Crossing, comeback hooks from Duolingo/Wordle). It's sound theory, but the *actual* retention curve needs real analytics. The `track()` calls are wired (citizen_created, first_shift_started, d7_return) but we have no dashboard reading them yet. **Action:** when Dan opens the Neon dashboard (Phase 1b), wire `track()` to a retention funnel — D1/D7/D30 return rates, achievement-claim timing, streak-burn distribution.
+2. **Lucky-moment balance is theoretical.** EV/tick ≈ $5.75 → ~$20k/hr of active play. That's ~10% of the founder balance per hour, which sounds right, but the *perception* of fairness depends on whether players feel the legendary tier is reachable. A player who never sees a lottery win in 50 hours will feel cheated; one who sees two in a week will feel the game is too generous. **Action:** watch the `luckyMomentsSeen` distribution post-launch; tune `LUCKY_MOMENT_CHANCE` (currently 0.0005) if legendary feels unreachable.
+3. **Achievement predicates are binary.** No "progress toward" — a player either qualifies or doesn't. The NextGoalsBlock papered over this with category-diverse picks, but a real progress bar per achievement (e.g. "47/100 meals for Iron Stomach") would be stickier. **Action:** refactor achievements to expose a `progress(snapshot): { current, target }` alongside `isUnlocked`. Medium effort; high payoff.
+4. **Streak reset toast is a downer.** A player returning after 4 days gets greeted with "Your streak reset" before they've done anything. That's punishing the exact behavior (returning) we want to reward. **Action:** soften — show the reset *only* if they then claim day 1 again, or replace with "Welcome back — start a new streak today."
+5. **The Achievements panel is getting heavy.** NextGoalsBlock + summary + StreakBlock + CollectionBlock + 25 achievement cards + 6 category headers. On a phone this is a long scroll. **Action:** consider tabs (Goals / Grid / Collection) once we have 3+ sections visibly competing for above-the-fold space.
+6. **Save migration is at v5 with no test.** The migrate function has 6 conditional backfills now; a regression could silently corrupt old saves. **Action:** add a migrate-roundtrip test that loads a v1-shaped save and asserts the post-migrate shape.
