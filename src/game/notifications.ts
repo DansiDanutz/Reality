@@ -43,6 +43,12 @@ export interface NotificationSnapshot {
   needs: Needs
   /** Current money — used for the "broke" notification guard. */
   money: number
+  /** Daily challenges: how many of today's 3 are complete. */
+  dailyDone: number
+  /** Daily challenges: total count (usually 3). */
+  dailyTotal: number
+  /** Whether the all-3 bonus has been claimed today. */
+  dailyBonusClaimed: boolean
 }
 
 /**
@@ -68,6 +74,7 @@ const COOLDOWN_MS: Record<string, number> = {
   'activity-complete': 0, // fires once per activity end (cleared on new activity)
   'streak-at-risk': 3 * 60 * 60_000, // at most every 3 hours
   'needs-critical': 30 * 60_000, // at most every 30 minutes
+  'daily-incomplete': 6 * 60 * 60_000, // at most once per evening
 }
 
 /** A need is "critical" below this threshold. */
@@ -156,8 +163,35 @@ export function decideNotifications(
     }
   }
 
+  // 4. Daily challenges incomplete — the return-driver. In the final hours
+  //    before midnight, if the player has done some but not all challenges
+  //    (and hasn't claimed the bonus), nudge them to finish. The "some but
+  //    not all" guard is key: it targets players who already engaged today
+  //    (most likely to return) rather than zero-engagement players.
+  if (
+    cooled('daily-incomplete') &&
+    snap.dailyTotal > 0 &&
+    !snap.dailyBonusClaimed &&
+    snap.dailyDone > 0 &&
+    snap.dailyDone < snap.dailyTotal
+  ) {
+    const nextMidnight = (snap.todayDay + 1) * DAY_MS
+    const msToMidnight = nextMidnight - snap.now
+    if (msToMidnight <= STREAK_RISK_WINDOW_MS && msToMidnight > 0) {
+      const hours = Math.max(1, Math.round(msToMidnight / 3_600_000))
+      out.push({
+        id: 'daily-incomplete',
+        title: `🎯 ${snap.dailyDone}/${snap.dailyTotal} daily challenges — ${hours}h to finish`,
+        body: `One more action completes today's set and the bonus reward.`,
+        tag: 'activity',
+      })
+    }
+  }
+
   // Never stack: if multiple fired, prefer in this priority order —
   // activity (immediate action) > streak (retention-critical) > needs (urgent).
+  // Daily-incomplete is tagged 'activity' so it competes with activity-complete
+  // for the top slot, which is correct (both are "do this now" nudges).
   if (out.length > 1) {
     const priority = ['activity', 'streak', 'needs']
     out.sort((a, b) => priority.indexOf(a.tag) - priority.indexOf(b.tag))

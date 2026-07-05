@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../game/clock'
+import { challengesForDay, challengeProgress } from '../game/dailyChallenges'
 import { decideNotifications, markNotified, NOTIFICATION_REASONS, type NotificationLog, type NotificationSnapshot } from '../game/notifications'
 import { useGame } from '../store/gameStore'
 
@@ -81,6 +82,13 @@ export function useNotifications(): void {
       activity: s.activity,
       needs: s.needs,
       money: s.money,
+      dailyDone: s.dailyCounters.day === todayDay
+        // Count complete + claimed (matches what the panel shows). Imported
+        // lazily to avoid a static cycle when this hook is first loaded.
+        ? countDailyDone(s, todayDay)
+        : 0,
+      dailyTotal: 3,
+      dailyBonusClaimed: s.dailyBonusClaimed,
     }
 
     const decisions = decideNotifications(snap, logRef.current)
@@ -117,6 +125,25 @@ function dayIndexOf(now: number, lat?: number, lng?: number): number {
     year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(new Date(now))
   return Math.floor(Date.parse(ymd + 'T00:00:00Z') / 86_400_000)
+}
+
+/**
+ * Count how many of today's challenges are done (claimed OR complete). Mirrors
+ * the AchievementsPanel logic. Kept here (not exported from dailyChallenges)
+ * because it needs the live store's dailyCounters, which the engine module
+ * can't import without a cycle.
+ */
+function countDailyDone(s: { citizen: { citizenId?: string } | null; dailyCounters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number }; dailyClaimed: string[] }, todayDay: number): number {
+  if (!s.citizen) return 0
+  const challenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay)
+  const snap = {
+    mealsToday: s.dailyCounters.mealsToday,
+    shiftsToday: s.dailyCounters.shiftsToday,
+    earnedToday: s.dailyCounters.earnedToday,
+    sleptToday: s.dailyCounters.sleptToday,
+    boughtToday: s.dailyCounters.boughtToday,
+  }
+  return challenges.filter((c) => s.dailyClaimed.includes(c.id) || challengeProgress(c, snap).complete).length
 }
 
 export { NOTIFICATION_REASONS }
