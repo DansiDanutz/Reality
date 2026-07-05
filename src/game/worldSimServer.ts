@@ -88,6 +88,13 @@ async function createClaimedArea(
   command: Extract<WorldServerCommand, { type: 'createClaimedArea' }>,
 ): Promise<WorldServerCommandResult> {
   if (
+    !command.authenticatedFounderId.trim() ||
+    !command.founder.id.trim() ||
+    !command.claim.founderCitizenId.trim()
+  ) {
+    return { ok: false, error: 'founder_not_found' }
+  }
+  if (
     command.founder.id !== command.authenticatedFounderId ||
     command.claim.founderCitizenId !== command.authenticatedFounderId
   ) {

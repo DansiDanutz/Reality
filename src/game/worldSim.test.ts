@@ -120,6 +120,16 @@ describe('advanceWorldArea — local real-time economy', () => {
       source: 'ip',
     })).toMatchObject({ ok: false, error: 'founder_not_found' })
 
+    expect(claimWorldArea(area({ citizens: [sim('', { kind: 'real' })] }), {
+      founderCitizenId: '',
+      label: 'Empty Founder',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: 2,
+      claimedAt: 1,
+      source: 'manual',
+    })).toMatchObject({ ok: false, error: 'founder_not_found' })
+
     expect(claimWorldArea(start, {
       founderCitizenId: 'founder',
       label: 'Too Big',

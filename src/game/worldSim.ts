@@ -389,6 +389,7 @@ export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWo
   const area = cloneArea(input)
   const label = claim.label.trim()
   if (area.claim) return { ok: false, area, error: 'area_already_claimed' }
+  if (!claim.founderCitizenId.trim()) return { ok: false, area, error: 'founder_not_found' }
   if (!area.citizens.some((c) => c.id === claim.founderCitizenId && c.kind === 'real')) {
     return { ok: false, area, error: 'founder_not_found' }
   }

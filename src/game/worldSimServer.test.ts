@@ -186,6 +186,31 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('rejects blank founder identities before loading state', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: '',
+      founder: citizen(''),
+      claim: {
+        founderCitizenId: '',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'founder_not_found' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
   test('rejects claimed-area creation with a blank persisted label', async () => {
     const repo = new MemoryWorldRepo()
     const result = await runWorldServerCommand(repo, {
