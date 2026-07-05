@@ -119,23 +119,73 @@ export interface StreetSceneHandle {
   getStats: () => { trees: number; buildings: number; roadSegments: number; greens: number; lights: number; drawCalls: number }
 }
 
-/** Procedural facade: scattered warm-lit windows on dark stone — the Hogwarts trick */
-function makeFacadeTexture(night: boolean): THREE.CanvasTexture {
+/**
+ * A building scheme: the day wall color, the night wall color, and the roof.
+ * A palette of these (below) gives the street real variety instead of 664
+ * identical grey blocks — the single biggest lift for the daytime look.
+ */
+interface BuildingScheme {
+  day: string
+  night: string
+  roofDay: number
+  roofNight: number
+}
+
+/**
+ * Realistic street-wall palette — warm cream/ochre/terracotta and cool
+ * stone/blue-grey, the mix you actually see down a European street (Bucharest
+ * is neoclassical cream + concrete grey + brick). Roofs pair slate, terracotta
+ * and lead-grey. Night tones are the same hues, dimmed toward dusk stone.
+ */
+const BUILDING_SCHEMES: readonly BuildingScheme[] = [
+  { day: '#d9cfba', night: '#1b2130', roofDay: 0x4a4f57, roofNight: 0x0c1220 }, // cream / slate
+  { day: '#d2bd92', night: '#20222f', roofDay: 0x8a5a44, roofNight: 0x120c14 }, // ochre / terracotta
+  { day: '#b3a99c', night: '#191f2c', roofDay: 0x565c62, roofNight: 0x0b1018 }, // warm stone / grey
+  { day: '#c69a7e', night: '#221a24', roofDay: 0x6e4a3a, roofNight: 0x140b12 }, // terracotta / brown
+  { day: '#9fabb4', night: '#161d2a', roofDay: 0x3f4650, roofNight: 0x0a0f1a }, // blue-grey / dark
+  { day: '#cabf9d', night: '#1e2130', roofDay: 0x5a5852, roofNight: 0x0d1018 }, // sand / warm grey
+] as const
+
+/**
+ * Procedural facade for one scheme. Day: the wall color with a crisp grid of
+ * framed cool-glass windows and faint floor lines — reads as a real building
+ * in sunlight, not flat massing. Night: dark walls with a scatter of warm-lit
+ * windows (the Hogwarts trick), driven by the emissive map back in the scene.
+ */
+function makeFacadeTexture(night: boolean, scheme: BuildingScheme): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
   canvas.width = 128
   canvas.height = 128
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = night ? '#141c2c' : '#7e8898'
+  ctx.fillStyle = night ? scheme.night : scheme.day
   ctx.fillRect(0, 0, 128, 128)
+
+  // Faint horizontal floor lines between window rows — vertical rhythm.
+  if (!night) {
+    ctx.fillStyle = 'rgba(0,0,0,0.06)'
+    for (let row = 0; row <= 4; row++) ctx.fillRect(0, row * 32 + 4, 128, 2)
+  }
+
   for (let row = 0; row < 4; row++) {
     for (let col = 0; col < 4; col++) {
-      const lit = night && Math.random() < 0.38
-      ctx.fillStyle = lit
-        ? ['#ffc46b', '#ffb347', '#ffd98a'][Math.floor(Math.random() * 3)]
-        : night
-          ? '#0b111d'
-          : '#3d4a5e'
-      ctx.fillRect(col * 32 + 10, row * 32 + 8, 12, 16)
+      const x = col * 32 + 10
+      const y = row * 32 + 8
+      if (night) {
+        const lit = Math.random() < 0.38
+        ctx.fillStyle = lit
+          ? ['#ffc46b', '#ffb347', '#ffd98a'][Math.floor(Math.random() * 3)]
+          : '#0b111d'
+        ctx.fillRect(x, y, 12, 16)
+      } else {
+        // Light stone frame, then cool glass with a soft top highlight — the
+        // window reads as recessed glazing catching the sky, not a dark hole.
+        ctx.fillStyle = 'rgba(255,255,255,0.22)'
+        ctx.fillRect(x - 1, y - 1, 14, 18)
+        ctx.fillStyle = '#6f8598'
+        ctx.fillRect(x, y, 12, 16)
+        ctx.fillStyle = 'rgba(210,228,240,0.35)'
+        ctx.fillRect(x, y, 12, 5)
+      }
     }
   }
   const texture = new THREE.CanvasTexture(canvas)
@@ -627,15 +677,22 @@ export async function createStreetScene(
   addMerged(scene, glowDiscGeos, glowDiscMat)
 
   // ── Buildings: the real ones around you (and solid) ─────
-  const facade = makeFacadeTexture(night)
-  facade.repeat.set(1 / 7, 1 / 10)
-  const sideMat = new THREE.MeshLambertMaterial({
-    map: facade,
-    emissiveMap: facade,
-    emissive: night ? new THREE.Color(0xffffff) : new THREE.Color(0x000000),
-    emissiveIntensity: night ? 0.55 : 0,
+  // One material per scheme (not one grey material for all 664), so the street
+  // has real colour variety. Reusing ~6 shared materials keeps memory flat;
+  // buildings are separate meshes regardless, so draw calls are unchanged.
+  const facadePalette = BUILDING_SCHEMES.map((scheme) => {
+    const facade = makeFacadeTexture(night, scheme)
+    facade.repeat.set(1 / 7, 1 / 10)
+    return {
+      side: new THREE.MeshLambertMaterial({
+        map: facade,
+        emissiveMap: night ? facade : null,
+        emissive: new THREE.Color(night ? 0xffffff : 0x000000),
+        emissiveIntensity: night ? 0.55 : 0,
+      }),
+      roof: new THREE.MeshLambertMaterial({ color: night ? scheme.roofNight : scheme.roofDay }),
+    }
   })
-  const roofMat = new THREE.MeshLambertMaterial({ color: night ? 0x0c1220 : 0x646e7d })
 
   const solids: Solid[] = []
   buildings.forEach((building, index) => {
@@ -646,8 +703,11 @@ export async function createStreetScene(
     ring.forEach((p, i) => (i === 0 ? shape.moveTo(p.x, -p.z) : shape.lineTo(p.x, -p.z)))
     const height = buildingHeight(building.tags, index * 7 + geoRing.length)
     const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false })
+    // Stable per-building scheme: deterministic (same street every visit) but
+    // scattered enough to look hand-placed, not striped.
+    const scheme = facadePalette[(index * 7 + geoRing.length) % facadePalette.length]
     // ExtrudeGeometry material groups: 0 = caps (roof), 1 = side walls
-    const mesh = new THREE.Mesh(geo, [roofMat, sideMat])
+    const mesh = new THREE.Mesh(geo, [scheme.roof, scheme.side])
     // Extrude runs along +z; stand the building up with y as height
     mesh.rotation.x = -Math.PI / 2
     mesh.position.y = 0.02
