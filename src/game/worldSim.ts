@@ -3,6 +3,7 @@ import type { Needs } from './types'
 
 export type WorldBusinessKind = 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
 export type WorldCitizenKind = 'sim' | 'real'
+export type AreaClaimSource = 'manual' | 'ip' | 'geolocation' | 'telegram'
 
 export type WorldCitizenState =
   | { kind: 'active' }
@@ -36,6 +37,16 @@ export interface WorldBusiness {
   inheritedFrom?: string
 }
 
+export interface WorldAreaClaim {
+  founderCitizenId: string
+  label: string
+  centerLat: number
+  centerLng: number
+  radiusKm: number
+  claimedAt: number
+  source: AreaClaimSource
+}
+
 export type WorldTransactionKind =
   | 'customer_purchase'
   | 'worker_wage'
@@ -57,6 +68,7 @@ export interface WorldArea {
   id: string
   name: string
   now: number
+  claim?: WorldAreaClaim
   citizens: WorldCitizen[]
   businesses: WorldBusiness[]
   transactions: WorldTransaction[]
@@ -75,6 +87,17 @@ export interface AdvanceWorldAreaResult {
   summary: WorldAreaSummary
 }
 
+export type FirstBuildPriority = 'critical' | 'high' | 'medium' | 'low'
+
+export interface FirstBuildRecommendation {
+  kind: WorldBusinessKind
+  priority: FirstBuildPriority
+  score: number
+  licensed: boolean
+  saturated: boolean
+  reason: string
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -83,7 +106,19 @@ export interface AreaNeedsDashboard {
   supply: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
+  firstBuild: FirstBuildRecommendation[]
 }
+
+export type ClaimWorldAreaError =
+  | 'area_already_claimed'
+  | 'founder_not_found'
+  | 'invalid_location'
+  | 'area_too_small'
+  | 'area_too_large'
+
+export type ClaimWorldAreaResult =
+  | { ok: true; area: WorldArea }
+  | { ok: false; area: WorldArea; error: ClaimWorldAreaError }
 
 interface StepContext {
   at: number
@@ -103,6 +138,8 @@ export const COLLAPSE_HEALTH = 20
 export const HOSPITAL_BILL = 350
 export const INSURANCE_COVERAGE = 0.6
 export const DEFAULT_WORKER_WAGE = 12
+export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
+export const MAX_FOUNDER_AREA_RADIUS_KM = 5
 
 const ACTIVE_NEED_RATES: Needs = {
   hunger: 3.8,
@@ -162,6 +199,29 @@ const MIN_LICENSES: Record<WorldBusinessKind, number> = {
 
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
 
+export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWorldAreaResult {
+  const area = cloneArea(input)
+  if (area.claim) return { ok: false, area, error: 'area_already_claimed' }
+  if (!area.citizens.some((c) => c.id === claim.founderCitizenId && c.kind === 'real')) {
+    return { ok: false, area, error: 'founder_not_found' }
+  }
+  if (
+    !Number.isFinite(claim.centerLat) ||
+    !Number.isFinite(claim.centerLng) ||
+    claim.centerLat < -90 ||
+    claim.centerLat > 90 ||
+    claim.centerLng < -180 ||
+    claim.centerLng > 180
+  ) {
+    return { ok: false, area, error: 'invalid_location' }
+  }
+  if (claim.radiusKm < MIN_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_small' }
+  if (claim.radiusKm > MAX_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_large' }
+
+  area.claim = { ...claim, label: claim.label.trim() }
+  return { ok: true, area }
+}
+
 export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAreaResult {
   const area = cloneArea(input)
   const summary: WorldAreaSummary = {
@@ -220,7 +280,14 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     supply,
     licenseSlots,
     saturation,
+    firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation }),
   }
+}
+
+export function firstBuildGuidance(input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'>): FirstBuildRecommendation[] {
+  return BUSINESS_KINDS
+    .map((kind) => buildRecommendation(kind, input))
+    .sort((a, b) => b.score - a.score || BUSINESS_KINDS.indexOf(a.kind) - BUSINESS_KINDS.indexOf(b.kind))
 }
 
 export function licenseSlotsForPopulation(population: number, kind: WorldBusinessKind): number {
@@ -235,6 +302,49 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
   const ownerUnavailable = owner?.state.kind === 'hospitalized'
   const unmanagedPenalty = ownerUnavailable && activeStaff === 0 ? 0.35 : 1
   return clamp((business.quality ?? 1) * unmanagedPenalty, 0.15, 1.5)
+}
+
+function buildRecommendation(
+  kind: WorldBusinessKind,
+  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'>,
+): FirstBuildRecommendation {
+  const demand = input.demand[kind]
+  const supply = input.supply[kind]
+  const licensed = supply < input.licenseSlots[kind]
+  const saturated = input.saturation[kind] >= 1
+  const essential = kind === 'water' || kind === 'food' || kind === 'housing'
+  let score = demand * 10
+  if (essential && supply === 0) score += 30
+  if (licensed) score += 12
+  if (saturated) score -= 30
+
+  const priority = priorityOf({ demand, supply, essential, licensed, saturated })
+  return {
+    kind,
+    priority,
+    score,
+    licensed,
+    saturated,
+    reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
+  }
+}
+
+function priorityOf(input: { demand: number; supply: number; essential: boolean; licensed: boolean; saturated: boolean }): FirstBuildPriority {
+  if (input.essential && input.supply === 0 && input.demand > 0 && input.licensed) return 'critical'
+  if (input.demand >= 3 && input.licensed && !input.saturated) return 'high'
+  if (input.demand > 0 && input.licensed && !input.saturated) return 'medium'
+  return 'low'
+}
+
+function recommendationReason(
+  kind: WorldBusinessKind,
+  input: { demand: number; supply: number; licensed: boolean; saturated: boolean },
+): string {
+  if (!input.licensed) return `${kind} is saturated for the current population. Grow demand before adding another.`
+  if (input.supply === 0 && input.demand > 0) return `No ${kind} service exists yet, and ${input.demand} citizens need it.`
+  if (input.demand > 0) return `${input.demand} citizens currently need more ${kind} capacity.`
+  if (input.saturated) return `${kind} supply is already at the current license limit.`
+  return `${kind} is available, but demand is not urgent yet.`
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {
@@ -460,6 +570,7 @@ function recordTransaction(
 function cloneArea(area: WorldArea): WorldArea {
   return {
     ...area,
+    claim: area.claim ? { ...area.claim } : undefined,
     citizens: area.citizens.map(cloneCitizen),
     businesses: area.businesses.map((business) => ({
       ...business,

@@ -3,9 +3,11 @@ import {
   COLLAPSE_HEALTH,
   HOSPITAL_BILL,
   INSURANCE_COVERAGE,
+  MAX_FOUNDER_AREA_RADIUS_KM,
   WORLD_SIM_HOUR_MS,
   advanceWorldArea,
   areaNeedsDashboard,
+  claimWorldArea,
   effectiveBusinessQuality,
   licenseSlotsForPopulation,
   type WorldArea,
@@ -59,6 +61,71 @@ const area = (over: Partial<WorldArea> = {}): WorldArea => ({
 })
 
 describe('advanceWorldArea — local real-time economy', () => {
+  test('a real founder can claim one small local area', () => {
+    const start = area({ citizens: [sim('founder', { kind: 'real' })] })
+    const claimed = claimWorldArea(start, {
+      founderCitizenId: 'founder',
+      label: 'Bucharest Sector 1',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: 2.5,
+      claimedAt: 123,
+      source: 'manual',
+    })
+
+    expect(claimed.ok).toBe(true)
+    if (!claimed.ok) throw new Error('expected claim to succeed')
+    expect(claimed.area.claim).toMatchObject({
+      founderCitizenId: 'founder',
+      label: 'Bucharest Sector 1',
+      radiusKm: 2.5,
+    })
+    expect(start.claim).toBeUndefined()
+  })
+
+  test('area claims reject non-real founders, second claims, and oversized areas', () => {
+    const start = area({ citizens: [sim('founder', { kind: 'real' }), sim('demo')] })
+    expect(claimWorldArea(start, {
+      founderCitizenId: 'demo',
+      label: 'Demo Area',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: 2,
+      claimedAt: 1,
+      source: 'ip',
+    })).toMatchObject({ ok: false, error: 'founder_not_found' })
+
+    expect(claimWorldArea(start, {
+      founderCitizenId: 'founder',
+      label: 'Too Big',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: MAX_FOUNDER_AREA_RADIUS_KM + 0.1,
+      claimedAt: 1,
+      source: 'manual',
+    })).toMatchObject({ ok: false, error: 'area_too_large' })
+
+    const first = claimWorldArea(start, {
+      founderCitizenId: 'founder',
+      label: 'Small Area',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: 1,
+      claimedAt: 1,
+      source: 'manual',
+    })
+    if (!first.ok) throw new Error('expected first claim to succeed')
+    expect(claimWorldArea(first.area, {
+      founderCitizenId: 'founder',
+      label: 'Second Area',
+      centerLat: 45,
+      centerLng: 27,
+      radiusKm: 1,
+      claimedAt: 2,
+      source: 'manual',
+    })).toMatchObject({ ok: false, error: 'area_already_claimed' })
+  })
+
   test('a thirsty Sim Citizen buys water and the business earns from that purchase', () => {
     const start = area({
       citizens: [sim('c1', { needs: fullNeeds({ hydration: 50 }) })],
@@ -211,6 +278,12 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.supply.water).toBe(2)
     expect(dash.licenseSlots.water).toBe(1)
     expect(dash.saturation.water).toBe(2)
+    expect(dash.firstBuild[0]).toMatchObject({
+      kind: 'housing',
+      priority: 'critical',
+      licensed: true,
+      saturated: false,
+    })
   })
 
   test('license slots unlock more of the same business as population grows', () => {
@@ -218,5 +291,29 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(licenseSlotsForPopulation(60, 'food')).toBe(2)
     expect(licenseSlotsForPopulation(79, 'clinic')).toBe(0)
     expect(licenseSlotsForPopulation(80, 'clinic')).toBe(1)
+  })
+
+  test('first-build guidance recommends missing essentials and demotes saturated services', () => {
+    const thirstyHungryCitizens = Array.from({ length: 4 }, (_, i) => sim(`c${i}`, {
+      needs: fullNeeds({ hydration: 45, hunger: 45 }),
+    }))
+    const dash = areaNeedsDashboard(area({
+      citizens: thirstyHungryCitizens,
+      businesses: [
+        business('water', 'water1'),
+        business('water', 'water2'),
+      ],
+    }))
+
+    expect(dash.firstBuild[0]).toMatchObject({
+      kind: 'food',
+      priority: 'critical',
+      licensed: true,
+      saturated: false,
+    })
+    const water = dash.firstBuild.find((rec) => rec.kind === 'water')!
+    expect(water.saturated).toBe(true)
+    expect(water.priority).toBe('low')
+    expect(water.reason).toContain('saturated')
   })
 })
