@@ -224,6 +224,11 @@ export async function createStreetScene(
   scene.add(key)
 
   // ── Sky: stars after dark, drifting clouds by day ───────
+  // Birds are declared here (outer scope) so the animate loop can move them;
+  // they're only populated in the daytime branch below.
+  const birds: { mesh: THREE.Mesh; speed: number; radius: number; angle: number; y: number; baseScale: number }[] = []
+  let birdMat: THREE.MeshBasicMaterial
+  let birdGeo: THREE.BufferGeometry
   if (night) {
     const starCount = 1400
     const positions = new Float32Array(starCount * 3)
@@ -247,6 +252,28 @@ export async function createStreetScene(
       cloud.rotation.x = -Math.PI / 2
       cloud.scale.setScalar(0.7 + Math.random() * 1.8)
       scene.add(cloud)
+    }
+    // ── Daytime birds: small dark V-shapes drifting across the sky ──
+    // Declared in outer scope (above) for dispose; populated here for daytime.
+    birdMat = new THREE.MeshBasicMaterial({ color: 0x2a2a33, side: THREE.DoubleSide, fog: false })
+    birdGeo = new THREE.BufferGeometry()
+    birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+      0, 0, 0,    -0.6, -0.15, 0,   0, 0.05, 0,    0.6, -0.15, 0,
+    ], 3))
+    birdGeo.setIndex([0, 1, 2,  0, 2, 3])
+    for (let i = 0; i < 5; i++) {
+      const m = new THREE.Mesh(birdGeo, birdMat)
+      const baseScale = 1.5 + Math.random() * 1.5
+      m.scale.setScalar(baseScale)
+      scene.add(m)
+      birds.push({
+        mesh: m,
+        speed: 0.04 + Math.random() * 0.05,
+        radius: 80 + Math.random() * 120,
+        angle: Math.random() * Math.PI * 2,
+        y: 120 + Math.random() * 80,
+        baseScale,
+      })
     }
   }
 
@@ -894,6 +921,21 @@ export async function createStreetScene(
       precipPoints.position.z = p.z
       precipPoints.geometry.attributes.position.needsUpdate = true
     }
+    // Birds drift in slow circles overhead (daytime only). Each bird flies its
+    // own radius + altitude, banking slightly on turns. The wing flap is a
+    // cheap scale.y oscillation — enough to read as "alive" at sky distance.
+    for (const b of birds) {
+      b.angle += b.speed * dt
+      b.mesh.position.set(
+        p.x + Math.cos(b.angle) * b.radius,
+        b.y,
+        p.z + Math.sin(b.angle) * b.radius,
+      )
+      // Face the direction of travel along the circle.
+      b.mesh.rotation.y = -b.angle - Math.PI / 2
+      // Gentle wing flap via scale.y oscillation (0.7–1.0 of baseScale).
+      b.mesh.scale.y = b.baseScale * (0.7 + 0.3 * (0.5 + 0.5 * Math.sin(b.angle * 8)))
+    }
     renderer.render(scene, camera)
   }
   animate()
@@ -933,6 +975,10 @@ export async function createStreetScene(
       shadowMat.dispose()
       shadowTex.dispose()
       shadow.geometry.dispose()
+      if (birds.length) {
+        birdMat.dispose()
+        birdGeo.dispose()
+      }
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh
         if (mesh.geometry) mesh.geometry.dispose()
