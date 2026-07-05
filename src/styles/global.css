@@ -1507,6 +1507,15 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 
 .google-section { display: flex; flex-direction: column; gap: 10px; }
+
+/* Notifications opt-in section (Profile panel). */
+.notif-section { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.notif-reasons {
+  margin: 0; padding-left: 18px;
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--muted);
+}
+.notif-reasons li { line-height: 1.4; }
 .google-linked {
   display: flex;
   align-items: center;

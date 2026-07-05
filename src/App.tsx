@@ -24,6 +24,7 @@ import Welcome from './components/panels/Welcome'
 import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
+import { useNotifications } from './lib/useNotifications'
 import { useGame } from './store/gameStore'
 
 // Human-readable dialog labels so screen readers announce the drawer's purpose.
@@ -51,6 +52,11 @@ export default function App() {
 
   const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
+
+  // Web notifications — fires system notifications when the tab is hidden
+  // (activity done, streak at risk, needs critical). Only active after the
+  // player explicitly enables it from the Profile panel.
+  useNotifications()
 
   // The heartbeat of the world: one tick per real second. The first tick
   // after load also settles everything that happened while you were away —
