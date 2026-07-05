@@ -129,7 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader('Content-Type', 'image/png')
       res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=3600')
       res.status(200).send(bytes)
-    } catch {
+    } catch (error) {
+      console.error('avatar GET failed', { cid, error: error instanceof Error ? error.message : String(error) })
       res.status(500).end()
     }
     return
@@ -185,7 +186,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
 
     res.status(200).json({ ok: true, url: `/api/avatar?cid=${citizenId}&v=${Date.now()}` })
-  } catch {
+  } catch (error) {
+    console.error('avatar POST failed', { error: error instanceof Error ? error.message : String(error) })
     res.status(500).json({ ok: false, error: 'The avatar studio is briefly unavailable.' })
   }
 }
