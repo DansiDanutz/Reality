@@ -283,8 +283,11 @@ export async function createStreetScene(
   const scene = new THREE.Scene()
   // Sky color tracks the real local hour — smooth dawn/dusk transitions
   // instead of a binary day/night flip. Fog matches so distance fades into
-  // the same hue.
-  const skyColor = skyColorForHour(localHour)
+  // the same hue. Weather blends the sky toward grey (rain) or pale white
+  // (snow) so a stormy sky reads as overcast, not just wet.
+  let skyColor = skyColorForHour(localHour)
+  if (precip === 'rain') skyColor = lerpColor(skyColor, 0x4a5058, 0.55) // 55% toward overcast grey
+  else if (precip === 'snow') skyColor = lerpColor(skyColor, 0xb8c0c8, 0.4) // 40% toward pale white
   scene.background = new THREE.Color(skyColor)
   // Rain doubles the fog density — the world closes in, as it does in a downpour
   const fogBase = night ? 0.0042 : 0.0015
