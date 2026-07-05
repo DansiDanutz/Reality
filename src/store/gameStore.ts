@@ -30,7 +30,7 @@ import { zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
-import { rollLuckyMoment, RARITY_META } from '../game/luckyMoments'
+import { rollLuckyMoment, pickLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { upgradeOutcome } from '../game/businessUpgrades'
 import {
   challengesForDay,
@@ -686,7 +686,21 @@ export const useGame = create<GameState>()(
         // rollEvent above: ~0.05%/live-tick, $1k-50k rewards. Fires regardless
         // of activity (it's *news*, not chaos) but never during away spans.
         if (!wasAway) {
-          const lucky = rollLuckyMoment()
+          // First-win guarantee: a new citizen (< 20 min old) who has never
+          // seen a lucky moment gets a dramatically boosted chance so their
+          // first session includes the dopamine hit. Without this, the 0.05%
+          // chance means a new player might play for days without ever
+          // experiencing the system -- and never learn it exists. The boost
+          // is ~5% per tick for 20 min, guaranteeing a hit in the first
+          // session. After the first moment, normal rarity resumes.
+          const isNew = s.citizen && (now - s.citizen.createdAt < 20 * 60_000)
+          const needsFirstWin = s.luckyMomentsSeen === 0 && isNew
+          // 5% per tick for 20 min => ~100% chance the first session lands one.
+          // Uses pickLuckyMoment (no chance gate) so the weighted pick + cash
+          // roll use the real RNG, undistorted by the boosted gate.
+          const lucky = needsFirstWin
+            ? (Math.random() < 0.05 ? pickLuckyMoment() : null)
+            : rollLuckyMoment()
           if (lucky) {
             const prog = applyXp(level, xp, lucky.xp)
             level = prog.level
