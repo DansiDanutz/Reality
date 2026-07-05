@@ -44,7 +44,7 @@ import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | null
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
@@ -343,7 +343,9 @@ const FRESH = {
   hudDockOrder: ['objectives', 'citizen', 'vitals', 'guide', 'finance'] as string[],
 }
 
-const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
+// The life journal — capped at 100 entries so the Journal panel has weeks of
+// history without bloating the save. Most-recent-first (new entries unshift).
+const note = (log: string[], msg: string) => [msg, ...log].slice(0, 100)
 
 let toastId = 0
 const withToast = (

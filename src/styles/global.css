@@ -1757,6 +1757,28 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   accent-color: var(--gold);
   cursor: pointer;
 }
+
+/* Journal — the life-story timeline. */
+.journal-cta { margin-top: 8px; }
+.journal-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 10px;
+  max-height: 60vh; overflow-y: auto;
+}
+.journal-entry {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+  border-left: 2px solid var(--line);
+  animation: journal-fade 240ms var(--ease-out);
+}
+@keyframes journal-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.journal-bullet { color: var(--gold); font-size: 14px; line-height: 1.4; flex-shrink: 0; }
+.journal-text { font-size: 13px; line-height: 1.5; }
 .google-linked {
   display: flex;
   align-items: center;
