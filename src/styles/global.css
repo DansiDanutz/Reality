@@ -619,6 +619,55 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .next-goal-row { flex-direction: column; align-items: flex-start; gap: 6px; }
 }
 
+/* Daily challenges block — 3 fresh goals per real day. */
+.daily-challenges {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(106,255,176,0.06), rgba(106,255,176,0.01));
+  border: 1px solid rgba(106,255,176,0.18);
+}
+.daily-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.daily-title { font-weight: 600; font-size: 14px; }
+.daily-count { color: var(--muted); font-size: 12px; }
+.daily-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.daily-item {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 10px; border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+}
+.daily-item.complete { background: rgba(67,217,163,0.06); }
+.daily-item-label {
+  display: flex; align-items: center; gap: 8px; font-size: 13px;
+}
+.daily-item-mark { font-size: 14px; width: 16px; }
+.daily-item.complete .daily-item-mark { color: var(--ok); }
+.daily-item-text { flex: 1; }
+.daily-item-difficulty {
+  font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); padding: 1px 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+}
+.daily-item-progress { display: flex; align-items: center; gap: 8px; }
+.daily-item-track {
+  flex: 1; height: 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.06); overflow: hidden;
+}
+.daily-item-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(to right, var(--ok), var(--sky));
+  transition: width 500ms var(--ease-out);
+}
+.daily-item-count { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.daily-bonus {
+  margin-top: 4px; padding-top: 8px;
+  border-top: 1px dashed rgba(106,255,176,0.15);
+  font-size: 12px; text-align: center;
+}
+.daily-bonus-claimed { color: var(--ok); font-weight: 600; }
+.daily-bonus-pending { color: var(--gold); font-weight: 600; }
+
 /* Nav badge dot — signals "ready to claim" on the 🏆 button */
 .nav-badge { position: relative; }
 .nav-dot {
