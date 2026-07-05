@@ -2427,3 +2427,154 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+/* Mystery Boxes — the gacha panel. */
+
+.box-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+@media (max-width: 480px) {
+  .box-grid { grid-template-columns: 1fr; }
+}
+
+.box-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 18px 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+.box-card:hover:not(.locked) {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+.box-card:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.box-emoji {
+  font-size: 32px;
+  line-height: 1;
+  animation: box-float 3s ease-in-out infinite;
+}
+@keyframes box-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.box-name {
+  font-size: 13px; font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.box-price {
+  font-size: 16px; font-weight: 700;
+  color: var(--gold);
+}
+.box-ev {
+  font-size: 11px; color: var(--muted);
+}
+.box-locked-msg {
+  font-size: 10px; color: var(--warn);
+  margin-top: 2px;
+}
+
+/* Tier accents */
+.box-standard { border-color: rgba(180, 180, 200, 0.25); }
+.box-premium { border-color: rgba(125, 216, 255, 0.3); }
+.box-premium .box-emoji { filter: drop-shadow(0 0 6px rgba(125, 216, 255, 0.3)); }
+.box-legendary {
+  border-color: rgba(255, 215, 106, 0.35);
+  background: linear-gradient(135deg, rgba(255,215,106,0.04), transparent);
+}
+.box-legendary .box-emoji {
+  filter: drop-shadow(0 0 8px rgba(255, 215, 106, 0.4));
+  animation: box-float 3s ease-in-out infinite, box-glow 2s ease-in-out infinite;
+}
+@keyframes box-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 215, 106, 0.4)); }
+  50% { filter: drop-shadow(0 0 14px rgba(255, 215, 106, 0.65)); }
+}
+
+.box-disclaimer {
+  font-size: 11px;
+  margin-top: 8px;
+  opacity: 0.7;
+}
+
+/* Reveal overlay — the anticipation moment. */
+.box-reveal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 12, 20, 0.82);
+  backdrop-filter: blur(8px);
+  animation: confirm-fade 200ms var(--ease-out);
+}
+.box-reveal-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 32px 40px;
+  text-align: center;
+  animation: box-reveal-pop 500ms var(--ease-out);
+}
+@keyframes box-reveal-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.box-reveal-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+.box-reveal-icon.shaking {
+  animation: box-shake 0.4s ease-in-out infinite;
+}
+@keyframes box-shake {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-8deg) scale(1.08); }
+  75% { transform: rotate(8deg) scale(1.08); }
+}
+.box-reveal-rarity {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.box-reveal-label {
+  font-size: 14px; color: var(--text);
+}
+.box-reveal-reward {
+  font-size: 18px; font-weight: 700;
+}
+.box-reveal-icon-big {
+  font-size: 40px;
+  margin-top: 4px;
+  animation: box-icon-bounce 600ms var(--ease-out) 200ms both;
+}
+@keyframes box-icon-bounce {
+  0% { transform: translateY(-20px); opacity: 0; }
+  60% { transform: translateY(6px); }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Reveal tone variants */
+.box-reveal-common .box-reveal-rarity { color: var(--muted); }
+.box-reveal-common .box-reveal-reward { color: var(--text); }
+.box-reveal-rare .box-reveal-rarity { color: var(--sky); }
+.box-reveal-rare .box-reveal-reward { color: var(--sky); }
+.box-reveal-rare .box-reveal-card {
+  box-shadow: 0 0 50px rgba(125, 216, 255, 0.2);
+}
+.box-reveal-jackpot .box-reveal-rarity {
+  color: #ffd76a;
+  font-size: 24px;
+  text-shadow: 0 0 12px rgba(255, 215, 106, 0.5);
+}
+.box-reveal-jackpot .box-reveal-reward { color: #ffd76a; }
+.box-reveal-jackpot .box-reveal-card {
+  box-shadow: 0 0 60px rgba(255, 215, 106, 0.35);
+}
+.box-reveal-jackpot .box-reveal-icon {
+  animation: box-shake 0.4s ease-in-out infinite, box-glow 1s ease-in-out infinite;
+}

@@ -23,6 +23,7 @@ import HealthGuide from './components/panels/HealthGuide'
 import JournalPanel from './components/panels/JournalPanel'
 import KitchenPanel from './components/panels/KitchenPanel'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
+import MysteryBoxPanel from './components/panels/MysteryBoxPanel'
 import TargetsIntro from './components/panels/TargetsIntro'
 import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
@@ -42,6 +43,7 @@ const PANEL_LABELS: Record<string, string> = {
   cook: 'Kitchen',
   achievements: 'Achievements',
   journal: 'Your life so far',
+  boxes: 'Mystery Boxes',
 }
 
 // MapLibre is heavy — split it out so the shell paints instantly
@@ -56,7 +58,7 @@ export default function App() {
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // Web notifications — fires system notifications when the tab is hidden
@@ -181,6 +183,7 @@ export default function App() {
           {panel === 'cook' && <KitchenPanel />}
           {panel === 'achievements' && <AchievementsPanel />}
           {panel === 'journal' && <JournalPanel />}
+          {panel === 'boxes' && <MysteryBoxPanel />}
         </div>
       )}
     </div>

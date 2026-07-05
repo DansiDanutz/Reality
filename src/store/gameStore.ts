@@ -32,6 +32,7 @@ import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/a
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, pickLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
+import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
 import {
   challengesForDay,
   challengeProgress,
@@ -46,7 +47,7 @@ import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
@@ -94,6 +95,7 @@ export function migrateSave(persisted: unknown): GameState {
   if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
+        if (state && state.mysteryBoxesOpened === undefined) state.mysteryBoxesOpened = 0
         if (state && state.savingsGoal === undefined) state.savingsGoal = 0
         if (state && state.savingsGoalReached === undefined) state.savingsGoalReached = false
         // sawAchievementsPanel: existing players who've completed the original
@@ -305,6 +307,12 @@ interface GameState {
   buy: (itemId: string) => void
   /** Upgrade a business to the next level — multiplies its income. */
   upgradeBusiness: (assetId: string) => void
+  /** Open a mystery box — the gacha loop. Returns the reward for reveal. */
+  openMysteryBox: (tier: BoxTier) => void
+  /** The most recent mystery box result (transient — for the reveal animation). */
+  lastBoxReward: { label: string; cash: number; xp: number; rarity: string; icon: string; tier: BoxTier } | null
+  /** Lifetime count of boxes opened. */
+  mysteryBoxesOpened: number
   placeAt: (lat: number, lng: number) => void
   cancelPlacing: () => void
   collectIncome: () => void
@@ -358,11 +366,13 @@ const FRESH = {
   streakBest: 0,
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
+  mysteryBoxesOpened: 0,
   milestonesCelebrated: [] as number[],
   savingsGoal: 0,
   savingsGoalReached: false,
   awayReport: null as string | null,
   celebration: null as GameState['celebration'],
+  lastBoxReward: null as GameState['lastBoxReward'],
   celebrationQueue: [] as GameState['celebrationQueue'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
@@ -1536,6 +1546,26 @@ export const useGame = create<GameState>()(
         })
       },
 
+      openMysteryBox: (tier) => {
+        const s = get()
+        const def = MYSTERY_BOXES[tier]
+        if (s.money < def.cost) {
+          set({ toasts: withToast(s.toasts, `Need ${formatMoney(def.cost)} for a ${def.name}.`, 'blocked') })
+          return
+        }
+        const reward = openBox(tier)
+        const prog = applyXp(s.level, s.xp, reward.xp)
+        set({
+          money: s.money - def.cost + reward.cash,
+          level: prog.level,
+          xp: prog.xp,
+          mysteryBoxesOpened: s.mysteryBoxesOpened + 1,
+          lastBoxReward: { ...reward, tier },
+          toasts: withToast(s.toasts, `${reward.icon} ${def.name}: ${reward.label} +${formatMoney(reward.cash)}, +${reward.xp} XP`, reward.rarity === 'jackpot' ? 'legendary' : reward.rarity === 'rare' ? 'lucky' : 'gold'),
+          log: note(s.log, `Opened a ${def.name} (${formatMoney(def.cost)}): ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
+        })
+      },
+
       // Achievements: idempotent — claiming twice is a no-op. Grants XP + cash
       // bounty (the society pays its achievers). UI offers the claim button only
       // when the achievement isUnlocked and not yet claimed.
@@ -1604,6 +1634,7 @@ export const useGame = create<GameState>()(
               key !== 'awayReport' &&
               key !== 'celebration' &&
               key !== 'celebrationQueue' &&
+              key !== 'lastBoxReward' &&
               key !== 'toasts' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
