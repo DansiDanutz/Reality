@@ -598,6 +598,9 @@ describe('advanceWorldArea — local real-time economy', () => {
       priority: 'critical',
       licensed: true,
       saturated: false,
+      estimatedHourlyRevenue: 56,
+      estimatedHourlyWageCost: 16,
+      estimatedHourlyProfit: 40,
     })
   })
 
@@ -625,6 +628,9 @@ describe('advanceWorldArea — local real-time economy', () => {
       priority: 'critical',
       licensed: true,
       saturated: false,
+      estimatedHourlyRevenue: 56,
+      estimatedHourlyWageCost: 30,
+      estimatedHourlyProfit: 26,
     })
     const water = dash.firstBuild.find((rec) => rec.kind === 'water')!
     expect(water.saturated).toBe(true)

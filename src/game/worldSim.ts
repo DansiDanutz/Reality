@@ -97,6 +97,9 @@ export interface FirstBuildRecommendation {
   score: number
   licensed: boolean
   saturated: boolean
+  estimatedHourlyRevenue: number
+  estimatedHourlyWageCost: number
+  estimatedHourlyProfit: number
   reason: string
 }
 
@@ -421,14 +424,16 @@ function buildRecommendation(
   if (essential && supply === 0) score += 30
   if (licensed) score += 12
   if (saturated) score -= 30
+  const estimate = estimateFirstBuildEconomics(kind, demand)
 
   const priority = priorityOf({ demand, supply, essential, licensed, saturated })
   return {
     kind,
     priority,
-    score,
+    score: roundMoney(score),
     licensed,
     saturated,
+    ...estimate,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
   }
 }
@@ -457,6 +462,21 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
     unemployedCitizens: activeCitizens.length - employedCitizens,
     openPositions,
     understaffedBusinesses,
+  }
+}
+
+function estimateFirstBuildEconomics(
+  kind: WorldBusinessKind,
+  demand: number,
+): Pick<FirstBuildRecommendation, 'estimatedHourlyRevenue' | 'estimatedHourlyWageCost' | 'estimatedHourlyProfit'> {
+  const blueprint = DEFAULT_BUSINESS_BLUEPRINTS[kind]
+  const servedDemand = Math.min(demand, BASE_CAPACITY_PER_HOUR[kind])
+  const estimatedHourlyRevenue = roundMoney(servedDemand * (blueprint.price ?? DEFAULT_PRICES[kind]))
+  const estimatedHourlyWageCost = roundMoney(TARGET_STAFF_BY_KIND[kind] * (blueprint.wagePerHour ?? DEFAULT_WORKER_WAGE))
+  return {
+    estimatedHourlyRevenue,
+    estimatedHourlyWageCost,
+    estimatedHourlyProfit: roundMoney(estimatedHourlyRevenue - estimatedHourlyWageCost),
   }
 }
 
