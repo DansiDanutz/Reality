@@ -104,10 +104,11 @@ async function createClaimedArea(
     now: command.now,
     citizens: [newAreaFounder(command.founder)],
     businesses: [],
-    transactions: [founderCreditTransaction(areaId, command.now, command.founder)],
+    transactions: [],
   }
   const claimed = claimWorldArea(seed, command.claim)
   if (!claimed.ok) return { ok: false, error: claimed.error, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
+  claimed.area.transactions.push(founderCreditTransaction(areaId, command.now, command.founder))
 
   await repo.saveArea(claimed.area)
   return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }

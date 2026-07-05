@@ -208,6 +208,7 @@ describe('runWorldServerCommand', () => {
 
     expect(result).toMatchObject({ ok: false, error: 'invalid_area_label' })
     expect(result.area?.claim).toBeUndefined()
+    expect(result.area?.transactions).toEqual([])
     expect(repo.saves).toBe(0)
   })
 
