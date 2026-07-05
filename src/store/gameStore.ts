@@ -31,7 +31,7 @@ import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, pickLuckyMoment, RARITY_META } from '../game/luckyMoments'
-import { upgradeOutcome } from '../game/businessUpgrades'
+import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
 import {
   challengesForDay,
   challengeProgress,
@@ -1335,6 +1335,12 @@ export const useGame = create<GameState>()(
           ),
           toasts: withToast(s.toasts, `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold'),
           log: note(s.log, `${asset.name} upgraded to level ${out.newLevel} (income ${formatMoney(out.newIncome)}/day) for ${formatMoney(out.cost)}.`),
+          // Maxing a business (L10) is a multi-month achievement — the
+          // geometric cost curve means ~$millions invested. It earns the
+          // gold-tier celebration overlay.
+          celebration: out.newLevel >= MAX_BUSINESS_LEVEL && !s.celebration
+            ? { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }
+            : s.celebration,
         })
       },
 
