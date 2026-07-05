@@ -310,6 +310,13 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .needs-health-value.ok { color: var(--ok); }
 .needs-health-value.low { color: var(--warn); }
 .needs-health-value.crit { color: var(--crit); }
+@media (prefers-reduced-motion: no-preference) {
+  .needs-health-value.crit { animation: hp-crit-pulse 1.2s ease-in-out infinite; }
+  @keyframes hp-crit-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.08); }
+  }
+}
 /* Illness chip — sits by HP; one tap opens the pharmacy shelf */
 .needs-illness {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -338,6 +345,16 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .need-fill.ok { background: linear-gradient(to top, var(--ok), #7be8c4); box-shadow: 0 0 12px rgba(67, 217, 163, 0.4); }
 .need-fill.low { background: linear-gradient(to top, var(--warn), #f5c76a); box-shadow: 0 0 12px rgba(232, 163, 61, 0.4); }
 .need-fill.crit { background: linear-gradient(to top, var(--crit), #f2767a); box-shadow: 0 0 12px rgba(229, 72, 77, 0.5); }
+/* Critical needs pulse — the urgency cue that makes starvation *feel*
+   urgent. A static red bar is easy to ignore; a pulsing one demands action.
+   Guarded by prefers-reduced-motion for vestibular sensitivity. */
+@media (prefers-reduced-motion: no-preference) {
+  .need-fill.crit { animation: need-crit-pulse 1.4s ease-in-out infinite; }
+  @keyframes need-crit-pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(229, 72, 77, 0.5); }
+    50% { box-shadow: 0 0 18px rgba(229, 72, 77, 0.85); }
+  }
+}
 .need-value { font-size: 10px; font-weight: 600; }
 .need-value.ok { color: var(--ok); }
 .need-value.low { color: var(--warn); }
