@@ -267,6 +267,74 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'worker_already_hired' })
   })
 
+  test('buyInsurance intent pays a premium to an insurance business and marks coverage', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected insurance purchase to succeed')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(455)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBe('ins1')
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(45)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+    expect(start.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
+  })
+
+  test('buyInsurance intent rejects duplicate coverage, wrong business type, and insufficient funds', () => {
+    const insured = claimedArea({
+      citizens: [sim('resident', { money: 500, insuranceBusinessId: 'ins1' })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder' })],
+    })
+    expect(applyWorldIntent(insured, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })).toMatchObject({ ok: false, error: 'already_insured' })
+
+    const wrongType = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('clinic', 'clinic1', { ownerId: 'founder' })],
+    })
+    expect(applyWorldIntent(wrongType, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'clinic1',
+    })).toMatchObject({ ok: false, error: 'not_insurance_business' })
+
+    const broke = claimedArea({
+      citizens: [sim('resident', { money: 10 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', price: 45 })],
+    })
+    expect(applyWorldIntent(broke, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })).toMatchObject({ ok: false, error: 'insufficient_funds' })
+  })
+
+  test('buyInsurance intent rejects hospitalized citizens', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500, state: { kind: 'hospitalized', until: 10 * HOUR } })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder' })],
+    })
+
+    expect(applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+  })
+
   test('a thirsty Sim Citizen buys water and the business earns from that purchase', () => {
     const start = area({
       citizens: [sim('c1', { needs: fullNeeds({ hydration: 50 }) })],

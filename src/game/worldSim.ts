@@ -52,6 +52,7 @@ export type WorldTransactionKind =
   | 'business_build'
   | 'worker_wage'
   | 'hospital_bill'
+  | 'insurance_premium'
   | 'insurance_payout'
   | 'medical_debt'
 
@@ -143,6 +144,11 @@ export type WorldIntent =
     businessId: string
     workerCitizenId: string
   }
+  | {
+    type: 'buyInsurance'
+    actorCitizenId: string
+    insuranceBusinessId: string
+  }
 
 export type WorldIntentError =
   | 'area_not_claimed'
@@ -153,8 +159,10 @@ export type WorldIntentError =
   | 'business_id_taken'
   | 'business_not_found'
   | 'business_saturated'
+  | 'already_insured'
   | 'insufficient_funds'
   | 'invalid_business'
+  | 'not_insurance_business'
   | 'worker_not_found'
   | 'worker_unavailable'
   | 'worker_already_hired'
@@ -284,6 +292,8 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
       return buildBusinessFromIntent(area, intent)
     case 'hireWorker':
       return hireWorkerFromIntent(area, intent)
+    case 'buyInsurance':
+      return buyInsuranceFromIntent(area, intent)
   }
 }
 
@@ -477,6 +487,35 @@ function hireWorkerFromIntent(
 
   worker.jobBusinessId = business.id
   business.staffCitizenIds.push(worker.id)
+  return { ok: true, area }
+}
+
+function buyInsuranceFromIntent(
+  area: WorldArea,
+  intent: Extract<WorldIntent, { type: 'buyInsurance' }>,
+): ApplyWorldIntentResult {
+  const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
+  if (!actor) return { ok: false, area, error: 'actor_not_found' }
+  if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
+  if (actor.insuranceBusinessId) return { ok: false, area, error: 'already_insured' }
+
+  const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
+  if (!insurer) return { ok: false, area, error: 'business_not_found' }
+  if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
+
+  const premium = insurer.price ?? DEFAULT_PRICES.insurance
+  if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
+
+  actor.money = roundMoney(actor.money - premium)
+  actor.insuranceBusinessId = insurer.id
+  insurer.cash = roundMoney(insurer.cash + premium)
+  recordTransaction(area, area.now, {
+    kind: 'insurance_premium',
+    fromId: actor.id,
+    toId: insurer.id,
+    amount: premium,
+    memo: `${actor.name} bought insurance from ${insurer.name}.`,
+  })
   return { ok: true, area }
 }
 
