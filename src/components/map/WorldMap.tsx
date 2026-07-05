@@ -56,10 +56,14 @@ function greatCircle(from: [number, number], to: [number, number], steps = 64): 
   return points
 }
 
-function beaconElement(kind: string, name: string, own: boolean): HTMLDivElement {
+function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0): HTMLDivElement {
   const el = document.createElement('div')
-  el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}`
-  el.title = name
+  // 'ready' modifier lights up business beacons with a ring when they have
+  // collectable income — surfaces the economy loop on the map so the player
+  // sees which holdings need attention at a glance.
+  const ready = own && kind === 'business' && pendingIncome >= 1 ? ' ready' : ''
+  el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}${ready}`
+  el.title = ready ? `${name} — ${Math.floor(pendingIncome)} ready to collect` : name
   return el
 }
 
@@ -179,7 +183,7 @@ export default function WorldMap() {
     if (!map) return
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = assets.map((a) =>
-      new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true) }).setLngLat([a.lng, a.lat]).addTo(map),
+      new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true, a.pendingIncome) }).setLngLat([a.lng, a.lat]).addTo(map),
     )
   }, [assets])
 
