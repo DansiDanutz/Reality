@@ -713,6 +713,19 @@ export const useGame = create<GameState>()(
         // A little chaos, only during live play
         let needs = out.needs
         let money = out.money
+        // Accurate per-tick income accumulator — the sum of every positive
+        // cash inflow this tick (wages, lucky, bounty, streak, daily, bonus,
+        // business pending). Replaces the imprecise max(0, money - s.money)
+        // approximation, which double-counted wages and clamped spending.
+        let cashEarnedThisTick = 0
+        const addEarned = (amt: number) => { if (amt > 0) cashEarnedThisTick += amt }
+        // Wages + business pending-income accrual are baked into out.money
+        // (the engine's starting cash). Capture them as earned income.
+        addEarned(out.wagesEarned)
+        {
+          const pendingDelta = out.assets.reduce((sum, a) => sum + a.pendingIncome, 0) - s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
+          addEarned(pendingDelta)
+        }
         if (!wasAway && !s.activity) {
           const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
           if (event) {
@@ -747,6 +760,7 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += lucky.money
+            addEarned(lucky.money)
             s.luckyMomentsSeen = s.luckyMomentsSeen + 1
             if (s.luckyMomentsSeen === 1) track('first_lucky')
             if (!s.luckyMomentsSeenIds.includes(lucky.id)) {
@@ -783,6 +797,7 @@ export const useGame = create<GameState>()(
           level = prog.level
           xp = prog.xp
           money += totalBounty
+          addEarned(totalBounty)
           for (const a of newlyEarned) {
             toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'achieve')
             log = note(log, `Achievement unlocked: ${a.title} — ${a.detail}`)
@@ -829,6 +844,7 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += streakOut.cash
+            addEarned(streakOut.cash)
             const label = streakLabel(streakOut.length)
             toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'streak')
             log = note(log, `Day ${streakOut.length} streak — claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
@@ -896,19 +912,20 @@ export const useGame = create<GameState>()(
         }
 
         // Increment by this tick's deltas. mealsCooked is the per-tick meal
-        // count; shiftsCompleted is per-tick shifts; wagesEarned + collected
-        // income is the cash earned this tick. Sleeps are inferred from
-        // activity kind transitions (a finished sleep activity).
+        // count; shiftsCompleted is per-tick shifts. cashEarnedThisTick is the
+        // precise sum of every positive inflow (wages, lucky, bounty, streak,
+        // daily, bonus, business pending) -- replacing the old imprecise
+        // approximation that double-counted wages and clamped spending.
+        // Sleeps are inferred from activity kind transitions.
         const mealsDelta = out.mealsCooked
         const shiftsDelta = out.shiftsCompleted
-        const cashDelta = out.wagesEarned + Math.max(0, money - s.money)
         const sleptDelta = s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
-        if (mealsDelta || shiftsDelta || cashDelta || sleptDelta) {
+        if (mealsDelta || shiftsDelta || cashEarnedThisTick || sleptDelta) {
           dailyCounters = {
             ...dailyCounters,
             mealsToday: dailyCounters.mealsToday + mealsDelta,
             shiftsToday: dailyCounters.shiftsToday + shiftsDelta,
-            earnedToday: dailyCounters.earnedToday + cashDelta,
+            earnedToday: dailyCounters.earnedToday + cashEarnedThisTick,
             sleptToday: dailyCounters.sleptToday + sleptDelta,
           }
         }
@@ -940,6 +957,7 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += totalCash
+            addEarned(totalCash)
             dailyClaimed = [...dailyClaimed, ...newlyComplete.map((c) => c.id)]
             // All-3-complete bonus
             if (!dailyBonusClaimed) {
@@ -949,6 +967,7 @@ export const useGame = create<GameState>()(
                 level = bprog.level
                 xp = bprog.xp
                 money += DAILY_COMPLETE_BONUS.cash
+                addEarned(DAILY_COMPLETE_BONUS.cash)
                 dailyBonusClaimed = true
                 track('daily_complete')
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
