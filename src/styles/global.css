@@ -746,6 +746,22 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .item-buy { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .item-price { font-size: 13px; font-weight: 600; color: var(--gold); }
 
+/* Business upgrade — level badge, income, upgrade button. */
+.asset-level {
+  display: inline-block; margin-left: 8px;
+  font-size: 11px; font-weight: 600;
+  color: var(--gold);
+  padding: 1px 5px; border-radius: 3px;
+  background: rgba(240, 180, 41, 0.1);
+}
+.asset-income { font-size: 11px; color: var(--ok); }
+.asset-actions { gap: 4px; }
+.asset-maxed {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+  color: var(--muted); padding: 2px 6px;
+  border: 1px solid var(--line); border-radius: 3px;
+}
+
 /* ── Kitchen (cook-combos) ─────────────────────────────── */
 .kitchen-callout {
   display: flex;

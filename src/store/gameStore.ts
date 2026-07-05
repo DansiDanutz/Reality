@@ -31,6 +31,7 @@ import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, RARITY_META } from '../game/luckyMoments'
+import { upgradeOutcome } from '../game/businessUpgrades'
 import {
   challengesForDay,
   challengeProgress,
@@ -268,6 +269,8 @@ interface GameState {
   leaveActivity: () => void
   takeJob: (jobId: string) => void
   buy: (itemId: string) => void
+  /** Upgrade a business to the next level — multiplies its income. */
+  upgradeBusiness: (assetId: string) => void
   placeAt: (lat: number, lng: number) => void
   cancelPlacing: () => void
   collectIncome: () => void
@@ -1219,6 +1222,34 @@ export const useGame = create<GameState>()(
           totalCollected: s.totalCollected + Math.floor(total),
           toasts: withToast(s.toasts, `Collected ${formatMoney(Math.floor(total))}`, 'gold'),
           log: note(s.log, `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
+        })
+      },
+
+      upgradeBusiness: (assetId) => {
+        // The incremental-depth hook: pay cash to multiply a business's
+        // income. baseIncome is derived from current income / level (since
+        // incomePerDay stores the level-adjusted value, the engine reads it
+        // directly with no changes). See businessUpgrades.ts for the curve.
+        const s = get()
+        const asset = s.assets.find((a) => a.id === assetId)
+        if (!asset || asset.kind !== 'business') return
+        const level = asset.level ?? 1
+        const baseIncome = asset.incomePerDay / level
+        const out = upgradeOutcome(baseIncome, level)
+        if (!out) return
+        if (s.money < out.cost) {
+          set({ log: note(s.log, `Upgrade needs ${formatMoney(out.cost)} — you have ${formatMoney(s.money)}.`) })
+          return
+        }
+        set({
+          money: s.money - out.cost,
+          assets: s.assets.map((a) =>
+            a.id === assetId
+              ? { ...a, level: out.newLevel, incomePerDay: out.newIncome }
+              : a,
+          ),
+          toasts: withToast(s.toasts, `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold'),
+          log: note(s.log, `${asset.name} upgraded to level ${out.newLevel} (income ${formatMoney(out.newIncome)}/day) for ${formatMoney(out.cost)}.`),
         })
       },
 
