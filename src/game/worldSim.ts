@@ -962,6 +962,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
         retainedStaffIds.push(workerId)
         continue
       }
+      if (worker.jobBusinessId !== business.id) continue
       const paid = Math.min(due, business.cash)
       if (paid <= 0) continue
       business.cash = roundMoney(business.cash - paid)

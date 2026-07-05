@@ -686,6 +686,22 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('stale roster entries do not receive wages', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'other-business' })],
+      businesses: [business('food', 'food1', { cash: 100, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(100)
+    expect(out.citizens[0].jobBusinessId).toBe('other-business')
+    expect(out.businesses[0].cash).toBe(100)
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(summary.wagesPaid).toBe(0)
+    expect(out.transactions).toEqual([])
+  })
+
   test('unpaid workers leave before they can boost service capacity', () => {
     const start = area({
       citizens: [
