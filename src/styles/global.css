@@ -1304,6 +1304,12 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .away-text { font-size: 13.5px; line-height: 1.5; }
 .away-pending { font-size: 15px; font-weight: 600; margin: 4px 0 0; }
 .away-streak { font-size: 12px; color: #ff8a3d; margin: 2px 0 0; }
+.away-thought {
+  font-size: 12px; font-style: italic; color: var(--muted);
+  margin: 6px 0 0; line-height: 1.5;
+  border-left: 2px solid var(--line);
+  padding-left: 10px;
+}
 .away-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Install banner — surfaces after engagement, not on load. Slim and dismissable. */
