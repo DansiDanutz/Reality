@@ -136,8 +136,8 @@ function isWorldBusiness(value: unknown): value is WorldBusiness {
   if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isOneOf(value.kind, BUSINESS_KINDS)) return false
   if (!isNonEmptyString(value.ownerId) || !isMoney(value.cash) || !Array.isArray(value.staffCitizenIds)) return false
   if (!value.staffCitizenIds.every(isNonEmptyString)) return false
-  if (value.price !== undefined && !isMoney(value.price)) return false
-  if (value.wagePerHour !== undefined && !isMoney(value.wagePerHour)) return false
+  if (value.price !== undefined && !isPositiveMoney(value.price)) return false
+  if (value.wagePerHour !== undefined && !isPositiveMoney(value.wagePerHour)) return false
   if (value.quality !== undefined && (!isFiniteNumber(value.quality) || value.quality <= 0)) return false
   if (value.createdBy !== undefined && !isNonEmptyString(value.createdBy)) return false
   if (value.inheritedFrom !== undefined && !isNonEmptyString(value.inheritedFrom)) return false

@@ -203,6 +203,14 @@ describe('worldSim snapshot codec', () => {
     badBusiness.businesses[0].staffCitizenIds = ['']
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badBusiness }))).toEqual({ ok: false, error: 'invalid_area' })
 
+    const freeBusiness = area()
+    freeBusiness.businesses[0].price = 0
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: freeBusiness }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const unpaidBusiness = area()
+    unpaidBusiness.businesses[0].wagePerHour = 0
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: unpaidBusiness }))).toEqual({ ok: false, error: 'invalid_area' })
+
     const badPolicyDate = area()
     badPolicyDate.citizens[0].insurancePaidUntil = Number.POSITIVE_INFINITY
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badPolicyDate }))).toEqual({ ok: false, error: 'invalid_area' })
