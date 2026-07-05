@@ -2,6 +2,14 @@
 
 html, body, #root { height: 100%; }
 
+/* Animated starfield — fixed behind everything, canvas-driven. */
+.starfield-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 body {
   background:
     radial-gradient(ellipse 80% 60% at 70% 20%, rgba(38, 64, 120, 0.22), transparent 60%),
@@ -15,7 +23,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.app { position: relative; height: 100%; }
+.app { position: relative; height: 100%; z-index: 1; }
 
 /* Skip link (issue #34) — keyboard users jump straight to the map. Off-screen
    until focused, then a high-contrast pill at the top-left. */
