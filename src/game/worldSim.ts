@@ -204,6 +204,8 @@ export const INSURANCE_COVERAGE = 0.6
 export const DEFAULT_WORKER_WAGE = 12
 export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
+export const MIN_BUSINESS_QUALITY = 0.35
+export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
 
 const ACTIVE_NEED_RATES: Needs = {
   hunger: 3.8,
@@ -378,9 +380,7 @@ export function licenseSlotsForPopulation(population: number, kind: WorldBusines
 
 export function effectiveBusinessQuality(business: WorldBusiness, area: WorldArea): number {
   const owner = area.citizens.find((c) => c.id === business.ownerId)
-  const activeStaff = business.staffCitizenIds
-    .map((id) => area.citizens.find((c) => c.id === id))
-    .filter((c): c is WorldCitizen => c?.state.kind === 'active').length
+  const activeStaff = activeStaffCount(area, business)
   const ownerUnavailable = owner?.state.kind === 'hospitalized'
   const unmanagedPenalty = ownerUnavailable && activeStaff === 0 ? 0.35 : 1
   return clamp((business.quality ?? 1) * unmanagedPenalty, 0.15, 1.5)
@@ -585,6 +585,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
     }
   }
 
+  degradeUnmanagedBusinesses(area, context.hours)
   payWorkerWages(area, context)
 
   for (const citizen of area.citizens) {
@@ -604,6 +605,16 @@ function recoverIfReady(citizen: WorldCitizen, at: number): void {
     hunger: Math.max(citizen.needs.hunger, 45),
     hydration: Math.max(citizen.needs.hydration, 45),
     energy: Math.max(citizen.needs.energy, 35),
+  }
+}
+
+function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
+  if (hours <= 0) return
+  const loss = UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR * hours
+  for (const business of area.businesses) {
+    const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
+    if (owner?.state.kind !== 'hospitalized' || activeStaffCount(area, business) > 0) continue
+    business.quality = roundMoney(Math.max(MIN_BUSINESS_QUALITY, (business.quality ?? 1) - loss))
   }
 }
 
@@ -716,12 +727,16 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
 }
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {
-  const activeStaff = business.staffCitizenIds
-    .map((id) => area.citizens.find((c) => c.id === id))
-    .filter((c): c is WorldCitizen => c?.state.kind === 'active').length
+  const activeStaff = activeStaffCount(area, business)
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+}
+
+function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
+  return business.staffCitizenIds
+    .map((id) => area.citizens.find((c) => c.id === id))
+    .filter((c): c is WorldCitizen => c?.state.kind === 'active').length
 }
 
 function applyServiceEffect(citizen: WorldCitizen, effect: ServiceEffect, quality: number): void {

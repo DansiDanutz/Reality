@@ -4,6 +4,8 @@ import {
   HOSPITAL_BILL,
   INSURANCE_COVERAGE,
   MAX_FOUNDER_AREA_RADIUS_KM,
+  MIN_BUSINESS_QUALITY,
+  UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR,
   WORLD_SIM_HOUR_MS,
   advanceWorldArea,
   areaNeedsDashboard,
@@ -535,6 +537,28 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(effectiveBusinessQuality(unstaffed.businesses[0], unstaffed)).toBeCloseTo(0.35)
     expect(effectiveBusinessQuality(staffed.businesses[0], staffed)).toBe(1)
+  })
+
+  test('unstaffed businesses lose base quality while the owner is hospitalized', () => {
+    const owner = sim('owner', { state: { kind: 'hospitalized', until: 10 * HOUR } })
+    const worker = sim('worker')
+    const start = area({
+      citizens: [owner, worker],
+      businesses: [
+        business('water', 'unstaffed', { ownerId: 'owner', quality: 1 }),
+        business('food', 'staffed', { ownerId: 'owner', staffCitizenIds: ['worker'], quality: 1 }),
+        business('housing', 'floor', { ownerId: 'owner', quality: MIN_BUSINESS_QUALITY }),
+      ],
+    })
+
+    const out = advanceWorldArea(start, 8 * HOUR).area
+
+    expect(out.businesses.find((b) => b.id === 'unstaffed')!.quality).toBeCloseTo(
+      1 - UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR * 8,
+    )
+    expect(out.businesses.find((b) => b.id === 'staffed')!.quality).toBe(1)
+    expect(out.businesses.find((b) => b.id === 'floor')!.quality).toBe(MIN_BUSINESS_QUALITY)
+    expect(start.businesses.find((b) => b.id === 'unstaffed')!.quality).toBe(1)
   })
 
   test('dashboard separates sim demand, real demand, licenses, and saturation', () => {
