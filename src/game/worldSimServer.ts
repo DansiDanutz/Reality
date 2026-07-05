@@ -14,6 +14,7 @@ import {
   type WorldIntentError,
   type WorldTransaction,
 } from './worldSim'
+import type { Needs } from './types'
 
 export interface WorldAreaRepository {
   loadArea: (areaId: string) => Promise<WorldArea | null>
@@ -48,6 +49,7 @@ export type WorldServerCommandError =
   | 'area_not_found'
   | 'invalid_area_identity'
   | 'invalid_command_time'
+  | 'invalid_founder_profile'
   | 'founder_mismatch'
   | 'actor_mismatch'
   | 'time_moved_backward'
@@ -94,6 +96,7 @@ async function createClaimedArea(
   ) {
     return { ok: false, error: 'founder_not_found' }
   }
+  if (!isValidFounderProfile(command.founder)) return { ok: false, error: 'invalid_founder_profile' }
   if (
     command.founder.id !== command.authenticatedFounderId ||
     command.claim.founderCitizenId !== command.authenticatedFounderId
@@ -148,6 +151,25 @@ async function advanceStoredArea(
 
 function isValidCommandTime(now: number): boolean {
   return Number.isFinite(now) && now >= 0
+}
+
+function isValidFounderProfile(founder: WorldCitizen): boolean {
+  return founder.kind === 'real' &&
+    Boolean(founder.name.trim()) &&
+    isPercentage(founder.health) &&
+    isValidNeeds(founder.needs)
+}
+
+function isValidNeeds(needs: Needs): boolean {
+  return isPercentage(needs.hunger) &&
+    isPercentage(needs.hydration) &&
+    isPercentage(needs.energy) &&
+    isPercentage(needs.hygiene) &&
+    isPercentage(needs.fun)
+}
+
+function isPercentage(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= 100
 }
 
 function founderCreditTransaction(areaId: string, at: number, founder: WorldCitizen): WorldTransaction {

@@ -211,6 +211,57 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('rejects invalid founder profiles before loading state', async () => {
+    const claim = {
+      founderCitizenId: 'founder',
+      label: 'Founder District',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: 2,
+      claimedAt: 1_000,
+      source: 'manual' as const,
+    }
+
+    const blankNameRepo = new MemoryWorldRepo()
+    const blankName = await runWorldServerCommand(blankNameRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder', { name: '   ' }),
+      claim,
+    })
+
+    const simFounderRepo = new MemoryWorldRepo()
+    const simFounder = await runWorldServerCommand(simFounderRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder', { kind: 'sim' }),
+      claim,
+    })
+
+    const badNeedsRepo = new MemoryWorldRepo()
+    const badNeeds = await runWorldServerCommand(badNeedsRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder', { needs: needs({ hydration: 101 }) }),
+      claim,
+    })
+
+    expect(blankName).toEqual({ ok: false, error: 'invalid_founder_profile' })
+    expect(simFounder).toEqual({ ok: false, error: 'invalid_founder_profile' })
+    expect(badNeeds).toEqual({ ok: false, error: 'invalid_founder_profile' })
+    expect(blankNameRepo.loads + simFounderRepo.loads + badNeedsRepo.loads).toBe(0)
+    expect(blankNameRepo.saves + simFounderRepo.saves + badNeedsRepo.saves).toBe(0)
+  })
+
   test('rejects claimed-area creation with a blank persisted label', async () => {
     const repo = new MemoryWorldRepo()
     const result = await runWorldServerCommand(repo, {
