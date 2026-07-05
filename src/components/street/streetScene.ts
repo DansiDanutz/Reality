@@ -200,15 +200,20 @@ function makeGrassTexture(night: boolean): THREE.CanvasTexture {
   canvas.width = 256
   canvas.height = 256
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = night ? '#0c1410' : '#5f7c46'
+  // A drier, more olive base than a vivid lawn — the general ground reads as
+  // natural verge/scrub so the (brighter) parks stand out as cared-for green.
+  ctx.fillStyle = night ? '#0c1410' : '#63704a'
   ctx.fillRect(0, 0, 256, 256)
-  const speckles = night ? ['#0a110d', '#101a13', '#0e1712'] : ['#547040', '#6a884e', '#4e6a3c', '#728f55']
-  for (let i = 0; i < 1600; i++) {
+  // Mix green with dry-grass and bare-earth speckles for tonal richness up close.
+  const speckles = night
+    ? ['#0a110d', '#101a13', '#0e1712']
+    : ['#586b3e', '#6f7a4c', '#867a52', '#7a6f48', '#5a6440', '#928454']
+  for (let i = 0; i < 1900; i++) {
     ctx.fillStyle = speckles[Math.floor(Math.random() * speckles.length)]
     ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2 + Math.random() * 2)
   }
   // blade strokes
-  ctx.strokeStyle = night ? 'rgba(20, 34, 24, 0.5)' : 'rgba(110, 140, 84, 0.5)'
+  ctx.strokeStyle = night ? 'rgba(20, 34, 24, 0.5)' : 'rgba(120, 132, 84, 0.45)'
   ctx.lineWidth = 1
   for (let i = 0; i < 220; i++) {
     const x = Math.random() * 256
@@ -222,6 +227,34 @@ function makeGrassTexture(night: boolean): THREE.CanvasTexture {
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
   return texture
+}
+
+/**
+ * A gradient sky dome — a deep zenith fading down to a bright horizon, so the
+ * sky reads with real atmospheric depth instead of one flat colour. Vertex-
+ * coloured (no shader), rendered inside-out, unfogged, and large enough to sit
+ * behind everything. The horizon band matches the fog/background colour so the
+ * distant ground fades seamlessly into the sky.
+ */
+function makeSkyDome(horizon: number, zenith: number): THREE.Mesh {
+  const R = 1150
+  const geo = new THREE.SphereGeometry(R, 24, 16)
+  const pos = geo.attributes.position
+  const colors = new Float32Array(pos.count * 3)
+  const hz = new THREE.Color(horizon)
+  const zn = new THREE.Color(zenith)
+  const c = new THREE.Color()
+  for (let i = 0; i < pos.count; i++) {
+    // Normalised height: a horizon band low down, reaching full zenith ~55% up.
+    const t = Math.min(1, Math.max(0, pos.getY(i) / R / 0.55))
+    c.copy(hz).lerp(zn, t)
+    colors[i * 3] = c.r
+    colors[i * 3 + 1] = c.g
+    colors[i * 3 + 2] = c.b
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })
+  return new THREE.Mesh(geo, mat)
 }
 
 export interface StreetMarker {
@@ -346,6 +379,15 @@ export async function createStreetScene(
   // Rain doubles the fog density — the world closes in, as it does in a downpour
   const fogBase = night ? 0.0042 : 0.0015
   scene.fog = new THREE.FogExp2(skyColor, raining ? fogBase * 2 : fogBase)
+
+  // Gradient sky: skyColor is the horizon (matches fog so the ground fades into
+  // it); the dome adds a deeper zenith overhead so the sky has depth. Time-
+  // accurate — at dusk the horizon glows warm while the zenith is twilight blue.
+  // Overcast just darkens slightly (no blue) so a stormy sky stays flat grey.
+  const zenith = (raining || snowing)
+    ? lerpColor(skyColor, 0x2a2e34, 0.35)
+    : lerpColor(skyColor, night ? 0x05080f : 0x1c3f7a, night ? 0.55 : 0.62)
+  scene.add(makeSkyDome(skyColor, zenith))
 
   const camera = new THREE.PerspectiveCamera(72, container.clientWidth / container.clientHeight, 0.1, 1200)
   camera.position.set(0, EYE_HEIGHT, 0)
