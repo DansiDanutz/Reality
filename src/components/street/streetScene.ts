@@ -891,6 +891,7 @@ export async function createStreetScene(
   let breathePhase = 0 // idle breathing sway accumulator
   let windPhase = 0 // slow-varying wind angle for precipitation drift
   let landDip = 0 // camera compression on landing; decays to 0 (m)
+  let landShake = 0 // horizontal landing shake magnitude; decays to 0
   let baseRoll = 0 // smoothed strafe head-tilt (radians)
   const fwdVec = new THREE.Vector3()
 
@@ -1029,6 +1030,9 @@ export async function createStreetScene(
       // dip depth scales with landing velocity (a hard landing dips more).
       // Capped so a tiny hop doesn't over-compress. Decays in the pose block.
       landDip = Math.max(landDip, Math.min(0.12, 0.04 + (Math.abs(vel.y) / JUMP_SPEED) * 0.08))
+      // Horizontal shake — a brief random x/z jitter on hard landings,
+      // scaled by impact. Sells the force of returning to earth.
+      landShake = Math.max(landShake, Math.min(0.04, Math.abs(vel.y) / JUMP_SPEED * 0.03))
     }
     wasAirborne = !grounded
 
@@ -1081,6 +1085,10 @@ export async function createStreetScene(
       // Landing dip decays exponentially (~150ms half-life). Applied to y so
       // the camera compresses downward on impact, then recovers.
       landDip *= Math.exp(-dt * 8)
+      // Landing shake decays faster (~80ms) — the jitter is sharper than the dip.
+      landShake *= Math.exp(-dt * 14)
+      const shakeX = calmMotion ? 0 : (Math.random() - 0.5) * landShake
+      const shakeZ = calmMotion ? 0 : (Math.random() - 0.5) * landShake
       // Strafe head-tilt — subtle camera roll proportional to sideways velocity.
       // Smooted toward target so it eases in/out, not snaps. Skipped for
       // reduced-motion (the bob is too; roll would compound any nausea).
@@ -1088,6 +1096,8 @@ export async function createStreetScene(
       const targetRoll = calmMotion ? 0 : -strafe * 0.025 * Math.min(1, speed / WALK_SPEED)
       baseRoll += (targetRoll - baseRoll) * Math.min(1, dt * 10)
       p.y = EYE_HEIGHT + jumpOffset + bob - landDip + breathing
+      p.x += shakeX
+      p.z += shakeZ
       camera.rotation.z = baseRoll
       // Player shadow follows the camera x/z; shrinks + fades with jump height.
       shadow.position.x = p.x
