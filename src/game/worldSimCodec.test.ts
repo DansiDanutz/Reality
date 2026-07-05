@@ -141,6 +141,37 @@ describe('worldSim snapshot codec', () => {
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateDebt }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects invalid persisted live references', () => {
+    const badClaimFounder = area()
+    badClaimFounder.claim!.founderCitizenId = 'sim1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badClaimFounder }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badOwner = area()
+    badOwner.businesses[0].ownerId = 'missing'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badOwner }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badStaff = area()
+    badStaff.businesses[0].staffCitizenIds = ['sim1']
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badStaff }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badHome = area()
+    badHome.citizens[1].homeBusinessId = 'ins1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badHome }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badJob = area()
+    badJob.citizens[1].jobBusinessId = 'missing'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badJob }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badInsurance = area()
+    badInsurance.citizens[1].insuranceBusinessId = 'missing'
+    badInsurance.citizens[1].insurancePaidUntil = 2_000
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badInsurance }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const markerOnlyInsurance = area()
+    markerOnlyInsurance.citizens[1].insuranceBusinessId = 'ins1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: markerOnlyInsurance }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('rejects impossible needs, money, claim coordinates, and transaction kinds', () => {
     const badNeeds = area()
     badNeeds.citizens[0].needs.hydration = 101

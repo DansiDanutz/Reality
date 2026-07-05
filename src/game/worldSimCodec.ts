@@ -82,7 +82,7 @@ function isWorldArea(value: unknown): value is WorldArea {
   ) {
     return false
   }
-  return true
+  return hasValidAreaReferences(value as unknown as WorldArea)
 }
 
 function isAreaClaim(value: unknown): value is WorldArea['claim'] {
@@ -155,6 +155,43 @@ function isWorldTransaction(value: unknown): value is WorldTransaction {
     isNonEmptyString(value.memo)
 }
 
+function hasValidAreaReferences(area: WorldArea): boolean {
+  const citizens = new Map(area.citizens.map((citizen) => [citizen.id, citizen]))
+  const businesses = new Map(area.businesses.map((business) => [business.id, business]))
+
+  if (area.claim && citizens.get(area.claim.founderCitizenId)?.kind !== 'real') return false
+
+  for (const business of area.businesses) {
+    if (!citizens.has(business.ownerId)) return false
+    if (!hasUniqueStrings(business.staffCitizenIds)) return false
+    for (const staffCitizenId of business.staffCitizenIds) {
+      const worker = citizens.get(staffCitizenId)
+      if (!worker || worker.jobBusinessId !== business.id) return false
+    }
+  }
+
+  for (const citizen of area.citizens) {
+    if (citizen.homeBusinessId !== undefined && businesses.get(citizen.homeBusinessId)?.kind !== 'housing') {
+      return false
+    }
+    if (citizen.jobBusinessId !== undefined) {
+      const employer = businesses.get(citizen.jobBusinessId)
+      if (!employer || !employer.staffCitizenIds.includes(citizen.id)) return false
+    }
+    if ((citizen.insuranceBusinessId === undefined) !== (citizen.insurancePaidUntil === undefined)) {
+      return false
+    }
+    if (
+      citizen.insuranceBusinessId !== undefined &&
+      businesses.get(citizen.insuranceBusinessId)?.kind !== 'insurance'
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
 function isNeeds(value: unknown): value is Needs {
   return isRecord(value) &&
     isPercentage(value.hunger) &&
@@ -174,6 +211,10 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
 
 function hasUniqueIds(values: { id: string }[]): boolean {
   return new Set(values.map((value) => value.id)).size === values.length
+}
+
+function hasUniqueStrings(values: string[]): boolean {
+  return new Set(values).size === values.length
 }
 
 function isNonEmptyString(value: unknown): value is string {
