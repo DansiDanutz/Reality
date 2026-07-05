@@ -364,6 +364,7 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
     jobId: s.jobId,
     assets: s.assets,
     businesses: s.assets.filter((a) => a.kind === 'business').length,
+    maxBusinessLevel: s.assets.filter((a) => a.kind === 'business').reduce((m, a) => Math.max(m, a.level ?? 1), 1),
     totalCollected: s.totalCollected,
     netWorth: netWorthOf(s.money, s.inventory, s.assets),
     level: s.level,

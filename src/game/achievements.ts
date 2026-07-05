@@ -20,6 +20,8 @@ export interface AchievementSnapshot {
   jobId: string | null
   assets: PlacedAsset[]
   businesses: number
+  /** Highest upgrade level reached across all businesses (1 if none owned/upgraded). */
+  maxBusinessLevel: number
   totalCollected: number
   netWorth: number
   level: number
@@ -306,6 +308,22 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: 'veteran', tier: 'gold', xp: 1500, bounty: 30000,
     isUnlocked: (s) => s.businesses >= 10,
     progress: (s) => ({ current: s.businesses, target: 10 }),
+  },
+  {
+    id: 'upgrader-3',
+    title: 'Tastemaker',
+    detail: 'Upgrade any business to level 3.',
+    category: 'veteran', tier: 'silver', xp: 250, bounty: 1500,
+    isUnlocked: (s) => s.maxBusinessLevel >= 3,
+    progress: (s) => ({ current: s.maxBusinessLevel, target: 3 }),
+  },
+  {
+    id: 'upgrader-5',
+    title: 'Empire of One',
+    detail: 'Upgrade any business to level 5 — the long-term grind.',
+    category: 'veteran', tier: 'gold', xp: 1000, bounty: 15000,
+    isUnlocked: (s) => s.maxBusinessLevel >= 5,
+    progress: (s) => ({ current: s.maxBusinessLevel, target: 5 }),
   },
 ]
 
