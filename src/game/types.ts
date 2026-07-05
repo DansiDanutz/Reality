@@ -20,8 +20,20 @@ export type ShopCategory =
   | 'education'
   | 'leisure'
   | 'pets'
+  | 'health'
   | 'home'
   | 'business'
+
+/**
+ * An acute illness — a stateful condition, not a one-shot life event.
+ * At most one at a time; it self-resolves at `endsAt` even with $0
+ * (the dignity floor extends to sickness). See docs/ILLNESS-RFC.md (#8).
+ */
+export interface Illness {
+  kind: 'cold' | 'flu'
+  /** ms timestamp when the illness naturally clears */
+  endsAt: number
+}
 
 export interface ShopItem {
   id: string
@@ -53,6 +65,8 @@ export interface ShopItem {
   pet?: PetConfig
   /** Groceries only: real days until this item spoils since it was last bought (Rule #1) */
   shelfLifeDays?: number
+  /** Medicine only: consuming clears this illness instantly (otherwise just a weak boost) */
+  cures?: Illness['kind']
 }
 
 export interface PetConfig {

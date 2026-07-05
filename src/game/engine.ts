@@ -1,5 +1,5 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
-import type { LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
+import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
 /**
  * Rule #1: Reality runs on REAL time. One hour in the world is one hour of
@@ -24,6 +24,41 @@ const RATES: Record<LifeMode, Needs> = {
 
 export const SHIFT_HOURS = 8
 export const SLEEP_HOURS = 8
+
+/**
+ * Illness (docs/ILLNESS-RFC.md, issue #8) — health phase 2. Two acute
+ * conditions, each tied to the need that prevents it: wash and you never
+ * catch a cold, sleep and you never catch the flu. Prevention is free;
+ * the pharmacy is only the exit.
+ */
+export const COLD_DURATION_MS = 2 * 24 * 3_600_000
+export const FLU_DURATION_MS = 24 * 3_600_000
+/** A cold makes rest 20% less effective — sluggish, not stopped */
+export const COLD_REGEN_MULT = 0.8
+/** Humane ceiling: even at need=0, at most one illness every ~5 days */
+export const ILLNESS_RISK_CAP = 0.2
+
+/**
+ * Daily illness probability from a single need: 0 at ≥40 (clean/rested
+ * citizens NEVER get sick), rising 5% per 10 points of neglect, capped.
+ */
+export function illnessRiskOf(need: number): number {
+  return Math.min(Math.max((40 - need) / 200, 0), ILLNESS_RISK_CAP)
+}
+
+/**
+ * The once-a-day illness roll. Cold (hygiene) and flu (energy) roll
+ * independently, but the citizen has one illness slot — cold wins ties.
+ * `rng` is injectable for tests, like rollEvent.
+ */
+export function rollIllness(needs: Needs, now: number, rng: () => number = Math.random): Illness | null {
+  if (rng() < illnessRiskOf(needs.hygiene)) return { kind: 'cold', endsAt: now + COLD_DURATION_MS }
+  if (rng() < illnessRiskOf(needs.energy)) return { kind: 'flu', endsAt: now + FLU_DURATION_MS }
+  return null
+}
+
+/** Flu means bed, not shifts — the work-block clause (cold never blocks) */
+export const fluBlocksWork = (illness: Illness | null | undefined): boolean => illness?.kind === 'flu'
 /** Self-care costs while you're away: a meal and a bottle of water */
 export const AUTO_MEAL_COST = 12
 export const AUTO_WATER_COST = 1
@@ -91,14 +126,17 @@ export interface WorldSlice {
 }
 
 /** Advance the world by real minutes in a given life mode. Pure. */
-export function advanceLife(slice: WorldSlice, minutes: number, mode: LifeMode): WorldSlice {
+export function advanceLife(slice: WorldSlice, minutes: number, mode: LifeMode, energyRegenMult = 1): WorldSlice {
   const h = minutes / 60
   const r = RATES[mode]
+  // A cold scales energy RECOVERY only (negative rate); awake drain is
+  // untouched — sick rest is shallow rest, not a faster burn (RFC §3).
+  const energyRate = r.energy < 0 ? r.energy * energyRegenMult : r.energy
 
   const needs: Needs = {
     hunger: clamp(slice.needs.hunger - r.hunger * h),
     hydration: clamp((slice.needs.hydration ?? 75) - r.hydration * h),
-    energy: clamp(slice.needs.energy - r.energy * h),
+    energy: clamp(slice.needs.energy - energyRate * h),
     hygiene: clamp(slice.needs.hygiene - r.hygiene * h),
     fun: clamp(slice.needs.fun - r.fun * h),
   }
@@ -133,6 +171,10 @@ export interface LiveInput extends WorldSlice {
   inventory?: Record<string, number>
   /** ms timestamp each grocery id was last restocked — the spoilage clock */
   groceryRestockedAt?: Record<string, number>
+  /** Active illness, at most one — cold or flu (docs/ILLNESS-RFC.md) */
+  illness?: Illness | null
+  /** ms timestamp of the last daily illness roll — the once-a-day cadence */
+  lastIllnessRollAt?: number
 }
 
 export interface LiveOutput extends WorldSlice {
@@ -157,6 +199,13 @@ export interface LiveOutput extends WorldSlice {
   groceryRestockedAt: Record<string, number>
   /** Names of groceries that spoiled past their real shelf life this span */
   spoiled: string[]
+  /** Illness after the span — caught, carried, or cleared on the real clock */
+  illness: Illness | null
+  lastIllnessRollAt: number
+  /** Set when the citizen fell ill during this span (for toasts/away report) */
+  caughtIllness: Illness['kind'] | null
+  /** Set when an illness self-resolved during this span */
+  recoveredFrom: Illness['kind'] | null
   summary: string[]
 }
 
@@ -174,11 +223,15 @@ const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
  * care of themselves: they buy meals when hungry and sleep when exhausted,
  * spending your money. Life costs money even while you're gone.
  */
-export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): LiveOutput {
+export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng: () => number = Math.random): LiveOutput {
   let world: WorldSlice = { needs: input.needs, health: input.health, assets: input.assets }
   let money = input.money
   let activity = input.activity
   let pets = (input.pets ?? []).map((p) => ({ ...p }))
+  let illness = input.illness ?? null
+  let lastIllnessRollAt = input.lastIllnessRollAt ?? 0
+  let caughtIllness: Illness['kind'] | null = null
+  let recoveredFrom: Illness['kind'] | null = null
   let shiftsCompleted = 0
   let xpGained = 0
   let autoMeals = 0
@@ -205,10 +258,26 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     const chunkEnd = Math.min(end, activity ? activity.endsAt : end, t + 60 * 60_000)
     const minutes = Math.max(0, (chunkEnd - t) / 60_000)
     const days = minutes / 60 / 24
-    world = advanceLife(world, minutes, modeOf(activity, input.hasHome))
+    world = advanceLife(world, minutes, modeOf(activity, input.hasHome), illness?.kind === 'cold' ? COLD_REGEN_MULT : 1)
     // Pets get hungry on the same real clock as the citizen
     if (pets.length) pets = pets.map((p) => ({ ...p, hunger: clamp(p.hunger - PET_HUNGER_PER_DAY * days) }))
     t = chunkEnd
+
+    // Illness lives on the real clock too: self-resolve first (the dignity
+    // floor — a broke citizen always rides it out), then at most ONE roll
+    // per real day, and never while already sick (no stacking, RFC §2).
+    if (illness && t >= illness.endsAt) {
+      recoveredFrom = illness.kind
+      illness = null
+    }
+    if (!illness && (lastIllnessRollAt === 0 || t - lastIllnessRollAt >= DAY_MS)) {
+      lastIllnessRollAt = t
+      const caught = rollIllness(world.needs, t, rng)
+      if (caught) {
+        illness = caught
+        caughtIllness = caught.kind
+      }
+    }
 
     // Resolve a finished activity — pay for exactly the hours it spanned
     if (activity && t >= activity.endsAt) {
@@ -292,6 +361,9 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     summary.push('a till filled up — it holds 3 days, then customers walk past')
   if (upkeepPaid >= 1) summary.push(`paid $${Math.round(upkeepPaid)} in upkeep (opex + property tax)`)
   if (mealsCooked > 0) summary.push('a meal came off the stove')
+  if (caughtIllness === 'cold') summary.push('caught a cold — rest works worse for 2 days (Cold Medicine, $15, cures it)')
+  if (caughtIllness === 'flu') summary.push('came down with the flu — no work until it passes (Flu Medicine, $35, cures it)')
+  if (recoveredFrom && !illness) summary.push(`shook off the ${recoveredFrom} — back to full strength`)
 
   // Groceries spoil on their own real shelf life (Rule #1) — a threshold
   // check, not a continuous decay, so one pass at the end of the span is
@@ -318,6 +390,10 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number): Li
     inventory: spoilage.inventory,
     groceryRestockedAt: spoilage.restockedAt,
     spoiled: spoilage.spoiled,
+    illness,
+    lastIllnessRollAt,
+    caughtIllness,
+    recoveredFrom,
     summary,
   }
 }

@@ -14,6 +14,7 @@ export default function MoodCard() {
   const citizen = useGame((s) => s.citizen)
   const needs = useGame((s) => s.needs)
   const health = useGame((s) => s.health)
+  const illness = useGame((s) => s.illness)
   const level = useGame((s) => s.level)
   const money = useGame((s) => s.money)
   const jobId = useGame((s) => s.jobId)
@@ -87,7 +88,10 @@ export default function MoodCard() {
           else img.style.display = 'none'
         }}
       />
-      <p className="mood-label">{MOOD_LABEL[mood]}</p>
+      {/* Sickness overrides the label, not the art — no sick sprites yet */}
+      <p className="mood-label">
+        {illness ? (illness.kind === 'cold' ? '🤧 Fighting a cold' : '🤒 Down with the flu') : MOOD_LABEL[mood]}
+      </p>
       <p className="mood-say" role="status">“{advice.text}”</p>
       {advice.cta && advice.action !== 'none' && (
         <button className="btn small primary" onClick={() => run(advice.action)}>

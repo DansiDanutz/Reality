@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { ENDGAME_IDS, EVENT_CHANCE, LIFE_EVENTS, RECIPES, SHOP_ITEMS, FOUNDER_BALANCE, itemById } from './catalog'
+import { ENDGAME_IDS, EVENT_CHANCE, JOBS, LIFE_EVENTS, RECIPES, SHOP_ITEMS, FOUNDER_BALANCE, itemById } from './catalog'
 import {
   AUTO_MEAL_COST,
   AUTO_WATER_COST,
+  COLD_DURATION_MS,
   COOK_MINUTES,
+  FLU_DURATION_MS,
+  ILLNESS_RISK_CAP,
   PENDING_CAP_DAYS,
   PET_QUIET_THRESHOLD,
   SHIFT_HOURS,
@@ -14,8 +17,11 @@ import {
   canCook,
   clamp,
   feedPet,
+  fluBlocksWork,
   hasKitchen,
+  illnessRiskOf,
   liveRealtime,
+  rollIllness,
   missingFor,
   netWorthOf,
   petFunBonus,
@@ -895,5 +901,121 @@ describe('grocery spoilage — real shelf life, Rule #1', () => {
     expect(out.inventory.chicken).toBe(0)
     expect(out.spoiled).toContain('Chicken Breast')
     expect(out.summary.join(' ')).toMatch(/spoiled/i)
+  })
+})
+
+describe('illness — health phase 2 (docs/ILLNESS-RFC.md, issue #8)', () => {
+  const DAY = 24 * HOUR
+  const base = (over: Partial<Parameters<typeof liveRealtime>[0]> = {}) => ({
+    ...world(),
+    money: 1000,
+    activity: null as Activity | null,
+    hasHome: true,
+    wageBonus: 0,
+    ...over,
+  })
+  const needsAt = (hygiene: number, energy: number) => ({ hunger: 80, hydration: 80, energy, hygiene, fun: 80 })
+
+  test('a clean, rested citizen NEVER gets sick — 1000 rolls, zero illnesses', () => {
+    for (let i = 0; i < 1000; i++) {
+      // rng()=0 is the unluckiest possible dice — still healthy at need ≥ 40
+      expect(rollIllness(needsAt(40 + (i % 60), 40 + ((i * 7) % 60)), 0, () => 0)).toBeNull()
+    }
+  })
+
+  test('risk rises monotonically as the need falls, capped at 20%/day', () => {
+    expect(illnessRiskOf(40)).toBe(0)
+    expect(illnessRiskOf(30)).toBeCloseTo(0.05)
+    expect(illnessRiskOf(20)).toBeCloseTo(0.1)
+    expect(illnessRiskOf(10)).toBeCloseTo(0.15)
+    expect(illnessRiskOf(0)).toBeCloseTo(ILLNESS_RISK_CAP)
+    expect(illnessRiskOf(0)).toBeLessThanOrEqual(0.2)
+  })
+
+  test('cold comes from hygiene, flu from energy — each tied to its need', () => {
+    expect(rollIllness(needsAt(0, 80), 0, () => 0)?.kind).toBe('cold')
+    expect(rollIllness(needsAt(80, 0), 0, () => 0)?.kind).toBe('flu')
+  })
+
+  test('illnesses never stack — a sick citizen keeps ONE illness, unchanged', () => {
+    const cold = { kind: 'cold' as const, endsAt: 2 * DAY }
+    // Filthy AND exhausted, with rng that would always infect — still just the cold
+    const out = liveRealtime(base({ needs: needsAt(0, 0), illness: cold }), 0, 1 * DAY, () => 0)
+    expect(out.illness?.kind).toBe('cold')
+    expect(out.illness?.endsAt).toBe(2 * DAY)
+  })
+
+  test('cold cuts energy RECOVERY by 20%; awake drain untouched', () => {
+    const slice = { needs: needsAt(80, 40), health: 100, assets: [] as PlacedAsset[] }
+    const well = advanceLife(slice, 60, 'sleepingHome')
+    const sick = advanceLife(slice, 60, 'sleepingHome', 0.8)
+    expect(well.needs.energy - slice.needs.energy).toBeCloseTo(16)
+    expect(sick.needs.energy - slice.needs.energy).toBeCloseTo(16 * 0.8)
+    const awakeWell = advanceLife(slice, 60, 'awake')
+    const awakeSick = advanceLife(slice, 60, 'awake', 0.8)
+    expect(awakeSick.needs.energy).toBeCloseTo(awakeWell.needs.energy)
+  })
+
+  test('flu blocks work; cold and health never do', () => {
+    expect(fluBlocksWork({ kind: 'flu', endsAt: 1 })).toBe(true)
+    expect(fluBlocksWork({ kind: 'cold', endsAt: 1 })).toBe(false)
+    expect(fluBlocksWork(null)).toBe(false)
+  })
+
+  test('every illness self-resolves, even with $0 — the dignity floor holds', () => {
+    const flu = { kind: 'flu' as const, endsAt: 1 * DAY }
+    const out = liveRealtime(base({ money: 0, illness: flu }), 0, 2 * DAY, () => 0.99)
+    expect(out.illness).toBeNull()
+    expect(out.recoveredFrom).toBe('flu')
+    expect(out.summary.join(' ')).toMatch(/shook off the flu/)
+  })
+
+  test('falling ill while away lands in the report summary', () => {
+    const out = liveRealtime(base({ needs: needsAt(0, 80) }), 0, 1 * DAY, () => 0)
+    expect(out.caughtIllness).toBe('cold')
+    expect(out.illness?.kind).toBe('cold')
+    expect(out.summary.join(' ')).toMatch(/caught a cold/)
+  })
+
+  test('the roll cadence is once per real day — no hourly dice', () => {
+    let calls = 0
+    const countingRng = () => {
+      calls += 1
+      return 0.99 // never infects, so every day keeps rolling
+    }
+    liveRealtime(base({ needs: needsAt(0, 0) }), 0, 3 * DAY, countingRng)
+    // one roll per day = 2 rng calls (cold check + flu check): 3 days ≈ 3 rolls
+    expect(calls).toBeLessThanOrEqual(8)
+    expect(calls).toBeGreaterThanOrEqual(4)
+  })
+
+  test('illness never touches health — damage stays the triage table\'s job', () => {
+    const flu = { kind: 'flu' as const, endsAt: 5 * DAY }
+    const sickDay = liveRealtime(base({ illness: flu }), 0, 8 * HOUR, () => 0.99)
+    const wellDay = liveRealtime(base(), 0, 8 * HOUR, () => 0.99)
+    expect(sickDay.health).toBe(wellDay.health)
+  })
+
+  test('pharmacy contract: matching cures, real prices, the health shelf', () => {
+    const cold = itemById('coldmeds')
+    const flu = itemById('flumeds')
+    expect(cold?.cures).toBe('cold')
+    expect(flu?.cures).toBe('flu')
+    expect(cold?.category).toBe('health')
+    expect(flu?.category).toBe('health')
+    expect(cold?.price).toBe(15)
+    expect(flu?.price).toBe(35)
+  })
+
+  test('economy guard: curing the worst illness costs less than one worst-job shift', () => {
+    const worstShift = Math.min(...JOBS.map((j) => j.wage)) * SHIFT_HOURS
+    expect(itemById('flumeds')!.price).toBeLessThan(worstShift)
+  })
+
+  test('durations are real days (Rule #1)', () => {
+    expect(COLD_DURATION_MS).toBe(2 * DAY)
+    expect(FLU_DURATION_MS).toBe(1 * DAY)
+    const caught = rollIllness(needsAt(0, 80), 1_000, () => 0)
+    expect(caught?.endsAt).toBe(1_000 + COLD_DURATION_MS)
   })
 })
