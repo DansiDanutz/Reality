@@ -450,6 +450,49 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 
 /* ── Drawer & panels ───────────────────────────────────── */
+/* Confirm dialog — in-app replacement for window.confirm. */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 12, 20, 0.7);
+  backdrop-filter: blur(4px);
+  animation: confirm-fade 200ms var(--ease-out);
+  padding: 20px;
+}
+@keyframes confirm-fade { from { opacity: 0; } to { opacity: 1; } }
+.confirm-dialog {
+  width: min(380px, 100%);
+  padding: 24px;
+  background: var(--surface-solid, #1a1f2e);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: confirm-pop 280ms var(--ease-out);
+}
+@keyframes confirm-pop {
+  from { transform: scale(0.94); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.confirm-title {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 500;
+  margin: 0 0 10px;
+  letter-spacing: 0.02em;
+}
+.confirm-body {
+  font-size: 13px; line-height: 1.5; color: var(--muted);
+  margin: 0 0 18px;
+}
+.confirm-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+}
+.btn.danger {
+  background: rgba(229, 72, 77, 0.16);
+  border-color: rgba(229, 72, 77, 0.4);
+  color: var(--crit);
+}
+.btn.danger:hover { background: rgba(229, 72, 77, 0.24); }
+
 .drawer {
   position: absolute;
   top: 68px; right: 22px; bottom: 22px;
