@@ -101,6 +101,22 @@ export default function StreetMode() {
           setCaption('Snow falls where you live.')
           setTimeout(() => setCaption(null), 4_000)
         }
+        // Golden-hour caption — when entering during dawn or dusk, a brief
+        // line acknowledging the light. The sky gradient + golden lighting
+        // already make these times beautiful; the caption adds voice.
+        const h = hourAt(anchor.lat, anchor.lng)
+        if (weather.condition === 'clear') {
+          if (h >= 6 && h < 8) {
+            setCaption('Dawn breaks over your city.')
+            setTimeout(() => setCaption(null), 4_000)
+          } else if (h >= 17 && h < 19) {
+            setCaption('The golden hour, where you live.')
+            setTimeout(() => setCaption(null), 4_000)
+          } else if (h >= 20 || h < 5) {
+            setCaption('Night, and the city glows.')
+            setTimeout(() => setCaption(null), 4_000)
+          }
+        }
         return createStreetScene(
           containerRef.current!,
           anchor,
