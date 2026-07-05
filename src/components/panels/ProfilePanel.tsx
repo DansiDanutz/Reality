@@ -181,6 +181,9 @@ export default function ProfilePanel() {
       <h3 className="profile-section-title">Sound</h3>
       <SoundSection />
 
+      <h3 className="profile-section-title">Savings goal</h3>
+      <SavingsGoalSection netWorth={netWorth} />
+
       <h3 className="profile-section-title">Keyboard shortcuts</h3>
       <ShortcutsSection />
 
@@ -354,6 +357,67 @@ function SoundSection() {
           <span className="sound-volume-value mono">{Math.round(volume * 100)}%</span>
         </label>
       )}
+    </div>
+  )
+}
+
+/**
+ * The savings goal — a player-set cash target with a live progress bar.
+ * Gives purpose to the earning loop: instead of "money goes up", the
+ * player has "I'm 60% of the way to the $50k studio". Quick-set buttons
+ * for common targets; the celebration fires from the tick when reached.
+ */
+const SAVINGS_PRESETS = [5_000, 25_000, 100_000, 500_000] as const
+
+function SavingsGoalSection({ netWorth }: { netWorth: number }) {
+  const goal = useGame((s) => s.savingsGoal)
+  const reached = useGame((s) => s.savingsGoalReached)
+  const setSavingsGoal = useGame((s) => s.setSavingsGoal)
+  const pct = goal > 0 ? Math.min(100, Math.round((netWorth / goal) * 100)) : 0
+
+  if (reached) {
+    return (
+      <div className="savings-goal">
+        <p className="savings-reached">🎯 Goal reached — {formatMoney(goal)}!</p>
+        <button className="btn small ghost" onClick={() => setSavingsGoal(0)}>
+          Clear goal
+        </button>
+        <button className="btn small primary" onClick={() => setSavingsGoal(goal)}>
+          Set a new goal
+        </button>
+      </div>
+    )
+  }
+
+  if (goal === 0) {
+    return (
+      <div className="savings-goal">
+        <p className="panel-sub">Set a target to work toward. Quick picks:</p>
+        <div className="savings-presets">
+          {SAVINGS_PRESETS.map((amt) => (
+            <button key={amt} className="btn small ghost" onClick={() => setSavingsGoal(amt)}>
+              {formatMoney(amt)}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="savings-goal">
+      <div className="savings-head">
+        <span className="savings-label">Saving for {formatMoney(goal)}</span>
+        <button className="btn small ghost savings-clear" onClick={() => setSavingsGoal(0)} aria-label="Clear savings goal">
+          ×
+        </button>
+      </div>
+      <div className="savings-bar" aria-label={`Savings progress: ${formatMoney(netWorth)} of ${formatMoney(goal)}`}>
+        <div className="savings-bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="savings-progress mono">
+        {formatMoney(netWorth)} / {formatMoney(goal)} · {pct}%
+      </span>
     </div>
   )
 }

@@ -93,6 +93,8 @@ export function migrateSave(persisted: unknown): GameState {
   if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
+        if (state && state.savingsGoal === undefined) state.savingsGoal = 0
+        if (state && state.savingsGoalReached === undefined) state.savingsGoalReached = false
         // sawAchievementsPanel: existing players who've completed the original
         // 8-step tutorial shouldn't be re-nudged to "discover achievements".
         // If they've claimed ≥7 tutorial steps (the original count), mark this
@@ -226,6 +228,12 @@ interface GameState {
   luckyMomentsSeenIds: string[]
   /** Week milestones already celebrated (1, 2, 4, 8, ...). Prevents re-firing. */
   milestonesCelebrated: number[]
+  /** Player-set savings goal (cash target, 0 = none). */
+  savingsGoal: number
+  /** True once the savings goal was reached + celebrated (idempotent). */
+  savingsGoalReached: boolean
+  /** Set or clear the savings goal. */
+  setSavingsGoal: (target: number) => void
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
@@ -337,6 +345,8 @@ const FRESH = {
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
   milestonesCelebrated: [] as number[],
+  savingsGoal: 0,
+  savingsGoalReached: false,
   awayReport: null as string | null,
   celebration: null as GameState['celebration'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
@@ -863,6 +873,28 @@ export const useGame = create<GameState>()(
           dailyClaimed = []
           dailyBonusClaimed = false
         }
+        // Savings goal — celebrate once when net worth crosses the player's
+        // self-set target. Checked here (after money is finalized by the
+        // chaos/lucky/achievement blocks above) so the net-worth read is
+        // current. Gives purpose to the earning loop: "I'm saving for the
+        // $50k studio" is a concrete, motivating goal the player chose.
+        if (s.savingsGoal > 0 && !s.savingsGoalReached) {
+          const netWorth = netWorthOf(money, s.inventory, out.assets)
+          if (netWorth >= s.savingsGoal) {
+            s.savingsGoalReached = true
+            if (!s.celebration) {
+              s.celebration = {
+                icon: '🎯',
+                title: 'Savings goal reached!',
+                detail: `You hit your ${formatMoney(s.savingsGoal)} target. Time to spend it — or set a new goal.`,
+                tone: 'gold',
+              }
+            }
+            toasts = withToast(toasts, `🎯 Savings goal reached — ${formatMoney(s.savingsGoal)}!`, 'achieve')
+            log = note(log, `Savings goal of ${formatMoney(s.savingsGoal)} reached.`)
+          }
+        }
+
         // Increment by this tick's deltas. mealsCooked is the per-tick meal
         // count; shiftsCompleted is per-tick shifts; wagesEarned + collected
         // income is the cash earned this tick. Sleeps are inferred from
@@ -961,6 +993,8 @@ export const useGame = create<GameState>()(
           luckyMomentsSeen: s.luckyMomentsSeen,
           luckyMomentsSeenIds: s.luckyMomentsSeenIds,
           milestonesCelebrated: s.milestonesCelebrated,
+          savingsGoal: s.savingsGoal,
+          savingsGoalReached: s.savingsGoalReached,
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
@@ -993,6 +1027,8 @@ export const useGame = create<GameState>()(
         set({ hudLayout: { ...get().hudLayout, [id]: { ...get().hudLayout[id], ...patch } } }),
       setDockOrder: (order) => set({ hudDockOrder: order }),
       resetHudLayout: () => set({ hudLayout: {} }),
+
+      setSavingsGoal: (target) => set({ savingsGoal: Math.max(0, Math.floor(target)), savingsGoalReached: false }),
 
       openMarket: (focus) => set({ marketFocus: focus ?? null, panel: 'shop' }),
 
