@@ -86,9 +86,13 @@ const PATTERNS: Record<ChimeKind, { freqs: number[]; step: number; dur: number; 
   // two octaves, louder and longer than anything else. The player should
   // instinctively look up when this plays.
   legendary: { freqs: [523.25, 659.25, 783.99, 1046.5, 1318.51], step: 0.09, dur: 0.6, peak: 0.065 }, // C5-E5-G5-C6-E6
+  // Blocked — a soft low double-buzz. The "you can't do that" sound, distinct
+  // from any positive chime. Lower octave, descending, short — communicates
+  // "no" without being harsh.
+  blocked: { freqs: [311.13, 261.63], step: 0.1, dur: 0.22, peak: 0.04 }, // Eb4-C4
 }
 
-export type ChimeKind = 'gold' | 'sky' | 'ok' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary'
+export type ChimeKind = 'gold' | 'sky' | 'ok' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary' | 'blocked'
 
 export function playChime(kind: ChimeKind): void {
   const context = ensureContext()
