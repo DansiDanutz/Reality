@@ -61,6 +61,12 @@ export default function ProfilePanel() {
   const level = useGame((s) => s.level)
   const xp = useGame((s) => s.xp)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const timesEaten = useGame((s) => s.timesEaten)
+  const timesSlept = useGame((s) => s.timesSlept)
+  const totalCollected = useGame((s) => s.totalCollected)
+  const achievementsClaimed = useGame((s) => s.achievementsClaimed)
+  const streakBest = useGame((s) => s.streakBest)
+  const luckyMomentsSeen = useGame((s) => s.luckyMomentsSeen)
 
   if (!citizen) return null
 
@@ -69,6 +75,7 @@ export default function ProfilePanel() {
   const daysLived = dayOfLife(citizen.createdAt)
   const businesses = assets.filter((a) => a.kind === 'business').length
   const homes = assets.filter((a) => a.kind === 'home').length
+  const pets = useGame.getState().pets.length
 
   const reach = reachOf(level, businesses, homes > 0, netWorth)
   const stats: { label: string; value: string }[] = [
@@ -118,6 +125,44 @@ export default function ProfilePanel() {
             <dd className="stat-value mono">{s.value}</dd>
           </div>
         ))}
+      </dl>
+
+      {/* Lifetime stats — the "your story so far" block. These counters give
+          long-term players a sense of accumulation and are the fuel for the
+          achievements + collection views. Every number here is a bragging
+          right and a reason to keep playing. */}
+      <h3 className="profile-section-title">Lifetime</h3>
+      <dl className="profile-stats">
+        <div className="profile-stat">
+          <dt className="stat-label">meals eaten</dt>
+          <dd className="stat-value mono">{timesEaten}</dd>
+        </div>
+        <div className="profile-stat">
+          <dt className="stat-label">nights slept</dt>
+          <dd className="stat-value mono">{timesSlept}</dd>
+        </div>
+        <div className="profile-stat">
+          <dt className="stat-label">income collected</dt>
+          <dd className="stat-value mono">{formatMoney(totalCollected)}</dd>
+        </div>
+        <div className="profile-stat">
+          <dt className="stat-label">achievements</dt>
+          <dd className="stat-value mono">{achievementsClaimed.length}</dd>
+        </div>
+        <div className="profile-stat">
+          <dt className="stat-label">best streak</dt>
+          <dd className="stat-value mono">{streakBest} days 🔥</dd>
+        </div>
+        <div className="profile-stat">
+          <dt className="stat-label">lucky moments</dt>
+          <dd className="stat-value mono">{luckyMomentsSeen} 🍀</dd>
+        </div>
+        {pets > 0 && (
+          <div className="profile-stat">
+            <dt className="stat-label">pets</dt>
+            <dd className="stat-value mono">{pets}</dd>
+          </div>
+        )}
       </dl>
 
       <h3 className="profile-section-title">Account</h3>
