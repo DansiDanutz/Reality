@@ -63,6 +63,14 @@ export type ToastTone = 'gold' | 'ok' | 'sky' | 'meal' | 'achieve' | 'streak' | 
 const SAVE_KEY = 'reality-save-v1'
 
 /**
+ * The persist schema version. zustand/persist only calls migrateSave when a
+ * stored save's version differs from this — adding a persisted field WITHOUT
+ * bumping this makes its backfill dead code for every existing save.
+ * Exported so migrateSave.test.ts can pin it to the latest migration.
+ */
+export const SAVE_VERSION = 6
+
+/**
  * Save migration — backfills fields added in later versions onto older
  * persisted states. Extracted from the persist config so it can be tested
  * in isolation (a regression here would silently corrupt every old save).
@@ -156,6 +164,46 @@ function dayIndexOf(now: number, lat?: number, lng?: number): number {
   }).format(new Date(now))
   // en-CA gives us ISO-like YYYY-MM-DD which Date.parse understands as UTC.
   return Math.floor(Date.parse(ymd + 'T00:00:00Z') / 86_400_000)
+}
+
+/**
+ * Milliseconds until the next LOCAL midnight at the citizen's anchor — the
+ * companion to dayIndexOf, using the same zone so "today ends" agrees with
+ * when the day index actually rolls over. Used by the notification engine
+ * (streak-at-risk / daily-incomplete fire in the pre-midnight window).
+ */
+export function msToLocalMidnight(now: number, lat?: number, lng?: number): number {
+  let zone: string
+  try {
+    zone = lat !== undefined && lng !== undefined ? zoneFor(lat, lng) : Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    zone = 'UTC'
+  }
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: zone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(now))
+    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0)
+    const elapsedMs = ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000
+    return 86_400_000 - elapsedMs
+  } catch {
+    return 86_400_000 - (now % 86_400_000)
+  }
+}
+
+/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
+function bumpBoughtToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const home = s.assets.find((a) => a.kind === 'home')
+  const anchorLat = home ? home.lat : s.citizen?.spawnLat
+  const anchorLng = home ? home.lng : s.citizen?.spawnLng
+  const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
+    : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 1, day: todayDay }
 }
 
 /**
@@ -716,14 +764,16 @@ export const useGame = create<GameState>()(
           xp = prog.xp
         }
         // Apply wage booster: add bonus wages on top of what the engine computed.
+        // The bonus is REAL money — added to the balance below once `money` is
+        // initialized from out.money (it previously appeared only in the toast).
         const wageMult = boosterMultiplier(cleanBoosters, 'wage', now)
+        const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
         if (out.shiftsCompleted > 0) {
-          const wageBonus = out.wagesEarned * (wageMult - 1)
-          if (wageBonus > 0) {
-            toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(Math.round(wageBonus))}!`, 'gold')
+          if (wageBonusEarned > 0) {
+            toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(wageBonusEarned)}!`, 'gold')
           }
           if (!wasAway) {
-            log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}${wageBonus > 0 ? ` (+${formatMoney(Math.round(wageBonus))} boosted)` : ''}.`)
+            log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}${wageBonusEarned > 0 ? ` (+${formatMoney(wageBonusEarned)} boosted)` : ''}.`)
             toasts = withToast(toasts, `Shift complete +${formatMoney(out.wagesEarned)}`, 'gold')
           }
         }
@@ -823,13 +873,16 @@ export const useGame = create<GameState>()(
 
         // A little chaos, only during live play
         let needs = out.needs
-        let money = out.money
-        // Accurate per-tick income accumulator — the sum of every positive
-        // cash inflow this tick (wages, lucky, bounty, streak, daily, bonus,
-        // business pending). Replaces the imprecise max(0, money - s.money)
-        // approximation, which double-counted wages and clamped spending.
+        let money = out.money + wageBonusEarned
+        // "Earned today" accumulator for the daily challenges — WORK income
+        // only (wages + business income), not windfalls. Streak cash, lucky
+        // moments, achievement bounties, and challenge rewards used to feed
+        // this too, which let a day-14 streak auto-complete "Earn $X today"
+        // on the first tick of the day with zero play. Real-life logic: you
+        // don't "earn" a lottery win. Away spans are also excluded — a
+        // 3-day absence must not complete an engagement challenge on return.
         let cashEarnedThisTick = 0
-        const addEarned = (amt: number) => { if (amt > 0) cashEarnedThisTick += amt }
+        const addEarned = (amt: number) => { if (amt > 0 && !wasAway) cashEarnedThisTick += amt }
         // Wages + business pending-income accrual are baked into out.money
         // (the engine's starting cash). Capture them as earned income.
         addEarned(out.wagesEarned * wageMult) // wages with booster
@@ -883,7 +936,6 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += lucky.money
-            addEarned(lucky.money)
             s.luckyMomentsSeen = s.luckyMomentsSeen + 1
             if (s.luckyMomentsSeen === 1) track('first_lucky')
             if (!s.luckyMomentsSeenIds.includes(lucky.id)) {
@@ -908,7 +960,8 @@ export const useGame = create<GameState>()(
         }
 
         // Golden opportunities — time-limited tap events during live play.
-        // Fires ~every 12 min. If one is already active, don't spawn another.
+        // Rare by design (~every 30 min of live ticks — see OPPORTUNITY_CHANCE).
+        // If one is already active, don't spawn another.
         if (!wasAway && !s.goldenOpportunity) {
           const opp = rollOpportunity()
           if (opp) {
@@ -934,7 +987,6 @@ export const useGame = create<GameState>()(
           level = prog.level
           xp = prog.xp
           money += totalBounty
-          addEarned(totalBounty)
           for (const a of newlyEarned) {
             toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'achieve')
             log = note(log, `🏆 Earned "${a.title}" — ${a.detail} (+${formatMoney(a.bounty)}, +${a.xp} XP).`)
@@ -981,7 +1033,6 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += streakOut.cash
-            addEarned(streakOut.cash)
             const label = streakLabel(streakOut.length)
             toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'streak')
             log = note(log, `🔥 Day ${streakOut.length} of your streak — the world rewards consistency. Claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
@@ -1006,7 +1057,9 @@ export const useGame = create<GameState>()(
         // regular level-up gets a toast; a 5th, 10th, 15th, 20th... gets the
         // full overlay. Checked here (end of tick) so it catches level-ups
         // from any XP source (engine, achievements, lucky, streak, daily).
-        if (level > startingLevel && level % 5 === 0 && level >= 5) {
+        // Compare 5-level BANDS, not `level % 5` — a multi-level jump (big XP
+        // batch, 4→6) must still celebrate crossing the milestone it skipped.
+        if (Math.floor(level / 5) > Math.floor(startingLevel / 5) && level >= 5) {
           celebrate({
             icon: '⭐',
             title: `Level ${level}!`,
@@ -1020,7 +1073,10 @@ export const useGame = create<GameState>()(
         let dailyCounters = s.dailyCounters
         let dailyClaimed = s.dailyClaimed
         let dailyBonusClaimed = s.dailyBonusClaimed
-        if (dailyCounters.day !== todayDay) {
+        // Monotonic guard (> not !==): moving the anchor westward (first home
+        // in an earlier timezone) decrements todayDay — that must NOT hand out
+        // a fresh challenge slate for a day that was already claimed.
+        if (todayDay > dailyCounters.day) {
           // Midnight rollover (or first tick of a new citizen): fresh slate.
           // On a genuine rollover (previous day was set, i.e. not the first
           // tick), log a day-header to the journal — gives the timeline a
@@ -1060,9 +1116,12 @@ export const useGame = create<GameState>()(
         // daily, bonus, business pending) -- replacing the old imprecise
         // approximation that double-counted wages and clamped spending.
         // Sleeps are inferred from activity kind transitions.
-        const mealsDelta = out.mealsCooked
-        const shiftsDelta = out.shiftsCompleted
-        const sleptDelta = s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
+        // Away spans never feed the challenge counters: challenges reward
+        // TODAY'S engagement, and a multi-day absence compressed into one
+        // tick would auto-complete "eat 2 meals" / "work a shift" on return.
+        const mealsDelta = wasAway ? 0 : out.mealsCooked
+        const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
+        const sleptDelta = !wasAway && s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
         if (mealsDelta || shiftsDelta || cashEarnedThisTick || sleptDelta) {
           dailyCounters = {
             ...dailyCounters,
@@ -1100,7 +1159,6 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += totalCash
-            addEarned(totalCash)
             dailyClaimed = [...dailyClaimed, ...newlyComplete.map((c) => c.id)]
             // All-3-complete bonus
             if (!dailyBonusClaimed) {
@@ -1110,7 +1168,6 @@ export const useGame = create<GameState>()(
                 level = bprog.level
                 xp = bprog.xp
                 money += DAILY_COMPLETE_BONUS.cash
-                addEarned(DAILY_COMPLETE_BONUS.cash)
                 dailyBonusClaimed = true
                 track('daily_complete')
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
@@ -1426,19 +1483,14 @@ export const useGame = create<GameState>()(
         const item = itemById(itemId)
         if (!item || s.money < item.price) return
         track('first_purchase')
-        // Daily challenge counter: every successful purchase bumps boughtToday.
-        const home = s.assets.find((a) => a.kind === 'home')
-        const anchorLat = home ? home.lat : s.citizen?.spawnLat
-        const anchorLng = home ? home.lng : s.citizen?.spawnLng
-        const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
-        const dailyCounters = s.dailyCounters.day === todayDay
-          ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
-          : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 1, day: todayDay }
-        const dailyCountersPatch = { dailyCounters }
+        // Daily challenge counter: every COMPLETED purchase bumps boughtToday.
+        // Placeables count at placeAt(), not here — the buy is refundable via
+        // cancelPlacing, and counting refundable buys made "Buy N items"
+        // challenges farmable at zero cost (buy → cancel → repeat).
+        const dailyCountersPatch = { dailyCounters: bumpBoughtToday(s) }
 
         if (item.placeable) {
           set({
-            ...dailyCountersPatch,
             money: s.money - item.price,
             placing: item,
             panel: null,
@@ -1450,6 +1502,7 @@ export const useGame = create<GameState>()(
         if (item.grantXp) {
           const prog = applyXp(s.level, s.xp, item.grantXp)
           set({
+            ...dailyCountersPatch,
             money: s.money - item.price,
             xp: prog.xp,
             level: prog.level,
@@ -1472,6 +1525,7 @@ export const useGame = create<GameState>()(
           // First-pet celebration — the moment the citizen becomes a pet parent.
           const wasFirstPet = s.pets.length === 0
           set({
+            ...dailyCountersPatch,
             money: s.money - item.price,
             pets: [...s.pets, newPet],
             toasts: wasFirstPet
@@ -1485,6 +1539,7 @@ export const useGame = create<GameState>()(
         }
 
         set({
+          ...dailyCountersPatch,
           money: s.money - item.price,
           inventory: { ...s.inventory, [itemId]: (s.inventory[itemId] ?? 0) + 1 },
           // A fresh purchase resets the spoilage clock — groceries only
@@ -1543,6 +1598,9 @@ export const useGame = create<GameState>()(
         set({
           assets: [...s.assets, asset],
           placing: null,
+          // The placeable purchase COMPLETES here (buy was refundable until
+          // placement) — this is where it counts for "Buy N items" challenges.
+          dailyCounters: bumpBoughtToday(s),
           log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
         track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
@@ -1681,9 +1739,13 @@ export const useGame = create<GameState>()(
           return
         }
         const now = Date.now()
-        // If already active, extend by the duration (don't stack beyond 2x).
+        // Re-buying extends the timer, capped at 2 durations of remaining
+        // time — the booster is a use-it-NOW session mechanic, not a bankable
+        // stockpile (uncapped extension let players queue 10+ hours of 2x).
         const existing = s.activeBoosters.find((b) => b.type === type)
-        const expiresAt = existing ? existing.expiresAt + def.durationMs : now + def.durationMs
+        const expiresAt = existing
+          ? Math.min(existing.expiresAt + def.durationMs, now + def.durationMs * 2)
+          : now + def.durationMs
         set({
           money: s.money - def.cost,
           activeBoosters: [
@@ -1699,6 +1761,13 @@ export const useGame = create<GameState>()(
         const s = get()
         if (!s.goldenOpportunity) return
         const opp = s.goldenOpportunity
+        // Enforce the window at claim time too — expiry normally happens on
+        // the next tick, but hidden-tab timer throttling stretches ticks to
+        // ~60s, letting an expired prompt linger claimable.
+        if (Date.now() - opp.spawnedAt > OPPORTUNITY_WINDOW_MS) {
+          set({ goldenOpportunity: null })
+          return
+        }
         const prog = applyXp(s.level, s.xp, opp.xp)
         set({
           goldenOpportunity: null,
@@ -1788,10 +1857,21 @@ export const useGame = create<GameState>()(
     }),
     {
       name: SAVE_KEY,
-      version: 5,
-      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak + lucky moments.
+      version: SAVE_VERSION,
+      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak +
+      // lucky moments; v6 adds milestones/boxes/boosters/savings/daily-challenge
+      // fields. IMPORTANT: zustand/persist only calls migrate when the stored
+      // version differs — every new persisted field needs a version bump or its
+      // backfill is dead code for existing saves (the v5→v6 bug: veterans were
+      // re-shown the achievements nudge + street overlay because the
+      // conditional backfills never ran).
       // Extracted to migrateSave() above so it can be regression-tested.
       migrate: migrateSave,
+      // Re-apply the persisted volume to the audio engine on load — the module
+      // inits at 1.0 and was only synced when the player touched the slider.
+      onRehydrateStorage: () => (state) => {
+        applySoundVolume(state?.soundVolume ?? 1)
+      },
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(

@@ -12,12 +12,13 @@
  * attention gets rewarded; the one who tabbed away misses out.
  *
  * Design:
- *   - Fires randomly during live play (~every 8-15 min of active ticks).
+ *   - Fires randomly during live play (~every 28 min of active ticks).
  *   - 15-second window. If tapped: reward. If missed: vanishes silently.
- *   - Rewards: cash + XP, slightly better than the chaos events, because
- *     the player had to DO something.
- *   - Variety: 5 opportunity types (coin rain, lost wallet, market tip,
- *     lucky find, street performance) so they don't feel repetitive.
+ *   - Rewards: small cash + XP that MATCH the story (Rule #1: a $20 bill
+ *     pays $20 — the 2026-07-05 audit found labels paying 4-8x their own
+ *     text, e.g. "dropped coins" paying $120). The thrill is the catch,
+ *     not the amount.
+ *   - Variety: 7 opportunity types so they don't feel repetitive.
  *
  * Pure: takes a snapshot + RNG, returns whether to spawn one. The store
  * owns the timer + reward side effects.
@@ -36,17 +37,17 @@ export interface GoldenOpportunity {
 }
 
 const OPPORTUNITY_POOL: Omit<GoldenOpportunity, 'id'>[] = [
-  { label: 'A $20 bill drifts by — grab it!', cash: 80, xp: 10, icon: '💵' },
-  { label: 'Someone dropped coins on the sidewalk!', cash: 120, xp: 15, icon: '🪙' },
-  { label: 'A street musician is killing it — tip them back!', cash: 50, xp: 25, icon: '🎵' },
-  { label: 'Flash sale at the corner store — cash in!', cash: 200, xp: 20, icon: '🏷️' },
-  { label: 'A tourist asks for directions, tips you!', cash: 90, xp: 30, icon: '🧭' },
-  { label: 'Your favorite song comes on everywhere.', cash: 30, xp: 40, icon: '🎶' },
-  { label: 'Found a gift card someone left behind!', cash: 150, xp: 15, icon: '🎁' },
+  { label: 'A $20 bill drifts by — grab it!', cash: 20, xp: 10, icon: '💵' },
+  { label: 'Someone dropped coins on the sidewalk!', cash: 8, xp: 10, icon: '🪙' },
+  { label: 'You help a street musician pack up — they tip you!', cash: 15, xp: 25, icon: '🎵' },
+  { label: 'Flash sale at the corner store — you save on essentials!', cash: 30, xp: 20, icon: '🏷️' },
+  { label: 'A tourist asks for directions, tips you!', cash: 15, xp: 30, icon: '🧭' },
+  { label: 'An old friend repays a forgotten loan.', cash: 40, xp: 20, icon: '🤝' },
+  { label: 'Found a gift card someone left behind!', cash: 50, xp: 15, icon: '🎁' },
 ]
 
-/** Chance per tick to spawn an opportunity. ~0.012% → ~every 12 min at 1 tick/sec. */
-export const OPPORTUNITY_CHANCE = 0.00012
+/** Chance per tick to spawn an opportunity. 0.06% → ~every 28 min at 1 tick/sec. */
+export const OPPORTUNITY_CHANCE = 0.0006
 
 /** How long the opportunity stays available (ms). */
 export const OPPORTUNITY_WINDOW_MS = 15_000

@@ -31,9 +31,10 @@
  *   day  5   → $400      +  60 XP
  *   day  6   → $750      + 100 XP
  *   day  7   → $1,500    + 200 XP  ← weekly jackpot
- *   day 14   → $5,000    + 500 XP  ← fortnight
- *   day 30   → $25,000   +1,000 XP ← monthly legend
- *   day 100  → $100,000  +5,000 XP ← centurion
+ *   day 14   → $2,500    + 500 XP  ← fortnight
+ *   day 30   → $5,000    +1,000 XP ← monthly legend
+ *   day 100  → $10,000   +5,000 XP ← centurion (audit-capped: the original
+ *              $100k/day dwarfed every other income loop — Rule #1 realism)
  *
  * Between named tiers the reward grows linearly (interpolated). This keeps
  * every single day meaningful — a design lesson from Wordle / Duolingo.
@@ -51,9 +52,9 @@ export const STREAK_REWARD_TIERS: ReadonlyArray<readonly [number, number, number
   [5, 400, 60],
   [6, 750, 100],
   [7, 1_500, 200],
-  [14, 5_000, 500],
-  [30, 25_000, 1_000],
-  [100, 100_000, 5_000],
+  [14, 2_500, 500],
+  [30, 5_000, 1_000],
+  [100, 10_000, 5_000],
 ] as const
 
 /** Maximum gap (in days) before a streak resets. Gap of RESET_GAP+1 resets. */

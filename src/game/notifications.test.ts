@@ -12,6 +12,7 @@ const DAY_MS = 86_400_000
 const base = (over: Partial<NotificationSnapshot> = {}): NotificationSnapshot => ({
   now: 19_000 * DAY_MS + 20 * 60_000, // 20:00 local on day 19000
   todayDay: 19_000,
+  msToMidnight: 4 * 3_600_000, // 4h to local midnight (outside the 3h window)
   streakLastClaimDay: 19_000,
   streakLength: 5,
   activity: null,
@@ -73,6 +74,7 @@ describe('decideNotifications — streak at risk', () => {
     const s = base({
       now: 19_000 * DAY_MS + 22 * 3_600_000,
       todayDay: 19_000,
+      msToMidnight: 2 * 3_600_000,
       streakLastClaimDay: 18_999, // claimed yesterday, not today
       streakLength: 7,
     })
@@ -96,6 +98,7 @@ describe('decideNotifications — streak at risk', () => {
     // 18:00 local (6h to midnight) — too early
     const s = base({
       now: 19_000 * DAY_MS + 18 * 3_600_000,
+      msToMidnight: 6 * 3_600_000,
       streakLastClaimDay: 18_999,
       streakLength: 7,
     })
@@ -105,6 +108,7 @@ describe('decideNotifications — streak at risk', () => {
   test('does not fire for a streak < 2 (not worth protecting yet)', () => {
     const s = base({
       now: 19_000 * DAY_MS + 22 * 3_600_000,
+      msToMidnight: 2 * 3_600_000,
       streakLastClaimDay: 18_999,
       streakLength: 1,
     })
@@ -114,6 +118,7 @@ describe('decideNotifications — streak at risk', () => {
   test('respects the 3-hour cooldown', () => {
     const s = base({
       now: 19_000 * DAY_MS + 22 * 3_600_000,
+      msToMidnight: 2 * 3_600_000,
       streakLastClaimDay: 18_999,
       streakLength: 7,
     })
@@ -156,6 +161,7 @@ describe('decideNotifications — daily challenges incomplete', () => {
     // 22:00 local, 1/3 done, bonus not claimed
     const s = base({
       now: 19_000 * DAY_MS + 22 * 3_600_000,
+      msToMidnight: 2 * 3_600_000,
       dailyDone: 1,
       dailyTotal: 3,
       dailyBonusClaimed: false,
@@ -187,6 +193,7 @@ describe('decideNotifications — daily challenges incomplete', () => {
   test('does not fire more than 3h before midnight', () => {
     const s = base({
       now: 19_000 * DAY_MS + 18 * 3_600_000, // 18:00, 6h to midnight
+      msToMidnight: 6 * 3_600_000,
       dailyDone: 1,
       dailyTotal: 3,
     })
@@ -196,6 +203,7 @@ describe('decideNotifications — daily challenges incomplete', () => {
   test('respects the 6-hour cooldown', () => {
     const s = base({
       now: 19_000 * DAY_MS + 22 * 3_600_000,
+      msToMidnight: 2 * 3_600_000,
       dailyDone: 1,
       dailyTotal: 3,
     })
@@ -222,6 +230,7 @@ describe('decideNotifications — no stacking', () => {
   test('streak beats needs when both fire and no activity', () => {
     const s = base({
       now: 19_000 * DAY_MS + 22 * 3_600_000,
+      msToMidnight: 2 * 3_600_000,
       streakLastClaimDay: 18_999,
       streakLength: 7,
       needs: { hunger: 10, hydration: 80, energy: 80, hygiene: 80, fun: 80 },

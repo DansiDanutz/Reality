@@ -16,14 +16,16 @@
  *   - The opening animation (in the UI) builds anticipation before revealing
  *     the reward — the dopamine is in the reveal, not the reward.
  *
- * Balance (against the $200k founder economy):
- *   Standard: cost $500,  EV ~$420 (84%)   — small daily flutter
- *   Premium:  cost $2.5k, EV ~$2.1k (84%)  — real risk/reward
- *   Legendary:cost $10k,  EV ~$8.5k (85%)  — high roller, occasional 5x
+ * Balance (computed from the pools below — keep in sync when tuning):
+ *   Standard: cost $500,  EV $460   (92.0%) — small daily flutter
+ *   Premium:  cost $2.5k, EV $2,361 (94.4%) — real risk/reward
+ *   Legendary:cost $10k,  EV $9,420 (94.2%) — high roller, occasional 5x
  *
- * The 15-16% house edge sinks cash from the economy while the rare jackpots
+ * The ~6-8% house edge sinks cash from the economy while the rare jackpots
  * (up to 5x cost) create stories worth sharing. A player who hits a 5x on
- * their first Standard box is hooked.
+ * their first Standard box is hooked. (Audit 2026-07-05: the header used to
+ * claim a 15-16% edge that never matched the pools — these are the real
+ * numbers, and every pool's weights must sum to exactly 100.)
  *
  * Pure: takes a box tier, rolls a reward with an injectable RNG.
  */
@@ -59,8 +61,9 @@ export const MYSTERY_BOXES: Record<BoxTier, BoxDef> = {
     cost: 500,
     emoji: '📦',
     pool: [
-      // Duds (42%) — the variance that makes wins feel earned.
-      { weight: 28, roll: () => ({ label: 'Small drop', cash: 100, xp: 5, rarity: 'dud', icon: '🪙' }) },
+      // Below-cost outcomes (44%) — the variance that makes wins feel earned.
+      // Weights sum to exactly 100 so each weight reads as a percentage.
+      { weight: 30, roll: () => ({ label: 'Small drop', cash: 100, xp: 5, rarity: 'dud', icon: '🪙' }) },
       { weight: 14, roll: () => ({ label: 'Modest find', cash: 200, xp: 10, rarity: 'common', icon: '💵' }) },
       // Common wins (36%)
       { weight: 22, roll: () => ({ label: 'Nice return', cash: 350, xp: 20, rarity: 'common', icon: '💰' }) },

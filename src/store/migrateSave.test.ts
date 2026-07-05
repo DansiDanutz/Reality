@@ -184,3 +184,19 @@ describe('migrateSave — completeness guard', () => {
     expect(out.needs.hydration).toBeDefined()
   })
 })
+
+/**
+ * The version pin. zustand/persist only calls migrate() when the stored
+ * version differs from this configured one — so a new persisted field
+ * WITHOUT a version bump means its backfill above is dead code for every
+ * existing save (the v5→v6 incident: veterans were re-shown the
+ * achievements nudge + street controls overlay because the conditional
+ * backfills never ran). If you add a migration, bump the version and
+ * update this pin in the same commit.
+ */
+describe('persist configuration', () => {
+  test('the persist version matches the latest migration (bump both together)', async () => {
+    const { SAVE_VERSION } = await import('./gameStore')
+    expect(SAVE_VERSION).toBe(6)
+  })
+})

@@ -38,7 +38,7 @@ describe('rewardForStreakDay', () => {
   })
 
   test('clamps to the top tier above day 100', () => {
-    expect(rewardForStreakDay(999)).toEqual({ cash: 100_000, xp: 5_000 })
+    expect(rewardForStreakDay(999)).toEqual({ cash: 10_000, xp: 5_000 })
   })
 
   test('clamps to day 1 below it', () => {
@@ -94,10 +94,10 @@ describe('computeStreakClaim', () => {
     expect(out).toEqual({ length: 7, cash: 1_500, xp: 200, reset: false, advanced: true })
   })
 
-  test('monthly legend at day 30 pays $25,000 + 1,000 XP', () => {
+  test('monthly legend at day 30 pays $5,000 + 1,000 XP (audit-capped)', () => {
     const state = fresh({ length: 29, lastClaimDay: 19_000 })
     const out = computeStreakClaim(state, 19_001)
-    expect(out).toEqual({ length: 30, cash: 25_000, xp: 1_000, reset: false, advanced: true })
+    expect(out).toEqual({ length: 30, cash: 5_000, xp: 1_000, reset: false, advanced: true })
   })
 
   test('interpolated day (8) is between day 7 and day 14 rewards', () => {
