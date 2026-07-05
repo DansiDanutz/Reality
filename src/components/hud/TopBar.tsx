@@ -29,6 +29,10 @@ export default function TopBar() {
   const home = assets.find((a) => a.kind === 'home')
   const anchor = home ?? (citizen.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
   const clock = localClock(anchor ? zoneFor(anchor.lat, anchor.lng) : undefined)
+  // The zone-derived place is the IANA zone's capital (all of Romania →
+  // "Bucharest"). When the citizen lives at their spawn, their real detected
+  // hometown is the honest label; an owned home keeps the zone city.
+  const placeName = home ? clock.place : (citizen.homeCity ?? clock.place)
   const day = dayOfLife(citizen.createdAt)
 
   const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'achievements' | 'boxes') => setPanel(panel === id ? null : id)
@@ -54,7 +58,7 @@ export default function TopBar() {
           <span className="stat-value">{citizen.name} · L{level}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">{clock.place} · day {day}</span>
+          <span className="stat-label">{placeName} · day {day}</span>
           <span className="stat-value mono">{clock.time}</span>
         </div>
         {streakLength >= 2 && (
