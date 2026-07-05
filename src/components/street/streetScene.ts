@@ -520,11 +520,20 @@ export async function createStreetScene(
   // segments. Skipped entirely under prefers-reduced-motion (calmMotion).
   const PEDESTRIAN_COUNT = 14
   const pedGeo = new THREE.CapsuleGeometry(0.22, 1.1, 4, 8) // body + head-ish lump
-  const pedMat = new THREE.MeshLambertMaterial({ color: night ? 0x2a3548 : 0x6a7282 })
+  // White base color so per-instance colors multiply through correctly (a
+  // colored base would tint every pedestrian the same). Night dims the whole
+  // mesh via a dark multiplier so silhouettes still read as "after dark".
+  const pedMat = new THREE.MeshLambertMaterial({ color: night ? 0x4a5468 : 0xffffff, vertexColors: false })
   // Each pedestrian: a road segment, a position t in [0,1], a speed, a direction.
   const pedestrians: { seg: (typeof roadSegments)[number]; t: number; speed: number; dir: 1 | -1 }[] = []
   const pedMesh = new THREE.InstancedMesh(pedGeo, pedMat, PEDESTRIAN_COUNT)
   pedMesh.count = 0
+  // Per-instance color variety — a small palette of muted coat colors so the
+  // street reads as "different people" rather than "14 clones". setColorAt
+  // requires instanceColor; Three.js initializes it on first set.
+  const pedColors = night
+    ? [0x2a3548, 0x33384a, 0x2f3a4e, 0x38374a]
+    : [0x6a7282, 0x7a6a5a, 0x5a6a7a, 0x6a5a6a, 0x807468, 0x587068]
   if (!calmMotion && roadSegments.length > 0) {
     for (let i = 0; i < PEDESTRIAN_COUNT; i++) {
       const seg = roadSegments[Math.floor(Math.random() * roadSegments.length)]
@@ -535,6 +544,13 @@ export async function createStreetScene(
         dir: Math.random() < 0.5 ? 1 : -1,
       })
     }
+    // Assign each pedestrian a random coat color from the palette.
+    const pedColor = new THREE.Color()
+    for (let i = 0; i < PEDESTRIAN_COUNT; i++) {
+      pedColor.setHex(pedColors[Math.floor(Math.random() * pedColors.length)])
+      pedMesh.setColorAt(i, pedColor)
+    }
+    if (pedMesh.instanceColor) pedMesh.instanceColor.needsUpdate = true
     pedMesh.count = PEDESTRIAN_COUNT
     scene.add(pedMesh)
   }
