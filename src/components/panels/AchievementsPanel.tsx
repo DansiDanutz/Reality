@@ -6,6 +6,7 @@ import {
   type Achievement,
   type AchievementCategory,
 } from '../../game/achievements'
+import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
 import { achievementSnapshotOf, useGame } from '../../store/gameStore'
 
 /**
@@ -32,6 +33,8 @@ export default function AchievementsPanel() {
   useGame((s) => s.totalCollected)
   useGame((s) => s.assets.length)
   const claimAchievement = useGame((s) => s.claimAchievement)
+  const streakLength = useGame((s) => s.streakLength)
+  const streakBest = useGame((s) => s.streakBest)
 
   // Read the full snapshot once per render from the live store
   const snapshot = achievementSnapshotOf(useGame.getState())
@@ -55,6 +58,10 @@ export default function AchievementsPanel() {
         </span>
         <span className="stat-label mono">{formatMoney(totalXp)} XP earned from achievements</span>
       </div>
+
+      {/* Daily streak — the come-back-tomorrow hook. Always visible so the
+          player sees what tomorrow's reward will be, even mid-session. */}
+      <StreakBlock length={streakLength} best={streakBest} />
 
       {[...byCategory.entries()].map(([cat, items]) => {
         const meta = CATEGORY_META[cat]
@@ -102,5 +109,45 @@ export default function AchievementsPanel() {
         )
       })}
     </section>
+  )
+}
+
+/**
+ * The streak callout — current length, personal best, the next reward, and
+ * the upcoming milestones. The next-reward preview is the key hook: it tells
+ * the player exactly what they'll get if they come back tomorrow, converting
+ * "I should play again" from a vague feeling to a concrete number.
+ */
+function StreakBlock({ length, best }: { length: number; best: number }) {
+  const tomorrow = rewardForStreakDay(length + 1)
+  // Show the next three named tiers above the player's current length, so the
+  // long-term horizon is always visible (the "I'll reach day 30" drive).
+  const upcoming = STREAK_REWARD_TIERS.filter(([d]) => d > length).slice(0, 3)
+  return (
+    <div className="streak-block" aria-label="Daily streak">
+      <div className="streak-current">
+        <span className="streak-flame" aria-hidden>🔥</span>
+        <div className="streak-current-text">
+          <span className="streak-current-length">{streakLabel(Math.max(length, 1))}</span>
+          <span className="streak-current-best">Best: {best} days</span>
+        </div>
+      </div>
+      <div className="streak-next">
+        <span className="stat-label">Come back tomorrow</span>
+        <span className="streak-next-reward mono gold">
+          +{formatMoney(tomorrow.cash)} · +{tomorrow.xp} XP
+        </span>
+      </div>
+      {upcoming.length > 0 && (
+        <ul className="streak-milestones" aria-label="Upcoming streak milestones">
+          {upcoming.map(([day, cash, xp]) => (
+            <li key={day} className={day === length + 1 ? 'next' : ''}>
+              <span className="streak-milestone-day mono">Day {day}</span>
+              <span className="streak-milestone-reward mono">+{formatMoney(cash)} · +{xp} XP</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

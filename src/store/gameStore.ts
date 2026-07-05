@@ -26,7 +26,9 @@ import {
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
+import { zoneFor } from '../game/clock'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
+import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
@@ -34,6 +36,37 @@ import { detectLocation, type SpawnLocation } from '../lib/geo'
 export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | null
 
 const SAVE_KEY = 'reality-save-v1'
+
+/**
+ * Calendar day index in the citizen's local timezone — the basis for the
+ * daily streak. Two timestamps on the same local day return the same number;
+ * midnight rollover bumps it by one. Uses the same tz-lookup as clock.ts so
+ * "today" matches what the player sees on the TopBar clock.
+ *
+ * Returns days since the Unix epoch in the citizen's local zone. 0 or
+ * negative only when `now` is before the first local midnight after epoch,
+ * which never happens in practice (the engine treats it as "no claim yet").
+ */
+function dayIndexOf(now: number, lat?: number, lng?: number): number {
+  let zone: string
+  try {
+    // Inline import avoids a hard dependency cycle (clock.ts pulls in tz-lookup
+    // at module load; this keeps the store's hot path explicit).
+    zone = lat !== undefined && lng !== undefined ? zoneFor(lat, lng) : Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    zone = 'UTC'
+  }
+  // YYYY-MM-DD in the local zone → unique per calendar day. Counting days
+  // since epoch via Date.UTC keeps the index stable and timezone-independent.
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: zone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(now))
+  // en-CA gives us ISO-like YYYY-MM-DD which Date.parse understands as UTC.
+  return Math.floor(Date.parse(ymd + 'T00:00:00Z') / 86_400_000)
+}
 
 /**
  * Post to the live world, silently tolerating offline/dev environments.
@@ -101,6 +134,12 @@ interface GameState {
   targetsSeen: boolean
   /** Territorial progression: highest reach tier celebrated so far */
   reachTier: number
+  /** Daily streak length (days). 0 before the first claim. See src/game/streak.ts */
+  streakLength: number
+  /** Calendar day index of the last streak claim. 0 = never claimed. */
+  streakLastClaimDay: number
+  /** Longest streak this citizen has ever reached — for the "personal best" badge. */
+  streakBest: number
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
@@ -190,6 +229,9 @@ const FRESH = {
   lastIllnessRollAt: 0,
   targetsSeen: false,
   reachTier: 1,
+  streakLength: 0,
+  streakLastClaimDay: 0,
+  streakBest: 0,
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
@@ -552,6 +594,40 @@ export const useGame = create<GameState>()(
           s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
         }
 
+        // Daily streak — the come-back-tomorrow hook. Computed against the
+        // citizen's LOCAL calendar day so the reward lands at the player's
+        // midnight, not UTC. Idempotent within a day (computeStreakClaim
+        // returns null after the first claim), so every subsequent tick is a
+        // no-op. Reset/forgiveness rules live in src/game/streak.ts.
+        let streakLength = s.streakLength
+        let streakLastClaimDay = s.streakLastClaimDay
+        const home = s.assets.find((a) => a.kind === 'home')
+        const anchorLat = home ? home.lat : s.citizen.spawnLat
+        const anchorLng = home ? home.lng : s.citizen.spawnLng
+        const todayDay = dayIndexOf(now, anchorLat, anchorLng)
+        const streakPrev: StreakState = { length: s.streakLength, lastClaimDay: s.streakLastClaimDay }
+        const streakOut = computeStreakClaim(streakPrev, todayDay)
+        if (streakOut) {
+          streakLength = streakOut.length
+          streakLastClaimDay = todayDay
+          if (streakOut.length > s.streakBest) s.streakBest = streakOut.length
+          // Day 1 (spawn day) and grace-day holds pay nothing and stay quiet.
+          if (streakOut.advanced && (streakOut.cash > 0 || streakOut.xp > 0)) {
+            const prog = applyXp(level, xp, streakOut.xp)
+            level = prog.level
+            xp = prog.xp
+            money += streakOut.cash
+            const label = streakLabel(streakOut.length)
+            toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'gold')
+            log = note(log, `Day ${streakOut.length} streak — claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
+          } else if (streakOut.reset) {
+            // A reset is worth surfacing — the player should know their streak
+            // broke and that coming back daily is what keeps it growing.
+            toasts = withToast(toasts, `Your streak reset — start again at day 1. 🔁`, 'sky')
+            log = note(log, `Streak reset after a long absence. Day 1 of a new streak.`)
+          }
+        }
+
         set({
           needs,
           health: out.health,
@@ -572,6 +648,9 @@ export const useGame = create<GameState>()(
           timesEaten,
           achievementsClaimed: s.achievementsClaimed,
           reachTier,
+          streakLength,
+          streakLastClaimDay,
+          streakBest: s.streakBest,
           awayReport,
           toasts,
           log,
@@ -1001,8 +1080,8 @@ export const useGame = create<GameState>()(
     }),
     {
       name: SAVE_KEY,
-      version: 4,
-      // v2 adds hydration; v3 adds pets; v4 adds illness — old saves wake up healthy
+      version: 5,
+      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak
       migrate: (persisted) => {
         const state = persisted as GameState
         if (state?.needs && state.needs.hydration === undefined) {
@@ -1011,6 +1090,12 @@ export const useGame = create<GameState>()(
         if (state && !state.pets) state.pets = []
         if (state && state.illness === undefined) state.illness = null
         if (state && !state.lastIllnessRollAt) state.lastIllnessRollAt = 0
+        // Streak: existing citizens start at day 1 of a fresh streak on first
+        // load post-update, so they get the satisfying "streak advanced!"
+        // toast the very next midnight. lastClaimDay 0 = never claimed yet.
+        if (state && state.streakLength === undefined) state.streakLength = 0
+        if (state && state.streakLastClaimDay === undefined) state.streakLastClaimDay = 0
+        if (state && state.streakBest === undefined) state.streakBest = 0
         return state
       },
       partialize: (state) =>

@@ -240,6 +240,15 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 .stat-value { font-size: 14px; font-weight: 600; }
 .stat-money .stat-value { font-size: 16px; }
+/* Streak chip — only renders at 2+ days; the flame grows with length. */
+.stat-streak .stat-value { color: #ff8a3d; }
+@media (prefers-reduced-motion: no-preference) {
+  .stat-streak .stat-value { animation: streak-flicker 2.4s ease-in-out infinite; }
+  @keyframes streak-flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.78; }
+  }
+}
 .topbar-nav { display: flex; gap: 8px; }
 .nav-btn {
   font-family: var(--font-body);
@@ -467,6 +476,34 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 @media (max-width: 480px) {
   .ach-grid { grid-template-columns: 1fr; }
 }
+
+/* Streak block — the come-back-tomorrow callout at the top of the panel. */
+.streak-block {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255,138,61,0.10), rgba(255,138,61,0.02));
+  border: 1px solid rgba(255,138,61,0.22);
+}
+.streak-current { display: flex; align-items: center; gap: 12px; }
+.streak-flame { font-size: 22px; line-height: 1; }
+.streak-current-text { display: flex; flex-direction: column; gap: 2px; }
+.streak-current-length { font-weight: 600; font-size: 15px; }
+.streak-current-best { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+.streak-next {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; padding-top: 8px; border-top: 1px dashed rgba(255,138,61,0.18);
+}
+.streak-next-reward { font-weight: 600; }
+.streak-milestones {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.streak-milestones li {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--muted);
+}
+.streak-milestones li.next { color: var(--gold); font-weight: 600; }
+.streak-milestone-day { letter-spacing: 0.04em; }
 
 /* Nav badge dot — signals "ready to claim" on the 🏆 button */
 .nav-badge { position: relative; }
