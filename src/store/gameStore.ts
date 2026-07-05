@@ -31,6 +31,14 @@ import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, RARITY_META } from '../game/luckyMoments'
+import {
+  challengesForDay,
+  challengeProgress,
+  challengeSetSummary,
+  CHALLENGE_REWARD,
+  DAILY_COMPLETE_BONUS,
+  type DailyChallengeSnapshot,
+} from '../game/dailyChallenges'
 import { track } from '../lib/analytics'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
@@ -90,6 +98,11 @@ export function migrateSave(persisted: unknown): GameState {
           const claimedCount = state.tutorialClaimed?.length ?? 0
           state.sawAchievementsPanel = claimedCount >= 7
         }
+        if (state && !state.dailyCounters) {
+          state.dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 }
+        }
+        if (state && !state.dailyClaimed) state.dailyClaimed = []
+        if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
         return state
 }
 
@@ -190,6 +203,12 @@ interface GameState {
   targetsSeen: boolean
   /** True once the player has opened the Achievements panel (tutorial discovery) */
   sawAchievementsPanel: boolean
+  /** Daily challenge counters — reset at local midnight. See dailyChallenges.ts */
+  dailyCounters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number; day: number }
+  /** Daily challenge ids already claimed today (idempotent — no double-grant). */
+  dailyClaimed: string[]
+  /** True once today's all-3-complete bonus has been granted. */
+  dailyBonusClaimed: boolean
   /** Territorial progression: highest reach tier celebrated so far */
   reachTier: number
   /** Daily streak length (days). 0 before the first claim. See src/game/streak.ts */
@@ -292,6 +311,9 @@ const FRESH = {
   lastIllnessRollAt: 0,
   targetsSeen: false,
   sawAchievementsPanel: false,
+  dailyCounters: { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 },
+  dailyClaimed: [] as string[],
+  dailyBonusClaimed: false,
   reachTier: 1,
   streakLength: 0,
   streakLastClaimDay: 0,
@@ -724,6 +746,79 @@ export const useGame = create<GameState>()(
           }
         }
 
+        // Daily challenges — counters reset at local midnight, increment by
+        // this tick's deltas, auto-grant on completion. See dailyChallenges.ts.
+        let dailyCounters = s.dailyCounters
+        let dailyClaimed = s.dailyClaimed
+        let dailyBonusClaimed = s.dailyBonusClaimed
+        if (dailyCounters.day !== todayDay) {
+          // Midnight rollover (or first tick of a new citizen): fresh slate.
+          dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: todayDay }
+          dailyClaimed = []
+          dailyBonusClaimed = false
+        }
+        // Increment by this tick's deltas. mealsCooked is the per-tick meal
+        // count; shiftsCompleted is per-tick shifts; wagesEarned + collected
+        // income is the cash earned this tick. Sleeps are inferred from
+        // activity kind transitions (a finished sleep activity).
+        const mealsDelta = out.mealsCooked
+        const shiftsDelta = out.shiftsCompleted
+        const cashDelta = out.wagesEarned + Math.max(0, money - s.money)
+        const sleptDelta = s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
+        if (mealsDelta || shiftsDelta || cashDelta || sleptDelta) {
+          dailyCounters = {
+            ...dailyCounters,
+            mealsToday: dailyCounters.mealsToday + mealsDelta,
+            shiftsToday: dailyCounters.shiftsToday + shiftsDelta,
+            earnedToday: dailyCounters.earnedToday + cashDelta,
+            sleptToday: dailyCounters.sleptToday + sleptDelta,
+          }
+        }
+        // Auto-grant any newly-complete challenges (idempotent via dailyClaimed).
+        if (s.citizen) {
+          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay)
+          const csnap: DailyChallengeSnapshot = {
+            mealsToday: dailyCounters.mealsToday,
+            shiftsToday: dailyCounters.shiftsToday,
+            earnedToday: dailyCounters.earnedToday,
+            sleptToday: dailyCounters.sleptToday,
+            boughtToday: dailyCounters.boughtToday,
+          }
+          const newlyComplete = dayChallenges.filter((c) => {
+            if (dailyClaimed.includes(c.id)) return false
+            return challengeProgress(c, csnap).complete
+          })
+          if (newlyComplete.length > 0) {
+            let totalXp = 0
+            let totalCash = 0
+            for (const c of newlyComplete) {
+              const r = CHALLENGE_REWARD[c.difficulty]
+              totalXp += r.xp
+              totalCash += r.cash
+              toasts = withToast(toasts, `✅ Daily: ${c.label} complete! +${formatMoney(r.cash)}, +${r.xp} XP`, 'ok')
+              log = note(log, `Daily challenge complete: ${c.label} (+${formatMoney(r.cash)}, +${r.xp} XP).`)
+            }
+            const prog = applyXp(level, xp, totalXp)
+            level = prog.level
+            xp = prog.xp
+            money += totalCash
+            dailyClaimed = [...dailyClaimed, ...newlyComplete.map((c) => c.id)]
+            // All-3-complete bonus
+            if (!dailyBonusClaimed) {
+              const summary = challengeSetSummary(dayChallenges, csnap)
+              if (summary.allComplete) {
+                const bprog = applyXp(level, xp, DAILY_COMPLETE_BONUS.xp)
+                level = bprog.level
+                xp = bprog.xp
+                money += DAILY_COMPLETE_BONUS.cash
+                dailyBonusClaimed = true
+                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
+                log = note(log, `All daily challenges complete — bonus ${formatMoney(DAILY_COMPLETE_BONUS.cash)} + ${DAILY_COMPLETE_BONUS.xp} XP.`)
+              }
+            }
+          }
+        }
+
         set({
           needs,
           health: out.health,
@@ -749,6 +844,9 @@ export const useGame = create<GameState>()(
           streakBest: s.streakBest,
           luckyMomentsSeen: s.luckyMomentsSeen,
           luckyMomentsSeenIds: s.luckyMomentsSeenIds,
+          dailyCounters,
+          dailyClaimed,
+          dailyBonusClaimed,
           awayReport,
           toasts,
           log,
@@ -981,9 +1079,19 @@ export const useGame = create<GameState>()(
         const item = itemById(itemId)
         if (!item || s.money < item.price) return
         track('first_purchase')
+        // Daily challenge counter: every successful purchase bumps boughtToday.
+        const home = s.assets.find((a) => a.kind === 'home')
+        const anchorLat = home ? home.lat : s.citizen?.spawnLat
+        const anchorLng = home ? home.lng : s.citizen?.spawnLng
+        const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
+        const dailyCounters = s.dailyCounters.day === todayDay
+          ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
+          : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 1, day: todayDay }
+        const dailyCountersPatch = { dailyCounters }
 
         if (item.placeable) {
           set({
+            ...dailyCountersPatch,
             money: s.money - item.price,
             placing: item,
             panel: null,

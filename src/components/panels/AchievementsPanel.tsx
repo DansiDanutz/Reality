@@ -8,6 +8,13 @@ import {
   type AchievementCategory,
   type AchievementSnapshot,
 } from '../../game/achievements'
+import {
+  challengesForDay,
+  challengeProgress,
+  CHALLENGE_REWARD,
+  DAILY_COMPLETE_BONUS,
+  type ChallengeDef,
+} from '../../game/dailyChallenges'
 import { LUCKY_MOMENT_DEFS, RARITY_META } from '../../game/luckyMoments'
 import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
 import { achievementSnapshotOf, useGame } from '../../store/gameStore'
@@ -52,6 +59,10 @@ export default function AchievementsPanel() {
   const streakBest = useGame((s) => s.streakBest)
   const seenMomentIds = useGame((s) => s.luckyMomentsSeenIds)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const dailyCounters = useGame((s) => s.dailyCounters)
+  const dailyClaimed = useGame((s) => s.dailyClaimed)
+  const dailyBonusClaimed = useGame((s) => s.dailyBonusClaimed)
+  const citizen = useGame((s) => s.citizen)
 
   // On mount: mark the achievements panel as seen (drives the tutorial
   // discovery step + the one-time "you've learned the basics" nudge).
@@ -81,6 +92,19 @@ export default function AchievementsPanel() {
         </span>
         <span className="stat-label mono">{formatMoney(totalXp)} XP earned from achievements</span>
       </div>
+
+      {/* Daily challenges — 3 fresh goals every real day, reset at local
+          midnight. The Fortnite/Xbox daily-challenge hook: a reason to play
+          *today* even if the player has seen everything else. */}
+      {citizen && (
+        <DailyChallengesBlock
+          citizenId={citizen.citizenId ?? 'anon'}
+          day={dailyCounters.day}
+          counters={dailyCounters}
+          claimed={dailyClaimed}
+          bonusClaimed={dailyBonusClaimed}
+        />
+      )}
 
       {/* Next goals — the "what should I do right now?" hook. Combats choice
           paralysis by surfacing the closest career rank, the next streak
@@ -160,6 +184,74 @@ export default function AchievementsPanel() {
         )
       })}
     </section>
+  )
+}
+
+/**
+ * Daily challenges — 3 fresh goals every real day, reset at local midnight.
+ * Distinct from the streak (rewards showing up) and achievements (permanent):
+ * challenges reward *doing*, today. The Fortnite/Xbox daily-challenge hook.
+ */
+function DailyChallengesBlock({
+  citizenId,
+  day,
+  counters,
+  claimed,
+  bonusClaimed,
+}: {
+  citizenId: string
+  day: number
+  counters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number }
+  claimed: string[]
+  bonusClaimed: boolean
+}) {
+  // Only show challenges once the day has been seeded (day > 0). Before the
+  // first midnight the citizen hasn't been assigned a day yet.
+  if (day <= 0) return null
+  const challenges: ChallengeDef[] = challengesForDay(citizenId, day)
+  const snap = { ...counters }
+  const done = challenges.filter((c) => claimed.includes(c.id) || challengeProgress(c, snap).complete).length
+  const allDone = done === challenges.length
+
+  return (
+    <div className="daily-challenges" aria-label="Daily challenges">
+      <header className="daily-head">
+        <span className="daily-title">🎯 Today's challenges</span>
+        <span className="daily-count mono">{done}/{challenges.length}</span>
+      </header>
+      <ul className="daily-list">
+        {challenges.map((c) => {
+          const isClaimed = claimed.includes(c.id)
+          const prog = challengeProgress(c, snap)
+          const pct = Math.min(100, Math.round((prog.current / prog.target) * 100))
+          const r = CHALLENGE_REWARD[c.difficulty]
+          return (
+            <li key={c.id} className={`daily-item${isClaimed || prog.complete ? ' complete' : ''}`}>
+              <div className="daily-item-label">
+                <span className="daily-item-mark" aria-hidden>{isClaimed || prog.complete ? '✓' : '○'}</span>
+                <span className="daily-item-text">{c.label}</span>
+                <span className="daily-item-difficulty">{c.difficulty}</span>
+              </div>
+              <div className="daily-item-progress">
+                <div className="daily-item-track">
+                  <div className="daily-item-fill" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="daily-item-count mono">
+                  {prog.current}/{prog.target} · +{formatMoney(r.cash)}
+                </span>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      {allDone && (
+        <div className="daily-bonus">
+          {bonusClaimed
+            ? <span className="daily-bonus-claimed">🎯 All 3 complete — bonus claimed!</span>
+            : <span className="daily-bonus-pending">🎯 All 3 complete — bonus +{formatMoney(DAILY_COMPLETE_BONUS.cash)}, +{DAILY_COMPLETE_BONUS.xp} XP incoming!</span>}
+        </div>
+      )}
+    </div>
   )
 }
 
