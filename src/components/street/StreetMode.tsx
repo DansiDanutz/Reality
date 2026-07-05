@@ -92,14 +92,18 @@ export default function StreetMode() {
         // Surface the weather condition for the HUD indicator.
         const labels: Record<string, string> = { clear: 'Clear', rain: '🌧 Rain', snow: '❄ Snow', fog: '🌫 Fog', clouds: '☁ Cloudy', mist: '🌫 Mist' }
         setWeatherLabel(labels[weather.condition] ?? null)
+        // Caption helper — sets a caption and clears ONLY that caption after
+        // 4s (so overlapping captions don't clobber each other's timeouts).
+        const showCaption = (text: string) => {
+          setCaption(text)
+          setTimeout(() => setCaption((c) => (c === text ? null : c)), 4_000)
+        }
         // First-weather caption — a brief poetic line when the scene loads
         // with active weather. Adds voice to the atmospheric moment.
         if (weather.condition === 'rain') {
-          setCaption('The first rain on your street.')
-          setTimeout(() => setCaption(null), 4_000)
+          showCaption('The first rain on your street.')
         } else if (weather.condition === 'snow') {
-          setCaption('Snow falls where you live.')
-          setTimeout(() => setCaption(null), 4_000)
+          showCaption('Snow falls where you live.')
         }
         // Golden-hour caption — when entering during dawn or dusk, a brief
         // line acknowledging the light. The sky gradient + golden lighting
@@ -107,14 +111,11 @@ export default function StreetMode() {
         const h = hourAt(anchor.lat, anchor.lng)
         if (weather.condition === 'clear') {
           if (h >= 6 && h < 8) {
-            setCaption('Dawn breaks over your city.')
-            setTimeout(() => setCaption(null), 4_000)
+            showCaption('Dawn breaks over your city.')
           } else if (h >= 17 && h < 19) {
-            setCaption('The golden hour, where you live.')
-            setTimeout(() => setCaption(null), 4_000)
+            showCaption('The golden hour, where you live.')
           } else if (h >= 20 || h < 5) {
-            setCaption('Night, and the city glows.')
-            setTimeout(() => setCaption(null), 4_000)
+            showCaption('Night, and the city glows.')
           }
         }
         return createStreetScene(
