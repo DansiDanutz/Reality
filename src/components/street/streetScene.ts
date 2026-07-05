@@ -690,6 +690,7 @@ export async function createStreetScene(
   let wasAirborne = false // for one-shot landing-thud detection (issue #30)
   let bobPhase = 0
   let breathePhase = 0 // idle breathing sway accumulator
+  let windPhase = 0 // slow-varying wind angle for precipitation drift
   let landDip = 0 // camera compression on landing; decays to 0 (m)
   let baseRoll = 0 // smoothed strafe head-tilt (radians)
   const fwdVec = new THREE.Vector3()
@@ -905,10 +906,20 @@ export async function createStreetScene(
 
     // Precipitation: fall, wrap overhead, follow the camera so the storm is always local
     if (precipPoints) {
+      // Wind: a slow-varying horizontal drift that tilts rain streaks and
+      // pushes snow. Wind angle oscillates over ~30s so the storm breathes
+      // rather than blowing constantly one direction. Rain wind is gentler
+      // than the fall speed (so rain still reads as "downward"); snow gets
+      // a stronger horizontal push (it's light enough to blow around).
+      windPhase += dt * 0.35
+      const windX = Math.sin(windPhase) * (precip === 'snow' ? 2.5 : 3.5)
+      const windZ = Math.cos(windPhase * 0.7) * (precip === 'snow' ? 1.8 : 2.2)
       const positions = precipPoints.geometry.attributes.position.array as Float32Array
       for (let i = 0; i < precipVel.length; i++) {
         positions[i * 3 + 1] -= precipVel[i] * dt
-        // snow sways sideways; rain stays vertical (driven by wind would be overkill)
+        positions[i * 3] += windX * dt
+        positions[i * 3 + 2] += windZ * dt
+        // snow also has its local sway (per-flake) layered on the wind
         if (precip === 'snow') positions[i * 3] += Math.sin(now / 900 + i) * dt * 0.5
         if (positions[i * 3 + 1] < 0) {
           positions[i * 3 + 1] = 40
