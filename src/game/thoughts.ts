@@ -27,6 +27,22 @@ const THOUGHTS: readonly string[] = [
   'The streetlights were on the whole time you were gone.',
   'A business is a bet that the city will keep waking up.',
   'You are the only citizen who knows how long you were away.',
+  'The globe turns whether you are watching or not.',
+  'A lucky moment is the world forgetting to be fair.',
+  'Hunger is the oldest contract.',
+  'Sleep is the part of the day you cannot optimize.',
+  'A pet does not know what a streak is, and is happier for it.',
+  'The upgrade curve is just patience with a price tag.',
+  'You cannot save time. You can only spend it somewhere.',
+  'A neighborhood is a building that learned to walk.',
+  'The collection completes itself, eventually, if you keep showing up.',
+  'Weather is the only honest critic.',
+  'A goal is a question you agreed to keep asking.',
+  'The citizens you will never meet are having their own mornings.',
+  'A level is the game\'s way of noticing you stayed.',
+  'The first dollar and the millionth feel the same weight in the hand.',
+  'A journal is the only proof a day happened.',
+  'The world is always more interesting than the minimap suggests.',
 ] as const
 
 /**
