@@ -424,8 +424,19 @@ export async function createStreetScene(
   const birds: { mesh: THREE.Mesh; speed: number; radius: number; angle: number; y: number; baseScale: number }[] = []
   let birdMat: THREE.MeshBasicMaterial
   let birdGeo: THREE.BufferGeometry
-  // Clouds drift slowly across the daytime sky (outer scope for animation).
-  const clouds: THREE.Mesh[] = []
+  // Clouds drift slowly across the daytime sky. One InstancedMesh keeps all
+  // clouds in one draw call while preserving each cloud's own position/scale.
+  const clouds: { x: number; y: number; z: number; scale: number }[] = []
+  let cloudMesh: THREE.InstancedMesh | null = null
+  const cloudDummy = new THREE.Object3D()
+  const setCloudMatrix = (i: number) => {
+    const c = clouds[i]
+    cloudDummy.position.set(c.x, c.y, c.z)
+    cloudDummy.rotation.set(-Math.PI / 2, 0, 0)
+    cloudDummy.scale.setScalar(c.scale)
+    cloudDummy.updateMatrix()
+    cloudMesh?.setMatrixAt(i, cloudDummy.matrix)
+  }
   // Real overcast hides the sky's anchors — no stars, moon, or sun disc in
   // rain/snow. Stars also wait for DEEP night (≥20h): the 19-20h dusk
   // gradient is still orange, and a starfield over it reads wrong.
@@ -507,14 +518,18 @@ export async function createStreetScene(
     }
     const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, fog: false })
     const cloudGeo = new THREE.PlaneGeometry(90, 34)
+    cloudMesh = new THREE.InstancedMesh(cloudGeo, cloudMat, 14)
     for (let i = 0; i < 14; i++) {
-      const cloud = new THREE.Mesh(cloudGeo, cloudMat)
-      cloud.position.set((Math.random() - 0.5) * 1400, 160 + Math.random() * 120, (Math.random() - 0.5) * 1400)
-      cloud.rotation.x = -Math.PI / 2
-      cloud.scale.setScalar(0.7 + Math.random() * 1.8)
-      scene.add(cloud)
-      clouds.push(cloud)
+      clouds.push({
+        x: (Math.random() - 0.5) * 1400,
+        y: 160 + Math.random() * 120,
+        z: (Math.random() - 0.5) * 1400,
+        scale: 0.7 + Math.random() * 1.8,
+      })
+      setCloudMatrix(i)
     }
+    cloudMesh.instanceMatrix.needsUpdate = true
+    scene.add(cloudMesh)
     // ── Daytime birds: small dark V-shapes drifting across the sky ──
     // Declared in outer scope (above) for dispose; populated here for daytime.
     // Birds shelter in real rain/snow, and their continuous circling is
@@ -1323,12 +1338,15 @@ export async function createStreetScene(
     // (1.5 m/s) so the motion is barely perceptible per frame but unmistakable
     // over a minute -- the sky is alive, not a painted backdrop. Static for
     // reduced-motion users (the clouds still exist, they just hold still).
-    if (!calmMotion) {
-      for (const c of clouds) {
-        c.position.x -= 1.5 * dt
+    if (!calmMotion && cloudMesh) {
+      for (let i = 0; i < clouds.length; i++) {
+        const c = clouds[i]
+        c.x -= 1.5 * dt
         // Wrap: when a cloud drifts past the western edge, reset to the east.
-        if (c.position.x < p.x - 700) c.position.x = p.x + 700
+        if (c.x < p.x - 700) c.x = p.x + 700
+        setCloudMatrix(i)
       }
+      cloudMesh.instanceMatrix.needsUpdate = true
     }
     // Tree canopy sway — the merged canopy mesh oscillates its rotation.z
     // slightly, reading as wind moving through all the trees. Subtle
