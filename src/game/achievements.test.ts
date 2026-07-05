@@ -15,6 +15,7 @@ const base: AchievementSnapshot = {
   jobId: null,
   assets: [],
   businesses: 0,
+  maxBusinessLevel: 1,
   totalCollected: 0,
   netWorth: 0,
   level: 1,
@@ -144,7 +145,7 @@ describe('achievement progress bars', () => {
       'hustler', 'tycoon', 'mogul',
       'well-lived', 'established', 'pillar',
       'collector-10', 'collector-25', 'collector-50',
-      'business-owner', 'empire-3', 'empire-10',
+      'business-owner', 'empire-3', 'empire-10', 'upgrader-3', 'upgrader-5',
     ])
     for (const a of ACHIEVEMENTS) {
       if (numericIds.has(a.id)) {
@@ -190,6 +191,8 @@ describe('achievement progress bars', () => {
       { ...base, businesses: 1 },
       { ...base, businesses: 3 },
       { ...base, businesses: 10 },
+      { ...base, maxBusinessLevel: 3 },
+      { ...base, maxBusinessLevel: 5 },
     ]
     for (const a of ACHIEVEMENTS) {
       if (!a.progress) continue
