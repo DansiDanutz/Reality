@@ -130,6 +130,16 @@ describe('advanceWorldArea — local real-time economy', () => {
       source: 'manual',
     })).toMatchObject({ ok: false, error: 'area_too_large' })
 
+    expect(claimWorldArea(start, {
+      founderCitizenId: 'founder',
+      label: '   ',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: 2,
+      claimedAt: 1,
+      source: 'manual',
+    })).toMatchObject({ ok: false, error: 'invalid_area_label' })
+
     const first = claimWorldArea(start, {
       founderCitizenId: 'founder',
       label: 'Small Area',

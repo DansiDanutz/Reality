@@ -185,6 +185,7 @@ export interface AreaNeedsDashboard {
 export type ClaimWorldAreaError =
   | 'area_already_claimed'
   | 'founder_not_found'
+  | 'invalid_area_label'
   | 'invalid_location'
   | 'area_too_small'
   | 'area_too_large'
@@ -383,10 +384,12 @@ const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic
 
 export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWorldAreaResult {
   const area = cloneArea(input)
+  const label = claim.label.trim()
   if (area.claim) return { ok: false, area, error: 'area_already_claimed' }
   if (!area.citizens.some((c) => c.id === claim.founderCitizenId && c.kind === 'real')) {
     return { ok: false, area, error: 'founder_not_found' }
   }
+  if (!label) return { ok: false, area, error: 'invalid_area_label' }
   if (
     !Number.isFinite(claim.centerLat) ||
     !Number.isFinite(claim.centerLng) ||
@@ -400,7 +403,7 @@ export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWo
   if (claim.radiusKm < MIN_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_small' }
   if (claim.radiusKm > MAX_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_large' }
 
-  area.claim = { ...claim, label: claim.label.trim() }
+  area.claim = { ...claim, label }
   return { ok: true, area }
 }
 
