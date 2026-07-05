@@ -41,6 +41,7 @@ const TRANSACTION_KINDS: WorldTransactionKind[] = [
   'insurance_premium',
   'insurance_payout',
   'medical_debt',
+  'debt_repayment',
 ]
 
 export function encodeWorldAreaSnapshot(area: WorldArea): string {
@@ -108,7 +109,7 @@ function isWorldDebt(value: unknown): value is WorldDebt {
     isNonEmptyString(value.id) &&
     isOneOf(value.kind, DEBT_KINDS) &&
     isNonEmptyString(value.creditorId) &&
-    isMoney(value.amount) &&
+    isPositiveMoney(value.amount) &&
     isFiniteNumber(value.issuedAt) &&
     isNonEmptyString(value.memo)
 }
@@ -170,6 +171,10 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isMoney(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0
+}
+
+function isPositiveMoney(value: unknown): value is number {
+  return isFiniteNumber(value) && value > 0
 }
 
 function isPercentage(value: unknown): value is number {

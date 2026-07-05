@@ -47,15 +47,26 @@ const area = (): WorldArea => ({
     quality: 1,
     createdBy: 'founder',
   }],
-  transactions: [{
-    id: 'tx1',
-    at: 1_000,
-    kind: 'insurance_premium',
-    fromId: 'founder',
-    toId: 'ins1',
-    amount: 45,
-    memo: 'Founder bought insurance.',
-  }],
+  transactions: [
+    {
+      id: 'tx1',
+      at: 1_000,
+      kind: 'insurance_premium',
+      fromId: 'founder',
+      toId: 'ins1',
+      amount: 45,
+      memo: 'Founder bought insurance.',
+    },
+    {
+      id: 'tx2',
+      at: 2_000,
+      kind: 'debt_repayment',
+      fromId: 'founder',
+      toId: 'clinic1',
+      amount: 25,
+      memo: 'Founder repaid debt to clinic1.',
+    },
+  ],
 })
 
 describe('worldSim snapshot codec', () => {
@@ -122,5 +133,10 @@ describe('worldSim snapshot codec', () => {
     const badDebtTotal = area()
     badDebtTotal.citizens[0].debt = 1
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badDebtTotal }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const clearedDebtLine = area()
+    clearedDebtLine.citizens[0].debt = 0
+    clearedDebtLine.citizens[0].debts![0].amount = 0
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: clearedDebtLine }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 })

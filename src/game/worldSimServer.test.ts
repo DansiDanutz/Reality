@@ -205,6 +205,46 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(5)
   })
 
+  test('applies debt repayment intents through server-owned state', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', {
+      money: 500,
+      debt: 75,
+      debts: [{
+        id: 'debt1',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 75,
+        issuedAt: 1_000,
+        memo: 'founder owes medical debt to system:hospital.',
+      }],
+    }))
+
+    const repaid = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      intent: {
+        type: 'repayDebt',
+        actorCitizenId: 'founder',
+        debtId: 'debt1',
+        amount: 25,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(repaid.ok).toBe(true)
+    if (!repaid.ok) throw new Error('expected debt repayment to succeed')
+    expect(repaid.area.citizens[0].money).toBe(475)
+    expect(repaid.area.citizens[0].debt).toBe(50)
+    expect(repaid.area.citizens[0].debts).toMatchObject([{ id: 'debt1', amount: 50 }])
+    expect(repaid.area.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'founder', toId: 'system:hospital', amount: 25 },
+    ])
+    expect(saved?.citizens[0].debt).toBe(50)
+    expect(repo.saves).toBe(3)
+  })
+
   test('failed intents return the advanced area but do not save invalid business mutations', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)

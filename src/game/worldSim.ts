@@ -68,6 +68,7 @@ export type WorldTransactionKind =
   | 'insurance_premium'
   | 'insurance_payout'
   | 'medical_debt'
+  | 'debt_repayment'
 
 export interface WorldTransaction {
   id: string
@@ -186,6 +187,12 @@ export type WorldIntent =
     actorCitizenId: string
     insuranceBusinessId: string
   }
+  | {
+    type: 'repayDebt'
+    actorCitizenId: string
+    debtId: string
+    amount: number
+  }
 
 export type WorldIntentError =
   | 'area_not_claimed'
@@ -205,6 +212,8 @@ export type WorldIntentError =
   | 'worker_unavailable'
   | 'worker_already_hired'
   | 'real_worker_requires_acceptance'
+  | 'debt_not_found'
+  | 'invalid_debt_payment'
 
 export type ApplyWorldIntentResult =
   | { ok: true; area: WorldArea }
@@ -350,6 +359,8 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
       return hireWorkerFromIntent(area, intent)
     case 'buyInsurance':
       return buyInsuranceFromIntent(area, intent)
+    case 'repayDebt':
+      return repayDebtFromIntent(area, intent)
   }
 }
 
@@ -640,6 +651,42 @@ function buyServiceFromIntent(
   if (actor.money < price) return { ok: false, area, error: 'insufficient_funds' }
 
   completeServicePurchase(area, actor, business, kind, context)
+  return { ok: true, area }
+}
+
+function repayDebtFromIntent(
+  area: WorldArea,
+  intent: Extract<WorldIntent, { type: 'repayDebt' }>,
+): ApplyWorldIntentResult {
+  const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
+  if (!actor) return { ok: false, area, error: 'actor_not_found' }
+  if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
+
+  if (!Number.isFinite(intent.amount) || intent.amount <= 0) {
+    return { ok: false, area, error: 'invalid_debt_payment' }
+  }
+
+  const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
+  if (!debt || debt.amount <= 0) return { ok: false, area, error: 'debt_not_found' }
+
+  const payment = roundMoney(Math.min(intent.amount, debt.amount))
+  if (payment <= 0) return { ok: false, area, error: 'invalid_debt_payment' }
+  if (actor.money < payment) return { ok: false, area, error: 'insufficient_funds' }
+
+  actor.money = roundMoney(actor.money - payment)
+  actor.debt = roundMoney(Math.max(0, actor.debt - payment))
+  debt.amount = roundMoney(debt.amount - payment)
+  if (debt.amount <= 0) actor.debts = actor.debts?.filter((candidate) => candidate.id !== debt.id)
+
+  const creditor = area.businesses.find((business) => business.id === debt.creditorId)
+  if (creditor) creditor.cash = roundMoney(creditor.cash + payment)
+  recordTransaction(area, area.now, {
+    kind: 'debt_repayment',
+    fromId: actor.id,
+    toId: debt.creditorId,
+    amount: payment,
+    memo: `${actor.name} repaid debt to ${debt.creditorId}.`,
+  })
   return { ok: true, area }
 }
 

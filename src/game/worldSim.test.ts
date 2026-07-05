@@ -702,6 +702,140 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
   })
 
+  test('repayDebt intent pays the recorded creditor and reduces the debt line', () => {
+    const start = area({
+      now: 2 * HOUR,
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 300,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 300,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to clinic1.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 120,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected debt repayment to succeed')
+    const citizen = result.area.citizens[0]
+    const clinic = result.area.businesses[0]
+
+    expect(citizen.money).toBe(80)
+    expect(citizen.debt).toBe(180)
+    expect(citizen.debts).toMatchObject([{ id: 'debt1', amount: 180, creditorId: 'clinic1' }])
+    expect(clinic.cash).toBe(170)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'c1', toId: 'clinic1', amount: 120 },
+    ])
+    expect(start.citizens[0].debt).toBe(300)
+  })
+
+  test('repayDebt intent caps overpayment at the debt balance and removes cleared lines', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 75,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'system:hospital',
+          amount: 75,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to system:hospital.',
+        }],
+      })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 1_000,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected overpayment to clear debt')
+    expect(result.area.citizens[0].money).toBe(125)
+    expect(result.area.citizens[0].debt).toBe(0)
+    expect(result.area.citizens[0].debts).toEqual([])
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'c1', toId: 'system:hospital', amount: 75 },
+    ])
+  })
+
+  test('repayDebt intent rejects invalid, missing, unavailable, and unaffordable repayments', () => {
+    const start = area({
+      citizens: [
+        sim('c1', {
+          money: 10,
+          debt: 75,
+          debts: [{
+            id: 'debt1',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 75,
+            issuedAt: HOUR,
+            memo: 'Sim c1 owes medical debt to clinic1.',
+          }],
+        }),
+        sim('hospitalized', {
+          state: { kind: 'hospitalized', until: 10 * HOUR },
+          money: 100,
+          debt: 75,
+          debts: [{
+            id: 'debt2',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 75,
+            issuedAt: HOUR,
+            memo: 'Sim hospitalized owes medical debt to clinic1.',
+          }],
+        }),
+      ],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    expect(applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 0,
+    })).toMatchObject({ ok: false, error: 'invalid_debt_payment' })
+
+    expect(applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'missing',
+      amount: 5,
+    })).toMatchObject({ ok: false, error: 'debt_not_found' })
+
+    expect(applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 75,
+    })).toMatchObject({ ok: false, error: 'insufficient_funds' })
+
+    expect(applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'hospitalized',
+      debtId: 'debt2',
+      amount: 10,
+    })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+  })
+
   test('Sim Citizens can leave when severe local needs stay unserved', () => {
     const start = area({
       citizens: [sim('c1', {
