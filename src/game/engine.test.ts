@@ -245,6 +245,28 @@ describe('liveRealtime — the single simulation path', () => {
     const out = liveRealtime(base({ assets: [business(240)], money: 100_000 }), 0, 6 * 24 * HOUR)
     expect(out.summary.join(' ')).toMatch(/till/i)
   })
+
+  test('an absence past the old ~31-day cap still simulates every day of upkeep', () => {
+    // Regression: the loop used to stop at 24*31+8 iterations (~31 days) while
+    // the caller advanced the clock to now, silently skipping all upkeep and
+    // decay beyond a month — a player was REWARDED for staying away longer.
+    // A $1,000/day business owes $100/day opex; 40 days must charge ~$4,000,
+    // which the old 31-day cap could never reach (it topped out at ~$3,100).
+    const out = liveRealtime(base({ assets: [business(1000)], money: 1_000_000 }), 0, 40 * 24 * HOUR)
+    expect(out.upkeepPaid).toBeGreaterThan(3_900)
+    expect(out.upkeepPaid).toBeLessThan(4_100)
+  })
+
+  test('a multi-year absence settles the whole span without dropping time or hanging', () => {
+    // 800 days: a $1,000/day business owes $100/day opex, so a fully-simulated
+    // span charges ~$80,000 upkeep — the old ~31-day cap could only reach
+    // ~$3,100. The test returning at all proves it terminates (per-chunk work
+    // is O(1); the tail beyond a year settles in one pass, not an endless loop).
+    const out = liveRealtime(base({ assets: [business(1000)], money: 1_000_000 }), 0, 800 * 24 * HOUR)
+    expect(out.upkeepPaid).toBeGreaterThan(79_000)
+    expect(out.upkeepPaid).toBeLessThan(80_100)
+    expect(out.assets[0].pendingIncome).toBeCloseTo(1000 * PENDING_CAP_DAYS, 0)
+  })
 })
 
 describe('real-time clock', () => {
