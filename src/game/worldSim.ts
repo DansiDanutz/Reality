@@ -139,6 +139,14 @@ export type WorldIntent =
     blueprint: WorldBusinessBlueprint
   }
   | {
+    type: 'buyWater'
+    actorCitizenId: string
+  }
+  | {
+    type: 'buyFood'
+    actorCitizenId: string
+  }
+  | {
     type: 'hireWorker'
     actorCitizenId: string
     businessId: string
@@ -163,6 +171,7 @@ export type WorldIntentError =
   | 'insufficient_funds'
   | 'invalid_business'
   | 'not_insurance_business'
+  | 'service_not_available'
   | 'worker_not_found'
   | 'worker_unavailable'
   | 'worker_already_hired'
@@ -290,6 +299,10 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
   switch (intent.type) {
     case 'buildBusiness':
       return buildBusinessFromIntent(area, intent)
+    case 'buyWater':
+      return buyServiceFromIntent(area, intent, 'water')
+    case 'buyFood':
+      return buyServiceFromIntent(area, intent, 'food')
     case 'hireWorker':
       return hireWorkerFromIntent(area, intent)
     case 'buyInsurance':
@@ -299,13 +312,7 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
 
 export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAreaResult {
   const area = cloneArea(input)
-  const summary: WorldAreaSummary = {
-    purchases: 0,
-    wagesPaid: 0,
-    hospitalizations: 0,
-    debtsIssued: 0,
-    revenueByBusiness: {},
-  }
+  const summary = emptyWorldAreaSummary()
   if (toMs <= area.now) return { area, summary }
 
   let t = area.now
@@ -519,6 +526,32 @@ function buyInsuranceFromIntent(
   return { ok: true, area }
 }
 
+function buyServiceFromIntent(
+  area: WorldArea,
+  intent: Extract<WorldIntent, { type: 'buyWater' | 'buyFood' }>,
+  kind: 'water' | 'food',
+): ApplyWorldIntentResult {
+  const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
+  if (!actor) return { ok: false, area, error: 'actor_not_found' }
+  if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
+
+  const context: StepContext = {
+    at: area.now,
+    hours: 1,
+    servedByKind: zeroKindRecord(),
+    capacityUsed: {},
+    summary: emptyWorldAreaSummary(),
+  }
+  const business = chooseBusiness(area, kind, context)
+  if (!business) return { ok: false, area, error: 'service_not_available' }
+
+  const price = business.price ?? DEFAULT_PRICES[kind]
+  if (actor.money < price) return { ok: false, area, error: 'insufficient_funds' }
+
+  completeServicePurchase(area, actor, business, kind, context)
+  return { ok: true, area }
+}
+
 function requireAreaFounder(area: WorldArea, actorCitizenId: string): RequireAreaFounderResult {
   if (!area.claim) return { ok: false, area, error: 'area_not_claimed' }
   const actor = area.citizens.find((citizen) => citizen.id === actorCitizenId)
@@ -630,6 +663,18 @@ function purchaseService(
   const price = business.price ?? DEFAULT_PRICES[kind]
   if (citizen.money < price) return false
 
+  completeServicePurchase(area, citizen, business, kind, context)
+  return true
+}
+
+function completeServicePurchase(
+  area: WorldArea,
+  citizen: WorldCitizen,
+  business: WorldBusiness,
+  kind: WorldBusinessKind,
+  context: StepContext,
+): void {
+  const price = business.price ?? DEFAULT_PRICES[kind]
   citizen.money = roundMoney(citizen.money - price)
   business.cash = roundMoney(business.cash + price)
   context.summary.purchases += 1
@@ -644,7 +689,6 @@ function purchaseService(
 
   applyServiceEffect(citizen, SERVICE_EFFECTS[kind], effectiveBusinessQuality(business, area))
   if (kind === 'housing') citizen.homeBusinessId = business.id
-  return true
 }
 
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
@@ -786,6 +830,16 @@ function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
 
 function zeroKindRecord(): Record<WorldBusinessKind, number> {
   return { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 }
+}
+
+function emptyWorldAreaSummary(): WorldAreaSummary {
+  return {
+    purchases: 0,
+    wagesPaid: 0,
+    hospitalizations: 0,
+    debtsIssued: 0,
+    revenueByBusiness: {},
+  }
 }
 
 function roundMoney(value: number): number {

@@ -165,6 +165,38 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(3)
   })
 
+  test('applies survival purchase intents through server-owned state', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 20 }) }))
+    const built = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    if (!built.ok) throw new Error(`expected water build to succeed: ${built.error}`)
+
+    const bought = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(bought.ok).toBe(true)
+    if (!bought.ok) throw new Error('expected water purchase to succeed')
+    expect(bought.area.citizens.find((c) => c.id === 'founder')!.money).toBe(191_998)
+    expect(bought.area.citizens.find((c) => c.id === 'founder')!.needs.hydration).toBe(55)
+    expect(bought.area.businesses.find((b) => b.id === 'water-a')!.cash).toBe(2)
+    expect(bought.area.transactions.map((tx) => tx.kind)).toEqual(['business_build', 'customer_purchase'])
+    expect(repo.saves).toBe(5)
+  })
+
   test('failed intents return the advanced area but do not save invalid business mutations', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)

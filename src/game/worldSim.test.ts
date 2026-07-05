@@ -335,6 +335,53 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
   })
 
+  test('buyWater intent routes a player purchase to a local water business', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder', cash: 5, price: 2 })],
+    })
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected water purchase to succeed')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(18)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.needs.hydration).toBe(55)
+    expect(result.area.businesses.find((b) => b.id === 'water1')!.cash).toBe(7)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
+    ])
+  })
+
+  test('buyFood intent rejects unavailable buyers, missing services, and insufficient funds', () => {
+    const noFood = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hunger: 20 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+    expect(applyWorldIntent(noFood, { type: 'buyFood', actorCitizenId: 'resident' })).toMatchObject({
+      ok: false,
+      error: 'service_not_available',
+    })
+
+    const broke = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 5, needs: fullNeeds({ hunger: 20 }) })],
+      businesses: [business('food', 'food1', { ownerId: 'founder', price: 14 })],
+    })
+    expect(applyWorldIntent(broke, { type: 'buyFood', actorCitizenId: 'resident' })).toMatchObject({
+      ok: false,
+      error: 'insufficient_funds',
+    })
+
+    const hospitalized = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 50, state: { kind: 'hospitalized', until: 10 * HOUR } })],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    })
+    expect(applyWorldIntent(hospitalized, { type: 'buyFood', actorCitizenId: 'resident' })).toMatchObject({
+      ok: false,
+      error: 'actor_unavailable',
+    })
+  })
+
   test('a thirsty Sim Citizen buys water and the business earns from that purchase', () => {
     const start = area({
       citizens: [sim('c1', { needs: fullNeeds({ hydration: 50 }) })],
