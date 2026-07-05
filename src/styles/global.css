@@ -949,6 +949,38 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   z-index: 10;
 }
 
+/* Goals card — the always-visible post-tutorial objectives card. */
+.goals-card {
+  width: 100%;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: var(--font-body);
+  transition: border-color 150ms var(--ease-out);
+}
+.goals-card:hover { border-color: var(--gold); }
+.goals-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.goals-card-title { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+.goals-card-streak { font-size: 14px; color: #ff8a3d; font-weight: 600; }
+.goals-card-bar {
+  height: 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.06); overflow: hidden;
+}
+.goals-card-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(to right, var(--ok), var(--sky));
+  transition: width 500ms var(--ease-out);
+}
+.goals-card-count { font-size: 12px; color: var(--muted); }
+.goals-card-count.done { color: var(--ok); font-weight: 600; }
+
 .tutorial {
   width: 100%;
   background: var(--surface);

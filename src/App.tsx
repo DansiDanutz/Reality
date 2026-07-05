@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from 'react'
 import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
+import GoalsCard from './components/hud/GoalsCard'
 import HudDock from './components/hud/HudDock'
 import OfflineBanner from './components/hud/OfflineBanner'
 import FinanceCard from './components/hud/FinanceCard'
@@ -111,9 +112,13 @@ export default function App() {
             <TopBar />
             <Toasts />
             <AwayReport />
-            {!tutorialDone && (
+            {!tutorialDone ? (
               <HudWindow id="objectives">
                 <TutorialPanel />
+              </HudWindow>
+            ) : (
+              <HudWindow id="objectives">
+                <GoalsCard />
               </HudWindow>
             )}
             <HudWindow id="citizen">
