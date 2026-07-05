@@ -109,6 +109,13 @@ export default function StreetMode() {
   return (
     <div className="street">
       <div className="street-canvas" ref={containerRef} />
+      {/* Center crosshair — a tiny dot that helps orient the player in
+          first-person. Only shows when the scene is ready and (for mouse
+          mode) the pointer is locked, so it doesn't clutter the loading or
+          error states. Skipped on touch (the look-stick provides orientation). */}
+      {status === 'ready' && !isTouch && (
+        <div className="street-crosshair" aria-hidden />
+      )}
       {status === 'loading' && (
         <div className="street-overlay">
           <p className="street-loading">Building your street from the real world…</p>
