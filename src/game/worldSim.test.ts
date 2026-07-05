@@ -714,6 +714,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('service capacity only counts workers assigned to that business', () => {
+    const start = area({
+      citizens: [
+        sim('payer1', { money: 100, health: 60 }),
+        sim('payer2', { money: 100, health: 60 }),
+        sim('listed-worker'),
+      ],
+      businesses: [business('clinic', 'clinic1', {
+        staffCitizenIds: ['listed-worker'],
+        price: 90,
+        quality: 0.2,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens.find((c) => c.id === 'payer1')!.money).toBe(10)
+    expect(out.citizens.find((c) => c.id === 'payer2')!.money).toBe(100)
+    expect(out.businesses[0].cash).toBe(90)
+    expect(summary.purchases).toBe(1)
+    expect(out.transactions).toMatchObject([
+      { kind: 'customer_purchase', toId: 'clinic1', amount: 90 },
+    ])
+  })
+
   test('same-business saturation splits demand and lowers profit per owner', () => {
     const hungryCitizens = Array.from({ length: 12 }, (_, i) => sim(`c${i}`, { needs: fullNeeds({ hunger: 45 }) }))
     const single = area({
@@ -986,7 +1011,7 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('a hospitalized owner hurts unstaffed service quality, while staff keeps it running', () => {
     const owner = sim('owner', { state: { kind: 'hospitalized', until: 10 * HOUR } })
-    const worker = sim('worker')
+    const worker = sim('worker', { jobBusinessId: 'water1' })
     const unstaffed = area({
       citizens: [owner],
       businesses: [business('water', 'water1', { ownerId: 'owner' })],
@@ -1002,7 +1027,7 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('unstaffed businesses lose base quality while the owner is hospitalized', () => {
     const owner = sim('owner', { state: { kind: 'hospitalized', until: 10 * HOUR } })
-    const worker = sim('worker')
+    const worker = sim('worker', { jobBusinessId: 'staffed' })
     const start = area({
       citizens: [owner, worker],
       businesses: [

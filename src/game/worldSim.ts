@@ -1094,7 +1094,7 @@ function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
   return business.staffCitizenIds
     .map((id) => area.citizens.find((c) => c.id === id))
-    .filter((c): c is WorldCitizen => c?.state.kind === 'active').length
+    .filter((c): c is WorldCitizen => c?.state.kind === 'active' && c.jobBusinessId === business.id).length
 }
 
 function applyServiceEffect(citizen: WorldCitizen, effect: ServiceEffect, quality: number): void {
