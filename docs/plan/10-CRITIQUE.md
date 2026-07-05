@@ -459,3 +459,22 @@ Seven more PRs (#119–#129) — Street Mode cinematic polish + quality:
 2. **Sun/moon arc is a half-circle, not a true ellipse.** The arc uses sin/cos in a vertical plane, which is a semicircle — real solar arcs are elliptical due to latitude + season. **Action:** use the citizen's latitude for a proper solar elevation calculation (low priority — the semicircle reads fine).
 3. **Distant skyline is uniform.** The 70 silhouettes are randomly sized but all the same color; a real skyline has depth variation (closer = lighter, farther = darker). **Action:** two rings at different radii with different fog density.
 4. **No weather effect on the sky gradient.** Rain/snow doesn't darken the sky (only the fog). **Action:** blend the sky color toward grey when raining.
+
+## Fixed in the audio/atmosphere/voice loops (2026-07-05, batch 7)
+
+Eight more PRs (#132–#139) — audio depth, accessibility, voice:
+
+- **#132 Distant ambient one-shots** — faint sirens, dog barks, horns every 45-90s. The city has a life you can hear.
+- **#133 Street mute toggle** — 🔊/🔇 in the Street Mode HUD, no need to leave to silence.
+- **#134 Weather indicator** — sky-blue weather label on the street hint (Rain/Snow/Cloudy/Clear).
+- **#135 Sound captions** — italic subtitles for ambient one-shots (accessibility). aria-live="polite".
+- **#136 Edge vignette** — pulsing dark border when near the neighborhood boundary. The invisible wall has a visible warning.
+- **#137 Two-ring skyline** — inner (closer/taller/lighter) + outer (farther/shorter/darker) for layered depth.
+- **#138 First-weather caption** — "The first rain on your street." / "Snow falls where you live."
+- **#139 Time-of-day captions** — "Dawn breaks over your city." / "The golden hour, where you live." / "Night, and the city glows."
+
+**Remaining self-critique:**
+
+1. **No live-player validation.** *(carried forward since batch 1)* The entire engine is designed from theory. **Action:** unblocked when Dan opens Neon (Phase 1b).
+2. **Captions overlap risk.** If weather + time-of-day both fire, the later one overwrites the earlier (last-setCaption wins). **Action:** a 1-entry caption queue (same pattern as the celebration queue).
+3. **Ambient one-shots are unguarded for reduced-motion.** calmMotion suppresses the visual bob but not the audio one-shots. A reduced-motion player might find the siren surprising. **Action:** gate one-shots behind a "calm audio" pref (separate from calmMotion visual).
