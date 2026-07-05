@@ -404,6 +404,17 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   box-shadow: var(--shadow);
   font-size: 14px;
 }
+/* Activity progress bar — fills in real time during shifts/sleep/cook. */
+.activity-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.activity-bar {
+  height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.activity-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(to right, var(--sky), var(--gold));
+  transition: width 1s linear;
+}
 .placing-pulse {
   width: 10px; height: 10px;
   border-radius: 50%;
