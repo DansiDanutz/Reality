@@ -769,7 +769,7 @@ export const useGame = create<GameState>()(
             const icon = RARITY_META[lucky.rarity].icon
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
             toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, lucky.rarity === 'legendary' ? 'legendary' : 'lucky')
-            log = note(log, `${label} lucky moment: ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`)
+            log = note(log, `${label}: ${lucky.text} Found ${formatMoney(lucky.money)} and gained ${lucky.xp} XP.`)
             // Legendary jackpots earn a full celebration overlay — they're
             // once-in-a-lifetime events that deserve more than a toast.
             if (lucky.rarity === 'legendary') {
@@ -800,7 +800,7 @@ export const useGame = create<GameState>()(
           addEarned(totalBounty)
           for (const a of newlyEarned) {
             toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'achieve')
-            log = note(log, `Achievement unlocked: ${a.title} — ${a.detail}`)
+            log = note(log, `🏆 Earned "${a.title}" — ${a.detail} (+${formatMoney(a.bounty)}, +${a.xp} XP).`)
           }
           // Gold-tier achievements earn a celebration overlay — they're the
           // long-term grails (level 20, 30-day streak, 10 businesses...).
@@ -847,7 +847,7 @@ export const useGame = create<GameState>()(
             addEarned(streakOut.cash)
             const label = streakLabel(streakOut.length)
             toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'streak')
-            log = note(log, `Day ${streakOut.length} streak — claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
+            log = note(log, `🔥 Day ${streakOut.length} of your streak — the world rewards consistency. Claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
           } else if (streakOut.reset) {
             // A reset is worth surfacing — but framed as a fresh start, not a
             // loss. Returning players should feel welcomed, not punished (the
@@ -861,7 +861,7 @@ export const useGame = create<GameState>()(
               ? `Welcome back. Your ${prev}-day streak reset — start fresh at day 1. 🔁`
               : `Welcome back. A new streak starts today. 🔁`
             toasts = withToast(toasts, msg, 'sky')
-            log = note(log, `Streak reset after a long absence (was ${prev} days). Day 1 of a new streak. Best streak ${s.streakBest} days is preserved.`)
+            log = note(log, `Your ${prev}-day streak ended after a long absence. A new streak starts today. (Best ever: ${s.streakBest} days.)`)
           }
         }
 
@@ -907,7 +907,7 @@ export const useGame = create<GameState>()(
               }
             }
             toasts = withToast(toasts, `🎯 Savings goal reached — ${formatMoney(s.savingsGoal)}!`, 'achieve')
-            log = note(log, `Savings goal of ${formatMoney(s.savingsGoal)} reached.`)
+            log = note(log, `🎯 Reached your savings goal of ${formatMoney(s.savingsGoal)}. Time to spend it — or set a new one.`)
           }
         }
 
@@ -971,7 +971,7 @@ export const useGame = create<GameState>()(
                 dailyBonusClaimed = true
                 track('daily_complete')
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
-                log = note(log, `All daily challenges complete — bonus ${formatMoney(DAILY_COMPLETE_BONUS.cash)} + ${DAILY_COMPLETE_BONUS.xp} XP.`)
+                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(DAILY_COMPLETE_BONUS.cash)} and ${DAILY_COMPLETE_BONUS.xp} XP.`)
                 if (!s.celebration) {
                   s.celebration = {
                     icon: '🎯',
