@@ -143,6 +143,8 @@ interface GameState {
   streakBest: number
   /** Lifetime count of lucky moments witnessed (Loop C) — for the stats panel. */
   luckyMomentsSeen: number
+  /** Unique ids of lucky moments ever witnessed — drives the collection view. */
+  luckyMomentsSeenIds: string[]
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
@@ -236,6 +238,7 @@ const FRESH = {
   streakLastClaimDay: 0,
   streakBest: 0,
   luckyMomentsSeen: 0,
+  luckyMomentsSeenIds: [] as string[],
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
@@ -589,6 +592,9 @@ export const useGame = create<GameState>()(
             xp = prog.xp
             money += lucky.money
             s.luckyMomentsSeen = s.luckyMomentsSeen + 1
+            if (!s.luckyMomentsSeenIds.includes(lucky.id)) {
+              s.luckyMomentsSeenIds = [...s.luckyMomentsSeenIds, lucky.id]
+            }
             const icon = RARITY_META[lucky.rarity].icon
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
             toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, 'gold')
@@ -674,6 +680,7 @@ export const useGame = create<GameState>()(
           streakLastClaimDay,
           streakBest: s.streakBest,
           luckyMomentsSeen: s.luckyMomentsSeen,
+          luckyMomentsSeenIds: s.luckyMomentsSeenIds,
           awayReport,
           toasts,
           log,
@@ -1120,6 +1127,7 @@ export const useGame = create<GameState>()(
         if (state && state.streakLastClaimDay === undefined) state.streakLastClaimDay = 0
         if (state && state.streakBest === undefined) state.streakBest = 0
         if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
+        if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         return state
       },
       partialize: (state) =>

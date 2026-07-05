@@ -505,6 +505,57 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .streak-milestones li.next { color: var(--gold); font-weight: 600; }
 .streak-milestone-day { letter-spacing: 0.04em; }
 
+/* Collection block — the lucky-moments Pokédex. */
+.collection-block {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px; border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+.collection-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.collection-title { font-weight: 600; font-size: 14px; }
+.collection-count { color: var(--muted); font-size: 12px; }
+.collection-tier { display: flex; flex-direction: column; gap: 6px; }
+.collection-tier-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.collection-tier-icon { font-size: 14px; }
+.collection-tier-count { margin-left: auto; color: var(--muted); }
+.collection-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr; gap: 6px;
+}
+.collection-card {
+  padding: 8px 10px; border-radius: 6px;
+  font-size: 12px; line-height: 1.4;
+}
+.collection-card.discovered {
+  background: rgba(255,255,255,0.04);
+  border-left: 2px solid var(--gold);
+}
+.collection-card.undiscovered {
+  background: rgba(255,255,255,0.015);
+  border-left: 2px solid var(--rule);
+  opacity: 0.6;
+}
+.collection-story { margin: 0 0 4px; color: var(--text); }
+.collection-reward { font-size: 11px; color: var(--gold); }
+.collection-silhouette {
+  color: var(--muted); letter-spacing: 0.06em;
+  display: inline-block; padding: 2px 0;
+}
+/* Legendary tier gets a subtle gold tint to telegraph its weight. */
+.collection-tier[data-rarity="legendary"] .collection-card.discovered {
+  border-left-color: #ffb84d;
+  background: linear-gradient(90deg, rgba(255,184,77,0.08), transparent);
+}
+@media (max-width: 480px) {
+  .collection-grid { grid-template-columns: 1fr; }
+}
+
 /* Nav badge dot — signals "ready to claim" on the 🏆 button */
 .nav-badge { position: relative; }
 .nav-dot {
