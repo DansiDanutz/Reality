@@ -323,7 +323,7 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('buyInsurance intent rejects duplicate coverage, wrong business type, and insufficient funds', () => {
     const insured = claimedArea({
-      citizens: [sim('resident', { money: 500, insuranceBusinessId: 'ins1' })],
+      citizens: [sim('resident', { money: 500, insuranceBusinessId: 'ins1', insurancePaidUntil: HOUR })],
       businesses: [business('insurance', 'ins1', { ownerId: 'founder' })],
     })
     expect(applyWorldIntent(insured, {
@@ -556,7 +556,12 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('insurance pays the estate first but does not erase all hospital consequences', () => {
     const start = area({
-      citizens: [sim('c1', { health: COLLAPSE_HEALTH - 10, money: 50, insuranceBusinessId: 'ins1' })],
+      citizens: [sim('c1', {
+        health: COLLAPSE_HEALTH - 10,
+        money: 50,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: 2 * HOUR,
+      })],
       businesses: [
         business('clinic', 'clinic1'),
         business('insurance', 'ins1', { cash: 1000 }),
@@ -574,6 +579,27 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(citizen.money).toBe(0)
     expect(citizen.debt).toBe(HOSPITAL_BILL - covered - 50)
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['insurance_payout', 'hospital_bill', 'medical_debt'])
+  })
+
+  test('hospital bills do not get insurance coverage from an inactive policy marker', () => {
+    const start = area({
+      citizens: [sim('c1', { health: COLLAPSE_HEALTH - 10, money: 10, insuranceBusinessId: 'ins1' })],
+      businesses: [
+        business('clinic', 'clinic1'),
+        business('insurance', 'ins1', { cash: 1000 }),
+      ],
+    })
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+    const citizen = out.citizens[0]
+    const clinic = out.businesses.find((b) => b.id === 'clinic1')!
+    const insurer = out.businesses.find((b) => b.id === 'ins1')!
+
+    expect(insurer.cash).toBe(1000)
+    expect(clinic.cash).toBe(10)
+    expect(citizen.insuranceBusinessId).toBeUndefined()
+    expect(citizen.debt).toBe(HOSPITAL_BILL - 10)
+    expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
   })
 
   test('Sim Citizens can leave when severe local needs stay unserved', () => {

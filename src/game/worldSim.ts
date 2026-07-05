@@ -580,7 +580,7 @@ function buyInsuranceFromIntent(
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
-  if (actor.insuranceBusinessId) return { ok: false, area, error: 'already_insured' }
+  if (hasActiveInsurance(actor, area.now)) return { ok: false, area, error: 'already_insured' }
 
   const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
@@ -704,7 +704,7 @@ function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
 
 function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
   for (const citizen of area.citizens) {
-    if (!citizen.insuranceBusinessId || citizen.insurancePaidUntil === undefined || citizen.insurancePaidUntil > context.at) {
+    if (!citizen.insuranceBusinessId || hasActiveInsurance(citizen, context.at)) {
       continue
     }
 
@@ -738,6 +738,10 @@ function lapseInsurance(citizen: WorldCitizen, context: StepContext): void {
   delete citizen.insuranceBusinessId
   delete citizen.insurancePaidUntil
   context.summary.insurancePoliciesLapsed += 1
+}
+
+function hasActiveInsurance(citizen: WorldCitizen, at: number): boolean {
+  return Boolean(citizen.insuranceBusinessId && citizen.insurancePaidUntil !== undefined && citizen.insurancePaidUntil > at)
 }
 
 function payWorkerWages(area: WorldArea, context: StepContext): void {
@@ -915,7 +919,7 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
   const receiverId = clinic?.id ?? 'system:hospital'
   let remaining = HOSPITAL_BILL
 
-  const insurer = citizen.insuranceBusinessId
+  const insurer = hasActiveInsurance(citizen, context.at)
     ? area.businesses.find((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
     : undefined
   if (insurer) {
