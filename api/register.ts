@@ -69,9 +69,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = randomUUID()
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
 
+    // The allowOverwrite:false put is the real race guard — two citizens can
+    // never win the same slot. But claimedSlots() is a list() scan and list()
+    // is eventually consistent, so under a concurrent burst many requests can
+    // compute the same stale starting `n`. A short probe budget then runs out
+    // before finding a free slot, and a citizen who was ENTITLED to a founder
+    // slot falls through with null. Probe further, and periodically re-scan to
+    // jump past the contended region an undercount hid.
     let founderNumber: number | null = null
     let n = (await claimedSlots()) + 1
-    for (let attempt = 0; attempt < 6 && n <= FOUNDER_SLOTS; attempt++) {
+    for (let attempt = 0; attempt < 24 && n <= FOUNDER_SLOTS; attempt++) {
       try {
         await put(`founders/${String(n).padStart(4, '0')}.json`, JSON.stringify({ citizenId, at: new Date().toISOString() }), {
           access: 'private',
@@ -83,6 +90,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break
       } catch {
         n += 1 // someone claimed it a heartbeat before us — take the next slot
+        // Every few collisions, re-scan: a fresh list() has likely caught up
+        // and reveals the true high-water mark, so we stop re-colliding.
+        if (attempt > 0 && attempt % 6 === 0) {
+          const rescanned = (await claimedSlots()) + 1
+          if (rescanned > n) n = rescanned
+        }
       }
     }
 

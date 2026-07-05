@@ -4,6 +4,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const GENERATIONS_PER_DAY = 5
+// Hard daily ceiling across ALL citizens — a cost circuit-breaker. The
+// per-citizen limit (5/day) is defeatable by minting citizens via IP rotation
+// (register allows 5/IP/day), and every generation is a billed OpenAI call.
+// Real usage is far below this; it exists only to bound worst-case spend.
+const GLOBAL_GENERATIONS_PER_DAY = 500
 
 // Kept in sync with src/lib/avatarPrompt.ts (api functions must be
 // self-contained — Vercel does not bundle imports from src/)
@@ -166,6 +171,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    // Global daily ceiling — the cost circuit-breaker (see the constant). The
+    // day-first prefix keeps this list() scoped to today's count only.
+    const globalUsed = await list({ prefix: `avatarglobal/${day}`, limit: GLOBAL_GENERATIONS_PER_DAY + 1 })
+    if (globalUsed.blobs.length >= GLOBAL_GENERATIONS_PER_DAY) {
+      res.status(503).json({ ok: false, error: 'The avatar studio is at capacity for today. Please try again tomorrow.' })
+      return
+    }
+
     const image = await generateImage(buildAvatarPrompt(params), apiKey)
     if (!image) {
       res.status(502).json({ ok: false, error: 'The artist could not finish this portrait. Try slightly different details.' })
@@ -178,14 +191,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       allowOverwrite: true,
       contentType: 'image/png',
     })
-    await put(`avatarrate/${citizenId}__${day}__${Date.now()}.json`, JSON.stringify(params), {
+    const stampedNow = Date.now()
+    await put(`avatarrate/${citizenId}__${day}__${stampedNow}.json`, JSON.stringify(params), {
+      access: 'private',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json',
+    })
+    // Record against the global daily ceiling (billed-call counter).
+    await put(`avatarglobal/${day}__${citizenId}__${stampedNow}.json`, '1', {
       access: 'private',
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
     })
 
-    res.status(200).json({ ok: true, url: `/api/avatar?cid=${citizenId}&v=${Date.now()}` })
+    res.status(200).json({ ok: true, url: `/api/avatar?cid=${citizenId}&v=${stampedNow}` })
   } catch (error) {
     console.error('avatar POST failed', { error: error instanceof Error ? error.message : String(error) })
     res.status(500).json({ ok: false, error: 'The avatar studio is briefly unavailable.' })

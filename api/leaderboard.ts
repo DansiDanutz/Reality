@@ -4,6 +4,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_NET_WORTH = 10_000_000_000
+// Day-0 plausibility ceiling: founder grant ($200k) + one day's generous
+// allowance ($100k). Used as the FAIL-CLOSED cap when a citizen's age can't
+// be read — on uncertainty we clamp low, never accept the raw client number.
+const FALLBACK_MAX_PLAUSIBLE = 300_000
 
 async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
@@ -62,8 +66,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Plausibility cap until the server owns the simulation (Phase 1b):
-    // founder grant + a generous $100k per day of citizenship
-    let cappedWorth = worth
+    // founder grant + a generous $100k per day of citizenship. FAIL CLOSED —
+    // start at the conservative day-0 ceiling and only RAISE it once we've
+    // read a real citizen age. A transient blob-read failure previously left
+    // the raw client number (up to $10B) uncapped; now it clamps low instead.
+    let cappedWorth = Math.min(worth, FALLBACK_MAX_PLAUSIBLE)
     try {
       const citizenBlob = await list({ prefix: `citizens/${citizenId}__`, limit: 1 })
       if (citizenBlob.blobs[0]) {
@@ -75,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         cappedWorth = Math.min(worth, maxPlausible)
       }
     } catch {
-      /* cap is best-effort */
+      /* keep the fail-closed day-0 cap set above */
     }
 
     // Replace this citizen's previous score, then write the new one
