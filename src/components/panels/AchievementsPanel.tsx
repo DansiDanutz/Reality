@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { careerRankOf, formatMoney, nextRankOf } from '../../game/engine'
 import {
   ACHIEVEMENTS,
@@ -83,6 +83,11 @@ export default function AchievementsPanel() {
   const totalClaimed = claimedCount
   const totalXp = ACHIEVEMENTS.filter((a) => claimed.includes(a.id)).reduce((s, a) => s + a.xp, 0)
 
+  // Tabs — the panel had grown to 6 sections, a long scroll on mobile. Group
+  // into Goals (actionable: daily + next + streak), Grid (the 25 cards),
+  // Collection (lucky moments Pokédex). Default to Goals (most actionable).
+  const [tab, setTab] = useState<'goals' | 'grid' | 'collection'>('goals')
+
   return (
     <section className="panel" aria-label="Achievements">
       <h2 className="panel-title">🏆 Achievements</h2>
@@ -93,39 +98,66 @@ export default function AchievementsPanel() {
         <span className="stat-label mono">{formatMoney(totalXp)} XP earned from achievements</span>
       </div>
 
-      {/* Daily challenges — 3 fresh goals every real day, reset at local
-          midnight. The Fortnite/Xbox daily-challenge hook: a reason to play
-          *today* even if the player has seen everything else. */}
-      {citizen && (
-        <DailyChallengesBlock
-          citizenId={citizen.citizenId ?? 'anon'}
-          day={dailyCounters.day}
-          counters={dailyCounters}
-          claimed={dailyClaimed}
-          bonusClaimed={dailyBonusClaimed}
-        />
+      <div className="ach-tabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={tab === 'goals'}
+          className={tab === 'goals' ? 'ach-tab active' : 'ach-tab'}
+          onClick={() => setTab('goals')}
+        >🎯 Goals</button>
+        <button
+          role="tab"
+          aria-selected={tab === 'grid'}
+          className={tab === 'grid' ? 'ach-tab active' : 'ach-tab'}
+          onClick={() => setTab('grid')}
+        >🏅 Grid</button>
+        <button
+          role="tab"
+          aria-selected={tab === 'collection'}
+          className={tab === 'collection' ? 'ach-tab active' : 'ach-tab'}
+          onClick={() => setTab('collection')}
+        >🍀 Collection</button>
+      </div>
+
+      {tab === 'goals' && (
+        <>
+          {/* Daily challenges — 3 fresh goals every real day, reset at local
+              midnight. The Fortnite/Xbox daily-challenge hook: a reason to play
+              *today* even if the player has seen everything else. */}
+          {citizen && (
+            <DailyChallengesBlock
+              citizenId={citizen.citizenId ?? 'anon'}
+              day={dailyCounters.day}
+              counters={dailyCounters}
+              claimed={dailyClaimed}
+              bonusClaimed={dailyBonusClaimed}
+            />
+          )}
+
+          {/* Next goals — the "what should I do right now?" hook. Combats choice
+              paralysis by surfacing the closest career rank, the next streak
+              reward, and a few unclaimed achievements. Always at the top. */}
+          <NextGoalsBlock
+            shiftsWorked={shiftsWorked}
+            streakLength={streakLength}
+            snapshot={snapshot}
+            claimed={claimed}
+          />
+
+          {/* Daily streak — the come-back-tomorrow hook. Always visible so the
+              player sees what tomorrow's reward will be, even mid-session. */}
+          <StreakBlock length={streakLength} best={streakBest} />
+        </>
       )}
 
-      {/* Next goals — the "what should I do right now?" hook. Combats choice
-          paralysis by surfacing the closest career rank, the next streak
-          reward, and a few unclaimed achievements. Always at the top. */}
-      <NextGoalsBlock
-        shiftsWorked={shiftsWorked}
-        streakLength={streakLength}
-        snapshot={snapshot}
-        claimed={claimed}
-      />
+      {tab === 'collection' && (
+        /* Lucky moments collection — the Pokédex hook. Discovered moments show
+           their story; undiscovered ones show only the rarity silhouette, so
+           the player always has a "find them all" chase. */
+        <CollectionBlock seenIds={seenMomentIds} />
+      )}
 
-      {/* Daily streak — the come-back-tomorrow hook. Always visible so the
-          player sees what tomorrow's reward will be, even mid-session. */}
-      <StreakBlock length={streakLength} best={streakBest} />
-
-      {/* Lucky moments collection — the Pokédex hook. Discovered moments show
-          their story; undiscovered ones show only the rarity silhouette, so
-          the player always has a "find them all" chase. */}
-      <CollectionBlock seenIds={seenMomentIds} />
-
-      {[...byCategory.entries()].map(([cat, items]) => {
+      {tab === 'grid' && [...byCategory.entries()].map(([cat, items]) => {
         const meta = CATEGORY_META[cat]
         const catClaimed = items.filter((a) => claimed.includes(a.id)).length
         return (
