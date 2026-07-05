@@ -862,6 +862,12 @@ export async function createStreetScene(
       const airT = Math.min(1, jumpOffset / 1.2) // 0 grounded → 1 at apex+
       shadow.scale.setScalar(1 - airT * 0.4)
       shadowMat.opacity = 1 - airT * 0.7
+      // Sprint FOV widen — the classic "speed" cue. Holding shift widens the
+      // view ~10° while actually moving at run speed, then eases back when
+      // you stop. Skipped for reduced-motion (already disorienting enough).
+      const targetFov = calmMotion ? 72 : running && speed > WALK_SPEED * 0.5 ? 82 : 72
+      camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 6)
+      camera.updateProjectionMatrix()
     }
 
     // Precipitation: fall, wrap overhead, follow the camera so the storm is always local
