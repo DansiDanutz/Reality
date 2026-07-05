@@ -142,7 +142,7 @@ function isWorldTransaction(value: unknown): value is WorldTransaction {
     isOneOf(value.kind, TRANSACTION_KINDS) &&
     isNonEmptyString(value.fromId) &&
     isNonEmptyString(value.toId) &&
-    isMoney(value.amount) &&
+    isPositiveMoney(value.amount) &&
     isNonEmptyString(value.memo)
 }
 

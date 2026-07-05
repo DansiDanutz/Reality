@@ -138,6 +138,10 @@ describe('worldSim snapshot codec', () => {
     const badTransaction = area()
     badTransaction.transactions[0].kind = 'free_money' as never
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const zeroTransaction = area()
+    zeroTransaction.transactions[0].amount = 0
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: zeroTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects invalid citizen state and business shape', () => {
