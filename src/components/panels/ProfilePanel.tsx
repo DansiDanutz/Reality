@@ -171,6 +171,13 @@ export default function ProfilePanel() {
         )}
       </dl>
 
+      <button
+        className="btn ghost journal-cta"
+        onClick={() => useGame.getState().setPanel('journal')}
+      >
+        📖 Read your life journal
+      </button>
+
       <h3 className="profile-section-title">Account</h3>
       <GoogleLink />
       <NotificationsSection />
