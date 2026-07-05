@@ -661,7 +661,28 @@ export async function createStreetScene(
   let jumpOffset = 0 // height above ground
   let wasAirborne = false // for one-shot landing-thud detection (issue #30)
   let bobPhase = 0
+  let landDip = 0 // camera compression on landing; decays to 0 (m)
+  let baseRoll = 0 // smoothed strafe head-tilt (radians)
   const fwdVec = new THREE.Vector3()
+
+  // Player shadow — a soft dark blob on the ground beneath the camera. Without
+  // it the first-person view feels floaty (no sense of where you are in space).
+  // A radial-gradient texture keeps it soft at the edges; it fades when you
+  // jump (shadow shrinks + lightens with height).
+  const shadowCanvas = document.createElement('canvas')
+  shadowCanvas.width = shadowCanvas.height = 64
+  const sctx = shadowCanvas.getContext('2d')!
+  const grad = sctx.createRadialGradient(32, 32, 4, 32, 32, 30)
+  grad.addColorStop(0, 'rgba(0,0,0,0.45)')
+  grad.addColorStop(1, 'rgba(0,0,0,0)')
+  sctx.fillStyle = grad
+  sctx.fillRect(0, 0, 64, 64)
+  const shadowTex = new THREE.CanvasTexture(shadowCanvas)
+  const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), shadowMat)
+  shadow.rotation.x = -Math.PI / 2 // lie flat on the ground
+  shadow.position.y = 0.02 // just above the pavement to avoid z-fighting
+  scene.add(shadow)
 
   const animate = () => {
     raf = requestAnimationFrame(animate)
@@ -773,7 +794,13 @@ export async function createStreetScene(
     // Landing thud (issue #30): fire once on the airborne → grounded edge,
     // never on every grounded frame. `onLand` is wired by StreetMode to a
     // soundOn-gated playThud().
-    if (wasAirborne && grounded) onLand?.()
+    if (wasAirborne && grounded) {
+      onLand?.()
+      // Landing dip — the camera compresses on impact, then recovers. The
+      // dip depth scales with landing velocity (a hard landing dips more).
+      // Capped so a tiny hop doesn't over-compress. Decays in the pose block.
+      landDip = Math.max(landDip, Math.min(0.12, 0.04 + (Math.abs(vel.y) / JUMP_SPEED) * 0.08))
+    }
     wasAirborne = !grounded
 
     // 4. Move with collision: slide along walls, never through them
@@ -804,7 +831,23 @@ export async function createStreetScene(
       const speed = Math.hypot(vel.x, vel.z)
       if (grounded && speed > 0.3) bobPhase += dt * (6 + speed * 1.2)
       const bob = grounded && !calmMotion ? Math.sin(bobPhase) * 0.05 * Math.min(1, speed / WALK_SPEED) : 0
-      p.y = EYE_HEIGHT + jumpOffset + bob
+      // Landing dip decays exponentially (~150ms half-life). Applied to y so
+      // the camera compresses downward on impact, then recovers.
+      landDip *= Math.exp(-dt * 8)
+      // Strafe head-tilt — subtle camera roll proportional to sideways velocity.
+      // Smooted toward target so it eases in/out, not snaps. Skipped for
+      // reduced-motion (the bob is too; roll would compound any nausea).
+      const strafe = Number(keys.has('KeyD')) - Number(keys.has('KeyA'))
+      const targetRoll = calmMotion ? 0 : -strafe * 0.025 * Math.min(1, speed / WALK_SPEED)
+      baseRoll += (targetRoll - baseRoll) * Math.min(1, dt * 10)
+      p.y = EYE_HEIGHT + jumpOffset + bob - landDip
+      camera.rotation.z = baseRoll
+      // Player shadow follows the camera x/z; shrinks + fades with jump height.
+      shadow.position.x = p.x
+      shadow.position.z = p.z
+      const airT = Math.min(1, jumpOffset / 1.2) // 0 grounded → 1 at apex+
+      shadow.scale.setScalar(1 - airT * 0.4)
+      shadowMat.opacity = 1 - airT * 0.7
     }
 
     // Precipitation: fall, wrap overhead, follow the camera so the storm is always local
@@ -861,6 +904,9 @@ export async function createStreetScene(
       renderer.dispose()
       renderer.domElement.remove()
       pedGeo.dispose()
+      shadowMat.dispose()
+      shadowTex.dispose()
+      shadow.geometry.dispose()
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh
         if (mesh.geometry) mesh.geometry.dispose()
