@@ -49,6 +49,7 @@ export interface WorldAreaClaim {
 
 export type WorldTransactionKind =
   | 'customer_purchase'
+  | 'business_build'
   | 'worker_wage'
   | 'hospital_bill'
   | 'insurance_payout'
@@ -120,6 +121,52 @@ export type ClaimWorldAreaResult =
   | { ok: true; area: WorldArea }
   | { ok: false; area: WorldArea; error: ClaimWorldAreaError }
 
+export interface WorldBusinessBlueprint {
+  kind: WorldBusinessKind
+  name: string
+  buildCost: number
+  price?: number
+  wagePerHour?: number
+  quality?: number
+}
+
+export type WorldIntent =
+  | {
+    type: 'buildBusiness'
+    actorCitizenId: string
+    businessId: string
+    blueprint: WorldBusinessBlueprint
+  }
+  | {
+    type: 'hireWorker'
+    actorCitizenId: string
+    businessId: string
+    workerCitizenId: string
+  }
+
+export type WorldIntentError =
+  | 'area_not_claimed'
+  | 'actor_not_found'
+  | 'actor_not_area_founder'
+  | 'actor_not_business_owner'
+  | 'actor_unavailable'
+  | 'business_id_taken'
+  | 'business_not_found'
+  | 'business_saturated'
+  | 'insufficient_funds'
+  | 'invalid_business'
+  | 'worker_not_found'
+  | 'worker_unavailable'
+  | 'worker_already_hired'
+
+export type ApplyWorldIntentResult =
+  | { ok: true; area: WorldArea }
+  | { ok: false; area: WorldArea; error: WorldIntentError }
+
+type RequireAreaFounderResult =
+  | { ok: true; actor: WorldCitizen }
+  | { ok: false; area: WorldArea; error: WorldIntentError }
+
 interface StepContext {
   at: number
   hours: number
@@ -163,6 +210,14 @@ const DEFAULT_PRICES: Record<WorldBusinessKind, number> = {
   housing: 28,
   clinic: 90,
   insurance: 45,
+}
+
+export const DEFAULT_BUSINESS_BLUEPRINTS: Record<WorldBusinessKind, WorldBusinessBlueprint> = {
+  water: { kind: 'water', name: 'Water Point', buildCost: 8_000, price: DEFAULT_PRICES.water, wagePerHour: 14 },
+  food: { kind: 'food', name: 'Food Shop', buildCost: 12_000, price: DEFAULT_PRICES.food, wagePerHour: 15 },
+  housing: { kind: 'housing', name: 'Basic Housing', buildCost: 25_000, price: DEFAULT_PRICES.housing, wagePerHour: 16 },
+  clinic: { kind: 'clinic', name: 'Clinic', buildCost: 75_000, price: DEFAULT_PRICES.clinic, wagePerHour: 24 },
+  insurance: { kind: 'insurance', name: 'Insurance Office', buildCost: 60_000, price: DEFAULT_PRICES.insurance, wagePerHour: 20 },
 }
 
 const SERVICE_EFFECTS: Record<WorldBusinessKind, ServiceEffect> = {
@@ -220,6 +275,16 @@ export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWo
 
   area.claim = { ...claim, label: claim.label.trim() }
   return { ok: true, area }
+}
+
+export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWorldIntentResult {
+  const area = cloneArea(input)
+  switch (intent.type) {
+    case 'buildBusiness':
+      return buildBusinessFromIntent(area, intent)
+    case 'hireWorker':
+      return hireWorkerFromIntent(area, intent)
+  }
 }
 
 export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAreaResult {
@@ -345,6 +410,96 @@ function recommendationReason(
   if (input.demand > 0) return `${input.demand} citizens currently need more ${kind} capacity.`
   if (input.saturated) return `${kind} supply is already at the current license limit.`
   return `${kind} is available, but demand is not urgent yet.`
+}
+
+function buildBusinessFromIntent(
+  area: WorldArea,
+  intent: Extract<WorldIntent, { type: 'buildBusiness' }>,
+): ApplyWorldIntentResult {
+  const actorCheck = requireAreaFounder(area, intent.actorCitizenId)
+  if (!actorCheck.ok) return actorCheck
+  const { actor } = actorCheck
+  const blueprint = normalizeBlueprint(intent.blueprint)
+  if (!blueprint || !intent.businessId.trim()) return { ok: false, area, error: 'invalid_business' }
+  if (area.businesses.some((business) => business.id === intent.businessId)) {
+    return { ok: false, area, error: 'business_id_taken' }
+  }
+
+  const dashboard = areaNeedsDashboard(area)
+  if (dashboard.supply[blueprint.kind] >= dashboard.licenseSlots[blueprint.kind]) {
+    return { ok: false, area, error: 'business_saturated' }
+  }
+  if (actor.money < blueprint.buildCost) return { ok: false, area, error: 'insufficient_funds' }
+
+  actor.money = roundMoney(actor.money - blueprint.buildCost)
+  area.businesses.push({
+    id: intent.businessId.trim(),
+    name: blueprint.name,
+    kind: blueprint.kind,
+    ownerId: actor.id,
+    cash: 0,
+    staffCitizenIds: [],
+    price: blueprint.price,
+    wagePerHour: blueprint.wagePerHour,
+    quality: blueprint.quality,
+    createdBy: actor.id,
+  })
+  recordTransaction(area, area.now, {
+    kind: 'business_build',
+    fromId: actor.id,
+    toId: 'system:builders',
+    amount: blueprint.buildCost,
+    memo: `${actor.name} built ${blueprint.name} in ${area.name}.`,
+  })
+  return { ok: true, area }
+}
+
+function hireWorkerFromIntent(
+  area: WorldArea,
+  intent: Extract<WorldIntent, { type: 'hireWorker' }>,
+): ApplyWorldIntentResult {
+  const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
+  if (!actor) return { ok: false, area, error: 'actor_not_found' }
+  if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
+
+  const business = area.businesses.find((candidate) => candidate.id === intent.businessId)
+  if (!business) return { ok: false, area, error: 'business_not_found' }
+  if (business.ownerId !== actor.id) return { ok: false, area, error: 'actor_not_business_owner' }
+  if (business.staffCitizenIds.includes(intent.workerCitizenId)) {
+    return { ok: false, area, error: 'worker_already_hired' }
+  }
+
+  const worker = area.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
+  if (!worker) return { ok: false, area, error: 'worker_not_found' }
+  if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
+    return { ok: false, area, error: 'worker_unavailable' }
+  }
+
+  worker.jobBusinessId = business.id
+  business.staffCitizenIds.push(worker.id)
+  return { ok: true, area }
+}
+
+function requireAreaFounder(area: WorldArea, actorCitizenId: string): RequireAreaFounderResult {
+  if (!area.claim) return { ok: false, area, error: 'area_not_claimed' }
+  const actor = area.citizens.find((citizen) => citizen.id === actorCitizenId)
+  if (!actor) return { ok: false, area, error: 'actor_not_found' }
+  if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
+  if (actor.id !== area.claim.founderCitizenId) return { ok: false, area, error: 'actor_not_area_founder' }
+  return { ok: true, actor }
+}
+
+function normalizeBlueprint(blueprint: WorldBusinessBlueprint): WorldBusinessBlueprint | null {
+  if (!BUSINESS_KINDS.includes(blueprint.kind)) return null
+  if (!blueprint.name.trim()) return null
+  if (!Number.isFinite(blueprint.buildCost) || blueprint.buildCost <= 0) return null
+  return {
+    ...blueprint,
+    name: blueprint.name.trim(),
+    buildCost: roundMoney(blueprint.buildCost),
+    price: blueprint.price !== undefined ? roundMoney(blueprint.price) : undefined,
+    wagePerHour: blueprint.wagePerHour !== undefined ? roundMoney(blueprint.wagePerHour) : undefined,
+  }
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {

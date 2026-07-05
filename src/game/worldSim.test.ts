@@ -7,7 +7,9 @@ import {
   WORLD_SIM_HOUR_MS,
   advanceWorldArea,
   areaNeedsDashboard,
+  applyWorldIntent,
   claimWorldArea,
+  DEFAULT_BUSINESS_BLUEPRINTS,
   effectiveBusinessQuality,
   licenseSlotsForPopulation,
   type WorldArea,
@@ -59,6 +61,24 @@ const area = (over: Partial<WorldArea> = {}): WorldArea => ({
   transactions: [],
   ...over,
 })
+
+const claimedArea = (over: Partial<WorldArea> = {}): WorldArea => {
+  const start = area({
+    ...over,
+    citizens: [sim('founder', { kind: 'real', money: 200_000 }), ...(over.citizens ?? [])],
+  })
+  const claimed = claimWorldArea(start, {
+    founderCitizenId: 'founder',
+    label: 'Founder District',
+    centerLat: 44.45,
+    centerLng: 26.08,
+    radiusKm: 2,
+    claimedAt: 1,
+    source: 'manual',
+  })
+  if (!claimed.ok) throw new Error('expected test area claim to succeed')
+  return claimed.area
+}
 
 describe('advanceWorldArea — local real-time economy', () => {
   test('a real founder can claim one small local area', () => {
@@ -124,6 +144,127 @@ describe('advanceWorldArea — local real-time economy', () => {
       claimedAt: 2,
       source: 'manual',
     })).toMatchObject({ ok: false, error: 'area_already_claimed' })
+  })
+
+  test('a founder build intent creates a business, charges the founder, and records the build ledger event', () => {
+    const start = claimedArea({ citizens: [sim('c1')] })
+    const result = applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'water-a',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected build intent to succeed')
+    expect(result.area.citizens.find((c) => c.id === 'founder')!.money).toBe(192_000)
+    expect(result.area.businesses[0]).toMatchObject({
+      id: 'water-a',
+      kind: 'water',
+      ownerId: 'founder',
+      createdBy: 'founder',
+      price: 2,
+    })
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
+    ])
+    expect(start.businesses).toEqual([])
+  })
+
+  test('build intents require a claimed area and the area founder', () => {
+    const unclaimed = area({ citizens: [sim('founder', { kind: 'real', money: 200_000 })] })
+    expect(applyWorldIntent(unclaimed, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'water-a',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+    })).toMatchObject({ ok: false, error: 'area_not_claimed' })
+
+    const start = claimedArea({ citizens: [sim('outsider', { kind: 'real', money: 200_000 })] })
+    expect(applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'outsider',
+      businessId: 'food-a',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.food,
+    })).toMatchObject({ ok: false, error: 'actor_not_area_founder' })
+  })
+
+  test('build intents reject saturated licenses and insufficient founder funds', () => {
+    const saturated = claimedArea({
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+    expect(applyWorldIntent(saturated, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'water2',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+    })).toMatchObject({ ok: false, error: 'business_saturated' })
+
+    const brokeFounder = claimedArea({
+      citizens: [sim('local', { money: 100 })],
+    })
+    brokeFounder.citizens.find((c) => c.id === 'founder')!.money = 100
+    expect(applyWorldIntent(brokeFounder, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'food-a',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.food,
+    })).toMatchObject({ ok: false, error: 'insufficient_funds' })
+  })
+
+  test('hire intents attach an active worker to an owned business', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'worker',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected hire intent to succeed')
+    expect(result.area.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('food1')
+    expect(result.area.transactions).toEqual([])
+  })
+
+  test('hire intents reject non-owners, unavailable workers, and duplicate hires', () => {
+    const start = claimedArea({
+      citizens: [
+        sim('worker', { state: { kind: 'hospitalized', until: 10 * HOUR } }),
+        sim('outsider', { kind: 'real' }),
+      ],
+      businesses: [business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['existing'] })],
+    })
+
+    expect(applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'outsider',
+      businessId: 'food1',
+      workerCitizenId: 'worker',
+    })).toMatchObject({ ok: false, error: 'actor_not_business_owner' })
+
+    expect(applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'worker',
+    })).toMatchObject({ ok: false, error: 'worker_unavailable' })
+
+    const withExistingWorker = claimedArea({
+      citizens: [sim('existing')],
+      businesses: [business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['existing'] })],
+    })
+    expect(applyWorldIntent(withExistingWorker, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'existing',
+    })).toMatchObject({ ok: false, error: 'worker_already_hired' })
   })
 
   test('a thirsty Sim Citizen buys water and the business earns from that purchase', () => {
