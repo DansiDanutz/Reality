@@ -5,6 +5,8 @@ import {
   INSURANCE_COVERAGE,
   MAX_FOUNDER_AREA_RADIUS_KM,
   MIN_BUSINESS_QUALITY,
+  SIM_LEAVES_HEALTH,
+  SIM_LEAVES_NEED_LEVEL,
   UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR,
   WORLD_SIM_HOUR_MS,
   advanceWorldArea,
@@ -521,6 +523,44 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(citizen.money).toBe(0)
     expect(citizen.debt).toBe(HOSPITAL_BILL - covered - 50)
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['insurance_payout', 'hospital_bill', 'medical_debt'])
+  })
+
+  test('Sim Citizens can leave when severe local needs stay unserved', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        health: SIM_LEAVES_HEALTH,
+        needs: fullNeeds({ hydration: SIM_LEAVES_NEED_LEVEL }),
+        jobBusinessId: 'food1',
+      })],
+      businesses: [business('food', 'food1', { staffCitizenIds: ['c1'] })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens).toEqual([])
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(summary.citizensLeft).toBe(1)
+    expect(summary.hospitalizations).toBe(0)
+  })
+
+  test('real citizens and business owners do not silently leave the area', () => {
+    const realCitizen = sim('real1', {
+      kind: 'real',
+      health: SIM_LEAVES_HEALTH,
+      needs: fullNeeds({ hydration: SIM_LEAVES_NEED_LEVEL }),
+    })
+    const owner = sim('owner', {
+      health: SIM_LEAVES_HEALTH,
+      needs: fullNeeds({ hydration: SIM_LEAVES_NEED_LEVEL }),
+    })
+
+    const { area: out, summary } = advanceWorldArea(area({
+      citizens: [realCitizen, owner],
+      businesses: [business('insurance', 'owner-business', { ownerId: 'owner' })],
+    }), HOUR)
+
+    expect(out.citizens.map((c) => c.id)).toEqual(['real1', 'owner'])
+    expect(summary.citizensLeft).toBe(0)
   })
 
   test('a hospitalized owner hurts unstaffed service quality, while staff keeps it running', () => {

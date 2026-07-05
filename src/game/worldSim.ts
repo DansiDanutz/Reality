@@ -80,6 +80,7 @@ export interface WorldAreaSummary {
   purchases: number
   wagesPaid: number
   hospitalizations: number
+  citizensLeft: number
   debtsIssued: number
   revenueByBusiness: Record<string, number>
 }
@@ -219,6 +220,8 @@ export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
 export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+export const SIM_LEAVES_HEALTH = 35
+export const SIM_LEAVES_NEED_LEVEL = 5
 
 const ACTIVE_NEED_RATES: Needs = {
   hunger: 3.8,
@@ -648,6 +651,7 @@ function normalizeBlueprint(blueprint: WorldBusinessBlueprint): WorldBusinessBlu
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {
+  const departingCitizenIds = new Set<string>()
   for (const citizen of area.citizens) {
     if (citizen.state.kind === 'hospitalized') {
       recoverIfReady(citizen, context.at)
@@ -661,8 +665,13 @@ function advanceStep(area: WorldArea, context: StepContext): void {
     if (citizen.state.kind !== 'active') continue
     decayCitizen(citizen, context.hours)
     buyNeededServices(area, citizen, context)
+    if (shouldSimLeaveArea(area, citizen, context)) {
+      departingCitizenIds.add(citizen.id)
+      continue
+    }
     if (shouldHospitalize(citizen)) hospitalize(area, citizen, context)
   }
+  removeDepartingCitizens(area, departingCitizenIds, context)
 }
 
 function recoverIfReady(citizen: WorldCitizen, at: number): void {
@@ -734,6 +743,34 @@ function buyNeededServices(area: WorldArea, citizen: WorldCitizen, context: Step
   if (citizen.needs.hunger <= 50) purchaseService(area, citizen, 'food', context)
   if (citizen.needs.energy <= 35) purchaseService(area, citizen, 'housing', context)
   if (citizen.health <= 65) purchaseService(area, citizen, 'clinic', context)
+}
+
+function shouldSimLeaveArea(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return false
+  if (area.claim?.founderCitizenId === citizen.id) return false
+  if (area.businesses.some((business) => business.ownerId === citizen.id)) return false
+  if (citizen.health > SIM_LEAVES_HEALTH) return false
+
+  return (citizen.needs.hydration <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'water', context)) ||
+    (citizen.needs.hunger <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'food', context)) ||
+    (citizen.needs.energy <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'housing', context))
+}
+
+function hasRemainingServiceCapacity(area: WorldArea, kind: WorldBusinessKind, context: StepContext): boolean {
+  return area.businesses.some((business) => {
+    if (business.kind !== kind) return false
+    const used = context.capacityUsed[business.id] ?? 0
+    return used < serviceCapacity(area, business, context.hours)
+  })
+}
+
+function removeDepartingCitizens(area: WorldArea, citizenIds: Set<string>, context: StepContext): void {
+  if (citizenIds.size === 0) return
+  area.citizens = area.citizens.filter((citizen) => !citizenIds.has(citizen.id))
+  for (const business of area.businesses) {
+    business.staffCitizenIds = business.staffCitizenIds.filter((id) => !citizenIds.has(id))
+  }
+  context.summary.citizensLeft += citizenIds.size
 }
 
 function purchaseService(
@@ -925,6 +962,7 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
     purchases: 0,
     wagesPaid: 0,
     hospitalizations: 0,
+    citizensLeft: 0,
     debtsIssued: 0,
     revenueByBusiness: {},
   }
