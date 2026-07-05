@@ -6,6 +6,7 @@ import {
   type Achievement,
   type AchievementCategory,
 } from '../../game/achievements'
+import { LUCKY_MOMENT_DEFS, RARITY_META } from '../../game/luckyMoments'
 import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
 import { achievementSnapshotOf, useGame } from '../../store/gameStore'
 
@@ -35,6 +36,7 @@ export default function AchievementsPanel() {
   const claimAchievement = useGame((s) => s.claimAchievement)
   const streakLength = useGame((s) => s.streakLength)
   const streakBest = useGame((s) => s.streakBest)
+  const seenMomentIds = useGame((s) => s.luckyMomentsSeenIds)
 
   // Read the full snapshot once per render from the live store
   const snapshot = achievementSnapshotOf(useGame.getState())
@@ -62,6 +64,11 @@ export default function AchievementsPanel() {
       {/* Daily streak — the come-back-tomorrow hook. Always visible so the
           player sees what tomorrow's reward will be, even mid-session. */}
       <StreakBlock length={streakLength} best={streakBest} />
+
+      {/* Lucky moments collection — the Pokédex hook. Discovered moments show
+          their story; undiscovered ones show only the rarity silhouette, so
+          the player always has a "find them all" chase. */}
+      <CollectionBlock seenIds={seenMomentIds} />
 
       {[...byCategory.entries()].map(([cat, items]) => {
         const meta = CATEGORY_META[cat]
@@ -148,6 +155,78 @@ function StreakBlock({ length, best }: { length: number; best: number }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+/**
+ * The lucky moments collection — a Pokédex-style grid. Discovered moments
+ * reveal their full story and reward range; undiscovered ones show only the
+ * rarity tier and a `???` silhouette. The chase ("I've found 7/10, where's
+ * the lottery?") keeps players coming back between jackpots.
+ *
+ * Deliberately hidden entirely until the player has seen at least one moment,
+ * so the panel doesn't spoil the surprise on first load.
+ */
+function CollectionBlock({ seenIds }: { seenIds: string[] }) {
+  if (LUCKY_MOMENT_DEFS.length === 0) return null
+  const seen = new Set(seenIds)
+  const discovered = LUCKY_MOMENT_DEFS.filter((d) => seen.has(d.id))
+  // Don't render the block at all until the player has witnessed at least one
+  // lucky moment — spoils less, and feels like an unlock in itself.
+  if (discovered.length === 0) return null
+
+  // Group by rarity, then render each tier in its own sub-list.
+  const byRarity = {
+    legendary: LUCKY_MOMENT_DEFS.filter((d) => d.rarity === 'legendary'),
+    rare: LUCKY_MOMENT_DEFS.filter((d) => d.rarity === 'rare'),
+    lucky: LUCKY_MOMENT_DEFS.filter((d) => d.rarity === 'lucky'),
+  }
+  const order: Array<keyof typeof byRarity> = ['legendary', 'rare', 'lucky']
+
+  return (
+    <div className="collection-block" aria-label="Lucky moments collection">
+      <header className="collection-head">
+        <span className="collection-title">🍀 Lucky moments</span>
+        <span className="collection-count mono">{discovered.length}/{LUCKY_MOMENT_DEFS.length}</span>
+      </header>
+      {order.map((rarity) => {
+        const defs = byRarity[rarity]
+        const meta = RARITY_META[rarity]
+        const found = defs.filter((d) => seen.has(d.id)).length
+        return (
+          <div className="collection-tier" key={rarity} data-rarity={rarity}>
+            <div className="collection-tier-head">
+              <span className="collection-tier-icon" aria-hidden>{meta.icon}</span>
+              <span className="collection-tier-label">{meta.label}</span>
+              <span className="collection-tier-count mono">{found}/{defs.length}</span>
+            </div>
+            <ul className="collection-grid">
+              {defs.map((d) => {
+                const isSeen = seen.has(d.id)
+                return (
+                  <li
+                    className={`collection-card${isSeen ? ' discovered' : ' undiscovered'}`}
+                    key={d.id}
+                    aria-label={isSeen ? `${meta.label}: discovered` : `${meta.label}: undiscovered`}
+                  >
+                    {isSeen ? (
+                      <>
+                        <p className="collection-story">{d.text}</p>
+                        <span className="collection-reward mono">
+                          {formatMoney(d.cashMin)}–{formatMoney(d.cashMax)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="collection-silhouette">??? {meta.icon}</span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )
+      })}
     </div>
   )
 }
