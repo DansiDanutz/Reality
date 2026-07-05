@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
-import { playThud, startAmbience, stopAmbience } from '../../lib/sound'
+import { playFootstep, playThud, startAmbience, stopAmbience } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
 import { fetchWeather, shouldSnow } from './weather'
 import type { StreetMarker, StreetSceneHandle } from './streetScene'
@@ -64,6 +64,10 @@ export default function StreetMode() {
           // render cycle, so a captured `soundOn` would go stale on mute toggle).
           () => {
             if (useGame.getState().soundOn) playThud()
+          },
+          // Footstep — fires once per bob-cycle at the foot-plant moment.
+          () => {
+            if (useGame.getState().soundOn) playFootstep()
           },
         )
       })

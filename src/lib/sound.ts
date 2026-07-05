@@ -103,6 +103,34 @@ export function playChime(kind: ChimeKind): void {
 }
 
 /**
+ * A footstep — a very short, soft, low filtered-noise tick. Quieter and
+ * shorter than the jump-landing thud (which is the same family of sound);
+ * this is the rhythm of walking, not the punctuation of landing. Plays once
+ * per bob-cycle via the StreetMode onStep hook.
+ */
+export function playFootstep(): void {
+  const context = ensureContext()
+  if (!context) return
+  const now = context.currentTime
+  // 40ms of decaying noise through a low-pass — the "shoe meets pavement" tick.
+  const len = Math.floor(context.sampleRate * 0.04)
+  const buffer = context.createBuffer(1, len, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len)
+  const noise = context.createBufferSource()
+  noise.buffer = buffer
+  const filter = context.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 380
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0.025, now)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05)
+  noise.connect(filter).connect(gain).connect(out(context))
+  noise.start(now)
+  noise.stop(now + 0.06)
+}
+
+/**
  * Street Mode jump-landing thud (issue #30). A short filtered-noise burst with
  * a low-sine body — the sound of shoes meeting pavement. Distinct instrument
  * from the chimes (which are pure tonal sines); this is broad-band + low end.
