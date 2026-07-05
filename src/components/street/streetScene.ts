@@ -20,6 +20,52 @@ import type { Weather } from './weather'
  */
 
 const EYE_HEIGHT = 1.7
+
+/**
+ * Sky color for a given local hour (0-23, fractional). Smooth transitions
+ * through dawn (5-7h: deep blue → pink → blue), day (7-17h: blue), dusk
+ * (17-19h: blue → orange → deep blue), night (else: near-black blue).
+ *
+ * Returns a 0xRRGGBB hex number. Used for scene.background + fog so the sky
+ * matches the real time of day at the citizen's location.
+ */
+function skyColorForHour(hour: number): number {
+  // Anchor colors at key hours; lerp between them.
+  // 0h/22h+ : deep night   0x0a1424
+  // 5h      : pre-dawn      0x1a1e3a
+  // 6.5h    : dawn pink     0xc8806a
+  // 8h      : morning blue  0x8ab8d8
+  // 13h     : midday blue   0x9cc4e8
+  // 17h     : late day      0x8a9cb8
+  // 18.5h   : dusk orange   0xd08a55
+  // 20h     : twilight      0x2a2a4a
+  const stops: Array<[number, number]> = [
+    [0, 0x0a1424], [5, 0x1a1e3a], [6.5, 0xc8806a], [8, 0x8ab8d8],
+    [13, 0x9cc4e8], [17, 0x8a9cb8], [18.5, 0xd08a55], [20, 0x2a2a4a],
+    [24, 0x0a1424],
+  ]
+  // Find the bracketing stops.
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [h1, c1] = stops[i]
+    const [h2, c2] = stops[i + 1]
+    if (hour >= h1 && hour <= h2) {
+      const t = (hour - h1) / (h2 - h1)
+      return lerpColor(c1, c2, t)
+    }
+  }
+  return 0x0a1424
+}
+
+/** Linear interpolation between two 0xRRGGBB colors. */
+function lerpColor(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff
+  const r = Math.round(ar + (br - ar) * t)
+  const g = Math.round(ag + (bg - ag) * t)
+  const bl = Math.round(ab + (bb - ab) * t)
+  return (r << 16) | (g << 8) | bl
+}
+
 const WALK_SPEED = 3.6 // m/s top speed
 const RUN_MULTIPLIER = 2.2
 const ACCEL = 26 // m/s² toward wish direction
@@ -203,7 +249,10 @@ export async function createStreetScene(
   const precip = !calmMotion && (raining || snowing) ? (snowing ? 'snow' : 'rain') : null
 
   const scene = new THREE.Scene()
-  const skyColor = night ? 0x0a1424 : 0x9cc4e8
+  // Sky color tracks the real local hour — smooth dawn/dusk transitions
+  // instead of a binary day/night flip. Fog matches so distance fades into
+  // the same hue.
+  const skyColor = skyColorForHour(localHour)
   scene.background = new THREE.Color(skyColor)
   // Rain doubles the fog density — the world closes in, as it does in a downpour
   const fogBase = night ? 0.0042 : 0.0015
