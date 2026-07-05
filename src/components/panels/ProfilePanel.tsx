@@ -178,6 +178,9 @@ export default function ProfilePanel() {
         📖 Read your life journal
       </button>
 
+      <h3 className="profile-section-title">Sound</h3>
+      <SoundSection />
+
       <h3 className="profile-section-title">Account</h3>
       <GoogleLink />
       <NotificationsSection />
@@ -277,5 +280,47 @@ function NotifToggle({
         aria-label={`${label} notifications ${on ? 'on' : 'off'}`}
       />
     </label>
+  )
+}
+
+/**
+ * Sound settings — the master mute (mirrors the TopBar toggle) plus a volume
+ * slider. A top game lets players set chime volume independent of system.
+ */
+function SoundSection() {
+  const soundOn = useGame((s) => s.soundOn)
+  const toggleSound = useGame((s) => s.toggleSound)
+  const volume = useGame((s) => s.soundVolume)
+  const setSoundVolume = useGame((s) => s.setSoundVolume)
+  return (
+    <div className="sound-section">
+      <label className="notif-toggle">
+        <span className="notif-toggle-text">
+          <span className="notif-toggle-label">Sound</span>
+          <span className="notif-toggle-hint">Chimes for rewards, levels, and events</span>
+        </span>
+        <input
+          type="checkbox"
+          checked={soundOn}
+          onChange={toggleSound}
+          aria-label={`Sound ${soundOn ? 'on' : 'off'}`}
+        />
+      </label>
+      {soundOn && (
+        <label className="sound-volume">
+          <span className="sound-volume-label">Volume</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+            aria-label={`Sound volume ${Math.round(volume * 100)} percent`}
+          />
+          <span className="sound-volume-value mono">{Math.round(volume * 100)}%</span>
+        </label>
+      )}
+    </div>
   )
 }
