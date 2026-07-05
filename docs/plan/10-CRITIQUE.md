@@ -416,3 +416,23 @@ Five more PRs (#87–#93) extending every system:
 4. **Milestone celebration could queue.** *(carried forward from batch 3)* If a legendary + week-1 fire in the same tick, only one shows. **Action:** 1-entry queue.
 5. **PWA install prompt is Chrome-only.** iOS Safari doesn't fire beforeinstallprompt — iOS players get no prompt, only the manual "Add to Home Screen" instruction. **Action:** detect iOS Safari and show a manual-instruction banner instead.
 6. **No analytics on the new systems.** lucky moments, daily challenges, upgrades, celebrations — none have track() calls beyond what existed. We can't measure what we can't see. **Action:** add track() calls for first_lucky, daily_complete, first_upgrade, celebration_shown.
+
+## Fixed in the atmosphere/polish loops (2026-07-05, batch 5)
+
+Eight more PRs (#108–#115) — critique resolution + atmospheric depth:
+
+- **#108 Precise daily-challenge delta** — explicit cashEarnedThisTick accumulator replaces the imprecise max(0, money - s.money). No more double-counting wages or clamping spending. *(critique batches 2/3/4 item — resolved)*
+- **#109 Narrative journal entries** — 6 key milestone notes rewritten as diary prose. *(critique batches 3/4 item — resolved)*
+- **#110 Celebration queue** — FIFO queue drains via dismissCelebration; "1 of N" indicator. No more dropped moments. *(critique batches 3/4 item — resolved)*
+- **#111 Card aesthetic unified** — GoalsCard matches TutorialPanel (blur, shadow, entrance animation). *(critique batch 3 item — resolved)*
+- **#112 Thought of the day** — rotating poetic line on the welcome-back card, day-seeded. The game finds its voice.
+- **#113 Day/night-aware ambience** — night = deep 320Hz rumble, day = brighter 480Hz city air.
+- **#114 The moon** — night sky focal point with glow halo.
+- **#115 The sun** — daytime sky focal point, matching the directional light's direction.
+
+**Remaining self-critique:**
+
+1. **No live-player validation.** *(carried forward since batch 1)* The entire engine + atmosphere is designed from theory. **Action:** unblocked when Dan opens Neon (Phase 1b).
+2. **The sun/moon are fixed-position, not time-tracked.** They don't move across the sky over a real day -- they're always "up there". A real day/night cycle would arc them. **Action:** arc the sun/moon by local hour if we want true astronomical realism (low priority -- the static placement reads fine).
+3. **Atmosphere is scene-only.** The main map (3D globe) has none of the day/night weather/atmosphere that Street Mode now has. **Action:** consider a globe-level day/night terminator or weather overlay (large effort).
+4. **No content for the thought-of-the-day beyond 15 lines.** A daily player will cycle through them all in ~2 weeks. **Action:** expand the pool to 30-50 lines, or theme them by season.
