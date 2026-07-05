@@ -854,6 +854,7 @@ function completeServicePurchase(
   context: StepContext,
 ): void {
   const price = business.price ?? DEFAULT_PRICES[kind]
+  reserveBusinessCapacity(context, business)
   citizen.money = roundMoney(citizen.money - price)
   business.cash = roundMoney(business.cash + price)
   context.summary.purchases += 1
@@ -880,6 +881,7 @@ function purchaseInsurancePolicy(
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (citizen.money < premium) return false
 
+  reserveBusinessCapacity(context, insurer)
   citizen.money = roundMoney(citizen.money - premium)
   citizen.insuranceBusinessId = insurer.id
   citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
@@ -906,13 +908,14 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
     const business = candidates[(start + offset) % candidates.length]
     const capacity = serviceCapacity(area, business, context.hours)
     const used = context.capacityUsed[business.id] ?? 0
-    if (used < capacity) {
-      context.capacityUsed[business.id] = used + 1
-      context.servedByKind[kind] += 1
-      return business
-    }
+    if (used < capacity) return business
   }
   return null
+}
+
+function reserveBusinessCapacity(context: StepContext, business: WorldBusiness): void {
+  context.capacityUsed[business.id] = (context.capacityUsed[business.id] ?? 0) + 1
+  context.servedByKind[business.kind] += 1
 }
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {

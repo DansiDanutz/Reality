@@ -561,6 +561,30 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('unpaid attempts do not consume scarce service capacity from paying citizens', () => {
+    const start = area({
+      citizens: [
+        sim('broke', { money: 0, health: 60 }),
+        sim('payer', { money: 100, health: 60 }),
+      ],
+      businesses: [business('clinic', 'clinic1', { price: 90, quality: 0.2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const broke = out.citizens.find((c) => c.id === 'broke')!
+    const payer = out.citizens.find((c) => c.id === 'payer')!
+    const clinic = out.businesses[0]
+
+    expect(broke.money).toBe(0)
+    expect(payer.money).toBe(10)
+    expect(payer.health).toBeGreaterThan(60)
+    expect(clinic.cash).toBe(90)
+    expect(summary.purchases).toBe(1)
+    expect(out.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'payer', toId: 'clinic1', amount: 90 },
+    ])
+  })
+
   test('worker wages move from the business till to the worker ledger', () => {
     const start = area({
       citizens: [sim('worker', { jobBusinessId: 'food1' })],
