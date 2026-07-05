@@ -39,6 +39,44 @@ export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' 
 const SAVE_KEY = 'reality-save-v1'
 
 /**
+ * Save migration — backfills fields added in later versions onto older
+ * persisted states. Extracted from the persist config so it can be tested
+ * in isolation (a regression here would silently corrupt every old save).
+ *
+ * Version history:
+ *   v1 → v2: hydration need (default 75)
+ *   v2 → v3: pets array (default [])
+ *   v3 → v4: illness + lastIllnessRollAt
+ *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
+ *
+ * The function mutates and returns its input (matching zustand/persist's
+ * migrate signature). Every field added after v1 MUST have a backfill here,
+ * or old saves load with `undefined` and crash at first read.
+ */
+export function migrateSave(persisted: unknown): GameState {
+  // Defensive: localStorage can contain anything (hand-edited, corrupted,
+  // a value from a totally different app reusing the key). A thrown migrate
+  // would brick the app on load, so bail out cleanly on non-object input
+  // and let the store's merge/FRESH logic recover.
+  if (persisted === null || typeof persisted !== 'object') {
+    return { ...FRESH, citizen: null } as GameState
+  }
+  const state = persisted as GameState
+  if (state?.needs && (state.needs as { hydration?: number }).hydration === undefined) {
+    state.needs = { ...state.needs, hydration: 75 }
+  }
+  if (state && !state.pets) state.pets = []
+  if (state && state.illness === undefined) state.illness = null
+  if (state && !state.lastIllnessRollAt) state.lastIllnessRollAt = 0
+  if (state && state.streakLength === undefined) state.streakLength = 0
+  if (state && state.streakLastClaimDay === undefined) state.streakLastClaimDay = 0
+  if (state && state.streakBest === undefined) state.streakBest = 0
+  if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
+  if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
+  return state
+}
+
+/**
  * Calendar day index in the citizen's local timezone — the basis for the
  * daily streak. Two timestamps on the same local day return the same number;
  * midnight rollover bumps it by one. Uses the same tz-lookup as clock.ts so
@@ -1120,25 +1158,9 @@ export const useGame = create<GameState>()(
     {
       name: SAVE_KEY,
       version: 5,
-      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak + lucky moments
-      migrate: (persisted) => {
-        const state = persisted as GameState
-        if (state?.needs && state.needs.hydration === undefined) {
-          state.needs = { ...state.needs, hydration: 75 }
-        }
-        if (state && !state.pets) state.pets = []
-        if (state && state.illness === undefined) state.illness = null
-        if (state && !state.lastIllnessRollAt) state.lastIllnessRollAt = 0
-        // Streak: existing citizens start at day 1 of a fresh streak on first
-        // load post-update, so they get the satisfying "streak advanced!"
-        // toast the very next midnight. lastClaimDay 0 = never claimed yet.
-        if (state && state.streakLength === undefined) state.streakLength = 0
-        if (state && state.streakLastClaimDay === undefined) state.streakLastClaimDay = 0
-        if (state && state.streakBest === undefined) state.streakBest = 0
-        if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
-        if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
-        return state
-      },
+      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak + lucky moments.
+      // Extracted to migrateSave() above so it can be regression-tested.
+      migrate: migrateSave,
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
