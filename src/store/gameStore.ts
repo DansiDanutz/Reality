@@ -41,6 +41,7 @@ import {
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { track } from '../lib/analytics'
+import { thoughtForDay } from '../game/thoughts'
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
@@ -896,9 +897,17 @@ export const useGame = create<GameState>()(
         let dailyBonusClaimed = s.dailyBonusClaimed
         if (dailyCounters.day !== todayDay) {
           // Midnight rollover (or first tick of a new citizen): fresh slate.
+          // On a genuine rollover (previous day was set, i.e. not the first
+          // tick), log a day-header to the journal — gives the timeline a
+          // temporal rhythm and surfaces the thought-of-the-day in context.
+          const wasRollover = dailyCounters.day > 0
           dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: todayDay }
           dailyClaimed = []
           dailyBonusClaimed = false
+          if (wasRollover) {
+            const thought = thoughtForDay(todayDay)
+            log = note(log, `━ A new day. "${thought}"`)
+          }
         }
         // Savings goal — celebrate once when net worth crosses the player's
         // self-set target. Checked here (after money is finalized by the
