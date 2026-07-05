@@ -36,3 +36,10 @@ dist-ssr
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Stray assets from OTHER projects that share this folder — never belong in the
+# game repo (accidentally committed in #157 via `git add -A`; removed in the
+# untrack-stray-assets cleanup). DansLab website screenshots + a Nervix runbook.
+danslab-*.jpeg
+danslab-*.jpg
+/docs/runbooks/
