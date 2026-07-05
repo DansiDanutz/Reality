@@ -127,7 +127,8 @@ async function createClaimedArea(
   const name = command.name.trim()
   if (!areaId || !name) return { ok: false, error: 'invalid_area_identity' }
   if (!isValidCommandTime(command.now)) return { ok: false, error: 'invalid_command_time' }
-  const simCitizens = normalizeSimCitizenSeeds(command.simCitizens ?? [], command.founder.id)
+  const simSeeds = command.simCitizens ?? defaultSimCitizenSeeds(areaId)
+  const simCitizens = normalizeSimCitizenSeeds(simSeeds, command.founder.id)
   if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
   if (await loadStoredArea(repo, areaId)) return { ok: false, error: 'area_exists' }
@@ -231,6 +232,34 @@ function normalizeSimCitizenSeeds(citizens: WorldCitizen[], founderId: string): 
     normalized.push(newAreaSimCitizen(citizen))
   }
   return normalized
+}
+
+function defaultSimCitizenSeeds(areaId: string): WorldCitizen[] {
+  return [
+    simCitizenSeed(`${areaId}:sim-water`, 'Demo Water Resident', { hydration: 42 }),
+    simCitizenSeed(`${areaId}:sim-food`, 'Demo Food Resident', { hunger: 44 }),
+    simCitizenSeed(`${areaId}:sim-housing`, 'Demo Housing Resident', { energy: 32 }),
+  ]
+}
+
+function simCitizenSeed(id: string, name: string, needs: Partial<Needs>): WorldCitizen {
+  return {
+    id,
+    name,
+    kind: 'sim',
+    money: 0,
+    debt: 0,
+    needs: {
+      hunger: 88,
+      hydration: 88,
+      energy: 82,
+      hygiene: 80,
+      fun: 70,
+      ...needs,
+    },
+    health: 96,
+    state: { kind: 'active' },
+  }
 }
 
 function isValidNeeds(needs: Needs): boolean {

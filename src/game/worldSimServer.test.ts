@@ -104,7 +104,7 @@ const citizen = (id: string, over: Partial<WorldCitizen> = {}): WorldCitizen => 
   ...over,
 })
 
-const createArea = async (repo: MemoryWorldRepo, founder = citizen('founder')) => {
+const createArea = async (repo: MemoryWorldRepo, founder = citizen('founder'), simCitizens: WorldCitizen[] = []) => {
   const result = await runWorldServerCommand(repo, {
     type: 'createClaimedArea',
     areaId: 'area-1',
@@ -112,6 +112,7 @@ const createArea = async (repo: MemoryWorldRepo, founder = citizen('founder')) =
     now: 1_000,
     authenticatedFounderId: founder.id,
     founder,
+    simCitizens,
     claim: {
       founderCitizenId: founder.id,
       label: 'Founder District',
@@ -155,6 +156,69 @@ describe('runWorldServerCommand', () => {
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
     ])
     expect(repo.saves).toBe(1)
+  })
+
+  test('creates default Sim Citizens when no server seed list is supplied', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected default sim-seeded area creation to succeed')
+    expect(result.dashboard).toMatchObject({
+      population: 4,
+      realPopulation: 1,
+      simPopulation: 3,
+    })
+    expect(result.dashboard.simDemand.water).toBe(1)
+    expect(result.dashboard.simDemand.food).toBe(1)
+    expect(result.dashboard.simDemand.housing).toBe(3)
+    expect(result.area.citizens.filter((candidate) => candidate.kind === 'sim')).toMatchObject([
+      {
+        id: 'area-1:sim-water',
+        name: 'Demo Water Resident',
+        money: SIM_CITIZEN_STARTING_BALANCE,
+        debt: 0,
+        state: { kind: 'active' },
+      },
+      {
+        id: 'area-1:sim-food',
+        name: 'Demo Food Resident',
+        money: SIM_CITIZEN_STARTING_BALANCE,
+        debt: 0,
+        state: { kind: 'active' },
+      },
+      {
+        id: 'area-1:sim-housing',
+        name: 'Demo Housing Resident',
+        money: SIM_CITIZEN_STARTING_BALANCE,
+        debt: 0,
+        state: { kind: 'active' },
+      },
+    ])
+    expect(result.area.transactions.map((transaction) => transaction.kind)).toEqual([
+      'founder_credit',
+      'sim_citizen_credit',
+      'sim_citizen_credit',
+      'sim_citizen_credit',
+    ])
+    expect(saved?.transactions.filter((transaction) => transaction.kind === 'sim_citizen_credit')).toHaveLength(3)
   })
 
   test('rejects claimed-area creation when storage reports a write race', async () => {
