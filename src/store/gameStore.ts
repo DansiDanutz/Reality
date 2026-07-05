@@ -649,10 +649,19 @@ export const useGame = create<GameState>()(
             toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'gold')
             log = note(log, `Day ${streakOut.length} streak — claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
           } else if (streakOut.reset) {
-            // A reset is worth surfacing — the player should know their streak
-            // broke and that coming back daily is what keeps it growing.
-            toasts = withToast(toasts, `Your streak reset — start again at day 1. 🔁`, 'sky')
-            log = note(log, `Streak reset after a long absence. Day 1 of a new streak.`)
+            // A reset is worth surfacing — but framed as a fresh start, not a
+            // loss. Returning players should feel welcomed, not punished (the
+            // act of coming back is exactly what we want to reward). Only
+            // mention the previous streak if it was meaningful (>= 3 days) so
+            // a day-1 player doesn't get greeted with news of a "reset" they
+            // never built. The previous best is preserved in streakBest and
+            // shown in the panel — the loss isn't erased, just not the headline.
+            const prev = s.streakLength
+            const msg = prev >= 3
+              ? `Welcome back. Your ${prev}-day streak reset — start fresh at day 1. 🔁`
+              : `Welcome back. A new streak starts today. 🔁`
+            toasts = withToast(toasts, msg, 'sky')
+            log = note(log, `Streak reset after a long absence (was ${prev} days). Day 1 of a new streak. Best streak ${s.streakBest} days is preserved.`)
           }
         }
 
