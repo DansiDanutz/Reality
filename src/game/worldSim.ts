@@ -61,6 +61,7 @@ export interface WorldAreaClaim {
 }
 
 export type WorldTransactionKind =
+  | 'founder_credit'
   | 'customer_purchase'
   | 'business_build'
   | 'worker_wage'

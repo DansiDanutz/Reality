@@ -51,6 +51,15 @@ const area = (): WorldArea => ({
     {
       id: 'tx1',
       at: 1_000,
+      kind: 'founder_credit',
+      fromId: 'system:founder-credit',
+      toId: 'founder',
+      amount: 200_000,
+      memo: 'Founder received founder starting game credit.',
+    },
+    {
+      id: 'tx2',
+      at: 1_000,
       kind: 'insurance_premium',
       fromId: 'founder',
       toId: 'ins1',
@@ -58,7 +67,7 @@ const area = (): WorldArea => ({
       memo: 'Founder bought insurance.',
     },
     {
-      id: 'tx2',
+      id: 'tx3',
       at: 2_000,
       kind: 'debt_repayment',
       fromId: 'founder',

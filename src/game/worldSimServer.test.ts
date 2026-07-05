@@ -100,6 +100,9 @@ describe('runWorldServerCommand', () => {
       hospitalizedCitizens: 0,
     })
     expect(result.dashboard.firstBuild[0].kind).toBe('housing')
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
+    ])
     expect(repo.saves).toBe(1)
   })
 
@@ -297,6 +300,7 @@ describe('runWorldServerCommand', () => {
     expect(result.area.now).toBe(1_000 + HOUR)
     expect(result.area.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
     expect(result.area.transactions).toMatchObject([
+      { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
       { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
     ])
     expect(repo.saves).toBe(3)
@@ -332,7 +336,7 @@ describe('runWorldServerCommand', () => {
     expect(bought.area.citizens.find((c) => c.id === 'founder')!.money).toBe(191_998)
     expect(bought.area.citizens.find((c) => c.id === 'founder')!.needs.hydration).toBe(55)
     expect(bought.area.businesses.find((b) => b.id === 'water-a')!.cash).toBe(2)
-    expect(bought.area.transactions.map((tx) => tx.kind)).toEqual(['business_build', 'customer_purchase'])
+    expect(bought.area.transactions.map((tx) => tx.kind)).toEqual(['founder_credit', 'business_build', 'customer_purchase'])
     expect(repo.saves).toBe(5)
   })
 
@@ -367,7 +371,7 @@ describe('runWorldServerCommand', () => {
     expect(rested.area.citizens.find((c) => c.id === 'founder')!.needs.energy).toBe(52)
     expect(rested.area.citizens.find((c) => c.id === 'founder')!.homeBusinessId).toBe('housing-a')
     expect(rested.area.businesses.find((b) => b.id === 'housing-a')!.cash).toBe(28)
-    expect(rested.area.transactions.map((tx) => tx.kind)).toEqual(['business_build', 'customer_purchase'])
+    expect(rested.area.transactions.map((tx) => tx.kind)).toEqual(['founder_credit', 'business_build', 'customer_purchase'])
     expect(repo.saves).toBe(5)
   })
 
@@ -409,7 +413,7 @@ describe('runWorldServerCommand', () => {
     expect(repaid.area.citizens[0].money).toBe(475)
     expect(repaid.area.citizens[0].debt).toBe(50)
     expect(repaid.area.citizens[0].debts).toMatchObject([{ id: 'debt1', amount: 50 }])
-    expect(repaid.area.transactions).toMatchObject([
+    expect(repaid.area.transactions.filter((tx) => tx.kind === 'debt_repayment')).toMatchObject([
       { kind: 'debt_repayment', fromId: 'founder', toId: 'system:hospital', amount: 25 },
     ])
     expect(saved?.citizens[0].debt).toBe(50)

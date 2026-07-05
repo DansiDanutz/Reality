@@ -12,6 +12,7 @@ import {
   type WorldCitizen,
   type WorldIntent,
   type WorldIntentError,
+  type WorldTransaction,
 } from './worldSim'
 
 export interface WorldAreaRepository {
@@ -103,7 +104,7 @@ async function createClaimedArea(
     now: command.now,
     citizens: [newAreaFounder(command.founder)],
     businesses: [],
-    transactions: [],
+    transactions: [founderCreditTransaction(areaId, command.now, command.founder)],
   }
   const claimed = claimWorldArea(seed, command.claim)
   if (!claimed.ok) return { ok: false, error: claimed.error, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
@@ -131,6 +132,18 @@ async function advanceStoredArea(
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
     summary: advanced.summary,
+  }
+}
+
+function founderCreditTransaction(areaId: string, at: number, founder: WorldCitizen): WorldTransaction {
+  return {
+    id: `${areaId}:${at}:1:founder_credit`,
+    at,
+    kind: 'founder_credit',
+    fromId: 'system:founder-credit',
+    toId: founder.id,
+    amount: FOUNDER_STARTING_BALANCE,
+    memo: `${founder.name} received founder starting game credit.`,
   }
 }
 
