@@ -4,6 +4,7 @@ import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
 import GoalsCard from './components/hud/GoalsCard'
+import GoldenOpportunityPrompt from './components/hud/GoldenOpportunityPrompt'
 import InstallBanner from './components/hud/InstallBanner'
 import StarfieldBackground from './components/StarfieldBackground'
 import HudDock from './components/hud/HudDock'
@@ -141,6 +142,7 @@ export default function App() {
             <TopBar />
             <Toasts />
             <CelebrationOverlay />
+            <GoldenOpportunityPrompt />
             <AwayReport />
             <InstallBanner />
             {!tutorialDone ? (
