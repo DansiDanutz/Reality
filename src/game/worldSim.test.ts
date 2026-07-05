@@ -327,6 +327,51 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'worker_already_hired' })
   })
 
+  test('hire intents respect active target staff slots without counting stale roster entries', () => {
+    const fullBusiness = claimedArea({
+      citizens: [
+        sim('worker1', { jobBusinessId: 'food1' }),
+        sim('worker2', { jobBusinessId: 'food1' }),
+        sim('worker3'),
+      ],
+      businesses: [business('food', 'food1', {
+        ownerId: 'founder',
+        staffCitizenIds: ['worker1', 'worker2'],
+      })],
+    })
+
+    const fullResult = applyWorldIntent(fullBusiness, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'worker3',
+    })
+
+    expect(fullResult).toMatchObject({ ok: false, error: 'business_fully_staffed' })
+    expect(fullResult.area.businesses.find((b) => b.id === 'food1')!.staffCitizenIds).toEqual(['worker1', 'worker2'])
+    expect(fullResult.area.citizens.find((c) => c.id === 'worker3')!.jobBusinessId).toBeUndefined()
+
+    const staleRoster = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('water', 'water1', {
+        ownerId: 'founder',
+        staffCitizenIds: ['stale-worker'],
+      })],
+    })
+
+    const hired = applyWorldIntent(staleRoster, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'water1',
+      workerCitizenId: 'worker',
+    })
+
+    expect(hired.ok).toBe(true)
+    if (!hired.ok) throw new Error('expected stale roster not to block hiring')
+    expect(hired.area.businesses.find((b) => b.id === 'water1')!.staffCitizenIds).toEqual(['stale-worker', 'worker'])
+    expect(hired.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('water1')
+  })
+
   test('hire intents cannot force a real citizen into a job without acceptance', () => {
     const start = claimedArea({
       citizens: [sim('real-worker', { kind: 'real' })],

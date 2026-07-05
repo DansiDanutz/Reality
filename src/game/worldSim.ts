@@ -256,6 +256,7 @@ export type WorldIntentError =
   | 'invalid_business'
   | 'not_insurance_business'
   | 'service_not_available'
+  | 'business_fully_staffed'
   | 'worker_not_found'
   | 'worker_unavailable'
   | 'worker_already_hired'
@@ -735,6 +736,9 @@ function hireWorkerFromIntent(
   if (worker.kind === 'real') return { ok: false, area, error: 'real_worker_requires_acceptance' }
   if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
     return { ok: false, area, error: 'worker_unavailable' }
+  }
+  if (activeStaffCount(area, business) >= TARGET_STAFF_BY_KIND[business.kind]) {
+    return { ok: false, area, error: 'business_fully_staffed' }
   }
 
   worker.jobBusinessId = business.id
