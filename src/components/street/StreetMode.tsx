@@ -178,9 +178,11 @@ export default function StreetMode() {
   // Distant ambient one-shots — a faint siren, dog bark, or horn every
   // 45-90s when sound is on. Makes the world feel alive beyond the visual:
   // the city has a life you can hear but not see. Re-arms with a random
-  // delay so the events never feel rhythmic.
+  // delay so the events never feel rhythmic. Skipped for prefers-reduced-
+  // motion (vestibular sensitivity — sudden distant sounds can be startling).
   useEffect(() => {
     if (!soundOn || status !== 'ready') return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     let timer: ReturnType<typeof setTimeout>
     const schedule = () => {
       const delay = 45_000 + Math.random() * 45_000 // 45-90s
