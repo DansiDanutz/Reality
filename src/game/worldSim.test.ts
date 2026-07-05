@@ -217,6 +217,22 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('build intents reject duplicate business ids after normalization', () => {
+    const start = claimedArea({
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+    const result = applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: ' water1 ',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.food,
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'business_id_taken' })
+    expect(result.area.businesses).toHaveLength(1)
+    expect(result.area.citizens.find((c) => c.id === 'founder')!.money).toBe(200_000)
+  })
+
   test('build intents reject impossible blueprint economics', () => {
     const start = claimedArea()
 

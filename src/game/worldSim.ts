@@ -537,8 +537,9 @@ function buildBusinessFromIntent(
   if (!actorCheck.ok) return actorCheck
   const { actor } = actorCheck
   const blueprint = normalizeBlueprint(intent.blueprint)
-  if (!blueprint || !intent.businessId.trim()) return { ok: false, area, error: 'invalid_business' }
-  if (area.businesses.some((business) => business.id === intent.businessId)) {
+  const businessId = intent.businessId.trim()
+  if (!blueprint || !businessId) return { ok: false, area, error: 'invalid_business' }
+  if (area.businesses.some((business) => business.id === businessId)) {
     return { ok: false, area, error: 'business_id_taken' }
   }
 
@@ -550,7 +551,7 @@ function buildBusinessFromIntent(
 
   actor.money = roundMoney(actor.money - blueprint.buildCost)
   area.businesses.push({
-    id: intent.businessId.trim(),
+    id: businessId,
     name: blueprint.name,
     kind: blueprint.kind,
     ownerId: actor.id,
