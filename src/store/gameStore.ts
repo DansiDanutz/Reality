@@ -34,6 +34,7 @@ import { rollLuckyMoment, pickLuckyMoment, RARITY_META } from '../game/luckyMome
 import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
 import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
+import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import {
   challengesForDay,
   challengeProgress,
@@ -97,6 +98,7 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
         if (state && state.mysteryBoxesOpened === undefined) state.mysteryBoxesOpened = 0
+        if (state && !state.activeBoosters) state.activeBoosters = []
         if (state && state.savingsGoal === undefined) state.savingsGoal = 0
         if (state && state.savingsGoalReached === undefined) state.savingsGoalReached = false
         // sawAchievementsPanel: existing players who've completed the original
@@ -316,6 +318,10 @@ interface GameState {
   lastBoxReward: { label: string; cash: number; xp: number; rarity: string; icon: string; tier: BoxTier } | null
   /** Lifetime count of boxes opened. */
   mysteryBoxesOpened: number
+  /** Active temporary boosters (wage/xp/income multipliers). */
+  activeBoosters: { type: BoosterType; expiresAt: number }[]
+  /** Buy a temporary booster (2x multiplier for 30 min). */
+  buyBooster: (type: BoosterType) => void
   /** Active golden opportunity (transient — null when none active or expired). */
   goldenOpportunity: (GoldenOpportunity & { spawnedAt: number }) | null
   /** Tap the active golden opportunity to claim it. */
@@ -374,6 +380,7 @@ const FRESH = {
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
   mysteryBoxesOpened: 0,
+  activeBoosters: [] as { type: BoosterType; expiresAt: number }[],
   milestonesCelebrated: [] as number[],
   savingsGoal: 0,
   savingsGoalReached: false,
@@ -669,15 +676,29 @@ export const useGame = create<GameState>()(
           if (!s.celebration) s.celebration = c
           else s.celebrationQueue = [...s.celebrationQueue, c]
         }
-        if (out.xpGained > 0) {
-          const prog = applyXp(level, xp, out.xpGained)
+        // Clean expired boosters at the start of each tick.
+        const cleanBoosters = cleanExpiredBoosters(s.activeBoosters, now)
+        if (cleanBoosters.length !== s.activeBoosters.length) s.activeBoosters = cleanBoosters
+        // Apply XP booster to engine XP gains.
+        const xpMult = boosterMultiplier(cleanBoosters, 'xp', now)
+        const boostedXP = out.xpGained * xpMult
+        if (boostedXP > 0) {
+          const prog = applyXp(level, xp, boostedXP)
           if (prog.level > level) toasts = withToast(toasts, `Level ${prog.level} reached!`, 'sky')
           level = prog.level
           xp = prog.xp
         }
-        if (out.shiftsCompleted > 0 && !wasAway) {
-          log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}.`)
-          toasts = withToast(toasts, `Shift complete +${formatMoney(out.wagesEarned)}`, 'gold')
+        // Apply wage booster: add bonus wages on top of what the engine computed.
+        const wageMult = boosterMultiplier(cleanBoosters, 'wage', now)
+        if (out.shiftsCompleted > 0) {
+          const wageBonus = out.wagesEarned * (wageMult - 1)
+          if (wageBonus > 0) {
+            toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(Math.round(wageBonus))}!`, 'gold')
+          }
+          if (!wasAway) {
+            log = note(log, `Shift complete: +${formatMoney(out.wagesEarned)}${wageBonus > 0 ? ` (+${formatMoney(Math.round(wageBonus))} boosted)` : ''}.`)
+            toasts = withToast(toasts, `Shift complete +${formatMoney(out.wagesEarned)}`, 'gold')
+          }
         }
         let timesEaten = s.timesEaten
         if (out.mealsCooked > 0) {
@@ -784,10 +805,22 @@ export const useGame = create<GameState>()(
         const addEarned = (amt: number) => { if (amt > 0) cashEarnedThisTick += amt }
         // Wages + business pending-income accrual are baked into out.money
         // (the engine's starting cash). Capture them as earned income.
-        addEarned(out.wagesEarned)
+        addEarned(out.wagesEarned * wageMult) // wages with booster
         {
           const pendingDelta = out.assets.reduce((sum, a) => sum + a.pendingIncome, 0) - s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
           addEarned(pendingDelta)
+          // Income booster: multiply the accrued pending income by the booster
+          // multiplier, adding the bonus directly to the assets' pendingIncome.
+          const incMult = boosterMultiplier(cleanBoosters, 'income', now)
+          if (incMult > 1 && pendingDelta > 0) {
+            const bonus = Math.round(pendingDelta * (incMult - 1))
+            if (bonus > 0) {
+              out.assets = out.assets.map((a) =>
+                a.kind === 'business' ? { ...a, pendingIncome: a.pendingIncome + bonus * (a.pendingIncome > 0 ? 1 : 0) / Math.max(1, out.assets.filter((b) => b.kind === 'business' && b.pendingIncome > 0).length) } : a,
+              )
+              addEarned(bonus)
+            }
+          }
         }
         if (!wasAway && !s.activity) {
           const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
@@ -1102,6 +1135,7 @@ export const useGame = create<GameState>()(
           celebration: s.celebration,
           celebrationQueue: s.celebrationQueue,
           goldenOpportunity: s.goldenOpportunity,
+          activeBoosters: s.activeBoosters,
           toasts,
           log,
         })
@@ -1588,6 +1622,28 @@ export const useGame = create<GameState>()(
               ? `Objective complete: +${xp} XP — level ${prog.level}!`
               : `Objective complete: +${xp} XP.`,
           ),
+        })
+      },
+
+      buyBooster: (type) => {
+        const s = get()
+        const def = BOOSTERS[type]
+        if (s.money < def.cost) {
+          set({ toasts: withToast(s.toasts, `Need ${formatMoney(def.cost)} for a ${def.name}.`, 'blocked') })
+          return
+        }
+        const now = Date.now()
+        // If already active, extend by the duration (don't stack beyond 2x).
+        const existing = s.activeBoosters.find((b) => b.type === type)
+        const expiresAt = existing ? existing.expiresAt + def.durationMs : now + def.durationMs
+        set({
+          money: s.money - def.cost,
+          activeBoosters: [
+            ...s.activeBoosters.filter((b) => b.type !== type),
+            { type, expiresAt },
+          ],
+          toasts: withToast(s.toasts, `${def.emoji} ${def.name} active! ${def.multiplier}x for 30 min.`, 'gold'),
+          log: note(s.log, `Activated ${def.name} (${formatMoney(def.cost)}): ${def.description}`),
         })
       },
 
