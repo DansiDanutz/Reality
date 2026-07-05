@@ -192,6 +192,7 @@ export type WorldIntentError =
   | 'worker_not_found'
   | 'worker_unavailable'
   | 'worker_already_hired'
+  | 'real_worker_requires_acceptance'
 
 export type ApplyWorldIntentResult =
   | { ok: true; area: WorldArea }
@@ -564,6 +565,7 @@ function hireWorkerFromIntent(
 
   const worker = area.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
   if (!worker) return { ok: false, area, error: 'worker_not_found' }
+  if (worker.kind === 'real') return { ok: false, area, error: 'real_worker_requires_acceptance' }
   if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
     return { ok: false, area, error: 'worker_unavailable' }
   }

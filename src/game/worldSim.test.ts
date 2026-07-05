@@ -311,6 +311,24 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'worker_already_hired' })
   })
 
+  test('hire intents cannot force a real citizen into a job without acceptance', () => {
+    const start = claimedArea({
+      citizens: [sim('real-worker', { kind: 'real' })],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'real-worker',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'real_worker_requires_acceptance' })
+    expect(result.area.citizens.find((c) => c.id === 'real-worker')!.jobBusinessId).toBeUndefined()
+    expect(result.area.businesses.find((b) => b.id === 'food1')!.staffCitizenIds).toEqual([])
+  })
+
   test('buyInsurance intent pays a premium to an insurance business and marks coverage', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500 })],
