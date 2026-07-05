@@ -641,18 +641,25 @@ function requireAreaFounder(area: WorldArea, actorCitizenId: string): RequireAre
 function normalizeBlueprint(blueprint: WorldBusinessBlueprint): WorldBusinessBlueprint | null {
   if (!BUSINESS_KINDS.includes(blueprint.kind)) return null
   if (!blueprint.name.trim()) return null
-  if (!Number.isFinite(blueprint.buildCost) || blueprint.buildCost <= 0) return null
-  if (blueprint.price !== undefined && (!Number.isFinite(blueprint.price) || blueprint.price <= 0)) return null
-  if (blueprint.wagePerHour !== undefined && (!Number.isFinite(blueprint.wagePerHour) || blueprint.wagePerHour <= 0)) return null
-  if (blueprint.quality !== undefined && (!Number.isFinite(blueprint.quality) || blueprint.quality <= 0)) return null
+  const shopBlueprint = DEFAULT_BUSINESS_BLUEPRINTS[blueprint.kind]
+  if (!matchesShopMoney(blueprint.buildCost, shopBlueprint.buildCost)) return null
+  if (!matchesOptionalShopMoney(blueprint.price, shopBlueprint.price)) return null
+  if (!matchesOptionalShopMoney(blueprint.wagePerHour, shopBlueprint.wagePerHour)) return null
+  if (!matchesOptionalShopMoney(blueprint.quality, shopBlueprint.quality)) return null
   return {
-    ...blueprint,
+    ...shopBlueprint,
     name: blueprint.name.trim(),
-    buildCost: roundMoney(blueprint.buildCost),
-    price: blueprint.price !== undefined ? roundMoney(blueprint.price) : undefined,
-    wagePerHour: blueprint.wagePerHour !== undefined ? roundMoney(blueprint.wagePerHour) : undefined,
-    quality: blueprint.quality !== undefined ? roundMoney(blueprint.quality) : undefined,
   }
+}
+
+function matchesOptionalShopMoney(value: number | undefined, shopValue: number | undefined): boolean {
+  if (value === undefined) return true
+  if (shopValue === undefined) return false
+  return matchesShopMoney(value, shopValue)
+}
+
+function matchesShopMoney(value: number, shopValue: number): boolean {
+  return Number.isFinite(value) && value > 0 && roundMoney(value) === roundMoney(shopValue)
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {

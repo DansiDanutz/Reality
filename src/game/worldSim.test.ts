@@ -223,6 +223,20 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(applyWorldIntent(start, {
       type: 'buildBusiness',
       actorCitizenId: 'founder',
+      businessId: 'cheap-water',
+      blueprint: { ...DEFAULT_BUSINESS_BLUEPRINTS.water, buildCost: 1 },
+    })).toMatchObject({ ok: false, error: 'invalid_business' })
+
+    expect(applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'expensive-water',
+      blueprint: { ...DEFAULT_BUSINESS_BLUEPRINTS.water, price: 999 },
+    })).toMatchObject({ ok: false, error: 'invalid_business' })
+
+    expect(applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
       businessId: 'bad-price',
       blueprint: { ...DEFAULT_BUSINESS_BLUEPRINTS.water, price: -1 },
     })).toMatchObject({ ok: false, error: 'invalid_business' })
