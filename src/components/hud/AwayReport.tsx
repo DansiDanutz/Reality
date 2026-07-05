@@ -1,4 +1,5 @@
 import { formatMoney } from '../../game/engine'
+import { thoughtForDay } from '../../game/thoughts'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -27,11 +28,16 @@ export default function AwayReport() {
   // for a "3 days, 4 hours away" headline.
   const awayMs = Date.now() - lastSeenAt
   const awayLabel = formatAwayDuration(awayMs)
+  // Thought of the day — seeded by the calendar day index so it's stable
+  // across reloads and shared across players. Adds voice to the return moment.
+  const dayIndex = Math.floor(Date.now() / 86_400_000)
+  const thought = thoughtForDay(dayIndex)
 
   return (
     <div className="away-card" role="status">
       <p className="away-eyebrow">{awayLabel} away</p>
       <p className="away-text">{report.replace('While you were away, your citizen ', 'Your citizen ')}</p>
+      <p className="away-thought">{thought}</p>
       {pending >= 1 && (
         <p className="away-pending mono gold">+{formatMoney(Math.floor(pending))} ready to collect</p>
       )}
