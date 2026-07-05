@@ -33,6 +33,7 @@ import { computeStreakClaim, streakLabel, type StreakState } from '../game/strea
 import { rollLuckyMoment, pickLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
 import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
+import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import {
   challengesForDay,
   challengeProgress,
@@ -313,6 +314,10 @@ interface GameState {
   lastBoxReward: { label: string; cash: number; xp: number; rarity: string; icon: string; tier: BoxTier } | null
   /** Lifetime count of boxes opened. */
   mysteryBoxesOpened: number
+  /** Active golden opportunity (transient — null when none active or expired). */
+  goldenOpportunity: (GoldenOpportunity & { spawnedAt: number }) | null
+  /** Tap the active golden opportunity to claim it. */
+  claimGoldenOpportunity: () => void
   placeAt: (lat: number, lng: number) => void
   cancelPlacing: () => void
   collectIncome: () => void
@@ -373,6 +378,7 @@ const FRESH = {
   awayReport: null as string | null,
   celebration: null as GameState['celebration'],
   lastBoxReward: null as GameState['lastBoxReward'],
+  goldenOpportunity: null as GameState['goldenOpportunity'],
   celebrationQueue: [] as GameState['celebrationQueue'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
@@ -817,6 +823,20 @@ export const useGame = create<GameState>()(
           }
         }
 
+        // Golden opportunities — time-limited tap events during live play.
+        // Fires ~every 12 min. If one is already active, don't spawn another.
+        if (!wasAway && !s.goldenOpportunity) {
+          const opp = rollOpportunity()
+          if (opp) {
+            s.goldenOpportunity = { ...opp, spawnedAt: now }
+            toasts = withToast(toasts, `${opp.icon} Golden opportunity! Tap to claim — ${Math.round(OPPORTUNITY_WINDOW_MS / 1000)}s left.`, 'gold')
+          }
+        }
+        // Expire unclaimed opportunities past their window.
+        if (s.goldenOpportunity && now - s.goldenOpportunity.spawnedAt > OPPORTUNITY_WINDOW_MS) {
+          s.goldenOpportunity = null
+        }
+
         // Auto-claim newly-unlocked achievements — the dopamine hit lands the
         // instant the player earns it (e.g. the 10th shift flips "Reliable"),
         // not on a manual panel visit. XP + bounty granted here, idempotently.
@@ -1057,6 +1077,7 @@ export const useGame = create<GameState>()(
           awayReport,
           celebration: s.celebration,
           celebrationQueue: s.celebrationQueue,
+          goldenOpportunity: s.goldenOpportunity,
           toasts,
           log,
         })
@@ -1546,6 +1567,21 @@ export const useGame = create<GameState>()(
         })
       },
 
+      claimGoldenOpportunity: () => {
+        const s = get()
+        if (!s.goldenOpportunity) return
+        const opp = s.goldenOpportunity
+        const prog = applyXp(s.level, s.xp, opp.xp)
+        set({
+          goldenOpportunity: null,
+          money: s.money + opp.cash,
+          level: prog.level,
+          xp: prog.xp,
+          toasts: withToast(s.toasts, `${opp.icon} Claimed! +${formatMoney(opp.cash)}, +${opp.xp} XP`, 'gold'),
+          log: note(s.log, `Claimed a golden opportunity: ${opp.label} (+${formatMoney(opp.cash)}, +${opp.xp} XP).`),
+        })
+      },
+
       openMysteryBox: (tier) => {
         const s = get()
         const def = MYSTERY_BOXES[tier]
@@ -1635,6 +1671,7 @@ export const useGame = create<GameState>()(
               key !== 'celebration' &&
               key !== 'celebrationQueue' &&
               key !== 'lastBoxReward' &&
+              key !== 'goldenOpportunity' &&
               key !== 'toasts' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
