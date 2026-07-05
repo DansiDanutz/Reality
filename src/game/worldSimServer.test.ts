@@ -8,7 +8,13 @@ import {
   type WorldCitizen,
 } from './worldSim'
 import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCodec'
-import { runWorldServerCommand, type WorldAreaRepository } from './worldSimServer'
+import {
+  runWorldServerCommand,
+  type SaveWorldAreaOptions,
+  type SaveWorldAreaResult,
+  type WorldAreaRecord,
+  type WorldAreaRepository,
+} from './worldSimServer'
 import type { Needs } from './types'
 
 const HOUR = WORLD_SIM_HOUR_MS
@@ -16,20 +22,51 @@ const HOUR = WORLD_SIM_HOUR_MS
 class MemoryWorldRepo implements WorldAreaRepository {
   loads = 0
   saves = 0
+  saveAttempts = 0
   private snapshots = new Map<string, string>()
+  private revisions = new Map<string, number>()
+  private shouldConflictNextSave = false
+
+  conflictNextSave(): void {
+    this.shouldConflictNextSave = true
+  }
 
   async loadArea(areaId: string): Promise<WorldArea | null> {
+    const record = await this.loadAreaRecord(areaId)
+    return record?.area ?? null
+  }
+
+  async loadAreaRecord(areaId: string): Promise<WorldAreaRecord | null> {
     this.loads += 1
     const snapshot = this.snapshots.get(areaId)
     if (!snapshot) return null
     const decoded = decodeWorldAreaSnapshot(snapshot)
     if (!decoded.ok) throw new Error(`invalid persisted snapshot: ${decoded.error}`)
-    return decoded.area
+    return { area: decoded.area, revision: String(this.revisions.get(areaId) ?? 0) }
   }
 
-  async saveArea(area: WorldArea): Promise<void> {
+  async saveArea(area: WorldArea, options: SaveWorldAreaOptions = {}): Promise<SaveWorldAreaResult> {
+    this.saveAttempts += 1
+    if (this.shouldConflictNextSave) {
+      this.shouldConflictNextSave = false
+      return { ok: false, error: 'write_conflict' }
+    }
+    const currentRevision = this.revisions.get(area.id)
+    if (options.expectedRevision === null && currentRevision !== undefined) {
+      return { ok: false, error: 'write_conflict' }
+    }
+    if (
+      options.expectedRevision !== undefined &&
+      options.expectedRevision !== null &&
+      String(currentRevision ?? 0) !== options.expectedRevision
+    ) {
+      return { ok: false, error: 'write_conflict' }
+    }
+    const nextRevision = (currentRevision ?? 0) + 1
     this.saves += 1
     this.snapshots.set(area.id, encodeWorldAreaSnapshot(area))
+    this.revisions.set(area.id, nextRevision)
+    return { ok: true, revision: String(nextRevision) }
   }
 }
 
@@ -105,6 +142,34 @@ describe('runWorldServerCommand', () => {
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
     ])
     expect(repo.saves).toBe(1)
+  })
+
+  test('rejects claimed-area creation when storage reports a write race', async () => {
+    const repo = new MemoryWorldRepo()
+    repo.conflictNextSave()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'write_conflict' })
+    expect(await repo.loadArea('area-1')).toBeNull()
+    expect(repo.saves).toBe(0)
+    expect(repo.saveAttempts).toBe(1)
   })
 
   test('creates new founder economy state from server rules instead of caller money', async () => {
@@ -595,6 +660,22 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 
+  test('rejects write conflicts during server time advancement', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
+    repo.conflictNextSave()
+
+    const advanced = await runWorldServerCommand(repo, { type: 'advance', areaId: 'area-1', now: 1_000 + HOUR })
+    const saved = await repo.loadArea('area-1')
+
+    expect(advanced).toMatchObject({ ok: false, error: 'write_conflict' })
+    expect(advanced.area?.now).toBe(1_000)
+    expect(saved?.now).toBe(1_000)
+    expect(saved?.citizens[0].needs.hydration).toBe(50)
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
+  })
+
   test('rejects backwards time without saving', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)
@@ -630,7 +711,36 @@ describe('runWorldServerCommand', () => {
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
       { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
     ])
-    expect(repo.saves).toBe(3)
+    expect(repo.saves).toBe(2)
+  })
+
+  test('rejects write conflicts before persisting intent mutations', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
+    repo.conflictNextSave()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000 + HOUR,
+      authenticatedCitizenId: 'founder',
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'write_conflict' })
+    expect(result.area?.now).toBe(1_000)
+    expect(result.area?.businesses).toEqual([])
+    expect(saved?.now).toBe(1_000)
+    expect(saved?.businesses).toEqual([])
+    expect(saved?.transactions.map((transaction) => transaction.kind)).toEqual(['founder_credit'])
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
   })
 
   test('applies survival purchase intents through server-owned state', async () => {
@@ -664,7 +774,7 @@ describe('runWorldServerCommand', () => {
     expect(bought.area.citizens.find((c) => c.id === 'founder')!.needs.hydration).toBe(55)
     expect(bought.area.businesses.find((b) => b.id === 'water-a')!.cash).toBe(2)
     expect(bought.area.transactions.map((tx) => tx.kind)).toEqual(['founder_credit', 'business_build', 'customer_purchase'])
-    expect(repo.saves).toBe(5)
+    expect(repo.saves).toBe(3)
   })
 
   test('applies housing rest intents through server-owned state', async () => {
@@ -699,7 +809,7 @@ describe('runWorldServerCommand', () => {
     expect(rested.area.citizens.find((c) => c.id === 'founder')!.homeBusinessId).toBe('housing-a')
     expect(rested.area.businesses.find((b) => b.id === 'housing-a')!.cash).toBe(28)
     expect(rested.area.transactions.map((tx) => tx.kind)).toEqual(['founder_credit', 'business_build', 'customer_purchase'])
-    expect(repo.saves).toBe(5)
+    expect(repo.saves).toBe(3)
   })
 
   test('applies debt repayment intents through server-owned state', async () => {
@@ -744,7 +854,7 @@ describe('runWorldServerCommand', () => {
       { kind: 'debt_repayment', fromId: 'founder', toId: 'system:hospital', amount: 25 },
     ])
     expect(saved?.citizens[0].debt).toBe(50)
-    expect(repo.saves).toBe(4)
+    expect(repo.saves).toBe(3)
   })
 
   test('failed intents return the advanced area but do not save invalid business mutations', async () => {

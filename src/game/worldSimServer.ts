@@ -19,8 +19,22 @@ import type { Needs } from './types'
 
 export interface WorldAreaRepository {
   loadArea: (areaId: string) => Promise<WorldArea | null>
-  saveArea: (area: WorldArea) => Promise<void>
+  loadAreaRecord?: (areaId: string) => Promise<WorldAreaRecord | null>
+  saveArea: (area: WorldArea, options?: SaveWorldAreaOptions) => Promise<void | SaveWorldAreaResult>
 }
+
+export interface WorldAreaRecord {
+  area: WorldArea
+  revision?: string
+}
+
+export interface SaveWorldAreaOptions {
+  expectedRevision?: string | null
+}
+
+export type SaveWorldAreaResult =
+  | { ok: true; revision?: string }
+  | { ok: false; error: 'write_conflict' }
 
 export type WorldServerCommand =
   | {
@@ -56,6 +70,7 @@ export type WorldServerCommandError =
   | 'founder_mismatch'
   | 'actor_mismatch'
   | 'time_moved_backward'
+  | 'write_conflict'
   | ClaimWorldAreaError
   | WorldIntentError
 
@@ -113,7 +128,7 @@ async function createClaimedArea(
   const simCitizens = normalizeSimCitizenSeeds(command.simCitizens ?? [], command.founder.id)
   if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
-  if (await repo.loadArea(areaId)) return { ok: false, error: 'area_exists' }
+  if (await loadStoredArea(repo, areaId)) return { ok: false, error: 'area_exists' }
 
   const seed: WorldArea = {
     id: areaId,
@@ -130,7 +145,8 @@ async function createClaimedArea(
     ...simCitizens.map((citizen, index) => simCitizenCreditTransaction(areaId, command.now, index + 2, citizen)),
   )
 
-  await repo.saveArea(claimed.area)
+  const saved = await saveStoredArea(repo, claimed.area, { expectedRevision: null })
+  if (!saved.ok) return { ok: false, error: saved.error }
   return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
 }
 
@@ -143,18 +159,36 @@ async function advanceStoredArea(
   if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
   if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
 
-  const area = await repo.loadArea(normalizedAreaId)
-  if (!area) return { ok: false, error: 'area_not_found' }
+  const loaded = await loadStoredArea(repo, normalizedAreaId)
+  if (!loaded) return { ok: false, error: 'area_not_found' }
+  const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
 
   const advanced = advanceWorldArea(area, now)
-  await repo.saveArea(advanced.area)
+  const saved = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
+  if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
   return {
     ok: true,
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
     summary: advanced.summary,
   }
+}
+
+async function loadStoredArea(repo: WorldAreaRepository, areaId: string): Promise<WorldAreaRecord | null> {
+  if (repo.loadAreaRecord) return repo.loadAreaRecord(areaId)
+  const area = await repo.loadArea(areaId)
+  return area ? { area } : null
+}
+
+async function saveStoredArea(
+  repo: WorldAreaRepository,
+  area: WorldArea,
+  options?: SaveWorldAreaOptions,
+): Promise<SaveWorldAreaResult> {
+  const result = await repo.saveArea(area, options)
+  if (result && !result.ok) return result
+  return result ?? { ok: true }
 }
 
 function isValidCommandTime(now: number): boolean {
@@ -266,21 +300,32 @@ async function applyIntentToStoredArea(
     return { ok: false, error: 'actor_mismatch' }
   }
 
-  const advanced = await advanceStoredArea(repo, areaId, now)
-  if (!advanced.ok) return advanced
+  const normalizedAreaId = areaId.trim()
+  if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
+  if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
+
+  const loaded = await loadStoredArea(repo, normalizedAreaId)
+  if (!loaded) return { ok: false, error: 'area_not_found' }
+  const { area } = loaded
+  if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
+
+  const advanced = advanceWorldArea(area, now)
 
   const applied = applyWorldIntent(advanced.area, intent)
   if (!applied.ok) {
+    const savedAdvanced = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
+    if (!savedAdvanced.ok) return { ok: false, error: savedAdvanced.error, area, dashboard: areaNeedsDashboard(area) }
     return {
       ok: false,
       error: applied.error,
       area: advanced.area,
-      dashboard: advanced.dashboard,
+      dashboard: areaNeedsDashboard(advanced.area),
       summary: advanced.summary,
     }
   }
 
-  await repo.saveArea(applied.area)
+  const saved = await saveStoredArea(repo, applied.area, { expectedRevision: loaded.revision })
+  if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
   return {
     ok: true,
     area: applied.area,
