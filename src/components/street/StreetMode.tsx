@@ -6,6 +6,16 @@ import { useGame } from '../../store/gameStore'
 import { fetchWeather, shouldSnow } from './weather'
 import type { StreetMarker, StreetSceneHandle } from './streetScene'
 
+/** A short time-of-day greeting for the street hint. */
+function greetingForHour(h: number): string {
+  if (h < 5) return 'Late night'
+  if (h < 7) return 'Early morning'
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  if (h < 20) return 'Good evening'
+  return 'Good night'
+}
+
 /** Real local hour at the street's location — the sky follows Rule #1 */
 function hourAt(lat: number, lng: number): number {
   if (import.meta.env.DEV) {
@@ -167,6 +177,7 @@ export default function StreetMode() {
       )}
       <div className="street-hint">
         <span>
+          {status === 'ready' && anchor && <span className="street-greeting">{greetingForHour(hourAt(anchor.lat, anchor.lng))} · </span>}
           {isTouch
             ? 'Left thumb walks · right thumb looks · ↥ jumps'
             : 'Click to look around · WASD walks · Shift runs · Space jumps'}
