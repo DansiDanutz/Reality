@@ -442,27 +442,38 @@ export async function createStreetScene(
   ground.rotation.x = -Math.PI / 2
   scene.add(ground)
 
-  // ── Distant skyline: a ring of low silhouettes at the fog edge ──
-  // Gives depth — the world extends beyond the loaded neighborhood. Cheap:
-  // one merged geometry of ~60 thin boxes in a circle at ~300m, darker than
-  // real buildings so they recede into the fog. No windows, no detail — just
-  // the silhouette of a city on the horizon.
+  // ── Distant skyline: two rings of silhouettes at different depths ──
+  // Two rings give depth variation: an inner ring (closer, taller, lighter)
+  // and an outer ring (farther, shorter, darker). The fog fades the outer
+  // ring more, so the skyline reads as layered distance, not a flat wall.
   {
-    const skylineGeos: THREE.BufferGeometry[] = []
     const skylineBox = new THREE.BoxGeometry(1, 1, 1)
-    const count = 70
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.04
-      const r = 290 + Math.random() * 25
-      const w = 12 + Math.random() * 22
-      const h = 10 + Math.random() * 40
+    // Inner ring — closer (~280m), taller (up to 50m), lighter.
+    const innerGeos: THREE.BufferGeometry[] = []
+    for (let i = 0; i < 45; i++) {
+      const angle = (i / 45) * Math.PI * 2 + Math.random() * 0.05
+      const r = 275 + Math.random() * 20
+      const w = 14 + Math.random() * 24
+      const h = 14 + Math.random() * 36
       const g = skylineBox.clone()
       g.scale(w, h, 8)
       g.translate(Math.cos(angle) * r, h / 2, Math.sin(angle) * r)
-      skylineGeos.push(g)
+      innerGeos.push(g)
     }
-    const skylineMat = new THREE.MeshLambertMaterial({ color: night ? 0x0a1020 : 0x5a6478 })
-    addMerged(scene, skylineGeos, skylineMat)
+    addMerged(scene, innerGeos, new THREE.MeshLambertMaterial({ color: night ? 0x0e1428 : 0x6a7488 }))
+    // Outer ring — farther (~310m), shorter (up to 25m), darker.
+    const outerGeos: THREE.BufferGeometry[] = []
+    for (let i = 0; i < 50; i++) {
+      const angle = (i / 50) * Math.PI * 2 + Math.random() * 0.04
+      const r = 305 + Math.random() * 20
+      const w = 10 + Math.random() * 18
+      const h = 6 + Math.random() * 20
+      const g = skylineBox.clone()
+      g.scale(w, h, 6)
+      g.translate(Math.cos(angle) * r, h / 2, Math.sin(angle) * r)
+      outerGeos.push(g)
+    }
+    addMerged(scene, outerGeos, new THREE.MeshLambertMaterial({ color: night ? 0x070b18 : 0x4a5468 }))
     skylineBox.dispose()
   }
 
