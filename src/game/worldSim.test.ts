@@ -1068,6 +1068,38 @@ describe('advanceWorldArea — local real-time economy', () => {
     const water = dash.firstBuild.find((rec) => rec.kind === 'water')!
     expect(water.saturated).toBe(true)
     expect(water.priority).toBe('low')
+    expect(water.estimatedHourlyRevenue).toBe(0)
+    expect(water.estimatedHourlyWageCost).toBe(0)
+    expect(water.estimatedHourlyProfit).toBe(0)
     expect(water.reason).toContain('saturated')
+  })
+
+  test('first-build profit estimates split local demand across existing competitors', () => {
+    const citizens = Array.from({ length: 60 }, (_, i) => sim(`c${i}`, {
+      homeBusinessId: 'home1',
+      needs: fullNeeds({ hunger: i < 12 ? 45 : 90 }),
+      insuranceBusinessId: 'ins1',
+      insurancePaidUntil: 2 * HOUR,
+    }))
+    const openMarket = areaNeedsDashboard(area({ now: HOUR, citizens }))
+    const crowdedMarket = areaNeedsDashboard(area({
+      now: HOUR,
+      citizens,
+      businesses: [business('food', 'food1')],
+    }))
+
+    const openFood = openMarket.firstBuild.find((rec) => rec.kind === 'food')!
+    const crowdedFood = crowdedMarket.firstBuild.find((rec) => rec.kind === 'food')!
+
+    expect(openFood).toMatchObject({
+      licensed: true,
+      estimatedHourlyRevenue: 168,
+      estimatedHourlyProfit: 138,
+    })
+    expect(crowdedFood).toMatchObject({
+      licensed: true,
+      estimatedHourlyRevenue: 84,
+      estimatedHourlyProfit: 54,
+    })
   })
 })
