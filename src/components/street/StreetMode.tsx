@@ -42,6 +42,7 @@ export default function StreetMode() {
   const [showControls, setShowControls] = useState(false)
   const [hintVisible, setHintVisible] = useState(true)
   const [weatherLabel, setWeatherLabel] = useState<string | null>(null)
+  const [caption, setCaption] = useState<string | null>(null)
   const setPanel = useGame((s) => s.setPanel)
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
@@ -155,7 +156,12 @@ export default function StreetMode() {
     const schedule = () => {
       const delay = 45_000 + Math.random() * 45_000 // 45-90s
       timer = setTimeout(() => {
-        playAmbientOneShot()
+        const label = playAmbientOneShot()
+        if (label) {
+          setCaption(label)
+          // Auto-clear the caption after 3s.
+          setTimeout(() => setCaption((c) => (c === label ? null : c)), 3_000)
+        }
         schedule()
       }, delay)
     }
@@ -176,6 +182,10 @@ export default function StreetMode() {
           error states. Skipped on touch (the look-stick provides orientation). */}
       {status === 'ready' && !isTouch && (
         <div className="street-crosshair" aria-hidden />
+      )}
+      {/* Sound caption — a brief subtitle for ambient one-shots (accessibility). */}
+      {caption && (
+        <div className="street-caption" role="status" aria-live="polite">{caption}</div>
       )}
       {status === 'loading' && (
         <div className="street-overlay">
