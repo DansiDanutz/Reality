@@ -35,6 +35,7 @@ import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
 import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
+import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
 import {
   challengesForDay,
   challengeProgress,
@@ -99,6 +100,8 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
         if (state && state.mysteryBoxesOpened === undefined) state.mysteryBoxesOpened = 0
         if (state && !state.activeBoosters) state.activeBoosters = []
+        if (state && state.combo === undefined) state.combo = 0
+        if (state && state.comboLastActionAt === undefined) state.comboLastActionAt = 0
         if (state && state.savingsGoal === undefined) state.savingsGoal = 0
         if (state && state.savingsGoalReached === undefined) state.savingsGoalReached = false
         // sawAchievementsPanel: existing players who've completed the original
@@ -320,6 +323,10 @@ interface GameState {
   mysteryBoxesOpened: number
   /** Active temporary boosters (wage/xp/income multipliers). */
   activeBoosters: { type: BoosterType; expiresAt: number }[]
+  /** Current combo count (0 = no active chain). */
+  combo: number
+  /** ms timestamp of the last combo-advancing action. */
+  comboLastActionAt: number
   /** Buy a temporary booster (2x multiplier for 30 min). */
   buyBooster: (type: BoosterType) => void
   /** Active golden opportunity (transient — null when none active or expired). */
@@ -381,6 +388,8 @@ const FRESH = {
   luckyMomentsSeenIds: [] as string[],
   mysteryBoxesOpened: 0,
   activeBoosters: [] as { type: BoosterType; expiresAt: number }[],
+  combo: 0,
+  comboLastActionAt: 0,
   milestonesCelebrated: [] as number[],
   savingsGoal: 0,
   savingsGoalReached: false,
@@ -412,6 +421,20 @@ const withToast = (
   text: string,
   tone: ToastTone,
 ) => [...toasts.slice(-3), { id: ++toastId, text, tone }]
+
+/**
+ * Advance the combo chain for a player-initiated action. Returns the bonus XP
+ * to grant (on top of the action's base XP) + a combo toast if applicable.
+ * The caller is responsible for applying the XP and merging the toast.
+ */
+function comboXP(s: GameState, baseXP: number): { bonusXP: number; comboToast: string | null; newCombo: number } {
+  const now = Date.now()
+  const msSince = now - s.comboLastActionAt
+  const newCombo = advanceCombo(s.combo, msSince)
+  const bonusXP = comboBonusXP(baseXP, newCombo)
+  const comboToast = newCombo > 0 ? comboLabel(newCombo) : null
+  return { bonusXP, comboToast, newCombo }
+}
 
 /**
  * Build the achievement snapshot from live game state. Centralised here so the
@@ -679,6 +702,8 @@ export const useGame = create<GameState>()(
         // Clean expired boosters at the start of each tick.
         const cleanBoosters = cleanExpiredBoosters(s.activeBoosters, now)
         if (cleanBoosters.length !== s.activeBoosters.length) s.activeBoosters = cleanBoosters
+        // Combo timeout: if the combo window expired, reset to 0.
+        if (s.combo > 0 && now - s.comboLastActionAt >= COMBO_WINDOW_MS) s.combo = 0
         // Apply XP booster to engine XP gains.
         const xpMult = boosterMultiplier(cleanBoosters, 'xp', now)
         const boostedXP = out.xpGained * xpMult
@@ -1136,6 +1161,8 @@ export const useGame = create<GameState>()(
           celebrationQueue: s.celebrationQueue,
           goldenOpportunity: s.goldenOpportunity,
           activeBoosters: s.activeBoosters,
+          combo: s.combo,
+          comboLastActionAt: s.comboLastActionAt,
           toasts,
           log,
         })
@@ -1181,9 +1208,17 @@ export const useGame = create<GameState>()(
         if (s.activity?.kind === 'sleep') return
         const water = itemById('water')
         if (!water?.effects || s.money < water.price) return
+        // Combo chain: drinking advances the combo and grants bonus XP.
+        const { bonusXP, comboToast, newCombo } = comboXP(s, 5)
+        const prog = bonusXP > 0 ? applyXp(s.level, s.xp, bonusXP) : { level: s.level, xp: s.xp }
         set({
           money: s.money - water.price,
           needs: applyEffects(s.needs, water.effects),
+          level: prog.level,
+          xp: prog.xp,
+          combo: newCombo,
+          comboLastActionAt: Date.now(),
+          toasts: comboToast ? withToast(s.toasts, comboToast, 'gold') : s.toasts,
           log: note(s.log, 'Water. Your body says thanks.'),
         })
       },
@@ -1454,6 +1489,9 @@ export const useGame = create<GameState>()(
           groceryRestockedAt: item.shelfLifeDays
             ? { ...s.groceryRestockedAt, [itemId]: Date.now() }
             : s.groceryRestockedAt,
+          // Combo chain: buying advances the combo.
+          combo: comboXP(get(), 5).newCombo,
+          comboLastActionAt: Date.now(),
           log: note(s.log, `Bought ${item.name}.`),
         })
       },
@@ -1533,14 +1571,22 @@ export const useGame = create<GameState>()(
         // First-collection celebration — the moment the economy "works" for
         // the player. A distinct toast so they feel the milestone.
         const wasFirst = s.totalCollected === 0
+        // Combo chain: collecting advances the combo.
+        const { bonusXP, comboToast, newCombo } = comboXP(s, 10)
+        const xpProg = bonusXP > 0 ? applyXp(s.level, s.xp, bonusXP) : { level: s.level, xp: s.xp }
         const toasts = wasFirst
           ? withToast(withToast(s.toasts, `💰 Your first income! The economy works.`, 'achieve'), `Collected ${formatMoney(Math.floor(total))}`, 'gold')
           : withToast(s.toasts, `Collected ${formatMoney(Math.floor(total))}`, 'gold')
+        const finalToasts = comboToast ? withToast(toasts, comboToast, 'gold') : toasts
         set({
           money: s.money + Math.floor(total),
           assets: s.assets.map((a) => ({ ...a, pendingIncome: 0 })),
           totalCollected: s.totalCollected + Math.floor(total),
-          toasts,
+          level: xpProg.level,
+          xp: xpProg.xp,
+          combo: newCombo,
+          comboLastActionAt: Date.now(),
+          toasts: finalToasts,
           log: note(s.log, wasFirst
             ? `Collected your first business income: ${formatMoney(Math.floor(total))}. The economy works.`
             : `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
