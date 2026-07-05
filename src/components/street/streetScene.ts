@@ -264,6 +264,26 @@ export async function createStreetScene(
     scene.add(moonGlow)
     scene.add(moon)
   } else {
+    // The sun — a bright warm disc placed in the direction the directional
+    // light comes from, with a wide soft halo. Daytime's answer to the moon:
+    // a focal point in the sky that makes the scene read as 'day'.
+    const sun = new THREE.Mesh(
+      new THREE.CircleGeometry(28, 32),
+      new THREE.MeshBasicMaterial({ color: 0xfff4d8, transparent: true, opacity: 0.95, fog: false }),
+    )
+    const sunGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(70, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffe8b0, transparent: true, opacity: 0.18, fog: false, depthWrite: false }),
+    )
+    // Match the directional light's direction (-140, 220, -100), normalized
+    // to the sky distance so the sun sits where the light comes from.
+    const sunR = 880
+    const dirLen = Math.hypot(140, 220, 100)
+    sun.position.set(-140 / dirLen * sunR, 220 / dirLen * sunR, -100 / dirLen * sunR)
+    sunGlow.position.copy(sun.position)
+    sunGlow.position.multiplyScalar(0.998) // just behind the sun
+    scene.add(sunGlow)
+    scene.add(sun)
     const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, fog: false })
     const cloudGeo = new THREE.PlaneGeometry(90, 34)
     for (let i = 0; i < 14; i++) {
