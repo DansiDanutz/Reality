@@ -212,6 +212,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('build intents reject impossible blueprint economics', () => {
+    const start = claimedArea()
+
+    expect(applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'bad-price',
+      blueprint: { ...DEFAULT_BUSINESS_BLUEPRINTS.water, price: -1 },
+    })).toMatchObject({ ok: false, error: 'invalid_business' })
+
+    expect(applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'bad-wage',
+      blueprint: { ...DEFAULT_BUSINESS_BLUEPRINTS.food, wagePerHour: 0 },
+    })).toMatchObject({ ok: false, error: 'invalid_business' })
+
+    expect(applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'bad-quality',
+      blueprint: { ...DEFAULT_BUSINESS_BLUEPRINTS.housing, quality: Number.NaN },
+    })).toMatchObject({ ok: false, error: 'invalid_business' })
+  })
+
   test('hire intents attach an active worker to an owned business', () => {
     const start = claimedArea({
       citizens: [sim('worker')],

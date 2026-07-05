@@ -565,12 +565,16 @@ function normalizeBlueprint(blueprint: WorldBusinessBlueprint): WorldBusinessBlu
   if (!BUSINESS_KINDS.includes(blueprint.kind)) return null
   if (!blueprint.name.trim()) return null
   if (!Number.isFinite(blueprint.buildCost) || blueprint.buildCost <= 0) return null
+  if (blueprint.price !== undefined && (!Number.isFinite(blueprint.price) || blueprint.price <= 0)) return null
+  if (blueprint.wagePerHour !== undefined && (!Number.isFinite(blueprint.wagePerHour) || blueprint.wagePerHour <= 0)) return null
+  if (blueprint.quality !== undefined && (!Number.isFinite(blueprint.quality) || blueprint.quality <= 0)) return null
   return {
     ...blueprint,
     name: blueprint.name.trim(),
     buildCost: roundMoney(blueprint.buildCost),
     price: blueprint.price !== undefined ? roundMoney(blueprint.price) : undefined,
     wagePerHour: blueprint.wagePerHour !== undefined ? roundMoney(blueprint.wagePerHour) : undefined,
+    quality: blueprint.quality !== undefined ? roundMoney(blueprint.quality) : undefined,
   }
 }
 
