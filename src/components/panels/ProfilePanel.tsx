@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayOfLife } from '../../game/clock'
 import { formatMoney, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
+import { BOOSTERS, BOOSTER_LIST, boosterRemaining, isBoosterActive } from '../../game/boosters'
 import {
   NOTIFICATION_REASONS,
   notificationPermission,
@@ -177,6 +178,9 @@ export default function ProfilePanel() {
       >
         📖 Read your life journal
       </button>
+
+      <h3 className="profile-section-title">Boosters</h3>
+      <BoosterSection />
 
       <h3 className="profile-section-title">Sound</h3>
       <SoundSection />
@@ -418,6 +422,49 @@ function SavingsGoalSection({ netWorth }: { netWorth: number }) {
       <span className="savings-progress mono">
         {formatMoney(netWorth)} / {formatMoney(goal)} · {pct}%
       </span>
+    </div>
+  )
+}
+
+/**
+ * Boosters — temporary 2x multipliers the player buys. Cash sink + session
+ * extension ("I have 2x wages, I need to start a shift NOW").
+ */
+function BoosterSection() {
+  const money = useGame((s) => s.money)
+  const activeBoosters = useGame((s) => s.activeBoosters)
+  const buyBooster = useGame((s) => s.buyBooster)
+  const lastSeenAt = useGame((s) => s.lastSeenAt) // re-render each tick for countdown
+  void lastSeenAt
+
+  return (
+    <div className="booster-grid">
+      {BOOSTER_LIST.map((type) => {
+        const def = BOOSTERS[type]
+        const active = isBoosterActive(activeBoosters, type)
+        const remaining = boosterRemaining(activeBoosters, type)
+        const mins = Math.ceil(remaining / 60_000)
+        const affordable = money >= def.cost
+        return (
+          <button
+            key={type}
+            className={`booster-card${active ? ' active' : ''}${!affordable && !active ? ' locked' : ''}`}
+            disabled={!affordable || active}
+            onClick={() => buyBooster(type)}
+          >
+            <span className="booster-emoji" aria-hidden>{def.emoji}</span>
+            <div className="booster-info">
+              <span className="booster-name">{def.name}</span>
+              {active ? (
+                <span className="booster-timer mono">{mins}m left</span>
+              ) : (
+                <span className="booster-desc">{def.description}</span>
+              )}
+            </div>
+            {!active && <span className="booster-price mono">{formatMoney(def.cost)}</span>}
+          </button>
+        )
+      })}
     </div>
   )
 }

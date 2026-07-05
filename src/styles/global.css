@@ -2634,3 +2634,29 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .golden-opp-label { max-width: 100px; font-size: 11px; }
   .golden-opp-tap { display: none; }
 }
+
+/* Boosters — temporary multiplier cards. */
+.booster-grid { display: flex; flex-direction: column; gap: 8px; }
+.booster-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer; text-align: left;
+  transition: border-color 150ms var(--ease-out);
+}
+.booster-card:hover:not(.locked):not(.active) { border-color: var(--gold); }
+.booster-card:disabled { cursor: not-allowed; }
+.booster-card.locked { opacity: 0.5; }
+.booster-card.active {
+  border-color: var(--gold);
+  background: linear-gradient(135deg, rgba(255,215,106,0.06), transparent);
+  box-shadow: 0 0 16px rgba(255, 215, 106, 0.15);
+}
+.booster-emoji { font-size: 24px; flex-shrink: 0; }
+.booster-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.booster-name { font-size: 13px; font-weight: 600; }
+.booster-desc { font-size: 11px; color: var(--muted); }
+.booster-timer { font-size: 12px; color: var(--gold); font-weight: 600; }
+.booster-price { font-size: 14px; font-weight: 700; color: var(--gold); flex-shrink: 0; }
