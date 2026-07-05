@@ -203,9 +203,10 @@ function NotificationsSection() {
     return (
       <div className="notif-section">
         <h3 className="profile-section-title">Notifications ✓ on</h3>
-        <p className="panel-sub">
-          Reality will notify you when the tab is hidden: {NOTIFICATION_REASONS[0].toLowerCase()}.
-        </p>
+        <p className="panel-sub">Choose what reaches you when the tab is hidden:</p>
+        <NotifToggle type="activity" label="Activity finished" hint="Shift, sleep, or meal done" />
+        <NotifToggle type="streak" label="Streak at risk" hint="Before midnight if unclaimed" />
+        <NotifToggle type="needs" label="Needs critical" hint="Starving, dehydrated, exhausted" />
       </div>
     )
   }
@@ -237,5 +238,37 @@ function NotificationsSection() {
         Enable notifications
       </button>
     </div>
+  )
+}
+
+/**
+ * A single per-type notification toggle. Lets the player keep the
+ * retention-critical streak alert while muting a naggy type (e.g. needs-
+ * critical firing every 30 min). Defaults to on for all three.
+ */
+function NotifToggle({
+  type,
+  label,
+  hint,
+}: {
+  type: 'activity' | 'streak' | 'needs'
+  label: string
+  hint: string
+}) {
+  const on = useGame((s) => s.notificationPrefs[type])
+  const setNotificationPref = useGame((s) => s.setNotificationPref)
+  return (
+    <label className="notif-toggle">
+      <span className="notif-toggle-text">
+        <span className="notif-toggle-label">{label}</span>
+        <span className="notif-toggle-hint">{hint}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={(e) => setNotificationPref(type, e.target.checked)}
+        aria-label={`${label} notifications ${on ? 'on' : 'off'}`}
+      />
+    </label>
   )
 }

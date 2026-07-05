@@ -1738,6 +1738,25 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   font-size: 12px; color: var(--muted);
 }
 .notif-reasons li { line-height: 1.4; }
+
+/* Per-type notification toggles — shown when system permission is granted. */
+.notif-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+  cursor: pointer;
+}
+.notif-toggle:hover { background: rgba(255,255,255,0.04); }
+.notif-toggle-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.notif-toggle-label { font-size: 13px; font-weight: 600; }
+.notif-toggle-hint { font-size: 11px; color: var(--muted); }
+.notif-toggle input[type="checkbox"] {
+  width: 18px; height: 18px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
 .google-linked {
   display: flex;
   align-items: center;
