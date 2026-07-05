@@ -516,6 +516,49 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('buyHousing intent routes rest to a local housing business', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', {
+        kind: 'real',
+        money: 100,
+        needs: fullNeeds({ energy: 10, hygiene: 60 }),
+      })],
+      businesses: [business('housing', 'housing1', { ownerId: 'founder', cash: 5, price: 28 })],
+    })
+
+    const result = applyWorldIntent(start, { type: 'buyHousing', actorCitizenId: 'resident' })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected housing purchase to succeed')
+    const resident = result.area.citizens.find((c) => c.id === 'resident')!
+    expect(resident.money).toBe(72)
+    expect(resident.needs.energy).toBe(42)
+    expect(resident.needs.hygiene).toBe(68)
+    expect(resident.homeBusinessId).toBe('housing1')
+    expect(result.area.businesses.find((b) => b.id === 'housing1')!.cash).toBe(33)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'resident', toId: 'housing1', amount: 28 },
+    ])
+  })
+
+  test('visitClinic intent routes health care to a local clinic business', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 200, health: 50 })],
+      businesses: [business('clinic', 'clinic1', { ownerId: 'founder', cash: 10, price: 90 })],
+    })
+
+    const result = applyWorldIntent(start, { type: 'visitClinic', actorCitizenId: 'resident' })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected clinic visit to succeed')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(110)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.health).toBe(75)
+    expect(result.area.businesses.find((b) => b.id === 'clinic1')!.cash).toBe(100)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'resident', toId: 'clinic1', amount: 90 },
+    ])
+  })
+
   test('buyFood intent rejects unavailable buyers, missing services, and insufficient funds', () => {
     const noFood = claimedArea({
       citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hunger: 20 }) })],

@@ -268,6 +268,41 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(5)
   })
 
+  test('applies housing rest intents through server-owned state', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ energy: 20 }) }))
+    const built = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedCitizenId: 'founder',
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'housing-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.housing,
+      },
+    })
+    if (!built.ok) throw new Error(`expected housing build to succeed: ${built.error}`)
+
+    const rested = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedCitizenId: 'founder',
+      intent: { type: 'buyHousing', actorCitizenId: 'founder' },
+    })
+
+    expect(rested.ok).toBe(true)
+    if (!rested.ok) throw new Error('expected housing purchase to succeed')
+    expect(rested.area.citizens.find((c) => c.id === 'founder')!.money).toBe(174_972)
+    expect(rested.area.citizens.find((c) => c.id === 'founder')!.needs.energy).toBe(52)
+    expect(rested.area.citizens.find((c) => c.id === 'founder')!.homeBusinessId).toBe('housing-a')
+    expect(rested.area.businesses.find((b) => b.id === 'housing-a')!.cash).toBe(28)
+    expect(rested.area.transactions.map((tx) => tx.kind)).toEqual(['business_build', 'customer_purchase'])
+    expect(repo.saves).toBe(5)
+  })
+
   test('applies debt repayment intents through server-owned state', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', {

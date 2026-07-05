@@ -177,6 +177,14 @@ export type WorldIntent =
     actorCitizenId: string
   }
   | {
+    type: 'buyHousing'
+    actorCitizenId: string
+  }
+  | {
+    type: 'visitClinic'
+    actorCitizenId: string
+  }
+  | {
     type: 'hireWorker'
     actorCitizenId: string
     businessId: string
@@ -355,6 +363,10 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
       return buyServiceFromIntent(area, intent, 'water')
     case 'buyFood':
       return buyServiceFromIntent(area, intent, 'food')
+    case 'buyHousing':
+      return buyServiceFromIntent(area, intent, 'housing')
+    case 'visitClinic':
+      return buyServiceFromIntent(area, intent, 'clinic')
     case 'hireWorker':
       return hireWorkerFromIntent(area, intent)
     case 'buyInsurance':
@@ -636,8 +648,8 @@ function buyInsuranceFromIntent(
 
 function buyServiceFromIntent(
   area: WorldArea,
-  intent: Extract<WorldIntent, { type: 'buyWater' | 'buyFood' }>,
-  kind: 'water' | 'food',
+  intent: Extract<WorldIntent, { type: 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic' }>,
+  kind: Exclude<WorldBusinessKind, 'insurance'>,
 ): ApplyWorldIntentResult {
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
