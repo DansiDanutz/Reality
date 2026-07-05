@@ -3,6 +3,7 @@ import {
   COLLAPSE_HEALTH,
   HOSPITAL_BILL,
   INSURANCE_COVERAGE,
+  INSURANCE_POLICY_PERIOD_MS,
   MAX_FOUNDER_AREA_RADIUS_KM,
   MIN_BUSINESS_QUALITY,
   SIM_LEAVES_HEALTH,
@@ -312,6 +313,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     if (!result.ok) throw new Error('expected insurance purchase to succeed')
     expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(455)
     expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBe('ins1')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insurancePaidUntil).toBe(INSURANCE_POLICY_PERIOD_MS)
     expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(45)
     expect(result.area.transactions).toMatchObject([
       { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
@@ -362,6 +364,55 @@ describe('advanceWorldArea — local real-time economy', () => {
       actorCitizenId: 'resident',
       insuranceBusinessId: 'ins1',
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+  })
+
+  test('insurance renews monthly with a real premium payment', () => {
+    const start = area({
+      citizens: [sim('resident', {
+        kind: 'real',
+        money: 100,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { cash: 45, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+    const insurer = out.businesses[0]
+
+    expect(resident.money).toBe(55)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(insurer.cash).toBe(90)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(summary.insurancePoliciesLapsed).toBe(0)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+  })
+
+  test('insurance lapses when the monthly premium cannot be paid', () => {
+    const start = area({
+      citizens: [sim('resident', {
+        kind: 'real',
+        money: 10,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { cash: 45, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+
+    expect(resident.money).toBe(10)
+    expect(resident.insuranceBusinessId).toBeUndefined()
+    expect(resident.insurancePaidUntil).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(45)
+    expect(summary.insurancePremiumsPaid).toBe(0)
+    expect(summary.insurancePoliciesLapsed).toBe(1)
+    expect(out.transactions).toEqual([])
   })
 
   test('buyWater intent routes a player purchase to a local water business', () => {

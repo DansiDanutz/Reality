@@ -21,6 +21,7 @@ export interface WorldCitizen {
   homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
+  insurancePaidUntil?: number
 }
 
 export interface WorldBusiness {
@@ -81,6 +82,8 @@ export interface WorldAreaSummary {
   wagesPaid: number
   hospitalizations: number
   citizensLeft: number
+  insurancePremiumsPaid: number
+  insurancePoliciesLapsed: number
   debtsIssued: number
   revenueByBusiness: Record<string, number>
 }
@@ -215,6 +218,7 @@ export const HOSPITALIZATION_HOURS = 8
 export const COLLAPSE_HEALTH = 20
 export const HOSPITAL_BILL = 350
 export const INSURANCE_COVERAGE = 0.6
+export const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * WORLD_SIM_HOUR_MS
 export const DEFAULT_WORKER_WAGE = 12
 export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
@@ -587,6 +591,7 @@ function buyInsuranceFromIntent(
 
   actor.money = roundMoney(actor.money - premium)
   actor.insuranceBusinessId = insurer.id
+  actor.insurancePaidUntil = area.now + INSURANCE_POLICY_PERIOD_MS
   insurer.cash = roundMoney(insurer.cash + premium)
   recordTransaction(area, area.now, {
     kind: 'insurance_premium',
@@ -659,6 +664,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
   }
 
   degradeUnmanagedBusinesses(area, context.hours)
+  renewInsurancePolicies(area, context)
   payWorkerWages(area, context)
 
   for (const citizen of area.citizens) {
@@ -694,6 +700,44 @@ function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
     if (owner?.state.kind !== 'hospitalized' || activeStaffCount(area, business) > 0) continue
     business.quality = roundMoney(Math.max(MIN_BUSINESS_QUALITY, (business.quality ?? 1) - loss))
   }
+}
+
+function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
+  for (const citizen of area.citizens) {
+    if (!citizen.insuranceBusinessId || citizen.insurancePaidUntil === undefined || citizen.insurancePaidUntil > context.at) {
+      continue
+    }
+
+    const insurer = area.businesses.find((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
+    if (!insurer) {
+      lapseInsurance(citizen, context)
+      continue
+    }
+
+    const premium = insurer.price ?? DEFAULT_PRICES.insurance
+    if (citizen.money < premium) {
+      lapseInsurance(citizen, context)
+      continue
+    }
+
+    citizen.money = roundMoney(citizen.money - premium)
+    citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
+    insurer.cash = roundMoney(insurer.cash + premium)
+    context.summary.insurancePremiumsPaid = roundMoney(context.summary.insurancePremiumsPaid + premium)
+    recordTransaction(area, context.at, {
+      kind: 'insurance_premium',
+      fromId: citizen.id,
+      toId: insurer.id,
+      amount: premium,
+      memo: `${citizen.name} renewed insurance with ${insurer.name}.`,
+    })
+  }
+}
+
+function lapseInsurance(citizen: WorldCitizen, context: StepContext): void {
+  delete citizen.insuranceBusinessId
+  delete citizen.insurancePaidUntil
+  context.summary.insurancePoliciesLapsed += 1
 }
 
 function payWorkerWages(area: WorldArea, context: StepContext): void {
@@ -963,6 +1007,8 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
     wagesPaid: 0,
     hospitalizations: 0,
     citizensLeft: 0,
+    insurancePremiumsPaid: 0,
+    insurancePoliciesLapsed: 0,
     debtsIssued: 0,
     revenueByBusiness: {},
   }

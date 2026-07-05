@@ -25,6 +25,7 @@ const area = (): WorldArea => ({
     health: 100,
     state: { kind: 'active' },
     insuranceBusinessId: 'ins1',
+    insurancePaidUntil: 30_000,
   }],
   businesses: [{
     id: 'ins1',
@@ -101,5 +102,9 @@ describe('worldSim snapshot codec', () => {
     const badBusiness = area()
     badBusiness.businesses[0].staffCitizenIds = ['']
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badBusiness }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badPolicyDate = area()
+    badPolicyDate.citizens[0].insurancePaidUntil = Number.POSITIVE_INFINITY
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badPolicyDate }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 })
