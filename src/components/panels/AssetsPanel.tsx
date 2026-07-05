@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { formatMoney } from '../../game/engine'
 import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../../game/businessUpgrades'
+import ConfirmDialog from '../hud/ConfirmDialog'
 import { useGame } from '../../store/gameStore'
 
 export default function AssetsPanel() {
@@ -8,6 +10,7 @@ export default function AssetsPanel() {
   const collectIncome = useGame((s) => s.collectIncome)
   const upgradeBusiness = useGame((s) => s.upgradeBusiness)
   const reset = useGame((s) => s.reset)
+  const [confirmingReset, setConfirmingReset] = useState(false)
 
   const pending = assets.reduce((sum, a) => sum + a.pendingIncome, 0)
   const dailyIncome = assets.reduce((sum, a) => sum + a.incomePerDay, 0)
@@ -79,12 +82,21 @@ export default function AssetsPanel() {
 
       <button
         className="btn ghost danger"
-        onClick={() => {
-          if (window.confirm('Start a new life? Your current save is erased.')) reset()
-        }}
+        onClick={() => setConfirmingReset(true)}
       >
         Start a new life
       </button>
+
+      <ConfirmDialog
+        open={confirmingReset}
+        title="Start a new life?"
+        body="Your current citizen, money, achievements, streak, and journal are erased forever. This cannot be undone."
+        confirmLabel="Start fresh"
+        cancelLabel="Keep this life"
+        tone="danger"
+        onConfirm={() => { reset(); setConfirmingReset(false) }}
+        onCancel={() => setConfirmingReset(false)}
+      />
     </section>
   )
 }
