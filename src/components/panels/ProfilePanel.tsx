@@ -181,6 +181,9 @@ export default function ProfilePanel() {
       <h3 className="profile-section-title">Sound</h3>
       <SoundSection />
 
+      <h3 className="profile-section-title">Keyboard shortcuts</h3>
+      <ShortcutsSection />
+
       <h3 className="profile-section-title">Account</h3>
       <GoogleLink />
       <NotificationsSection />
@@ -280,6 +283,36 @@ function NotifToggle({
         aria-label={`${label} notifications ${on ? 'on' : 'off'}`}
       />
     </label>
+  )
+}
+
+/**
+ * The keyboard shortcuts reference. Discoverability for the power-user
+ * shortcuts (critique batch-3 item #5) — without this they're hidden behind
+ * hover titles. Listed here so a curious player finds them in the natural
+ * "settings" home.
+ */
+const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
+  ['D', 'Drink $1 (hydrate)'],
+  ['S', 'Sleep (start sleep activity)'],
+  ['W', 'Work (start a gig)'],
+  ['C', 'Collect business income'],
+  ['M', 'Open the Market'],
+  ['G', 'Open Goals (achievements)'],
+  ['J', 'Open your life journal'],
+  ['Esc', 'Close any open panel'],
+] as const
+
+function ShortcutsSection() {
+  return (
+    <dl className="shortcuts-list">
+      {SHORTCUTS.map(([key, action]) => (
+        <div className="shortcut-row" key={key}>
+          <dt><kbd className="shortcut-key">{key}</kbd></dt>
+          <dd>{action}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
