@@ -662,6 +662,7 @@ export const useGame = create<GameState>()(
           )
           if (nextMilestone && !s.celebration) {
             s.milestonesCelebrated = [...s.milestonesCelebrated, nextMilestone]
+            track('week_milestone')
             const label = nextMilestone === 1 ? 'one week' : nextMilestone === 52 ? 'a full year' : `${nextMilestone} weeks`
             const reward = nextMilestone >= 52 ? 'a lifetime' : nextMilestone >= 12 ? 'a season' : 'a habit'
             s.celebration = {
@@ -737,6 +738,7 @@ export const useGame = create<GameState>()(
             xp = prog.xp
             money += lucky.money
             s.luckyMomentsSeen = s.luckyMomentsSeen + 1
+            if (s.luckyMomentsSeen === 1) track('first_lucky')
             if (!s.luckyMomentsSeenIds.includes(lucky.id)) {
               s.luckyMomentsSeenIds = [...s.luckyMomentsSeenIds, lucky.id]
             }
@@ -788,6 +790,7 @@ export const useGame = create<GameState>()(
             }
           }
           s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
+          if (s.achievementsClaimed.length === newlyEarned.length) track('first_achievement')
         }
 
         // Daily streak — the come-back-tomorrow hook. Computed against the
@@ -806,7 +809,10 @@ export const useGame = create<GameState>()(
         if (streakOut) {
           streakLength = streakOut.length
           streakLastClaimDay = todayDay
-          if (streakOut.length > s.streakBest) s.streakBest = streakOut.length
+          if (streakOut.length > s.streakBest) {
+            s.streakBest = streakOut.length
+            if (streakOut.length === 7) track('streak_7')
+          }
           // Day 1 (spawn day) and grace-day holds pay nothing and stay quiet.
           if (streakOut.advanced && (streakOut.cash > 0 || streakOut.xp > 0)) {
             const prog = applyXp(level, xp, streakOut.xp)
@@ -912,6 +918,7 @@ export const useGame = create<GameState>()(
                 xp = bprog.xp
                 money += DAILY_COMPLETE_BONUS.cash
                 dailyBonusClaimed = true
+                track('daily_complete')
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
                 log = note(log, `All daily challenges complete — bonus ${formatMoney(DAILY_COMPLETE_BONUS.cash)} + ${DAILY_COMPLETE_BONUS.xp} XP.`)
                 if (!s.celebration) {
@@ -1357,6 +1364,9 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, `Upgrade needs ${formatMoney(out.cost)} — you have ${formatMoney(s.money)}.`), toasts: withToast(s.toasts, `Need ${formatMoney(out.cost)} to upgrade — you have ${formatMoney(s.money)}.`, 'blocked') })
           return
         }
+        // Analytics: first upgrade + max-level milestone.
+        if (level === 1) track('first_upgrade')
+        if (out.newLevel >= MAX_BUSINESS_LEVEL) track('business_maxed')
         set({
           money: s.money - out.cost,
           assets: s.assets.map((a) =>
