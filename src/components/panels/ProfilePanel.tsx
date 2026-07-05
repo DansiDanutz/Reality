@@ -12,6 +12,43 @@ import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
 import AvatarStudio from './AvatarStudio'
 
+/**
+ * The citizen's real hometown, with a re-detect action. IP databases are
+ * coarse (VPNs, mobile carriers) — a player mislocated at creation can fix
+ * their spawn here instead of living in the wrong city forever.
+ */
+function HometownRow() {
+  const citizen = useGame((s) => s.citizen)
+  const redetectSpawn = useGame((s) => s.redetectSpawn)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!citizen) return null
+  const label = citizen.homeCity
+    ? `${citizen.homeCity}${citizen.homeCountry ? `, ${citizen.homeCountry}` : ''}`
+    : 'not detected yet'
+
+  return (
+    <div className="profile-hometown">
+      <span className="stat-label">hometown · {label}</span>
+      <button
+        className="btn small ghost"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          setError('')
+          const problem = await redetectSpawn()
+          if (problem) setError(problem)
+          setBusy(false)
+        }}
+      >
+        {busy ? 'Detecting…' : 'Re-detect'}
+      </button>
+      {error && <p className="waitlist-error" role="alert">{error}</p>}
+    </div>
+  )
+}
+
 function GoogleLink() {
   const citizen = useGame((s) => s.citizen)
   const cloudSyncedAt = useGame((s) => s.cloudSyncedAt)
@@ -114,6 +151,8 @@ export default function ProfilePanel() {
           )}
         </div>
       </div>
+
+      <HometownRow />
 
       <h3 className="profile-section-title">Avatar studio</h3>
       <AvatarStudio />

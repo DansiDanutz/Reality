@@ -22,7 +22,11 @@ export const STREET_RADIUS_M = 320
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
+
+/** Per-mirror fetch timeout — a hanging mirror must not stall the fallback chain */
+const ENDPOINT_TIMEOUT_MS = 15_000
 
 const GREEN_TAGS = /^(park|garden|grass|meadow|village_green|recreation_ground|playground|pitch)$/
 
@@ -36,8 +40,12 @@ export async function fetchNeighborhood(lat: number, lng: number): Promise<Neigh
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
       })
-      if (!res.ok) continue
+      if (!res.ok) {
+        lastError = new Error(`Overpass ${endpoint} responded ${res.status}`)
+        continue
+      }
       const data = (await res.json()) as { elements?: OsmWay[] }
       const ways = data.elements ?? []
       return {

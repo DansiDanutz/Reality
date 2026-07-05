@@ -291,6 +291,8 @@ interface GameState {
   markStreetModeSeen: () => void
   createCitizen: (name: string, spawn?: SpawnLocation | null) => void
   ensureSpawn: () => Promise<void>
+  /** Re-run IP hometown detection and move the citizen's spawn — null on success, error text otherwise */
+  redetectSpawn: () => Promise<string | null>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
   registerOnline: () => Promise<void>
   reportScore: () => Promise<void>
@@ -492,6 +494,28 @@ export const useGame = create<GameState>()(
           },
           log: note(cur.log, `Hometown detected: ${spawn.city ?? 'your city'}${spawn.country ? `, ${spawn.country}` : ''}.`),
         })
+      },
+
+      // Fix a wrong hometown (VPNs, coarse IP databases, moved cities): re-run
+      // detection and overwrite the spawn. An owned home, when present, still
+      // wins everywhere an anchor is chosen — this only moves the spawn point.
+      redetectSpawn: async () => {
+        if (!get().citizen) return 'No citizen yet.'
+        const spawn = await detectLocation()
+        if (!spawn) return 'Could not detect your location right now — try again in a minute.'
+        const cur = get()
+        if (!cur.citizen) return 'No citizen yet.'
+        set({
+          citizen: {
+            ...cur.citizen,
+            homeCity: spawn.city,
+            homeCountry: spawn.country,
+            spawnLat: spawn.lat,
+            spawnLng: spawn.lng,
+          },
+          log: note(cur.log, `Hometown updated: ${spawn.city ?? 'your city'}${spawn.country ? `, ${spawn.country}` : ''}.`),
+        })
+        return null
       },
 
       registerOnline: async () => {
