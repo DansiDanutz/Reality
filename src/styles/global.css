@@ -1856,6 +1856,24 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   border-radius: 4px;
 }
 
+/* Savings goal — player-set cash target with progress bar. */
+.savings-goal { display: flex; flex-direction: column; gap: 8px; }
+.savings-head { display: flex; align-items: center; justify-content: space-between; }
+.savings-label { font-size: 13px; font-weight: 600; }
+.savings-clear { padding: 2px 8px; font-size: 16px; line-height: 1; }
+.savings-bar {
+  height: 8px; border-radius: 4px;
+  background: rgba(255,255,255,0.06); overflow: hidden;
+}
+.savings-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(to right, var(--ok), var(--gold));
+  transition: width 600ms var(--ease-out);
+}
+.savings-progress { font-size: 12px; color: var(--muted); }
+.savings-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.savings-reached { font-size: 14px; font-weight: 600; color: var(--ok); margin: 0; }
+
 /* Journal — the life-story timeline. */
 .journal-cta { margin-top: 8px; }
 .journal-list {
