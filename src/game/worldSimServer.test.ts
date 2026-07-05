@@ -7,10 +7,12 @@ import type { Needs } from './types'
 const HOUR = WORLD_SIM_HOUR_MS
 
 class MemoryWorldRepo implements WorldAreaRepository {
+  loads = 0
   saves = 0
   private snapshots = new Map<string, string>()
 
   async loadArea(areaId: string): Promise<WorldArea | null> {
+    this.loads += 1
     const snapshot = this.snapshots.get(areaId)
     if (!snapshot) return null
     const decoded = decodeWorldAreaSnapshot(snapshot)
@@ -51,6 +53,7 @@ const createArea = async (repo: MemoryWorldRepo, founder = citizen('founder')) =
     areaId: 'area-1',
     name: 'Founder District',
     now: 1_000,
+    authenticatedFounderId: founder.id,
     founder,
     claim: {
       founderCitizenId: founder.id,
@@ -92,6 +95,7 @@ describe('runWorldServerCommand', () => {
       areaId: 'area-1',
       name: 'Founder District',
       now: 1_000,
+      authenticatedFounderId: 'founder',
       founder: citizen('founder'),
       claim: {
         founderCitizenId: 'other',
@@ -104,12 +108,43 @@ describe('runWorldServerCommand', () => {
       },
     })).toMatchObject({ ok: false, error: 'founder_mismatch' })
 
+    expect(repo.saves).toBe(0)
+  })
+
+  test('rejects claimed-area creation from a mismatched authenticated founder before loading state', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('other'),
+      claim: {
+        founderCitizenId: 'other',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'founder_mismatch' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
+  test('rejects duplicate area creation', async () => {
+    const repo = new MemoryWorldRepo()
     await createArea(repo)
     const duplicate = await runWorldServerCommand(repo, {
       type: 'createClaimedArea',
       areaId: 'area-1',
       name: 'Founder District',
       now: 2_000,
+      authenticatedFounderId: 'founder2',
       founder: citizen('founder2'),
       claim: {
         founderCitizenId: 'founder2',

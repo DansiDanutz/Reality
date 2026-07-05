@@ -24,6 +24,7 @@ export type WorldServerCommand =
     areaId: string
     name: string
     now: number
+    authenticatedFounderId: string
     founder: WorldCitizen
     claim: WorldAreaClaim
   }
@@ -82,7 +83,10 @@ async function createClaimedArea(
   repo: WorldAreaRepository,
   command: Extract<WorldServerCommand, { type: 'createClaimedArea' }>,
 ): Promise<WorldServerCommandResult> {
-  if (command.claim.founderCitizenId !== command.founder.id) {
+  if (
+    command.founder.id !== command.authenticatedFounderId ||
+    command.claim.founderCitizenId !== command.authenticatedFounderId
+  ) {
     return { ok: false, error: 'founder_mismatch' }
   }
   if (await repo.loadArea(command.areaId)) return { ok: false, error: 'area_exists' }
