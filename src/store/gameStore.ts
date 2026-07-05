@@ -27,6 +27,7 @@ import {
 import type { ShopCategory } from '../game/types'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
 import { zoneFor } from '../game/clock'
+import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, RARITY_META } from '../game/luckyMoments'
@@ -80,8 +81,16 @@ export function migrateSave(persisted: unknown): GameState {
   if (state && state.streakLastClaimDay === undefined) state.streakLastClaimDay = 0
   if (state && state.streakBest === undefined) state.streakBest = 0
   if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
-  if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
-  return state
+        if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
+        // sawAchievementsPanel: existing players who've completed the original
+        // 8-step tutorial shouldn't be re-nudged to "discover achievements".
+        // If they've claimed ≥7 tutorial steps (the original count), mark this
+        // as seen so the new 9th step doesn't re-appear for veterans.
+        if (state && state.sawAchievementsPanel === undefined) {
+          const claimedCount = state.tutorialClaimed?.length ?? 0
+          state.sawAchievementsPanel = claimedCount >= 7
+        }
+        return state
 }
 
 /**
@@ -179,6 +188,8 @@ interface GameState {
   lastIllnessRollAt: number
   /** One-time "How Reality works" targets screen */
   targetsSeen: boolean
+  /** True once the player has opened the Achievements panel (tutorial discovery) */
+  sawAchievementsPanel: boolean
   /** Territorial progression: highest reach tier celebrated so far */
   reachTier: number
   /** Daily streak length (days). 0 before the first claim. See src/game/streak.ts */
@@ -218,6 +229,7 @@ interface GameState {
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
+  markAchievementsSeen: () => void
   createCitizen: (name: string, spawn?: SpawnLocation | null) => void
   ensureSpawn: () => Promise<void>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
@@ -279,6 +291,7 @@ const FRESH = {
   illness: null as Illness | null,
   lastIllnessRollAt: 0,
   targetsSeen: false,
+  sawAchievementsPanel: false,
   reachTier: 1,
   streakLength: 0,
   streakLastClaimDay: 0,
@@ -803,6 +816,15 @@ export const useGame = create<GameState>()(
         }
       },
 
+      markAchievementsSeen: () => {
+        // One-shot: only the first time the player opens the 🏆 panel. Drives
+        // the final tutorial step ("Discover your achievements") and is the
+        // discovery nudge for the entire retention engine.
+        const s = get()
+        if (s.sawAchievementsPanel) return
+        set({ sawAchievementsPanel: true })
+      },
+
       consume: (itemId) => {
         const s = get()
         if (s.activity?.kind === 'sleep') return
@@ -1096,12 +1118,25 @@ export const useGame = create<GameState>()(
         const s = get()
         if (s.tutorialClaimed.includes(stepId)) return
         const prog = applyXp(s.level, s.xp, xp)
+        const newClaimed = [...s.tutorialClaimed, stepId]
+        // Completion nudge: when the player claims the FINAL tutorial step,
+        // the onboarding panel will disappear. Send them off with a pointer
+        // to the retention engine so the sandbox doesn't feel empty. This is
+        // the hand-off from "we're teaching you" to "now chase your own goals".
+        let toasts = s.toasts
+        let log = s.log
+        if (newClaimed.length >= TUTORIAL_STEPS.length) {
+          toasts = withToast(toasts, "You've learned the basics. Now chase 25 achievements 🏆 and build a daily streak 🔥!", 'achieve')
+          log = note(log, 'Tutorial complete. The retention engine — achievements, streaks, lucky moments — is now your guide.')
+          track('tutorial_complete')
+        }
         set({
-          tutorialClaimed: [...s.tutorialClaimed, stepId],
+          tutorialClaimed: newClaimed,
           xp: prog.xp,
           level: prog.level,
+          toasts,
           log: note(
-            s.log,
+            log,
             prog.levelsGained > 0
               ? `Objective complete: +${xp} XP — level ${prog.level}!`
               : `Objective complete: +${xp} XP.`,

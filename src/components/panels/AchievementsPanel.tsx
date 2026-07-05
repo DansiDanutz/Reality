@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { careerRankOf, formatMoney, nextRankOf } from '../../game/engine'
 import {
   ACHIEVEMENTS,
@@ -51,6 +52,12 @@ export default function AchievementsPanel() {
   const streakBest = useGame((s) => s.streakBest)
   const seenMomentIds = useGame((s) => s.luckyMomentsSeenIds)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
+
+  // On mount: mark the achievements panel as seen (drives the tutorial
+  // discovery step + the one-time "you've learned the basics" nudge).
+  useEffect(() => {
+    useGame.getState().markAchievementsSeen()
+  }, [])
 
   // Read the full snapshot once per render from the live store
   const snapshot = achievementSnapshotOf(useGame.getState())
