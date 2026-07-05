@@ -37,10 +37,18 @@ export default function StreetMode() {
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
   const setStreetMode = useGame((s) => s.setStreetMode)
+  const sawStreetMode = useGame((s) => s.sawStreetMode)
+  const markStreetModeSeen = useGame((s) => s.markStreetModeSeen)
+  const [showControls, setShowControls] = useState(false)
   const setPanel = useGame((s) => s.setPanel)
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // First-visit controls overlay: shows when the scene is ready and the
+  // player has never entered Street Mode before. Dismissal marks it seen.
+  useEffect(() => {
+    if (status === 'ready' && !sawStreetMode) setShowControls(true)
+  }, [status, sawStreetMode])
   const [fps, setFps] = useState(0)
   const [nearId, setNearId] = useState<string | null>(null)
 
@@ -185,6 +193,39 @@ export default function StreetMode() {
         </span>
         <button className="btn small ghost" onClick={() => setStreetMode(false)}>Leave the street</button>
       </div>
+      {/* First-visit controls overlay — shows once, dismissable. */}
+      {showControls && (
+        <div className="street-controls-overlay" role="dialog" aria-label="Street Mode controls">
+          <div className="street-controls-card">
+            <h3 className="street-controls-title">🚶 You're on your street</h3>
+            <ul className="street-controls-list">
+              {isTouch ? (
+                <>
+                  <li><kbd>Left thumb</kbd> walk</li>
+                  <li><kbd>Right thumb</kbd> look around</li>
+                  <li><kbd>↥</kbd> jump</li>
+                </>
+              ) : (
+                <>
+                  <li><kbd>WASD</kbd> walk</li>
+                  <li><kbd>Mouse</kbd> look (click to lock)</li>
+                  <li><kbd>Shift</kbd> run</li>
+                  <li><kbd>Space</kbd> jump</li>
+                  <li><kbd>Esc</kbd> release mouse</li>
+                </>
+              )}
+            </ul>
+            <p className="street-controls-sub">Your citizen lives on real time. The sky, light, and weather follow the actual hour here.</p>
+            <button
+              className="btn primary"
+              onClick={() => { setShowControls(false); markStreetModeSeen() }}
+              autoFocus
+            >
+              Step outside
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

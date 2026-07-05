@@ -104,6 +104,13 @@ export function migrateSave(persisted: unknown): GameState {
           const claimedCount = state.tutorialClaimed?.length ?? 0
           state.sawAchievementsPanel = claimedCount >= 7
         }
+        if (state && state.sawStreetMode === undefined) {
+          // Veterans who've entered Street Mode before shouldn't see the
+          // controls overlay again. We can't know for sure, so default to
+          // true (seen) for any citizen past the tutorial, false for new.
+          const claimedCount = state.tutorialClaimed?.length ?? 0
+          state.sawStreetMode = claimedCount >= 7
+        }
         if (state && !state.dailyCounters) {
           state.dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 }
         }
@@ -209,6 +216,8 @@ interface GameState {
   targetsSeen: boolean
   /** True once the player has opened the Achievements panel (tutorial discovery) */
   sawAchievementsPanel: boolean
+  /** True once the player has entered Street Mode (one-time controls overlay). */
+  sawStreetMode: boolean
   /** Daily challenge counters — reset at local midnight. See dailyChallenges.ts */
   dailyCounters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number; day: number }
   /** Daily challenge ids already claimed today (idempotent — no double-grant). */
@@ -274,6 +283,7 @@ interface GameState {
   startGig: () => void
   markTargetsSeen: () => void
   markAchievementsSeen: () => void
+  markStreetModeSeen: () => void
   createCitizen: (name: string, spawn?: SpawnLocation | null) => void
   ensureSpawn: () => Promise<void>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
@@ -338,6 +348,7 @@ const FRESH = {
   lastIllnessRollAt: 0,
   targetsSeen: false,
   sawAchievementsPanel: false,
+  sawStreetMode: false,
   dailyCounters: { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 },
   dailyClaimed: [] as string[],
   dailyBonusClaimed: false,
@@ -1126,6 +1137,11 @@ export const useGame = create<GameState>()(
         const s = get()
         if (s.sawAchievementsPanel) return
         set({ sawAchievementsPanel: true })
+      },
+
+      markStreetModeSeen: () => {
+        if (get().sawStreetMode) return
+        set({ sawStreetMode: true })
       },
 
       consume: (itemId) => {
