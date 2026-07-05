@@ -36,6 +36,14 @@ import { detectLocation, type SpawnLocation } from '../lib/geo'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | null
 
+/**
+ * Toast tone — drives both the visual toast color and the chime. Widened
+ * from the original 4 (gold/sky/ok/meal) to give achievements, lucky
+ * moments, streaks, and legendary jackpots their own distinct sound. The
+ * sound module's ChimeKind must match this union exactly.
+ */
+export type ToastTone = 'gold' | 'ok' | 'sky' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary'
+
 const SAVE_KEY = 'reality-save-v1'
 
 /**
@@ -187,7 +195,7 @@ interface GameState {
   awayReport: string | null
   dismissAwayReport: () => void
   /** Feedback toasts (not persisted) */
-  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[]
+  toasts: { id: number; text: string; tone: ToastTone }[]
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
@@ -278,7 +286,7 @@ const FRESH = {
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
   awayReport: null as string | null,
-  toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
+  toasts: [] as { id: number; text: string; tone: ToastTone }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
   // only surfaces when something actually fails, so a cold start in airplane
   // mode isn't greeted with a false "offline" claim before any fetch.
@@ -293,9 +301,9 @@ const note = (log: string[], msg: string) => [msg, ...log].slice(0, 30)
 
 let toastId = 0
 const withToast = (
-  toasts: { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
+  toasts: { id: number; text: string; tone: ToastTone }[],
   text: string,
-  tone: 'gold' | 'ok' | 'sky' | 'meal',
+  tone: ToastTone,
 ) => [...toasts.slice(-3), { id: ++toastId, text, tone }]
 
 /**
@@ -635,7 +643,7 @@ export const useGame = create<GameState>()(
             }
             const icon = RARITY_META[lucky.rarity].icon
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
-            toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, 'gold')
+            toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, lucky.rarity === 'legendary' ? 'legendary' : 'lucky')
             log = note(log, `${label} lucky moment: ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`)
           }
         }
@@ -654,7 +662,7 @@ export const useGame = create<GameState>()(
           xp = prog.xp
           money += totalBounty
           for (const a of newlyEarned) {
-            toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'gold')
+            toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'achieve')
             log = note(log, `Achievement unlocked: ${a.title} — ${a.detail}`)
           }
           s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
@@ -684,7 +692,7 @@ export const useGame = create<GameState>()(
             xp = prog.xp
             money += streakOut.cash
             const label = streakLabel(streakOut.length)
-            toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'gold')
+            toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'streak')
             log = note(log, `Day ${streakOut.length} streak — claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
           } else if (streakOut.reset) {
             // A reset is worth surfacing — but framed as a fresh start, not a
