@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Citizen, Illness, Needs, Pet, PlacedAsset, ShopItem } from '../game/types'
+import type { Citizen, Illness, NeedKey, Needs, Pet, PlacedAsset, ShopItem } from '../game/types'
 import {
   GIG_MINUTES,
   GIG_WAGE,
@@ -261,6 +261,8 @@ interface GameState {
   streetMode: boolean
   /** Category the Market should open on (set by quick actions) */
   marketFocus: ShopCategory | null
+  /** Vital the Market should filter to (set by clicking a Vitals bar) */
+  marketNeed: NeedKey | null
   /** Recovery-floor cooldowns */
   lastFountainAt: number
   lastFoodBankAt: number
@@ -335,6 +337,8 @@ interface GameState {
 
   setStreetMode: (on: boolean) => void
   openMarket: (focus?: ShopCategory) => void
+  /** Open the Market filtered to items that restore a specific vital */
+  openMarketForNeed: (need: NeedKey) => void
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
@@ -420,6 +424,7 @@ const FRESH = {
   cloudSyncedAt: null as number | null,
   streetMode: false,
   marketFocus: null as ShopCategory | null,
+  marketNeed: null as NeedKey | null,
   lastFountainAt: 0,
   lastFoodBankAt: 0,
   illness: null as Illness | null,
@@ -1275,7 +1280,8 @@ export const useGame = create<GameState>()(
 
       setSavingsGoal: (target) => set({ savingsGoal: Math.max(0, Math.floor(target)), savingsGoalReached: false }),
 
-      openMarket: (focus) => set({ marketFocus: focus ?? null, panel: 'shop' }),
+      openMarket: (focus) => set({ marketFocus: focus ?? null, marketNeed: null, panel: 'shop' }),
+      openMarketForNeed: (need) => set({ marketNeed: need, marketFocus: null, panel: 'shop' }),
 
       // One tap, one dollar, half the water bar — hydration without friction
       quickDrink: () => {
@@ -1902,6 +1908,7 @@ export const useGame = create<GameState>()(
               key !== 'lastBoxReward' &&
               key !== 'goldenOpportunity' &&
               key !== 'toasts' &&
+              key !== 'marketNeed' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
           ),

@@ -18,6 +18,7 @@ export default function NeedsPanel() {
   const citizen = useGame((s) => s.citizen)
   const setPanel = useGame((s) => s.setPanel)
   const openMarket = useGame((s) => s.openMarket)
+  const openMarketForNeed = useGame((s) => s.openMarketForNeed)
   if (!citizen) return null
 
   const illnessHoursLeft = illness ? Math.max(1, Math.ceil((illness.endsAt - Date.now()) / 3_600_000)) : 0
@@ -57,17 +58,15 @@ export default function NeedsPanel() {
         const v = needs[key]
         const t = tone(v)
         return (
-          <div
+          <button
             className="need"
             key={key}
-            title={`${label}: ${Math.round(v)}/100`}
-            role="meter"
-            aria-label={label}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(v)}
+            type="button"
+            title={`${label}: ${Math.round(v)}/100 — tap to shop what restores it`}
+            aria-label={`${label} ${Math.round(v)} of 100. Open market to restore ${label}.`}
+            onClick={() => openMarketForNeed(key)}
           >
-            <div className="need-track">
+            <div className="need-track" role="meter" aria-hidden aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(v)}>
               <div className={`need-fill ${t}`} style={{ height: `${v}%` }} />
             </div>
             {/* The number carries the warning too — color is never the only signal */}
@@ -76,7 +75,7 @@ export default function NeedsPanel() {
               {Math.round(v)}
             </span>
             <span className="need-label">{label}</span>
-          </div>
+          </button>
         )
       })}
     </aside>
