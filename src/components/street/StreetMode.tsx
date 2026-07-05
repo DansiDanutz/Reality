@@ -19,7 +19,10 @@ function greetingForHour(h: number): string {
 /** Real local hour at the street's location — the sky follows Rule #1 */
 function hourAt(lat: number, lng: number): number {
   if (import.meta.env.DEV) {
-    const forced = Number(new URLSearchParams(window.location.search).get('hour'))
+    // .get() returns null when absent, and Number(null) === 0 — guard the
+    // param's presence or every dev session is forced to midnight.
+    const raw = new URLSearchParams(window.location.search).get('hour')
+    const forced = raw === null ? NaN : Number(raw)
     if (Number.isFinite(forced) && forced >= 0 && forced < 24) return forced
   }
   try {
@@ -48,7 +51,11 @@ export default function StreetMode() {
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
   const toggleSound = useGame((s) => s.toggleSound)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // 'empty' = the area genuinely has no mapped buildings; 'error' = the map
+  // data service didn't respond (outage/rate limit) — retryable, not the
+  // neighborhood's fault.
+  const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading')
+  const [retryKey, setRetryKey] = useState(0)
   // Auto-hide the controls hint after 8s OR on first movement — declutters
   // the view once the player knows what they're doing. The "Leave" button
   // stays visible; only the controls text hides.
@@ -151,7 +158,9 @@ export default function StreetMode() {
           }
         }
       })
-      .catch(() => setStatus('error'))
+      .catch((error: unknown) =>
+        setStatus(error instanceof Error && error.message === 'empty-neighborhood' ? 'empty' : 'error'),
+      )
     const fpsId = setInterval(() => setFps(sceneRef.current?.getFps() ?? 0), 1000)
     return () => {
       disposed = true
@@ -160,7 +169,7 @@ export default function StreetMode() {
       sceneRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [retryKey])
 
   // The street hums — day or night shaped appropriately when sound is on.
   // Night: deep rumble (320Hz cutoff). Day: brighter city-air (480Hz, louder).
@@ -228,7 +237,7 @@ export default function StreetMode() {
           <p className="street-loading">Building your street from the real world…</p>
         </div>
       )}
-      {status === 'error' && (
+      {status === 'empty' && (
         <div className="street-overlay">
           <p className="street-loading">
             This neighborhood isn't mapped in enough detail yet.
@@ -236,6 +245,27 @@ export default function StreetMode() {
             Try from a home in a bigger town.
           </p>
           <button className="btn" onClick={() => setStreetMode(false)}>Back to the map</button>
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="street-overlay">
+          <p className="street-loading">
+            The live map service isn't responding right now.
+            <br />
+            Your street is still there — try again in a moment.
+          </p>
+          <div className="away-actions">
+            <button
+              className="btn primary"
+              onClick={() => {
+                setStatus('loading')
+                setRetryKey((k) => k + 1)
+              }}
+            >
+              Try again
+            </button>
+            <button className="btn" onClick={() => setStreetMode(false)}>Back to the map</button>
+          </div>
         </div>
       )}
       {nearAsset && (
