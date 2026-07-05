@@ -286,13 +286,16 @@ export async function createStreetScene(
   // instead of a binary day/night flip. Fog matches so distance fades into
   // the same hue. Weather blends the sky toward grey (rain) or pale white
   // (snow) so a stormy sky reads as overcast, not just wet.
+  // Tint keys off the WEATHER (raining/snowing), not the particle system —
+  // calm-motion users skip the streaks but still get the overcast sky, wet
+  // roads, and heavy fog the real weather implies.
   let skyColor = skyColorForHour(localHour)
-  if (precip === 'rain') skyColor = lerpColor(skyColor, 0x4a5058, 0.55) // 55% toward overcast grey
-  else if (precip === 'snow') skyColor = lerpColor(skyColor, 0xb8c0c8, 0.4) // 40% toward pale white
+  if (raining) skyColor = lerpColor(skyColor, 0x4a5058, 0.55) // 55% toward overcast grey
+  else if (snowing) skyColor = lerpColor(skyColor, 0xb8c0c8, 0.4) // 40% toward pale white
   scene.background = new THREE.Color(skyColor)
   // Rain doubles the fog density — the world closes in, as it does in a downpour
   const fogBase = night ? 0.0042 : 0.0015
-  scene.fog = new THREE.FogExp2(skyColor, precip === 'rain' ? fogBase * 2 : fogBase)
+  scene.fog = new THREE.FogExp2(skyColor, raining ? fogBase * 2 : fogBase)
 
   const camera = new THREE.PerspectiveCamera(72, container.clientWidth / container.clientHeight, 0.1, 1200)
   camera.position.set(0, EYE_HEIGHT, 0)
@@ -331,7 +334,12 @@ export async function createStreetScene(
   let birdGeo: THREE.BufferGeometry
   // Clouds drift slowly across the daytime sky (outer scope for animation).
   const clouds: THREE.Mesh[] = []
-  if (night) {
+  // Real overcast hides the sky's anchors — no stars, moon, or sun disc in
+  // rain/snow. Stars also wait for DEEP night (≥20h): the 19-20h dusk
+  // gradient is still orange, and a starfield over it reads wrong.
+  const overcast = raining || snowing
+  const deepNight = localHour >= 20 || localHour < 6
+  if (night && deepNight && !overcast) {
     const starCount = 1400
     const positions = new Float32Array(starCount * 3)
     for (let i = 0; i < starCount; i++) {
@@ -346,9 +354,9 @@ export async function createStreetScene(
     starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xcfe0ff, size: 1.6, sizeAttenuation: false, fog: false })))
     // The moon — a soft glowing disc high in the sky. A visual anchor for the
-    // night scene that the stars alone don't provide. Position is fixed (not
-    // time-tracked) so it's always "up there" regardless of when the player
-    // looks; the glow halo sells it as a light source rather than a sticker.
+    // night scene that the stars alone don't provide. Placed along a time-
+    // tracked arc (see below); the glow halo sells it as a light source
+    // rather than a sticker.
     const moon = new THREE.Mesh(
       new THREE.CircleGeometry(22, 32),
       new THREE.MeshBasicMaterial({ color: 0xf4f0e0, transparent: true, opacity: 0.9, fog: false }),
@@ -374,33 +382,37 @@ export async function createStreetScene(
     moonGlow.position.z -= 1 // just behind the moon
     scene.add(moonGlow)
     scene.add(moon)
-  } else {
-    // The sun — a bright warm disc placed in the direction the directional
-    // light comes from, with a wide soft halo. Daytime's answer to the moon:
-    // a focal point in the sky that makes the scene read as 'day'.
-    const sun = new THREE.Mesh(
-      new THREE.CircleGeometry(28, 32),
-      new THREE.MeshBasicMaterial({ color: 0xfff4d8, transparent: true, opacity: 0.95, fog: false }),
-    )
-    const sunGlow = new THREE.Mesh(
-      new THREE.CircleGeometry(70, 32),
-      new THREE.MeshBasicMaterial({ color: 0xffe8b0, transparent: true, opacity: 0.18, fog: false, depthWrite: false }),
-    )
-    // Arc the sun across the sky from 6h (east horizon) to 19h (west horizon).
-    // t in [0,1]; at t=0 (6h) sun rises east, t=0.5 (12.5h) overhead, t=1 (19h)
-    // sets west. Z is fixed so the arc stays in a vertical plane.
-    const sunR = 880
-    const sunSpan = Math.max(0, Math.min(1, (localHour - 6) / 13)) // 6h→19h span
-    const sunAngle = Math.PI * sunSpan // 0 east-horizon → PI west-horizon
-    sun.position.set(
-      -sunR * Math.cos(sunAngle) * 0.9, // east (+X) at dawn → west (-X) at dusk
-      sunR * Math.sin(sunAngle) * 0.95,
-      -sunR * 0.4,
-    )
-    sunGlow.position.copy(sun.position)
-    sunGlow.position.multiplyScalar(0.998) // just behind the sun
-    scene.add(sunGlow)
-    scene.add(sun)
+  } else if (!night) {
+    if (!overcast) {
+      // The sun — a bright warm disc placed in the direction the directional
+      // light comes from, with a wide soft halo. Daytime's answer to the moon:
+      // a focal point in the sky that makes the scene read as 'day'. Hidden
+      // when overcast — a blazing sun disc in a grey rain sky breaks Rule #1.
+      const sun = new THREE.Mesh(
+        new THREE.CircleGeometry(28, 32),
+        new THREE.MeshBasicMaterial({ color: 0xfff4d8, transparent: true, opacity: 0.95, fog: false }),
+      )
+      const sunGlow = new THREE.Mesh(
+        new THREE.CircleGeometry(70, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffe8b0, transparent: true, opacity: 0.18, fog: false, depthWrite: false }),
+      )
+      // Arc the sun across the sky from 6h (east horizon) to 19h (west horizon).
+      // t in [0,1]; at t=0 (6h) the sun rises at -X, t=0.5 (12.5h) overhead,
+      // t=1 (19h) sets at +X — matching the key light's arc so shadows agree.
+      // Z is fixed so the arc stays in a vertical plane.
+      const sunR = 880
+      const sunSpan = Math.max(0, Math.min(1, (localHour - 6) / 13)) // 6h→19h span
+      const sunAngle = Math.PI * sunSpan // 0 east-horizon → PI west-horizon
+      sun.position.set(
+        -sunR * Math.cos(sunAngle) * 0.9,
+        sunR * Math.sin(sunAngle) * 0.95,
+        -sunR * 0.4,
+      )
+      sunGlow.position.copy(sun.position)
+      sunGlow.position.multiplyScalar(0.998) // just behind the sun
+      scene.add(sunGlow)
+      scene.add(sun)
+    }
     const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, fog: false })
     const cloudGeo = new THREE.PlaneGeometry(90, 34)
     for (let i = 0; i < 14; i++) {
@@ -413,25 +425,29 @@ export async function createStreetScene(
     }
     // ── Daytime birds: small dark V-shapes drifting across the sky ──
     // Declared in outer scope (above) for dispose; populated here for daytime.
-    birdMat = new THREE.MeshBasicMaterial({ color: 0x2a2a33, side: THREE.DoubleSide, fog: false })
-    birdGeo = new THREE.BufferGeometry()
-    birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, 0, 0,    -0.6, -0.15, 0,   0, 0.05, 0,    0.6, -0.15, 0,
-    ], 3))
-    birdGeo.setIndex([0, 1, 2,  0, 2, 3])
-    for (let i = 0; i < 5; i++) {
-      const m = new THREE.Mesh(birdGeo, birdMat)
-      const baseScale = 1.5 + Math.random() * 1.5
-      m.scale.setScalar(baseScale)
-      scene.add(m)
-      birds.push({
-        mesh: m,
-        speed: 0.04 + Math.random() * 0.05,
-        radius: 80 + Math.random() * 120,
-        angle: Math.random() * Math.PI * 2,
-        y: 120 + Math.random() * 80,
-        baseScale,
-      })
+    // Birds shelter in real rain/snow, and their continuous circling is
+    // skipped for reduced-motion users.
+    if (!overcast && !calmMotion) {
+      birdMat = new THREE.MeshBasicMaterial({ color: 0x2a2a33, side: THREE.DoubleSide, fog: false })
+      birdGeo = new THREE.BufferGeometry()
+      birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, 0, 0,    -0.6, -0.15, 0,   0, 0.05, 0,    0.6, -0.15, 0,
+      ], 3))
+      birdGeo.setIndex([0, 1, 2,  0, 2, 3])
+      for (let i = 0; i < 5; i++) {
+        const m = new THREE.Mesh(birdGeo, birdMat)
+        const baseScale = 1.5 + Math.random() * 1.5
+        m.scale.setScalar(baseScale)
+        scene.add(m)
+        birds.push({
+          mesh: m,
+          speed: 0.04 + Math.random() * 0.05,
+          radius: 80 + Math.random() * 120,
+          angle: Math.random() * Math.PI * 2,
+          y: 120 + Math.random() * 80,
+          baseScale,
+        })
+      }
     }
   }
 
@@ -722,8 +738,9 @@ export async function createStreetScene(
   // colored base would tint every pedestrian the same). Night dims the whole
   // mesh via a dark multiplier so silhouettes still read as "after dark".
   const pedMat = new THREE.MeshLambertMaterial({ color: night ? 0x4a5468 : 0xffffff, vertexColors: false })
-  // Each pedestrian: a road segment, a position t in [0,1], a speed, a direction.
-  const pedestrians: { seg: (typeof roadSegments)[number]; t: number; speed: number; dir: 1 | -1 }[] = []
+  // Each pedestrian: a road segment, a position t in [0,1], a speed, a
+  // direction, and which sidewalk side they walk (people use both sides).
+  const pedestrians: { seg: (typeof roadSegments)[number]; t: number; speed: number; dir: 1 | -1; side: 1 | -1 }[] = []
   const pedMesh = new THREE.InstancedMesh(pedGeo, pedMat, PEDESTRIAN_COUNT)
   pedMesh.count = 0
   // Per-instance color variety — a small palette of muted coat colors so the
@@ -733,24 +750,47 @@ export async function createStreetScene(
     ? [0x2a3548, 0x33384a, 0x2f3a4e, 0x38374a]
     : [0x6a7282, 0x7a6a5a, 0x5a6a7a, 0x6a5a6a, 0x807468, 0x587068]
   if (!calmMotion && roadSegments.length > 0) {
-    for (let i = 0; i < PEDESTRIAN_COUNT; i++) {
-      const seg = roadSegments[Math.floor(Math.random() * roadSegments.length)]
-      pedestrians.push({
-        seg,
-        t: Math.random(),
-        speed: 0.04 + Math.random() * 0.05, // ~0.04–0.09 along-segment per second
-        dir: Math.random() < 0.5 ? 1 : -1,
-      })
+    // Reject (segment, side) picks whose sidewalk runs through a building —
+    // where OSM buildings abut the roadway (dense European centers) a fixed
+    // offset would send walkers straight through facades. 3-point sample per
+    // candidate, a few retries each, skip on repeated failure.
+    const sidewalkClear = (seg: (typeof roadSegments)[number], side: 1 | -1): boolean => {
+      const dx = seg.bx - seg.ax
+      const dz = seg.bz - seg.az
+      const len = Math.hypot(dx, dz) || 1
+      const off = seg.halfWidth + 1
+      for (const t of [0.15, 0.5, 0.85]) {
+        const x = seg.ax + dx * t + (-dz / len) * off * side
+        const z = seg.az + dz * t + (dx / len) * off * side
+        if (collides(x, z, solids)) return false
+      }
+      return true
     }
-    // Assign each pedestrian a random coat color from the palette.
-    const pedColor = new THREE.Color()
     for (let i = 0; i < PEDESTRIAN_COUNT; i++) {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const seg = roadSegments[Math.floor(Math.random() * roadSegments.length)]
+        const side: 1 | -1 = Math.random() < 0.5 ? 1 : -1
+        if (!sidewalkClear(seg, side)) continue
+        pedestrians.push({
+          seg,
+          t: Math.random(),
+          speed: 0.04 + Math.random() * 0.05, // ~0.04–0.09 along-segment per second
+          dir: Math.random() < 0.5 ? 1 : -1,
+          side,
+        })
+        break
+      }
+    }
+    // Assign each pedestrian a random coat color from the palette. The count
+    // follows how many actually found a clear sidewalk (may be < the cap).
+    const pedColor = new THREE.Color()
+    for (let i = 0; i < pedestrians.length; i++) {
       pedColor.setHex(pedColors[Math.floor(Math.random() * pedColors.length)])
       pedMesh.setColorAt(i, pedColor)
     }
     if (pedMesh.instanceColor) pedMesh.instanceColor.needsUpdate = true
-    pedMesh.count = PEDESTRIAN_COUNT
-    scene.add(pedMesh)
+    pedMesh.count = pedestrians.length
+    if (pedestrians.length > 0) scene.add(pedMesh)
   }
   const pedDummy = new THREE.Object3D() // scratch matrix holder
 
@@ -785,23 +825,35 @@ export async function createStreetScene(
   }
 
   // ── Your holdings: golden beacons you can walk to ───────
+  // Every in-radius marker gets a beam (cheap mesh), but dynamic PointLights
+  // are budgeted like the lamps: only the nearest BEACON_LIGHT_BUDGET spawn
+  // one. A late-game player with 10+ properties near home must not blow the
+  // dynamic-light cap the lamp budget (issue #29) was built to protect.
+  const BEACON_LIGHT_BUDGET = 4
   const beaconBeams: THREE.Mesh[] = []
   const beaconSpots: { marker: StreetMarker; x: number; z: number }[] = []
   for (const marker of markers) {
     const p = toLocalMeters(marker.lat, marker.lng, center.lat, center.lng)
     if (Math.hypot(p.x, p.z) > STREET_RADIUS_M) continue
     beaconSpots.push({ marker, x: p.x, z: p.z })
-    const color = marker.kind === 'home' ? 0x7dd8ff : 0xf0b429
+  }
+  const litBeacons = new Set(
+    [...beaconSpots].sort((a, b) => a.x * a.x + a.z * a.z - (b.x * b.x + b.z * b.z)).slice(0, BEACON_LIGHT_BUDGET),
+  )
+  for (const spot of beaconSpots) {
+    const color = spot.marker.kind === 'home' ? 0x7dd8ff : 0xf0b429
     const beam = new THREE.Mesh(
       new THREE.CylinderGeometry(0.9, 1.6, 90, 12, 1, true),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, fog: false }),
     )
-    beam.position.set(p.x, 45, p.z)
+    beam.position.set(spot.x, 45, spot.z)
     scene.add(beam)
     beaconBeams.push(beam)
-    const glow = new THREE.PointLight(color, 30, 40, 1.6)
-    glow.position.set(p.x, 6, p.z)
-    scene.add(glow)
+    if (litBeacons.has(spot)) {
+      const glow = new THREE.PointLight(color, 30, 40, 1.6)
+      glow.position.set(spot.x, 6, spot.z)
+      scene.add(glow)
+    }
   }
 
   // Don't spawn inside a wall — walk the spawn point outward until it's free
@@ -957,8 +1009,8 @@ export async function createStreetScene(
         const dx = p.seg.bx - p.seg.ax
         const dz = p.seg.bz - p.seg.az
         const len = Math.hypot(dx, dz) || 1
-        // Perpendicular unit, push to the sidewalk edge (~halfWidth + 1m).
-        const offset = p.seg.halfWidth + 1
+        // Perpendicular unit, push to the walker's sidewalk side (~halfWidth + 1m).
+        const offset = (p.seg.halfWidth + 1) * p.side
         const px = (-dz / len) * offset
         const pz = (dx / len) * offset
         pedDummy.position.set(x + px, 0.95, z + pz) // capsule center ~1m up
@@ -1042,13 +1094,13 @@ export async function createStreetScene(
     // soundOn-gated playThud().
     if (wasAirborne && grounded) {
       onLand?.()
-      // Landing dip — the camera compresses on impact, then recovers. The
-      // dip depth scales with landing velocity (a hard landing dips more).
-      // Capped so a tiny hop doesn't over-compress. Decays in the pose block.
-      landDip = Math.max(landDip, Math.min(0.12, 0.04 + (Math.abs(vel.y) / JUMP_SPEED) * 0.08))
-      // Horizontal shake — a brief random x/z jitter on hard landings,
-      // scaled by impact. Sells the force of returning to earth.
-      landShake = Math.max(landShake, Math.min(0.04, Math.abs(vel.y) / JUMP_SPEED * 0.03))
+      // Landing dip + shake — camera compression and jitter on impact, scaled
+      // by landing velocity. Both skipped for reduced-motion (the shake was
+      // already gated at the apply site; the dip belongs with it).
+      if (!calmMotion) {
+        landDip = Math.max(landDip, Math.min(0.12, 0.04 + (Math.abs(vel.y) / JUMP_SPEED) * 0.08))
+        landShake = Math.max(landShake, Math.min(0.04, Math.abs(vel.y) / JUMP_SPEED * 0.03))
+      }
     }
     wasAirborne = !grounded
 
@@ -1085,7 +1137,6 @@ export async function createStreetScene(
         onEdge?.(nearEdge)
       }
       const speed = Math.hypot(vel.x, vel.z)
-      const wasMoving = bobPhase > 0
       if (grounded && speed > 0.3) bobPhase += dt * (6 + speed * 1.2)
       else bobPhase = 0
       // Idle breathing — when standing still, a very slow tiny vertical sway
@@ -1104,7 +1155,6 @@ export async function createStreetScene(
         const curSin = Math.sin(bobPhase)
         if (prevSin > 0 && curSin <= 0) onStep()
       }
-      void wasMoving
       // Landing dip decays exponentially (~150ms half-life). Applied to y so
       // the camera compresses downward on impact, then recovers.
       landDip *= Math.exp(-dt * 8)
@@ -1154,9 +1204,12 @@ export async function createStreetScene(
         // snow also has its local sway (per-flake) layered on the wind
         if (precip === 'snow') positions[i * 3] += Math.sin(now / 900 + i) * dt * 0.5
         if (positions[i * 3 + 1] < 0) {
+          // Respawn in LOCAL coordinates — the whole points object is moved
+          // to the player each frame below, so adding p.x/p.z here would
+          // double-count the player position and drift the storm away.
           positions[i * 3 + 1] = 40
-          positions[i * 3] = p.x + (Math.random() - 0.5) * precipBox * 2
-          positions[i * 3 + 2] = p.z + (Math.random() - 0.5) * precipBox * 2
+          positions[i * 3] = (Math.random() - 0.5) * precipBox * 2
+          positions[i * 3 + 2] = (Math.random() - 0.5) * precipBox * 2
         }
       }
       // keep the whole field centered on the player — they walk, the storm follows
@@ -1164,14 +1217,16 @@ export async function createStreetScene(
       precipPoints.position.z = p.z
       precipPoints.geometry.attributes.position.needsUpdate = true
     }
-    // Birds drift in slow circles overhead (daytime only). Each bird flies its
     // Clouds drift slowly east-to-west, wrapping around the player. Slow
     // (1.5 m/s) so the motion is barely perceptible per frame but unmistakable
-    // over a minute -- the sky is alive, not a painted backdrop.
-    for (const c of clouds) {
-      c.position.x -= 1.5 * dt
-      // Wrap: when a cloud drifts past the western edge, reset to the east.
-      if (c.position.x < p.x - 700) c.position.x = p.x + 700
+    // over a minute -- the sky is alive, not a painted backdrop. Static for
+    // reduced-motion users (the clouds still exist, they just hold still).
+    if (!calmMotion) {
+      for (const c of clouds) {
+        c.position.x -= 1.5 * dt
+        // Wrap: when a cloud drifts past the western edge, reset to the east.
+        if (c.position.x < p.x - 700) c.position.x = p.x + 700
+      }
     }
     // Tree canopy sway — the merged canopy mesh oscillates its rotation.z
     // slightly, reading as wind moving through all the trees. Subtle
@@ -1180,9 +1235,10 @@ export async function createStreetScene(
     if (canopyMesh && !calmMotion) {
       canopyMesh.rotation.z = Math.sin(windPhase * 1.4) * 0.012
     }
-    // Birds: each flies its own
-    // own radius + altitude, banking slightly on turns. The wing flap is a
+    // Birds drift in slow circles overhead (daytime only). Each flies its own
+    // radius + altitude, banking slightly on turns. The wing flap is a
     // cheap scale.y oscillation — enough to read as "alive" at sky distance.
+    // (`birds` is empty under reduced-motion or overcast — see creation.)
     for (const b of birds) {
       b.angle += b.speed * dt
       b.mesh.position.set(
@@ -1198,8 +1254,9 @@ export async function createStreetScene(
     // Lamp flicker — gaslight-style. At night each lamp's intensity wobbles
     // subtly (per-lamp phase), so pools of light feel alive rather than LED-
     // steady. Daytime lamps are off (no flicker needed). Cheap: LAMP_LIGHT_BUDGET
-    // is ~8, so this is 8 sin calls/frame.
-    if (night && lampLights.length) {
+    // is ~8, so this is 8 sin calls/frame. Skipped for reduced-motion — a ~7Hz
+    // brightness pulse sits in the photosensitivity-relevant band.
+    if (night && lampLights.length && !calmMotion) {
       for (let i = 0; i < lampLights.length; i++) {
         // base 14, wobble ±1.5, each lamp on its own ~7Hz phase + offset.
         lampLights[i].intensity = 14 + Math.sin(now / 1000 * 7 + i * 1.3) * 1.5
@@ -1248,9 +1305,20 @@ export async function createStreetScene(
         birdMat.dispose()
         birdGeo.dispose()
       }
+      // Dispose EVERY geometry, material, and texture in the graph — the
+      // scene is rebuilt from scratch on each street enter/retry, and
+      // undisposed materials/CanvasTextures (facade, grass, ~20 materials)
+      // leak GPU memory monotonically until context loss on weak devices.
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh
         if (mesh.geometry) mesh.geometry.dispose()
+        const mats = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : []
+        for (const mat of mats) {
+          const m = mat as THREE.MeshLambertMaterial
+          m.map?.dispose()
+          m.emissiveMap?.dispose()
+          m.dispose()
+        }
       })
       if (precipPoints) {
         precipPoints.geometry.dispose()
