@@ -155,6 +155,7 @@ describe('runWorldServerCommand', () => {
       type: 'applyIntent',
       areaId: 'area-1',
       now: 1_000 + HOUR,
+      authenticatedCitizenId: 'founder',
       intent: {
         type: 'buildBusiness',
         actorCitizenId: 'founder',
@@ -180,6 +181,7 @@ describe('runWorldServerCommand', () => {
       type: 'applyIntent',
       areaId: 'area-1',
       now: 1_000,
+      authenticatedCitizenId: 'founder',
       intent: {
         type: 'buildBusiness',
         actorCitizenId: 'founder',
@@ -193,6 +195,7 @@ describe('runWorldServerCommand', () => {
       type: 'applyIntent',
       areaId: 'area-1',
       now: 1_000,
+      authenticatedCitizenId: 'founder',
       intent: { type: 'buyWater', actorCitizenId: 'founder' },
     })
 
@@ -224,6 +227,7 @@ describe('runWorldServerCommand', () => {
       type: 'applyIntent',
       areaId: 'area-1',
       now: 1_000,
+      authenticatedCitizenId: 'founder',
       intent: {
         type: 'repayDebt',
         actorCitizenId: 'founder',
@@ -253,6 +257,7 @@ describe('runWorldServerCommand', () => {
       type: 'applyIntent',
       areaId: 'area-1',
       now: 1_000 + HOUR,
+      authenticatedCitizenId: 'missing',
       intent: {
         type: 'buildBusiness',
         actorCitizenId: 'missing',
@@ -268,5 +273,29 @@ describe('runWorldServerCommand', () => {
     expect(saved?.businesses).toEqual([])
     expect(saved?.now).toBe(1_000 + HOUR)
     expect(repo.saves).toBe(2)
+  })
+
+  test('rejects intents whose claimed actor does not match the authenticated citizen', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 20 }) }))
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedCitizenId: 'founder',
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'other',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'actor_mismatch' })
+    expect(result.area).toBeUndefined()
+    expect(saved?.businesses).toEqual([])
+    expect(repo.saves).toBe(1)
   })
 })

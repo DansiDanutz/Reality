@@ -36,6 +36,7 @@ export type WorldServerCommand =
     type: 'applyIntent'
     areaId: string
     now: number
+    authenticatedCitizenId: string
     intent: WorldIntent
   }
 
@@ -43,6 +44,7 @@ export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
   | 'founder_mismatch'
+  | 'actor_mismatch'
   | 'time_moved_backward'
   | ClaimWorldAreaError
   | WorldIntentError
@@ -72,7 +74,7 @@ export async function runWorldServerCommand(
     case 'advance':
       return advanceStoredArea(repo, command.areaId, command.now)
     case 'applyIntent':
-      return applyIntentToStoredArea(repo, command.areaId, command.now, command.intent)
+      return applyIntentToStoredArea(repo, command.areaId, command.now, command.authenticatedCitizenId, command.intent)
   }
 }
 
@@ -123,8 +125,13 @@ async function applyIntentToStoredArea(
   repo: WorldAreaRepository,
   areaId: string,
   now: number,
+  authenticatedCitizenId: string,
   intent: WorldIntent,
 ): Promise<WorldServerCommandResult> {
+  if (intent.actorCitizenId !== authenticatedCitizenId) {
+    return { ok: false, error: 'actor_mismatch' }
+  }
+
   const advanced = await advanceStoredArea(repo, areaId, now)
   if (!advanced.ok) return advanced
 
