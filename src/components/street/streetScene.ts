@@ -197,11 +197,14 @@ function flatQuad(len: number, width: number, angle: number, x: number, y: numbe
 }
 
 /** Merge accumulated geometries into a single mesh; frees the inputs */
-function addMerged(scene: THREE.Scene, geos: THREE.BufferGeometry[], material: THREE.Material): void {
-  if (geos.length === 0) return
+function addMerged(scene: THREE.Scene, geos: THREE.BufferGeometry[], material: THREE.Material): THREE.Mesh | null {
+  if (geos.length === 0) return null
   const merged = mergeGeometries(geos)
   for (const g of geos) g.dispose()
-  if (merged) scene.add(new THREE.Mesh(merged, material))
+  if (!merged) return null
+  const mesh = new THREE.Mesh(merged, material)
+  scene.add(mesh)
+  return mesh
 }
 
 /** Ray-cast point-in-polygon in local meters (x/z plane) */
@@ -664,7 +667,10 @@ export async function createStreetScene(
   trunkGeo.dispose()
   canopyGeo.dispose()
   addMerged(scene, trunkGeos, trunkMat)
-  addMerged(scene, canopyGeos, canopyMat)
+  // Capture the canopy mesh so it can sway in the animate loop. The merged
+  // mesh sways as a unit (not per-tree), which reads as wind moving through
+  // all the trees rather than individual branches.
+  const canopyMesh = addMerged(scene, canopyGeos, canopyMat)
 
   // ── Ambient pedestrians (issue #37) ────────────────────
   // A small pool of low-poly walkers strolling the road centerlines. They're
@@ -1109,6 +1115,13 @@ export async function createStreetScene(
       c.position.x -= 1.5 * dt
       // Wrap: when a cloud drifts past the western edge, reset to the east.
       if (c.position.x < p.x - 700) c.position.x = p.x + 700
+    }
+    // Tree canopy sway — the merged canopy mesh oscillates its rotation.z
+    // slightly, reading as wind moving through all the trees. Subtle
+    // (±0.012 rad ≈ 0.7°) and slow (~1.5Hz) so it reads as a breeze, not a
+    // wiggle. Shared with the precipitation wind phase for cohesion.
+    if (canopyMesh && !calmMotion) {
+      canopyMesh.rotation.z = Math.sin(windPhase * 1.4) * 0.012
     }
     // Birds: each flies its own
     // own radius + altitude, banking slightly on turns. The wing flap is a
