@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
-import { playFootstep, playThud, startAmbience, stopAmbience } from '../../lib/sound'
+import { playAmbientOneShot, playFootstep, playThud, startAmbience, stopAmbience } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
 import { fetchWeather, shouldSnow } from './weather'
 import type { StreetMarker, StreetSceneHandle } from './streetScene'
@@ -139,6 +139,24 @@ export default function StreetMode() {
     startAmbience(night)
     return () => stopAmbience()
   }, [soundOn, status, anchor])
+
+  // Distant ambient one-shots — a faint siren, dog bark, or horn every
+  // 45-90s when sound is on. Makes the world feel alive beyond the visual:
+  // the city has a life you can hear but not see. Re-arms with a random
+  // delay so the events never feel rhythmic.
+  useEffect(() => {
+    if (!soundOn || status !== 'ready') return
+    let timer: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      const delay = 45_000 + Math.random() * 45_000 // 45-90s
+      timer = setTimeout(() => {
+        playAmbientOneShot()
+        schedule()
+      }, delay)
+    }
+    schedule()
+    return () => clearTimeout(timer)
+  }, [soundOn, status])
 
   if (!anchor) return null
   const nearAsset = nearId ? assets.find((a) => a.id === nearId) : null
