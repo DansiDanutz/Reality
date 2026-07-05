@@ -170,6 +170,27 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('rejects invalid stored-area command identity before loading state', async () => {
+    const repo = new MemoryWorldRepo()
+    const advanced = await runWorldServerCommand(repo, {
+      type: 'advance',
+      areaId: '  ',
+      now: 1_000,
+    })
+    const applied = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: '  ',
+      now: 1_000,
+      authenticatedCitizenId: 'founder',
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(advanced).toEqual({ ok: false, error: 'invalid_area_identity' })
+    expect(applied).toEqual({ ok: false, error: 'invalid_area_identity' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
   test('rejects duplicate area creation', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)
@@ -197,7 +218,7 @@ describe('runWorldServerCommand', () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
 
-    const advanced = await runWorldServerCommand(repo, { type: 'advance', areaId: 'area-1', now: 1_000 + HOUR })
+    const advanced = await runWorldServerCommand(repo, { type: 'advance', areaId: ' area-1 ', now: 1_000 + HOUR })
 
     expect(advanced.ok).toBe(true)
     if (!advanced.ok) throw new Error('expected advance to succeed')

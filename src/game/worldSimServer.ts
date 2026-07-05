@@ -116,7 +116,10 @@ async function advanceStoredArea(
   areaId: string,
   now: number,
 ): Promise<WorldServerCommandResult> {
-  const area = await repo.loadArea(areaId)
+  const normalizedAreaId = areaId.trim()
+  if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
+
+  const area = await repo.loadArea(normalizedAreaId)
   if (!area) return { ok: false, error: 'area_not_found' }
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
 
