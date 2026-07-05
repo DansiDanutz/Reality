@@ -877,6 +877,47 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
   })
 
+  test('hospitalized citizens recover without acting during the hospital hour', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        money: 100,
+        needs: fullNeeds({ hydration: 10, hunger: 10, energy: 10 }),
+        health: 30,
+        state: { kind: 'hospitalized', until: 2 * HOUR },
+      })],
+      businesses: [
+        business('water', 'water1'),
+        business('food', 'food1'),
+        business('housing', 'housing1'),
+      ],
+    })
+
+    const recovered = advanceWorldArea(start, 2 * HOUR)
+    const citizen = recovered.area.citizens[0]
+
+    expect(citizen.state).toEqual({ kind: 'active' })
+    expect(citizen.health).toBe(55)
+    expect(citizen.needs).toMatchObject({
+      hydration: 45,
+      hunger: 45,
+      energy: 35,
+    })
+    expect(citizen.money).toBe(100)
+    expect(recovered.summary.recoveries).toBe(1)
+    expect(recovered.summary.purchases).toBe(0)
+    expect(recovered.area.transactions).toEqual([])
+
+    const nextHour = advanceWorldArea(recovered.area, 3 * HOUR)
+
+    expect(nextHour.summary.recoveries).toBe(0)
+    expect(nextHour.summary.purchases).toBe(3)
+    expect(nextHour.area.transactions.map((tx) => tx.kind)).toEqual([
+      'customer_purchase',
+      'customer_purchase',
+      'customer_purchase',
+    ])
+  })
+
   test('insurance pays the estate first but does not erase all hospital consequences', () => {
     const start = area({
       citizens: [sim('c1', {

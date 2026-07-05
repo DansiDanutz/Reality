@@ -94,6 +94,7 @@ export interface WorldAreaSummary {
   purchases: number
   wagesPaid: number
   hospitalizations: number
+  recoveries: number
   citizensLeft: number
   insurancePremiumsPaid: number
   insurancePoliciesLapsed: number
@@ -868,9 +869,13 @@ function matchesShopMoney(value: number, shopValue: number): boolean {
 
 function advanceStep(area: WorldArea, context: StepContext): void {
   const departingCitizenIds = new Set<string>()
+  const recoveredCitizenIds = new Set<string>()
   for (const citizen of area.citizens) {
     if (citizen.state.kind === 'hospitalized') {
-      recoverIfReady(citizen, context.at)
+      if (recoverIfReady(citizen, context.at)) {
+        recoveredCitizenIds.add(citizen.id)
+        context.summary.recoveries += 1
+      }
     }
   }
 
@@ -880,6 +885,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
 
   for (const citizen of area.citizens) {
     if (citizen.state.kind !== 'active') continue
+    if (recoveredCitizenIds.has(citizen.id)) continue
     decayCitizen(area, citizen, context.hours)
     buyNeededServices(area, citizen, context)
     if (shouldSimLeaveArea(area, citizen, context)) {
@@ -891,8 +897,8 @@ function advanceStep(area: WorldArea, context: StepContext): void {
   removeDepartingCitizens(area, departingCitizenIds, context)
 }
 
-function recoverIfReady(citizen: WorldCitizen, at: number): void {
-  if (citizen.state.kind !== 'hospitalized' || citizen.state.until > at) return
+function recoverIfReady(citizen: WorldCitizen, at: number): boolean {
+  if (citizen.state.kind !== 'hospitalized' || citizen.state.until > at) return false
   citizen.state = { kind: 'active' }
   citizen.health = Math.max(citizen.health, 55)
   citizen.needs = {
@@ -901,6 +907,7 @@ function recoverIfReady(citizen: WorldCitizen, at: number): void {
     hydration: Math.max(citizen.needs.hydration, 45),
     energy: Math.max(citizen.needs.energy, 35),
   }
+  return true
 }
 
 function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
@@ -1284,6 +1291,7 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
     purchases: 0,
     wagesPaid: 0,
     hospitalizations: 0,
+    recoveries: 0,
     citizensLeft: 0,
     insurancePremiumsPaid: 0,
     insurancePoliciesLapsed: 0,
