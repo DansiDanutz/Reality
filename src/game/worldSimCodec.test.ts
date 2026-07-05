@@ -24,10 +24,10 @@ const area = (): WorldArea => ({
     debts: [{
       id: 'debt1',
       kind: 'medical',
-      creditorId: 'clinic1',
+      creditorId: 'system:hospital',
       amount: 250,
       issuedAt: 1_000,
-      memo: 'Founder owes medical debt to clinic1.',
+      memo: 'Founder owes medical debt to system:hospital.',
     }],
     needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
     health: 100,
@@ -89,9 +89,9 @@ const area = (): WorldArea => ({
       at: 2_000,
       kind: 'debt_repayment',
       fromId: 'founder',
-      toId: 'clinic1',
+      toId: 'system:hospital',
       amount: 25,
-      memo: 'Founder repaid debt to clinic1.',
+      memo: 'Founder repaid debt to system:hospital.',
     },
   ],
 })
@@ -170,6 +170,45 @@ describe('worldSim snapshot codec', () => {
     const markerOnlyInsurance = area()
     markerOnlyInsurance.citizens[1].insuranceBusinessId = 'ins1'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: markerOnlyInsurance }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
+  test('accepts clinic and system hospital accounts as medical creditors', () => {
+    const withClinicCreditor = area()
+    withClinicCreditor.businesses.push({
+      id: 'clinic1',
+      name: 'Clinic',
+      kind: 'clinic',
+      ownerId: 'founder',
+      cash: 0,
+      staffCitizenIds: [],
+      price: 90,
+      wagePerHour: 24,
+      quality: 1,
+      createdBy: 'founder',
+    })
+    withClinicCreditor.citizens[0].debts![0].creditorId = 'clinic1'
+    withClinicCreditor.transactions[3].toId = 'clinic1'
+
+    const decoded = decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: withClinicCreditor,
+    }))
+
+    expect(decoded.ok).toBe(true)
+  })
+
+  test('rejects ledger entries whose payer or receiver is not a valid account', () => {
+    const missingReceiver = area()
+    missingReceiver.transactions[2].toId = 'missing-business'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: missingReceiver }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const unknownSystemAccount = area()
+    unknownSystemAccount.transactions[0].fromId = 'system:free-money'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: unknownSystemAccount }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const missingDebtCreditor = area()
+    missingDebtCreditor.citizens[0].debts![0].creditorId = 'missing-clinic'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: missingDebtCreditor }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects impossible needs, money, claim coordinates, and transaction kinds', () => {
