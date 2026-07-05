@@ -31,7 +31,7 @@ export default function TopBar() {
   const clock = localClock(anchor ? zoneFor(anchor.lat, anchor.lng) : undefined)
   const day = dayOfLife(citizen.createdAt)
 
-  const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'achievements') => setPanel(panel === id ? null : id)
+  const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'achievements' | 'boxes') => setPanel(panel === id ? null : id)
 
   return (
     <header className="topbar">
@@ -78,6 +78,12 @@ export default function TopBar() {
         <button className={panel === 'work' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('work')}>Work</button>
         <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
         <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
+        <button
+          className={panel === 'boxes' ? 'nav-btn active' : 'nav-btn'}
+          onClick={() => toggle('boxes')}
+          title="Mystery Boxes"
+          aria-label="Mystery Boxes"
+        >🎁</button>
         <button
           className={panel === 'achievements' ? 'nav-btn active nav-badge' : 'nav-btn nav-badge'}
           onClick={() => toggle('achievements')}
