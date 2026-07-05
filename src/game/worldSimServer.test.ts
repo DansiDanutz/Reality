@@ -212,6 +212,53 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('rejects claimed-area creation with invalid claim metadata', async () => {
+    const badTimeRepo = new MemoryWorldRepo()
+    const badTime = await runWorldServerCommand(badTimeRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: Number.POSITIVE_INFINITY,
+        source: 'manual',
+      },
+    })
+
+    const badSourceRepo = new MemoryWorldRepo()
+    const badSource = await runWorldServerCommand(badSourceRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'wallet' as never,
+      },
+    })
+
+    expect(badTime).toMatchObject({ ok: false, error: 'invalid_claim_time' })
+    expect(badTime.area?.transactions).toEqual([])
+    expect(badTimeRepo.saves).toBe(0)
+    expect(badSource).toMatchObject({ ok: false, error: 'invalid_claim_source' })
+    expect(badSource.area?.transactions).toEqual([])
+    expect(badSourceRepo.saves).toBe(0)
+  })
+
   test('rejects invalid area identity before loading or saving state', async () => {
     const repo = new MemoryWorldRepo()
     const result = await runWorldServerCommand(repo, {

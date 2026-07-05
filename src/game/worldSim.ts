@@ -186,6 +186,8 @@ export type ClaimWorldAreaError =
   | 'area_already_claimed'
   | 'founder_not_found'
   | 'invalid_area_label'
+  | 'invalid_claim_source'
+  | 'invalid_claim_time'
   | 'invalid_location'
   | 'area_too_small'
   | 'area_too_large'
@@ -381,6 +383,7 @@ const MIN_LICENSES: Record<WorldBusinessKind, number> = {
 }
 
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
+const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
 
 export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWorldAreaResult {
   const area = cloneArea(input)
@@ -390,6 +393,10 @@ export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWo
     return { ok: false, area, error: 'founder_not_found' }
   }
   if (!label) return { ok: false, area, error: 'invalid_area_label' }
+  if (!Number.isFinite(claim.claimedAt) || claim.claimedAt < 0) {
+    return { ok: false, area, error: 'invalid_claim_time' }
+  }
+  if (!CLAIM_SOURCES.includes(claim.source)) return { ok: false, area, error: 'invalid_claim_source' }
   if (
     !Number.isFinite(claim.centerLat) ||
     !Number.isFinite(claim.centerLng) ||
