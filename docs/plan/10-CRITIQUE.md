@@ -395,3 +395,24 @@ Twelve more PRs (#72–#81) addressing batch-2 critique items + new systems:
 4. **Celebration overlay can stack-delay.** If a legendary + gold + level-5 fire in the same tick (unlikely but possible), only the first-set celebration shows; the others are lost. The `!s.celebration` guard prevents stacking but also prevents queuing. **Action:** a 1-entry queue if this becomes visible.
 5. **No onboarding for keyboard shortcuts.** They're discoverable only via hover titles. **Action:** a one-time "?" hint or a settings reference.
 6. **Goals card and TutorialPanel have different visual languages.** The transition when the tutorial completes (TutorialPanel → GoalsCard) swaps component styles in the same HudWindow. **Action:** unify the card aesthetic.
+
+## Fixed in the systems/polish loops (2026-07-05, batch 4)
+
+Five more PRs (#87–#93) extending every system:
+
+- **#87 First-win guarantee** — new citizens get a boosted lucky-moment chance in their first 20 min, ensuring they experience the dopamine system in session one.
+- **#88 Max-business celebration** — reaching L10 on a business earns the gold-tier overlay. Closes the upgrade arc.
+- **#89 Activity progress bar** — live sky→gold fill during shifts/sleep/cooking. "Ends in 4h 48m" becomes a tangible 40%-filled bar.
+- **#90 '1 to go!' nudge** — GoalsCard shows gold "1 to go!" at 2/3 daily challenges. The goal-gradient effect.
+- **#91 PWA install prompt** — captures beforeinstallprompt, surfaces after engagement (3 min + 1 action), 7-day dismiss cooldown. Installed PWAs are returned to far more than tabs.
+- **#92 'blocked' toast tone** — action blocks (flu, exhaustion, can't afford) now toast in warm-red with a low double-buzz, instead of silent log lines.
+- **#93 Weekly milestone celebrations** — gold overlay at weeks 1, 2, 4, 8, 12, 26, 52. The emotional payoff of the retention engine.
+
+**Self-critique (what's still soft):**
+
+1. **No live-player validation, still.** The entire engine is designed from theory. *(carried forward from batch 1)* **Action:** unblocked when Dan opens Neon (Phase 1b).
+2. **Terse journal entries.** *(carried forward from batch 3)* Log reads like data, not narrative. **Action:** content pass on `note()` calls.
+3. **Daily-challenge delta precision.** *(carried forward from batch 2)* `cashDelta` approximates. **Action:** explicit `earnedThisTick` in engine output.
+4. **Milestone celebration could queue.** *(carried forward from batch 3)* If a legendary + week-1 fire in the same tick, only one shows. **Action:** 1-entry queue.
+5. **PWA install prompt is Chrome-only.** iOS Safari doesn't fire beforeinstallprompt — iOS players get no prompt, only the manual "Add to Home Screen" instruction. **Action:** detect iOS Safari and show a manual-instruction banner instead.
+6. **No analytics on the new systems.** lucky moments, daily challenges, upgrades, celebrations — none have track() calls beyond what existed. We can't measure what we can't see. **Action:** add track() calls for first_lucky, daily_complete, first_upgrade, celebration_shown.
