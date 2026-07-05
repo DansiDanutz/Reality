@@ -319,6 +319,8 @@ interface GameState {
   openMysteryBox: (tier: BoxTier) => void
   /** The most recent mystery box result (transient — for the reveal animation). */
   lastBoxReward: { label: string; cash: number; xp: number; rarity: string; icon: string; tier: BoxTier } | null
+  /** Clear the reveal once it has played, so a panel remount doesn't replay it. */
+  clearBoxReward: () => void
   /** Lifetime count of boxes opened. */
   mysteryBoxesOpened: number
   /** Active temporary boosters (wage/xp/income multipliers). */
@@ -1727,6 +1729,8 @@ export const useGame = create<GameState>()(
           log: note(s.log, `Opened a ${def.name} (${formatMoney(def.cost)}): ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
         })
       },
+
+      clearBoxReward: () => set({ lastBoxReward: null }),
 
       // Achievements: idempotent — claiming twice is a no-op. Grants XP + cash
       // bounty (the society pays its achievers). UI offers the claim button only

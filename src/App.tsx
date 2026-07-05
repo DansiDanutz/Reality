@@ -90,7 +90,16 @@ export default function App() {
   // makes the game feel responsive — the difference between a toy and a tool.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Held keys auto-repeat; an action should fire once per press. And in
+      // street mode WASD belongs to walking (Escape there is pointer-lock's,
+      // handled by the browser) — the shortcuts must not fire while strafing.
+      if (e.repeat) return
+      const s = useGame.getState()
+      if (s.streetMode) return
       if (e.key === 'Escape') {
+        // ConfirmDialog owns Escape while open (it cancels itself); don't
+        // also close the drawer underneath it.
+        if (document.querySelector('[role="alertdialog"]')) return
         setPanel(null)
         return
       }
@@ -99,7 +108,6 @@ export default function App() {
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      const s = useGame.getState()
       if (!s.citizen || drawerOpen || s.placing) return
       switch (e.key.toLowerCase()) {
         case 'd': s.quickDrink(); break
@@ -140,11 +148,7 @@ export default function App() {
         {citizen && (
           <>
             <TopBar />
-            <Toasts />
-            <CelebrationOverlay />
-            <GoldenOpportunityPrompt />
             <AwayReport />
-            <InstallBanner />
             {!tutorialDone ? (
               <HudWindow id="objectives">
                 <TutorialPanel />
@@ -173,6 +177,17 @@ export default function App() {
           </>
         )}
       </div>
+      {/* Transient overlays live outside the inert wrapper: they must stay
+          visible and clickable while a drawer is open (they already render
+          above it). */}
+      {citizen && (
+        <>
+          <Toasts />
+          <CelebrationOverlay />
+          <GoldenOpportunityPrompt />
+          <InstallBanner />
+        </>
+      )}
       {panel === 'shop' && <Market />}
       {drawerOpen && (
         <div className="drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label={PANEL_LABELS[panel] ?? 'Panel'}>

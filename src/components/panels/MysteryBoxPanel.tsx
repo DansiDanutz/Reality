@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatMoney } from '../../game/engine'
 import { boxEV, MYSTERY_BOXES, type BoxTier } from '../../game/mysteryBox'
 import { useGame } from '../../store/gameStore'
@@ -23,17 +24,22 @@ export default function MysteryBoxPanel() {
   const money = useGame((s) => s.money)
   const openMysteryBox = useGame((s) => s.openMysteryBox)
   const lastReward = useGame((s) => s.lastBoxReward)
+  const clearBoxReward = useGame((s) => s.clearBoxReward)
   const boxesOpened = useGame((s) => s.mysteryBoxesOpened)
   const [revealing, setRevealing] = useState(false)
 
   // The reveal: when openMysteryBox fires, show a brief "opening" animation
-  // (~1.2s of box shaking), then reveal the reward.
+  // (~1.2s of box shaking), then reveal the reward. Clearing the store at the
+  // end means a panel remount has nothing to replay.
   useEffect(() => {
     if (!lastReward) return
     setRevealing(true)
-    const t = setTimeout(() => setRevealing(false), 1_200)
+    const t = setTimeout(() => {
+      setRevealing(false)
+      clearBoxReward()
+    }, 1_200)
     return () => clearTimeout(t)
-  }, [lastReward])
+  }, [lastReward, clearBoxReward])
 
   const handleOpen = (tier: BoxTier) => {
     const def = MYSTERY_BOXES[tier]
@@ -49,8 +55,9 @@ export default function MysteryBoxPanel() {
         <span className="mono"> {boxesOpened} opened.</span>
       </p>
 
-      {/* Reveal animation overlay */}
-      {revealing && lastReward && (
+      {/* Reveal animation overlay — portaled to <body>: it's position:fixed,
+          and the drawer's backdrop-filter would otherwise clip it. */}
+      {revealing && lastReward && createPortal(
         <div className={`box-reveal box-reveal-${RARITY_TONE[lastReward.rarity]}`} role="alert" aria-live="assertive">
           <div className="box-reveal-card">
             <span className={`box-reveal-icon ${revealing ? 'shaking' : ''}`}>{MYSTERY_BOXES[lastReward.tier].emoji}</span>
@@ -61,7 +68,8 @@ export default function MysteryBoxPanel() {
             </span>
             <span className="box-reveal-icon-big">{lastReward.icon}</span>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <div className="box-grid">

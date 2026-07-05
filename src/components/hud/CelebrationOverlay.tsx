@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -22,12 +22,19 @@ export default function CelebrationOverlay() {
   const celebration = useGame((s) => s.celebration)
   const queueLength = useGame((s) => s.celebrationQueue.length)
   const dismissCelebration = useGame((s) => s.dismissCelebration)
+  const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!celebration) return
     const timer = setTimeout(() => dismissCelebration(), 6_000)
     return () => clearTimeout(timer)
   }, [celebration, dismissCelebration])
+
+  // Keyboard players dismiss too: focus the overlay when it appears so
+  // Enter/Space/Escape land on it without a pointer.
+  useEffect(() => {
+    if (celebration) overlayRef.current?.focus()
+  }, [celebration])
 
   if (!celebration) return null
 
@@ -38,7 +45,16 @@ export default function CelebrationOverlay() {
       className={`celebration celebration-${tone}`}
       role="alert"
       aria-live="assertive"
+      ref={overlayRef}
+      tabIndex={-1}
       onClick={dismissCelebration}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+          e.preventDefault()
+          e.stopPropagation() // keep Escape from also closing a drawer
+          dismissCelebration()
+        }
+      }}
     >
       <div className="celebration-card">
         <span className="celebration-icon" aria-hidden>{celebration.icon}</span>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useFocusTrap } from '../../lib/useFocusTrap'
 
 /**
@@ -34,19 +35,25 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   const dialogRef = useFocusTrap<HTMLDivElement>(open)
 
-  // Escape cancels — matches the rest of the app's Escape behavior.
+  // Escape cancels — capture phase + stopPropagation so the app-level Escape
+  // handler doesn't also close the drawer underneath in the same keypress.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      onCancel()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [open, onCancel])
 
   if (!open) return null
 
-  return (
+  // Portal to <body>: the overlay is position:fixed, but the drawer's
+  // backdrop-filter makes it a containing block that would clip it.
+  return createPortal(
     <div
       className="confirm-overlay"
       role="presentation"
@@ -73,6 +80,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
