@@ -47,6 +47,7 @@ export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
   | 'invalid_area_identity'
+  | 'invalid_command_time'
   | 'founder_mismatch'
   | 'actor_mismatch'
   | 'time_moved_backward'
@@ -95,6 +96,7 @@ async function createClaimedArea(
   const areaId = command.areaId.trim()
   const name = command.name.trim()
   if (!areaId || !name) return { ok: false, error: 'invalid_area_identity' }
+  if (!isValidCommandTime(command.now)) return { ok: false, error: 'invalid_command_time' }
 
   if (await repo.loadArea(areaId)) return { ok: false, error: 'area_exists' }
 
@@ -121,6 +123,7 @@ async function advanceStoredArea(
 ): Promise<WorldServerCommandResult> {
   const normalizedAreaId = areaId.trim()
   if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
+  if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
 
   const area = await repo.loadArea(normalizedAreaId)
   if (!area) return { ok: false, error: 'area_not_found' }
@@ -134,6 +137,10 @@ async function advanceStoredArea(
     dashboard: areaNeedsDashboard(advanced.area),
     summary: advanced.summary,
   }
+}
+
+function isValidCommandTime(now: number): boolean {
+  return Number.isFinite(now) && now >= 0
 }
 
 function founderCreditTransaction(areaId: string, at: number, founder: WorldCitizen): WorldTransaction {

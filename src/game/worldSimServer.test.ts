@@ -237,6 +237,45 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('rejects invalid command time before loading or saving state', async () => {
+    const repo = new MemoryWorldRepo()
+    const created = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: Number.NaN,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    const advanced = await runWorldServerCommand(repo, {
+      type: 'advance',
+      areaId: 'area-1',
+      now: Number.POSITIVE_INFINITY,
+    })
+    const applied = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: -1,
+      authenticatedCitizenId: 'founder',
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(created).toEqual({ ok: false, error: 'invalid_command_time' })
+    expect(advanced).toEqual({ ok: false, error: 'invalid_command_time' })
+    expect(applied).toEqual({ ok: false, error: 'invalid_command_time' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
   test('rejects invalid stored-area command identity before loading state', async () => {
     const repo = new MemoryWorldRepo()
     const advanced = await runWorldServerCommand(repo, {
