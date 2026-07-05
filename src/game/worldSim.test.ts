@@ -620,6 +620,67 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('a small area advances needs, purchases, wages, and dashboard signals together', () => {
+    const start = area({
+      citizens: [
+        sim('thirsty', { needs: fullNeeds({ hydration: 40 }) }),
+        sim('hungry', { needs: fullNeeds({ hunger: 40 }) }),
+        sim('tired', { needs: fullNeeds({ energy: 30 }) }),
+        sim('worker', { jobBusinessId: 'food1' }),
+      ],
+      businesses: [
+        business('water', 'water1', { price: 2 }),
+        business('food', 'food1', { cash: 30, price: 14, staffCitizenIds: ['worker'], wagePerHour: 10 }),
+        business('housing', 'home1', { price: 28 }),
+      ],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, 2 * HOUR)
+    const dashboard = areaNeedsDashboard(out)
+
+    expect(out.now).toBe(2 * HOUR)
+    expect(summary.purchases).toBe(3)
+    expect(summary.wagesPaid).toBe(20)
+    expect(summary.hospitalizations).toBe(0)
+    expect(summary.revenueByBusiness).toEqual({
+      water1: 2,
+      food1: 14,
+      home1: 28,
+    })
+
+    expect(out.businesses.find((business) => business.id === 'water1')!.cash).toBe(2)
+    expect(out.businesses.find((business) => business.id === 'food1')!.cash).toBe(24)
+    expect(out.businesses.find((business) => business.id === 'home1')!.cash).toBe(28)
+    expect(out.citizens.find((citizen) => citizen.id === 'worker')!.money).toBe(120)
+
+    expect(out.transactions.map((transaction) => transaction.kind)).toEqual([
+      'worker_wage',
+      'customer_purchase',
+      'customer_purchase',
+      'customer_purchase',
+      'worker_wage',
+    ])
+    expect(out.transactions.filter((transaction) => transaction.kind === 'customer_purchase')).toMatchObject([
+      { fromId: 'thirsty', toId: 'water1', amount: 2 },
+      { fromId: 'hungry', toId: 'food1', amount: 14 },
+      { fromId: 'tired', toId: 'home1', amount: 28 },
+    ])
+    expect(dashboard.existingBusinesses.find((business) => business.id === 'food1')).toMatchObject({
+      kind: 'food',
+      activeStaff: 1,
+      hourlyCapacity: 24,
+    })
+    expect(dashboard.jobs).toMatchObject({
+      employedCitizens: 1,
+      unemployedCitizens: 3,
+    })
+    expect(dashboard.capacity).toMatchObject({
+      water: 24,
+      food: 24,
+      housing: 8,
+    })
+  })
+
   test('unpaid attempts do not consume scarce service capacity from paying citizens', () => {
     const start = area({
       citizens: [
