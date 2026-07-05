@@ -702,6 +702,23 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('stale job ids do not count as employment or working decay', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'missing-business' })],
+    })
+    const dashboard = areaNeedsDashboard(start)
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+
+    expect(dashboard.jobs).toMatchObject({
+      employedCitizens: 0,
+      unemployedCitizens: 1,
+    })
+    expect(out.citizens[0].needs.hunger).toBeCloseTo(90 - 3.8)
+    expect(out.citizens[0].needs.hydration).toBeCloseTo(90 - 4.8)
+    expect(out.citizens[0].needs.energy).toBeCloseTo(90 - 3)
+  })
+
   test('unpaid workers leave before they can boost service capacity', () => {
     const start = area({
       citizens: [

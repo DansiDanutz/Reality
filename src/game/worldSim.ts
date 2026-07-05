@@ -545,6 +545,12 @@ function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKin
   if (!hasActiveInsurance(citizen, at)) demand.insurance += 1
 }
 
+function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
+  if (citizen.state.kind !== 'active' || !citizen.jobBusinessId) return false
+  const business = area.businesses.find((candidate) => candidate.id === citizen.jobBusinessId)
+  return Boolean(business?.staffCitizenIds.includes(citizen.id))
+}
+
 function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJobsDashboard {
   let openPositions = 0
   let understaffedBusinesses = 0
@@ -555,7 +561,7 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
     if (openForBusiness > 0) understaffedBusinesses += 1
   }
 
-  const employedCitizens = activeCitizens.filter((citizen) => citizen.jobBusinessId).length
+  const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
   return {
     employedCitizens,
     unemployedCitizens: activeCitizens.length - employedCitizens,
@@ -874,7 +880,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
 
   for (const citizen of area.citizens) {
     if (citizen.state.kind !== 'active') continue
-    decayCitizen(citizen, context.hours)
+    decayCitizen(area, citizen, context.hours)
     buyNeededServices(area, citizen, context)
     if (shouldSimLeaveArea(area, citizen, context)) {
       departingCitizenIds.add(citizen.id)
@@ -990,8 +996,8 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
   }
 }
 
-function decayCitizen(citizen: WorldCitizen, hours: number): void {
-  const rates = citizen.jobBusinessId ? WORKING_NEED_RATES : ACTIVE_NEED_RATES
+function decayCitizen(area: WorldArea, citizen: WorldCitizen, hours: number): void {
+  const rates = hasActiveJob(area, citizen) ? WORKING_NEED_RATES : ACTIVE_NEED_RATES
   citizen.needs = {
     hunger: clamp(citizen.needs.hunger - rates.hunger * hours),
     hydration: clamp(citizen.needs.hydration - rates.hydration * hours),
