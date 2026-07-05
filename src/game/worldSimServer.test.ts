@@ -38,6 +38,19 @@ class MemoryWorldRepo implements WorldAreaRepository {
 
   async loadAreaRecord(areaId: string): Promise<WorldAreaRecord | null> {
     this.loads += 1
+    return this.areaRecord(areaId)
+  }
+
+  async loadAreaByFounder(founderCitizenId: string): Promise<WorldAreaRecord | null> {
+    this.loads += 1
+    for (const areaId of this.snapshots.keys()) {
+      const record = this.areaRecord(areaId)
+      if (record?.area.claim?.founderCitizenId === founderCitizenId) return record
+    }
+    return null
+  }
+
+  private areaRecord(areaId: string): WorldAreaRecord | null {
     const snapshot = this.snapshots.get(areaId)
     if (!snapshot) return null
     const decoded = decodeWorldAreaSnapshot(snapshot)
@@ -645,6 +658,37 @@ describe('runWorldServerCommand', () => {
       },
     })
     expect(duplicate).toMatchObject({ ok: false, error: 'area_exists' })
+  })
+
+  test('rejects a second claimed area for the same founder', async () => {
+    const repo = new MemoryWorldRepo()
+    const first = await createArea(repo)
+
+    const duplicateFounder = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-2',
+      name: 'Second District',
+      now: 2_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Second District',
+        centerLat: 45,
+        centerLng: 27,
+        radiusKm: 2,
+        claimedAt: 2_000,
+        source: 'manual',
+      },
+    })
+
+    expect(duplicateFounder).toMatchObject({
+      ok: false,
+      error: 'founder_area_exists',
+      area: { id: first.area.id, claim: { founderCitizenId: 'founder' } },
+    })
+    expect(await repo.loadArea('area-2')).toBeNull()
+    expect(repo.saves).toBe(1)
   })
 
   test('advances stored area time and persists server-simulated need decay', async () => {

@@ -20,6 +20,7 @@ import type { Needs } from './types'
 export interface WorldAreaRepository {
   loadArea: (areaId: string) => Promise<WorldArea | null>
   loadAreaRecord?: (areaId: string) => Promise<WorldAreaRecord | null>
+  loadAreaByFounder: (founderCitizenId: string) => Promise<WorldAreaRecord | null>
   saveArea: (area: WorldArea, options?: SaveWorldAreaOptions) => Promise<void | SaveWorldAreaResult>
 }
 
@@ -63,6 +64,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'founder_area_exists'
   | 'invalid_area_identity'
   | 'invalid_command_time'
   | 'invalid_founder_profile'
@@ -129,6 +131,15 @@ async function createClaimedArea(
   if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
   if (await loadStoredArea(repo, areaId)) return { ok: false, error: 'area_exists' }
+  const founderArea = await repo.loadAreaByFounder(command.authenticatedFounderId)
+  if (founderArea) {
+    return {
+      ok: false,
+      error: 'founder_area_exists',
+      area: founderArea.area,
+      dashboard: areaNeedsDashboard(founderArea.area),
+    }
+  }
 
   const seed: WorldArea = {
     id: areaId,
