@@ -69,12 +69,20 @@ function isWorldArea(value: unknown): value is WorldArea {
   if (!isRecord(value)) return false
   if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now)) return false
   if (value.claim !== undefined && !isAreaClaim(value.claim)) return false
-  return Array.isArray(value.citizens) &&
-    value.citizens.every(isWorldCitizen) &&
-    Array.isArray(value.businesses) &&
-    value.businesses.every(isWorldBusiness) &&
-    Array.isArray(value.transactions) &&
-    value.transactions.every(isWorldTransaction)
+  if (!Array.isArray(value.citizens) || !value.citizens.every(isWorldCitizen) || !hasUniqueIds(value.citizens)) {
+    return false
+  }
+  if (!Array.isArray(value.businesses) || !value.businesses.every(isWorldBusiness) || !hasUniqueIds(value.businesses)) {
+    return false
+  }
+  if (
+    !Array.isArray(value.transactions) ||
+    !value.transactions.every(isWorldTransaction) ||
+    !hasUniqueIds(value.transactions)
+  ) {
+    return false
+  }
+  return true
 }
 
 function isAreaClaim(value: unknown): value is WorldArea['claim'] {
@@ -96,6 +104,7 @@ function isWorldCitizen(value: unknown): value is WorldCitizen {
   const debts = value.debts
   if (debts !== undefined) {
     if (!Array.isArray(debts) || !debts.every(isWorldDebt)) return false
+    if (!hasUniqueIds(debts)) return false
     if (roundMoney(debts.reduce((total, debt) => total + debt.amount, 0)) !== value.debt) return false
   }
   if (!isCitizenState(value.state)) return false
@@ -161,6 +170,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value is T {
   return typeof value === 'string' && allowed.includes(value as T)
+}
+
+function hasUniqueIds(values: { id: string }[]): boolean {
+  return new Set(values.map((value) => value.id)).size === values.length
 }
 
 function isNonEmptyString(value: unknown): value is string {

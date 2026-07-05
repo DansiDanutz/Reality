@@ -122,6 +122,25 @@ describe('worldSim snapshot codec', () => {
     }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects duplicate persisted identities', () => {
+    const duplicateCitizen = area()
+    duplicateCitizen.citizens[1].id = 'founder'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateCitizen }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const duplicateBusiness = area()
+    duplicateBusiness.businesses.push({ ...duplicateBusiness.businesses[0] })
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateBusiness }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const duplicateTransaction = area()
+    duplicateTransaction.transactions[1].id = 'tx1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const duplicateDebt = area()
+    duplicateDebt.citizens[0].debt = 500
+    duplicateDebt.citizens[0].debts!.push({ ...duplicateDebt.citizens[0].debts![0] })
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('rejects impossible needs, money, claim coordinates, and transaction kinds', () => {
     const badNeeds = area()
     badNeeds.citizens[0].needs.hydration = 101
