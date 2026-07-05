@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react'
-import { useInstallPrompt } from '../../lib/useInstallPrompt'
+import { isStandalone, recentlyDismissed, useInstallPrompt } from '../../lib/useInstallPrompt'
 import { useGame } from '../../store/gameStore'
+
+/**
+ * Detect iOS Safari (which doesn't fire beforeinstallprompt). On iOS the
+ * install is manual: Share → Add to Home Screen. We show a tailored banner
+ * with those instructions instead of the Chrome-style Install button.
+ */
+function isIOSSafari(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  // iOS Safari: has iPhone/iPad/iPod AND Safari (not Chrome on iOS, which
+  // also reports asCriOS). Chrome-on-iOS uses the same WebKit so the manual
+  // instructions still apply, but the cleanest detect is Safari proper.
+  const isIOS = /iPhone|iPad|iPod/.test(ua)
+  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS/.test(ua)
+  return isIOS && isSafari
+}
 
 /**
  * The install banner — surfaces after the player is engaged, not on load.
@@ -11,6 +27,12 @@ import { useGame } from '../../store/gameStore'
  * has been active for ~3 minutes AND done at least one meaningful action
  * (eaten or worked), so we're prompting an engaged player, not ambushing a
  * new one. Dismissable, with a 7-day cooldown.
+ *
+ * Two variants:
+ *   - Chrome/Edge (fires beforeinstallprompt): one-tap Install button.
+ *   - iOS Safari (no beforeinstallprompt): manual "Share → Add to Home
+ *     Screen" instructions. iOS is ~25% of mobile traffic; without this,
+ *     those players get no install nudge at all.
  */
 export default function InstallBanner() {
   const { canInstall, triggerInstall } = useInstallPrompt()
@@ -32,7 +54,33 @@ export default function InstallBanner() {
     return () => clearTimeout(t)
   }, [dismissed])
 
-  if (!canInstall || !engaged || dismissed) return null
+  // iOS Safari doesn't fire beforeinstallprompt — show the manual variant
+  // after the same engagement + cooldown gates. The recentlyDismissed +
+  // isStandalone checks mirror the Chrome path.
+  const ios = isIOSSafari()
+  const showIOS = ios && !isStandalone() && !recentlyDismissed() && engaged && !dismissed
+
+  if ((!canInstall && !showIOS) || !engaged || dismissed) return null
+
+  if (showIOS) {
+    return (
+      <div className="install-banner" role="status">
+        <div className="install-banner-text">
+          <span className="install-banner-title">Add Reality to your home screen</span>
+          <span className="install-banner-sub">Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> for full-screen, faster access.</span>
+        </div>
+        <div className="install-banner-actions">
+          <button
+            className="btn small ghost"
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss install instructions"
+          >
+            Later
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="install-banner" role="status">
