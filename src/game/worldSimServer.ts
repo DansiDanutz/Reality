@@ -66,6 +66,12 @@ export type WorldServerCommand =
     authenticatedCitizenId: string
     intent: WorldIntent
   }
+  | {
+    type: 'applyFounderIntent'
+    authenticatedFounderId: string
+    now: number
+    intent: WorldIntent
+  }
 
 export type WorldServerCommandError =
   | 'area_exists'
@@ -110,6 +116,8 @@ export async function runWorldServerCommand(
       return readFounderArea(repo, command.authenticatedFounderId, command.now)
     case 'applyIntent':
       return applyIntentToStoredArea(repo, command.areaId, command.now, command.authenticatedCitizenId, command.intent)
+    case 'applyFounderIntent':
+      return applyFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.intent)
   }
 }
 
@@ -383,6 +391,31 @@ async function applyIntentToStoredArea(
 
   const loaded = await loadStoredArea(repo, normalizedAreaId)
   if (!loaded) return { ok: false, error: 'area_not_found' }
+  return applyIntentToAreaRecord(repo, loaded, now, intent)
+}
+
+async function applyFounderIntentToStoredArea(
+  repo: WorldAreaRepository,
+  authenticatedFounderId: string,
+  now: number,
+  intent: WorldIntent,
+): Promise<WorldServerCommandResult> {
+  const founderId = authenticatedFounderId.trim()
+  if (!founderId) return { ok: false, error: 'founder_not_found' }
+  if (intent.actorCitizenId !== founderId) return { ok: false, error: 'actor_mismatch' }
+  if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
+
+  const loaded = await repo.loadAreaByFounder(founderId)
+  if (!loaded) return { ok: false, error: 'area_not_found' }
+  return applyIntentToAreaRecord(repo, loaded, now, intent)
+}
+
+async function applyIntentToAreaRecord(
+  repo: WorldAreaRepository,
+  loaded: WorldAreaRecord,
+  now: number,
+  intent: WorldIntent,
+): Promise<WorldServerCommandResult> {
   const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
 

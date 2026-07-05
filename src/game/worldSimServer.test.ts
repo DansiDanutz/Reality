@@ -952,6 +952,101 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 
+  test('applies a founder intent through authenticated founder identity', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: ' founder ',
+      now: 1_000 + HOUR,
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected founder intent to succeed')
+    expect(result.area.id).toBe('area-1')
+    expect(result.area.now).toBe(1_000 + HOUR)
+    expect(result.area.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
+      { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
+    ])
+    expect(saved?.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
+    expect(repo.saves).toBe(2)
+  })
+
+  test('rejects founder intents that do not match the authenticated founder before loading', async () => {
+    const blankRepo = new MemoryWorldRepo()
+    const blankFounder = await runWorldServerCommand(blankRepo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: '  ',
+      now: 1_000,
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    const mismatchRepo = new MemoryWorldRepo()
+    const mismatch = await runWorldServerCommand(mismatchRepo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+      intent: { type: 'buyWater', actorCitizenId: 'other' },
+    })
+
+    expect(blankFounder).toEqual({ ok: false, error: 'founder_not_found' })
+    expect(mismatch).toEqual({ ok: false, error: 'actor_mismatch' })
+    expect(blankRepo.loads + mismatchRepo.loads).toBe(0)
+    expect(blankRepo.saves + mismatchRepo.saves).toBe(0)
+  })
+
+  test('rejects founder intents without a claimed founder area', async () => {
+    const repo = new MemoryWorldRepo()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_not_found' })
+    expect(repo.loads).toBe(1)
+    expect(repo.saves).toBe(0)
+  })
+
+  test('rejects write conflicts before persisting founder intent mutations', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
+    repo.conflictNextSave()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000 + HOUR,
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'write_conflict' })
+    expect(result.area?.now).toBe(1_000)
+    expect(result.area?.businesses).toEqual([])
+    expect(saved?.businesses).toEqual([])
+    expect(saved?.transactions.map((transaction) => transaction.kind)).toEqual(['founder_credit'])
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
+  })
+
   test('rejects write conflicts before persisting intent mutations', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
