@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_BUSINESS_BLUEPRINTS, WORLD_SIM_HOUR_MS, type WorldArea, type WorldCitizen } from './worldSim'
+import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCodec'
 import { runWorldServerCommand, type WorldAreaRepository } from './worldSimServer'
 import type { Needs } from './types'
 
@@ -7,16 +8,19 @@ const HOUR = WORLD_SIM_HOUR_MS
 
 class MemoryWorldRepo implements WorldAreaRepository {
   saves = 0
-  private areas = new Map<string, WorldArea>()
+  private snapshots = new Map<string, string>()
 
   async loadArea(areaId: string): Promise<WorldArea | null> {
-    const area = this.areas.get(areaId)
-    return area ? clone(area) : null
+    const snapshot = this.snapshots.get(areaId)
+    if (!snapshot) return null
+    const decoded = decodeWorldAreaSnapshot(snapshot)
+    if (!decoded.ok) throw new Error(`invalid persisted snapshot: ${decoded.error}`)
+    return decoded.area
   }
 
   async saveArea(area: WorldArea): Promise<void> {
     this.saves += 1
-    this.areas.set(area.id, clone(area))
+    this.snapshots.set(area.id, encodeWorldAreaSnapshot(area))
   }
 }
 
@@ -186,7 +190,3 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 })
-
-function clone(area: WorldArea): WorldArea {
-  return JSON.parse(JSON.stringify(area)) as WorldArea
-}
