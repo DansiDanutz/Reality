@@ -6,6 +6,8 @@ import type {
   WorldCitizen,
   WorldCitizenKind,
   WorldCitizenState,
+  WorldDebt,
+  WorldDebtKind,
   WorldTransaction,
   WorldTransactionKind,
 } from './worldSim'
@@ -29,6 +31,7 @@ export type DecodeWorldAreaSnapshotResult =
 
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
 const CITIZEN_KINDS: WorldCitizenKind[] = ['sim', 'real']
+const DEBT_KINDS: WorldDebtKind[] = ['medical']
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
 const TRANSACTION_KINDS: WorldTransactionKind[] = [
   'customer_purchase',
@@ -87,12 +90,27 @@ function isWorldCitizen(value: unknown): value is WorldCitizen {
   if (!isRecord(value)) return false
   if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isOneOf(value.kind, CITIZEN_KINDS)) return false
   if (!isMoney(value.money) || !isMoney(value.debt) || !isNeeds(value.needs) || !isPercentage(value.health)) return false
+  const debts = value.debts
+  if (debts !== undefined) {
+    if (!Array.isArray(debts) || !debts.every(isWorldDebt)) return false
+    if (roundMoney(debts.reduce((total, debt) => total + debt.amount, 0)) !== value.debt) return false
+  }
   if (!isCitizenState(value.state)) return false
   if (value.homeBusinessId !== undefined && !isNonEmptyString(value.homeBusinessId)) return false
   if (value.jobBusinessId !== undefined && !isNonEmptyString(value.jobBusinessId)) return false
   if (value.insuranceBusinessId !== undefined && !isNonEmptyString(value.insuranceBusinessId)) return false
   if (value.insurancePaidUntil !== undefined && !isFiniteNumber(value.insurancePaidUntil)) return false
   return true
+}
+
+function isWorldDebt(value: unknown): value is WorldDebt {
+  return isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isOneOf(value.kind, DEBT_KINDS) &&
+    isNonEmptyString(value.creditorId) &&
+    isMoney(value.amount) &&
+    isFiniteNumber(value.issuedAt) &&
+    isNonEmptyString(value.memo)
 }
 
 function isCitizenState(value: unknown): value is WorldCitizenState {
@@ -156,6 +174,10 @@ function isMoney(value: unknown): value is number {
 
 function isPercentage(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0 && value <= 100
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 function isLatitude(value: unknown): value is number {

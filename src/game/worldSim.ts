@@ -9,12 +9,24 @@ export type WorldCitizenState =
   | { kind: 'active' }
   | { kind: 'hospitalized'; until: number }
 
+export type WorldDebtKind = 'medical'
+
+export interface WorldDebt {
+  id: string
+  kind: WorldDebtKind
+  creditorId: string
+  amount: number
+  issuedAt: number
+  memo: string
+}
+
 export interface WorldCitizen {
   id: string
   name: string
   kind: WorldCitizenKind
   money: number
   debt: number
+  debts?: WorldDebt[]
   needs: Needs
   health: number
   state: WorldCitizenState
@@ -991,8 +1003,7 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
   }
 
   if (remaining > 0) {
-    citizen.debt = roundMoney(citizen.debt + remaining)
-    context.summary.debtsIssued = roundMoney(context.summary.debtsIssued + remaining)
+    issueMedicalDebt(citizen, receiverId, remaining, context)
     recordTransaction(area, context.at, {
       kind: 'medical_debt',
       fromId: citizen.id,
@@ -1001,6 +1012,23 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
       memo: `${citizen.name} left the hospital bill as medical debt.`,
     })
   }
+}
+
+function issueMedicalDebt(citizen: WorldCitizen, creditorId: string, amount: number, context: StepContext): void {
+  const debtAmount = roundMoney(amount)
+  citizen.debt = roundMoney(citizen.debt + debtAmount)
+  citizen.debts = [
+    ...(citizen.debts ?? []),
+    {
+      id: `${citizen.id}:${context.at}:${(citizen.debts?.length ?? 0) + 1}:medical`,
+      kind: 'medical',
+      creditorId,
+      amount: debtAmount,
+      issuedAt: context.at,
+      memo: `${citizen.name} owes medical debt to ${creditorId}.`,
+    },
+  ]
+  context.summary.debtsIssued = roundMoney(context.summary.debtsIssued + debtAmount)
 }
 
 function recordTransaction(
@@ -1032,6 +1060,7 @@ function cloneArea(area: WorldArea): WorldArea {
 function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
   return {
     ...citizen,
+    debts: citizen.debts?.map((debt) => ({ ...debt })),
     needs: { ...citizen.needs },
     state: citizen.state.kind === 'hospitalized'
       ? { kind: 'hospitalized', until: citizen.state.until }

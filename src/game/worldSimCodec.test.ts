@@ -20,7 +20,15 @@ const area = (): WorldArea => ({
     name: 'Founder',
     kind: 'real',
     money: 200_000,
-    debt: 0,
+    debt: 250,
+    debts: [{
+      id: 'debt1',
+      kind: 'medical',
+      creditorId: 'clinic1',
+      amount: 250,
+      issuedAt: 1_000,
+      memo: 'Founder owes medical debt to clinic1.',
+    }],
     needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
     health: 100,
     state: { kind: 'active' },
@@ -106,5 +114,13 @@ describe('worldSim snapshot codec', () => {
     const badPolicyDate = area()
     badPolicyDate.citizens[0].insurancePaidUntil = Number.POSITIVE_INFINITY
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badPolicyDate }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badDebt = area()
+    badDebt.citizens[0].debts![0].creditorId = ''
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badDebtTotal = area()
+    badDebtTotal.citizens[0].debt = 1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badDebtTotal }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 })

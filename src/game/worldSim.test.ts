@@ -639,6 +639,9 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(citizen.state).toEqual({ kind: 'hospitalized', until: 9 * HOUR })
     expect(citizen.money).toBe(0)
     expect(citizen.debt).toBe(HOSPITAL_BILL - 50)
+    expect(citizen.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'clinic1', amount: HOSPITAL_BILL - 50, issuedAt: HOUR },
+    ])
     expect(clinic.cash).toBe(50)
     expect(summary.hospitalizations).toBe(1)
     expect(summary.debtsIssued).toBe(300)
@@ -669,6 +672,9 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(clinic.cash).toBe(covered + 50)
     expect(citizen.money).toBe(0)
     expect(citizen.debt).toBe(HOSPITAL_BILL - covered - 50)
+    expect(citizen.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'clinic1', amount: HOSPITAL_BILL - covered - 50, issuedAt: HOUR },
+    ])
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['insurance_payout', 'hospital_bill', 'medical_debt'])
   })
 
@@ -690,6 +696,9 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(clinic.cash).toBe(10)
     expect(citizen.insuranceBusinessId).toBeUndefined()
     expect(citizen.debt).toBe(HOSPITAL_BILL - 10)
+    expect(citizen.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'clinic1', amount: HOSPITAL_BILL - 10, issuedAt: HOUR },
+    ])
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
   })
 
