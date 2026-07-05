@@ -1183,6 +1183,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
     50% { box-shadow: 0 0 22px rgba(255, 215, 106, 0.45); }
   }
 }
+/* Blocked — the "you can't do that" tone. Soft warm-red, distinct from sky. */
+.toast.blocked { color: var(--warn); border-color: rgba(229, 72, 77, 0.4); background: rgba(229, 72, 77, 0.06); }
 
 /* ── Mood card: the living citizen, right side ─────────── */
 .mood-card {

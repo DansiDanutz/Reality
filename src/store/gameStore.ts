@@ -53,7 +53,7 @@ export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' 
  * moments, streaks, and legendary jackpots their own distinct sound. The
  * sound module's ChimeKind must match this union exactly.
  */
-export type ToastTone = 'gold' | 'ok' | 'sky' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary'
+export type ToastTone = 'gold' | 'ok' | 'sky' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary' | 'blocked'
 
 const SAVE_KEY = 'reality-save-v1'
 
@@ -976,11 +976,11 @@ export const useGame = create<GameState>()(
         const s = get()
         if (s.activity) return
         if (fluBlocksWork(s.illness)) {
-          set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.') })
+          set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.'), toasts: withToast(s.toasts, 'Down with the flu — no shifts until it passes 🤒', 'blocked') })
           return
         }
         if (s.needs.energy < 15 || s.health < 20) {
-          set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.') })
+          set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.'), toasts: withToast(s.toasts, 'Too worn down for a gig — drink, eat, rest.', 'blocked') })
           return
         }
         track('first_shift_started')
@@ -1323,7 +1323,7 @@ export const useGame = create<GameState>()(
         const out = upgradeOutcome(baseIncome, level)
         if (!out) return
         if (s.money < out.cost) {
-          set({ log: note(s.log, `Upgrade needs ${formatMoney(out.cost)} — you have ${formatMoney(s.money)}.`) })
+          set({ log: note(s.log, `Upgrade needs ${formatMoney(out.cost)} — you have ${formatMoney(s.money)}.`), toasts: withToast(s.toasts, `Need ${formatMoney(out.cost)} to upgrade — you have ${formatMoney(s.money)}.`, 'blocked') })
           return
         }
         set({

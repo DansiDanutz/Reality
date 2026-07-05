@@ -17,8 +17,8 @@ describe('sound — toast/tone sync', () => {
     const _check: ChimeKind = 'gold' as ToastTone
     const _check2: ToastTone = 'gold' as ChimeKind
     // Runtime: enumerate both and compare as sets.
-    const chimes: ChimeKind[] = ['gold', 'sky', 'ok', 'meal', 'achieve', 'streak', 'lucky', 'legendary']
-    const tones: ToastTone[] = ['gold', 'ok', 'sky', 'meal', 'achieve', 'streak', 'lucky', 'legendary']
+    const chimes: ChimeKind[] = ['gold', 'sky', 'ok', 'meal', 'achieve', 'streak', 'lucky', 'legendary', 'blocked']
+    const tones: ToastTone[] = ['gold', 'ok', 'sky', 'meal', 'achieve', 'streak', 'lucky', 'legendary', 'blocked']
     expect(new Set(chimes)).toEqual(new Set(tones))
     void _check
     void _check2
