@@ -147,6 +147,21 @@ export interface AreaSurvivalDashboard {
   signals: CitizenSurvivalSignal[]
 }
 
+export interface AreaBusinessDashboard {
+  id: string
+  name: string
+  kind: WorldBusinessKind
+  ownerId: string
+  cash: number
+  price: number
+  wagePerHour: number
+  quality: number
+  activeStaff: number
+  targetStaff: number
+  openPositions: number
+  hourlyCapacity: number
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -157,6 +172,7 @@ export interface AreaNeedsDashboard {
   supply: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
+  existingBusinesses: AreaBusinessDashboard[]
   jobs: AreaJobsDashboard
   survival: AreaSurvivalDashboard
   firstBuild: FirstBuildRecommendation[]
@@ -459,6 +475,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     supply,
     licenseSlots,
     saturation,
+    existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
     jobs: jobsDashboard(area, activeCitizens),
     survival: survivalDashboard(area),
     firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation }),
@@ -534,6 +551,25 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
     unemployedCitizens: activeCitizens.length - employedCitizens,
     openPositions,
     understaffedBusinesses,
+  }
+}
+
+function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusinessDashboard {
+  const activeStaff = activeStaffCount(area, business)
+  const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
+  return {
+    id: business.id,
+    name: business.name,
+    kind: business.kind,
+    ownerId: business.ownerId,
+    cash: business.cash,
+    price: business.price ?? DEFAULT_PRICES[business.kind],
+    wagePerHour: business.wagePerHour ?? DEFAULT_WORKER_WAGE,
+    quality: effectiveBusinessQuality(business, area),
+    activeStaff,
+    targetStaff,
+    openPositions: Math.max(0, targetStaff - activeStaff),
+    hourlyCapacity: serviceCapacity(area, business, 1),
   }
 }
 

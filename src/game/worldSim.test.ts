@@ -1073,6 +1073,14 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.supply.water).toBe(2)
     expect(dash.licenseSlots.water).toBe(1)
     expect(dash.saturation.water).toBe(2)
+    expect(dash.existingBusinesses).toHaveLength(3)
+    expect(dash.existingBusinesses.find((business) => business.id === 'food1')).toMatchObject({
+      kind: 'food',
+      activeStaff: 1,
+      targetStaff: 2,
+      openPositions: 1,
+      hourlyCapacity: 24,
+    })
     expect(dash.jobs).toEqual({
       employedCitizens: 1,
       unemployedCitizens: 1,
