@@ -92,6 +92,7 @@ export function migrateSave(persisted: unknown): GameState {
   if (state && state.streakBest === undefined) state.streakBest = 0
   if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
+        if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
         // sawAchievementsPanel: existing players who've completed the original
         // 8-step tutorial shouldn't be re-nudged to "discover achievements".
         // If they've claimed ≥7 tutorial steps (the original count), mark this
@@ -223,6 +224,8 @@ interface GameState {
   luckyMomentsSeen: number
   /** Unique ids of lucky moments ever witnessed — drives the collection view. */
   luckyMomentsSeenIds: string[]
+  /** Week milestones already celebrated (1, 2, 4, 8, ...). Prevents re-firing. */
+  milestonesCelebrated: number[]
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
@@ -333,6 +336,7 @@ const FRESH = {
   streakBest: 0,
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
+  milestonesCelebrated: [] as number[],
   awayReport: null as string | null,
   celebration: null as GameState['celebration'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
@@ -645,6 +649,32 @@ export const useGame = create<GameState>()(
         // The habit metric: still living this life a week later (Rule of retention)
         if (now - s.citizen.createdAt >= 7 * 24 * 3_600_000) track('d7_return')
 
+        // Weekly milestone celebration — fires once when the citizen crosses
+        // each milestone week (1, 2, 4, 8, 12, 26, 52). A returning player who
+        // has built a multi-week life gets a moment acknowledging their
+        // commitment. The curve front-loads (1, 2 weeks) and spaces out later.
+        {
+          const WEEK_MS = 7 * 24 * 3_600_000
+          const MILESTONE_WEEKS = [1, 2, 4, 8, 12, 26, 52]
+          const weeksLived = Math.floor((now - s.citizen.createdAt) / WEEK_MS)
+          const nextMilestone = MILESTONE_WEEKS.find(
+            (w) => w <= weeksLived && !s.milestonesCelebrated.includes(w),
+          )
+          if (nextMilestone && !s.celebration) {
+            s.milestonesCelebrated = [...s.milestonesCelebrated, nextMilestone]
+            const label = nextMilestone === 1 ? 'one week' : nextMilestone === 52 ? 'a full year' : `${nextMilestone} weeks`
+            const reward = nextMilestone >= 52 ? 'a lifetime' : nextMilestone >= 12 ? 'a season' : 'a habit'
+            s.celebration = {
+              icon: '⏳',
+              title: `${label.charAt(0).toUpperCase() + label.slice(1)} in Reality`,
+              detail: `You've kept this life going for ${label}. That's ${reward} — and the world is richer for it.`,
+              tone: 'gold',
+            }
+            toasts = withToast(toasts, `⏳ ${nextMilestone === 1 ? 'A week' : nextMilestone + ' weeks'} in Reality. You've built something real.`, 'achieve')
+            log = note(log, `${label.charAt(0).toUpperCase() + label.slice(1)} milestone reached.`)
+          }
+        }
+
         // Seniority: shifts finished this tick may cross a promotion threshold
         if (out.shiftsCompleted > 0) {
           const before = careerRankOf(s.shiftsWorked)
@@ -923,6 +953,7 @@ export const useGame = create<GameState>()(
           streakBest: s.streakBest,
           luckyMomentsSeen: s.luckyMomentsSeen,
           luckyMomentsSeenIds: s.luckyMomentsSeenIds,
+          milestonesCelebrated: s.milestonesCelebrated,
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
