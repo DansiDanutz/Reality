@@ -254,8 +254,19 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
   // player is away. During live play, they decide for themselves.
   const AWAY_THRESHOLD_MS = 30 * 60_000
 
-  for (let guard = 0; t < end && guard < 24 * 31 + 8; guard++) {
-    const chunkEnd = Math.min(end, activity ? activity.endsAt : end, t + 60 * 60_000)
+  // Step hour-by-hour so needs decay, wages, upkeep, and once-a-day illness
+  // rolls stay accurate. Hourly granularity covers up to a full year of
+  // absence (8,784 cheap O(1) iterations); past that — or on a corrupt
+  // future timestamp — the loop keeps going but each remaining step settles
+  // the WHOLE rest of the span at once. Needs floor at 0, business income
+  // caps at PENDING_CAP_DAYS, and upkeep drains to $0, so the asymptotic
+  // state is exact. The old `guard < 24*31+8` cap silently *dropped* every
+  // day beyond ~31 while the caller advanced the clock to now — skipping
+  // upkeep and handing back free days to anyone away longer than a month.
+  const MAX_HOURLY_STEPS = 24 * 366
+  for (let guard = 0; t < end; guard++) {
+    const stepEnd = guard >= MAX_HOURLY_STEPS ? end : t + 60 * 60_000
+    const chunkEnd = Math.min(end, activity ? activity.endsAt : end, stepEnd)
     const minutes = Math.max(0, (chunkEnd - t) / 60_000)
     const days = minutes / 60 / 24
     world = advanceLife(world, minutes, modeOf(activity, input.hasHome), illness?.kind === 'cold' ? COLD_REGEN_MULT : 1)

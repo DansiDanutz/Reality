@@ -1290,7 +1290,10 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.'), toasts: withToast(s.toasts, 'Down with the flu — no shifts until it passes 🤒', 'blocked') })
           return
         }
-        if (s.needs.energy < 15 || s.health < 20) {
+        // A gig is lighter than a full shift (lower energy floor), but a
+        // starving citizen still can't work — matches the shift gate and the
+        // HealthGuide's "below 15 you are too weak to start a shift."
+        if (s.needs.energy < 15 || s.needs.hunger < 15 || s.health < 20) {
           set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.'), toasts: withToast(s.toasts, 'Too worn down for a gig — drink, eat, rest.', 'blocked') })
           return
         }
