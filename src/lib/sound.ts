@@ -220,3 +220,37 @@ export function stopAmbience(): void {
     }
   }, 600)
 }
+
+/**
+ * A distant one-shot ambient event — a faint siren, a dog bark, a distant
+ * horn. Played probabilistically by StreetMode to make the world feel alive
+ * beyond the visual. Each call picks one randomly. Very quiet (0.02 peak)
+ * and low-passed so it reads as "far away", not "in your ear".
+ */
+const AMBIENT_ONE_SHOTS: { freq: number; type: OscillatorType; dur: number; slide: number }[] = [
+  { freq: 880, type: 'sine', dur: 1.4, slide: 1.18 },     // siren rising
+  { freq: 1046, type: 'sine', dur: 1.2, slide: 0.85 },     // siren falling
+  { freq: 180, type: 'sawtooth', dur: 0.3, slide: 0.7 },   // dog bark (low)
+  { freq: 220, type: 'triangle', dur: 0.8, slide: 0.6 },   // distant horn
+]
+
+export function playAmbientOneShot(): void {
+  const context = ensureContext()
+  if (!context) return
+  const shot = AMBIENT_ONE_SHOTS[Math.floor(Math.random() * AMBIENT_ONE_SHOTS.length)]
+  const now = context.currentTime
+  const osc = context.createOscillator()
+  const gain = context.createGain()
+  const filter = context.createBiquadFilter()
+  osc.type = shot.type
+  osc.frequency.setValueAtTime(shot.freq, now)
+  osc.frequency.exponentialRampToValueAtTime(shot.freq * shot.slide, now + shot.dur)
+  filter.type = 'lowpass'
+  filter.frequency.value = 600 // muffled — far away
+  gain.gain.setValueAtTime(0, now)
+  gain.gain.linearRampToValueAtTime(0.02, now + 0.15) // fade in
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + shot.dur)
+  osc.connect(filter).connect(gain).connect(out(context))
+  osc.start(now)
+  osc.stop(now + shot.dur + 0.05)
+}
