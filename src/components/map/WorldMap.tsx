@@ -115,9 +115,13 @@ export default function WorldMap() {
     map.on('style.load', () => {
       map.setProjection({ type: 'globe' })
       try {
+        // The sky is TRANSPARENT so the animated starfield canvas behind the
+        // map shows around the globe — the opaque #0b1526 sky was hiding it
+        // entirely. The horizon keeps a semi-opaque blue glow hugging the
+        // globe's edge (atmosphere), which reads beautifully over the stars.
         map.setSky({
-          'sky-color': '#0b1526',
-          'horizon-color': '#1d3a66',
+          'sky-color': 'rgba(11, 21, 38, 0)',
+          'horizon-color': 'rgba(29, 58, 102, 0.55)',
           'fog-color': '#0b1526',
           'sky-horizon-blend': 0.6,
           'horizon-fog-blend': 0.6,
