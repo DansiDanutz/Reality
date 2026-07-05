@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayOfLife } from '../../game/clock'
 import { formatMoney, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
+import {
+  NOTIFICATION_REASONS,
+  notificationPermission,
+  notificationsSupported,
+  requestNotificationPermission,
+} from '../../lib/useNotifications'
 import { GOOGLE_CLIENT_ID, mountGoogleButton } from '../../lib/google'
 import { useGame } from '../../store/gameStore'
 import AvatarStudio from './AvatarStudio'
@@ -167,6 +173,69 @@ export default function ProfilePanel() {
 
       <h3 className="profile-section-title">Account</h3>
       <GoogleLink />
+      <NotificationsSection />
     </section>
+  )
+}
+
+/**
+ * The notifications opt-in. Web Notifications are the strongest retention
+ * mechanic for a real-time life-sim — the game reaches out when the tab is
+ * closed. We never auto-prompt (the pattern that made web notifications
+ * hated); the player opts in here after reading exactly what they'll get.
+ */
+function NotificationsSection() {
+  const [permission, setPermission] = useState<NotificationPermission | null>(notificationPermission())
+  const supported = notificationsSupported()
+
+  if (!supported) {
+    return (
+      <div className="notif-section">
+        <h3 className="profile-section-title">Notifications</h3>
+        <p className="panel-sub">
+          Your browser doesn't support web notifications. Reality runs fine without them.
+        </p>
+      </div>
+    )
+  }
+
+  if (permission === 'granted') {
+    return (
+      <div className="notif-section">
+        <h3 className="profile-section-title">Notifications ✓ on</h3>
+        <p className="panel-sub">
+          Reality will notify you when the tab is hidden: {NOTIFICATION_REASONS[0].toLowerCase()}.
+        </p>
+      </div>
+    )
+  }
+
+  if (permission === 'denied') {
+    return (
+      <div className="notif-section">
+        <h3 className="profile-section-title">Notifications blocked</h3>
+        <p className="panel-sub">
+          You blocked notifications. Re-enable them in your browser's site settings if you change your mind.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="notif-section">
+      <h3 className="profile-section-title">Notifications</h3>
+      <p className="panel-sub">Let Reality reach you when it matters:</p>
+      <ul className="notif-reasons">
+        {NOTIFICATION_REASONS.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+      <button
+        className="btn primary"
+        onClick={async () => setPermission(await requestNotificationPermission())}
+      >
+        Enable notifications
+      </button>
+    </div>
   )
 }
