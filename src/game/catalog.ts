@@ -35,6 +35,7 @@ export const CATEGORIES: { id: ShopCategory; label: string; icon: string }[] = [
   { id: 'education', label: 'Education', icon: '🎓' },
   { id: 'leisure', label: 'Leisure', icon: '🎡' },
   { id: 'pets', label: 'Pets', icon: '🐾' },
+  { id: 'health', label: 'Health', icon: '💊' },
   { id: 'home', label: 'Homes', icon: '⌂' },
   { id: 'business', label: 'Businesses', icon: '◆' },
 ]
@@ -160,6 +161,14 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'goldfish', name: 'Goldfish', category: 'pets', price: 15, durable: true, hours: 0.25, description: 'Watch it circle. Somehow it helps.', effects: { fun: 6 }, pet: { foodCostPerDay: 1, fun: 6 } },
   { id: 'cat', name: 'Cat', category: 'pets', price: 150, durable: true, hours: 1, description: 'Adopted from the shelter. It owns you now.', effects: { fun: 18 }, pet: { foodCostPerDay: 2, fun: 18 } },
   { id: 'dog', name: 'Dog', category: 'pets', price: 300, durable: true, hours: 1, description: 'A walk, a ball, a best friend.', effects: { fun: 25, energy: -6, hygiene: -4 }, pet: { foodCostPerDay: 3, fun: 25 } },
+
+  // ── Health (pharmacy — the exit from illness, never the prevention) ──
+  // Real CVS/Walgreens ballpark prices. Curing the worst illness (flu, $35)
+  // costs less than one worst-job shift — getting well is always affordable
+  // (docs/ILLNESS-RFC.md economy guard). Without the matching illness they
+  // are just a weak pick-me-up, like an underwhelming espresso.
+  { id: 'coldmeds', name: 'Cold Medicine', category: 'health', price: 15, hours: 0.1, cures: 'cold', description: 'Symptom relief. Clears a cold today.', effects: { energy: 8 } },
+  { id: 'flumeds', name: 'Flu Medicine', category: 'health', price: 35, hours: 0.1, cures: 'flu', description: 'Antiviral course. Clears the flu today.', effects: { energy: 15 } },
 
   // ── Homes (placeable, real-market prices) ───────────────
   { id: 'microstudio', name: 'Micro Studio', category: 'home', price: 45_000, placeable: true, description: 'Small door, big deal: it\'s yours.' },

@@ -1,6 +1,6 @@
 # RFC: Illness Events (health system phase 2)
 
-**Status:** Proposal — awaiting sign-off before any code lands (issue #8).
+**Status:** Approved by Dan 2026-07-05 (all recommended options: `health` category, 20%/day cap, 1-day flu block, full visibility) — implemented.
 **Author:** Nervix (agent), for DansiDanutz.
 **Scope:** A design for cold/flu events tied to sustained low hygiene and energy, plus pharmacy cure items and work-block rules. **No code in this PR.**
 

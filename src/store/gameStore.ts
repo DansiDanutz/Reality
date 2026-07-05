@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Citizen, Needs, Pet, PlacedAsset, ShopItem } from '../game/types'
+import type { Citizen, Illness, Needs, Pet, PlacedAsset, ShopItem } from '../game/types'
 import {
   GIG_MINUTES,
   GIG_WAGE,
@@ -13,6 +13,7 @@ import {
   COOK_MINUTES,
   distanceKm,
   feedPet,
+  fluBlocksWork,
   formatMoney,
   hasKitchen,
   liveRealtime,
@@ -89,6 +90,10 @@ interface GameState {
   /** Recovery-floor cooldowns */
   lastFountainAt: number
   lastFoodBankAt: number
+  /** Active illness — cold or flu, at most one (docs/ILLNESS-RFC.md, #8) */
+  illness: Illness | null
+  /** ms timestamp of the last daily illness roll */
+  lastIllnessRollAt: number
   /** One-time "How Reality works" targets screen */
   targetsSeen: boolean
   /** Territorial progression: highest reach tier celebrated so far */
@@ -175,6 +180,8 @@ const FRESH = {
   marketFocus: null as ShopCategory | null,
   lastFountainAt: 0,
   lastFoodBankAt: 0,
+  illness: null as Illness | null,
+  lastIllnessRollAt: 0,
   targetsSeen: false,
   reachTier: 1,
   awayReport: null as string | null,
@@ -386,6 +393,8 @@ export const useGame = create<GameState>()(
             pets: s.pets,
             inventory: s.inventory,
             groceryRestockedAt: s.groceryRestockedAt,
+            illness: s.illness,
+            lastIllnessRollAt: s.lastIllnessRollAt,
           },
           from,
           now,
@@ -415,6 +424,20 @@ export const useGame = create<GameState>()(
         }
         if (out.spoiled.length > 0 && !wasAway) {
           toasts = withToast(toasts, `${out.spoiled.join(', ')} spoiled`, 'sky')
+        }
+        // Illness visibility (RFC amendment: full) — live play gets the toast;
+        // away spans surface it through out.summary in the away report below.
+        if (out.caughtIllness && !wasAway) {
+          const sick =
+            out.caughtIllness === 'cold'
+              ? 'You caught a cold 🤧 — rest works worse for 2 days. Cold Medicine ($15) cures it.'
+              : 'You came down with the flu 🤒 — no shifts until it passes. Flu Medicine ($35) cures it.'
+          log = note(log, sick)
+          toasts = withToast(toasts, sick, 'sky')
+        }
+        if (out.recoveredFrom && !out.illness && !wasAway) {
+          log = note(log, `You shook off the ${out.recoveredFrom}. Back to full strength.`)
+          toasts = withToast(toasts, `Recovered from the ${out.recoveredFrom} 💪`, 'sky')
         }
         let awayReport = s.awayReport
         if (wasAway && (out.summary.length > 0 || out.assets.some((a) => a.pendingIncome > 1))) {
@@ -482,6 +505,8 @@ export const useGame = create<GameState>()(
           lastSeenAt: now,
           lastFountainAt: out.lastFountainAt,
           lastFoodBankAt: out.lastFoodBankAt,
+          illness: out.illness,
+          lastIllnessRollAt: out.lastIllnessRollAt,
           pets: out.pets,
           inventory: out.inventory,
           groceryRestockedAt: out.groceryRestockedAt,
@@ -527,6 +552,10 @@ export const useGame = create<GameState>()(
       startGig: () => {
         const s = get()
         if (s.activity) return
+        if (fluBlocksWork(s.illness)) {
+          set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.') })
+          return
+        }
         if (s.needs.energy < 15 || s.health < 20) {
           set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.') })
           return
@@ -557,11 +586,15 @@ export const useGame = create<GameState>()(
         if (!item || !item.effects) return
         const owned = s.inventory[itemId] ?? 0
         if (owned <= 0) return
+        // Medicine cures instantly when it matches the active illness;
+        // otherwise it's just its (weak) effects — an underwhelming espresso.
+        const cures = item.cures !== undefined && s.illness?.kind === item.cures
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
           timesEaten: (item.effects.hunger ?? 0) > 0 ? s.timesEaten + 1 : s.timesEaten,
-          log: note(s.log, `${item.name} — done.`),
+          illness: cures ? null : s.illness,
+          log: note(s.log, cures ? `${item.name} — the ${item.cures} is gone. Like new.` : `${item.name} — done.`),
         })
       },
 
@@ -640,6 +673,10 @@ export const useGame = create<GameState>()(
         if (s.activity) return
         const job = s.jobId ? jobById(s.jobId) : undefined
         if (!job) return
+        if (fluBlocksWork(s.illness)) {
+          set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.') })
+          return
+        }
         if (s.needs.energy < 25 || s.needs.hunger < 15 || s.health < 20) {
           set({ log: note(s.log, 'Too worn down to work. Eat and sleep first.') })
           return
@@ -880,14 +917,16 @@ export const useGame = create<GameState>()(
     }),
     {
       name: SAVE_KEY,
-      version: 3,
-      // v2 adds hydration; v3 adds pets — old saves get an empty menagerie
+      version: 4,
+      // v2 adds hydration; v3 adds pets; v4 adds illness — old saves wake up healthy
       migrate: (persisted) => {
         const state = persisted as GameState
         if (state?.needs && state.needs.hydration === undefined) {
           state.needs = { ...state.needs, hydration: 75 }
         }
         if (state && !state.pets) state.pets = []
+        if (state && state.illness === undefined) state.illness = null
+        if (state && !state.lastIllnessRollAt) state.lastIllnessRollAt = 0
         return state
       },
       partialize: (state) =>

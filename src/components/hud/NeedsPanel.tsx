@@ -14,9 +14,13 @@ const tone = (v: number) => (v < 20 ? 'crit' : v < 45 ? 'low' : 'ok')
 export default function NeedsPanel() {
   const needs = useGame((s) => s.needs)
   const health = useGame((s) => s.health)
+  const illness = useGame((s) => s.illness)
   const citizen = useGame((s) => s.citizen)
   const setPanel = useGame((s) => s.setPanel)
+  const openMarket = useGame((s) => s.openMarket)
   if (!citizen) return null
+
+  const illnessHoursLeft = illness ? Math.max(1, Math.ceil((illness.endsAt - Date.now()) / 3_600_000)) : 0
 
   return (
     <aside className="needs" aria-label="Vitals">
@@ -32,6 +36,23 @@ export default function NeedsPanel() {
         <span className="needs-health-label">HP</span>
         <span className={`needs-health-value mono ${tone(health)}`}>{Math.round(health)}</span>
       </div>
+      {illness && (
+        <button
+          className="needs-illness"
+          role="status"
+          title={
+            illness.kind === 'cold'
+              ? `Cold — rest restores 20% less energy. Clears in ~${illnessHoursLeft}h, or Cold Medicine ($15) now.`
+              : `Flu — you can't work. Clears in ~${illnessHoursLeft}h, or Flu Medicine ($35) now.`
+          }
+          aria-label={`Sick: ${illness.kind}, about ${illnessHoursLeft} hours left. Open pharmacy.`}
+          onClick={() => openMarket('health')}
+        >
+          <span aria-hidden>{illness.kind === 'cold' ? '🤧' : '🤒'}</span>
+          <span className="needs-illness-label">{illness.kind === 'cold' ? 'Cold' : 'Flu'}</span>
+          <span className="needs-illness-hours mono">~{illnessHoursLeft}h</span>
+        </button>
+      )}
       {NEEDS.map(({ key, label }) => {
         const v = needs[key]
         const t = tone(v)
