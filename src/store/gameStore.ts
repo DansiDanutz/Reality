@@ -225,6 +225,9 @@ interface GameState {
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
+  /** Transient celebration overlay (not persisted) — set for the biggest moments only. */
+  celebration: { icon: string; title: string; detail?: string; reward?: string; tone: 'legendary' | 'gold' | 'level' | 'daily' } | null
+  dismissCelebration: () => void
   /** Feedback toasts (not persisted) */
   toasts: { id: number; text: string; tone: ToastTone }[]
   popToast: (id: number) => void
@@ -324,6 +327,7 @@ const FRESH = {
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
   awayReport: null as string | null,
+  celebration: null as GameState['celebration'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
   // only surfaces when something actually fails, so a cold start in airplane
@@ -684,6 +688,17 @@ export const useGame = create<GameState>()(
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
             toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, lucky.rarity === 'legendary' ? 'legendary' : 'lucky')
             log = note(log, `${label} lucky moment: ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`)
+            // Legendary jackpots earn a full celebration overlay — they're
+            // once-in-a-lifetime events that deserve more than a toast.
+            if (lucky.rarity === 'legendary') {
+              s.celebration = {
+                icon: '🌟',
+                title: 'LEGENDARY!',
+                detail: lucky.text,
+                reward: `+${formatMoney(lucky.money)} · +${lucky.xp} XP`,
+                tone: 'legendary',
+              }
+            }
           }
         }
 
@@ -703,6 +718,18 @@ export const useGame = create<GameState>()(
           for (const a of newlyEarned) {
             toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'achieve')
             log = note(log, `Achievement unlocked: ${a.title} — ${a.detail}`)
+          }
+          // Gold-tier achievements earn a celebration overlay — they're the
+          // long-term grails (level 20, 30-day streak, 10 businesses...).
+          const gold = newlyEarned.find((a) => a.tier === 'gold')
+          if (gold && !s.celebration) {
+            s.celebration = {
+              icon: '🥇',
+              title: gold.title,
+              detail: gold.detail,
+              reward: `+${gold.xp} XP · ${formatMoney(gold.bounty)}`,
+              tone: 'gold',
+            }
           }
           s.achievementsClaimed = [...s.achievementsClaimed, ...earnedIds]
         }
@@ -818,6 +845,15 @@ export const useGame = create<GameState>()(
                 dailyBonusClaimed = true
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
                 log = note(log, `All daily challenges complete — bonus ${formatMoney(DAILY_COMPLETE_BONUS.cash)} + ${DAILY_COMPLETE_BONUS.xp} XP.`)
+                if (!s.celebration) {
+                  s.celebration = {
+                    icon: '🎯',
+                    title: 'All 3 daily challenges!',
+                    detail: 'A perfect day. Come back tomorrow for a fresh set.',
+                    reward: `+${formatMoney(DAILY_COMPLETE_BONUS.cash)} · +${DAILY_COMPLETE_BONUS.xp} XP`,
+                    tone: 'daily',
+                  }
+                }
               }
             }
           }
@@ -852,12 +888,14 @@ export const useGame = create<GameState>()(
           dailyClaimed,
           dailyBonusClaimed,
           awayReport,
+          celebration: s.celebration,
           toasts,
           log,
         })
       },
 
       dismissAwayReport: () => set({ awayReport: null }),
+      dismissCelebration: () => set({ celebration: null }),
       popToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
       toggleSound: () => set({ soundOn: !get().soundOn }),
       // Connection health — called by /api/* sites (tryPost, fetches in panels).
@@ -1350,6 +1388,7 @@ export const useGame = create<GameState>()(
             ([key]) =>
               key !== 'streetMode' &&
               key !== 'awayReport' &&
+              key !== 'celebration' &&
               key !== 'toasts' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
