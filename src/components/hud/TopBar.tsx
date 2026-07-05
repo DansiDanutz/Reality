@@ -1,5 +1,6 @@
 import { dayOfLife, localClock, zoneFor } from '../../game/clock'
 import { newlyUnlocked } from '../../game/achievements'
+import { streakLabel } from '../../game/streak'
 import { achievementSnapshotOf, useGame } from '../../store/gameStore'
 import AnimatedMoney from './AnimatedMoney'
 
@@ -13,6 +14,7 @@ export default function TopBar() {
   const soundOn = useGame((s) => s.soundOn)
   const toggleSound = useGame((s) => s.toggleSound)
   const achievementsClaimed = useGame((s) => s.achievementsClaimed)
+  const streakLength = useGame((s) => s.streakLength)
   // Re-render every tick so the real clock stays live
   useGame((s) => s.lastSeenAt)
 
@@ -55,6 +57,16 @@ export default function TopBar() {
           <span className="stat-label">{clock.place} · day {day}</span>
           <span className="stat-value mono">{clock.time}</span>
         </div>
+        {streakLength >= 2 && (
+          <div
+            className="stat stat-streak"
+            title={`Come back tomorrow to grow your streak. Miss 3 days and it resets.`}
+            aria-label={streakLabel(streakLength)}
+          >
+            <span className="stat-label">streak</span>
+            <span className="stat-value mono">🔥 {streakLength}</span>
+          </div>
+        )}
         <div className="stat stat-money">
           <span className="stat-label">balance</span>
           <span className="stat-value mono gold"><AnimatedMoney value={money} /></span>
