@@ -12,6 +12,18 @@ import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game
 import { achievementSnapshotOf, useGame } from '../../store/gameStore'
 
 /**
+ * Format a progress counter for the achievement bar. Money thresholds
+ * (>= $1,000) get the $ prefix and compact notation; small counts render
+ * plainly. Keeps the bar label short enough to sit beside the track.
+ */
+function formatProgress(current: number, target: number): string {
+  if (target >= 1000) {
+    return `${formatMoney(current)} / ${formatMoney(target)}`
+  }
+  return `${current} / ${target}`
+}
+
+/**
  * The Achievements panel — the completionist grid. This is the retention
  * engine: every category shows locked rungs above the player's current standing,
  * so there is always a "next thing" pulling them back.
@@ -97,6 +109,11 @@ export default function AchievementsPanel() {
                 const unlocked = a.isUnlocked(snapshot)
                 const isClaimed = claimed.includes(a.id)
                 const tier = TIER_META[a.tier]
+                // Progress bar: only render for numeric achievements that
+                // expose a progress fn, and only while still locked (once
+                // claimed the bar adds noise). Boolean achievements skip it.
+                const prog = !isClaimed && a.progress ? a.progress(snapshot) : null
+                const pct = prog ? Math.min(100, Math.round((prog.current / prog.target) * 100)) : 0
                 return (
                   <li
                     className={`ach-card${isClaimed ? ' claimed' : unlocked ? ' ready' : ' locked'}`}
@@ -108,6 +125,14 @@ export default function AchievementsPanel() {
                       <span className="ach-title">{a.title}</span>
                     </div>
                     <p className="ach-detail">{a.detail}</p>
+                    {prog && !unlocked && (
+                      <div className="ach-progress" aria-label={`Progress ${prog.current} of ${prog.target}`}>
+                        <div className="ach-progress-track">
+                          <div className="ach-progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="ach-progress-count mono">{formatProgress(prog.current, prog.target)}</span>
+                      </div>
+                    )}
                     <div className="ach-foot">
                       <span className="ach-reward mono">+{a.xp} XP · {formatMoney(a.bounty)}</span>
                       {isClaimed ? (

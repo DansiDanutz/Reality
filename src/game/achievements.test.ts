@@ -132,3 +132,88 @@ describe('achievement metadata integrity', () => {
     expect(new Set(icons).size).toBe(icons.length)
   })
 })
+
+describe('achievement progress bars', () => {
+  test('every numeric achievement exposes a progress function', () => {
+    // The achievements with a threshold predicate (s.x >= N) must expose
+    // matching progress. Boolean achievements (hasCooked, hasPet, etc.) are
+    // allowed to omit progress — the UI renders them without a bar.
+    const numericIds = new Set([
+      'survivor-1', 'survivor-7', 'survivor-30', 'well-fed', 'rested-soul',
+      'first-shift', 'reliable', 'workhorse',
+      'hustler', 'tycoon', 'mogul',
+      'well-lived', 'established', 'pillar',
+      'collector-10', 'collector-25', 'collector-50',
+      'business-owner', 'empire-3', 'empire-10',
+    ])
+    for (const a of ACHIEVEMENTS) {
+      if (numericIds.has(a.id)) {
+        expect(a.progress, `${a.id} should expose progress`).toBeDefined()
+      }
+    }
+  })
+
+  test('progress.target is always positive', () => {
+    for (const a of ACHIEVEMENTS) {
+      if (!a.progress) continue
+      const p = a.progress(base)
+      expect(p.target, a.id).toBeGreaterThan(0)
+    }
+  })
+
+  test('progress.current never exceeds target when locked, never less when unlocked (drift guard)', () => {
+    // The critical invariant: progress and isUnlocked must agree. If a future
+    // edit changes the threshold without updating progress (or vice versa),
+    // the bar would lie to the player. This test sweeps many snapshots.
+    const snapshots: AchievementSnapshot[] = [
+      base,
+      { ...base, daysLived: 1 },
+      { ...base, daysLived: 7 },
+      { ...base, daysLived: 35 },
+      { ...base, timesEaten: 25 },
+      { ...base, timesEaten: 100 },
+      { ...base, timesSlept: 25 },
+      { ...base, shiftsWorked: 1 },
+      { ...base, shiftsWorked: 10 },
+      { ...base, shiftsWorked: 50 },
+      { ...base, totalCollected: 5_000 },
+      { ...base, totalCollected: 10_000 },
+      { ...base, totalCollected: 1_000_000 },
+      { ...base, netWorth: 500_000 },
+      { ...base, netWorth: 1_000_000 },
+      { ...base, level: 5 },
+      { ...base, level: 10 },
+      { ...base, level: 20 },
+      { ...base, distinctItemsOwned: 10 },
+      { ...base, distinctItemsOwned: 25 },
+      { ...base, distinctItemsOwned: 50 },
+      { ...base, businesses: 1 },
+      { ...base, businesses: 3 },
+      { ...base, businesses: 10 },
+    ]
+    for (const a of ACHIEVEMENTS) {
+      if (!a.progress) continue
+      for (const s of snapshots) {
+        const p = a.progress(s)
+        const unlocked = a.isUnlocked(s)
+        if (unlocked) {
+          expect(p.current, `${a.id} unlocked but current ${p.current} < target ${p.target}`).toBeGreaterThanOrEqual(p.target)
+        } else {
+          // When locked, current must be strictly less than target — if it
+          // equals target the bar would show 100% but isUnlocked returns false.
+          expect(p.current, `${a.id} locked but current ${p.current} >= target ${p.target}`).toBeLessThan(p.target)
+        }
+      }
+    }
+  })
+
+  test('progress bar fills 0%→100% across the documented range (sample)', () => {
+    // Spot-check a few achievements at the boundary.
+    const workhorse = ACHIEVEMENTS.find((a) => a.id === 'workhorse')!
+    expect(workhorse.progress!({ ...base, shiftsWorked: 0 }).current).toBe(0)
+    expect(workhorse.progress!({ ...base, shiftsWorked: 50 }).current).toBe(50)
+    const collector = ACHIEVEMENTS.find((a) => a.id === 'collector-25')!
+    expect(collector.progress!({ ...base, distinctItemsOwned: 12 }).current).toBe(12)
+    expect(collector.progress!({ ...base, distinctItemsOwned: 12 }).target).toBe(25)
+  })
+})

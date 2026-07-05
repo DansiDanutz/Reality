@@ -468,6 +468,22 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .ach-tier { font-size: 13px; }
 .ach-title { font-weight: 600; font-size: 13px; }
 .ach-detail { font-size: 11px; color: var(--muted); line-height: 1.35; margin: 0; flex: 1; }
+/* Per-achievement progress bar — renders only for numeric achievements
+   while still locked. Turns "locked" from a dead-end into "8/10 shifts". */
+.ach-progress {
+  display: flex; align-items: center; gap: 8px;
+  margin: 6px 0 2px;
+}
+.ach-progress-track {
+  flex: 1; height: 5px; border-radius: 3px;
+  background: rgba(255,255,255,0.06); overflow: hidden;
+}
+.ach-progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(to right, var(--sky), var(--gold));
+  transition: width 600ms var(--ease-out);
+}
+.ach-progress-count { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 .ach-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
 .ach-reward { font-size: 10px; color: var(--muted); }
 .ach-status { font-size: 10px; font-weight: 600; }
