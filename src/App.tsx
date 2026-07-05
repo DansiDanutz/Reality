@@ -5,6 +5,7 @@ import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
 import GoalsCard from './components/hud/GoalsCard'
 import InstallBanner from './components/hud/InstallBanner'
+import StarfieldBackground from './components/StarfieldBackground'
 import HudDock from './components/hud/HudDock'
 import OfflineBanner from './components/hud/OfflineBanner'
 import FinanceCard from './components/hud/FinanceCard'
@@ -117,6 +118,7 @@ export default function App() {
 
   return (
     <div className="app" id="main-content" role="main" tabIndex={-1}>
+      <StarfieldBackground />
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
