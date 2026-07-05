@@ -438,6 +438,30 @@ export async function createStreetScene(
   ground.rotation.x = -Math.PI / 2
   scene.add(ground)
 
+  // ── Distant skyline: a ring of low silhouettes at the fog edge ──
+  // Gives depth — the world extends beyond the loaded neighborhood. Cheap:
+  // one merged geometry of ~60 thin boxes in a circle at ~300m, darker than
+  // real buildings so they recede into the fog. No windows, no detail — just
+  // the silhouette of a city on the horizon.
+  {
+    const skylineGeos: THREE.BufferGeometry[] = []
+    const skylineBox = new THREE.BoxGeometry(1, 1, 1)
+    const count = 70
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.04
+      const r = 290 + Math.random() * 25
+      const w = 12 + Math.random() * 22
+      const h = 10 + Math.random() * 40
+      const g = skylineBox.clone()
+      g.scale(w, h, 8)
+      g.translate(Math.cos(angle) * r, h / 2, Math.sin(angle) * r)
+      skylineGeos.push(g)
+    }
+    const skylineMat = new THREE.MeshLambertMaterial({ color: night ? 0x0a1020 : 0x5a6478 })
+    addMerged(scene, skylineGeos, skylineMat)
+    skylineBox.dispose()
+  }
+
   // ── Parks and greens: brighter, cared-for grass ──────────
   const parkMat = new THREE.MeshLambertMaterial({ color: night ? 0x11201a : 0x6f9450 })
   const greenRings: Ring[] = []
