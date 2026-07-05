@@ -350,3 +350,24 @@ Six PRs (#57–#62) shipped the full retention engine — every mechanic a top l
 4. **Streak reset toast is a downer.** A player returning after 4 days gets greeted with "Your streak reset" before they've done anything. That's punishing the exact behavior (returning) we want to reward. **Action:** soften — show the reset *only* if they then claim day 1 again, or replace with "Welcome back — start a new streak today."
 5. **The Achievements panel is getting heavy.** NextGoalsBlock + summary + StreakBlock + CollectionBlock + 25 achievement cards + 6 category headers. On a phone this is a long scroll. **Action:** consider tabs (Goals / Grid / Collection) once we have 3+ sections visibly competing for above-the-fold space.
 6. **Save migration is at v5 with no test.** The migrate function has 6 conditional backfills now; a regression could silently corrupt old saves. **Action:** add a migrate-roundtrip test that loads a v1-shaped save and asserts the post-migrate shape.
+
+## Fixed in the quality/juice/onboarding loops (2026-07-05, batch 2)
+
+Seven more PRs (#64–#70) addressing critique items from the batch-1 entry + new retention mechanics:
+
+- **#64 Achievement progress bars** — refactored 18 numeric achievements to expose `progress(snapshot): {current, target}`. "locked" became "47/100 meals" with a sky→gold bar. Drift-guard test sweeps 23 snapshots. *(critique item #3)*
+- **#65 Streak reset toast reframed** — "Your streak reset" → "Welcome back. Your N-day streak reset — start fresh." Only mentions prior streak if ≥3 days. *(critique item #4)*
+- **#66 Save migration regression suite** — extracted `migrateSave()`, 8 tests across v1→v5. Caught a real crash: non-object input threw in strict mode. *(critique item #6)*
+- **#67 Web notifications** — the game reaches OUT. 3 types (activity done, streak at risk, needs critical), hidden-only + cooldowns + no-stacking + broke-guard. Never auto-prompted.
+- **#68 Sound variety** — 4 new synthesized chimes (achieve/streak/lucky/legendary) + distinct toast colors. The player learns the sounds; the legendary fanfare is unmissable.
+- **#69 Tutorial discovery step** — 9th tutorial step "Discover your achievements" + completion nudge. Fixes the "built it but nobody finds it" problem for the entire retention engine.
+- **#70 Daily challenges** — 3 fresh goals per real day (easy/medium/hard), seeded per (citizen, day), reset at local midnight. All-3 bonus. The Fortnite/Xbox daily-challenge hook.
+
+**Self-critique (what's still soft):**
+
+1. **Panel weight is now critical.** The Achievements panel has 6 sections (daily challenges, next-goals, summary, streak, collection, 25 achievement cards across 6 categories). On mobile this is a very long scroll. *(critique item #5, now urgent — was "consider tabs" before; now it's required)* **Action:** next loop — tab the panel into Goals / Grid / Collection.
+2. **No live-player validation, still.** The entire retention engine + daily challenges + notifications are designed from theory. The `track()` calls exist (citizen_created, tutorial_complete, d7_return) but no dashboard reads them. **Action:** unblocked when Dan opens Neon (Phase 1b).
+3. **Daily challenge deltas are approximate.** `cashDelta` uses `wagesEarned + max(0, money - s.money)` which double-counts if multiple income sources fire in one tick. The over-count is conservative (challenges complete slightly early) but not precise. **Action:** add explicit `earnedThisTick` to the engine output.
+4. **Notification permission UX is minimal.** The Profile section explains what you'll get, but there's no "preview" of a notification, and no per-type opt-out (a player might want streak alerts but not needs alerts). **Action:** per-type toggles in a follow-up.
+5. **Sound has no volume control.** It's binary on/off via the TopBar mute. A top game lets players set chime volume independent of system. **Action:** add a volume slider to the sound settings.
+6. **Daily challenges don't appear in notifications.** A "2/3 daily challenges done — 1 to go!" notification at risk-of-not-completing would be a strong return driver. **Action:** add a 4th notification type for daily-challenge progress in the evening.
