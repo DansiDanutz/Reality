@@ -445,6 +445,29 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--surface);
 }
+/* Panel tabs — group the 6 retention sections into 3 panes so mobile isn't
+   a wall-of-scroll. Goals (actionable) is the default landing tab. */
+.ach-tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.ach-tab {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 6px;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+.ach-tab:hover { color: var(--text); }
+.ach-tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
 .ach-category { display: flex; flex-direction: column; gap: 8px; }
 .ach-cat-head {
   display: flex; align-items: center; gap: 8px;
