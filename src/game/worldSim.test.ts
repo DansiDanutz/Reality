@@ -563,7 +563,7 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('dashboard separates sim demand, real demand, licenses, and saturation', () => {
     const citizens = [
-      sim('sim1', { needs: fullNeeds({ hydration: 40, hunger: 40 }) }),
+      sim('sim1', { needs: fullNeeds({ hydration: 40, hunger: 40 }), jobBusinessId: 'food1' }),
       sim('real1', { kind: 'real', needs: fullNeeds({ hydration: 40 }) }),
     ]
     const dash = areaNeedsDashboard(area({
@@ -571,7 +571,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       businesses: [
         business('water', 'water1'),
         business('water', 'water2'),
-        business('food', 'food1'),
+        business('food', 'food1', { staffCitizenIds: ['sim1'] }),
       ],
     }))
 
@@ -587,6 +587,12 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.supply.water).toBe(2)
     expect(dash.licenseSlots.water).toBe(1)
     expect(dash.saturation.water).toBe(2)
+    expect(dash.jobs).toEqual({
+      employedCitizens: 1,
+      unemployedCitizens: 1,
+      openPositions: 3,
+      understaffedBusinesses: 3,
+    })
     expect(dash.firstBuild[0]).toMatchObject({
       kind: 'housing',
       priority: 'critical',

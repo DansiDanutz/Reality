@@ -100,6 +100,13 @@ export interface FirstBuildRecommendation {
   reason: string
 }
 
+export interface AreaJobsDashboard {
+  employedCitizens: number
+  unemployedCitizens: number
+  openPositions: number
+  understaffedBusinesses: number
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -110,6 +117,7 @@ export interface AreaNeedsDashboard {
   supply: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
+  jobs: AreaJobsDashboard
   firstBuild: FirstBuildRecommendation[]
 }
 
@@ -257,6 +265,14 @@ const BASE_CAPACITY_PER_HOUR: Record<WorldBusinessKind, number> = {
   insurance: 8,
 }
 
+const TARGET_STAFF_BY_KIND: Record<WorldBusinessKind, number> = {
+  water: 1,
+  food: 2,
+  housing: 1,
+  clinic: 3,
+  insurance: 1,
+}
+
 const LICENSE_POPULATION_STEP: Record<WorldBusinessKind, number> = {
   water: 35,
   food: 30,
@@ -369,6 +385,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     supply,
     licenseSlots,
     saturation,
+    jobs: jobsDashboard(area, activeCitizens),
     firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation }),
   }
 }
@@ -422,6 +439,25 @@ function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKin
   if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
   if (citizen.health < 80) demand.clinic += 1
   if (!citizen.insuranceBusinessId) demand.insurance += 1
+}
+
+function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJobsDashboard {
+  let openPositions = 0
+  let understaffedBusinesses = 0
+  for (const business of area.businesses) {
+    const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
+    const openForBusiness = Math.max(0, targetStaff - activeStaffCount(area, business))
+    openPositions += openForBusiness
+    if (openForBusiness > 0) understaffedBusinesses += 1
+  }
+
+  const employedCitizens = activeCitizens.filter((citizen) => citizen.jobBusinessId).length
+  return {
+    employedCitizens,
+    unemployedCitizens: activeCitizens.length - employedCitizens,
+    openPositions,
+    understaffedBusinesses,
+  }
 }
 
 function priorityOf(input: { demand: number; supply: number; essential: boolean; licensed: boolean; saturated: boolean }): FirstBuildPriority {
