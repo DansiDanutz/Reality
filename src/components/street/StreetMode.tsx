@@ -173,16 +173,21 @@ export default function StreetMode() {
 
   // The street hums — day or night shaped appropriately when sound is on.
   // Night: deep rumble (320Hz cutoff). Day: brighter city-air (480Hz, louder).
+  // Depend on the anchor's PRIMITIVE coords: the spawn fallback builds a new
+  // object literal every render, and the 1s fps interval re-renders — an
+  // object dep would restart the ambience every second for home-less players.
+  const anchorLat = anchor?.lat
+  const anchorLng = anchor?.lng
   useEffect(() => {
-    if (!soundOn || status !== 'ready' || !anchor) {
+    if (!soundOn || status !== 'ready' || anchorLat === undefined || anchorLng === undefined) {
       stopAmbience()
       return
     }
-    const h = hourAt(anchor.lat, anchor.lng)
+    const h = hourAt(anchorLat, anchorLng)
     const night = h >= 19 || h < 6
     startAmbience(night)
     return () => stopAmbience()
-  }, [soundOn, status, anchor])
+  }, [soundOn, status, anchorLat, anchorLng])
 
   // Distant ambient one-shots — a faint siren, dog bark, or horn every
   // 45-90s when sound is on. Makes the world feel alive beyond the visual:
