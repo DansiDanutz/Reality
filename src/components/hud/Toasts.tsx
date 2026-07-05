@@ -19,12 +19,14 @@ export default function Toasts() {
     if (soundOn) playChime(newest.tone)
   }, [toasts, soundOn])
 
+  // Keyed on the head toast's id, not the array: new arrivals must not
+  // re-arm the timer, or a busy stream keeps the oldest toast alive forever.
+  const oldestId = toasts[0]?.id
   useEffect(() => {
-    if (toasts.length === 0) return
-    const oldest = toasts[0]
-    const timer = setTimeout(() => popToast(oldest.id), TOAST_MS)
+    if (oldestId === undefined) return
+    const timer = setTimeout(() => popToast(oldestId), TOAST_MS)
     return () => clearTimeout(timer)
-  }, [toasts, popToast])
+  }, [oldestId, popToast])
 
   if (toasts.length === 0) return null
 

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { isStandalone, recentlyDismissed, useInstallPrompt } from '../../lib/useInstallPrompt'
+import { useState } from 'react'
+import { isStandalone, markInstallDismissed, recentlyDismissed, useInstallPrompt } from '../../lib/useInstallPrompt'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -47,12 +47,12 @@ export default function InstallBanner() {
   const threeMin = citizen ? 3 * 60_000 : Infinity
   const engaged = citizen !== null && Date.now() - citizen.createdAt >= threeMin && (timesEaten > 0 || shiftsWorked > 0)
 
-  // Auto-hide 30s after dismissal (so it doesn't reappear mid-session).
-  useEffect(() => {
-    if (!dismissed) return
-    const t = setTimeout(() => setDismissed(false), 30_000)
-    return () => clearTimeout(t)
-  }, [dismissed])
+  // "Later" means later: hide for the session AND start the 7-day cooldown
+  // (localStorage isn't reactive, so the state flag handles the current session).
+  const dismiss = () => {
+    markInstallDismissed()
+    setDismissed(true)
+  }
 
   // iOS Safari doesn't fire beforeinstallprompt — show the manual variant
   // after the same engagement + cooldown gates. The recentlyDismissed +
@@ -72,7 +72,7 @@ export default function InstallBanner() {
         <div className="install-banner-actions">
           <button
             className="btn small ghost"
-            onClick={() => setDismissed(true)}
+            onClick={dismiss}
             aria-label="Dismiss install instructions"
           >
             Later
@@ -97,7 +97,7 @@ export default function InstallBanner() {
         </button>
         <button
           className="btn small ghost"
-          onClick={() => setDismissed(true)}
+          onClick={dismiss}
           aria-label="Dismiss install prompt"
         >
           Later

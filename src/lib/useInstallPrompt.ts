@@ -22,6 +22,11 @@ interface BeforeInstallPromptEvent extends Event {
 const DISMISS_KEY = 'reality-install-dismissed'
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60_000 // 7 days
 
+/** Record a dismissal — the banner stays away for the 7-day cooldown. */
+export function markInstallDismissed(): void {
+  try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch { /* ignore */ }
+}
+
 /** Has the player dismissed the install prompt recently? */
 export function recentlyDismissed(): boolean {
   try {
@@ -75,9 +80,7 @@ export function useInstallPrompt(): {
       await deferred.prompt()
       const choice = await deferred.userChoice
       setDeferred(null)
-      if (choice.outcome === 'dismissed') {
-        try { localStorage.setItem(DISMISS_KEY, String(Date.now())) } catch { /* ignore */ }
-      }
+      if (choice.outcome === 'dismissed') markInstallDismissed()
       return choice.outcome === 'accepted'
     } catch {
       return false
