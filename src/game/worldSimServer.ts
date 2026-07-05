@@ -4,6 +4,7 @@ import {
   areaNeedsDashboard,
   claimWorldArea,
   FOUNDER_STARTING_BALANCE,
+  SIM_CITIZEN_STARTING_BALANCE,
   type AdvanceWorldAreaResult,
   type AreaNeedsDashboard,
   type ClaimWorldAreaError,
@@ -29,6 +30,7 @@ export type WorldServerCommand =
     now: number
     authenticatedFounderId: string
     founder: WorldCitizen
+    simCitizens?: WorldCitizen[]
     claim: WorldAreaClaim
   }
   | {
@@ -50,6 +52,7 @@ export type WorldServerCommandError =
   | 'invalid_area_identity'
   | 'invalid_command_time'
   | 'invalid_founder_profile'
+  | 'invalid_sim_citizen_seed'
   | 'founder_mismatch'
   | 'actor_mismatch'
   | 'time_moved_backward'
@@ -107,6 +110,8 @@ async function createClaimedArea(
   const name = command.name.trim()
   if (!areaId || !name) return { ok: false, error: 'invalid_area_identity' }
   if (!isValidCommandTime(command.now)) return { ok: false, error: 'invalid_command_time' }
+  const simCitizens = normalizeSimCitizenSeeds(command.simCitizens ?? [], command.founder.id)
+  if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
   if (await repo.loadArea(areaId)) return { ok: false, error: 'area_exists' }
 
@@ -114,7 +119,7 @@ async function createClaimedArea(
     id: areaId,
     name,
     now: command.now,
-    citizens: [newAreaFounder(command.founder)],
+    citizens: [newAreaFounder(command.founder), ...simCitizens],
     businesses: [],
     transactions: [],
   }
@@ -160,6 +165,26 @@ function isValidFounderProfile(founder: WorldCitizen): boolean {
     isValidNeeds(founder.needs)
 }
 
+function normalizeSimCitizenSeeds(citizens: WorldCitizen[], founderId: string): WorldCitizen[] | null {
+  const ids = new Set<string>([founderId])
+  const normalized: WorldCitizen[] = []
+  for (const citizen of citizens) {
+    if (
+      citizen.kind !== 'sim' ||
+      !citizen.id.trim() ||
+      !citizen.name.trim() ||
+      ids.has(citizen.id) ||
+      !isPercentage(citizen.health) ||
+      !isValidNeeds(citizen.needs)
+    ) {
+      return null
+    }
+    ids.add(citizen.id)
+    normalized.push(newAreaSimCitizen(citizen))
+  }
+  return normalized
+}
+
 function isValidNeeds(needs: Needs): boolean {
   return isPercentage(needs.hunger) &&
     isPercentage(needs.hydration) &&
@@ -193,6 +218,19 @@ function newAreaFounder(founder: WorldCitizen): WorldCitizen {
     debt: 0,
     needs: { ...founder.needs },
     health: founder.health,
+    state: { kind: 'active' },
+  }
+}
+
+function newAreaSimCitizen(citizen: WorldCitizen): WorldCitizen {
+  return {
+    id: citizen.id,
+    name: citizen.name,
+    kind: 'sim',
+    money: SIM_CITIZEN_STARTING_BALANCE,
+    debt: 0,
+    needs: { ...citizen.needs },
+    health: citizen.health,
     state: { kind: 'active' },
   }
 }

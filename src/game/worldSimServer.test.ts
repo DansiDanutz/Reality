@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
   DEFAULT_BUSINESS_BLUEPRINTS,
   FOUNDER_STARTING_BALANCE,
+  SIM_CITIZEN_STARTING_BALANCE,
   WORLD_SIM_HOUR_MS,
   type WorldArea,
   type WorldCitizen,
@@ -138,6 +139,76 @@ describe('runWorldServerCommand', () => {
     expect(founder.state).toEqual({ kind: 'active' })
   })
 
+  test('creates server-normalized Sim Citizens for initial local demand', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      simCitizens: [
+        citizen('sim-water', {
+          name: 'Demo Water Customer',
+          kind: 'sim',
+          money: 999,
+          debt: 20,
+          debts: [{
+            id: 'sim-debt',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: 20,
+            issuedAt: 500,
+            memo: 'caller supplied sim debt',
+          }],
+          needs: needs({ hydration: 40 }),
+          health: 90,
+          state: { kind: 'hospitalized', until: 10_000 },
+          homeBusinessId: 'home-a',
+          jobBusinessId: 'job-a',
+          insuranceBusinessId: 'ins-a',
+          insurancePaidUntil: 2_000,
+        }),
+      ],
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected sim-seeded area creation to succeed')
+    const simCitizen = result.area.citizens.find((c) => c.id === 'sim-water')!
+    expect(simCitizen).toMatchObject({
+      name: 'Demo Water Customer',
+      kind: 'sim',
+      money: SIM_CITIZEN_STARTING_BALANCE,
+      debt: 0,
+      state: { kind: 'active' },
+    })
+    expect(simCitizen.debts).toBeUndefined()
+    expect(simCitizen.homeBusinessId).toBeUndefined()
+    expect(simCitizen.jobBusinessId).toBeUndefined()
+    expect(simCitizen.insuranceBusinessId).toBeUndefined()
+    expect(simCitizen.insurancePaidUntil).toBeUndefined()
+    expect(result.dashboard).toMatchObject({
+      population: 2,
+      simPopulation: 1,
+      realPopulation: 1,
+    })
+    expect(result.dashboard.simDemand.water).toBe(1)
+    expect(result.dashboard.realDemand.water).toBe(0)
+    expect(result.dashboard.shortage.water).toBe(1)
+    expect(saved?.citizens.find((c) => c.id === 'sim-water')?.money).toBe(SIM_CITIZEN_STARTING_BALANCE)
+  })
+
   test('rejects mismatched founder/claim and duplicate area creation', async () => {
     const repo = new MemoryWorldRepo()
     expect(await runWorldServerCommand(repo, {
@@ -260,6 +331,60 @@ describe('runWorldServerCommand', () => {
     expect(badNeeds).toEqual({ ok: false, error: 'invalid_founder_profile' })
     expect(blankNameRepo.loads + simFounderRepo.loads + badNeedsRepo.loads).toBe(0)
     expect(blankNameRepo.saves + simFounderRepo.saves + badNeedsRepo.saves).toBe(0)
+  })
+
+  test('rejects invalid Sim Citizen seeds before loading state', async () => {
+    const claim = {
+      founderCitizenId: 'founder',
+      label: 'Founder District',
+      centerLat: 44,
+      centerLng: 26,
+      radiusKm: 2,
+      claimedAt: 1_000,
+      source: 'manual' as const,
+    }
+
+    const duplicateRepo = new MemoryWorldRepo()
+    const duplicate = await runWorldServerCommand(duplicateRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      simCitizens: [citizen('founder', { kind: 'sim' })],
+      claim,
+    })
+
+    const realSeedRepo = new MemoryWorldRepo()
+    const realSeed = await runWorldServerCommand(realSeedRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      simCitizens: [citizen('real-seed', { kind: 'real' })],
+      claim,
+    })
+
+    const badNeedsRepo = new MemoryWorldRepo()
+    const badNeeds = await runWorldServerCommand(badNeedsRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      simCitizens: [citizen('sim-bad', { kind: 'sim', needs: needs({ hunger: -1 }) })],
+      claim,
+    })
+
+    expect(duplicate).toEqual({ ok: false, error: 'invalid_sim_citizen_seed' })
+    expect(realSeed).toEqual({ ok: false, error: 'invalid_sim_citizen_seed' })
+    expect(badNeeds).toEqual({ ok: false, error: 'invalid_sim_citizen_seed' })
+    expect(duplicateRepo.loads + realSeedRepo.loads + badNeedsRepo.loads).toBe(0)
+    expect(duplicateRepo.saves + realSeedRepo.saves + badNeedsRepo.saves).toBe(0)
   })
 
   test('rejects claimed-area creation with a blank persisted label', async () => {
