@@ -4,6 +4,7 @@ import {
   LUCKY_MOMENT_COUNT,
   LUCKY_MOMENT_DEFS,
   RARITY_META,
+  pickFirstLuckyMoment,
   pickLuckyMoment,
   rollLuckyMoment,
 } from './luckyMoments'
@@ -78,6 +79,19 @@ describe('rollLuckyMoment — rewards', () => {
     for (let i = 0; i < 1_000; i++) {
       const out = rollLuckyMoment(rng)
       if (out) expect(out.money % 50).toBe(0)
+    }
+  })
+})
+
+describe('pickFirstLuckyMoment — first-session guarantee', () => {
+  test('only picks tier-1 lucky moments', () => {
+    for (const rng of [always(0), always(0.5), always(0.999)]) {
+      const out = pickFirstLuckyMoment(rng)
+      expect(out.rarity).toBe('lucky')
+      const def = LUCKY_MOMENT_DEFS.find((d) => d.id === out.id)!
+      expect(def.rarity).toBe('lucky')
+      expect(out.money).toBeGreaterThanOrEqual(def.cashMin)
+      expect(out.money).toBeLessThanOrEqual(def.cashMax)
     }
   })
 })

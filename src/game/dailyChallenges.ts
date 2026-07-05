@@ -95,10 +95,10 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
  * deterministic seeded PRNG from the seed.
  */
 export function challengesForDay(citizenId: string, dayIndex: number): ChallengeDef[] {
-  const seed = hashSeed(`${citizenId}:${dayIndex}`)
   const out: ChallengeDef[] = []
   for (const diff of ['easy', 'medium', 'hard'] as ChallengeDifficulty[]) {
     const band = CHALLENGE_POOL.filter((c) => c.difficulty === diff)
+    const seed = hashSeed(`${citizenId}:${dayIndex}:${diff}`)
     const pick = band[seed % band.length]
     out.push(pick)
   }

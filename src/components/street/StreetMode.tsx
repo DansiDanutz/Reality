@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
 import { playAmbientOneShot, playFootstep, playThud, startAmbience, stopAmbience } from '../../lib/sound'
@@ -37,6 +37,7 @@ function hourAt(lat: number, lng: number): number {
 export default function StreetMode() {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<StreetSceneHandle | null>(null)
+  const captionTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
   const setStreetMode = useGame((s) => s.setStreetMode)
@@ -77,6 +78,19 @@ export default function StreetMode() {
   const [fps, setFps] = useState(0)
   const [nearId, setNearId] = useState<string | null>(null)
 
+  const clearCaptionAfter = useCallback((text: string, ms: number) => {
+    const timer = setTimeout(() => {
+      setCaption((c) => (c === text ? null : c))
+      captionTimersRef.current = captionTimersRef.current.filter((t) => t !== timer)
+    }, ms)
+    captionTimersRef.current.push(timer)
+  }, [])
+
+  useEffect(() => () => {
+    for (const timer of captionTimersRef.current) clearTimeout(timer)
+    captionTimersRef.current = []
+  }, [])
+
   const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   const home = assets.find((a) => a.kind === 'home') ?? assets[0]
   const anchor = home ?? (citizen?.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
@@ -103,7 +117,7 @@ export default function StreetMode() {
         // 4s (so overlapping captions don't clobber each other's timeouts).
         const showCaption = (text: string) => {
           setCaption(text)
-          setTimeout(() => setCaption((c) => (c === text ? null : c)), 4_000)
+          clearCaptionAfter(text, 4_000)
         }
         // First-weather caption — a brief poetic line when the scene loads
         // with active weather. Adds voice to the atmospheric moment.
@@ -205,14 +219,14 @@ export default function StreetMode() {
         if (label) {
           setCaption(label)
           // Auto-clear the caption after 3s.
-          setTimeout(() => setCaption((c) => (c === label ? null : c)), 3_000)
+          clearCaptionAfter(label, 3_000)
         }
         schedule()
       }, delay)
     }
     schedule()
     return () => clearTimeout(timer)
-  }, [soundOn, status])
+  }, [soundOn, status, clearCaptionAfter])
 
   if (!anchor) return null
   const nearAsset = nearId ? assets.find((a) => a.id === nearId) : null
@@ -353,7 +367,7 @@ export default function StreetMode() {
                 // First-step welcome caption — fires when the player dismisses
                 // the controls overlay on their first visit.
                 setCaption('You step onto your real street for the first time.')
-                setTimeout(() => setCaption((c) => c === 'You step onto your real street for the first time.' ? null : c), 5_000)
+                clearCaptionAfter('You step onto your real street for the first time.', 5_000)
               }}
               autoFocus
             >

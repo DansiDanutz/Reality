@@ -94,4 +94,9 @@ describe('booster definitions — balance', () => {
       expect(BOOSTERS[t].durationMs).toBe(30 * 60_000)
     }
   })
+
+  test('xp copy matches the implemented action-XP multiplier', () => {
+    expect(BOOSTERS.xp.description).toContain('action XP')
+    expect(BOOSTERS.xp.description).not.toContain('all XP')
+  })
 })

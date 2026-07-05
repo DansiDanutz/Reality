@@ -26,19 +26,22 @@ export default function MysteryBoxPanel() {
   const lastReward = useGame((s) => s.lastBoxReward)
   const clearBoxReward = useGame((s) => s.clearBoxReward)
   const boxesOpened = useGame((s) => s.mysteryBoxesOpened)
-  const [revealing, setRevealing] = useState(false)
+  const [opening, setOpening] = useState(false)
 
   // The reveal: when openMysteryBox fires, show a brief "opening" animation
-  // (~1.2s of box shaking), then reveal the reward. Clearing the store at the
+  // (~1s of box shaking), then reveal the reward. Clearing the store at the
   // end means a panel remount has nothing to replay.
   useEffect(() => {
     if (!lastReward) return
-    setRevealing(true)
-    const t = setTimeout(() => {
-      setRevealing(false)
+    setOpening(true)
+    const revealTimer = setTimeout(() => setOpening(false), 1_000)
+    const clearTimer = setTimeout(() => {
       clearBoxReward()
-    }, 1_200)
-    return () => clearTimeout(t)
+    }, 2_700)
+    return () => {
+      clearTimeout(revealTimer)
+      clearTimeout(clearTimer)
+    }
   }, [lastReward, clearBoxReward])
 
   const handleOpen = (tier: BoxTier) => {
@@ -57,16 +60,25 @@ export default function MysteryBoxPanel() {
 
       {/* Reveal animation overlay — portaled to <body>: it's position:fixed,
           and the drawer's backdrop-filter would otherwise clip it. */}
-      {revealing && lastReward && createPortal(
+      {lastReward && createPortal(
         <div className={`box-reveal box-reveal-${RARITY_TONE[lastReward.rarity]}`} role="alert" aria-live="assertive">
           <div className="box-reveal-card">
-            <span className={`box-reveal-icon ${revealing ? 'shaking' : ''}`}>{MYSTERY_BOXES[lastReward.tier].emoji}</span>
-            <span className="box-reveal-rarity">{RARITY_LABEL[lastReward.rarity]}</span>
-            <span className="box-reveal-label">{lastReward.label}</span>
-            <span className="box-reveal-reward mono">
-              +{formatMoney(lastReward.cash)} · +{lastReward.xp} XP
-            </span>
-            <span className="box-reveal-icon-big">{lastReward.icon}</span>
+            <span className={`box-reveal-icon ${opening ? 'shaking' : ''}`}>{MYSTERY_BOXES[lastReward.tier].emoji}</span>
+            {opening ? (
+              <>
+                <span className="box-reveal-rarity">Opening...</span>
+                <span className="box-reveal-label muted">Hold on</span>
+              </>
+            ) : (
+              <>
+                <span className="box-reveal-rarity">{RARITY_LABEL[lastReward.rarity]}</span>
+                <span className="box-reveal-label">{lastReward.label}</span>
+                <span className="box-reveal-reward mono">
+                  +{formatMoney(lastReward.cash)} · +{lastReward.xp} XP
+                </span>
+                <span className="box-reveal-icon-big">{lastReward.icon}</span>
+              </>
+            )}
           </div>
         </div>,
         document.body,
@@ -81,7 +93,7 @@ export default function MysteryBoxPanel() {
             <button
               key={tier}
               className={`box-card box-${tier}${!affordable ? ' locked' : ''}`}
-              disabled={!affordable || revealing}
+              disabled={!affordable || Boolean(lastReward)}
               onClick={() => handleOpen(tier)}
             >
               <span className="box-emoji" aria-hidden>{def.emoji}</span>
