@@ -1,10 +1,11 @@
-import { formatMoney } from '../../game/engine'
+import { careerRankOf, formatMoney, nextRankOf } from '../../game/engine'
 import {
   ACHIEVEMENTS,
   CATEGORY_META,
   TIER_META,
   type Achievement,
   type AchievementCategory,
+  type AchievementSnapshot,
 } from '../../game/achievements'
 import { LUCKY_MOMENT_DEFS, RARITY_META } from '../../game/luckyMoments'
 import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
@@ -37,6 +38,7 @@ export default function AchievementsPanel() {
   const streakLength = useGame((s) => s.streakLength)
   const streakBest = useGame((s) => s.streakBest)
   const seenMomentIds = useGame((s) => s.luckyMomentsSeenIds)
+  const shiftsWorked = useGame((s) => s.shiftsWorked)
 
   // Read the full snapshot once per render from the live store
   const snapshot = achievementSnapshotOf(useGame.getState())
@@ -60,6 +62,16 @@ export default function AchievementsPanel() {
         </span>
         <span className="stat-label mono">{formatMoney(totalXp)} XP earned from achievements</span>
       </div>
+
+      {/* Next goals — the "what should I do right now?" hook. Combats choice
+          paralysis by surfacing the closest career rank, the next streak
+          reward, and a few unclaimed achievements. Always at the top. */}
+      <NextGoalsBlock
+        shiftsWorked={shiftsWorked}
+        streakLength={streakLength}
+        snapshot={snapshot}
+        claimed={claimed}
+      />
 
       {/* Daily streak — the come-back-tomorrow hook. Always visible so the
           player sees what tomorrow's reward will be, even mid-session. */}
@@ -116,6 +128,117 @@ export default function AchievementsPanel() {
         )
       })}
     </section>
+  )
+}
+
+/**
+ * The next-goals callout — the "what should I do right now?" hook. Combats
+ * the choice paralysis that makes players quit life-sims by surfacing the
+ * three closest, most concrete goals: the next career rank (with shifts to
+ * go), tomorrow's streak reward, and the next few unclaimed achievements.
+ *
+ * Career rank and streak both have *numeric* progress (shifts worked, days
+ * in a row), so they get real progress bars. Achievements are predicate-
+ * based so they show as "next rungs" without a bar — still concrete enough
+ * to point the player at the nearest thing to chase.
+ */
+function NextGoalsBlock({
+  shiftsWorked,
+  streakLength,
+  snapshot,
+  claimed,
+}: {
+  shiftsWorked: number
+  streakLength: number
+  snapshot: AchievementSnapshot
+  claimed: string[]
+}) {
+  const nextRank = nextRankOf(shiftsWorked)
+  const currentRank = careerRankOf(shiftsWorked)
+  const tomorrowReward = rewardForStreakDay(streakLength + 1)
+  // Pick up to 3 unclaimed achievements, prioritizing category diversity so
+  // the player sees a spread of options rather than three from one category.
+  const unclaimed = ACHIEVEMENTS.filter((a) => !claimed.includes(a.id) && !a.isUnlocked(snapshot))
+  const seenCats = new Set<AchievementCategory>()
+  const nextAchievements: Achievement[] = []
+  for (const a of unclaimed) {
+    if (nextAchievements.length >= 3) break
+    if (seenCats.has(a.category) && nextAchievements.length < unclaimed.length) {
+      // Skip if we already have one from this category AND there's room to
+      // diversify — but only on the first pass. Fall back to filling later.
+      continue
+    }
+    seenCats.add(a.category)
+    nextAchievements.push(a)
+  }
+  // If we didn't fill 3 with diversity, top up from the remaining unclaimed.
+  if (nextAchievements.length < 3) {
+    for (const a of unclaimed) {
+      if (nextAchievements.length >= 3) break
+      if (!nextAchievements.includes(a)) nextAchievements.push(a)
+    }
+  }
+
+  // Don't render the block if there's nothing to chase (maxed-out player).
+  if (!nextRank && tomorrowReward.cash === 0 && nextAchievements.length === 0) return null
+
+  return (
+    <div className="next-goals" aria-label="Next goals">
+      {nextRank && (
+        <div className="next-goal-row">
+          <div className="next-goal-label">
+            <span className="next-goal-icon">📈</span>
+            <div>
+              <span className="next-goal-title">Next: {nextRank.title}</span>
+              <span className="next-goal-sub">
+                {currentRank.title} → {nextRank.title} · +{Math.round((nextRank.wageMultiplier - 1) * 100)}% wages
+              </span>
+            </div>
+          </div>
+          <div className="next-goal-progress">
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{
+                  width: `${Math.min(100, (shiftsWorked / nextRank.shiftsRequired) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className="progress-count mono">{nextRank.shiftsToGo} shifts to go</span>
+          </div>
+        </div>
+      )}
+      <div className="next-goal-row">
+        <div className="next-goal-label">
+          <span className="next-goal-icon">🔥</span>
+          <div>
+            <span className="next-goal-title">Tomorrow's streak</span>
+            <span className="next-goal-sub">Day {streakLength + 1} · come back for the reward</span>
+          </div>
+        </div>
+        <div className="next-goal-progress">
+          <span className="next-goal-reward mono gold">
+            +{formatMoney(tomorrowReward.cash)} · +{tomorrowReward.xp} XP
+          </span>
+        </div>
+      </div>
+      {nextAchievements.length > 0 && (
+        <ul className="next-goal-achs" aria-label="Nearest unclaimed achievements">
+          {nextAchievements.map((a) => {
+            const meta = CATEGORY_META[a.category]
+            const tier = TIER_META[a.tier]
+            return (
+              <li key={a.id} className="next-goal-ach">
+                <span className="next-goal-ach-icon" aria-hidden>{tier.icon}</span>
+                <span className="next-goal-ach-cat" aria-hidden>{meta.icon}</span>
+                <span className="next-goal-ach-title">{a.title}</span>
+                <span className="next-goal-ach-reward mono">+{a.xp} XP</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 

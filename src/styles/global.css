@@ -556,6 +556,53 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .collection-grid { grid-template-columns: 1fr; }
 }
 
+/* Next-goals block — the "what should I do right now?" callout. */
+.next-goals {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(120,180,255,0.07), rgba(120,180,255,0.01));
+  border: 1px solid rgba(120,180,255,0.18);
+}
+.next-goal-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.next-goal-label { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.next-goal-icon { font-size: 18px; line-height: 1; }
+.next-goal-label > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.next-goal-title { font-weight: 600; font-size: 13px; }
+.next-goal-sub { font-size: 11px; color: var(--muted); }
+.next-goal-progress {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.progress-track {
+  width: 80px; height: 6px; border-radius: 3px;
+  background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(to right, var(--sky), var(--gold));
+  transition: width 500ms var(--ease-out);
+}
+.progress-count { font-size: 11px; color: var(--muted); }
+.next-goal-reward { font-size: 12px; font-weight: 600; }
+.next-goal-achs {
+  list-style: none; margin: 4px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+  border-top: 1px dashed rgba(120,180,255,0.15); padding-top: 8px;
+}
+.next-goal-ach {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text);
+}
+.next-goal-ach-icon { font-size: 13px; }
+.next-goal-ach-cat { font-size: 12px; opacity: 0.7; }
+.next-goal-ach-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-goal-ach-reward { font-size: 11px; color: var(--gold); }
+@media (max-width: 480px) {
+  .next-goal-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
 /* Nav badge dot — signals "ready to claim" on the 🏆 button */
 .nav-badge { position: relative; }
 .nav-dot {
