@@ -38,12 +38,24 @@ export default function ActionDock() {
     const isSleep = activity.kind === 'sleep'
     const isCook = activity.kind === 'cook'
     const label = isSleep ? 'Sleeping' : isCook ? `Cooking · ${activity.title}` : `On shift · ${activity.title}`
+    // Live progress bar: how far through the activity we are. Re-renders
+    // every tick via the lastSeenAt subscription above, so the bar fills
+    // smoothly in real time. A text countdown is data; a filling bar is felt.
+    const now = Date.now()
+    const total = activity.endsAt - activity.startedAt
+    const elapsed = Math.max(0, now - activity.startedAt)
+    const pct = Math.min(100, Math.round((elapsed / total) * 100))
     return (
-      <div className="dock placing-banner">
+      <div className="dock placing-banner activity-banner">
         <span className="placing-pulse" />
-        <span>
-          {label} — {isSleep ? 'wakes' : 'ends'} in <strong className="mono">{countdown(activity.endsAt)}</strong>
-        </span>
+        <div className="activity-info">
+          <span>
+            {label} — {isSleep ? 'wakes' : 'ends'} in <strong className="mono">{countdown(activity.endsAt)}</strong>
+          </span>
+          <div className="activity-bar" aria-hidden>
+            <div className="activity-bar-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
         <button className="btn ghost" onClick={leaveActivity}>
           {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : 'Leave early'}
         </button>
