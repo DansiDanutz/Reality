@@ -1,0 +1,149 @@
+import {
+  advanceWorldArea,
+  applyWorldIntent,
+  areaNeedsDashboard,
+  claimWorldArea,
+  type AdvanceWorldAreaResult,
+  type AreaNeedsDashboard,
+  type ClaimWorldAreaError,
+  type WorldArea,
+  type WorldAreaClaim,
+  type WorldCitizen,
+  type WorldIntent,
+  type WorldIntentError,
+} from './worldSim'
+
+export interface WorldAreaRepository {
+  loadArea: (areaId: string) => Promise<WorldArea | null>
+  saveArea: (area: WorldArea) => Promise<void>
+}
+
+export type WorldServerCommand =
+  | {
+    type: 'createClaimedArea'
+    areaId: string
+    name: string
+    now: number
+    founder: WorldCitizen
+    claim: WorldAreaClaim
+  }
+  | {
+    type: 'advance'
+    areaId: string
+    now: number
+  }
+  | {
+    type: 'applyIntent'
+    areaId: string
+    now: number
+    intent: WorldIntent
+  }
+
+export type WorldServerCommandError =
+  | 'area_exists'
+  | 'area_not_found'
+  | 'founder_mismatch'
+  | 'time_moved_backward'
+  | ClaimWorldAreaError
+  | WorldIntentError
+
+export type WorldServerCommandResult =
+  | {
+    ok: true
+    area: WorldArea
+    dashboard: AreaNeedsDashboard
+    summary?: AdvanceWorldAreaResult['summary']
+  }
+  | {
+    ok: false
+    error: WorldServerCommandError
+    area?: WorldArea
+    dashboard?: AreaNeedsDashboard
+    summary?: AdvanceWorldAreaResult['summary']
+  }
+
+export async function runWorldServerCommand(
+  repo: WorldAreaRepository,
+  command: WorldServerCommand,
+): Promise<WorldServerCommandResult> {
+  switch (command.type) {
+    case 'createClaimedArea':
+      return createClaimedArea(repo, command)
+    case 'advance':
+      return advanceStoredArea(repo, command.areaId, command.now)
+    case 'applyIntent':
+      return applyIntentToStoredArea(repo, command.areaId, command.now, command.intent)
+  }
+}
+
+async function createClaimedArea(
+  repo: WorldAreaRepository,
+  command: Extract<WorldServerCommand, { type: 'createClaimedArea' }>,
+): Promise<WorldServerCommandResult> {
+  if (command.claim.founderCitizenId !== command.founder.id) {
+    return { ok: false, error: 'founder_mismatch' }
+  }
+  if (await repo.loadArea(command.areaId)) return { ok: false, error: 'area_exists' }
+
+  const seed: WorldArea = {
+    id: command.areaId,
+    name: command.name.trim(),
+    now: command.now,
+    citizens: [command.founder],
+    businesses: [],
+    transactions: [],
+  }
+  const claimed = claimWorldArea(seed, command.claim)
+  if (!claimed.ok) return { ok: false, error: claimed.error, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
+
+  await repo.saveArea(claimed.area)
+  return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
+}
+
+async function advanceStoredArea(
+  repo: WorldAreaRepository,
+  areaId: string,
+  now: number,
+): Promise<WorldServerCommandResult> {
+  const area = await repo.loadArea(areaId)
+  if (!area) return { ok: false, error: 'area_not_found' }
+  if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
+
+  const advanced = advanceWorldArea(area, now)
+  await repo.saveArea(advanced.area)
+  return {
+    ok: true,
+    area: advanced.area,
+    dashboard: areaNeedsDashboard(advanced.area),
+    summary: advanced.summary,
+  }
+}
+
+async function applyIntentToStoredArea(
+  repo: WorldAreaRepository,
+  areaId: string,
+  now: number,
+  intent: WorldIntent,
+): Promise<WorldServerCommandResult> {
+  const advanced = await advanceStoredArea(repo, areaId, now)
+  if (!advanced.ok) return advanced
+
+  const applied = applyWorldIntent(advanced.area, intent)
+  if (!applied.ok) {
+    return {
+      ok: false,
+      error: applied.error,
+      area: advanced.area,
+      dashboard: advanced.dashboard,
+      summary: advanced.summary,
+    }
+  }
+
+  await repo.saveArea(applied.area)
+  return {
+    ok: true,
+    area: applied.area,
+    dashboard: areaNeedsDashboard(applied.area),
+    summary: advanced.summary,
+  }
+}
