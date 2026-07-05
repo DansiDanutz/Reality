@@ -141,6 +141,8 @@ interface GameState {
   streakLastClaimDay: number
   /** Longest streak this citizen has ever reached — for the "personal best" badge. */
   streakBest: number
+  /** Lifetime count of lucky moments witnessed (Loop C) — for the stats panel. */
+  luckyMomentsSeen: number
   /** Welcome-back card content after time away (not persisted) */
   awayReport: string | null
   dismissAwayReport: () => void
@@ -233,6 +235,7 @@ const FRESH = {
   streakLength: 0,
   streakLastClaimDay: 0,
   streakBest: 0,
+  luckyMomentsSeen: 0,
   awayReport: null as string | null,
   toasts: [] as { id: number; text: string; tone: 'gold' | 'ok' | 'sky' | 'meal' }[],
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
@@ -585,6 +588,7 @@ export const useGame = create<GameState>()(
             level = prog.level
             xp = prog.xp
             money += lucky.money
+            s.luckyMomentsSeen = s.luckyMomentsSeen + 1
             const icon = RARITY_META[lucky.rarity].icon
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
             toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, 'gold')
@@ -669,6 +673,7 @@ export const useGame = create<GameState>()(
           streakLength,
           streakLastClaimDay,
           streakBest: s.streakBest,
+          luckyMomentsSeen: s.luckyMomentsSeen,
           awayReport,
           toasts,
           log,
@@ -1099,7 +1104,7 @@ export const useGame = create<GameState>()(
     {
       name: SAVE_KEY,
       version: 5,
-      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak
+      // v2 adds hydration; v3 adds pets; v4 adds illness; v5 adds daily streak + lucky moments
       migrate: (persisted) => {
         const state = persisted as GameState
         if (state?.needs && state.needs.hydration === undefined) {
@@ -1114,6 +1119,7 @@ export const useGame = create<GameState>()(
         if (state && state.streakLength === undefined) state.streakLength = 0
         if (state && state.streakLastClaimDay === undefined) state.streakLastClaimDay = 0
         if (state && state.streakBest === undefined) state.streakBest = 0
+        if (state && state.luckyMomentsSeen === undefined) state.luckyMomentsSeen = 0
         return state
       },
       partialize: (state) =>
