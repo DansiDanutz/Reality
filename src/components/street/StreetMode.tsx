@@ -40,10 +40,24 @@ export default function StreetMode() {
   const sawStreetMode = useGame((s) => s.sawStreetMode)
   const markStreetModeSeen = useGame((s) => s.markStreetModeSeen)
   const [showControls, setShowControls] = useState(false)
+  const [hintVisible, setHintVisible] = useState(true)
   const setPanel = useGame((s) => s.setPanel)
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // Auto-hide the controls hint after 8s OR on first movement — declutters
+  // the view once the player knows what they're doing. The "Leave" button
+  // stays visible; only the controls text hides.
+  useEffect(() => {
+    if (status !== 'ready') return
+    const timer = setTimeout(() => setHintVisible(false), 8_000)
+    const onMove = () => setHintVisible(false)
+    window.addEventListener('keydown', onMove, { once: true })
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('keydown', onMove)
+    }
+  }, [status])
   // First-visit controls overlay: shows when the scene is ready and the
   // player has never entered Street Mode before. Dismissal marks it seen.
   useEffect(() => {
@@ -183,14 +197,16 @@ export default function StreetMode() {
           ↥
         </button>
       )}
-      <div className="street-hint">
-        <span>
-          {status === 'ready' && anchor && <span className="street-greeting">{greetingForHour(hourAt(anchor.lat, anchor.lng))} · </span>}
-          {isTouch
-            ? 'Left thumb walks · right thumb looks · ↥ jumps'
-            : 'Click to look around · WASD walks · Shift runs · Space jumps'}
-          {status === 'ready' && fps > 0 ? ` · ${fps} fps` : ''}
-        </span>
+      <div className={`street-hint${hintVisible ? '' : ' hint-collapsed'}`}>
+        {hintVisible && (
+          <span>
+            {status === 'ready' && anchor && <span className="street-greeting">{greetingForHour(hourAt(anchor.lat, anchor.lng))} · </span>}
+            {isTouch
+              ? 'Left thumb walks · right thumb looks · ↥ jumps'
+              : 'Click to look around · WASD walks · Shift runs · Space jumps'}
+            {status === 'ready' && fps > 0 ? ` · ${fps} fps` : ''}
+          </span>
+        )}
         <button className="btn small ghost" onClick={() => setStreetMode(false)}>Leave the street</button>
       </div>
       {/* First-visit controls overlay — shows once, dismissable. */}
