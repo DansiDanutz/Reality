@@ -3,7 +3,7 @@ import { track } from './analytics'
 import { zoneFor } from '../game/clock'
 import { challengesForDay, challengeProgress } from '../game/dailyChallenges'
 import { decideNotifications, markNotified, NOTIFICATION_REASONS, type NotificationLog, type NotificationSnapshot } from '../game/notifications'
-import { useGame } from '../store/gameStore'
+import { msToLocalMidnight, useGame } from '../store/gameStore'
 
 /**
  * Web Notifications — the game reaches OUT to the player.
@@ -84,6 +84,7 @@ export function useNotifications(): void {
     const snap: NotificationSnapshot = {
       now: lastSeenAt,
       todayDay,
+      msToMidnight: msToLocalMidnight(lastSeenAt, anchorLat, anchorLng),
       streakLastClaimDay: s.streakLastClaimDay,
       streakLength: s.streakLength,
       activity: s.activity,
@@ -126,7 +127,14 @@ export function useNotifications(): void {
  * TopBar clock and the streak engine exactly.
  */
 function dayIndexOf(now: number, lat?: number, lng?: number): number {
-  const zone = lat !== undefined && lng !== undefined ? zoneFor(lat, lng) : Intl.DateTimeFormat().resolvedOptions().timeZone
+  // Same crash guard as the store's copy — Intl throws RangeError on
+  // timezone names some runtimes don't know, and this runs inside an effect.
+  let zone: string
+  try {
+    zone = lat !== undefined && lng !== undefined ? zoneFor(lat, lng) : Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    zone = 'UTC'
+  }
   const ymd = new Intl.DateTimeFormat('en-CA', {
     timeZone: zone,
     year: 'numeric', month: '2-digit', day: '2-digit',

@@ -33,6 +33,15 @@ export interface NotificationSnapshot {
   now: number
   /** The citizen's local day index (see streak.ts / store dayIndexOf). */
   todayDay: number
+  /**
+   * ms remaining until the next LOCAL midnight at the citizen's anchor —
+   * computed by the caller with the SAME timezone as todayDay. Deriving it
+   * here from `(todayDay + 1) * DAY_MS - now` mixes a local-calendar day
+   * index with a UTC wall clock: for zones ≥ UTC+3 the pre-midnight window
+   * lands after the local day already rolled, so the streak-at-risk
+   * notification (the most retention-critical one) never fired at all.
+   */
+  msToMidnight: number
   /** The day index the streak was last claimed on (0 = never). */
   streakLastClaimDay: number
   /** Current streak length. */
@@ -85,9 +94,6 @@ const NEED_CRITICAL = 15
  *  that most timezones are in their evening, early enough to act. */
 const STREAK_RISK_WINDOW_MS = 3 * 60 * 60_000
 
-/** ms in a day — for the midnight-distance computation. */
-const DAY_MS = 24 * 3_600_000
-
 /**
  * Pure decision: given the snapshot + log, what notifications should fire?
  * Returns an array (usually 0 or 1 elements — we never stack notifications
@@ -126,14 +132,9 @@ export function decideNotifications(
   //    hasn't been claimed. Losing a 14-day streak because you forgot is
   //    the #1 quit trigger; this prevents it.
   if (snap.streakLength >= 2 && snap.todayDay > snap.streakLastClaimDay && cooled('streak-at-risk')) {
-    // Distance to local midnight: ms remaining in today's local day.
-    // The store computes todayDay from local midnight, so midnight is at
-    // (todayDay + 1) * DAY_MS in the local-day-index frame.
-    const nextMidnight = (snap.todayDay + 1) * DAY_MS
-    const msToMidnight = nextMidnight - snap.now
-    // snap.now is a wall clock; todayDay * DAY_MS is the day index * day ms.
-    // The subtraction only makes sense if both are in the same frame. The
-    // store passes a *day-index-aligned* now (ms since epoch), so this works.
+    // Distance to local midnight comes from the snapshot — computed by the
+    // caller in the citizen's real timezone (see the field's doc comment).
+    const msToMidnight = snap.msToMidnight
     if (msToMidnight <= STREAK_RISK_WINDOW_MS && msToMidnight > 0) {
       const hours = Math.max(1, Math.round(msToMidnight / 3_600_000))
       out.push({
@@ -175,8 +176,7 @@ export function decideNotifications(
     snap.dailyDone > 0 &&
     snap.dailyDone < snap.dailyTotal
   ) {
-    const nextMidnight = (snap.todayDay + 1) * DAY_MS
-    const msToMidnight = nextMidnight - snap.now
+    const msToMidnight = snap.msToMidnight
     if (msToMidnight <= STREAK_RISK_WINDOW_MS && msToMidnight > 0) {
       const hours = Math.max(1, Math.round(msToMidnight / 3_600_000))
       out.push({

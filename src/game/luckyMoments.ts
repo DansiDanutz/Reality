@@ -9,19 +9,19 @@
  *   │ Layer        │ Chance/tick  │ Reward range │ Purpose          │
  *   ├──────────────┼──────────────┼──────────────┼──────────────────┤
  *   │ rollEvent    │ 0.4%         │ $-140..+200  │ texture, life    │
- *   │ luckyMoment  │ 0.05%        │ $1k..$50k    │ jackpot, story   │
+ *   │ luckyMoment  │ 0.02%        │ $100..$5k    │ jackpot, story   │
  *   └──────────────┴──────────────┴──────────────┴──────────────────┘
  *
- * At one tick per real second, 0.05% ≈ one lucky moment every ~33 minutes of
- * ACTIVE play (away spans never roll — see tick integration). A daily player
- * who opens the game for 20-40 minutes will see 1-2/day; that's the sweet
- * spot: rare enough to feel special, frequent enough to chase.
+ * At one tick per real second, 0.02% ≈ one lucky moment every ~83 minutes of
+ * ACTIVE play (away spans never roll — see tick integration). Rare enough to
+ * feel special, frequent enough that a regular player still chases it.
  *
- * The reward curve escalates with rarity inside the pool — a "found cash"
- * moment pays $1k-5k, while a "lottery" moment pays $25k-50k and the
- * legendary "distant relative" inheritance tops out at $50k. The expected
- * value per tick is ~$15 — comparable to a low-end shift, but lump-sum and
- * unpredictable, which is what makes it sticky.
+ * Rebalanced in the 2026-07-05 audit (Rule #1: rewards must make real-life
+ * sense against $15-26/h wages). The original table paid $1k-50k at 0.05%/tick
+ * ≈ $11,300/hour of PASSIVE income for keeping the tab open — the optimal
+ * strategy was AFK, not working. Now a "found cash" envelope pays $100-500,
+ * the legendary lottery/inheritance tops out at $5k, and windfalls no longer
+ * count toward "earned today" challenges.
  *
  * Architecture: pure functions, framework-free. `rng` is injectable for tests
  * (matching the rollEvent pattern in engine.ts). The store owns the only
@@ -30,9 +30,9 @@
 
 /**
  * Per-tick chance of a lucky moment firing. Tuned so the expected wait is
- * ~33 minutes of active play (1 / (CHANCE_PER_TICK * 60 ticks/min)).
+ * ~83 minutes of active play (1 / (0.0002 × 3600 ticks/hour) ≈ 1.4 hours).
  */
-export const LUCKY_MOMENT_CHANCE = 0.0005
+export const LUCKY_MOMENT_CHANCE = 0.0002
 
 export interface LuckyMoment {
   /** Stable id — used for analytics deduping and future "seen" tracking. */
@@ -51,15 +51,16 @@ export interface LuckyMoment {
  * Internal pool: (id, text template, cashMin, cashMax, rarity). The store
  * rolls cash uniformly in [min, max], then xp = round(cash / 50).
  *
- * Balance audit (against the $200k founder economy):
- *   - Tier 1 (lucky, $1k-5k): pays for a couple of groceries or a small bill.
- *   - Tier 2 (rare, $5k-25k): pays for a car or a business expansion.
- *   - Tier 3 (legendary, $25k-50k): game-changing — half a home deposit.
+ * Balance audit (against $15-26/h wages and the $2,500 citizen grant):
+ *   - Tier 1 (lucky, $100-500): a week's groceries — a real-life windfall.
+ *   - Tier 2 (rare, $600-2.5k): a month of rent — story-worthy.
+ *   - Tier 3 (legendary, $2.6k-5k): the citizen grant again — once ever.
  *
- * Expected value per roll across the uniform mix of weights:
- *   Σ weight_i * (cashMin_i + cashMax_i) / 2  /  Σ weight_i  ≈  $11.5k
- * Multiplied by LUCKY_MOMENT_CHANCE (0.0005) → EV/tick ≈ $5.75.
- * Active hourly value ≈ $20.7k — meaningful but not economy-breaking.
+ * Expected value per roll across the weighted pool:
+ *   Σ weight_i * (cashMin_i + cashMax_i) / 2  /  Σ weight_i  ≈  $630
+ * Multiplied by LUCKY_MOMENT_CHANCE (0.0002) → EV/tick ≈ $0.13.
+ * Active hourly value ≈ $450 — a bonus on top of play, never a
+ * replacement for working (and excluded from "earned today" challenges).
  */
 interface MomentDef {
   id: string
@@ -72,88 +73,88 @@ interface MomentDef {
 }
 
 const MOMENT_POOL: readonly MomentDef[] = [
-  // ── Tier 1: lucky ($1k-5k) — the bread-and-butter jackpots ──────────────
+  // ── Tier 1: lucky ($100-500) — the bread-and-butter windfalls ──────────────
   {
     id: 'found_cash',
     text: 'You found an envelope of cash on the bus seat. Nobody claimed it.',
-    cashMin: 1_000,
-    cashMax: 5_000,
+    cashMin: 100,
+    cashMax: 500,
     rarity: 'lucky',
     weight: 24,
   },
   {
     id: 'scratch_ticket',
     text: 'A scratch ticket someone tossed turned out to be a winner.',
-    cashMin: 1_500,
-    cashMax: 4_500,
+    cashMin: 150,
+    cashMax: 450,
     rarity: 'lucky',
     weight: 22,
   },
   {
     id: 'refund_windfall',
     text: 'A years-old overcharge got refunded — with interest.',
-    cashMin: 1_200,
-    cashMax: 4_800,
+    cashMin: 120,
+    cashMax: 480,
     rarity: 'lucky',
     weight: 20,
   },
   {
     id: 'sold_clutter',
     text: 'That old listing finally sold. Collectors pay surprisingly well.',
-    cashMin: 1_000,
-    cashMax: 3_500,
+    cashMin: 100,
+    cashMax: 350,
     rarity: 'lucky',
     weight: 22,
   },
 
-  // ── Tier 2: rare ($6k-25k) — story-worthy, screenshot moments ───────────
+  // ── Tier 2: rare ($600-2.5k) — story-worthy, screenshot moments ───────────
   {
     id: 'viral_post',
     text: 'A video you forgot you posted went viral overnight. The ad share landed.',
-    cashMin: 6_000,
-    cashMax: 18_000,
+    cashMin: 600,
+    cashMax: 1800,
     rarity: 'rare',
     weight: 8,
   },
   {
     id: 'freelance_jackpot',
     text: 'A client paid triple your rate just to skip the line. Worth every minute.',
-    cashMin: 6_500,
-    cashMax: 15_000,
+    cashMin: 650,
+    cashMax: 1500,
     rarity: 'rare',
     weight: 8,
   },
   {
     id: 'class_action',
     text: 'A class-action settlement you forgot signing finally paid out.',
-    cashMin: 7_500,
-    cashMax: 22_000,
+    cashMin: 750,
+    cashMax: 2200,
     rarity: 'rare',
     weight: 6,
   },
   {
     id: 'art_flip',
     text: 'A painting from a yard sale turned out to be listed. The gallery cut a check.',
-    cashMin: 8_000,
-    cashMax: 25_000,
+    cashMin: 800,
+    cashMax: 2500,
     rarity: 'rare',
     weight: 5,
   },
 
-  // ── Tier 3: legendary ($26k-50k) — once-in-a-lifetime ───────────────────
+  // ── Tier 3: legendary ($2.6k-5k) — once-in-a-lifetime ───────────────────
   {
     id: 'lottery',
     text: 'Your numbers came up. The lottery office confirmed it this morning.',
-    cashMin: 26_000,
-    cashMax: 50_000,
+    cashMin: 2600,
+    cashMax: 5000,
     rarity: 'legendary',
     weight: 2,
   },
   {
     id: 'inheritance',
     text: 'A distant relative you never met left you something in their will. It cleared today.',
-    cashMin: 26_000,
-    cashMax: 45_000,
+    cashMin: 2600,
+    cashMax: 4500,
     rarity: 'legendary',
     weight: 2,
   },
