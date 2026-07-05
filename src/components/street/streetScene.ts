@@ -395,6 +395,7 @@ export async function createStreetScene(
     .map((e) => e.spot)
   const litSet = new Set(litSpots)
   let lampLightCount = 0
+  const lampLights: THREE.PointLight[] = [] // collected for night flicker
   for (const spot of lampSpots) {
     poleGeos.push(poleProto.clone().translate(spot.x, 2.3, spot.z))
     bulbGeos.push(bulbProto.clone().translate(spot.x, 4.7, spot.z))
@@ -402,6 +403,7 @@ export async function createStreetScene(
       const glow = new THREE.PointLight(0xffb95e, 14, 26, 1.8)
       glow.position.set(spot.x, 4.4, spot.z)
       scene.add(glow)
+      lampLights.push(glow)
       lampLightCount++
     } else {
       // No dynamic light — bake the warm pool as a flat additive disc instead.
@@ -962,6 +964,16 @@ export async function createStreetScene(
       b.mesh.rotation.y = -b.angle - Math.PI / 2
       // Gentle wing flap via scale.y oscillation (0.7–1.0 of baseScale).
       b.mesh.scale.y = b.baseScale * (0.7 + 0.3 * (0.5 + 0.5 * Math.sin(b.angle * 8)))
+    }
+    // Lamp flicker — gaslight-style. At night each lamp's intensity wobbles
+    // subtly (per-lamp phase), so pools of light feel alive rather than LED-
+    // steady. Daytime lamps are off (no flicker needed). Cheap: LAMP_LIGHT_BUDGET
+    // is ~8, so this is 8 sin calls/frame.
+    if (night && lampLights.length) {
+      for (let i = 0; i < lampLights.length; i++) {
+        // base 14, wobble ±1.5, each lamp on its own ~7Hz phase + offset.
+        lampLights[i].intensity = 14 + Math.sin(now / 1000 * 7 + i * 1.3) * 1.5
+      }
     }
     renderer.render(scene, camera)
   }
