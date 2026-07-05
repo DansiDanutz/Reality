@@ -1760,6 +1760,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .street-overlay .btn { justify-self: center; }
 /* Time-aware greeting on the Street Mode hint. */
 .street-greeting { color: var(--gold); font-weight: 600; }
+.street-weather { color: var(--sky); font-weight: 600; }
 /* Collapsed hint — only the "Leave" button remains after auto-hide. */
 .street-hint.hint-collapsed { gap: 0; }
 .street-hint.hint-collapsed > span { display: none; }

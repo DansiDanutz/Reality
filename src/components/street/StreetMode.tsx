@@ -41,6 +41,7 @@ export default function StreetMode() {
   const markStreetModeSeen = useGame((s) => s.markStreetModeSeen)
   const [showControls, setShowControls] = useState(false)
   const [hintVisible, setHintVisible] = useState(true)
+  const [weatherLabel, setWeatherLabel] = useState<string | null>(null)
   const setPanel = useGame((s) => s.setPanel)
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
@@ -86,6 +87,9 @@ export default function StreetMode() {
           : rawWeather.condition === 'snow'
             ? { condition: 'clear' as const }
             : rawWeather
+        // Surface the weather condition for the HUD indicator.
+        const labels: Record<string, string> = { clear: 'Clear', rain: '🌧 Rain', snow: '❄ Snow', fog: '🌫 Fog', clouds: '☁ Cloudy', mist: '🌫 Mist' }
+        setWeatherLabel(labels[weather.condition] ?? null)
         return createStreetScene(
           containerRef.current!,
           anchor,
@@ -220,6 +224,7 @@ export default function StreetMode() {
         {hintVisible && (
           <span>
             {status === 'ready' && anchor && <span className="street-greeting">{greetingForHour(hourAt(anchor.lat, anchor.lng))} · </span>}
+            {weatherLabel && <span className="street-weather">{weatherLabel} · </span>}
             {isTouch
               ? 'Left thumb walks · right thumb looks · ↥ jumps'
               : 'Click to look around · WASD walks · Shift runs · Space jumps'}
