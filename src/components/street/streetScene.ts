@@ -302,7 +302,18 @@ export async function createStreetScene(
   const sunLight = sunLightForHour(localHour)
   scene.add(new THREE.AmbientLight(night ? 0x2a3a5c : 0xdfe8f2, night ? 0.85 : 1.0))
   const key = new THREE.DirectionalLight(sunLight.color, sunLight.intensity)
-  key.position.set(-140, 220, -100)
+  // Position the light along the same arc as the sun disc (day) or moon (night),
+  // so shadows fall away from the visible light source. Scale to a closer
+  // distance than the sky disc since DirectionalLight only uses direction.
+  if (night) {
+    const moonSpan = localHour >= 19 ? (localHour - 19) / 11 : (localHour + 5) / 11
+    const moonAngle = Math.PI * moonSpan
+    key.position.set(Math.cos(moonAngle) * 140, Math.sin(moonAngle) * 220 + 20, -100)
+  } else {
+    const sunSpan = Math.max(0, Math.min(1, (localHour - 6) / 13))
+    const sunAngle = Math.PI * sunSpan
+    key.position.set(-Math.cos(sunAngle) * 140, Math.sin(sunAngle) * 220 + 20, -100)
+  }
   scene.add(key)
 
   // ── Sky: stars after dark, drifting clouds by day ───────
@@ -338,9 +349,18 @@ export async function createStreetScene(
       new THREE.CircleGeometry(40, 32),
       new THREE.MeshBasicMaterial({ color: 0xf4f0e0, transparent: true, opacity: 0.12, fog: false, depthWrite: false }),
     )
-    // Place at a fixed high angle — overhead-ish, slightly to one side.
+    // Place along an arc — the moon is up 19h-6h, arcing across the sky.
+    // t in [0,1] across the moon's visible span; at t=0 (19h) it rises east,
+    // t=0.5 (~0.5h) overhead, t=1 (6h) it sets west. Below horizon = not
+    // visible, but we still place it (cheap; the scene clips it).
     const moonR = 880
-    moon.position.set(moonR * 0.35, moonR * 0.85, -moonR * 0.4)
+    const moonSpan = localHour >= 19 ? (localHour - 19) / 11 : (localHour + 5) / 11 // 19h→6h span
+    const moonAngle = Math.PI * moonSpan // 0 east-horizon → PI west-horizon
+    moon.position.set(
+      moonR * Math.cos(moonAngle) * 0.9,
+      moonR * Math.sin(moonAngle) * 0.95,
+      -moonR * 0.4,
+    )
     moonGlow.position.copy(moon.position)
     moonGlow.position.z -= 1 // just behind the moon
     scene.add(moonGlow)
@@ -357,11 +377,17 @@ export async function createStreetScene(
       new THREE.CircleGeometry(70, 32),
       new THREE.MeshBasicMaterial({ color: 0xffe8b0, transparent: true, opacity: 0.18, fog: false, depthWrite: false }),
     )
-    // Match the directional light's direction (-140, 220, -100), normalized
-    // to the sky distance so the sun sits where the light comes from.
+    // Arc the sun across the sky from 6h (east horizon) to 19h (west horizon).
+    // t in [0,1]; at t=0 (6h) sun rises east, t=0.5 (12.5h) overhead, t=1 (19h)
+    // sets west. Z is fixed so the arc stays in a vertical plane.
     const sunR = 880
-    const dirLen = Math.hypot(140, 220, 100)
-    sun.position.set(-140 / dirLen * sunR, 220 / dirLen * sunR, -100 / dirLen * sunR)
+    const sunSpan = Math.max(0, Math.min(1, (localHour - 6) / 13)) // 6h→19h span
+    const sunAngle = Math.PI * sunSpan // 0 east-horizon → PI west-horizon
+    sun.position.set(
+      -sunR * Math.cos(sunAngle) * 0.9, // east (+X) at dawn → west (-X) at dusk
+      sunR * Math.sin(sunAngle) * 0.95,
+      -sunR * 0.4,
+    )
     sunGlow.position.copy(sun.position)
     sunGlow.position.multiplyScalar(0.998) // just behind the sun
     scene.add(sunGlow)
