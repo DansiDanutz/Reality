@@ -59,23 +59,23 @@ export default function ActionDock() {
         <button
           className="btn"
           onClick={() => useGame.getState().quickDrink()}
-          title="One tap: buy and drink a $1 bottle of water"
+          title="Drink $1 — one-tap hydration (shortcut: D)"
         >
           Drink $1
         </button>
-        <button className="btn" onClick={() => useGame.getState().openMarket('food')} title="Open the Market on food">
+        <button className="btn" onClick={() => useGame.getState().openMarket('food')} title="Eat — open the Market on food (shortcut: M)">
           Eat
         </button>
         <button className="btn" onClick={() => setPanel('cook')} title="Cook cheap groceries into real meals at home">
           Cook
         </button>
-        <button className="btn" onClick={startSleep} title="Sleep through the night (8 real hours — wake early anytime)">
+        <button className="btn" onClick={startSleep} title="Sleep through the night (shortcut: S)">
           Sleep
         </button>
         <button
           className="btn"
           onClick={() => useGame.getState().startGig()}
-          title="A 30-real-minute delivery gig — no job needed"
+          title="A 30-real-minute delivery gig (shortcut: W)"
         >
           Gig 30m
         </button>
