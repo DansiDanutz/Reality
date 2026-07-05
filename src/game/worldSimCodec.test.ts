@@ -34,6 +34,15 @@ const area = (): WorldArea => ({
     state: { kind: 'active' },
     insuranceBusinessId: 'ins1',
     insurancePaidUntil: 30_000,
+  }, {
+    id: 'sim1',
+    name: 'Demo Citizen',
+    kind: 'sim',
+    money: 100,
+    debt: 0,
+    needs: { hunger: 80, hydration: 75, energy: 85, hygiene: 70, fun: 65 },
+    health: 95,
+    state: { kind: 'active' },
   }],
   businesses: [{
     id: 'ins1',
@@ -60,6 +69,15 @@ const area = (): WorldArea => ({
     {
       id: 'tx2',
       at: 1_000,
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'sim1',
+      amount: 100,
+      memo: 'Demo Citizen received simulated resident game credit.',
+    },
+    {
+      id: 'tx3',
+      at: 1_000,
       kind: 'insurance_premium',
       fromId: 'founder',
       toId: 'ins1',
@@ -67,7 +85,7 @@ const area = (): WorldArea => ({
       memo: 'Founder bought insurance.',
     },
     {
-      id: 'tx3',
+      id: 'tx4',
       at: 2_000,
       kind: 'debt_repayment',
       fromId: 'founder',

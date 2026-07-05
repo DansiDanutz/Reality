@@ -207,6 +207,20 @@ describe('runWorldServerCommand', () => {
     expect(result.dashboard.realDemand.water).toBe(0)
     expect(result.dashboard.shortage.water).toBe(1)
     expect(saved?.citizens.find((c) => c.id === 'sim-water')?.money).toBe(SIM_CITIZEN_STARTING_BALANCE)
+    expect(result.area.transactions.map((transaction) => transaction.kind)).toEqual([
+      'founder_credit',
+      'sim_citizen_credit',
+    ])
+    expect(result.area.transactions.find((transaction) => transaction.kind === 'sim_citizen_credit')).toMatchObject({
+      fromId: 'system:sim-credit',
+      toId: 'sim-water',
+      amount: SIM_CITIZEN_STARTING_BALANCE,
+    })
+    expect(saved?.transactions.find((transaction) => transaction.kind === 'sim_citizen_credit')).toMatchObject({
+      fromId: 'system:sim-credit',
+      toId: 'sim-water',
+      amount: SIM_CITIZEN_STARTING_BALANCE,
+    })
   })
 
   test('rejects mismatched founder/claim and duplicate area creation', async () => {

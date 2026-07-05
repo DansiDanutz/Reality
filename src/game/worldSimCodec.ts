@@ -35,6 +35,7 @@ const DEBT_KINDS: WorldDebtKind[] = ['medical']
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
 const TRANSACTION_KINDS: WorldTransactionKind[] = [
   'founder_credit',
+  'sim_citizen_credit',
   'customer_purchase',
   'business_build',
   'worker_wage',

@@ -126,6 +126,9 @@ async function createClaimedArea(
   const claimed = claimWorldArea(seed, command.claim)
   if (!claimed.ok) return { ok: false, error: claimed.error, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
   claimed.area.transactions.push(founderCreditTransaction(areaId, command.now, command.founder))
+  claimed.area.transactions.push(
+    ...simCitizens.map((citizen, index) => simCitizenCreditTransaction(areaId, command.now, index + 2, citizen)),
+  )
 
   await repo.saveArea(claimed.area)
   return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
@@ -206,6 +209,23 @@ function founderCreditTransaction(areaId: string, at: number, founder: WorldCiti
     toId: founder.id,
     amount: FOUNDER_STARTING_BALANCE,
     memo: `${founder.name} received founder starting game credit.`,
+  }
+}
+
+function simCitizenCreditTransaction(
+  areaId: string,
+  at: number,
+  sequence: number,
+  citizen: WorldCitizen,
+): WorldTransaction {
+  return {
+    id: `${areaId}:${at}:${sequence}:sim_citizen_credit`,
+    at,
+    kind: 'sim_citizen_credit',
+    fromId: 'system:sim-credit',
+    toId: citizen.id,
+    amount: SIM_CITIZEN_STARTING_BALANCE,
+    memo: `${citizen.name} received simulated resident game credit.`,
   }
 }
 
