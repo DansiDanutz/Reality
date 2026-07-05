@@ -1470,6 +1470,12 @@ export const useGame = create<GameState>()(
         // Analytics: first upgrade + max-level milestone.
         if (level === 1) track('first_upgrade')
         if (out.newLevel >= MAX_BUSINESS_LEVEL) track('business_maxed')
+        // First-upgrade celebration — the moment the player discovers the
+        // upgrade system. A distinct toast so they feel the milestone.
+        const wasFirstUpgrade = level === 1
+        const upgradeToasts = wasFirstUpgrade
+          ? withToast(withToast(s.toasts, `📈 Your first upgrade! Businesses can grow.`, 'achieve'), `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold')
+          : withToast(s.toasts, `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold')
         set({
           money: s.money - out.cost,
           assets: s.assets.map((a) =>
@@ -1477,7 +1483,7 @@ export const useGame = create<GameState>()(
               ? { ...a, level: out.newLevel, incomePerDay: out.newIncome }
               : a,
           ),
-          toasts: withToast(s.toasts, `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold'),
+          toasts: upgradeToasts,
           log: note(s.log, `${asset.name} upgraded to level ${out.newLevel} (income ${formatMoney(out.newIncome)}/day) for ${formatMoney(out.cost)}.`),
           // Maxing a business (L10) is a multi-month achievement — the
           // geometric cost curve means ~$millions invested. It earns the
