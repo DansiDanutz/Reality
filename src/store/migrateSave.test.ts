@@ -143,6 +143,21 @@ describe('migrateSave — backfills every field added after v1', () => {
     const out = migrateSave({ ...v1Save, lastIllnessRollAt: 0 })
     expect(out.lastIllnessRollAt).toBe(0)
   })
+
+  test('sawAchievementsPanel backfills true for veterans (≥7 tutorial steps)', () => {
+    // A returning player who finished the original 8-step tutorial shouldn't
+    // be re-nudged to "discover achievements" — they're already past onboarding.
+    const veteran = { ...v1Save, tutorialClaimed: ['avatar', 'eat', 'job', 'shift', 'sleep', 'home', 'business'] }
+    const out = migrateSave(veteran)
+    expect(out.sawAchievementsPanel).toBe(true)
+  })
+
+  test('sawAchievementsPanel backfills false for new players (<7 tutorial steps)', () => {
+    // A player mid-onboarding SHOULD still get the discovery nudge.
+    const newbie = { ...v1Save, tutorialClaimed: ['avatar', 'eat'] }
+    const out = migrateSave(newbie)
+    expect(out.sawAchievementsPanel).toBe(false)
+  })
 })
 
 /**
@@ -160,7 +175,7 @@ describe('migrateSave — completeness guard', () => {
       'illness', 'lastIllnessRollAt', 'lastFountainAt', 'lastFoodBankAt',
       'streakLength', 'streakLastClaimDay', 'streakBest',
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
-      'shiftsWorked', 'timesEaten', 'reachTier',
+      'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
     ] as const
     for (const f of tickCriticalFields) {
       expect((out as unknown as Record<string, unknown>)[f], `field ${f} is undefined after migrate`).toBeDefined()

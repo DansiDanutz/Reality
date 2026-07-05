@@ -20,6 +20,7 @@ export const FUNNEL_EVENTS = [
   'first_business_placed',
   'first_collect',
   'd7_return',
+  'tutorial_complete',
 ] as const
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number]

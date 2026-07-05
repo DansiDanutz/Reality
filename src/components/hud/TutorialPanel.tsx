@@ -12,11 +12,12 @@ export default function TutorialPanel() {
   const totalCollected = useGame((s) => s.totalCollected)
   const claimed = useGame((s) => s.tutorialClaimed)
   const claimTutorial = useGame((s) => s.claimTutorial)
+  const sawAchievementsPanel = useGame((s) => s.sawAchievementsPanel)
 
   if (!citizen) return null
   if (claimed.length >= TUTORIAL_STEPS.length) return null
 
-  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, activity, assets, totalCollected, hasAvatar: !!citizen.avatarUrl }
+  const snapshot = { timesEaten, timesSlept, jobId, shiftsWorked, activity, assets, totalCollected, hasAvatar: !!citizen.avatarUrl, sawAchievementsPanel }
   const doneCount = TUTORIAL_STEPS.filter((s) => claimed.includes(s.id)).length
   const current = TUTORIAL_STEPS.find((s) => !claimed.includes(s.id))
 

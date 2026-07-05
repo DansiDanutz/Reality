@@ -12,6 +12,9 @@ export interface TutorialSnapshot {
   totalCollected: number
   /** True once the citizen has generated an avatar (issue #38 onboarding) */
   hasAvatar: boolean
+  /** True once the player has opened the Achievements panel — the discovery
+   *  nudge that surfaces the retention engine after the core loop is learned. */
+  sawAchievementsPanel: boolean
 }
 
 export interface TutorialStep {
@@ -82,5 +85,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     detail: 'Open Assets and press Collect.',
     xp: 100,
     isDone: (s) => s.totalCollected > 0,
+  },
+  {
+    // The discovery nudge — without this, a new player can play for hours
+    // without realizing the 🏆 panel (25 achievements, daily streak, lucky
+    // moments) even exists. Surfacing it as the final tutorial step converts
+    // the retention engine from "hidden feature" to "the next thing to chase".
+    id: 'achievements',
+    title: 'Discover your achievements',
+    detail: 'Tap the 🏆 button. 25 achievements, a daily streak, and rare lucky moments await.',
+    xp: 50,
+    isDone: (s) => s.sawAchievementsPanel,
   },
 ]
