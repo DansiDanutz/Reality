@@ -447,6 +447,41 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('Sim Citizens buy first insurance policies from local insurers with real premiums', () => {
+    const start = area({
+      citizens: [sim('resident', { money: 100 })],
+      businesses: [business('insurance', 'ins1', { cash: 10, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+    const insurer = out.businesses[0]
+
+    expect(resident.money).toBe(55)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(insurer.cash).toBe(55)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+  })
+
+  test('real citizens do not auto-buy first insurance policies during simulation ticks', () => {
+    const start = area({
+      citizens: [sim('resident', { kind: 'real', money: 100 })],
+      businesses: [business('insurance', 'ins1', { cash: 10, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(100)
+    expect(out.citizens[0].insuranceBusinessId).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(10)
+    expect(summary.insurancePremiumsPaid).toBe(0)
+    expect(out.transactions).toEqual([])
+  })
+
   test('buyWater intent routes a player purchase to a local water business', () => {
     const start = claimedArea({
       citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
@@ -751,6 +786,21 @@ describe('advanceWorldArea — local real-time economy', () => {
       estimatedHourlyWageCost: 16,
       estimatedHourlyProfit: 40,
     })
+  })
+
+  test('dashboard treats expired insurance as current insurance demand', () => {
+    const dash = areaNeedsDashboard(area({
+      now: 2 * HOUR,
+      citizens: [
+        sim('covered', { insuranceBusinessId: 'ins1', insurancePaidUntil: 3 * HOUR }),
+        sim('expired', { insuranceBusinessId: 'ins1', insurancePaidUntil: HOUR }),
+        sim('marker-only', { insuranceBusinessId: 'ins1' }),
+      ],
+      businesses: [business('insurance', 'ins1')],
+    }))
+
+    expect(dash.demand.insurance).toBe(2)
+    expect(dash.simDemand.insurance).toBe(2)
   })
 
   test('license slots unlock more of the same business as population grows', () => {

@@ -373,7 +373,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const simDemand = zeroKindRecord()
   const realDemand = zeroKindRecord()
   for (const citizen of activeCitizens) {
-    addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand)
+    addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
   }
   for (const kind of BUSINESS_KINDS) {
     demand[kind] = simDemand[kind] + realDemand[kind]
@@ -446,12 +446,12 @@ function buildRecommendation(
   }
 }
 
-function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>): void {
+function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
   if (citizen.needs.hydration < 70) demand.water += 1
   if (citizen.needs.hunger < 70) demand.food += 1
   if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
   if (citizen.health < 80) demand.clinic += 1
-  if (!citizen.insuranceBusinessId) demand.insurance += 1
+  if (!hasActiveInsurance(citizen, at)) demand.insurance += 1
 }
 
 function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJobsDashboard {
@@ -800,6 +800,7 @@ function buyNeededServices(area: WorldArea, citizen: WorldCitizen, context: Step
   if (citizen.needs.hunger <= 50) purchaseService(area, citizen, 'food', context)
   if (citizen.needs.energy <= 35) purchaseService(area, citizen, 'housing', context)
   if (citizen.health <= 65) purchaseService(area, citizen, 'clinic', context)
+  if (citizen.kind === 'sim' && !hasActiveInsurance(citizen, context.at)) purchaseInsurancePolicy(area, citizen, context)
 }
 
 function shouldSimLeaveArea(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
@@ -867,6 +868,31 @@ function completeServicePurchase(
 
   applyServiceEffect(citizen, SERVICE_EFFECTS[kind], effectiveBusinessQuality(business, area))
   if (kind === 'housing') citizen.homeBusinessId = business.id
+}
+
+function purchaseInsurancePolicy(
+  area: WorldArea,
+  citizen: WorldCitizen,
+  context: StepContext,
+): boolean {
+  const insurer = chooseBusiness(area, 'insurance', context)
+  if (!insurer) return false
+  const premium = insurer.price ?? DEFAULT_PRICES.insurance
+  if (citizen.money < premium) return false
+
+  citizen.money = roundMoney(citizen.money - premium)
+  citizen.insuranceBusinessId = insurer.id
+  citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
+  insurer.cash = roundMoney(insurer.cash + premium)
+  context.summary.insurancePremiumsPaid = roundMoney(context.summary.insurancePremiumsPaid + premium)
+  recordTransaction(area, context.at, {
+    kind: 'insurance_premium',
+    fromId: citizen.id,
+    toId: insurer.id,
+    amount: premium,
+    memo: `${citizen.name} bought insurance from ${insurer.name}.`,
+  })
+  return true
 }
 
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
