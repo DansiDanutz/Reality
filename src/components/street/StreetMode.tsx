@@ -44,6 +44,7 @@ export default function StreetMode() {
   const setPanel = useGame((s) => s.setPanel)
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
+  const toggleSound = useGame((s) => s.toggleSound)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   // Auto-hide the controls hint after 8s OR on first movement — declutters
   // the view once the player knows what they're doing. The "Leave" button
@@ -225,6 +226,14 @@ export default function StreetMode() {
             {status === 'ready' && fps > 0 ? ` · ${fps} fps` : ''}
           </span>
         )}
+        <button
+          className="btn small ghost street-mute"
+          onClick={toggleSound}
+          aria-label={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+          title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+        >
+          {soundOn ? '🔊' : '🔇'}
+        </button>
         <button className="btn small ghost" onClick={() => setStreetMode(false)}>Leave the street</button>
       </div>
       {/* First-visit controls overlay — shows once, dismissable. */}
