@@ -43,6 +43,7 @@ export default function StreetMode() {
   const [hintVisible, setHintVisible] = useState(true)
   const [weatherLabel, setWeatherLabel] = useState<string | null>(null)
   const [caption, setCaption] = useState<string | null>(null)
+  const [nearEdge, setNearEdge] = useState(false)
   const setPanel = useGame((s) => s.setPanel)
   const collectIncome = useGame((s) => s.collectIncome)
   const soundOn = useGame((s) => s.soundOn)
@@ -107,6 +108,8 @@ export default function StreetMode() {
           () => {
             if (useGame.getState().soundOn) playFootstep()
           },
+          // Edge feedback — shows a vignette when near the neighborhood boundary.
+          (near) => setNearEdge(near),
         )
       })
       .then((scene) => {
@@ -182,6 +185,11 @@ export default function StreetMode() {
           error states. Skipped on touch (the look-stick provides orientation). */}
       {status === 'ready' && !isTouch && (
         <div className="street-crosshair" aria-hidden />
+      )}
+      {/* Edge vignette — a subtle dark border when near the neighborhood boundary,
+          so the invisible wall has a visible warning. */}
+      {status === 'ready' && nearEdge && (
+        <div className="street-edge-vignette" aria-hidden />
       )}
       {/* Sound caption — a brief subtitle for ambient one-shots (accessibility). */}
       {caption && (

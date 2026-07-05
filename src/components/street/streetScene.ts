@@ -266,6 +266,7 @@ export async function createStreetScene(
   weather: Weather = { condition: 'clear' },
   onLand?: () => void,
   onStep?: () => void,
+  onEdge?: (near: boolean) => void,
 ): Promise<StreetSceneHandle> {
   const night = localHour >= 19 || localHour < 6
   const calmMotion =
@@ -890,6 +891,7 @@ export async function createStreetScene(
   const vel = new THREE.Vector3() // world-space, y = vertical
   let jumpOffset = 0 // height above ground
   let wasAirborne = false // for one-shot landing-thud detection (issue #30)
+  let wasNearEdge = false // for one-shot edge-feedback callback
   let bobPhase = 0
   let breathePhase = 0 // idle breathing sway accumulator
   let windPhase = 0 // slow-varying wind angle for precipitation drift
@@ -1063,6 +1065,13 @@ export async function createStreetScene(
       if (dist > STREET_RADIUS_M) {
         p.x *= STREET_RADIUS_M / dist
         p.z *= STREET_RADIUS_M / dist
+      }
+      // Edge feedback: when within 30m of the boundary, fire onEdge so the
+      // UI can show a vignette/indicator. Throttled to ~1Hz to avoid spam.
+      const nearEdge = dist > STREET_RADIUS_M - 30
+      if (nearEdge !== wasNearEdge) {
+        wasNearEdge = nearEdge
+        onEdge?.(nearEdge)
       }
       const speed = Math.hypot(vel.x, vel.z)
       const wasMoving = bobPhase > 0
