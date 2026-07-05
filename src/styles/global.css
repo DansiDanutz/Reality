@@ -1758,6 +1758,9 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   animation: pulse 1.6s ease-in-out infinite;
 }
 .street-overlay .btn { justify-self: center; }
+/* Time-aware greeting on the Street Mode hint. */
+.street-greeting { color: var(--gold); font-weight: 600; }
+
 .street-hint {
   position: absolute;
   top: 66px;
