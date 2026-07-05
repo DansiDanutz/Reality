@@ -66,6 +66,35 @@ function lerpColor(a: number, b: number, t: number): number {
   return (r << 16) | (g << 8) | bl
 }
 
+/**
+ * The key (directional/sun) light color + intensity for a given local hour.
+ * Warm at dawn/dusk (golden hour), neutral bright at midday, dim cool blue
+ * at night. Pairs with skyColorForHour so the lighting matches the sky.
+ */
+function sunLightForHour(hour: number): { color: number; intensity: number } {
+  const stops: Array<[number, number, number]> = [
+    // [hour, color, intensity]
+    [0, 0x6a8cc0, 0.35],    // deep night — cool dim moonlight
+    [5, 0x7090c0, 0.4],     // pre-dawn
+    [6.5, 0xffb070, 0.9],   // dawn — warm orange
+    [8, 0xfff0d0, 1.4],     // morning — warm white
+    [13, 0xfff2d0, 1.6],    // midday — bright warm white
+    [17, 0xffe0b0, 1.4],    // late day — warming
+    [18.5, 0xffa860, 0.95], // dusk — golden orange
+    [20, 0x6a7cb0, 0.45],   // twilight — cooling
+    [24, 0x6a8cc0, 0.35],   // back to deep night
+  ]
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [h1, c1, i1] = stops[i]
+    const [h2, c2, i2] = stops[i + 1]
+    if (hour >= h1 && hour <= h2) {
+      const t = (hour - h1) / (h2 - h1)
+      return { color: lerpColor(c1, c2, t), intensity: i1 + (i2 - i1) * t }
+    }
+  }
+  return { color: 0x6a8cc0, intensity: 0.35 }
+}
+
 const WALK_SPEED = 3.6 // m/s top speed
 const RUN_MULTIPLIER = 2.2
 const ACCEL = 26 // m/s² toward wish direction
@@ -267,8 +296,12 @@ export async function createStreetScene(
   container.appendChild(renderer.domElement)
 
   // ── Light ────────────────────────────────────────────────
+  // Sun/key light tracks the hour for golden-hour warmth: warm orange at dawn
+  // and dusk, bright warm white at midday, cool dim blue at night. Pairs with
+  // the sky gradient (#120) so lighting and sky agree on the time of day.
+  const sunLight = sunLightForHour(localHour)
   scene.add(new THREE.AmbientLight(night ? 0x2a3a5c : 0xdfe8f2, night ? 0.85 : 1.0))
-  const key = new THREE.DirectionalLight(night ? 0x9db8e8 : 0xfff2d0, night ? 0.5 : 1.6)
+  const key = new THREE.DirectionalLight(sunLight.color, sunLight.intensity)
   key.position.set(-140, 220, -100)
   scene.add(key)
 
