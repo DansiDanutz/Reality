@@ -17,6 +17,9 @@ const base = (over: Partial<NotificationSnapshot> = {}): NotificationSnapshot =>
   activity: null,
   needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
   money: 1000,
+  dailyDone: 0,
+  dailyTotal: 3,
+  dailyBonusClaimed: false,
   ...over,
 })
 
@@ -144,6 +147,59 @@ describe('decideNotifications — needs critical', () => {
   test('respects the 30-minute cooldown', () => {
     const s = base({ needs: { hunger: 10, hydration: 80, energy: 80, hygiene: 80, fun: 80 } })
     const log: NotificationLog = { 'needs-critical': s.now - 10 * 60_000 }
+    expect(ok(s, log)).toHaveLength(0)
+  })
+})
+
+describe('decideNotifications — daily challenges incomplete', () => {
+  test('fires in the evening if some-but-not-all challenges are done', () => {
+    // 22:00 local, 1/3 done, bonus not claimed
+    const s = base({
+      now: 19_000 * DAY_MS + 22 * 3_600_000,
+      dailyDone: 1,
+      dailyTotal: 3,
+      dailyBonusClaimed: false,
+    })
+    const out = ok(s)
+    expect(out).toHaveLength(1)
+    expect(out[0].title).toMatch(/1\/3 daily challenges/)
+  })
+
+  test('does not fire if all challenges are done (bonus claimed)', () => {
+    const s = base({
+      now: 19_000 * DAY_MS + 22 * 3_600_000,
+      dailyDone: 3,
+      dailyTotal: 3,
+      dailyBonusClaimed: true,
+    })
+    expect(ok(s)).toHaveLength(0)
+  })
+
+  test('does not fire if no challenges are done (targets engaged players)', () => {
+    const s = base({
+      now: 19_000 * DAY_MS + 22 * 3_600_000,
+      dailyDone: 0,
+      dailyTotal: 3,
+    })
+    expect(ok(s)).toHaveLength(0)
+  })
+
+  test('does not fire more than 3h before midnight', () => {
+    const s = base({
+      now: 19_000 * DAY_MS + 18 * 3_600_000, // 18:00, 6h to midnight
+      dailyDone: 1,
+      dailyTotal: 3,
+    })
+    expect(ok(s)).toHaveLength(0)
+  })
+
+  test('respects the 6-hour cooldown', () => {
+    const s = base({
+      now: 19_000 * DAY_MS + 22 * 3_600_000,
+      dailyDone: 1,
+      dailyTotal: 3,
+    })
+    const log: NotificationLog = { 'daily-incomplete': s.now - 60 * 60_000 }
     expect(ok(s, log)).toHaveLength(0)
   })
 })
