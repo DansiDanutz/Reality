@@ -3201,13 +3201,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (isServicePurchaseIntentType(intentType)) {
-      const result = applyServicePurchaseIntent(existing, rawIntent, new Date())
+      const intent = normalizeServicePurchaseIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(servicePurchaseStatus(intent.error)).json({
+          ok: false,
+          error: servicePurchaseMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+
+      const now = new Date()
+      const stateForService = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      const result = applyServicePurchaseIntent(stateForService, { type: intent.type }, now)
       if (!result.ok) {
         res.status(servicePurchaseStatus(result.error)).json({
           ok: false,
           error: servicePurchaseMessage(result.error),
           code: result.error,
-          state: existing,
+          state: stateForService,
         })
         return
       }
