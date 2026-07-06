@@ -156,12 +156,24 @@ interface FounderAreaCovenantManualActionClientPayload {
   note?: string
 }
 
+type FounderAreaCovenantAuthorityRole = 'area_reviewer' | 'main_founder'
+type FounderAreaCovenantAuthorityStatus = 'evidence_only' | 'approval_required'
+
+interface FounderAreaCovenantAuthorityGate {
+  requiredRole: FounderAreaCovenantAuthorityRole
+  status: FounderAreaCovenantAuthorityStatus
+  approvedById: null
+  approvedAt: null
+  executionEnabled: boolean
+}
+
 interface FounderAreaCovenantManualAction {
   kind: FounderAreaCovenantManualActionKind
   label: string
   recommended: boolean
   requiresApproval: true
   automationEnabled: false
+  authorityGate: FounderAreaCovenantAuthorityGate
   reason: string
   clientPayload: FounderAreaCovenantManualActionClientPayload | null
 }
@@ -187,6 +199,7 @@ interface FounderAreaCovenantNotificationDraft {
   body: string
   requiresApproval: true
   sendEnabled: false
+  authorityGate: FounderAreaCovenantAuthorityGate
 }
 
 interface FounderAreaCovenantReview {
@@ -1294,6 +1307,7 @@ function founderCovenantManualActions(input: {
       recommended: true,
       requiresApproval: true,
       automationEnabled: false,
+      authorityGate: founderCovenantManualActionAuthority('record_review', true),
       reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
       clientPayload: {
         type: 'recordCovenantReview',
@@ -1306,6 +1320,7 @@ function founderCovenantManualActions(input: {
       recommended: warningRecommended,
       requiresApproval: true,
       automationEnabled: false,
+      authorityGate: founderCovenantManualActionAuthority('send_warning', false),
       reason: warningRecommended
         ? 'Covenant signals suggest a manual founder warning.'
         : 'No manual warning is currently suggested by covenant signals.',
@@ -1317,6 +1332,7 @@ function founderCovenantManualActions(input: {
       recommended: probationRecommended,
       requiresApproval: true,
       automationEnabled: false,
+      authorityGate: founderCovenantManualActionAuthority('start_probation', false),
       reason: probationRecommended
         ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
         : 'Founder score and signals do not suggest probation.',
@@ -1328,12 +1344,36 @@ function founderCovenantManualActions(input: {
       recommended: replacementRecommended,
       requiresApproval: true,
       automationEnabled: false,
+      authorityGate: founderCovenantManualActionAuthority('recommend_replacement', false),
       reason: replacementRecommended
         ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
         : 'Replacement is not suggested and waitlist handoff is disabled.',
       clientPayload: null,
     },
   ]
+}
+
+function founderCovenantManualActionAuthority(
+  kind: FounderAreaCovenantManualActionKind,
+  executionEnabled: boolean,
+): FounderAreaCovenantAuthorityGate {
+  if (kind === 'record_review') {
+    return {
+      requiredRole: 'area_reviewer',
+      status: 'evidence_only',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled,
+    }
+  }
+
+  return {
+    requiredRole: 'main_founder',
+    status: 'approval_required',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
+  }
 }
 
 function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview, note: string | undefined): string {
@@ -1373,6 +1413,13 @@ function founderCovenantNotificationDrafts(
       : 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
     requiresApproval: true,
     sendEnabled: false,
+    authorityGate: {
+      requiredRole: 'main_founder',
+      status: 'approval_required',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled: false,
+    },
   }]
 }
 

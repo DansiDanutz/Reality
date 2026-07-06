@@ -1555,12 +1555,26 @@ describe('advanceWorldArea — local real-time economy', () => {
           recommended: true,
           requiresApproval: true,
           automationEnabled: false,
+          authorityGate: {
+            requiredRole: 'main_founder',
+            status: 'approval_required',
+            approvedById: null,
+            approvedAt: null,
+            executionEnabled: false,
+          },
         }),
         expect.objectContaining({
           kind: 'recommend_replacement',
           recommended: true,
           requiresApproval: true,
           automationEnabled: false,
+          authorityGate: {
+            requiredRole: 'main_founder',
+            status: 'approval_required',
+            approvedById: null,
+            approvedAt: null,
+            executionEnabled: false,
+          },
         }),
       ]),
       reviewHistory: [],
@@ -1574,6 +1588,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
         requiresApproval: true,
         sendEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
       }],
     })
     expect(dash.founderCovenant.signals).toEqual([
@@ -1687,6 +1708,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         recommended: true,
         requiresApproval: true,
         automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'area_reviewer',
+          status: 'evidence_only',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: true,
+        },
         reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
         clientPayload: {
           type: 'recordCovenantReview',
@@ -1698,6 +1726,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         recommended: false,
         requiresApproval: true,
         automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
         reason: 'No manual warning is currently suggested by covenant signals.',
         clientPayload: null,
       }, {
@@ -1706,6 +1741,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         recommended: false,
         requiresApproval: true,
         automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
         reason: 'Founder score and signals do not suggest probation.',
         clientPayload: null,
       }, {
@@ -1714,6 +1756,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         recommended: false,
         requiresApproval: true,
         automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
         reason: 'Replacement is not suggested and waitlist handoff is disabled.',
         clientPayload: null,
       }],

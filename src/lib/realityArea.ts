@@ -128,12 +128,24 @@ export interface RealityAreaCovenantReviewPayload {
   note?: string
 }
 
+export type RealityAreaCovenantAuthorityRole = 'area_reviewer' | 'main_founder'
+export type RealityAreaCovenantAuthorityStatus = 'evidence_only' | 'approval_required'
+
+export interface RealityAreaCovenantAuthorityGate {
+  requiredRole: RealityAreaCovenantAuthorityRole
+  status: RealityAreaCovenantAuthorityStatus
+  approvedById: null
+  approvedAt: null
+  executionEnabled: boolean
+}
+
 export interface RealityAreaCovenantManualAction {
   kind: RealityAreaCovenantManualActionKind
   label: string
   recommended: boolean
   requiresApproval: true
   automationEnabled: false
+  authorityGate: RealityAreaCovenantAuthorityGate
   reason: string
   clientPayload: RealityAreaCovenantReviewPayload | null
 }
@@ -159,6 +171,7 @@ export interface RealityAreaCovenantNotificationDraft {
   body: string
   requiresApproval: true
   sendEnabled: false
+  authorityGate: RealityAreaCovenantAuthorityGate
 }
 
 export interface RealityAreaCovenantReview {
@@ -676,12 +689,14 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
     reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
     manualActions: review.manualActions.map((action) => ({
       ...action,
+      authorityGate: { ...action.authorityGate },
       clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
       ...draft,
       at: parseInstant(draft.at),
+      authorityGate: { ...draft.authorityGate },
     })),
     signals: review.signals.map((signal) => ({
       ...signal,
@@ -1001,8 +1016,33 @@ function isRealityAreaCovenantManualAction(value: unknown): value is RealityArea
     typeof value.recommended === 'boolean' &&
     value.requiresApproval === true &&
     value.automationEnabled === false &&
+    isRealityAreaCovenantAuthorityGate(value.authorityGate, value.kind) &&
     typeof value.reason === 'string' &&
     (value.clientPayload === null || isRealityAreaCovenantReviewPayload(value.clientPayload))
+}
+
+function isRealityAreaCovenantAuthorityGate(
+  value: unknown,
+  actionKind?: RealityAreaCovenantManualActionKind,
+): value is RealityAreaCovenantAuthorityGate {
+  if (!isRecord(value) ||
+    !isRealityAreaCovenantAuthorityRole(value.requiredRole) ||
+    !isRealityAreaCovenantAuthorityStatus(value.status) ||
+    value.approvedById !== null ||
+    value.approvedAt !== null ||
+    typeof value.executionEnabled !== 'boolean'
+  ) {
+    return false
+  }
+
+  if (actionKind === 'record_review') {
+    return value.requiredRole === 'area_reviewer' &&
+      value.status === 'evidence_only'
+  }
+
+  return value.requiredRole === 'main_founder' &&
+    value.status === 'approval_required' &&
+    value.executionEnabled === false
 }
 
 function isRealityAreaCovenantReviewPayload(value: unknown): value is RealityAreaCovenantReviewPayload {
@@ -1032,7 +1072,8 @@ function isRealityAreaCovenantNotificationDraft(value: unknown): value is Realit
     typeof value.title === 'string' &&
     typeof value.body === 'string' &&
     value.requiresApproval === true &&
-    value.sendEnabled === false
+    value.sendEnabled === false &&
+    isRealityAreaCovenantAuthorityGate(value.authorityGate)
 }
 
 function isRealityAreaCovenantSignal(value: unknown): value is RealityAreaCovenantSignal {
@@ -1066,6 +1107,14 @@ function isRealityAreaCovenantManualActionKind(value: unknown): value is Reality
 
 function isRealityAreaCovenantNotificationDraftKind(value: unknown): value is RealityAreaCovenantNotificationDraftKind {
   return value === 'founder_warning' || value === 'manual_review_required'
+}
+
+function isRealityAreaCovenantAuthorityRole(value: unknown): value is RealityAreaCovenantAuthorityRole {
+  return value === 'area_reviewer' || value === 'main_founder'
+}
+
+function isRealityAreaCovenantAuthorityStatus(value: unknown): value is RealityAreaCovenantAuthorityStatus {
+  return value === 'evidence_only' || value === 'approval_required'
 }
 
 function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {

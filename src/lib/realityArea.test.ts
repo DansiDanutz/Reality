@@ -166,6 +166,40 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant manual actions that enable enforcement execution', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        manualActions: dashboard.founderCovenant.manualActions.map((action) =>
+          action.kind === 'send_warning'
+            ? {
+              ...action,
+              authorityGate: {
+                ...action.authorityGate,
+                executionEnabled: true,
+              },
+            }
+            : action
+        ),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('does not contact the server without a registered founder identity', async () => {
     const fetchImpl = vi.fn()
 
@@ -603,6 +637,7 @@ describe('Reality area client', () => {
         body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
         requiresApproval: true,
         sendEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
       }],
     })
     expect(simWater).toMatchObject({
@@ -824,6 +859,7 @@ function serverState(): RealityAreaState {
         body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
         requiresApproval: true,
         sendEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
       }],
       signals: [{
         kind: 'founder_unavailable',
@@ -844,6 +880,7 @@ function manualReviewActions(
     recommended: true,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: areaReviewerEvidenceGate(true),
     reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
     clientPayload: {
       type: 'recordCovenantReview',
@@ -855,6 +892,7 @@ function manualReviewActions(
     recommended: input.warning,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: mainFounderApprovalGate(),
     reason: input.warning
       ? 'Covenant signals suggest a manual founder warning.'
       : 'No manual warning is currently suggested by covenant signals.',
@@ -865,6 +903,7 @@ function manualReviewActions(
     recommended: input.probation,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: mainFounderApprovalGate(),
     reason: input.probation
       ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
       : 'Founder score and signals do not suggest probation.',
@@ -875,11 +914,32 @@ function manualReviewActions(
     recommended: input.replacement,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: mainFounderApprovalGate(),
     reason: input.replacement
       ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
       : 'Replacement is not suggested and waitlist handoff is disabled.',
     clientPayload: null,
   }]
+}
+
+function areaReviewerEvidenceGate(executionEnabled: boolean) {
+  return {
+    requiredRole: 'area_reviewer',
+    status: 'evidence_only',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled,
+  } as const
+}
+
+function mainFounderApprovalGate() {
+  return {
+    requiredRole: 'main_founder',
+    status: 'approval_required',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
+  } as const
 }
 
 function serverDashboard(): RealityAreaDashboard {
@@ -1197,6 +1257,7 @@ function serverDashboard(): RealityAreaDashboard {
         body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
         requiresApproval: true,
         sendEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
       }],
       signals: [{
         kind: 'understaffed_businesses',

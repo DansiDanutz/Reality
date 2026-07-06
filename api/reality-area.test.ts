@@ -2506,6 +2506,24 @@ describe('reality area authority API', () => {
     expect(body.state.founderCovenant.manualActions.every((action) =>
       action.requiresApproval === true && action.automationEnabled === false
     )).toBe(true)
+    expect(body.state.founderCovenant.manualActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'record_review',
+        authorityGate: areaReviewerEvidenceGate(true),
+      }),
+      expect.objectContaining({
+        kind: 'send_warning',
+        authorityGate: mainFounderApprovalGate(),
+      }),
+      expect.objectContaining({
+        kind: 'start_probation',
+        authorityGate: mainFounderApprovalGate(),
+      }),
+      expect.objectContaining({
+        kind: 'recommend_replacement',
+        authorityGate: mainFounderApprovalGate(),
+      }),
+    ]))
     expect(body.state.founderCovenant.notificationDrafts).toEqual([{
       id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:covenant-notification:founder_warning:${CITIZEN_ID}`,
       at: '2026-07-06T08:00:00.000Z',
@@ -2516,6 +2534,7 @@ describe('reality area authority API', () => {
       body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
       requiresApproval: true,
       sendEnabled: false,
+      authorityGate: mainFounderApprovalGate(),
     }])
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -3054,6 +3073,7 @@ function baseFounderCovenant(checkedAt: string) {
       body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
       requiresApproval: true,
       sendEnabled: false,
+      authorityGate: mainFounderApprovalGate(),
     }],
     signals: [{
       kind: 'no_business_built',
@@ -3248,6 +3268,7 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     recommended: true,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: areaReviewerEvidenceGate(true),
     reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
     clientPayload: {
       type: 'recordCovenantReview',
@@ -3259,6 +3280,7 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     recommended: input.warning,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: mainFounderApprovalGate(),
     reason: input.warning
       ? 'Covenant signals suggest a manual founder warning.'
       : 'No manual warning is currently suggested by covenant signals.',
@@ -3269,6 +3291,7 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     recommended: input.probation,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: mainFounderApprovalGate(),
     reason: input.probation
       ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
       : 'Founder score and signals do not suggest probation.',
@@ -3279,11 +3302,32 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     recommended: input.replacement,
     requiresApproval: true,
     automationEnabled: false,
+    authorityGate: mainFounderApprovalGate(),
     reason: input.replacement
       ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
       : 'Replacement is not suggested and waitlist handoff is disabled.',
     clientPayload: null,
   }]
+}
+
+function areaReviewerEvidenceGate(executionEnabled: boolean) {
+  return {
+    requiredRole: 'area_reviewer',
+    status: 'evidence_only',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled,
+  } as const
+}
+
+function mainFounderApprovalGate() {
+  return {
+    requiredRole: 'main_founder',
+    status: 'approval_required',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
+  } as const
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
