@@ -7,7 +7,12 @@ import {
 import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
-import { applyRealityFounderAreaIntent, claimRealityFounderArea, founderAreaProfileWithServerClaim } from '../../lib/realityArea'
+import {
+  applyRealityFounderAreaIntent,
+  claimRealityFounderArea,
+  founderAreaProfileWithServerClaim,
+  isRealityAreaServerPayload,
+} from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
   founderCovenantSignalText,
@@ -74,7 +79,7 @@ export default function FounderAreaPanel() {
     if (!commandClient || !payload || !area || !citizen) return
     setBusy(true)
     try {
-      if (payload.type === 'buildBusiness') {
+      if (isRealityAreaServerPayload(payload)) {
         const serverApplied = await applyRealityFounderAreaIntent(citizen, payload)
         if (!serverApplied.ok) {
           setLastEvent(serverApplied.error)

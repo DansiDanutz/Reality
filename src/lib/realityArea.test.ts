@@ -4,6 +4,7 @@ import {
   claimRealityFounderArea,
   founderAreaClaimSource,
   founderAreaProfileWithServerClaim,
+  isRealityAreaServerPayload,
   type RealityAreaState,
 } from './realityArea'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
@@ -122,6 +123,38 @@ describe('Reality area client', () => {
     const body = JSON.parse((fetchImpl.mock.calls[0][1]?.body ?? '{}') as string) as Record<string, unknown>
     expect(body.balance).toBeUndefined()
     expect(body.transactions).toBeUndefined()
+  })
+
+  test('sends survival service purchases through the server area authority', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, { type: 'buyWater' }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: { type: 'buyWater' },
+      }),
+    })
+  })
+
+  test('identifies only server-backed local founder area intents', () => {
+    expect(isRealityAreaServerPayload({ type: 'buyWater' })).toBe(true)
+    expect(isRealityAreaServerPayload({
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+    })).toBe(true)
+    expect(isRealityAreaServerPayload({ type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-1' })).toBe(false)
+    expect(isRealityAreaServerPayload({ type: 'buyInsurance', insuranceBusinessId: 'ins-1' })).toBe(false)
   })
 
   test('surfaces server-side buildBusiness rejection before local simulation can apply it', async () => {

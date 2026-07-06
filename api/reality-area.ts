@@ -34,7 +34,7 @@ interface FounderAreaClaim {
 interface FounderAreaTransaction {
   id: string
   at: string
-  kind: 'founder_credit' | 'business_build'
+  kind: 'founder_credit' | 'business_build' | 'customer_purchase'
   fromId: string
   toId: string
   amount: number
@@ -108,6 +108,50 @@ type ApplyBuildBusinessError =
   | 'business_id_taken'
   | 'business_saturated'
   | 'insufficient_funds'
+
+type ServicePurchaseIntent =
+  | {
+    ok: true
+    type: ServicePurchaseIntentType
+    serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>
+  }
+  | { ok: false; error: ServicePurchaseIntentError }
+
+type ServicePurchaseIntentType = 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
+type ServicePurchaseIntentError = 'unsupported_intent' | 'client_controlled_server_field'
+
+type ApplyServicePurchaseError =
+  | ServicePurchaseIntentError
+  | 'area_not_claimed'
+  | 'service_not_available'
+  | 'insufficient_funds'
+
+const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
+  buyWater: 'water',
+  buyFood: 'food',
+  buyHousing: 'housing',
+  visitClinic: 'clinic',
+}
+
+const FORBIDDEN_SERVICE_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'businessId',
+  'businessKind',
+  'serviceKind',
+  'ownerId',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'amount',
+  'price',
+  'businesses',
+  'transactions',
+  'citizens',
+])
 
 const FORBIDDEN_BUILD_FIELDS = new Set([
   'actorCitizenId',
@@ -202,6 +246,16 @@ export function normalizeBuildBusinessIntent(input: unknown): BuildBusinessInten
   if (!name || name.length > 80 || hasControlCharacter(name)) return { ok: false, error: 'invalid_business_name' }
 
   return { ok: true, businessKind, businessId, name }
+}
+
+export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseIntent {
+  if (!isRecord(input) || !isServicePurchaseIntentType(input.type)) {
+    return { ok: false, error: 'unsupported_intent' }
+  }
+  if (Object.keys(input).some((key) => FORBIDDEN_SERVICE_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+  return { ok: true, type: input.type, serviceKind: SERVICE_PURCHASE_INTENTS[input.type] }
 }
 
 export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
@@ -345,6 +399,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (isServicePurchaseIntentType(intentType)) {
+      const result = applyServicePurchaseIntent(existing, rawIntent, new Date())
+      if (!result.ok) {
+        res.status(servicePurchaseStatus(result.error)).json({
+          ok: false,
+          error: servicePurchaseMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+      res.status(200).json({ ok: true, state: result.state })
+      return
+    }
+
     res.status(400).json({ ok: false, error: 'Unsupported area intent.', code: 'unsupported_intent' })
   } catch {
     res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
@@ -404,6 +480,75 @@ function applyBuildBusinessIntent(
   }
 }
 
+function applyServicePurchaseIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyServicePurchaseError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeServicePurchaseIntent(input)
+  if (!intent.ok) return intent
+
+  const business = chooseServiceBusiness(state, intent.serviceKind)
+  if (!business) return { ok: false, error: 'service_not_available' }
+  if (state.balance < business.price) return { ok: false, error: 'insufficient_funds' }
+
+  const at = now.toISOString()
+  const transaction: FounderAreaTransaction = {
+    id: `${state.areaId}:${now.getTime()}:customer-purchase:${intent.type}:${business.id}`,
+    at,
+    kind: 'customer_purchase',
+    fromId: state.founderCitizenId,
+    toId: business.id,
+    amount: business.price,
+    memo: `Founder bought ${intent.serviceKind} from ${business.name}.`,
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      balance: roundMoney(state.balance - business.price),
+      businesses: state.businesses.map((candidate) =>
+        candidate.id === business.id
+          ? { ...candidate, cash: roundMoney(candidate.cash + business.price) }
+          : candidate
+      ),
+      transactions: [...state.transactions, transaction],
+      updatedAt: at,
+    },
+  }
+}
+
+function chooseServiceBusiness(
+  state: FounderAreaState,
+  kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
+): FounderAreaBusiness | null {
+  const businesses = state.businesses
+    .filter((business) => business.kind === kind)
+    .sort((a, b) => a.price - b.price || a.createdAt.localeCompare(b.createdAt))
+  return businesses[0] ?? null
+}
+
+function servicePurchaseStatus(error: ApplyServicePurchaseError): number {
+  if (error === 'area_not_claimed' || error === 'service_not_available') return 409
+  if (error === 'insufficient_funds') return 402
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function servicePurchaseMessage(error: ApplyServicePurchaseError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before buying services.'
+    case 'service_not_available':
+      return 'No local business can serve that need yet.'
+    case 'insufficient_funds':
+      return 'Founder balance is too low for this purchase.'
+    default:
+      return 'Invalid service purchase intent.'
+  }
+}
+
 function buildBusinessStatus(error: ApplyBuildBusinessError): number {
   if (error === 'area_not_claimed') return 409
   if (error === 'business_id_taken' || error === 'business_saturated') return 409
@@ -450,6 +595,10 @@ function isClaimSource(value: string): value is AreaClaimSource {
 
 function isBusinessKind(value: string): value is FounderAreaBusinessKind {
   return BUSINESS_KINDS.includes(value as FounderAreaBusinessKind)
+}
+
+function isServicePurchaseIntentType(value: unknown): value is ServicePurchaseIntentType {
+  return typeof value === 'string' && value in SERVICE_PURCHASE_INTENTS
 }
 
 function hasControlCharacter(value: string): boolean {

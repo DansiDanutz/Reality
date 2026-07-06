@@ -38,7 +38,8 @@ export type RealityAreaClaimResult =
   | { ok: true; state: RealityAreaState; restoredExisting: boolean }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
-export type RealityAreaBuildPayload = Extract<WorldClientIntentPayload, { type: 'buildBusiness' }>
+export type RealityAreaServerIntentType = 'buildBusiness' | 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
+export type RealityAreaServerPayload = Extract<WorldClientIntentPayload, { type: RealityAreaServerIntentType }>
 
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState }
@@ -95,7 +96,7 @@ export async function claimRealityFounderArea(
 
 export async function applyRealityFounderAreaIntent(
   citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
-  payload: RealityAreaBuildPayload,
+  payload: RealityAreaServerPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
   const ready = readyFounderCredentials(citizen)
@@ -123,6 +124,14 @@ export async function applyRealityFounderAreaIntent(
   } catch {
     return { ok: false, reason: 'request_failed', error: 'Reality area server is unreachable.' }
   }
+}
+
+export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): payload is RealityAreaServerPayload {
+  return payload.type === 'buildBusiness' ||
+    payload.type === 'buyWater' ||
+    payload.type === 'buyFood' ||
+    payload.type === 'buyHousing' ||
+    payload.type === 'visitClinic'
 }
 
 export function founderAreaProfileWithServerClaim(
