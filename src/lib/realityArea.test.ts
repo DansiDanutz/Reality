@@ -191,6 +191,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores legacy royalty dashboards that enable successor payouts', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      legacyRoyalty: {
+        ...dashboard.legacyRoyalty,
+        payoutEnabled: true,
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores covenant manual actions that enable enforcement execution', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -1660,6 +1684,23 @@ function serverDashboard(): RealityAreaDashboard {
         'land_reservations_disabled',
         'leases_disabled',
         'manual_payout_review_required',
+        'compliance_review_required',
+      ],
+    },
+    legacyRoyalty: {
+      enabled: false,
+      payoutEnabled: false,
+      replacementWorkflowEnabled: false,
+      manualReviewRequired: true,
+      appliesTo: 'inherited_founder_created_businesses_only',
+      royaltyRate: 0.1,
+      treasuryAccountId: 'system:founder-legacy-treasury',
+      royaltyEligibleBusinessIds: [],
+      royaltyExcludedBusinessIds: ['water-1'],
+      blockers: [
+        'replacement_workflow_disabled',
+        'waitlist_handoff_disabled',
+        'treasury_payout_disabled',
         'compliance_review_required',
       ],
     },

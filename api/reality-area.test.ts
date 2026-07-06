@@ -280,6 +280,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       payoutEligibleCredits: 10,
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      legacyRoyaltyRate: 0.5,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -1053,6 +1057,62 @@ describe('reality area authority API', () => {
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
     })
+  })
+
+  test('models inherited founder-created businesses for legacy royalty review without payout execution', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    const built = withBusiness(existingState(), {
+      id: 'inherited-water',
+      name: 'Inherited Water',
+      kind: 'water',
+      price: 2,
+      cash: 80,
+    })
+    const existing = {
+      ...built,
+      businesses: built.businesses.map((business) => ({
+        ...business,
+        createdBy: 'previous-founder-citizen',
+      })),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://inherited-business-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.dashboard.legacyRoyalty).toEqual({
+      enabled: false,
+      payoutEnabled: false,
+      replacementWorkflowEnabled: false,
+      manualReviewRequired: true,
+      appliesTo: 'inherited_founder_created_businesses_only',
+      royaltyRate: 0.1,
+      treasuryAccountId: 'system:founder-legacy-treasury',
+      royaltyEligibleBusinessIds: ['inherited-water'],
+      royaltyExcludedBusinessIds: [],
+      blockers: [
+        'replacement_workflow_disabled',
+        'waitlist_handoff_disabled',
+        'treasury_payout_disabled',
+        'compliance_review_required',
+      ],
+    })
+    expect(body.state.transactions.some((transaction) =>
+      transaction.toId === 'system:founder-legacy-treasury' ||
+      transaction.fromId === 'system:founder-legacy-treasury'
+    )).toBe(false)
   })
 
   test('does not overwrite an already claimed area', async () => {
@@ -3623,6 +3683,7 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
       understaffedBusinesses: 0,
     },
     settlement: settlementDashboard(state.balance),
+    legacyRoyalty: legacyRoyaltyDashboard(state),
     founderCovenant: state.founderCovenant,
   } as const
 }
@@ -3650,6 +3711,30 @@ function settlementDashboard(gameCredits: number) {
       'land_reservations_disabled',
       'leases_disabled',
       'manual_payout_review_required',
+      'compliance_review_required',
+    ],
+  } as const
+}
+
+function legacyRoyaltyDashboard(state: ReturnType<typeof existingState>) {
+  return {
+    enabled: false,
+    payoutEnabled: false,
+    replacementWorkflowEnabled: false,
+    manualReviewRequired: true,
+    appliesTo: 'inherited_founder_created_businesses_only',
+    royaltyRate: 0.1,
+    treasuryAccountId: 'system:founder-legacy-treasury',
+    royaltyEligibleBusinessIds: state.businesses
+      .filter((business) => business.ownerId === state.founderCitizenId && business.createdBy !== state.founderCitizenId)
+      .map((business) => business.id),
+    royaltyExcludedBusinessIds: state.businesses
+      .filter((business) => business.createdBy === state.founderCitizenId)
+      .map((business) => business.id),
+    blockers: [
+      'replacement_workflow_disabled',
+      'waitlist_handoff_disabled',
+      'treasury_payout_disabled',
       'compliance_review_required',
     ],
   } as const

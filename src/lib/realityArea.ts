@@ -450,6 +450,25 @@ export interface RealityAreaSettlementDashboard {
   blockers: RealityAreaSettlementBlocker[]
 }
 
+export type RealityAreaLegacyRoyaltyBlocker =
+  | 'replacement_workflow_disabled'
+  | 'waitlist_handoff_disabled'
+  | 'treasury_payout_disabled'
+  | 'compliance_review_required'
+
+export interface RealityAreaLegacyRoyaltyDashboard {
+  enabled: false
+  payoutEnabled: false
+  replacementWorkflowEnabled: false
+  manualReviewRequired: true
+  appliesTo: 'inherited_founder_created_businesses_only'
+  royaltyRate: number
+  treasuryAccountId: 'system:founder-legacy-treasury'
+  royaltyEligibleBusinessIds: string[]
+  royaltyExcludedBusinessIds: string[]
+  blockers: RealityAreaLegacyRoyaltyBlocker[]
+}
+
 export interface RealityAreaCitizenDebtDashboard {
   id: string
   kind: 'medical'
@@ -569,6 +588,7 @@ export interface RealityAreaDashboard {
   survival: RealityAreaSurvivalDashboard
   ledger: RealityAreaLedgerDashboard
   settlement: RealityAreaSettlementDashboard
+  legacyRoyalty: RealityAreaLegacyRoyaltyDashboard
   founderCovenant: RealityAreaCovenantReview
 }
 
@@ -1233,6 +1253,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isRealityAreaSurvivalDashboard(value.survival) &&
     isRealityAreaLedgerDashboard(value.ledger) &&
     isRealityAreaSettlementDashboard(value.settlement) &&
+    isRealityAreaLegacyRoyaltyDashboard(value.legacyRoyalty) &&
     isRealityAreaCovenantReview(value.founderCovenant)
 }
 
@@ -1280,6 +1301,32 @@ function isRealityAreaSettlementBlocker(value: unknown): value is RealityAreaSet
     value === 'land_reservations_disabled' ||
     value === 'leases_disabled' ||
     value === 'manual_payout_review_required' ||
+    value === 'compliance_review_required'
+}
+
+function isRealityAreaLegacyRoyaltyDashboard(value: unknown): value is RealityAreaLegacyRoyaltyDashboard {
+  return isRecord(value) &&
+    value.enabled === false &&
+    value.payoutEnabled === false &&
+    value.replacementWorkflowEnabled === false &&
+    value.manualReviewRequired === true &&
+    value.appliesTo === 'inherited_founder_created_businesses_only' &&
+    typeof value.royaltyRate === 'number' &&
+    value.royaltyRate >= 0 &&
+    value.royaltyRate <= 1 &&
+    value.treasuryAccountId === 'system:founder-legacy-treasury' &&
+    Array.isArray(value.royaltyEligibleBusinessIds) &&
+    value.royaltyEligibleBusinessIds.every((id) => typeof id === 'string') &&
+    Array.isArray(value.royaltyExcludedBusinessIds) &&
+    value.royaltyExcludedBusinessIds.every((id) => typeof id === 'string') &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaLegacyRoyaltyBlocker)
+}
+
+function isRealityAreaLegacyRoyaltyBlocker(value: unknown): value is RealityAreaLegacyRoyaltyBlocker {
+  return value === 'replacement_workflow_disabled' ||
+    value === 'waitlist_handoff_disabled' ||
+    value === 'treasury_payout_disabled' ||
     value === 'compliance_review_required'
 }
 

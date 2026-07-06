@@ -11,6 +11,8 @@ const PLATFORM_BANK_ID = 'reality-founder-bank'
 const SIM_CREDIT_ACCOUNT_ID = 'system:sim-credit'
 const BUILDER_RECEIVER_ID = 'system:builders'
 const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
+const FOUNDER_LEGACY_TREASURY_ACCOUNT_ID = 'system:founder-legacy-treasury'
+const FOUNDER_LEGACY_ROYALTY_RATE = 0.1
 const AREA_STATE_VERSION = 1
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
@@ -328,6 +330,11 @@ type FounderAreaSettlementBlocker =
   | 'leases_disabled'
   | 'manual_payout_review_required'
   | 'compliance_review_required'
+type FounderAreaLegacyRoyaltyBlocker =
+  | 'replacement_workflow_disabled'
+  | 'waitlist_handoff_disabled'
+  | 'treasury_payout_disabled'
+  | 'compliance_review_required'
 
 interface FounderAreaCovenantNotificationDraft {
   id: string
@@ -612,6 +619,19 @@ interface FounderAreaSettlementDashboard {
   blockers: readonly FounderAreaSettlementBlocker[]
 }
 
+interface FounderAreaLegacyRoyaltyDashboard {
+  enabled: false
+  payoutEnabled: false
+  replacementWorkflowEnabled: false
+  manualReviewRequired: true
+  appliesTo: 'inherited_founder_created_businesses_only'
+  royaltyRate: number
+  treasuryAccountId: typeof FOUNDER_LEGACY_TREASURY_ACCOUNT_ID
+  royaltyEligibleBusinessIds: string[]
+  royaltyExcludedBusinessIds: string[]
+  blockers: readonly FounderAreaLegacyRoyaltyBlocker[]
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -635,6 +655,7 @@ interface FounderAreaDashboard {
   survival: FounderAreaSurvivalDashboard
   ledger: FounderAreaLedgerDashboard
   settlement: FounderAreaSettlementDashboard
+  legacyRoyalty: FounderAreaLegacyRoyaltyDashboard
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -850,14 +871,25 @@ const SERVER_OWNED_SETTLEMENT_FIELDS = [
   'highFrequencyOnChainTransactions',
 ] as const
 
+const SERVER_OWNED_LEGACY_ROYALTY_FIELDS = [
+  'legacyRoyalty',
+  'legacyRoyaltyRate',
+  'legacyTreasuryAccountId',
+  'royaltyEligibleBusinessIds',
+  'royaltyExcludedBusinessIds',
+  'legacyRoyaltyPayoutEnabled',
+] as const
+
 const FORBIDDEN_CLAIM_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
 ])
 
 const FORBIDDEN_HIRE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -880,6 +912,7 @@ const FORBIDDEN_HIRE_FIELDS = new Set([
 const FORBIDDEN_ADVANCE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -907,6 +940,7 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
 const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -930,6 +964,7 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
 const FORBIDDEN_REVIEW_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -985,6 +1020,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
 const FORBIDDEN_SERVICE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1008,6 +1044,7 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
 const FORBIDDEN_INSURANCE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1033,6 +1070,7 @@ const FORBIDDEN_INSURANCE_FIELDS = new Set([
 const FORBIDDEN_BUILD_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
+  ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -2292,6 +2330,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     survival: survivalDashboard(state),
     ledger: areaLedgerDashboard(state),
     settlement: areaSettlementDashboard(state),
+    legacyRoyalty: areaLegacyRoyaltyDashboard(state),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -2319,6 +2358,33 @@ function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlement
       'land_reservations_disabled',
       'leases_disabled',
       'manual_payout_review_required',
+      'compliance_review_required',
+    ],
+  }
+}
+
+function areaLegacyRoyaltyDashboard(state: FounderAreaState): FounderAreaLegacyRoyaltyDashboard {
+  const royaltyEligibleBusinessIds = state.businesses
+    .filter((business) => business.ownerId === state.founderCitizenId && business.createdBy !== state.founderCitizenId)
+    .map((business) => business.id)
+  const royaltyExcludedBusinessIds = state.businesses
+    .filter((business) => business.createdBy === state.founderCitizenId)
+    .map((business) => business.id)
+
+  return {
+    enabled: false,
+    payoutEnabled: false,
+    replacementWorkflowEnabled: false,
+    manualReviewRequired: true,
+    appliesTo: 'inherited_founder_created_businesses_only',
+    royaltyRate: FOUNDER_LEGACY_ROYALTY_RATE,
+    treasuryAccountId: FOUNDER_LEGACY_TREASURY_ACCOUNT_ID,
+    royaltyEligibleBusinessIds,
+    royaltyExcludedBusinessIds,
+    blockers: [
+      'replacement_workflow_disabled',
+      'waitlist_handoff_disabled',
+      'treasury_payout_disabled',
       'compliance_review_required',
     ],
   }
