@@ -95,6 +95,23 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     targetStaff: number
     openPositions: number
     hourlyCapacity: number
+    ledger: {
+      transactionCount: number
+      revenue: number
+      expenses: number
+      netCashFlow: number
+      wagesPaid: number
+      receivablesIssued: number
+      recentTransactions: {
+        id: string
+        at: string
+        kind: string
+        fromId: string
+        toId: string
+        amount: number
+        memo: string
+      }[]
+    }
     status: string
     alerts: { kind: string; severity: string }[]
   }[]
@@ -900,6 +917,15 @@ describe('reality area authority API', () => {
       targetStaff: 1,
       openPositions: 1,
       hourlyCapacity: 24,
+      ledger: {
+        transactionCount: 0,
+        revenue: 0,
+        expenses: 0,
+        netCashFlow: 0,
+        wagesPaid: 0,
+        receivablesIssued: 0,
+        recentTransactions: [],
+      },
       status: 'critical',
       alerts: [{ kind: 'understaffed', severity: 'critical' }],
     }])
@@ -2631,13 +2657,32 @@ describe('reality area authority API', () => {
     } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness>; dashboard: DashboardWithBuildGuidance }
     expect(body.state.businesses[0].cash).toBe(38)
     expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.money).toBe(112)
     expect(body.state.transactions.slice(-2).map((transaction) => transaction.kind)).toEqual([
       'customer_purchase',
       'worker_wage',
     ])
+    expect(body.dashboard.existingBusinesses[0].ledger).toMatchObject({
+      transactionCount: 2,
+      revenue: 2,
+      expenses: 14,
+      netCashFlow: -12,
+      wagesPaid: 14,
+      receivablesIssued: 0,
+      recentTransactions: [{
+        kind: 'worker_wage',
+        fromId: 'water-1',
+        toId: 'founder-area-0012:sim-water',
+        amount: 14,
+      }, {
+        kind: 'customer_purchase',
+        fromId: 'founder-area-0012:sim-water',
+        toId: 'water-1',
+        amount: 2,
+      }],
+    })
     expect(body.state.transactions.at(-1)).toEqual({
       id: 'founder-area-0012:1783321200000:worker-wage:water-1:founder-area-0012:sim-water:1',
       at: '2026-07-06T07:00:00.000Z',

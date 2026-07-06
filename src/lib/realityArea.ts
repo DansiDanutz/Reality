@@ -202,8 +202,19 @@ export interface RealityAreaBusinessDashboard {
   targetStaff: number
   openPositions: number
   hourlyCapacity: number
+  ledger: RealityAreaBusinessLedgerDashboard
   status: AreaBusinessStatus
   alerts: AreaBusinessAlert[]
+}
+
+export interface RealityAreaBusinessLedgerDashboard {
+  transactionCount: number
+  revenue: number
+  expenses: number
+  netCashFlow: number
+  wagesPaid: number
+  receivablesIssued: number
+  recentTransactions: RealityAreaTransaction[]
 }
 
 export interface RealityAreaCitizenDebtDashboard {
@@ -616,17 +627,26 @@ function mergeRealityAreaBusinessDashboard(
     targetStaff: business.targetStaff,
     openPositions: business.openPositions,
     hourlyCapacity: business.hourlyCapacity,
+    ledger: mergeRealityAreaBusinessLedgerDashboard(business.ledger),
     status: business.status,
     alerts: business.alerts.map((alert) => ({ ...alert })),
-    ledger: fallback?.ledger ?? {
-      transactionCount: 0,
-      revenue: 0,
-      expenses: 0,
-      netCashFlow: 0,
-      wagesPaid: 0,
-      receivablesIssued: 0,
-      recentTransactions: [],
-    },
+  }
+}
+
+function mergeRealityAreaBusinessLedgerDashboard(
+  ledger: RealityAreaBusinessLedgerDashboard,
+): AreaBusinessDashboard['ledger'] {
+  return {
+    transactionCount: ledger.transactionCount,
+    revenue: ledger.revenue,
+    expenses: ledger.expenses,
+    netCashFlow: ledger.netCashFlow,
+    wagesPaid: ledger.wagesPaid,
+    receivablesIssued: ledger.receivablesIssued,
+    recentTransactions: ledger.recentTransactions.map((transaction) => ({
+      ...transaction,
+      at: parseInstant(transaction.at),
+    })),
   }
 }
 
@@ -894,9 +914,33 @@ function isRealityAreaBusinessDashboard(value: unknown): value is RealityAreaBus
     typeof value.targetStaff === 'number' &&
     typeof value.openPositions === 'number' &&
     typeof value.hourlyCapacity === 'number' &&
+    isRealityAreaBusinessLedgerDashboard(value.ledger) &&
     isBusinessStatus(value.status) &&
     Array.isArray(value.alerts) &&
     value.alerts.every(isBusinessAlert)
+}
+
+function isRealityAreaBusinessLedgerDashboard(value: unknown): value is RealityAreaBusinessLedgerDashboard {
+  return isRecord(value) &&
+    typeof value.transactionCount === 'number' &&
+    typeof value.revenue === 'number' &&
+    typeof value.expenses === 'number' &&
+    typeof value.netCashFlow === 'number' &&
+    typeof value.wagesPaid === 'number' &&
+    typeof value.receivablesIssued === 'number' &&
+    Array.isArray(value.recentTransactions) &&
+    value.recentTransactions.every(isRealityAreaTransaction)
+}
+
+function isRealityAreaTransaction(value: unknown): value is RealityAreaTransaction {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.at === 'string' &&
+    typeof value.kind === 'string' &&
+    typeof value.fromId === 'string' &&
+    typeof value.toId === 'string' &&
+    typeof value.amount === 'number' &&
+    typeof value.memo === 'string'
 }
 
 function isBusinessAlert(value: unknown): value is AreaBusinessAlert {
