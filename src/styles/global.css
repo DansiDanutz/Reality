@@ -964,6 +964,37 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   background: rgba(120, 150, 205, 0.06);
 }
 .founder-need.short { border-color: rgba(229, 72, 77, 0.45); }
+.founder-covenant-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.founder-covenant-status.stable { color: var(--ok); }
+.founder-covenant-status.warning { color: var(--warn); }
+.founder-covenant-status.critical { color: #e5484d; }
+.founder-covenant-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.founder-covenant-meta span {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 7px;
+  background: rgba(120, 150, 205, 0.06);
+}
+.founder-covenant-signal.warning { border-color: rgba(240, 180, 41, 0.45); }
+.founder-covenant-signal.critical { border-color: rgba(229, 72, 77, 0.45); }
+.founder-covenant-severity {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.founder-covenant-severity.info { color: var(--muted); }
+.founder-covenant-severity.warning { color: var(--warn); }
+.founder-covenant-severity.critical { color: #e5484d; }
 .founder-choice .item-yield { color: var(--ok); }
 .founder-citizen.simulated .item-name { color: var(--sky); }
 .founder-business.warning { border-color: rgba(240, 180, 41, 0.45); }

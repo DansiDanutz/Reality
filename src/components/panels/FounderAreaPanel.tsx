@@ -8,6 +8,11 @@ import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
 import { useGame } from '../../store/gameStore'
+import {
+  founderCovenantSignalText,
+  founderCovenantStatusLabel,
+  founderCovenantTone,
+} from './founderAreaPanelView'
 
 type PanelState =
   | { status: 'loading' }
@@ -95,6 +100,38 @@ export default function FounderAreaPanel() {
               <span className="stat-value mono gold">{formatMoney(founder?.money ?? 0)}</span>
             </div>
           </div>
+
+          <section
+            className={`founder-section founder-covenant ${founderCovenantTone(dashboard.founderCovenant.status)}`}
+            aria-label="Founder Covenant"
+          >
+            <div className="founder-section-head">
+              <h3 className="founder-section-title">Founder Covenant</h3>
+              <span className={`founder-covenant-status mono ${founderCovenantTone(dashboard.founderCovenant.status)}`}>
+                {founderCovenantStatusLabel(dashboard.founderCovenant.status)}
+              </span>
+            </div>
+            <div className="founder-covenant-meta">
+              <span>weekly/monthly review</span>
+              <span>replacement disabled</span>
+              <span>waitlist disabled</span>
+            </div>
+            {dashboard.founderCovenant.signals.length === 0 ? (
+              <p className="panel-sub">No covenant signals.</p>
+            ) : (
+              <ul className="item-list founder-covenant-signals">
+                {dashboard.founderCovenant.signals.slice(0, 4).map((signal) => (
+                  <li className={`item founder-covenant-signal ${signal.severity}`} key={signal.kind}>
+                    <div className="item-info">
+                      <span className="item-name">{founderCovenantSignalText(signal)}</span>
+                      <span className="item-desc">{signal.message}</span>
+                    </div>
+                    <span className={`founder-covenant-severity mono ${signal.severity}`}>{signal.severity}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <section className="founder-section" aria-label="Needs Dashboard">
             <h3 className="founder-section-title">Needs Dashboard</h3>
