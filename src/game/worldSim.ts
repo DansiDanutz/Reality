@@ -86,6 +86,26 @@ export interface WorldTransaction {
   memo: string
 }
 
+export type WorldAreaEventKind = 'sim_citizen_departure'
+export type WorldAreaEventSeverity = 'info' | 'warning' | 'critical'
+export type WorldDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
+export type WorldDepartureServiceKind = 'water' | 'food' | 'housing'
+
+export interface WorldAreaEvent {
+  id: string
+  at: number
+  kind: WorldAreaEventKind
+  severity: WorldAreaEventSeverity
+  citizenId: string
+  citizenName: string
+  simulated: boolean
+  reason: WorldDepartureReason
+  serviceKind: WorldDepartureServiceKind
+  health: number
+  needs: Needs
+  message: string
+}
+
 export interface WorldArea {
   id: string
   name: string
@@ -94,6 +114,7 @@ export interface WorldArea {
   citizens: WorldCitizen[]
   businesses: WorldBusiness[]
   transactions: WorldTransaction[]
+  areaEvents?: WorldAreaEvent[]
   founderReviewHistory?: FounderCovenantReviewHistoryItem[]
 }
 
@@ -2765,7 +2786,7 @@ function matchesShopMoney(value: number, shopValue: number): boolean {
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {
-  const departingCitizenIds = new Set<string>()
+  const departingCitizens = new Map<string, WorldDepartureReason>()
   const recoveredCitizenIds = new Set<string>()
   for (const citizen of area.citizens) {
     if (citizen.state.kind === 'hospitalized') {
@@ -2785,13 +2806,14 @@ function advanceStep(area: WorldArea, context: StepContext): void {
     if (recoveredCitizenIds.has(citizen.id)) continue
     decayCitizen(area, citizen, context.hours)
     buyNeededServices(area, citizen, context)
-    if (shouldSimLeaveArea(area, citizen, context)) {
-      departingCitizenIds.add(citizen.id)
+    const departureReason = simDepartureReason(area, citizen, context)
+    if (departureReason) {
+      departingCitizens.set(citizen.id, departureReason)
       continue
     }
     if (shouldHospitalize(citizen)) hospitalize(area, citizen, context)
   }
-  removeDepartingCitizens(area, departingCitizenIds, context)
+  removeDepartingCitizens(area, departingCitizens, context)
 }
 
 function recoverIfReady(citizen: WorldCitizen, at: number): boolean {
@@ -2926,15 +2948,22 @@ function buyNeededServices(area: WorldArea, citizen: WorldCitizen, context: Step
   if (citizen.kind === 'sim' && !hasActiveInsurance(citizen, context.at)) purchaseInsurancePolicy(area, citizen, context)
 }
 
-function shouldSimLeaveArea(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
-  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return false
-  if (area.claim?.founderCitizenId === citizen.id) return false
-  if (area.businesses.some((business) => business.ownerId === citizen.id)) return false
-  if (citizen.health > SIM_LEAVES_HEALTH) return false
+function simDepartureReason(area: WorldArea, citizen: WorldCitizen, context: StepContext): WorldDepartureReason | null {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return null
+  if (area.claim?.founderCitizenId === citizen.id) return null
+  if (area.businesses.some((business) => business.ownerId === citizen.id)) return null
+  if (citizen.health > SIM_LEAVES_HEALTH) return null
 
-  return (citizen.needs.hydration <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'water', context)) ||
-    (citizen.needs.hunger <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'food', context)) ||
-    (citizen.needs.energy <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'housing', context))
+  if (citizen.needs.hydration <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'water', context)) {
+    return 'water_unserved'
+  }
+  if (citizen.needs.hunger <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'food', context)) {
+    return 'food_unserved'
+  }
+  if (citizen.needs.energy <= SIM_LEAVES_NEED_LEVEL && !hasRemainingServiceCapacity(area, 'housing', context)) {
+    return 'housing_unserved'
+  }
+  return null
 }
 
 function hasRemainingServiceCapacity(area: WorldArea, kind: WorldBusinessKind, context: StepContext): boolean {
@@ -2945,13 +2974,60 @@ function hasRemainingServiceCapacity(area: WorldArea, kind: WorldBusinessKind, c
   })
 }
 
-function removeDepartingCitizens(area: WorldArea, citizenIds: Set<string>, context: StepContext): void {
-  if (citizenIds.size === 0) return
-  area.citizens = area.citizens.filter((citizen) => !citizenIds.has(citizen.id))
-  for (const business of area.businesses) {
-    business.staffCitizenIds = business.staffCitizenIds.filter((id) => !citizenIds.has(id))
+function removeDepartingCitizens(
+  area: WorldArea,
+  departures: Map<string, WorldDepartureReason>,
+  context: StepContext,
+): void {
+  if (departures.size === 0) return
+  const departingIds = new Set(departures.keys())
+  const departureEvents: WorldAreaEvent[] = []
+  for (const [citizenId, reason] of departures) {
+    const citizen = area.citizens.find((candidate) => candidate.id === citizenId)
+    if (citizen) departureEvents.push(simDepartureEvent(area, citizen, context.at, reason))
   }
-  context.summary.citizensLeft += citizenIds.size
+  if (departureEvents.length > 0) {
+    area.areaEvents = [...(area.areaEvents ?? []), ...departureEvents]
+  }
+  area.citizens = area.citizens.filter((citizen) => !departingIds.has(citizen.id))
+  for (const business of area.businesses) {
+    business.staffCitizenIds = business.staffCitizenIds.filter((id) => !departingIds.has(id))
+  }
+  context.summary.citizensLeft += departures.size
+}
+
+function simDepartureEvent(
+  area: WorldArea,
+  citizen: WorldCitizen,
+  at: number,
+  reason: WorldDepartureReason,
+): WorldAreaEvent {
+  const serviceKind = departureServiceKind(reason)
+  return {
+    id: `${area.id}:${at}:sim-departure:${citizen.id}:${serviceKind}`,
+    at,
+    kind: 'sim_citizen_departure',
+    severity: 'warning',
+    citizenId: citizen.id,
+    citizenName: citizen.name,
+    simulated: true,
+    reason,
+    serviceKind,
+    health: citizen.health,
+    needs: { ...citizen.needs },
+    message: `${citizen.name} left the area because ${serviceKind} stayed unserved while health was low.`,
+  }
+}
+
+function departureServiceKind(reason: WorldDepartureReason): WorldDepartureServiceKind {
+  switch (reason) {
+    case 'water_unserved':
+      return 'water'
+    case 'food_unserved':
+      return 'food'
+    case 'housing_unserved':
+      return 'housing'
+  }
 }
 
 function purchaseService(
@@ -3171,6 +3247,10 @@ function cloneArea(area: WorldArea): WorldArea {
       staffCitizenIds: [...business.staffCitizenIds],
     })),
     transactions: area.transactions.map((tx) => ({ ...tx })),
+    areaEvents: area.areaEvents?.map((event) => ({
+      ...event,
+      needs: { ...event.needs },
+    })),
   }
 }
 

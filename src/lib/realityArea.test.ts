@@ -990,6 +990,10 @@ describe('Reality area client', () => {
       kind: 'founder_credit',
       payoutEligibility: 'game_only',
     })
+    expect(area.areaEvents).toEqual([{
+      ...serverStateAreaEvent(),
+      at: Date.parse('2026-07-06T07:00:00.000Z'),
+    }])
   })
 
   test('uses server first-build guidance over locally inferred build choices', () => {
@@ -1464,6 +1468,7 @@ function serverState(): RealityAreaState {
       amount: 200_000,
       memo: 'Founder #0012 starter operating credit.',
     }],
+    areaEvents: [serverStateAreaEvent()],
     founderCovenant: {
       founderCitizenId: 'citizen-1',
       status: 'manual_review',
@@ -2579,7 +2584,7 @@ function serverDashboard(): RealityAreaDashboard {
   }
 }
 
-function serverAreaEvent(): RealityAreaDashboard['areaEvents']['recentEvents'][number] {
+function serverStateAreaEvent(): NonNullable<RealityAreaState['areaEvents']>[number] {
   return {
     id: 'founder-area-0012:1783321200000:sim-departure:sim-food:food',
     at: '2026-07-06T07:00:00.000Z',
@@ -2593,6 +2598,12 @@ function serverAreaEvent(): RealityAreaDashboard['areaEvents']['recentEvents'][n
     health: 20,
     needs: { hunger: 0, hydration: 86, energy: 87, hygiene: 89, fun: 89 },
     message: 'Demo Food Resident left the area because food stayed unserved while health was low.',
+  }
+}
+
+function serverAreaEvent(): RealityAreaDashboard['areaEvents']['recentEvents'][number] {
+  return {
+    ...serverStateAreaEvent(),
     displayName: 'Demo Food Resident (Sim)',
     participantLabel: 'Sim Citizen',
     visualTone: 'simulated',

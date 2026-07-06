@@ -1401,6 +1401,20 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(out.citizens).toEqual([])
     expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(out.areaEvents).toHaveLength(1)
+    expect(out.areaEvents?.[0]).toMatchObject({
+      id: `area-1:${HOUR}:sim-departure:c1:water`,
+      at: HOUR,
+      kind: 'sim_citizen_departure',
+      severity: 'warning',
+      citizenId: 'c1',
+      citizenName: 'Sim c1',
+      simulated: true,
+      reason: 'water_unserved',
+      serviceKind: 'water',
+      health: SIM_LEAVES_HEALTH,
+    })
+    expect(out.areaEvents?.[0].needs.hydration).toBeLessThanOrEqual(SIM_LEAVES_NEED_LEVEL)
     expect(summary.citizensLeft).toBe(1)
     expect(summary.hospitalizations).toBe(0)
   })

@@ -20,6 +20,7 @@ import type {
   FounderCovenantReviewHistoryItem,
   FounderCovenantSignal,
   WorldArea,
+  WorldAreaEvent,
   WorldBusiness,
   WorldBusinessKind,
   WorldCitizen,
@@ -1010,6 +1011,7 @@ export function realityAreaStateToWorldArea(state: RealityAreaState): WorldArea 
     citizens: state.citizens.map(realityCitizenToWorldCitizen),
     businesses: state.businesses.map(realityBusinessToWorldBusiness),
     transactions: state.transactions.map(realityTransactionToWorldTransaction),
+    areaEvents: state.areaEvents?.map(realityEventToWorldEvent),
     founderReviewHistory: state.founderReviewHistory?.map(realityReviewHistoryToWorldReviewHistory),
   }
 }
@@ -2591,6 +2593,14 @@ function realityTransactionToWorldTransaction(transaction: RealityAreaTransactio
   return {
     ...transaction,
     at: parseInstant(transaction.at),
+  }
+}
+
+function realityEventToWorldEvent(event: RealityAreaEvent): WorldAreaEvent {
+  return {
+    ...event,
+    at: parseInstant(event.at),
+    needs: { ...event.needs },
   }
 }
 

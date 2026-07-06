@@ -108,6 +108,20 @@ const area = (): WorldArea => ({
       memo: 'Founder repaid debt to system:hospital.',
     },
   ],
+  areaEvents: [{
+    id: 'event1',
+    at: 3_000,
+    kind: 'sim_citizen_departure',
+    severity: 'warning',
+    citizenId: 'sim-left',
+    citizenName: 'Demo Former Resident',
+    simulated: true,
+    reason: 'food_unserved',
+    serviceKind: 'food',
+    health: 20,
+    needs: { hunger: 0, hydration: 75, energy: 85, hygiene: 70, fun: 65 },
+    message: 'Demo Former Resident left the area because food stayed unserved while health was low.',
+  }],
 })
 
 describe('worldSim snapshot codec', () => {
@@ -134,6 +148,16 @@ describe('worldSim snapshot codec', () => {
       version: WORLD_AREA_SNAPSHOT_VERSION,
       area: { id: 'area-1', name: 'bad', now: 1_000 },
     }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
+  test('accepts older snapshots without area event evidence', () => {
+    const legacy = area()
+    delete legacy.areaEvents
+    const decoded = decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: legacy }))
+
+    expect(decoded.ok).toBe(true)
+    if (!decoded.ok) throw new Error('expected legacy snapshot to decode')
+    expect(decoded.area.areaEvents).toBeUndefined()
   })
 
   test('rejects duplicate persisted identities', () => {
@@ -261,6 +285,14 @@ describe('worldSim snapshot codec', () => {
     const payoutEligibleTransaction = area()
     payoutEligibleTransaction.transactions[0].payoutEligibility = 'payout_eligible'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: payoutEligibleTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badAreaEvent = area()
+    badAreaEvent.areaEvents![0].serviceKind = 'water'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badAreaEvent }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const nonSimDeparture = area()
+    nonSimDeparture.areaEvents![0].simulated = false
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: nonSimDeparture }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects invalid citizen state and business shape', () => {

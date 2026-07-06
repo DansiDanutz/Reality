@@ -1,6 +1,9 @@
 import type {
   AreaClaimSource,
   WorldArea,
+  WorldAreaEvent,
+  WorldAreaEventKind,
+  WorldAreaEventSeverity,
   WorldBusiness,
   WorldBusinessKind,
   WorldCitizen,
@@ -8,6 +11,8 @@ import type {
   WorldCitizenState,
   WorldDebt,
   WorldDebtKind,
+  WorldDepartureReason,
+  WorldDepartureServiceKind,
   WorldTransaction,
   WorldTransactionKind,
 } from './worldSim'
@@ -33,6 +38,10 @@ const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic
 const CITIZEN_KINDS: WorldCitizenKind[] = ['sim', 'real']
 const DEBT_KINDS: WorldDebtKind[] = ['medical']
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
+const AREA_EVENT_KINDS: WorldAreaEventKind[] = ['sim_citizen_departure']
+const AREA_EVENT_SEVERITIES: WorldAreaEventSeverity[] = ['info', 'warning', 'critical']
+const DEPARTURE_REASONS: WorldDepartureReason[] = ['water_unserved', 'food_unserved', 'housing_unserved']
+const DEPARTURE_SERVICE_KINDS: WorldDepartureServiceKind[] = ['water', 'food', 'housing']
 const SYSTEM_HOSPITAL_ACCOUNT = 'system:hospital'
 const SYSTEM_LEDGER_ACCOUNTS = new Set([
   'system:founder-credit',
@@ -86,6 +95,12 @@ function isWorldArea(value: unknown): value is WorldArea {
     !Array.isArray(value.transactions) ||
     !value.transactions.every(isWorldTransaction) ||
     !hasUniqueIds(value.transactions)
+  ) {
+    return false
+  }
+  if (
+    value.areaEvents !== undefined &&
+    (!Array.isArray(value.areaEvents) || !value.areaEvents.every(isWorldAreaEvent) || !hasUniqueIds(value.areaEvents))
   ) {
     return false
   }
@@ -162,6 +177,34 @@ function isWorldTransaction(value: unknown): value is WorldTransaction {
     isNonEmptyString(value.toId) &&
     isPositiveMoney(value.amount) &&
     isNonEmptyString(value.memo)
+}
+
+function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
+  return isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isFiniteNumber(value.at) &&
+    isOneOf(value.kind, AREA_EVENT_KINDS) &&
+    isOneOf(value.severity, AREA_EVENT_SEVERITIES) &&
+    isNonEmptyString(value.citizenId) &&
+    isNonEmptyString(value.citizenName) &&
+    value.simulated === true &&
+    isOneOf(value.reason, DEPARTURE_REASONS) &&
+    isOneOf(value.serviceKind, DEPARTURE_SERVICE_KINDS) &&
+    departureReasonServiceKind(value.reason) === value.serviceKind &&
+    isPercentage(value.health) &&
+    isNeeds(value.needs) &&
+    isNonEmptyString(value.message)
+}
+
+function departureReasonServiceKind(reason: WorldDepartureReason): WorldDepartureServiceKind {
+  switch (reason) {
+    case 'water_unserved':
+      return 'water'
+    case 'food_unserved':
+      return 'food'
+    case 'housing_unserved':
+      return 'housing'
+  }
 }
 
 function hasValidAreaReferences(area: WorldArea): boolean {
