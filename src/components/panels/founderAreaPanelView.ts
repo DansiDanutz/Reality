@@ -6,6 +6,7 @@ import type {
   FounderCovenantActivityReview,
   FounderCovenantManualAction,
   FounderCovenantReviewChecklistItem,
+  FounderCovenantReviewSchedule,
   FounderCovenantSignal,
   WorldTransactionKind,
 } from '../../game/worldSim'
@@ -20,6 +21,13 @@ export interface FounderCovenantReviewItem {
 }
 
 export interface FounderLedgerSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderCovenantScheduleItem {
   key: string
   label: string
   value: string
@@ -87,6 +95,29 @@ export function founderCovenantReviewItems(review: FounderCovenantActivityReview
   ]
 }
 
+export function founderCovenantReviewScheduleItems(
+  schedule: FounderCovenantReviewSchedule | null,
+  checkedAt: number,
+): FounderCovenantScheduleItem[] {
+  if (!schedule) return []
+  return [{
+    key: 'last',
+    label: 'Last',
+    value: schedule.lastReviewAt === null ? 'none' : `${durationLabel(checkedAt - schedule.lastReviewAt)} ago`,
+    tone: schedule.lastReviewAt === null ? 'warning' : 'stable',
+  }, {
+    key: 'weekly',
+    label: 'Weekly',
+    value: schedule.weeklyReviewDue ? 'due' : durationLabel(schedule.nextWeeklyReviewAt - checkedAt),
+    tone: schedule.weeklyReviewDue ? 'warning' : 'stable',
+  }, {
+    key: 'monthly',
+    label: 'Monthly',
+    value: schedule.monthlyReviewDue ? 'due' : durationLabel(schedule.nextMonthlyReviewAt - checkedAt),
+    tone: schedule.monthlyReviewDue ? 'warning' : 'stable',
+  }]
+}
+
 export function founderCovenantSignalText(signal: FounderCovenantSignal): string {
   switch (signal.kind) {
     case 'founder_unavailable':
@@ -102,6 +133,14 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
     case 'review_due':
       return 'Review due'
   }
+}
+
+function durationLabel(ms: number): string {
+  const remaining = Math.max(0, ms)
+  const hours = Math.ceil(remaining / 3_600_000)
+  if (hours <= 0) return 'now'
+  if (hours < 24) return `${hours}h`
+  return `${Math.ceil(hours / 24)}d`
 }
 
 export function founderLedgerSummaryItems(ledger: AreaLedgerDashboard): FounderLedgerSummaryItem[] {

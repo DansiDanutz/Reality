@@ -28,6 +28,7 @@ import {
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
   founderCovenantReviewItems,
+  founderCovenantReviewScheduleItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
@@ -196,6 +197,19 @@ export default function FounderAreaPanel() {
                 </span>
               ))}
             </div>
+            {dashboard.founderCovenant.reviewSchedule && (
+              <div className="founder-covenant-schedule" aria-label="Founder review schedule">
+                {founderCovenantReviewScheduleItems(
+                  dashboard.founderCovenant.reviewSchedule,
+                  dashboard.founderCovenant.activityReview.checkedAt,
+                ).map((item) => (
+                  <span className={`founder-covenant-schedule-item ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+            )}
             <ul className="item-list founder-covenant-checklist" aria-label="Founder manual review checklist">
               {dashboard.founderCovenant.reviewChecklist.map((item) => (
                 <li className={`item founder-covenant-checklist-item ${item.status}`} key={item.key}>

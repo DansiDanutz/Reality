@@ -991,8 +991,14 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   gap: 6px;
   align-items: center;
 }
+.founder-covenant-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .founder-covenant-score,
-.founder-covenant-review-item {
+.founder-covenant-review-item,
+.founder-covenant-schedule-item {
   min-height: 24px;
   display: inline-flex;
   align-items: center;
@@ -1005,7 +1011,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   color: var(--muted);
 }
 .founder-covenant-score { color: var(--text); }
-.founder-covenant-review-item strong {
+.founder-covenant-review-item strong,
+.founder-covenant-schedule-item strong {
   color: var(--text);
   text-transform: uppercase;
   font-size: 10px;
@@ -1016,6 +1023,12 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .founder-covenant-review-item.stable strong { color: var(--ok); }
 .founder-covenant-review-item.warning strong { color: var(--warn); }
 .founder-covenant-review-item.critical strong { color: #e5484d; }
+.founder-covenant-schedule-item.stable { border-color: rgba(64, 200, 136, 0.35); }
+.founder-covenant-schedule-item.warning { border-color: rgba(240, 180, 41, 0.45); }
+.founder-covenant-schedule-item.critical { border-color: rgba(229, 72, 77, 0.45); }
+.founder-covenant-schedule-item.stable strong { color: var(--ok); }
+.founder-covenant-schedule-item.warning strong { color: var(--warn); }
+.founder-covenant-schedule-item.critical strong { color: #e5484d; }
 .founder-covenant-checklist-item.watch { border-color: rgba(240, 180, 41, 0.45); }
 .founder-covenant-checklist-item.manual_review { border-color: rgba(229, 72, 77, 0.45); }
 .founder-covenant-checklist-status {

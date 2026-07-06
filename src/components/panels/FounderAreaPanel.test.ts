@@ -4,6 +4,7 @@ import {
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
   founderCovenantReviewItems,
+  founderCovenantReviewScheduleItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
@@ -82,6 +83,36 @@ describe('FounderAreaPanel covenant presenters', () => {
       { key: 'indebted', label: 'Debt', value: 'yes', tone: 'critical' },
       { key: 'hospitalized', label: 'Hospital', value: 'yes', tone: 'critical' },
       { key: 'atRisk', label: 'At risk', value: 'yes', tone: 'critical' },
+    ])
+  })
+
+  test('formats covenant review schedule badges from server timing', () => {
+    expect(founderCovenantReviewScheduleItems({
+      lastReviewAt: null,
+      nextWeeklyReviewAt: 8 * 24 * 60 * 60 * 1000,
+      nextMonthlyReviewAt: 31 * 24 * 60 * 60 * 1000,
+      weeklyReviewDue: false,
+      monthlyReviewDue: false,
+      overdue: false,
+      automationEnabled: false,
+    }, 24 * 60 * 60 * 1000)).toEqual([
+      { key: 'last', label: 'Last', value: 'none', tone: 'warning' },
+      { key: 'weekly', label: 'Weekly', value: '7d', tone: 'stable' },
+      { key: 'monthly', label: 'Monthly', value: '30d', tone: 'stable' },
+    ])
+
+    expect(founderCovenantReviewScheduleItems({
+      lastReviewAt: 2 * 24 * 60 * 60 * 1000,
+      nextWeeklyReviewAt: 9 * 24 * 60 * 60 * 1000,
+      nextMonthlyReviewAt: 32 * 24 * 60 * 60 * 1000,
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
+    }, 10 * 24 * 60 * 60 * 1000)).toEqual([
+      { key: 'last', label: 'Last', value: '8d ago', tone: 'stable' },
+      { key: 'weekly', label: 'Weekly', value: 'due', tone: 'warning' },
+      { key: 'monthly', label: 'Monthly', value: '22d', tone: 'stable' },
     ])
   })
 
