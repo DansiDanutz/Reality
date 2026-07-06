@@ -786,6 +786,7 @@ type HireWorkerIntentError =
 type ApplyHireWorkerError =
   | HireWorkerIntentError
   | 'area_not_claimed'
+  | 'actor_unavailable'
   | 'business_not_found'
   | 'business_fully_staffed'
   | 'worker_already_hired'
@@ -3265,13 +3266,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'hireWorker') {
-      const result = applyHireWorkerIntent(existing, rawIntent, new Date())
+      const intent = normalizeHireWorkerIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(hireWorkerStatus(intent.error)).json({
+          ok: false,
+          error: hireWorkerMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+
+      const now = new Date()
+      const stateForHire = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      const result = applyHireWorkerIntent(
+        stateForHire,
+        { type: 'hireWorker', businessId: intent.businessId, workerCitizenId: intent.workerCitizenId },
+        now,
+      )
       if (!result.ok) {
         res.status(hireWorkerStatus(result.error)).json({
           ok: false,
           error: hireWorkerMessage(result.error),
           code: result.error,
-          state: existing,
+          state: stateForHire,
         })
         return
       }
@@ -3404,6 +3422,9 @@ function applyHireWorkerIntent(
   if (!state) return { ok: false, error: 'area_not_claimed' }
   const intent = normalizeHireWorkerIntent(input)
   if (!intent.ok) return intent
+
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  if (!founder || founder.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
 
   const business = state.businesses.find((candidate) => candidate.id === intent.businessId)
   if (!business) return { ok: false, error: 'business_not_found' }
@@ -4176,6 +4197,7 @@ function buildBusinessMessage(error: ApplyBuildBusinessError): string {
 function hireWorkerStatus(error: ApplyHireWorkerError): number {
   if (
     error === 'area_not_claimed' ||
+    error === 'actor_unavailable' ||
     error === 'business_not_found' ||
     error === 'business_fully_staffed' ||
     error === 'worker_already_hired' ||
@@ -4192,6 +4214,8 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
   switch (error) {
     case 'area_not_claimed':
       return 'Area must be claimed before hiring workers.'
+    case 'actor_unavailable':
+      return 'Founder must be active before hiring workers.'
     case 'business_not_found':
       return 'Business must exist before hiring workers.'
     case 'business_fully_staffed':

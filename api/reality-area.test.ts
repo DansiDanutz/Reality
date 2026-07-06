@@ -1918,7 +1918,7 @@ describe('reality area authority API', () => {
   test('hireWorker staffs a server-owned business without letting the client set wages', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T06:00:00.000Z'))
-    const existing = withBusiness(existingState(), {
+    const existing = withBusiness({ ...existingState(), updatedAt: '2026-07-06T06:00:00.000Z' }, {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
@@ -2091,6 +2091,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker rejects workers outside the server-owned Sim Citizen roster', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
     const existing = withBusiness(existingState(), {
       id: 'water-1',
       name: 'Founder Water',
@@ -2116,6 +2118,71 @@ describe('reality area authority API', () => {
     expect(missingWorker.statusCode).toBe(409)
     expect(missingWorker.body).toMatchObject({ ok: false, code: 'worker_not_found' })
     expect(put).not.toHaveBeenCalled()
+  })
+
+  test('hireWorker catches up stale area state and rejects a hospitalized founder', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stableWorker = withCitizen(fragileFounder, 'founder-area-0012:sim-water', {
+      needs: { hydration: 90 },
+    })
+    const stale = withBusiness({
+      ...stableWorker,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }, {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-hire-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'hireWorker',
+          businessId: 'water-1',
+          workerCitizenId: 'founder-area-0012:sim-water',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    const body = res.body as { ok: false; code: string; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const worker = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(body).toMatchObject({ ok: false, code: 'actor_unavailable' })
+    expect(founder?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T16:00:00.000Z' })
+    expect(worker?.jobBusinessId).toBeUndefined()
+    expect(body.state.businesses.find((business) => business.id === 'water-1')).toMatchObject({
+      cash: 5,
+      staffCitizenIds: [],
+    })
+    expect(body.state.transactions.at(-1)).toMatchObject({
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: CITIZEN_ID,
+      toId: 'system:hospital',
+      amount: 350,
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
   })
 
   test('advanceHour lets Sim Citizens buy needed local services from their server balances', async () => {
