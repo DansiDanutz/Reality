@@ -185,6 +185,12 @@ function isWorldArea(value: unknown): value is WorldArea {
     return false
   }
   if (
+    value.serviceCapacityCarry !== undefined &&
+    !isServiceCapacityCarry(value.serviceCapacityCarry, value.businesses)
+  ) {
+    return false
+  }
+  if (
     value.founderReviewHistory !== undefined &&
     (
       !Array.isArray(value.founderReviewHistory) ||
@@ -195,6 +201,17 @@ function isWorldArea(value: unknown): value is WorldArea {
     return false
   }
   return hasValidAreaReferences(value as unknown as WorldArea)
+}
+
+function isServiceCapacityCarry(value: unknown, businesses: WorldBusiness[]): value is Record<string, number> {
+  if (!isRecord(value)) return false
+  const businessIds = new Set(businesses.map((business) => business.id))
+  return Object.entries(value).every(([businessId, carry]) =>
+    businessIds.has(businessId) &&
+    isFiniteNumber(carry) &&
+    carry >= 0 &&
+    carry < 1
+  )
 }
 
 function isAreaClaim(value: unknown): value is WorldArea['claim'] {

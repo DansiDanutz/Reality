@@ -114,6 +114,7 @@ export interface WorldArea {
   citizens: WorldCitizen[]
   businesses: WorldBusiness[]
   transactions: WorldTransaction[]
+  serviceCapacityCarry?: Record<string, number>
   areaEvents?: WorldAreaEvent[]
   founderReviewHistory?: FounderCovenantReviewHistoryItem[]
 }
@@ -813,6 +814,7 @@ interface StepContext {
   hours: number
   servedByKind: Record<WorldBusinessKind, number>
   capacityUsed: Record<string, number>
+  capacityAvailable: Record<string, number>
   summary: WorldAreaSummary
 }
 
@@ -836,6 +838,7 @@ export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
 export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+const CAPACITY_EPSILON = 1e-9
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
 
@@ -986,6 +989,7 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
       hours: (next - t) / WORLD_SIM_HOUR_MS,
       servedByKind: zeroKindRecord(),
       capacityUsed: {},
+      capacityAvailable: {},
       summary,
     }
     advanceStep(area, context)
@@ -2894,6 +2898,7 @@ function buyServiceFromIntent(
     hours: 1,
     servedByKind: zeroKindRecord(),
     capacityUsed: {},
+    capacityAvailable: serviceCapacityAvailableForPeriod(area, 1),
     summary: emptyWorldAreaSummary(),
   }
   const business = chooseBusiness(area, kind, context)
@@ -2990,6 +2995,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
   degradeUnmanagedBusinesses(area, context.hours)
   renewInsurancePolicies(area, context)
   payWorkerWages(area, context)
+  context.capacityAvailable = prepareStepServiceCapacity(area, context.hours)
 
   for (const citizen of area.citizens) {
     if (citizen.state.kind !== 'active') continue
@@ -3160,7 +3166,7 @@ function hasRemainingServiceCapacity(area: WorldArea, kind: WorldBusinessKind, c
   return area.businesses.some((business) => {
     if (business.kind !== kind) return false
     const used = context.capacityUsed[business.id] ?? 0
-    return used < serviceCapacity(area, business, context.hours)
+    return used < (context.capacityAvailable[business.id] ?? 0)
   })
 }
 
@@ -3288,14 +3294,14 @@ function purchaseInsurancePolicy(
 
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
   const candidates = area.businesses
-    .filter((business) => business.kind === kind && serviceCapacity(area, business, context.hours) > 0)
+    .filter((business) => business.kind === kind && (context.capacityAvailable[business.id] ?? 0) > 0)
     .sort((a, b) => a.id.localeCompare(b.id))
   if (candidates.length === 0) return null
 
   const start = context.servedByKind[kind] % candidates.length
   for (let offset = 0; offset < candidates.length; offset++) {
     const business = candidates[(start + offset) % candidates.length]
-    const capacity = serviceCapacity(area, business, context.hours)
+    const capacity = context.capacityAvailable[business.id] ?? 0
     const used = context.capacityUsed[business.id] ?? 0
     if (used < capacity) return business
   }
@@ -3308,10 +3314,45 @@ function reserveBusinessCapacity(context: StepContext, business: WorldBusiness):
 }
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {
+  return Math.floor(serviceCapacityExact(area, business, hours) + CAPACITY_EPSILON)
+}
+
+function serviceCapacityExact(area: WorldArea, business: WorldBusiness, hours: number): number {
   const activeStaff = activeStaffCount(area, business)
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
-  return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+  return BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality
+}
+
+function serviceCapacityAvailableForPeriod(area: WorldArea, hours: number): Record<string, number> {
+  const available: Record<string, number> = {}
+  for (const business of area.businesses) {
+    available[business.id] = serviceCapacity(area, business, hours)
+  }
+  return available
+}
+
+function prepareStepServiceCapacity(area: WorldArea, hours: number): Record<string, number> {
+  const previousCarry = area.serviceCapacityCarry ?? {}
+  const nextCarry: Record<string, number> = {}
+  const available: Record<string, number> = {}
+
+  for (const business of area.businesses) {
+    const total = normalizedCapacityCarry(previousCarry[business.id]) + serviceCapacityExact(area, business, hours)
+    const units = Math.floor(total + CAPACITY_EPSILON)
+    available[business.id] = units
+    const carry = normalizedCapacityCarry(total - units)
+    if (carry > 0) nextCarry[business.id] = carry
+  }
+
+  area.serviceCapacityCarry = Object.keys(nextCarry).length > 0 ? nextCarry : undefined
+  return available
+}
+
+function normalizedCapacityCarry(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value) || value <= CAPACITY_EPSILON) return 0
+  const normalized = value >= 1 - CAPACITY_EPSILON ? 0 : value
+  return Math.max(0, Math.min(normalized, 1 - CAPACITY_EPSILON))
 }
 
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
@@ -3437,6 +3478,7 @@ function cloneArea(area: WorldArea): WorldArea {
       staffCitizenIds: [...business.staffCitizenIds],
     })),
     transactions: area.transactions.map((tx) => ({ ...tx })),
+    serviceCapacityCarry: area.serviceCapacityCarry ? { ...area.serviceCapacityCarry } : undefined,
     areaEvents: area.areaEvents?.map((event) => ({
       ...event,
       needs: { ...event.needs },

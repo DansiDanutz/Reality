@@ -819,6 +819,33 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('sub-hour service capacity carries fractional units across ticks', () => {
+    const start = area({
+      citizens: [sim('c1', { needs: fullNeeds({ hydration: 49 }) })],
+      businesses: [business('water')],
+    })
+    const singleHour = advanceWorldArea(start, HOUR)
+
+    let minuteArea = start
+    let minutePurchases = 0
+    for (let minute = 1; minute <= 60; minute++) {
+      const tick = advanceWorldArea(minuteArea, minute * (HOUR / 60))
+      minuteArea = tick.area
+      minutePurchases += tick.summary.purchases
+    }
+
+    const singleCitizen = singleHour.area.citizens[0]
+    const minuteCitizen = minuteArea.citizens[0]
+    expect(singleHour.summary.purchases).toBe(1)
+    expect(minutePurchases).toBe(singleHour.summary.purchases)
+    expect(minuteArea.businesses[0].cash).toBe(singleHour.area.businesses[0].cash)
+    expect(minuteCitizen.money).toBe(singleCitizen.money)
+    expect(minuteCitizen.needs.hydration).toBeCloseTo(singleCitizen.needs.hydration)
+    expect(minuteArea.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'c1', toId: 'water1', amount: 2 },
+    ])
+  })
+
   test('a business does not mint passive income when nobody needs its service', () => {
     const start = area({
       citizens: [sim('c1', { needs: fullNeeds({ hydration: 100 }) })],

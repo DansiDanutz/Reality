@@ -108,6 +108,7 @@ const area = (): WorldArea => ({
       memo: 'Founder repaid debt to system:hospital.',
     },
   ],
+  serviceCapacityCarry: { ins1: 0.4 },
   areaEvents: [{
     id: 'event1',
     at: 3_000,
@@ -227,6 +228,16 @@ describe('worldSim snapshot codec', () => {
     expect(decodeWorldAreaSnapshot(JSON.stringify({
       version: WORLD_AREA_SNAPSHOT_VERSION,
       area: reviewed,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
+  test('rejects malformed service capacity carry snapshots', () => {
+    const malformed = area()
+    malformed.serviceCapacityCarry = { ins1: 1.2 }
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: malformed,
     }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
