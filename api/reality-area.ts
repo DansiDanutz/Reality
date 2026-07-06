@@ -74,6 +74,7 @@ interface FounderAreaCitizen {
   needs: FounderAreaNeeds
   health: number
   state: { kind: 'active' } | { kind: 'hospitalized'; until: string }
+  homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
   insurancePaidUntil?: string
@@ -238,6 +239,35 @@ interface FounderAreaBusinessDashboard {
   alerts: FounderAreaBusinessAlert[]
 }
 
+interface FounderAreaCitizenDebtDashboard {
+  id: string
+  kind: FounderAreaDebt['kind']
+  creditorId: string
+  amount: number
+  issuedAt: string
+  memo: string
+}
+
+interface FounderAreaCitizenDashboard {
+  id: string
+  name: string
+  displayName: string
+  kind: FounderAreaCitizen['kind']
+  simulated: boolean
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+  state: FounderAreaCitizen['state']['kind']
+  health: number
+  needs: FounderAreaNeeds
+  money: number
+  debt: number
+  debts: FounderAreaCitizenDebtDashboard[]
+  homeBusinessId?: string
+  jobBusinessId?: string
+  insuranceBusinessId?: string
+  insuranceActive: boolean
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -256,6 +286,7 @@ interface FounderAreaDashboard {
   licenses: Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
   firstBuild: FounderAreaFirstBuildRecommendation[]
   existingBusinesses: FounderAreaBusinessDashboard[]
+  citizens: FounderAreaCitizenDashboard[]
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -1020,6 +1051,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     licenses,
     firstBuild: firstBuildRecommendations(state, { demand, supply, licenses }),
     existingBusinesses: state.businesses.map((business) => businessDashboard(state, business)),
+    citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -1262,6 +1294,30 @@ function businessStatus(alerts: FounderAreaBusinessAlert[]): FounderAreaBusiness
   if (alerts.some((alert) => alert.severity === 'critical')) return 'critical'
   if (alerts.length > 0) return 'warning'
   return 'stable'
+}
+
+function citizenDashboard(state: FounderAreaState, citizen: FounderAreaCitizen): FounderAreaCitizenDashboard {
+  const simulated = citizen.kind === 'sim'
+  const now = new Date(state.updatedAt)
+  return {
+    id: citizen.id,
+    name: citizen.name,
+    displayName: simulated ? `${citizen.name} (Sim)` : citizen.name,
+    kind: citizen.kind,
+    simulated,
+    participantLabel: simulated ? 'Sim Citizen' : 'Real Citizen',
+    visualTone: simulated ? 'simulated' : 'real',
+    state: citizen.state.kind,
+    health: citizen.health,
+    needs: { ...citizen.needs },
+    money: citizen.money,
+    debt: totalCitizenDebt(citizen),
+    debts: (citizen.debts ?? []).map((debt) => ({ ...debt })),
+    homeBusinessId: citizen.homeBusinessId,
+    jobBusinessId: citizen.jobBusinessId,
+    insuranceBusinessId: citizen.insuranceBusinessId,
+    insuranceActive: hasActiveInsurance(citizen, now),
+  }
 }
 
 function areaPayload(state: FounderAreaState | null): {

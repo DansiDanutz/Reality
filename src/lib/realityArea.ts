@@ -4,6 +4,7 @@ import type {
   AreaBusinessAlert,
   AreaBusinessDashboard,
   AreaBusinessStatus,
+  AreaCitizenDashboard,
   AreaJobsDashboard,
   AreaNeedsDashboard,
   AreaWorkerCandidateAction,
@@ -183,6 +184,35 @@ export interface RealityAreaBusinessDashboard {
   alerts: AreaBusinessAlert[]
 }
 
+export interface RealityAreaCitizenDebtDashboard {
+  id: string
+  kind: 'medical'
+  creditorId: string
+  amount: number
+  issuedAt: string
+  memo: string
+}
+
+export interface RealityAreaCitizenDashboard {
+  id: string
+  name: string
+  displayName: string
+  kind: 'real' | 'sim'
+  simulated: boolean
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+  state: 'active' | 'hospitalized'
+  health: number
+  needs: RealityAreaNeeds
+  money: number
+  debt: number
+  debts: RealityAreaCitizenDebtDashboard[]
+  homeBusinessId?: string
+  jobBusinessId?: string
+  insuranceBusinessId?: string
+  insuranceActive: boolean
+}
+
 export interface RealityAreaDashboard {
   areaId: string
   updatedAt: string
@@ -201,6 +231,7 @@ export interface RealityAreaDashboard {
   jobs: RealityAreaJobsDashboard
   firstBuild: RealityAreaFirstBuildRecommendation[]
   existingBusinesses: RealityAreaBusinessDashboard[]
+  citizens: RealityAreaCitizenDashboard[]
 }
 
 export interface RealityAreaState {
@@ -438,6 +469,9 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     existingBusinesses: serverDashboard.existingBusinesses.map((business) =>
       mergeRealityAreaBusinessDashboard(business, dashboard.existingBusinesses.find((candidate) => candidate.id === business.id))
     ),
+    citizens: serverDashboard.citizens.map((citizen) =>
+      mergeRealityAreaCitizenDashboard(citizen, dashboard.citizens.find((candidate) => candidate.id === citizen.id))
+    ),
   }
 }
 
@@ -486,6 +520,78 @@ function mergeRealityAreaBusinessDashboard(
       receivablesIssued: 0,
       recentTransactions: [],
     },
+  }
+}
+
+function mergeRealityAreaCitizenDashboard(
+  citizen: RealityAreaCitizenDashboard,
+  fallback: AreaCitizenDashboard | undefined,
+): AreaCitizenDashboard {
+  const fallbackDebts = new Map((fallback?.debts ?? []).map((debt) => [debt.id, debt]))
+  return {
+    ...fallback,
+    id: citizen.id,
+    name: citizen.name,
+    displayName: citizen.displayName,
+    kind: citizen.kind,
+    simulated: citizen.simulated,
+    participantLabel: citizen.participantLabel,
+    visualTone: citizen.visualTone,
+    state: citizen.state,
+    health: citizen.health,
+    needs: { ...citizen.needs },
+    money: citizen.money,
+    debt: citizen.debt,
+    debts: citizen.debts.map((debt) => mergeRealityAreaDebtDashboard(debt, fallbackDebts.get(debt.id), citizen)),
+    homeBusinessId: citizen.homeBusinessId,
+    jobBusinessId: citizen.jobBusinessId,
+    insuranceBusinessId: citizen.insuranceBusinessId,
+    insuranceActive: citizen.insuranceActive,
+    insuranceAction: fallback?.insuranceAction ?? {
+      intent: 'buyInsurance',
+      clientPayload: null,
+      insuranceBusinessId: null,
+      premium: null,
+      available: false,
+      canAfford: false,
+      canBuyNow: false,
+      blockers: ['service_unavailable'],
+    },
+    estateProtection: fallback?.estateProtection ?? {
+      enabled: false,
+      namedHeirCitizenId: null,
+      namedHeirName: null,
+      protectedByInsurance: citizen.insuranceActive,
+      status: 'disabled_until_death_enabled',
+    },
+  }
+}
+
+function mergeRealityAreaDebtDashboard(
+  debt: RealityAreaCitizenDebtDashboard,
+  fallback: AreaCitizenDashboard['debts'][number] | undefined,
+  citizen: RealityAreaCitizenDashboard,
+): AreaCitizenDashboard['debts'][number] {
+  const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
+  const blockers: AreaCitizenDashboard['debts'][number]['blockers'] = []
+  if (citizen.state !== 'active') blockers.push('actor_unavailable')
+  if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
+  return {
+    ...fallback,
+    id: debt.id,
+    kind: debt.kind,
+    creditorId: debt.creditorId,
+    amount: debt.amount,
+    issuedAt: parseInstant(debt.issuedAt),
+    memo: debt.memo,
+    repaymentIntent: 'repayDebt',
+    clientPayload: maxAffordablePayment > 0
+      ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
+      : null,
+    recommendedPayment: maxAffordablePayment,
+    maxAffordablePayment,
+    canRepayNow: blockers.length === 0,
+    blockers,
   }
 }
 
@@ -592,7 +698,9 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     Array.isArray(value.firstBuild) &&
     value.firstBuild.every(isRealityAreaFirstBuildRecommendation) &&
     Array.isArray(value.existingBusinesses) &&
-    value.existingBusinesses.every(isRealityAreaBusinessDashboard)
+    value.existingBusinesses.every(isRealityAreaBusinessDashboard) &&
+    Array.isArray(value.citizens) &&
+    value.citizens.every(isRealityAreaCitizenDashboard)
 }
 
 function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {
@@ -646,6 +754,47 @@ function isBusinessAlert(value: unknown): value is AreaBusinessAlert {
   return isRecord(value) &&
     isBusinessAlertKind(value.kind) &&
     (value.severity === 'warning' || value.severity === 'critical')
+}
+
+function isRealityAreaCitizenDashboard(value: unknown): value is RealityAreaCitizenDashboard {
+  if (!isRecord(value)) return false
+  return typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.displayName === 'string' &&
+    (value.kind === 'real' || value.kind === 'sim') &&
+    typeof value.simulated === 'boolean' &&
+    (value.participantLabel === 'Sim Citizen' || value.participantLabel === 'Real Citizen') &&
+    (value.visualTone === 'simulated' || value.visualTone === 'real') &&
+    (value.state === 'active' || value.state === 'hospitalized') &&
+    typeof value.health === 'number' &&
+    isRealityAreaNeeds(value.needs) &&
+    typeof value.money === 'number' &&
+    typeof value.debt === 'number' &&
+    Array.isArray(value.debts) &&
+    value.debts.every(isRealityAreaCitizenDebtDashboard) &&
+    (typeof value.homeBusinessId === 'string' || value.homeBusinessId === undefined) &&
+    (typeof value.jobBusinessId === 'string' || value.jobBusinessId === undefined) &&
+    (typeof value.insuranceBusinessId === 'string' || value.insuranceBusinessId === undefined) &&
+    typeof value.insuranceActive === 'boolean'
+}
+
+function isRealityAreaCitizenDebtDashboard(value: unknown): value is RealityAreaCitizenDebtDashboard {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    value.kind === 'medical' &&
+    typeof value.creditorId === 'string' &&
+    typeof value.amount === 'number' &&
+    typeof value.issuedAt === 'string' &&
+    typeof value.memo === 'string'
+}
+
+function isRealityAreaNeeds(value: unknown): value is RealityAreaNeeds {
+  return isRecord(value) &&
+    typeof value.hunger === 'number' &&
+    typeof value.hydration === 'number' &&
+    typeof value.energy === 'number' &&
+    typeof value.hygiene === 'number' &&
+    typeof value.fun === 'number'
 }
 
 function isRealityAreaWorkerCandidateDashboard(value: unknown): value is RealityAreaWorkerCandidateDashboard {
@@ -776,6 +925,10 @@ function parseOptionalInstant(value: string | undefined): number | undefined {
   if (!value) return undefined
   const parsed = Date.parse(value)
   return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 function isClaimSource(value: unknown): value is RealityAreaClaimSource {

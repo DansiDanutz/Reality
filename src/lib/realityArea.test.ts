@@ -362,6 +362,8 @@ describe('Reality area client', () => {
     const food = merged.firstBuild.find((recommendation) => recommendation.kind === 'food')
     const worker = merged.jobs.candidates[0]
     const business = merged.existingBusinesses.find((candidate) => candidate.id === 'water-1')
+    const founder = merged.citizens.find((resident) => resident.id === 'citizen-1')
+    const simWater = merged.citizens.find((resident) => resident.id === 'sim-water')
 
     expect(merged.licenses.water).toMatchObject({ slots: 1, used: 1, remaining: 0, saturation: 1 })
     expect(merged.jobs).toMatchObject({
@@ -389,6 +391,25 @@ describe('Reality area client', () => {
       hourlyCapacity: 24,
       status: 'critical',
       alerts: [{ kind: 'understaffed', severity: 'critical' }],
+    })
+    expect(founder).toMatchObject({
+      displayName: 'David',
+      kind: 'real',
+      simulated: false,
+      state: 'hospitalized',
+      money: 199_650,
+      debt: 300,
+      insuranceActive: false,
+    })
+    expect(simWater).toMatchObject({
+      displayName: 'Demo Water Resident (Sim)',
+      kind: 'sim',
+      simulated: true,
+      participantLabel: 'Sim Citizen',
+      visualTone: 'simulated',
+      jobBusinessId: 'water-1',
+      insuranceBusinessId: 'insurance-1',
+      insuranceActive: true,
     })
     expect(water).toMatchObject({
       currentSupply: 1,
@@ -583,6 +604,46 @@ function serverDashboard(): RealityAreaDashboard {
       hourlyCapacity: 24,
       status: 'critical',
       alerts: [{ kind: 'understaffed', severity: 'critical' }],
+    }],
+    citizens: [{
+      id: 'citizen-1',
+      name: 'David',
+      displayName: 'David',
+      kind: 'real',
+      simulated: false,
+      participantLabel: 'Real Citizen',
+      visualTone: 'real',
+      state: 'hospitalized',
+      health: 30,
+      needs: { hunger: 82, hydration: 80, energy: 84, hygiene: 88, fun: 88 },
+      money: 199_650,
+      debt: 300,
+      debts: [{
+        id: 'debt-1',
+        kind: 'medical',
+        creditorId: 'clinic-1',
+        amount: 300,
+        issuedAt: '2026-07-06T03:30:00.000Z',
+        memo: 'David owes medical debt to clinic-1.',
+      }],
+      insuranceActive: false,
+    }, {
+      id: 'sim-water',
+      name: 'Demo Water Resident',
+      displayName: 'Demo Water Resident (Sim)',
+      kind: 'sim',
+      simulated: true,
+      participantLabel: 'Sim Citizen',
+      visualTone: 'simulated',
+      state: 'active',
+      health: 100,
+      needs: { hunger: 90, hydration: 42, energy: 90, hygiene: 90, fun: 90 },
+      money: 100,
+      debt: 0,
+      debts: [],
+      jobBusinessId: 'water-1',
+      insuranceBusinessId: 'insurance-1',
+      insuranceActive: true,
     }],
     firstBuild: [{
       kind: 'food',

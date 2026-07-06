@@ -84,6 +84,25 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     status: string
     alerts: { kind: string; severity: string }[]
   }[]
+  citizens: {
+    id: string
+    name: string
+    displayName: string
+    kind: string
+    simulated: boolean
+    participantLabel: string
+    visualTone: string
+    state: string
+    health: number
+    needs: Record<string, number>
+    money: number
+    debt: number
+    debts: { id: string; kind: string; creditorId: string; amount: number; issuedAt: string; memo: string }[]
+    homeBusinessId?: string
+    jobBusinessId?: string
+    insuranceBusinessId?: string
+    insuranceActive: boolean
+  }[]
 }
 
 afterEach(() => {
@@ -334,6 +353,37 @@ describe('reality area authority API', () => {
       canBuildNow: false,
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
+    })
+    expect(dashboard.citizens.find((resident) => resident.id === CITIZEN_ID)).toMatchObject({
+      id: CITIZEN_ID,
+      name: 'Founder #0012',
+      displayName: 'Founder #0012',
+      kind: 'real',
+      simulated: false,
+      participantLabel: 'Real Citizen',
+      visualTone: 'real',
+      state: 'active',
+      health: 100,
+      money: 200_000,
+      debt: 0,
+      debts: [],
+      insuranceActive: false,
+    })
+    expect(dashboard.citizens.find((resident) => resident.id === 'founder-area-0012:sim-water')).toMatchObject({
+      id: 'founder-area-0012:sim-water',
+      name: 'Demo Water Resident',
+      displayName: 'Demo Water Resident (Sim)',
+      kind: 'sim',
+      simulated: true,
+      participantLabel: 'Sim Citizen',
+      visualTone: 'simulated',
+      state: 'active',
+      health: 100,
+      needs: { hydration: 42 },
+      money: 100,
+      debt: 0,
+      debts: [],
+      insuranceActive: false,
     })
     expect(put).not.toHaveBeenCalled()
   })
