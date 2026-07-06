@@ -6,6 +6,7 @@ import {
   createFounderAreaSession,
   createMemoryFounderAreaClient,
   founderAreaProfileFromCitizen,
+  readFounderCovenantReviewQueue,
   readFounderArea,
   recordFounderCovenantReview,
 } from './founderAreaSession'
@@ -153,6 +154,62 @@ describe('Founder Area session', () => {
     expect(direct.ok).toBe(true)
     if (!direct.ok) throw new Error(`expected direct review helper to succeed: ${direct.error}`)
     expect(direct.area.founderReviewHistory).toHaveLength(2)
+  })
+
+  test('reads a paged founder covenant review queue from a shared memory session', async () => {
+    const repo = createMemoryWorldAreaRepository()
+    const first = createMemoryFounderAreaClient(
+      founderAreaProfileFromCitizen({ citizenId: 'founder-a', name: 'Founder A' }),
+      repo,
+    )
+    const second = createMemoryFounderAreaClient(
+      founderAreaProfileFromCitizen({ citizenId: 'founder-b', name: 'Founder B' }),
+      repo,
+    )
+    const firstClaim = await first.claim(HOUR)
+    const secondClaim = await second.claim(HOUR)
+    expect(firstClaim.ok).toBe(true)
+    expect(secondClaim.ok).toBe(true)
+
+    const firstPage = await first.reviewQueue(HOUR, { limit: 1 })
+    expect(firstPage.ok).toBe(true)
+    if (!firstPage.ok) throw new Error(`expected first queue page: ${firstPage.error}`)
+    expect(firstPage.founderCovenantReviewQueue).toMatchObject({
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      approvalWorkflowEnabled: false,
+      limit: 1,
+      cursor: null,
+      nextCursor: first.profile.areaId,
+      hasMore: true,
+      scanned: 1,
+      current: 1,
+    })
+    expect(firstPage.founderCovenantReviewQueue.items.map((item) => item.founderCitizenId))
+      .toEqual([first.profile.founderId])
+
+    const secondPage = await readFounderCovenantReviewQueue(second.session, HOUR, {
+      limit: 1,
+      cursor: firstPage.founderCovenantReviewQueue.nextCursor ?? undefined,
+    })
+    expect(secondPage.ok).toBe(true)
+    if (!secondPage.ok) throw new Error(`expected second queue page: ${secondPage.error}`)
+    expect(secondPage.founderCovenantReviewQueue).toMatchObject({
+      limit: 1,
+      cursor: first.profile.areaId,
+      nextCursor: null,
+      hasMore: false,
+      scanned: 1,
+      current: 1,
+    })
+    expect(secondPage.founderCovenantReviewQueue.items.map((item) => item.founderCitizenId))
+      .toEqual([second.profile.founderId])
+
+    await expect(first.reviewQueue(HOUR, { limit: 0 }))
+      .resolves.toEqual({ ok: false, error: 'invalid_review_queue_limit' })
   })
 
   test('reads a restored server-seeded founder area without claiming it again', async () => {

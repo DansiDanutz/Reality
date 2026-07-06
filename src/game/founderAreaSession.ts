@@ -6,7 +6,13 @@ import {
   type FounderCovenantManualActionClientPayload,
   type WorldClientIntentPayload,
 } from './worldSim'
-import { runWorldServerCommand, type WorldServerCommandResult } from './worldSimServer'
+import {
+  readWorldFounderCovenantReviewQueue,
+  runWorldServerCommand,
+  type ReadWorldFounderCovenantReviewQueueOptions,
+  type WorldFounderCovenantReviewQueueResult,
+  type WorldServerCommandResult,
+} from './worldSimServer'
 
 export interface FounderAreaProfile {
   founderId: string
@@ -33,7 +39,14 @@ export interface FounderAreaCommandClient {
   advance: (now: number, hours?: number) => Promise<WorldServerCommandResult>
 }
 
-export interface MemoryFounderAreaCommandClient extends FounderAreaCommandClient {
+export interface FounderCovenantReviewQueueClient {
+  reviewQueue: (
+    now: number,
+    options?: ReadWorldFounderCovenantReviewQueueOptions,
+  ) => Promise<WorldFounderCovenantReviewQueueResult>
+}
+
+export interface MemoryFounderAreaCommandClient extends FounderAreaCommandClient, FounderCovenantReviewQueueClient {
   readonly session: FounderAreaSession
 }
 
@@ -86,6 +99,8 @@ export function createMemoryFounderAreaClient(
     apply: (now: number, payload: WorldClientIntentPayload) => applyFounderAreaPayload(session, now, payload),
     review: (now: number, payload: FounderCovenantManualActionClientPayload) =>
       recordFounderCovenantReview(session, now, payload),
+    reviewQueue: (now: number, options?: ReadWorldFounderCovenantReviewQueueOptions) =>
+      readFounderCovenantReviewQueue(session, now, options),
     advance: (now: number, hours = 1) => advanceFounderArea(session, now, hours),
   }
 }
@@ -133,6 +148,14 @@ export async function recordFounderCovenantReview(
     authenticatedReviewerId: session.profile.founderId,
     payload,
   })
+}
+
+export async function readFounderCovenantReviewQueue(
+  session: FounderAreaSession,
+  now: number,
+  options: ReadWorldFounderCovenantReviewQueueOptions = {},
+): Promise<WorldFounderCovenantReviewQueueResult> {
+  return readWorldFounderCovenantReviewQueue(session.repo, now, options)
 }
 
 export async function readFounderArea(
