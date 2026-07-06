@@ -302,6 +302,45 @@ describe('decodeClientWorldIntentPayload', () => {
     }
   })
 
+  test('rejects extra intent fields instead of ignoring client-supplied economics', () => {
+    expect(decodeClientWorldIntentPayload({
+      type: 'buyWater',
+      serviceBusinessId: 'water-a',
+    }, 'founder')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'buyFood',
+      price: 0.01,
+    }, 'founder')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-a',
+      price: 0.01,
+    }, 'founder')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'hireWorker',
+      businessId: 'food-a',
+      workerCitizenId: 'area-1:sim-food',
+      wage: 0,
+    }, 'founder')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'buyInsurance',
+      insuranceBusinessId: 'ins-a',
+      policyLimit: 1_000_000,
+    }, 'founder')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'repayDebt',
+      debtId: 'debt-a',
+      amount: 10,
+      creditorId: 'client-picked-creditor',
+    }, 'founder')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+  })
+
   test('rejects invalid payload shape, actor identity, and intent type', () => {
     expect(decodeClientWorldIntentPayload(null, 'founder')).toEqual({ ok: false, error: 'invalid_payload' })
     expect(decodeClientWorldIntentPayload([], 'founder')).toEqual({ ok: false, error: 'invalid_payload' })

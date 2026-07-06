@@ -68,6 +68,17 @@ const CLIENT_INTENT_TYPES = [
   'buyInsurance',
   'repayDebt',
 ] as const
+type ClientWorldIntentPayloadType = typeof CLIENT_INTENT_TYPES[number]
+const CLIENT_INTENT_ALLOWED_FIELDS: Record<ClientWorldIntentPayloadType, ReadonlySet<string>> = {
+  buildBusiness: new Set(['type', 'businessKind', 'businessId', 'name']),
+  buyWater: new Set(['type']),
+  buyFood: new Set(['type']),
+  buyHousing: new Set(['type']),
+  visitClinic: new Set(['type']),
+  hireWorker: new Set(['type', 'businessId', 'workerCitizenId']),
+  buyInsurance: new Set(['type', 'insuranceBusinessId']),
+  repayDebt: new Set(['type', 'debtId', 'amount']),
+}
 const COVENANT_REVIEW_ACTION_KINDS: FounderCovenantManualActionKind[] = [
   'record_review',
   'send_warning',
@@ -223,6 +234,9 @@ export function decodeClientWorldIntentPayload(
 
   const { type } = payload
   if (!isOneOf(type, CLIENT_INTENT_TYPES)) return { ok: false, error: 'invalid_intent_type' }
+  if (hasUnexpectedClientField(payload, CLIENT_INTENT_ALLOWED_FIELDS[type])) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
 
   switch (type) {
     case 'buildBusiness':
@@ -356,6 +370,10 @@ function readManualEvidenceKinds(value: unknown): FounderCovenantManualEvidenceK
 
 function hasForbiddenClientField(payload: Record<string, unknown>, forbiddenFields: Set<string>): boolean {
   return Object.keys(payload).some((key) => forbiddenFields.has(key))
+}
+
+function hasUnexpectedClientField(payload: Record<string, unknown>, allowedFields: ReadonlySet<string>): boolean {
+  return Object.keys(payload).some((key) => !allowedFields.has(key))
 }
 
 function readClientId(value: unknown): string | null {
