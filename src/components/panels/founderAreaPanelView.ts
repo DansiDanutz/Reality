@@ -108,6 +108,8 @@ export interface FounderCovenantScheduleItem {
   tone: FounderCovenantReviewTone
 }
 
+export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
+
 export function founderIdentitySeatLabel(
   identity: Pick<RealityAreaDashboard['founderIdentity'], 'founderNumber'>,
 ): string {
@@ -727,6 +729,61 @@ export function founderCovenantOperatorQueueItemSummary(
   const status = founderCovenantStatusLabel(item.covenantStatus)
   const review = item.manualReviewRequired ? 'manual review' : 'watch'
   return `${status} · ${review} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
+}
+
+export function founderCovenantOperatorQueueItemTitle(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'founderNumber' | 'areaLabel'>,
+): string {
+  return `#${String(item.founderNumber).padStart(4, '0')} · ${item.areaLabel}`
+}
+
+export function founderCovenantOperatorQueueItemStatusClass(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'manualReviewRequired' | 'covenantStatus' | 'overdue' | 'activityReview'>,
+): FounderCovenantOperatorQueueStatusClass {
+  if (item.manualReviewRequired || item.covenantStatus === 'manual_review') return 'manual_review'
+  if (item.overdue || item.covenantStatus === 'watch' || item.activityReview.atRisk) return 'watch'
+  return 'met'
+}
+
+export function founderCovenantOperatorQueueItemStatusLabel(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'manualReviewRequired' | 'covenantStatus' | 'overdue' | 'activityReview'>,
+): string {
+  if (item.manualReviewRequired || item.covenantStatus === 'manual_review') return 'Manual'
+  if (item.overdue) return 'Due'
+  if (item.covenantStatus === 'watch' || item.activityReview.atRisk) return 'Watch'
+  return 'Tracked'
+}
+
+export function founderCovenantOperatorQueueItemDateSummary(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'scanStatus' | 'checkedAt' | 'lastReviewAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt'>,
+): string {
+  const lastReview = item.lastReviewAt ? shortDate(item.lastReviewAt) : 'none'
+  return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · weekly ${shortDate(item.nextWeeklyReviewAt)} · monthly ${shortDate(item.nextMonthlyReviewAt)}`
+}
+
+export function founderCovenantOperatorQueueSignalText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'signalKinds'>,
+): string {
+  return item.signalKinds.length > 0 ? item.signalKinds.join(', ') : 'none'
+}
+
+function founderCovenantOperatorQueueScanStatusLabel(
+  status: RealityFounderCovenantReviewQueueItem['scanStatus'],
+): string {
+  switch (status) {
+    case 'caught_up':
+      return 'caught up'
+    case 'current':
+      return 'current'
+    case 'invalid':
+      return 'invalid'
+    case 'unavailable':
+      return 'unavailable'
+  }
+}
+
+function shortDate(value: string): string {
+  return value.slice(0, 10)
 }
 
 function founderCovenantNextActionLabel(
