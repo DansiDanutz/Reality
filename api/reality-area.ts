@@ -342,6 +342,11 @@ type FounderAreaLegacyRoyaltyBlocker =
   | 'waitlist_handoff_disabled'
   | 'treasury_payout_disabled'
   | 'compliance_review_required'
+type FounderAreaGrowthBlocker =
+  | 'telegram_invite_links_disabled'
+  | 'invite_tracking_disabled'
+  | 'automatic_growth_rewards_disabled'
+  | 'manual_review_required'
 
 const DISABLED_SETTLEMENT_INTENT_TYPES = [
   'connectTonWallet',
@@ -649,6 +654,18 @@ interface FounderAreaLegacyRoyaltyDashboard {
   blockers: readonly FounderAreaLegacyRoyaltyBlocker[]
 }
 
+interface FounderAreaGrowthDashboard {
+  channel: 'telegram'
+  inviteLinkEnabled: false
+  inviteTrackingEnabled: false
+  automaticRewardsEnabled: false
+  manualEvidenceRequired: true
+  realPopulation: number
+  simPopulation: number
+  trackedInvites: 0
+  blockers: readonly FounderAreaGrowthBlocker[]
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -671,6 +688,7 @@ interface FounderAreaDashboard {
   citizens: FounderAreaCitizenDashboard[]
   survival: FounderAreaSurvivalDashboard
   ledger: FounderAreaLedgerDashboard
+  growth: FounderAreaGrowthDashboard
   settlement: FounderAreaSettlementDashboard
   legacyRoyalty: FounderAreaLegacyRoyaltyDashboard
   founderCovenant: FounderAreaCovenantReview
@@ -2444,9 +2462,29 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
     survival: survivalDashboard(state),
     ledger: areaLedgerDashboard(state),
+    growth: areaGrowthDashboard(state),
     settlement: areaSettlementDashboard(state),
     legacyRoyalty: areaLegacyRoyaltyDashboard(state),
     founderCovenant: state.founderCovenant,
+  }
+}
+
+function areaGrowthDashboard(state: FounderAreaState): FounderAreaGrowthDashboard {
+  return {
+    channel: 'telegram',
+    inviteLinkEnabled: false,
+    inviteTrackingEnabled: false,
+    automaticRewardsEnabled: false,
+    manualEvidenceRequired: true,
+    realPopulation: state.citizens.filter((citizen) => citizen.kind === 'real').length,
+    simPopulation: state.citizens.filter((citizen) => citizen.kind === 'sim').length,
+    trackedInvites: 0,
+    blockers: [
+      'telegram_invite_links_disabled',
+      'invite_tracking_disabled',
+      'automatic_growth_rewards_disabled',
+      'manual_review_required',
+    ],
   }
 }
 

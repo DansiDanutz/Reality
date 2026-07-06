@@ -1054,6 +1054,7 @@ describe('reality area authority API', () => {
         openPositions: 0,
         understaffedBusinesses: 0,
       },
+      growth: growthDashboard(1, 3),
       settlement: settlementDashboard(200_000),
     })
     expect(put).toHaveBeenCalledWith(
@@ -4641,9 +4642,29 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
       openPositions: 0,
       understaffedBusinesses: 0,
     },
+    growth: growthDashboard(1, 3),
     settlement: settlementDashboard(state.balance),
     legacyRoyalty: legacyRoyaltyDashboard(state),
     founderCovenant: state.founderCovenant,
+  } as const
+}
+
+function growthDashboard(realPopulation: number, simPopulation: number) {
+  return {
+    channel: 'telegram',
+    inviteLinkEnabled: false,
+    inviteTrackingEnabled: false,
+    automaticRewardsEnabled: false,
+    manualEvidenceRequired: true,
+    realPopulation,
+    simPopulation,
+    trackedInvites: 0,
+    blockers: [
+      'telegram_invite_links_disabled',
+      'invite_tracking_disabled',
+      'automatic_growth_rewards_disabled',
+      'manual_review_required',
+    ],
   } as const
 }
 

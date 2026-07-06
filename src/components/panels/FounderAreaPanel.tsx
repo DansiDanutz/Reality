@@ -57,6 +57,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderGrowthBlockerText,
+  founderGrowthStatusLabel,
+  founderGrowthSummaryItems,
   founderIdentityClaimSourceLabel,
   founderIdentitySeatLabel,
   founderIdentityTelegramStatusLabel,
@@ -119,6 +122,7 @@ export default function FounderAreaPanel() {
   const result = panelState.status === 'ready' ? panelState.result : null
   const dashboard = result?.dashboard
   const founderIdentityDashboard = dashboard ? getFounderIdentityDashboard(dashboard) : null
+  const growthDashboard = dashboard ? getFounderGrowthDashboard(dashboard) : null
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
   const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
   const area = result?.area
@@ -467,6 +471,34 @@ export default function FounderAreaPanel() {
             )}
           </section>
 
+          {growthDashboard && (
+            <section className="founder-section" aria-label="Telegram growth">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Telegram Growth</h3>
+                <span className="item-desc">{founderGrowthStatusLabel(growthDashboard)}</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Telegram growth summary">
+                {founderGrowthSummaryItems(growthDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <ul className="item-list founder-growth-blockers" aria-label="Telegram growth blockers">
+                {growthDashboard.blockers.map((blocker) => (
+                  <li className="item founder-growth-blocker" key={blocker}>
+                    <div className="item-info">
+                      <span className="item-name">{founderGrowthBlockerText(blocker)}</span>
+                      <span className="item-desc">Manual evidence only</span>
+                    </div>
+                    <span className="item-locked mono">disabled</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="founder-section" aria-label="Needs Dashboard">
             <h3 className="founder-section-title">Needs Dashboard</h3>
             <div className="founder-need-grid">
@@ -784,6 +816,12 @@ function getFounderIdentityDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): RealityAreaDashboard['founderIdentity'] | null {
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'founderIdentity'>>).founderIdentity ?? null
+}
+
+function getFounderGrowthDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaDashboard['growth'] | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'growth'>>).growth ?? null
 }
 
 function getFounderSettlementDashboard(

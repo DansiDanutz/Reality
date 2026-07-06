@@ -423,6 +423,24 @@ export interface RealityAreaLedgerDashboard {
   recentTransactions: RealityAreaTransaction[]
 }
 
+export type RealityAreaGrowthBlocker =
+  | 'telegram_invite_links_disabled'
+  | 'invite_tracking_disabled'
+  | 'automatic_growth_rewards_disabled'
+  | 'manual_review_required'
+
+export interface RealityAreaGrowthDashboard {
+  channel: 'telegram'
+  inviteLinkEnabled: false
+  inviteTrackingEnabled: false
+  automaticRewardsEnabled: false
+  manualEvidenceRequired: true
+  realPopulation: number
+  simPopulation: number
+  trackedInvites: 0
+  blockers: RealityAreaGrowthBlocker[]
+}
+
 export type RealityAreaSettlementBlocker =
   | 'ton_connect_disabled'
   | 'deposits_disabled'
@@ -587,12 +605,13 @@ export interface RealityAreaDashboard {
   citizens: RealityAreaCitizenDashboard[]
   survival: RealityAreaSurvivalDashboard
   ledger: RealityAreaLedgerDashboard
+  growth: RealityAreaGrowthDashboard
   settlement: RealityAreaSettlementDashboard
   legacyRoyalty: RealityAreaLegacyRoyaltyDashboard
   founderCovenant: RealityAreaCovenantReview
 }
 
-export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<RealityAreaDashboard, 'founderIdentity' | 'settlement' | 'legacyRoyalty'>
+export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<RealityAreaDashboard, 'founderIdentity' | 'growth' | 'settlement' | 'legacyRoyalty'>
 
 export interface RealityAreaState {
   version: 1
@@ -859,6 +878,10 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     ),
     survival: mergeRealityAreaSurvivalDashboard(serverDashboard.survival),
     ledger: mergeRealityAreaLedgerDashboard(serverDashboard.ledger),
+    growth: {
+      ...serverDashboard.growth,
+      blockers: [...serverDashboard.growth.blockers],
+    },
     settlement: {
       ...serverDashboard.settlement,
       blockers: [...serverDashboard.settlement.blockers],
@@ -1277,6 +1300,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     value.citizens.every(isRealityAreaCitizenDashboard) &&
     isRealityAreaSurvivalDashboard(value.survival) &&
     isRealityAreaLedgerDashboard(value.ledger) &&
+    isRealityAreaGrowthDashboard(value.growth) &&
     isRealityAreaSettlementDashboard(value.settlement) &&
     isRealityAreaLegacyRoyaltyDashboard(value.legacyRoyalty) &&
     isRealityAreaCovenantReview(value.founderCovenant)
@@ -1297,6 +1321,27 @@ function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedge
     isTransactionKindNumberRecord(value.totalsByKind) &&
     Array.isArray(value.recentTransactions) &&
     value.recentTransactions.every(isRealityAreaTransaction)
+}
+
+function isRealityAreaGrowthDashboard(value: unknown): value is RealityAreaGrowthDashboard {
+  return isRecord(value) &&
+    value.channel === 'telegram' &&
+    value.inviteLinkEnabled === false &&
+    value.inviteTrackingEnabled === false &&
+    value.automaticRewardsEnabled === false &&
+    value.manualEvidenceRequired === true &&
+    typeof value.realPopulation === 'number' &&
+    typeof value.simPopulation === 'number' &&
+    value.trackedInvites === 0 &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaGrowthBlocker)
+}
+
+function isRealityAreaGrowthBlocker(value: unknown): value is RealityAreaGrowthBlocker {
+  return value === 'telegram_invite_links_disabled' ||
+    value === 'invite_tracking_disabled' ||
+    value === 'automatic_growth_rewards_disabled' ||
+    value === 'manual_review_required'
 }
 
 function isRealityAreaSettlementDashboard(value: unknown): value is RealityAreaSettlementDashboard {

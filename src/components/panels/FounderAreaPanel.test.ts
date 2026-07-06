@@ -31,6 +31,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderGrowthBlockerText,
+  founderGrowthStatusLabel,
+  founderGrowthSummaryItems,
   founderIdentityClaimSourceLabel,
   founderIdentitySeatLabel,
   founderIdentityTelegramStatusLabel,
@@ -66,6 +69,37 @@ describe('FounderAreaPanel covenant presenters', () => {
       telegramUserId: null,
       telegramAccountId: null,
     })).toBe('Telegram pending')
+  })
+
+  test('summarizes disabled Telegram growth tracking for founder review', () => {
+    const growth: Parameters<typeof founderGrowthSummaryItems>[0] = {
+      channel: 'telegram',
+      inviteLinkEnabled: false,
+      inviteTrackingEnabled: false,
+      automaticRewardsEnabled: false,
+      manualEvidenceRequired: true,
+      realPopulation: 1,
+      simPopulation: 3,
+      trackedInvites: 0,
+      blockers: [
+        'telegram_invite_links_disabled',
+        'invite_tracking_disabled',
+        'automatic_growth_rewards_disabled',
+        'manual_review_required',
+      ],
+    }
+
+    expect(founderGrowthStatusLabel(growth)).toBe('Manual evidence')
+    expect(founderGrowthSummaryItems(growth)).toEqual([
+      { key: 'channel', label: 'Channel', value: 'Telegram', tone: 'warning' },
+      { key: 'real', label: 'Real citizens', value: '1', tone: 'warning' },
+      { key: 'sim', label: 'Sim citizens', value: '3', tone: 'stable' },
+      { key: 'invites', label: 'Tracked invites', value: '0', tone: 'warning' },
+    ])
+    expect(founderGrowthBlockerText('telegram_invite_links_disabled')).toBe('Telegram invite links')
+    expect(founderGrowthBlockerText('invite_tracking_disabled')).toBe('Invite tracking')
+    expect(founderGrowthBlockerText('automatic_growth_rewards_disabled')).toBe('Automatic growth rewards')
+    expect(founderGrowthBlockerText('manual_review_required')).toBe('Manual review')
   })
 
   test('labels covenant status with operational tones', () => {

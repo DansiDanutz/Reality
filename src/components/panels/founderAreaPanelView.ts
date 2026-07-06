@@ -18,6 +18,8 @@ import type {
 } from '../../game/worldSim'
 import type {
   RealityAreaDashboard,
+  RealityAreaGrowthBlocker,
+  RealityAreaGrowthDashboard,
   RealityAreaLegacyRoyaltyBlocker,
   RealityAreaLegacyRoyaltyDashboard,
   RealityAreaSettlementBlocker,
@@ -48,6 +50,13 @@ export interface FounderSettlementSummaryItem {
 }
 
 export interface FounderLegacyRoyaltySummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderGrowthSummaryItem {
   key: string
   label: string
   value: string
@@ -88,6 +97,49 @@ export function founderIdentityTelegramStatusLabel(
   if (identity.telegramUserId) return `Telegram linked ${identity.telegramUserId}`
   if (identity.telegramAccountId) return `Telegram linked ${identity.telegramAccountId.replace(/^telegram:/, '')}`
   return 'Telegram pending'
+}
+
+export function founderGrowthStatusLabel(
+  growth: Pick<RealityAreaGrowthDashboard, 'manualEvidenceRequired'>,
+): string {
+  return growth.manualEvidenceRequired ? 'Manual evidence' : 'Tracked'
+}
+
+export function founderGrowthSummaryItems(growth: RealityAreaGrowthDashboard): FounderGrowthSummaryItem[] {
+  return [{
+    key: 'channel',
+    label: 'Channel',
+    value: growth.channel === 'telegram' ? 'Telegram' : growth.channel,
+    tone: 'warning',
+  }, {
+    key: 'real',
+    label: 'Real citizens',
+    value: String(growth.realPopulation),
+    tone: growth.realPopulation > 1 ? 'stable' : 'warning',
+  }, {
+    key: 'sim',
+    label: 'Sim citizens',
+    value: String(growth.simPopulation),
+    tone: growth.simPopulation > 0 ? 'stable' : 'warning',
+  }, {
+    key: 'invites',
+    label: 'Tracked invites',
+    value: String(growth.trackedInvites),
+    tone: 'warning',
+  }]
+}
+
+export function founderGrowthBlockerText(blocker: RealityAreaGrowthBlocker): string {
+  switch (blocker) {
+    case 'telegram_invite_links_disabled':
+      return 'Telegram invite links'
+    case 'invite_tracking_disabled':
+      return 'Invite tracking'
+    case 'automatic_growth_rewards_disabled':
+      return 'Automatic growth rewards'
+    case 'manual_review_required':
+      return 'Manual review'
+  }
 }
 
 export function founderSettlementStatusLabel(settlement: Pick<RealityAreaSettlementDashboard, 'mode'>): string {
