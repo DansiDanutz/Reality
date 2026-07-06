@@ -3286,9 +3286,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const rawIntent = (req.body as { intent?: unknown } | undefined)?.intent
+  const rawIntent = readServerClockOrBodyIntent(req)
   const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
   if (req.method === 'POST' && intentType === 'tickAreas') {
+    try {
+      await handleServerClockTickAreas(req, res, rawIntent)
+    } catch {
+      res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
+    }
+    return
+  }
+  if (req.method === 'GET' && intentType === 'tickAreas') {
     try {
       await handleServerClockTickAreas(req, res, rawIntent)
     } catch {
@@ -4585,14 +4593,31 @@ function readAuth(req: VercelRequest): { citizenId: string; token: string } | nu
   return citizenId && token ? { citizenId, token } : null
 }
 
+function readServerClockOrBodyIntent(req: VercelRequest): unknown {
+  if (req.method === 'GET' && field(req.query, 'clock') === 'tickAreas') {
+    const limit = field(req.query, 'limit')
+    return {
+      type: 'tickAreas',
+      ...(limit ? { limit: Number(limit) } : {}),
+    }
+  }
+  return (req.body as { intent?: unknown } | undefined)?.intent
+}
+
 function hasServerClockAuthority(req: VercelRequest): boolean {
   const expected = process.env[SERVER_CLOCK_TOKEN_ENV]?.trim()
   if (!expected) return false
 
-  const provided = header(req, SERVER_CLOCK_TOKEN_HEADER)
+  const provided = header(req, SERVER_CLOCK_TOKEN_HEADER) ?? bearerToken(req)
   if (!provided) return false
 
   return tokenMatches(provided, expected)
+}
+
+function bearerToken(req: VercelRequest): string | null {
+  const authorization = header(req, 'authorization')
+  const match = authorization?.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || null
 }
 
 function header(req: VercelRequest, key: string): string | null {

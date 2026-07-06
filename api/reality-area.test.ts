@@ -2309,6 +2309,68 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('tickAreas accepts cron-style GET with bearer server-clock authority', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const current = {
+      ...existingState(),
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://current-clock-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(current), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        checkedAt: '2026-07-06T08:00:00.000Z',
+        limit: 1,
+        scanned: 1,
+        caughtUp: 0,
+        current: 1,
+        failed: 0,
+        hasMore: false,
+        results: [{
+          citizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          status: 'current',
+          updatedAt: '2026-07-06T08:00:00.000Z',
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('tickAreas GET rejects invalid limits before scanning areas', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '101' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'invalid_limit',
+      error: 'Server clock area limit must be between 1 and 100.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas rejects client-controlled fields before scanning areas', async () => {
     const res = responseRecorder()
 
