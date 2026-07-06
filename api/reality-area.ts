@@ -83,6 +83,7 @@ interface FounderAreaCitizen {
   jobBusinessId?: string
   insuranceBusinessId?: string
   insurancePaidUntil?: string
+  heirCitizenId?: string
 }
 
 interface FounderAreaDebt {
@@ -526,6 +527,7 @@ interface FounderAreaCitizenDashboard {
   homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
+  heirCitizenId?: string
   insuranceActive: boolean
   insuranceAction: FounderAreaInsuranceActionDashboard
   estateProtection: FounderAreaEstateProtectionDashboard
@@ -794,6 +796,7 @@ const FORBIDDEN_HIRE_FIELDS = new Set([
   'amount',
   'price',
   'wagePerHour',
+  'heirCitizenId',
   'staffCitizenIds',
   'businesses',
   'transactions',
@@ -813,6 +816,7 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
   'amount',
   'price',
   'wagePerHour',
+  'heirCitizenId',
   'staffCitizenIds',
   'businessId',
   'workerCitizenId',
@@ -836,6 +840,7 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
   'cash',
   'price',
   'wagePerHour',
+  'heirCitizenId',
   'creditorId',
   'debt',
   'debts',
@@ -857,6 +862,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'amount',
   'price',
   'wagePerHour',
+  'heirCitizenId',
   'reviewerId',
   'authorityGate',
   'reviewedAt',
@@ -911,6 +917,7 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
   'cash',
   'amount',
   'price',
+  'heirCitizenId',
   'businesses',
   'transactions',
   'citizens',
@@ -933,6 +940,7 @@ const FORBIDDEN_INSURANCE_FIELDS = new Set([
   'price',
   'wagePerHour',
   'insurancePaidUntil',
+  'heirCitizenId',
   'businesses',
   'transactions',
   'citizens',
@@ -953,6 +961,7 @@ const FORBIDDEN_BUILD_FIELDS = new Set([
   'price',
   'wagePerHour',
   'quality',
+  'heirCitizenId',
   'blueprint',
   'businesses',
   'transactions',
@@ -2608,9 +2617,10 @@ function citizenDashboard(state: FounderAreaState, citizen: FounderAreaCitizen):
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
+    heirCitizenId: citizen.heirCitizenId,
     insuranceActive: hasActiveInsurance(citizen, now),
     insuranceAction: insuranceActionDashboard(state, citizen, now),
-    estateProtection: estateProtectionDashboard(citizen, now),
+    estateProtection: estateProtectionDashboard(state, citizen, now),
   }
 }
 
@@ -2663,13 +2673,17 @@ function insuranceActionDashboard(
 }
 
 function estateProtectionDashboard(
+  state: FounderAreaState,
   citizen: FounderAreaCitizen,
   now: Date,
 ): FounderAreaEstateProtectionDashboard {
+  const heir = citizen.heirCitizenId
+    ? state.citizens.find((candidate) => candidate.id === citizen.heirCitizenId && candidate.kind === 'real')
+    : undefined
   return {
     enabled: false,
-    namedHeirCitizenId: null,
-    namedHeirName: null,
+    namedHeirCitizenId: heir?.id ?? null,
+    namedHeirName: heir?.name ?? null,
     protectedByInsurance: hasActiveInsurance(citizen, now),
     status: 'disabled_until_death_enabled',
   }

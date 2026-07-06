@@ -996,6 +996,75 @@ describe('Reality area client', () => {
       reason: 'Local demand is waiting for this service.',
     })
   })
+
+  test('preserves named heir hooks while estate protection stays disabled', () => {
+    const baseState = serverState()
+    const state: RealityAreaState = {
+      ...baseState,
+      citizens: [
+        {
+          ...baseState.citizens[0],
+          heirCitizenId: 'heir-1',
+          insuranceBusinessId: 'insurance-1',
+          insurancePaidUntil: '2026-08-06T03:30:00.000Z',
+        },
+        ...baseState.citizens.slice(1),
+        {
+          id: 'heir-1',
+          name: 'Ada Heir',
+          kind: 'real',
+          money: 500,
+          debt: 0,
+          needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
+          health: 100,
+          state: { kind: 'active' },
+        },
+      ],
+    }
+    const world = realityAreaStateToWorldArea(state)
+    const localDashboard = areaNeedsDashboard(world)
+    const dashboard = serverDashboard()
+    const serverDashboardWithHeir: RealityAreaDashboard = {
+      ...dashboard,
+      citizens: dashboard.citizens.map((citizen) =>
+        citizen.id === 'citizen-1'
+          ? {
+            ...citizen,
+            heirCitizenId: 'heir-1',
+            insuranceActive: true,
+            estateProtection: {
+              enabled: false,
+              namedHeirCitizenId: 'heir-1',
+              namedHeirName: 'Ada Heir',
+              protectedByInsurance: true,
+              status: 'disabled_until_death_enabled',
+            },
+          }
+          : citizen
+      ),
+    }
+
+    expect(world.citizens.find((citizen) => citizen.id === 'citizen-1')?.heirCitizenId).toBe('heir-1')
+    expect(localDashboard.citizens.find((citizen) => citizen.id === 'citizen-1')?.estateProtection).toEqual({
+      enabled: false,
+      namedHeirCitizenId: 'heir-1',
+      namedHeirName: 'Ada Heir',
+      protectedByInsurance: true,
+      status: 'disabled_until_death_enabled',
+    })
+
+    const merged = mergeRealityAreaDashboardIntoWorldDashboard(localDashboard, serverDashboardWithHeir)
+    expect(merged.citizens.find((citizen) => citizen.id === 'citizen-1')).toMatchObject({
+      heirCitizenId: 'heir-1',
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: 'heir-1',
+        namedHeirName: 'Ada Heir',
+        protectedByInsurance: true,
+        status: 'disabled_until_death_enabled',
+      },
+    })
+  })
 })
 
 function jsonResponse(status: number, body: unknown): Response {

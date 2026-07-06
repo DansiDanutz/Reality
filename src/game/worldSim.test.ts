@@ -2459,6 +2459,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         homeBusinessId: 'home1',
         jobBusinessId: 'food1',
         insuranceBusinessId: 'ins1',
+        heirCitizenId: 'real-patient',
         insuranceActive: true,
         insuranceAction: {
           intent: 'buyInsurance',

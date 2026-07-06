@@ -477,6 +477,11 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      heirCitizenId: 'heir-1',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       stages: [],
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
@@ -1300,6 +1305,57 @@ describe('reality area authority API', () => {
         namedHeirCitizenId: null,
         namedHeirName: null,
         protectedByInsurance: false,
+        status: 'disabled_until_death_enabled',
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('dashboard preserves named heir evidence without enabling estate transfer', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const heirId = 'citizen-heir'
+    const founderWithHeir = withCitizen(existingState(), CITIZEN_ID, {
+      heirCitizenId: heirId,
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-08-06T03:00:00.000Z',
+    })
+    const existing = {
+      ...founderWithHeir,
+      citizens: [
+        ...founderWithHeir.citizens,
+        {
+          id: heirId,
+          name: 'Ada Heir',
+          kind: 'real',
+          money: 500,
+          debt: 0,
+          needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
+          health: 100,
+          state: { kind: 'active' },
+        },
+      ],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://heir-dashboard-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { state: typeof existing; dashboard: DashboardWithBuildGuidance }
+    expect(body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)).toMatchObject({
+      heirCitizenId: heirId,
+    })
+    expect(body.dashboard.citizens.find((citizen) => citizen.id === CITIZEN_ID)).toMatchObject({
+      heirCitizenId: heirId,
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: heirId,
+        namedHeirName: 'Ada Heir',
+        protectedByInsurance: true,
         status: 'disabled_until_death_enabled',
       },
     })
