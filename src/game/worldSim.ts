@@ -450,6 +450,7 @@ export interface FounderCovenantReviewHistoryItem {
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
+  manualActions: FounderCovenantManualAction[]
   reviewSchedule: FounderCovenantReviewSchedule | null
 }
 
@@ -470,6 +471,7 @@ export interface FounderCovenantLatestReview {
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
+  manualActions: FounderCovenantManualAction[]
   reviewSchedule: FounderCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
@@ -1514,6 +1516,7 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
     reviewSchedule: latest.reviewSchedule ? { ...latest.reviewSchedule } : null,
     evidenceOnly: true,
     automationEnabled: false,
@@ -1530,6 +1533,9 @@ function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryIte
     activityReview: legacyEntry.activityReview ? { ...legacyEntry.activityReview } : null,
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
+      : [],
+    manualActions: Array.isArray(legacyEntry.manualActions)
+      ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
       : [],
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
@@ -1557,6 +1563,14 @@ function founderCovenantReviewChecklistSnapshot(
   item: FounderCovenantReviewChecklistItem,
 ): FounderCovenantReviewChecklistItem {
   return { ...item }
+}
+
+function founderCovenantManualActionSnapshot(action: FounderCovenantManualAction): FounderCovenantManualAction {
+  return {
+    ...action,
+    authorityGate: { ...action.authorityGate, executionEnabled: false },
+    clientPayload: null,
+  }
 }
 
 function founderCovenantReviewSchedule(area: WorldArea): FounderCovenantReviewSchedule | null {

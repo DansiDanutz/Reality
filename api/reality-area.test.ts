@@ -427,6 +427,19 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      manualActions: [],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      clientPayload: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+      },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       reviewSchedule: {
         overdue: true,
       },
@@ -2597,6 +2610,7 @@ describe('reality area authority API', () => {
           signals: unknown[]
           activityReview: unknown
           reviewChecklist: unknown[]
+          manualActions: unknown[]
           reviewSchedule: unknown
         }[]
       }
@@ -2648,6 +2662,11 @@ describe('reality area authority API', () => {
         status: 'watch',
         evidence: 'Covenant signals need weekly/monthly review.',
       }]),
+      manualActions: manualReviewActionSnapshots({
+        warning: true,
+        probation: true,
+        replacement: false,
+      }),
       reviewSchedule: covenantReviewSchedule({
         anchorAt: '2026-07-06T03:00:00.000Z',
         checkedAt: '2026-07-06T08:00:00.000Z',
@@ -2666,6 +2685,7 @@ describe('reality area authority API', () => {
       signals: body.state.founderReviewHistory[0].signals,
       activityReview: body.state.founderReviewHistory[0].activityReview,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
+      manualActions: body.state.founderReviewHistory[0].manualActions,
       reviewSchedule: body.state.founderReviewHistory[0].reviewSchedule,
       evidenceOnly: true,
       automationEnabled: false,
@@ -3486,6 +3506,14 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
       : 'Replacement is not suggested and waitlist handoff is disabled.',
     clientPayload: null,
   }]
+}
+
+function manualReviewActionSnapshots(input: { warning: boolean; probation: boolean; replacement: boolean }) {
+  return manualReviewActions(input).map((action) => ({
+    ...action,
+    authorityGate: { ...action.authorityGate, executionEnabled: false },
+    clientPayload: null,
+  }))
 }
 
 function areaReviewerEvidenceGate(executionEnabled: boolean) {

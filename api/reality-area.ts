@@ -192,6 +192,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
+  manualActions: FounderAreaCovenantManualAction[]
   reviewSchedule: FounderAreaCovenantReviewSchedule | null
 }
 
@@ -212,6 +213,7 @@ interface FounderAreaCovenantLatestReview {
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
+  manualActions: FounderAreaCovenantManualAction[]
   reviewSchedule: FounderAreaCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
@@ -785,6 +787,8 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'manualReviewRequired',
   'activityReview',
   'reviewChecklist',
+  'manualActions',
+  'clientPayload',
   'reviewSchedule',
   'checkedAt',
   'score',
@@ -1480,6 +1484,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
     reviewSchedule: latest.reviewSchedule ? { ...latest.reviewSchedule } : null,
     evidenceOnly: true,
     automationEnabled: false,
@@ -1507,6 +1512,9 @@ function founderCovenantReviewHistoryItem(
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
+    manualActions: Array.isArray(legacyEntry.manualActions)
+      ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
+      : [],
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
 }
@@ -1533,6 +1541,14 @@ function founderCovenantReviewChecklistSnapshot(
   item: FounderAreaCovenantReviewChecklistItem,
 ): FounderAreaCovenantReviewChecklistItem {
   return { ...item }
+}
+
+function founderCovenantManualActionSnapshot(action: FounderAreaCovenantManualAction): FounderAreaCovenantManualAction {
+  return {
+    ...action,
+    authorityGate: { ...action.authorityGate, executionEnabled: false },
+    clientPayload: null,
+  }
 }
 
 function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAreaCovenantReviewSchedule {
@@ -2961,6 +2977,7 @@ function applyRecordCovenantReviewIntent(
     signals: review.signals.map(founderCovenantSignalSnapshot),
     activityReview: { ...review.activityReview },
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     reviewSchedule: { ...review.reviewSchedule },
   }
 

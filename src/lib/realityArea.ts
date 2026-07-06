@@ -163,6 +163,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
+  manualActions: RealityAreaCovenantManualAction[]
   reviewSchedule: RealityAreaCovenantReviewSchedule | null
 }
 
@@ -183,6 +184,7 @@ export interface RealityAreaCovenantLatestReview {
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
+  manualActions: RealityAreaCovenantManualAction[]
   reviewSchedule: RealityAreaCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
@@ -745,6 +747,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         signals: review.latestReview.signals.map(realityCovenantSignalToWorldSignal),
         activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
         reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
+        manualActions: review.latestReview.manualActions.map(realityCovenantManualActionToWorldAction),
         reviewSchedule: review.latestReview.reviewSchedule === null
           ? null
           : mergeRealityAreaCovenantReviewSchedule(review.latestReview.reviewSchedule),
@@ -785,7 +788,18 @@ function realityReviewHistoryToWorldReviewHistory(
     signals: entry.signals.map(realityCovenantSignalToWorldSignal),
     activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
     reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
+    manualActions: entry.manualActions.map(realityCovenantManualActionToWorldAction),
     reviewSchedule: entry.reviewSchedule === null ? null : mergeRealityAreaCovenantReviewSchedule(entry.reviewSchedule),
+  }
+}
+
+function realityCovenantManualActionToWorldAction(
+  action: RealityAreaCovenantManualAction,
+): FounderCovenantReviewHistoryItem['manualActions'][number] {
+  return {
+    ...action,
+    authorityGate: { ...action.authorityGate },
+    clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
   }
 }
 
@@ -1162,6 +1176,8 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
+    Array.isArray(value.manualActions) &&
+    value.manualActions.every(isRealityAreaCovenantReviewActionSnapshot) &&
     (value.reviewSchedule === null || isRealityAreaCovenantReviewSchedule(value.reviewSchedule))
 }
 
@@ -1179,6 +1195,8 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
+    Array.isArray(value.manualActions) &&
+    value.manualActions.every(isRealityAreaCovenantReviewActionSnapshot) &&
     (value.reviewSchedule === null || isRealityAreaCovenantReviewSchedule(value.reviewSchedule)) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
@@ -1212,6 +1230,13 @@ function isRealityAreaCovenantReviewSchedule(value: unknown): value is RealityAr
     typeof value.overdue === 'boolean' &&
     value.overdue === (value.weeklyReviewDue || value.monthlyReviewDue) &&
     value.automationEnabled === false
+}
+
+function isRealityAreaCovenantReviewActionSnapshot(value: unknown): value is RealityAreaCovenantManualAction {
+  return isRealityAreaCovenantManualAction(value) &&
+    value.automationEnabled === false &&
+    value.clientPayload === null &&
+    value.authorityGate.executionEnabled === false
 }
 
 function isRealityAreaCovenantNotificationDraft(value: unknown): value is RealityAreaCovenantNotificationDraft {

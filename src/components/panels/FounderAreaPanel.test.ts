@@ -6,6 +6,7 @@ import {
   founderCovenantManualActionStatusLabel,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
+  founderCovenantReviewActionSummary,
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
@@ -40,6 +41,43 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantManualActionStatusLabel({ recommended: false })).toBe('Manual')
     expect(founderCovenantManualActionKindLabel('record_review')).toBe('Record review')
     expect(founderCovenantManualActionKindLabel('recommend_replacement')).toBe('Recommend replacement')
+  })
+
+  test('summarizes captured covenant review action snapshots', () => {
+    expect(founderCovenantReviewActionSummary({ manualActions: [] })).toBe('No action snapshot')
+    expect(founderCovenantReviewActionSummary({
+      manualActions: [{
+        kind: 'send_warning',
+        label: 'Send warning',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        reason: 'Covenant signals suggest a manual founder warning.',
+        clientPayload: null,
+      }, {
+        kind: 'record_review',
+        label: 'Record review',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'area_reviewer',
+          status: 'evidence_only',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+        clientPayload: null,
+      }],
+    })).toBe('2 suggested · 0 executable')
   })
 
   test('labels latest covenant review evidence without enabling automation', () => {

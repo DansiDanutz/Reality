@@ -130,6 +130,15 @@ export function founderCovenantReviewDecisionSummary(
   return `${founderCovenantStatusLabel(review.decision.status)} / ${founderCovenantNextActionLabel(review.decision.nextAction)}`
 }
 
+export function founderCovenantReviewActionSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'manualActions'>,
+): string {
+  if (review.manualActions.length === 0) return 'No action snapshot'
+  const suggested = review.manualActions.filter((action) => action.recommended).length
+  const executable = review.manualActions.filter((action) => action.authorityGate.executionEnabled).length
+  return `${suggested} suggested · ${executable} executable`
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),
