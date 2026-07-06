@@ -1918,6 +1918,13 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(food).toMatchObject({
       kind: 'food',
       name: DEFAULT_BUSINESS_BLUEPRINTS.food.name,
+      proposedBusinessId: 'business:area-1:food:1',
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'food',
+        businessId: 'business:area-1:food:1',
+        name: DEFAULT_BUSINESS_BLUEPRINTS.food.name,
+      },
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost,
       cashShortfall: 0,
       currentDemand: 12,
@@ -1939,6 +1946,13 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
     expect(insurance).toMatchObject({
       kind: 'insurance',
+      proposedBusinessId: 'business:area-1:insurance:1',
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'insurance',
+        businessId: 'business:area-1:insurance:1',
+        name: DEFAULT_BUSINESS_BLUEPRINTS.insurance.name,
+      },
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.insurance.buildCost,
       cashShortfall: 40_000,
       licenseSlots: 0,
@@ -1963,6 +1977,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     const unclaimedWater = unclaimed.firstBuild.find((rec) => rec.kind === 'water')!
     expect(unclaimedWater).toMatchObject({
       action: 'claim_area',
+      proposedBusinessId: null,
+      clientPayload: null,
       canBuildNow: false,
       cashShortfall: DEFAULT_BUSINESS_BLUEPRINTS.water.buildCost,
       blockers: ['area_unclaimed'],

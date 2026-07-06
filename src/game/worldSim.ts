@@ -118,8 +118,10 @@ export type WorldParticipantVisualTone = 'simulated' | 'real'
 export interface FirstBuildRecommendation {
   kind: WorldBusinessKind
   name: string
+  proposedBusinessId: string | null
   priority: FirstBuildPriority
   action: FirstBuildAction
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'buildBusiness' }> | null
   score: number
   buildCost: number
   cashShortfall: number
@@ -700,12 +702,21 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens),
     survival: survivalDashboard(area),
-    firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation, founderMoney, population }),
+    firstBuild: firstBuildGuidance({
+      areaId: area.claim ? area.id : undefined,
+      demand,
+      supply,
+      licenseSlots,
+      saturation,
+      founderMoney,
+      population,
+    }),
   }
 }
 
 export function firstBuildGuidance(
   input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
+    areaId?: string
     founderMoney?: number
     population?: number
   },
@@ -739,6 +750,7 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
 function buildRecommendation(
   kind: WorldBusinessKind,
   input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
+    areaId?: string
     founderMoney?: number
     population?: number
   },
@@ -764,13 +776,25 @@ function buildRecommendation(
   const canBuildNow = blockers.length === 0
   const population = input.population ?? 0
   const nextLicensePopulation = nextLicenseUnlockPopulation(population, kind)
+  const proposedBusinessId = input.areaId && input.founderMoney !== undefined
+    ? proposedFirstBuildBusinessId(input.areaId, kind, supply)
+    : null
 
   const priority = priorityOf({ demand, supply, essential, licensed, saturated })
   return {
     kind,
     name: blueprint.name,
+    proposedBusinessId,
     priority,
     action: firstBuildAction({ canBuildNow, demand, licensed, founderMoney: input.founderMoney, founderCanAfford }),
+    clientPayload: proposedBusinessId
+      ? {
+        type: 'buildBusiness',
+        businessKind: kind,
+        businessId: proposedBusinessId,
+        name: blueprint.name,
+      }
+      : null,
     score: roundMoney(score),
     buildCost: blueprint.buildCost,
     cashShortfall,
@@ -791,6 +815,11 @@ function buildRecommendation(
       : null,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
   }
+}
+
+function proposedFirstBuildBusinessId(areaId: string, kind: WorldBusinessKind, currentSupply: number): string {
+  const safeAreaId = areaId.replace(/[^A-Za-z0-9:_-]/g, '-').slice(0, 48) || 'area'
+  return `business:${safeAreaId}:${kind}:${currentSupply + 1}`
 }
 
 function licenseDashboardForKind(population: number, used: number, kind: WorldBusinessKind): AreaLicenseDashboard {

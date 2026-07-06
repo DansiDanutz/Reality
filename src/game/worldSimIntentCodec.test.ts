@@ -235,6 +235,15 @@ describe('decodeClientWorldIntentPayload', () => {
 
   test('decodes dashboard client payloads into server-owned intents', () => {
     const dash = areaNeedsDashboard(area({
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: HOUR,
+        source: 'manual',
+      },
       citizens: [
         citizen('founder', {
           money: 75,
@@ -258,10 +267,20 @@ describe('decodeClientWorldIntentPayload', () => {
     }))
     const founder = dash.citizens[0]
     const waterAction = dash.survival.signals[0].actions.find((action) => action.intent === 'buyWater')!
+    const foodBuild = dash.firstBuild.find((recommendation) => recommendation.kind === 'food')!
 
     expect(decodeClientWorldIntentPayload(waterAction.clientPayload, ' founder ')).toEqual({
       ok: true,
       intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+    expect(decodeClientWorldIntentPayload(foodBuild.clientPayload, 'founder')).toEqual({
+      ok: true,
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'business:area-1:food:1',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.food,
+      },
     })
     expect(decodeClientWorldIntentPayload(founder.insuranceAction.clientPayload, 'founder')).toEqual({
       ok: true,
