@@ -38,12 +38,24 @@ export type RealityAreaClaimResult =
   | { ok: true; state: RealityAreaState; restoredExisting: boolean }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
-export type RealityAreaServerIntentType = 'buildBusiness' | 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
+export type RealityAreaServerIntentType =
+  | 'buildBusiness'
+  | 'buyWater'
+  | 'buyFood'
+  | 'buyHousing'
+  | 'visitClinic'
+  | 'hireWorker'
 export type RealityAreaServerPayload = Extract<WorldClientIntentPayload, { type: RealityAreaServerIntentType }>
+
+export interface RealityAreaAdvanceHourPayload {
+  type: 'advanceHour'
+}
 
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+
+type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaAdvanceHourPayload
 
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
   if (citizen.telegramAccountId) return 'telegram'
@@ -99,6 +111,21 @@ export async function applyRealityFounderAreaIntent(
   payload: RealityAreaServerPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
+  return applyRealityAreaPayload(citizen, payload, fetchImpl)
+}
+
+export async function advanceRealityFounderArea(
+  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityAreaApplyResult> {
+  return applyRealityAreaPayload(citizen, { type: 'advanceHour' }, fetchImpl)
+}
+
+async function applyRealityAreaPayload(
+  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  payload: RealityAreaAuthorityPayload,
+  fetchImpl: typeof fetch,
+): Promise<RealityAreaApplyResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
 
@@ -131,7 +158,8 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'buyWater' ||
     payload.type === 'buyFood' ||
     payload.type === 'buyHousing' ||
-    payload.type === 'visitClinic'
+    payload.type === 'visitClinic' ||
+    payload.type === 'hireWorker'
 }
 
 export function founderAreaProfileWithServerClaim(

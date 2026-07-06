@@ -8,6 +8,7 @@ import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
 import {
+  advanceRealityFounderArea,
   applyRealityFounderAreaIntent,
   claimRealityFounderArea,
   founderAreaProfileWithServerClaim,
@@ -96,9 +97,14 @@ export default function FounderAreaPanel() {
 
   const advance = async () => {
     const commandClient = commandClientRef.current
-    if (!commandClient || !area) return
+    if (!commandClient || !area || !citizen) return
     setBusy(true)
     try {
+      const serverApplied = await advanceRealityFounderArea(citizen)
+      if (!serverApplied.ok) {
+        setLastEvent(serverApplied.error)
+        return
+      }
       const next = await commandClient.advance(area.now)
       setPanelState({ status: 'ready', result: next })
       setLastEvent(next.ok ? 'One real-time hour advanced.' : `Command failed: ${next.error}`)

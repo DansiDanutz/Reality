@@ -3,8 +3,10 @@ import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import handler, {
   areaStatePath,
+  normalizeAdvanceHourIntent,
   normalizeBuildBusinessIntent,
   normalizeClaimAreaIntent,
+  normalizeHireWorkerIntent,
   normalizeServicePurchaseIntent,
   verifyCitizen,
 } from './reality-area'
@@ -104,6 +106,37 @@ describe('reality area authority API', () => {
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeServicePurchaseIntent({ type: 'buyInsurance' }))
       .toEqual({ ok: false, error: 'unsupported_intent' })
+  })
+
+  test('normalizes hireWorker without accepting client-controlled staffing or wage fields', () => {
+    expect(normalizeHireWorkerIntent({
+      type: 'hireWorker',
+      businessId: 'water-1',
+      workerCitizenId: 'sim-worker-1',
+    })).toEqual({
+      ok: true,
+      businessId: 'water-1',
+      workerCitizenId: 'sim-worker-1',
+    })
+    expect(normalizeHireWorkerIntent({
+      type: 'hireWorker',
+      businessId: 'water-1',
+      workerCitizenId: 'sim-worker-1',
+      wagePerHour: 999,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeHireWorkerIntent({
+      type: 'hireWorker',
+      businessId: '../water',
+      workerCitizenId: 'sim-worker-1',
+    })).toEqual({ ok: false, error: 'invalid_business_id' })
+  })
+
+  test('normalizes advanceHour as a server-owned clock tick', () => {
+    expect(normalizeAdvanceHourIntent({ type: 'advanceHour' })).toEqual({ ok: true })
+    expect(normalizeAdvanceHourIntent({ type: 'advanceHour', cash: 999 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeAdvanceHourIntent({ type: 'advanceHour', hours: 24 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('requires a registered citizen before reading area state', async () => {
@@ -278,6 +311,7 @@ describe('reality area authority API', () => {
       price: 2,
       wagePerHour: 14,
       quality: 1,
+      staffCitizenIds: [],
       createdAt: '2026-07-06T04:00:00.000Z',
       createdBy: CITIZEN_ID,
     }])
@@ -329,6 +363,7 @@ describe('reality area authority API', () => {
         price: 2,
         wagePerHour: 14,
         quality: 1,
+        staffCitizenIds: [],
         createdAt: '2026-07-06T04:00:00.000Z',
         createdBy: CITIZEN_ID,
       }],
@@ -488,6 +523,181 @@ describe('reality area authority API', () => {
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
+
+  test('hireWorker staffs a server-owned business without letting the client set wages', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T06:00:00.000Z'))
+    const existing = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 50,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const rejected = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'hireWorker',
+          businessId: 'water-1',
+          workerCitizenId: 'sim-worker-1',
+          wagePerHour: 999,
+        },
+      },
+    } as never, rejected as never)
+
+    expect(rejected.statusCode).toBe(422)
+    expect(rejected.body).toMatchObject({
+      ok: false,
+      code: 'client_controlled_server_field',
+    })
+
+    const accepted = responseRecorder()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'hireWorker',
+          businessId: 'water-1',
+          workerCitizenId: 'sim-worker-1',
+        },
+      },
+    } as never, accepted as never)
+
+    expect(accepted.statusCode).toBe(200)
+    const body = accepted.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    expect(body.state.businesses[0].staffCitizenIds).toEqual(['sim-worker-1'])
+    expect(body.state.businesses[0].wagePerHour).toBe(14)
+    expect(body.state.transactions).toHaveLength(existing.transactions.length)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([]))
+    const unclaimed = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-worker-1' },
+      },
+    } as never, unclaimed as never)
+
+    expect(unclaimed.statusCode).toBe(409)
+    expect(unclaimed.body).toMatchObject({ ok: false, code: 'area_not_claimed' })
+
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://empty-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    const missing = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-worker-1' },
+      },
+    } as never, missing as never)
+
+    expect(missing.statusCode).toBe(409)
+    expect(missing.body).toMatchObject({ ok: false, code: 'business_not_found' })
+
+    const fullState = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 50,
+      staffCitizenIds: ['sim-worker-1'],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://full-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(fullState), { status: 200 })))
+    const full = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-worker-2' },
+      },
+    } as never, full as never)
+
+    expect(full.statusCode).toBe(409)
+    expect(full.body).toMatchObject({ ok: false, code: 'business_fully_staffed' })
+  })
+
+  test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const existing = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 50,
+      staffCitizenIds: ['sim-worker-1'],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://staffed-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    expect(body.state.businesses[0].cash).toBe(36)
+    expect(body.state.transactions.at(-1)).toEqual({
+      id: 'founder-area-0012:1783321200000:worker-wage:water-1:sim-worker-1:1',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'worker_wage',
+      fromId: 'water-1',
+      toId: 'sim-worker-1',
+      amount: 14,
+      memo: 'Founder Water paid sim-worker-1 for one hour of work.',
+    })
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
 })
 
 function validClaimIntent() {
@@ -541,6 +751,7 @@ function withBusiness(
     kind: 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
     price: number
     cash: number
+    staffCitizenIds?: string[]
   },
 ) {
   return {
@@ -554,6 +765,7 @@ function withBusiness(
       price: business.price,
       wagePerHour: 14,
       quality: 1,
+      staffCitizenIds: business.staffCitizenIds ?? [],
       createdAt: '2026-07-06T04:00:00.000Z',
       createdBy: CITIZEN_ID,
     }],

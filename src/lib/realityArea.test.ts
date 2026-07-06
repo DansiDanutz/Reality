@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
+  advanceRealityFounderArea,
   applyRealityFounderAreaIntent,
   claimRealityFounderArea,
   founderAreaClaimSource,
@@ -146,6 +147,27 @@ describe('Reality area client', () => {
     })
   })
 
+  test('sends advanceHour through the server area authority before local simulation advances', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(advanceRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: { type: 'advanceHour' },
+      }),
+    })
+  })
+
   test('identifies only server-backed local founder area intents', () => {
     expect(isRealityAreaServerPayload({ type: 'buyWater' })).toBe(true)
     expect(isRealityAreaServerPayload({
@@ -153,7 +175,7 @@ describe('Reality area client', () => {
       businessKind: 'water',
       businessId: 'water-1',
     })).toBe(true)
-    expect(isRealityAreaServerPayload({ type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-1' })).toBe(false)
+    expect(isRealityAreaServerPayload({ type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-1' })).toBe(true)
     expect(isRealityAreaServerPayload({ type: 'buyInsurance', insuranceBusinessId: 'ins-1' })).toBe(false)
   })
 

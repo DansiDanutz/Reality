@@ -34,7 +34,7 @@ interface FounderAreaClaim {
 interface FounderAreaTransaction {
   id: string
   at: string
-  kind: 'founder_credit' | 'business_build' | 'customer_purchase'
+  kind: 'founder_credit' | 'business_build' | 'customer_purchase' | 'worker_wage'
   fromId: string
   toId: string
   amount: number
@@ -50,6 +50,7 @@ interface FounderAreaBusiness {
   price: number
   wagePerHour: number
   quality: number
+  staffCitizenIds: string[]
   createdAt: string
   createdBy: string
 }
@@ -126,12 +127,86 @@ type ApplyServicePurchaseError =
   | 'service_not_available'
   | 'insufficient_funds'
 
+type HireWorkerIntent =
+  | {
+    ok: true
+    businessId: string
+    workerCitizenId: string
+  }
+  | { ok: false; error: HireWorkerIntentError }
+
+type HireWorkerIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_business_id'
+  | 'invalid_worker_id'
+
+type ApplyHireWorkerError =
+  | HireWorkerIntentError
+  | 'area_not_claimed'
+  | 'business_not_found'
+  | 'business_fully_staffed'
+  | 'worker_already_hired'
+
+type AdvanceHourIntent =
+  | { ok: true }
+  | { ok: false; error: AdvanceHourIntentError }
+
+type AdvanceHourIntentError = 'unsupported_intent' | 'client_controlled_server_field'
+
+type ApplyAdvanceHourError =
+  | AdvanceHourIntentError
+  | 'area_not_claimed'
+
 const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
   buyWater: 'water',
   buyFood: 'food',
   buyHousing: 'housing',
   visitClinic: 'clinic',
 }
+
+const FORBIDDEN_HIRE_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'ownerId',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'amount',
+  'price',
+  'wagePerHour',
+  'staffCitizenIds',
+  'businesses',
+  'transactions',
+  'citizens',
+])
+
+const FORBIDDEN_ADVANCE_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'ownerId',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'amount',
+  'price',
+  'wagePerHour',
+  'staffCitizenIds',
+  'businessId',
+  'workerCitizenId',
+  'hour',
+  'hours',
+  'businesses',
+  'transactions',
+  'citizens',
+  'summary',
+])
 
 const FORBIDDEN_SERVICE_FIELDS = new Set([
   'actorCitizenId',
@@ -195,6 +270,14 @@ const STARTER_LICENSE_SLOTS: Record<FounderAreaBusinessKind, number> = {
   insurance: 0,
 }
 
+const TARGET_STAFF_BY_KIND: Record<FounderAreaBusinessKind, number> = {
+  water: 1,
+  food: 2,
+  housing: 1,
+  clinic: 3,
+  insurance: 1,
+}
+
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
 }
@@ -256,6 +339,29 @@ export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseI
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true, type: input.type, serviceKind: SERVICE_PURCHASE_INTENTS[input.type] }
+}
+
+export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
+  if (!isRecord(input) || input.type !== 'hireWorker') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_HIRE_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const businessId = text(input.businessId)
+  if (!isClientId(businessId)) return { ok: false, error: 'invalid_business_id' }
+
+  const workerCitizenId = text(input.workerCitizenId)
+  if (!isClientId(workerCitizenId)) return { ok: false, error: 'invalid_worker_id' }
+
+  return { ok: true, businessId, workerCitizenId }
+}
+
+export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
+  if (!isRecord(input) || input.type !== 'advanceHour') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_ADVANCE_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+  return { ok: true }
 }
 
 export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
@@ -421,6 +527,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (intentType === 'hireWorker') {
+      const result = applyHireWorkerIntent(existing, rawIntent, new Date())
+      if (!result.ok) {
+        res.status(hireWorkerStatus(result.error)).json({
+          ok: false,
+          error: hireWorkerMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+      res.status(200).json({ ok: true, state: result.state })
+      return
+    }
+
+    if (intentType === 'advanceHour') {
+      const result = applyAdvanceHourIntent(existing, rawIntent, new Date())
+      if (!result.ok) {
+        res.status(advanceHourStatus(result.error)).json({
+          ok: false,
+          error: advanceHourMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+      res.status(200).json({ ok: true, state: result.state })
+      return
+    }
+
     res.status(400).json({ ok: false, error: 'Unsupported area intent.', code: 'unsupported_intent' })
   } catch {
     res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
@@ -455,6 +605,7 @@ function applyBuildBusinessIntent(
     price: blueprint.price,
     wagePerHour: blueprint.wagePerHour,
     quality: 1,
+    staffCitizenIds: [],
     createdAt: at,
     createdBy: state.founderCitizenId,
   }
@@ -475,6 +626,82 @@ function applyBuildBusinessIntent(
       balance: roundMoney(state.balance - blueprint.buildCost),
       businesses: [...state.businesses, business],
       transactions: [...state.transactions, transaction],
+      updatedAt: at,
+    },
+  }
+}
+
+function applyHireWorkerIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyHireWorkerError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeHireWorkerIntent(input)
+  if (!intent.ok) return intent
+
+  const business = state.businesses.find((candidate) => candidate.id === intent.businessId)
+  if (!business) return { ok: false, error: 'business_not_found' }
+  const staffCitizenIds = business.staffCitizenIds ?? []
+  if (staffCitizenIds.includes(intent.workerCitizenId)) return { ok: false, error: 'worker_already_hired' }
+  if (state.businesses.some((candidate) => (candidate.staffCitizenIds ?? []).includes(intent.workerCitizenId))) {
+    return { ok: false, error: 'worker_already_hired' }
+  }
+  if (staffCitizenIds.length >= TARGET_STAFF_BY_KIND[business.kind]) {
+    return { ok: false, error: 'business_fully_staffed' }
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      businesses: state.businesses.map((candidate) =>
+        candidate.id === intent.businessId
+          ? { ...candidate, staffCitizenIds: [...staffCitizenIds, intent.workerCitizenId] }
+          : candidate
+      ),
+      updatedAt: now.toISOString(),
+    },
+  }
+}
+
+function applyAdvanceHourIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyAdvanceHourError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeAdvanceHourIntent(input)
+  if (!intent.ok) return intent
+
+  const at = now.toISOString()
+  const transactions: FounderAreaTransaction[] = []
+  const businesses = state.businesses.map((business) => {
+    let cash = business.cash
+    const paidWorkerIds: string[] = []
+    for (const workerId of business.staffCitizenIds ?? []) {
+      if (cash < business.wagePerHour) break
+      cash = roundMoney(cash - business.wagePerHour)
+      paidWorkerIds.push(workerId)
+      transactions.push({
+        id: `${state.areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`,
+        at,
+        kind: 'worker_wage',
+        fromId: business.id,
+        toId: workerId,
+        amount: business.wagePerHour,
+        memo: `${business.name} paid ${workerId} for one hour of work.`,
+      })
+    }
+    return paidWorkerIds.length > 0 ? { ...business, cash } : business
+  })
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      businesses,
+      transactions: [...state.transactions, ...transactions],
       updatedAt: at,
     },
   }
@@ -571,6 +798,47 @@ function buildBusinessMessage(error: ApplyBuildBusinessError): string {
   }
 }
 
+function hireWorkerStatus(error: ApplyHireWorkerError): number {
+  if (
+    error === 'area_not_claimed' ||
+    error === 'business_not_found' ||
+    error === 'business_fully_staffed' ||
+    error === 'worker_already_hired'
+  ) {
+    return 409
+  }
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function hireWorkerMessage(error: ApplyHireWorkerError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before hiring workers.'
+    case 'business_not_found':
+      return 'Business must exist before hiring workers.'
+    case 'business_fully_staffed':
+      return 'Business already has its target staff.'
+    case 'worker_already_hired':
+      return 'Worker is already assigned to a local business.'
+    default:
+      return 'Invalid hireWorker intent.'
+  }
+}
+
+function advanceHourStatus(error: ApplyAdvanceHourError): number {
+  if (error === 'area_not_claimed') return 409
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function advanceHourMessage(error: ApplyAdvanceHourError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before advancing the simulation.'
+    default:
+      return 'Invalid advanceHour intent.'
+  }
+}
+
 function readAuth(req: VercelRequest): { citizenId: string; token: string } | null {
   const source = req.method === 'GET' ? req.query : req.body
   const citizenId = field(source, 'citizenId')
@@ -599,6 +867,10 @@ function isBusinessKind(value: string): value is FounderAreaBusinessKind {
 
 function isServicePurchaseIntentType(value: unknown): value is ServicePurchaseIntentType {
   return typeof value === 'string' && value in SERVICE_PURCHASE_INTENTS
+}
+
+function isClientId(value: string): boolean {
+  return /^[A-Za-z0-9:_-]{1,96}$/.test(value)
 }
 
 function hasControlCharacter(value: string): boolean {
