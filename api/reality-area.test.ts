@@ -2690,10 +2690,13 @@ describe('reality area authority API', () => {
         kind: 'no_business_built',
         severity: 'warning',
         message: 'Founder has not built a local business yet.',
+        businessIds: undefined,
+        businessKinds: undefined,
       }, {
         kind: 'essential_shortage',
         severity: 'warning',
         message: 'The area has unserved water, food, or housing demand.',
+        businessIds: undefined,
         businessKinds: ['water', 'food', 'housing'],
         amount: 3,
       }],
@@ -3642,6 +3645,10 @@ function covenantReviewQueue(
   const manualActions = manualReviewActions(input)
   const approvalActions = manualActions.filter((action) => action.kind !== 'record_review' && action.recommended)
   const blockers = Array.from(new Set(approvalActions.flatMap((action) => approvalBlockers(action.kind))))
+  const pendingApprovalKinds = approvalActions.map((action) => action.kind)
+  const pendingNotificationKinds = pendingNotificationCount > 0
+    ? input.warning ? ['founder_warning'] : ['manual_review_required']
+    : []
   return {
     evidenceOnly: true,
     automationEnabled: false,
@@ -3649,7 +3656,9 @@ function covenantReviewQueue(
     nextStep: approvalActions.length > 0 ? 'main_founder_approval' : 'record_review',
     recordReviewEnabled: true,
     recommendedActionKinds: manualActions.filter((action) => action.recommended).map((action) => action.kind),
+    pendingApprovalKinds,
     pendingApprovalCount: approvalActions.length,
+    pendingNotificationKinds,
     pendingNotificationCount,
     blockerCount: approvalActions.reduce((total, action) => total + approvalBlockers(action.kind).length, 0),
     blockers,

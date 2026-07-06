@@ -419,7 +419,9 @@ export interface FounderCovenantReviewQueue {
   nextStep: FounderCovenantReviewQueueNextStep
   recordReviewEnabled: boolean
   recommendedActionKinds: readonly FounderCovenantManualActionKind[]
+  pendingApprovalKinds: readonly FounderCovenantApprovalRequestKind[]
   pendingApprovalCount: number
+  pendingNotificationKinds: readonly FounderCovenantNotificationDraftKind[]
   pendingNotificationCount: number
   blockerCount: number
   blockers: readonly FounderCovenantApprovalBlocker[]
@@ -1612,6 +1614,8 @@ function founderCovenantReviewQueue(input: {
   const recommendedActionKinds = input.manualActions
     .filter((action) => action.recommended)
     .map((action) => action.kind)
+  const pendingApprovalKinds = input.approvalRequests.map((request) => request.kind)
+  const pendingNotificationKinds = input.notificationDrafts.map((draft) => draft.kind)
   const blockers = Array.from(new Set(input.approvalRequests.flatMap((request) => request.blockers)))
   return {
     evidenceOnly: true,
@@ -1624,7 +1628,9 @@ function founderCovenantReviewQueue(input: {
         : 'monitor',
     recordReviewEnabled,
     recommendedActionKinds,
+    pendingApprovalKinds,
     pendingApprovalCount: input.approvalRequests.length,
+    pendingNotificationKinds,
     pendingNotificationCount: input.notificationDrafts.length,
     blockerCount: input.approvalRequests.reduce((total, request) => total + request.blockers.length, 0),
     blockers,
@@ -1739,6 +1745,8 @@ function founderCovenantReviewQueueSnapshot(queue: FounderCovenantReviewQueue): 
     automationEnabled: false,
     executionEnabled: false,
     recommendedActionKinds: [...queue.recommendedActionKinds],
+    pendingApprovalKinds: Array.isArray(queue.pendingApprovalKinds) ? [...queue.pendingApprovalKinds] : [],
+    pendingNotificationKinds: Array.isArray(queue.pendingNotificationKinds) ? [...queue.pendingNotificationKinds] : [],
     blockers: [...queue.blockers],
   }
 }
@@ -1753,10 +1761,14 @@ function founderCovenantReviewQueueFromSnapshot(input: {
   const recommendedActionKinds = input.manualActions
     .filter((action) => action.recommended)
     .map((action) => action.kind)
+  const pendingApprovalKinds = input.approvalRequests.map((request) => request.kind)
   const blockers = Array.from(new Set(input.approvalRequests.flatMap((request) => request.blockers)))
   const notificationDraftIds = new Set(input.approvalRequests
     .map((request) => request.notificationDraftId)
     .filter((id): id is string => typeof id === 'string'))
+  const pendingNotificationKinds = Array.from(new Set(input.approvalRequests
+    .filter((request) => request.notificationDraftId !== null)
+    .map((request) => founderCovenantApprovalNotificationKind(request.kind))))
   return {
     evidenceOnly: true,
     automationEnabled: false,
@@ -1768,11 +1780,19 @@ function founderCovenantReviewQueueFromSnapshot(input: {
         : 'monitor',
     recordReviewEnabled,
     recommendedActionKinds,
+    pendingApprovalKinds,
     pendingApprovalCount: input.approvalRequests.length,
+    pendingNotificationKinds,
     pendingNotificationCount: notificationDraftIds.size,
     blockerCount: input.approvalRequests.reduce((total, request) => total + request.blockers.length, 0),
     blockers,
   }
+}
+
+function founderCovenantApprovalNotificationKind(
+  kind: FounderCovenantApprovalRequestKind,
+): FounderCovenantNotificationDraftKind {
+  return kind === 'send_warning' ? 'founder_warning' : 'manual_review_required'
 }
 
 function founderCovenantReviewSchedule(area: WorldArea): FounderCovenantReviewSchedule | null {

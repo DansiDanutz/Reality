@@ -282,6 +282,34 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant review queue data with unknown pending kinds', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        reviewQueue: {
+          ...dashboard.founderCovenant.reviewQueue,
+          pendingApprovalKinds: ['remove_founder'],
+          pendingNotificationKinds: ['sms_warning'],
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores malformed covenant review schedule data', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -334,7 +362,9 @@ describe('Reality area client', () => {
             nextStep: 'monitor',
             recordReviewEnabled: false,
             recommendedActionKinds: [],
+            pendingApprovalKinds: [],
             pendingApprovalCount: 0,
+            pendingNotificationKinds: [],
             pendingNotificationCount: 0,
             blockerCount: 0,
             blockers: [],
@@ -1159,6 +1189,10 @@ function covenantReviewQueue(
   const manualActions = manualReviewActions(input)
   const approvalActions = manualActions.filter(isRecommendedApprovalAction)
   const blockers = Array.from(new Set(approvalActions.flatMap((action) => approvalBlockers(action.kind))))
+  const pendingApprovalKinds = approvalActions.map((action) => action.kind)
+  const pendingNotificationKinds: RealityAreaDashboard['founderCovenant']['reviewQueue']['pendingNotificationKinds'] = pendingNotificationCount > 0
+    ? input.warning ? ['founder_warning'] : ['manual_review_required']
+    : []
   return {
     evidenceOnly: true,
     automationEnabled: false,
@@ -1166,7 +1200,9 @@ function covenantReviewQueue(
     nextStep: approvalActions.length > 0 ? 'main_founder_approval' : 'record_review',
     recordReviewEnabled: true,
     recommendedActionKinds: manualActions.filter((action) => action.recommended).map((action) => action.kind),
+    pendingApprovalKinds,
     pendingApprovalCount: approvalActions.length,
+    pendingNotificationKinds,
     pendingNotificationCount,
     blockerCount: approvalActions.reduce((total, action) => total + approvalBlockers(action.kind).length, 0),
     blockers,

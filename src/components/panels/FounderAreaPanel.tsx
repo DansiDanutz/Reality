@@ -38,6 +38,7 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
+  founderCovenantReviewQueueDetailText,
   founderCovenantReviewQueueStatusLabel,
   founderCovenantReviewQueueSnapshotSummary,
   founderCovenantReviewQueueSummary,
@@ -209,6 +210,9 @@ export default function FounderAreaPanel() {
                 {dashboard.founderCovenant.reviewQueue.blockerCount} blocker{dashboard.founderCovenant.reviewQueue.blockerCount === 1 ? '' : 's'}
               </span>
               <span>{founderCovenantReviewQueueStatusLabel(dashboard.founderCovenant.reviewQueue)}</span>
+            </div>
+            <div className="founder-covenant-meta" aria-label="Founder review queue details">
+              <span>{founderCovenantReviewQueueDetailText(dashboard.founderCovenant.reviewQueue)}</span>
             </div>
             <div className="founder-covenant-review" aria-label="Founder activity review">
               <span className="founder-covenant-score mono">score {dashboard.founderCovenant.activityReview.score}/100</span>

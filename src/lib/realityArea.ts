@@ -132,7 +132,9 @@ export interface RealityAreaCovenantReviewQueue {
   nextStep: RealityAreaCovenantReviewQueueNextStep
   recordReviewEnabled: boolean
   recommendedActionKinds: readonly RealityAreaCovenantManualActionKind[]
+  pendingApprovalKinds: readonly RealityAreaCovenantApprovalRequestKind[]
   pendingApprovalCount: number
+  pendingNotificationKinds: readonly RealityAreaCovenantNotificationDraftKind[]
   pendingNotificationCount: number
   blockerCount: number
   blockers: readonly RealityAreaCovenantApprovalBlocker[]
@@ -779,6 +781,8 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
     reviewQueue: {
       ...review.reviewQueue,
       recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
+      pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
+      pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
       blockers: [...review.reviewQueue.blockers],
     },
     reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
@@ -879,6 +883,8 @@ function realityCovenantReviewQueueToWorldQueue(
   return {
     ...queue,
     recommendedActionKinds: [...queue.recommendedActionKinds],
+    pendingApprovalKinds: [...queue.pendingApprovalKinds],
+    pendingNotificationKinds: [...queue.pendingNotificationKinds],
     blockers: [...queue.blockers],
   }
 }
@@ -1210,7 +1216,11 @@ function isRealityAreaCovenantReviewQueue(value: unknown): value is RealityAreaC
     typeof value.recordReviewEnabled === 'boolean' &&
     Array.isArray(value.recommendedActionKinds) &&
     value.recommendedActionKinds.every(isRealityAreaCovenantManualActionKind) &&
+    Array.isArray(value.pendingApprovalKinds) &&
+    value.pendingApprovalKinds.every(isRealityAreaCovenantApprovalRequestKind) &&
     typeof value.pendingApprovalCount === 'number' &&
+    Array.isArray(value.pendingNotificationKinds) &&
+    value.pendingNotificationKinds.every(isRealityAreaCovenantNotificationDraftKind) &&
     typeof value.pendingNotificationCount === 'number' &&
     typeof value.blockerCount === 'number' &&
     Array.isArray(value.blockers) &&

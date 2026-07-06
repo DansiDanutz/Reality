@@ -14,6 +14,7 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
+  founderCovenantReviewQueueDetailText,
   founderCovenantReviewQueueStatusLabel,
   founderCovenantReviewQueueSnapshotSummary,
   founderCovenantReviewQueueSummary,
@@ -263,13 +264,16 @@ describe('FounderAreaPanel covenant presenters', () => {
       nextStep: 'main_founder_approval',
       recordReviewEnabled: true,
       recommendedActionKinds: ['record_review', 'send_warning'],
+      pendingApprovalKinds: ['send_warning'],
       pendingApprovalCount: 1,
+      pendingNotificationKinds: ['founder_warning'],
       pendingNotificationCount: 1,
       blockerCount: 2,
       blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
     } as const
 
     expect(founderCovenantReviewQueueSummary(queue)).toBe('Main founder approval · 1 approval · 1 draft')
+    expect(founderCovenantReviewQueueDetailText(queue)).toBe('Approvals: Send warning · Drafts: Founder warning')
     expect(founderCovenantReviewQueueStatusLabel(queue)).toBe('Evidence only')
     expect(founderCovenantReviewQueueSnapshotSummary({ reviewQueue: queue })).toBe(
       'Queue snapshot · Main founder approval · 1 approval · 1 draft · 2 blockers',

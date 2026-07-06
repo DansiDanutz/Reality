@@ -188,6 +188,16 @@ export function founderCovenantReviewQueueStatusLabel(queue: FounderCovenantRevi
   return queue.executionEnabled ? 'Executable' : 'Evidence only'
 }
 
+export function founderCovenantReviewQueueDetailText(queue: FounderCovenantReviewQueue): string {
+  const approvals = queue.pendingApprovalKinds.length > 0
+    ? queue.pendingApprovalKinds.map(founderCovenantManualActionKindLabel).join(', ')
+    : 'none'
+  const drafts = queue.pendingNotificationKinds.length > 0
+    ? queue.pendingNotificationKinds.map(founderCovenantNotificationKindLabel).join(', ')
+    : 'none'
+  return `Approvals: ${approvals} · Drafts: ${drafts}`
+}
+
 export function founderCovenantReviewQueueSnapshotSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'reviewQueue'>,
 ): string {
@@ -217,6 +227,15 @@ function founderCovenantReviewQueueNextStepLabel(nextStep: FounderCovenantReview
       return 'Main founder approval'
     case 'monitor':
       return 'Monitor'
+  }
+}
+
+function founderCovenantNotificationKindLabel(kind: FounderCovenantReviewQueue['pendingNotificationKinds'][number]): string {
+  switch (kind) {
+    case 'founder_warning':
+      return 'Founder warning'
+    case 'manual_review_required':
+      return 'Manual review'
   }
 }
 
