@@ -112,6 +112,8 @@ export interface AdvanceWorldAreaResult {
 export type FirstBuildPriority = 'critical' | 'high' | 'medium' | 'low'
 export type FirstBuildAction = 'claim_area' | 'build_now' | 'save_credits' | 'grow_demand' | 'wait_for_demand'
 export type FirstBuildBlocker = 'area_unclaimed' | 'insufficient_funds' | 'license_unavailable'
+export type WorldParticipantLabel = 'Sim Citizen' | 'Real Citizen'
+export type WorldParticipantVisualTone = 'simulated' | 'real'
 
 export interface FirstBuildRecommendation {
   kind: WorldBusinessKind
@@ -161,7 +163,11 @@ export type WorldSurvivalWarningKind = 'water' | 'food' | 'rest' | 'health'
 export interface CitizenSurvivalSignal {
   citizenId: string
   name: string
+  displayName: string
   kind: WorldCitizenKind
+  simulated: boolean
+  participantLabel: WorldParticipantLabel
+  visualTone: WorldParticipantVisualTone
   risk: WorldSurvivalRiskLevel
   warnings: WorldSurvivalWarningKind[]
   hospitalizedUntil?: number
@@ -220,8 +226,11 @@ export interface AreaBusinessLedgerDashboard {
 export interface AreaCitizenDashboard {
   id: string
   name: string
+  displayName: string
   kind: WorldCitizenKind
   simulated: boolean
+  participantLabel: WorldParticipantLabel
+  visualTone: WorldParticipantVisualTone
   state: WorldCitizenState['kind']
   health: number
   needs: Needs
@@ -732,11 +741,15 @@ function transactionDashboard(transaction: WorldTransaction): AreaTransactionDas
 }
 
 function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboard {
+  const presentation = citizenPresentation(citizen)
   return {
     id: citizen.id,
     name: citizen.name,
+    displayName: presentation.displayName,
     kind: citizen.kind,
-    simulated: citizen.kind === 'sim',
+    simulated: presentation.simulated,
+    participantLabel: presentation.participantLabel,
+    visualTone: presentation.visualTone,
     state: citizen.state.kind,
     health: citizen.health,
     needs: { ...citizen.needs },
@@ -746,6 +759,21 @@ function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboa
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, at),
+  }
+}
+
+function citizenPresentation(citizen: WorldCitizen): {
+  displayName: string
+  simulated: boolean
+  participantLabel: WorldParticipantLabel
+  visualTone: WorldParticipantVisualTone
+} {
+  const simulated = citizen.kind === 'sim'
+  return {
+    displayName: simulated ? `${citizen.name} (Sim)` : citizen.name,
+    simulated,
+    participantLabel: simulated ? 'Sim Citizen' : 'Real Citizen',
+    visualTone: simulated ? 'simulated' : 'real',
   }
 }
 
@@ -907,11 +935,16 @@ function survivalDashboard(area: WorldArea): AreaSurvivalDashboard {
 }
 
 function citizenSurvivalSignal(citizen: WorldCitizen): CitizenSurvivalSignal {
+  const presentation = citizenPresentation(citizen)
   if (citizen.state.kind === 'hospitalized') {
     return {
       citizenId: citizen.id,
       name: citizen.name,
+      displayName: presentation.displayName,
       kind: citizen.kind,
+      simulated: presentation.simulated,
+      participantLabel: presentation.participantLabel,
+      visualTone: presentation.visualTone,
       risk: 'hospitalized',
       warnings: ['health'],
       hospitalizedUntil: citizen.state.until,
@@ -933,7 +966,11 @@ function citizenSurvivalSignal(citizen: WorldCitizen): CitizenSurvivalSignal {
   return {
     citizenId: citizen.id,
     name: citizen.name,
+    displayName: presentation.displayName,
     kind: citizen.kind,
+    simulated: presentation.simulated,
+    participantLabel: presentation.participantLabel,
+    visualTone: presentation.visualTone,
     risk: danger ? 'danger' : warnings.length > 0 ? 'warning' : 'stable',
     warnings,
   }

@@ -1354,8 +1354,11 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         id: 'sim1',
         name: 'Sim sim1',
+        displayName: 'Sim sim1 (Sim)',
         kind: 'sim',
         simulated: true,
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
         state: 'active',
         jobBusinessId: 'food1',
         insuranceActive: false,
@@ -1363,8 +1366,11 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         id: 'real1',
         name: 'Sim real1',
+        displayName: 'Sim real1',
         kind: 'real',
         simulated: false,
+        participantLabel: 'Real Citizen',
+        visualTone: 'real',
         state: 'active',
         insuranceActive: false,
       },
@@ -1433,6 +1439,10 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
     expect(dash.survival.signals.find((signal) => signal.citizenId === 'thirsty')).toMatchObject({
       kind: 'sim',
+      displayName: 'Sim thirsty (Sim)',
+      simulated: true,
+      participantLabel: 'Sim Citizen',
+      visualTone: 'simulated',
       risk: 'warning',
       warnings: ['water'],
     })
@@ -1441,6 +1451,9 @@ describe('advanceWorldArea — local real-time economy', () => {
       warnings: ['food', 'rest', 'health'],
     })
     expect(dash.survival.signals.find((signal) => signal.citizenId === 'hospitalized')).toMatchObject({
+      displayName: 'Sim hospitalized (Sim)',
+      simulated: true,
+      visualTone: 'simulated',
       risk: 'hospitalized',
       warnings: ['health'],
       hospitalizedUntil: 3 * HOUR,
@@ -1483,7 +1496,10 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         id: 'sim-worker',
         kind: 'sim',
+        displayName: 'Sim sim-worker (Sim)',
         simulated: true,
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
         state: 'active',
         health: 100,
         money: 75,
@@ -1496,7 +1512,10 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         id: 'real-patient',
         kind: 'real',
+        displayName: 'Sim real-patient',
         simulated: false,
+        participantLabel: 'Real Citizen',
+        visualTone: 'real',
         state: 'hospitalized',
         health: 40,
         insuranceBusinessId: 'ins1',
