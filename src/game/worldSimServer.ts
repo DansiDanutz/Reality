@@ -37,7 +37,7 @@ import type { Needs } from './types'
 export interface WorldAreaRepository {
   loadArea: (areaId: string) => Promise<WorldArea | null>
   loadAreaRecord?: (areaId: string) => Promise<WorldAreaRecord | null>
-  listAreaRecords?: () => Promise<WorldAreaRecord[]>
+  listAreaRecords?: (options?: ListWorldAreaRecordsOptions) => Promise<WorldAreaRecordPage>
   loadAreaByFounder: (founderCitizenId: string) => Promise<WorldAreaRecord | null>
   saveArea: (area: WorldArea, options?: SaveWorldAreaOptions) => Promise<void | SaveWorldAreaResult>
 }
@@ -45,6 +45,18 @@ export interface WorldAreaRepository {
 export interface WorldAreaRecord {
   area: WorldArea
   revision?: string
+}
+
+export interface ListWorldAreaRecordsOptions {
+  limit?: number
+  cursor?: string
+}
+
+export interface WorldAreaRecordPage {
+  records: WorldAreaRecord[]
+  cursor: string | null
+  nextCursor: string | null
+  hasMore: boolean
 }
 
 export interface SaveWorldAreaOptions {
@@ -144,6 +156,8 @@ export type WorldServerCommandError =
 
 export type WorldFounderCovenantReviewQueueError =
   | 'invalid_command_time'
+  | 'invalid_review_queue_limit'
+  | 'invalid_review_queue_cursor'
   | 'review_queue_unavailable'
 
 export type WorldFounderCovenantReviewQueueScanStatus =
@@ -215,6 +229,10 @@ export interface WorldFounderCovenantReviewQueueDashboard {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   approvalWorkflowEnabled: false
+  limit: number
+  cursor: string | null
+  nextCursor: string | null
+  hasMore: boolean
   scanned: number
   caughtUp: number
   current: number
@@ -246,6 +264,15 @@ export interface WorldFounderCovenantReviewQueueDashboard {
 export type WorldFounderCovenantReviewQueueResult =
   | { ok: true; founderCovenantReviewQueue: WorldFounderCovenantReviewQueueDashboard }
   | { ok: false; error: WorldFounderCovenantReviewQueueError }
+
+export interface ReadWorldFounderCovenantReviewQueueOptions {
+  limit?: number
+  cursor?: string
+}
+
+export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_LIMIT = 25
+export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT = 100
+const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH = 256
 
 export type WorldServerCommandResult =
   | {
@@ -293,15 +320,31 @@ export async function runWorldServerCommand(
 export async function readWorldFounderCovenantReviewQueue(
   repo: WorldAreaRepository,
   now: number,
+  options: ReadWorldFounderCovenantReviewQueueOptions = {},
 ): Promise<WorldFounderCovenantReviewQueueResult> {
   if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
   if (!repo.listAreaRecords) return { ok: false, error: 'review_queue_unavailable' }
+  const limit = options.limit ?? WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_LIMIT
+  if (
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT
+  ) {
+    return { ok: false, error: 'invalid_review_queue_limit' }
+  }
+  const cursor = options.cursor?.trim()
+  if (
+    options.cursor !== undefined &&
+    (!cursor || cursor.length > WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH || /[\r\n]/.test(cursor))
+  ) {
+    return { ok: false, error: 'invalid_review_queue_cursor' }
+  }
 
-  const records = await repo.listAreaRecords()
+  const page = await repo.listAreaRecords({ limit, ...(cursor ? { cursor } : {}) })
   const items: WorldFounderCovenantReviewQueueItem[] = []
   const results: WorldFounderCovenantReviewQueueScanResult[] = []
 
-  for (const record of records) {
+  for (const record of page.records) {
     const result = await founderCovenantReviewQueueRecord(repo, record, now)
     results.push(result.result)
     if (result.item) items.push(result.item)
@@ -318,6 +361,10 @@ export async function readWorldFounderCovenantReviewQueue(
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
       approvalWorkflowEnabled: false,
+      limit,
+      cursor: page.cursor,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
       scanned: results.length,
       caughtUp: results.filter((result) => result.status === 'caught_up').length,
       current: results.filter((result) => result.status === 'current').length,

@@ -73,14 +73,44 @@ describe('createMemoryWorldAreaRepository', () => {
       area('area-a', 'founder-a'),
     ])
 
-    const records = await repo.listAreaRecords()
+    const page = await repo.listAreaRecords()
+    const { records } = page
     records[0].area.name = 'mutated'
 
+    expect(page).toMatchObject({
+      cursor: null,
+      nextCursor: null,
+      hasMore: false,
+    })
     expect(records.map((record) => [record.area.id, record.revision])).toEqual([
       ['area-a', '1'],
       ['area-b', '1'],
     ])
     expect((await repo.loadArea('area-a'))?.name).toBe('area-a District')
+  })
+
+  test('paginates area records with a stable cursor', async () => {
+    const repo = createMemoryWorldAreaRepository([
+      area('area-c', 'founder-c'),
+      area('area-a', 'founder-a'),
+      area('area-b', 'founder-b'),
+    ])
+
+    const firstPage = await repo.listAreaRecords({ limit: 2 })
+    const secondPage = await repo.listAreaRecords({ limit: 2, cursor: firstPage.nextCursor ?? undefined })
+
+    expect(firstPage.records.map((record) => record.area.id)).toEqual(['area-a', 'area-b'])
+    expect(firstPage).toMatchObject({
+      cursor: null,
+      nextCursor: 'area-b',
+      hasMore: true,
+    })
+    expect(secondPage.records.map((record) => record.area.id)).toEqual(['area-c'])
+    expect(secondPage).toMatchObject({
+      cursor: 'area-b',
+      nextCursor: null,
+      hasMore: false,
+    })
   })
 
   test('rejects stale revisions and duplicate area creation expectations', async () => {

@@ -1,15 +1,17 @@
 import type { WorldArea } from './worldSim'
 import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCodec'
 import type {
+  ListWorldAreaRecordsOptions,
   SaveWorldAreaOptions,
   SaveWorldAreaResult,
   WorldAreaRecord,
+  WorldAreaRecordPage,
   WorldAreaRepository,
 } from './worldSimServer'
 
 export interface MemoryWorldAreaRepository extends WorldAreaRepository {
   loadAreaRecord: (areaId: string) => Promise<WorldAreaRecord | null>
-  listAreaRecords: () => Promise<WorldAreaRecord[]>
+  listAreaRecords: (options?: ListWorldAreaRecordsOptions) => Promise<WorldAreaRecordPage>
   areaIds: () => string[]
   snapshotOf: (areaId: string) => string | null
   revisionOf: (areaId: string) => string | null
@@ -46,14 +48,24 @@ export function createMemoryWorldAreaRepository(initialAreas: WorldArea[] = []):
       return areaRecord(areaId)
     },
 
-    async listAreaRecords(): Promise<WorldAreaRecord[]> {
-      return [...snapshots.keys()]
-        .sort((a, b) => a.localeCompare(b))
-        .map((areaId) => {
-          const record = areaRecord(areaId)
-          if (!record) throw new Error(`missing stored world area: ${areaId}`)
-          return record
-        })
+    async listAreaRecords(options: ListWorldAreaRecordsOptions = {}): Promise<WorldAreaRecordPage> {
+      const sortedAreaIds = [...snapshots.keys()].sort((a, b) => a.localeCompare(b))
+      const cursor = options.cursor?.trim() || null
+      const limit = options.limit ?? sortedAreaIds.length
+      const startIndex = cursor ? nextAreaIndexAfterCursor(sortedAreaIds, cursor) : 0
+      const selectedAreaIds = sortedAreaIds.slice(startIndex, startIndex + limit)
+      const hasMore = startIndex + selectedAreaIds.length < sortedAreaIds.length
+      return {
+        records: selectedAreaIds
+          .map((areaId) => {
+            const record = areaRecord(areaId)
+            if (!record) throw new Error(`missing stored world area: ${areaId}`)
+            return record
+          }),
+        cursor,
+        nextCursor: hasMore ? selectedAreaIds[selectedAreaIds.length - 1] ?? null : null,
+        hasMore,
+      }
     },
 
     async loadAreaByFounder(founderCitizenId: string): Promise<WorldAreaRecord | null> {
@@ -104,4 +116,11 @@ export function createMemoryWorldAreaRepository(initialAreas: WorldArea[] = []):
 
   for (const area of initialAreas) storeArea(area)
   return repo
+}
+
+function nextAreaIndexAfterCursor(sortedAreaIds: readonly string[], cursor: string): number {
+  const exactIndex = sortedAreaIds.indexOf(cursor)
+  if (exactIndex >= 0) return exactIndex + 1
+  const insertionIndex = sortedAreaIds.findIndex((areaId) => areaId.localeCompare(cursor) > 0)
+  return insertionIndex >= 0 ? insertionIndex : sortedAreaIds.length
 }

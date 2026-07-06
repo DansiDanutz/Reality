@@ -15,9 +15,11 @@ import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCode
 import {
   readWorldFounderCovenantReviewQueue,
   runWorldServerCommand,
+  type ListWorldAreaRecordsOptions,
   type SaveWorldAreaOptions,
   type SaveWorldAreaResult,
   type WorldAreaRecord,
+  type WorldAreaRecordPage,
   type WorldAreaRepository,
 } from './worldSimServer'
 import type { Needs } from './types'
@@ -51,15 +53,24 @@ class MemoryWorldRepo implements WorldAreaRepository {
     return this.areaRecord(areaId)
   }
 
-  async listAreaRecords(): Promise<WorldAreaRecord[]> {
+  async listAreaRecords(options: ListWorldAreaRecordsOptions = {}): Promise<WorldAreaRecordPage> {
     this.loads += 1
-    return [...this.snapshots.keys()]
-      .sort((a, b) => a.localeCompare(b))
-      .map((areaId) => {
+    const sortedAreaIds = [...this.snapshots.keys()].sort((a, b) => a.localeCompare(b))
+    const cursor = options.cursor?.trim() || null
+    const limit = options.limit ?? sortedAreaIds.length
+    const startIndex = cursor ? nextAreaIndexAfterCursor(sortedAreaIds, cursor) : 0
+    const selectedAreaIds = sortedAreaIds.slice(startIndex, startIndex + limit)
+    const hasMore = startIndex + selectedAreaIds.length < sortedAreaIds.length
+    return {
+      records: selectedAreaIds.map((areaId) => {
         const record = this.areaRecord(areaId)
         if (!record) throw new Error(`missing stored area: ${areaId}`)
         return record
-      })
+      }),
+      cursor,
+      nextCursor: hasMore ? selectedAreaIds[selectedAreaIds.length - 1] ?? null : null,
+      hasMore,
+    }
   }
 
   async loadAreaByFounder(founderCitizenId: string): Promise<WorldAreaRecord | null> {
@@ -117,6 +128,13 @@ class MemoryWorldRepo implements WorldAreaRepository {
     this.revisions.set(area.id, nextRevision)
     return { ok: true, revision: String(nextRevision) }
   }
+}
+
+function nextAreaIndexAfterCursor(sortedAreaIds: readonly string[], cursor: string): number {
+  const exactIndex = sortedAreaIds.indexOf(cursor)
+  if (exactIndex >= 0) return exactIndex + 1
+  const insertionIndex = sortedAreaIds.findIndex((areaId) => areaId.localeCompare(cursor) > 0)
+  return insertionIndex >= 0 ? insertionIndex : sortedAreaIds.length
 }
 
 const needs = (over: Partial<Needs> = {}): Needs => ({
@@ -1362,6 +1380,82 @@ describe('runWorldServerCommand', () => {
     ])
     expect(savedSafe?.now).toBe(now)
     expect(savedRisk?.now).toBe(now)
+  })
+
+  test('paginates the evidence-only founder covenant review queue with a stable cursor', async () => {
+    const repo = new MemoryWorldRepo()
+    const now = 1_000
+    for (const [areaId, founderId] of [
+      ['area-1', 'founder-1'],
+      ['area-2', 'founder-2'],
+      ['area-3', 'founder-3'],
+    ]) {
+      const created = await runWorldServerCommand(repo, {
+        type: 'createClaimedArea',
+        areaId,
+        name: `${areaId} District`,
+        now,
+        authenticatedFounderId: founderId,
+        founder: citizen(founderId),
+        simCitizens: [],
+        claim: {
+          founderCitizenId: founderId,
+          label: `${areaId} District`,
+          centerLat: 45.45,
+          centerLng: 27.08,
+          radiusKm: 2,
+          claimedAt: now,
+          source: 'manual',
+        },
+      })
+      if (!created.ok) throw new Error(`expected ${areaId} creation to succeed: ${created.error}`)
+    }
+
+    const firstResult = await readWorldFounderCovenantReviewQueue(repo, now, { limit: 2 })
+    expect(firstResult.ok).toBe(true)
+    if (!firstResult.ok) throw new Error(`expected first queue page: ${firstResult.error}`)
+    expect(firstResult.founderCovenantReviewQueue).toMatchObject({
+      limit: 2,
+      cursor: null,
+      nextCursor: 'area-2',
+      hasMore: true,
+      scanned: 2,
+      current: 2,
+      caughtUp: 0,
+      failed: 0,
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      approvalWorkflowEnabled: false,
+    })
+    expect(firstResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
+      .toEqual(['area-1', 'area-2'])
+
+    const secondResult = await readWorldFounderCovenantReviewQueue(repo, now, {
+      limit: 2,
+      cursor: firstResult.founderCovenantReviewQueue.nextCursor ?? undefined,
+    })
+    expect(secondResult.ok).toBe(true)
+    if (!secondResult.ok) throw new Error(`expected second queue page: ${secondResult.error}`)
+    expect(secondResult.founderCovenantReviewQueue).toMatchObject({
+      limit: 2,
+      cursor: 'area-2',
+      nextCursor: null,
+      hasMore: false,
+      scanned: 1,
+      current: 1,
+      caughtUp: 0,
+      failed: 0,
+    })
+    expect(secondResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
+      .toEqual(['area-3'])
+
+    await expect(readWorldFounderCovenantReviewQueue(repo, now, { limit: 0 }))
+      .resolves.toEqual({ ok: false, error: 'invalid_review_queue_limit' })
+    await expect(readWorldFounderCovenantReviewQueue(repo, now, { cursor: `area-1\narea-2` }))
+      .resolves.toEqual({ ok: false, error: 'invalid_review_queue_cursor' })
   })
 
   test('reports unavailable founder covenant review queue repositories', async () => {
