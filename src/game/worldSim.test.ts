@@ -2583,13 +2583,13 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('business dashboard ledger separates cash revenue, expenses, wages, and medical receivables', () => {
     const transactions: WorldTransaction[] = [
-      { id: 'tx1', at: 1, kind: 'customer_purchase', fromId: 'resident', toId: 'food1', amount: 14, memo: 'food sale' },
-      { id: 'tx2', at: 2, kind: 'worker_wage', fromId: 'food1', toId: 'worker', amount: 10, memo: 'wage' },
-      { id: 'tx3', at: 3, kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45, memo: 'premium' },
-      { id: 'tx4', at: 4, kind: 'insurance_payout', fromId: 'ins1', toId: 'clinic1', amount: 100, memo: 'coverage' },
-      { id: 'tx5', at: 5, kind: 'hospital_bill', fromId: 'resident', toId: 'clinic1', amount: 90, memo: 'hospital bill' },
-      { id: 'tx6', at: 6, kind: 'medical_debt', fromId: 'resident', toId: 'clinic1', amount: 25, memo: 'receivable' },
-      { id: 'tx7', at: 7, kind: 'debt_repayment', fromId: 'resident', toId: 'clinic1', amount: 5, memo: 'repayment' },
+      { id: 'tx1', at: 1, kind: 'customer_purchase', payoutEligibility: 'game_only', fromId: 'resident', toId: 'food1', amount: 14, memo: 'food sale' },
+      { id: 'tx2', at: 2, kind: 'worker_wage', payoutEligibility: 'game_only', fromId: 'food1', toId: 'worker', amount: 10, memo: 'wage' },
+      { id: 'tx3', at: 3, kind: 'insurance_premium', payoutEligibility: 'game_only', fromId: 'resident', toId: 'ins1', amount: 45, memo: 'premium' },
+      { id: 'tx4', at: 4, kind: 'insurance_payout', payoutEligibility: 'game_only', fromId: 'ins1', toId: 'clinic1', amount: 100, memo: 'coverage' },
+      { id: 'tx5', at: 5, kind: 'hospital_bill', payoutEligibility: 'game_only', fromId: 'resident', toId: 'clinic1', amount: 90, memo: 'hospital bill' },
+      { id: 'tx6', at: 6, kind: 'medical_debt', payoutEligibility: 'game_only', fromId: 'resident', toId: 'clinic1', amount: 25, memo: 'receivable' },
+      { id: 'tx7', at: 7, kind: 'debt_repayment', payoutEligibility: 'game_only', fromId: 'resident', toId: 'clinic1', amount: 5, memo: 'repayment' },
     ]
     const dash = areaNeedsDashboard(area({
       transactions,
@@ -2701,6 +2701,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       id: `tx${index + 1}`,
       at: index + 1,
       kind: index % 3 === 0 ? 'worker_wage' : index % 3 === 1 ? 'customer_purchase' : 'insurance_premium',
+      payoutEligibility: 'game_only',
       fromId: index % 3 === 0 ? 'food1' : 'resident',
       toId: index % 3 === 0 ? 'worker' : index % 3 === 1 ? 'food1' : 'ins1',
       amount: index + 1,

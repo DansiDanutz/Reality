@@ -46,6 +46,7 @@ const TRANSACTION_KINDS = [
 type AreaClaimSource = typeof CLAIM_SOURCES[number]
 type FounderAreaBusinessKind = typeof BUSINESS_KINDS[number]
 type FounderAreaTransactionKind = typeof TRANSACTION_KINDS[number]
+type FounderAreaTransactionPayoutEligibility = 'game_only' | 'payout_eligible'
 
 interface CitizenAuthRecord {
   citizenId: string
@@ -74,6 +75,7 @@ interface FounderAreaTransaction {
   id: string
   at: string
   kind: FounderAreaTransactionKind
+  payoutEligibility: FounderAreaTransactionPayoutEligibility
   fromId: string
   toId: string
   amount: number
@@ -1074,6 +1076,7 @@ const SERVER_OWNED_SETTLEMENT_FIELDS = [
   'taxProfileStatus',
   'noProfitPromise',
   'stablecoinRailPlanned',
+  'payoutEligibility',
   'walletConnectionEnabled',
   'depositsEnabled',
   'withdrawalsEnabled',
@@ -1669,6 +1672,7 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     id: `${areaId}:${now.getTime()}:founder-credit`,
     at,
     kind: 'founder_credit',
+    payoutEligibility: 'game_only',
     fromId: PLATFORM_BANK_ID,
     toId: citizen.citizenId,
     amount: FOUNDER_STARTER_CREDIT,
@@ -1719,7 +1723,7 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
   let citizens = state.citizens.map((citizen) =>
     citizen.id === state.founderCitizenId ? { ...citizen, money: state.balance } : citizen
   )
-  const transactions = [...state.transactions]
+  const transactions = state.transactions.map(normalizeFounderAreaTransaction)
 
   for (const expected of expectedCitizens) {
     if (citizens.some((citizen) => citizen.id === expected.id)) continue
@@ -1747,6 +1751,13 @@ function withFounderCovenantReview(state: FounderAreaStateInput): FounderAreaSta
   return {
     ...normalizedState,
     founderCovenant: founderCovenantReview(normalizedState),
+  }
+}
+
+function normalizeFounderAreaTransaction(transaction: FounderAreaTransaction): FounderAreaTransaction {
+  return {
+    ...transaction,
+    payoutEligibility: 'game_only',
   }
 }
 
@@ -3522,6 +3533,7 @@ function simCitizenCreditTransaction(
     id: `${areaId}:${atMs}:sim-citizen-credit:${sequence}:${citizen.id}`,
     at,
     kind: 'sim_citizen_credit',
+    payoutEligibility: 'game_only',
     fromId: SIM_CREDIT_ACCOUNT_ID,
     toId: citizen.id,
     amount: SIM_CITIZEN_STARTER_CREDIT,
@@ -4065,6 +4077,7 @@ function applyBuildBusinessIntent(
     id: `${state.areaId}:${now.getTime()}:business-build:${intent.businessId}`,
     at,
     kind: 'business_build',
+    payoutEligibility: 'game_only',
     fromId: state.founderCitizenId,
     toId: BUILDER_RECEIVER_ID,
     amount: blueprint.buildCost,
@@ -4193,6 +4206,7 @@ function applyAreaHourTick(
         id: `${areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`,
         at,
         kind: 'worker_wage',
+        payoutEligibility: 'game_only',
         fromId: business.id,
         toId: workerId,
         amount: business.wagePerHour,
@@ -4235,6 +4249,7 @@ function applyServicePurchaseIntent(
     id: `${state.areaId}:${now.getTime()}:customer-purchase:${intent.type}:${business.id}`,
     at,
     kind: 'customer_purchase',
+    payoutEligibility: 'game_only',
     fromId: state.founderCitizenId,
     toId: business.id,
     amount: business.price,
@@ -4296,6 +4311,7 @@ function applyBuyInsuranceIntent(
     id: `${state.areaId}:${now.getTime()}:insurance-premium:${actor.id}:${insurer.id}`,
     at,
     kind: 'insurance_premium',
+    payoutEligibility: 'game_only',
     fromId: actor.id,
     toId: insurer.id,
     amount: insurer.price,
@@ -4366,6 +4382,7 @@ function applyRepayDebtIntent(
     id: `${state.areaId}:${now.getTime()}:debt-repayment:${actor.id}:${debt.id}`,
     at,
     kind: 'debt_repayment',
+    payoutEligibility: 'game_only',
     fromId: actor.id,
     toId: debt.creditorId,
     amount: payment,
@@ -4481,6 +4498,7 @@ function renewInsurancePolicies(
       id: `${areaId}:${now.getTime()}:insurance-renewal:${citizen.id}:${insurer.id}:${renewalSequence}`,
       at,
       kind: 'insurance_premium',
+      payoutEligibility: 'game_only',
       fromId: citizen.id,
       toId: insurer.id,
       amount: insurer.price,
@@ -4553,6 +4571,7 @@ function applySimCitizenHour(
         id: `${areaId}:${now.getTime()}:sim-purchase:${citizen.id}:${serviceKind}:${business.id}:${purchaseSequence}`,
         at,
         kind: 'customer_purchase',
+        payoutEligibility: 'game_only',
         fromId: citizen.id,
         toId: business.id,
         amount: business.price,
@@ -4677,6 +4696,7 @@ function settleHospitalBill(
         id: `${areaId}:${now.getTime()}:insurance-payout:${insurer.id}:${citizen.id}`,
         at,
         kind: 'insurance_payout',
+        payoutEligibility: 'game_only',
         fromId: insurer.id,
         toId: receiverId,
         amount: coverage,
@@ -4694,6 +4714,7 @@ function settleHospitalBill(
       id: `${areaId}:${now.getTime()}:hospital-bill:${citizen.id}`,
       at,
       kind: 'hospital_bill',
+      payoutEligibility: 'game_only',
       fromId: citizen.id,
       toId: receiverId,
       amount: paid,
@@ -4716,6 +4737,7 @@ function settleHospitalBill(
     id: `${areaId}:${now.getTime()}:medical-debt:${citizen.id}`,
     at,
     kind: 'medical_debt',
+    payoutEligibility: 'game_only',
     fromId: citizen.id,
     toId: receiverId,
     amount: remaining,

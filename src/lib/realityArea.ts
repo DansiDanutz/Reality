@@ -86,6 +86,7 @@ export interface RealityAreaTransaction {
   id: string
   at: string
   kind: WorldTransaction['kind']
+  payoutEligibility: WorldTransaction['payoutEligibility']
   fromId: string
   toId: string
   amount: number
@@ -2091,6 +2092,7 @@ function isRealityAreaTransaction(value: unknown): value is RealityAreaTransacti
     typeof value.id === 'string' &&
     typeof value.at === 'string' &&
     isTransactionKind(value.kind) &&
+    value.payoutEligibility === 'game_only' &&
     typeof value.fromId === 'string' &&
     typeof value.toId === 'string' &&
     typeof value.amount === 'number' &&

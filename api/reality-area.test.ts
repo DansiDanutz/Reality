@@ -310,6 +310,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       payoutReadiness: { enabled: true },
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      payoutEligibility: 'payout_eligible',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -1020,6 +1024,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783308600000:founder-credit',
       at: '2026-07-06T03:30:00.000Z',
       kind: 'founder_credit',
+      payoutEligibility: 'game_only',
       fromId: 'reality-founder-bank',
       toId: CITIZEN_ID,
       amount: 200_000,
@@ -1028,6 +1033,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783308600000:sim-citizen-credit:1:founder-area-0012:sim-water',
       at: '2026-07-06T03:30:00.000Z',
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'founder-area-0012:sim-water',
       amount: 100,
@@ -1036,6 +1042,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783308600000:sim-citizen-credit:2:founder-area-0012:sim-food',
       at: '2026-07-06T03:30:00.000Z',
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'founder-area-0012:sim-food',
       amount: 100,
@@ -1044,6 +1051,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783308600000:sim-citizen-credit:3:founder-area-0012:sim-housing',
       at: '2026-07-06T03:30:00.000Z',
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'founder-area-0012:sim-housing',
       amount: 100,
@@ -1433,6 +1441,42 @@ describe('reality area authority API', () => {
     )).toBe(false)
   })
 
+  test('normalizes persisted ledger entries to game-only payout eligibility', async () => {
+    const existing = {
+      ...existingState(),
+      transactions: existingState().transactions.map((transaction, index) =>
+        index === 0
+          ? { ...transaction, payoutEligibility: 'payout_eligible' }
+          : transaction
+      ),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://legacy-ledger-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.state.transactions.every((transaction) => transaction.payoutEligibility === 'game_only')).toBe(true)
+    expect(body.dashboard.ledger.recentTransactions.every((transaction) =>
+      transaction.payoutEligibility === 'game_only'
+    )).toBe(true)
+    expect(body.dashboard.payoutReadiness).toMatchObject({
+      payoutEligibleCredits: 0,
+      realWithdrawalsEnabled: false,
+      noProfitPromise: true,
+    })
+  })
+
   test('rejects TON settlement intents without storing wallet or value movement data', async () => {
     const existing = existingState()
     vi.mocked(list)
@@ -1581,6 +1625,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783310400000:business-build:water-1',
       at: '2026-07-06T04:00:00.000Z',
       kind: 'business_build',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'system:builders',
       amount: 8_000,
@@ -2068,6 +2113,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783314000000:customer-purchase:buyWater:water-1',
       at: '2026-07-06T05:00:00.000Z',
       kind: 'customer_purchase',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'water-1',
       amount: 2,
@@ -2179,6 +2225,8 @@ describe('reality area authority API', () => {
   })
 
   test('service purchases require a claimed area, local service, and funds', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2992,6 +3040,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:sim-purchase:founder-area-0012:sim-water:water:water-1:1',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'customer_purchase',
+      payoutEligibility: 'game_only',
       fromId: 'founder-area-0012:sim-water',
       toId: 'water-1',
       amount: 2,
@@ -3247,6 +3296,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:hospital-bill:11111111-1111-4111-8111-111111111111',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'hospital_bill',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'clinic-1',
       amount: 50,
@@ -3255,6 +3305,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:medical-debt:11111111-1111-4111-8111-111111111111',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'medical_debt',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'clinic-1',
       amount: 300,
@@ -3471,6 +3522,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:hospital-bill:founder-area-0012:sim-food',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'hospital_bill',
+      payoutEligibility: 'game_only',
       fromId: 'founder-area-0012:sim-food',
       toId: 'clinic-1',
       amount: 50,
@@ -3479,6 +3531,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:medical-debt:founder-area-0012:sim-food',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'medical_debt',
+      payoutEligibility: 'game_only',
       fromId: 'founder-area-0012:sim-food',
       toId: 'clinic-1',
       amount: 300,
@@ -3545,6 +3598,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:insurance-payout:insurance-1:founder-area-0012:sim-food',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'insurance_payout',
+      payoutEligibility: 'game_only',
       fromId: 'insurance-1',
       toId: 'clinic-1',
       amount: 210,
@@ -3553,6 +3607,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:hospital-bill:founder-area-0012:sim-food',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'hospital_bill',
+      payoutEligibility: 'game_only',
       fromId: 'founder-area-0012:sim-food',
       toId: 'clinic-1',
       amount: 50,
@@ -3561,6 +3616,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:medical-debt:founder-area-0012:sim-food',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'medical_debt',
+      payoutEligibility: 'game_only',
       fromId: 'founder-area-0012:sim-food',
       toId: 'clinic-1',
       amount: 90,
@@ -3664,6 +3720,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:insurance-renewal:11111111-1111-4111-8111-111111111111:insurance-1:1',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'insurance_premium',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'insurance-1',
       amount: 45,
@@ -3820,6 +3877,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783324800000:debt-repayment:11111111-1111-4111-8111-111111111111:founder-medical-1',
       at: '2026-07-06T08:00:00.000Z',
       kind: 'debt_repayment',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'clinic-1',
       amount: 120,
@@ -4287,6 +4345,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783324800000:insurance-premium:11111111-1111-4111-8111-111111111111:insurance-1',
       at: '2026-07-06T08:00:00.000Z',
       kind: 'insurance_premium',
+      payoutEligibility: 'game_only',
       fromId: CITIZEN_ID,
       toId: 'insurance-1',
       amount: 45,
@@ -4356,6 +4415,8 @@ describe('reality area authority API', () => {
   })
 
   test('buyInsurance requires an active founder, an insurance business, no active policy, and funds', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://missing-insurance-area'))
@@ -4620,6 +4681,7 @@ describe('reality area authority API', () => {
       id: 'founder-area-0012:1783321200000:worker-wage:water-1:founder-area-0012:sim-water:1',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'worker_wage',
+      payoutEligibility: 'game_only',
       fromId: 'water-1',
       toId: 'founder-area-0012:sim-water',
       amount: 14,
@@ -4669,6 +4731,7 @@ function existingState() {
       id: 'founder-area-0012:1783306800000:founder-credit',
       at: '2026-07-06T03:00:00.000Z',
       kind: 'founder_credit',
+      payoutEligibility: 'game_only',
       fromId: 'reality-founder-bank',
       toId: CITIZEN_ID,
       amount: 200_000,
@@ -4677,6 +4740,7 @@ function existingState() {
       id: 'founder-area-0012:1783306800000:sim-citizen-credit:1:founder-area-0012:sim-water',
       at: '2026-07-06T03:00:00.000Z',
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'founder-area-0012:sim-water',
       amount: 100,
@@ -4685,6 +4749,7 @@ function existingState() {
       id: 'founder-area-0012:1783306800000:sim-citizen-credit:2:founder-area-0012:sim-food',
       at: '2026-07-06T03:00:00.000Z',
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'founder-area-0012:sim-food',
       amount: 100,
@@ -4693,6 +4758,7 @@ function existingState() {
       id: 'founder-area-0012:1783306800000:sim-citizen-credit:3:founder-area-0012:sim-housing',
       at: '2026-07-06T03:00:00.000Z',
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'founder-area-0012:sim-housing',
       amount: 100,

@@ -73,10 +73,13 @@ export type WorldTransactionKind =
   | 'medical_debt'
   | 'debt_repayment'
 
+export type WorldPayoutEligibility = 'game_only' | 'payout_eligible'
+
 export interface WorldTransaction {
   id: string
   at: number
   kind: WorldTransactionKind
+  payoutEligibility: WorldPayoutEligibility
   fromId: string
   toId: string
   amount: number
@@ -355,6 +358,7 @@ export interface AreaTransactionDashboard {
   id: string
   at: number
   kind: WorldTransactionKind
+  payoutEligibility: WorldPayoutEligibility
   fromId: string
   toId: string
   amount: number
@@ -3085,11 +3089,12 @@ function issueMedicalDebt(citizen: WorldCitizen, creditorId: string, amount: num
 function recordTransaction(
   area: WorldArea,
   at: number,
-  tx: Omit<WorldTransaction, 'id' | 'at'>,
+  tx: Omit<WorldTransaction, 'id' | 'at' | 'payoutEligibility'>,
 ): void {
   area.transactions.push({
     id: `${area.id}:${at}:${area.transactions.length + 1}:${tx.kind}`,
     at,
+    payoutEligibility: 'game_only',
     ...tx,
     amount: roundMoney(tx.amount),
   })

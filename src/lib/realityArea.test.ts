@@ -240,6 +240,34 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores server dashboards that mark gameplay ledger entries payout eligible', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      ledger: {
+        ...dashboard.ledger,
+        recentTransactions: dashboard.ledger.recentTransactions.map((transaction, index) =>
+          index === 0
+            ? { ...transaction, payoutEligibility: 'payout_eligible' }
+            : transaction
+        ),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores legacy royalty dashboards that enable successor payouts', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -899,6 +927,7 @@ describe('Reality area client', () => {
     expect(area.transactions[0]).toMatchObject({
       at: Date.parse('2026-07-06T03:30:00.000Z'),
       kind: 'founder_credit',
+      payoutEligibility: 'game_only',
     })
   })
 
@@ -1315,6 +1344,7 @@ function serverState(): RealityAreaState {
       id: 'founder-area-0012:1783308600000:founder-credit',
       at: '2026-07-06T03:30:00.000Z',
       kind: 'founder_credit',
+      payoutEligibility: 'game_only',
       fromId: 'reality-founder-bank',
       toId: 'citizen-1',
       amount: 200_000,
@@ -1774,6 +1804,7 @@ function serverDashboard(): RealityAreaDashboard {
         id: 'tx-wage',
         at: '2026-07-06T04:00:00.000Z',
         kind: 'worker_wage',
+        payoutEligibility: 'game_only',
         fromId: 'water-1',
         toId: 'sim-water',
         amount: 14,
@@ -1782,6 +1813,7 @@ function serverDashboard(): RealityAreaDashboard {
         id: 'tx-sale',
         at: '2026-07-06T03:50:00.000Z',
         kind: 'customer_purchase',
+        payoutEligibility: 'game_only',
         fromId: 'sim-water',
         toId: 'water-1',
         amount: 2,
@@ -1997,6 +2029,7 @@ function serverDashboard(): RealityAreaDashboard {
           id: 'tx-wage',
           at: '2026-07-06T04:00:00.000Z',
           kind: 'worker_wage',
+          payoutEligibility: 'game_only',
           fromId: 'water-1',
           toId: 'sim-water',
           amount: 14,
@@ -2005,6 +2038,7 @@ function serverDashboard(): RealityAreaDashboard {
           id: 'tx-sale',
           at: '2026-07-06T03:50:00.000Z',
           kind: 'customer_purchase',
+          payoutEligibility: 'game_only',
           fromId: 'sim-water',
           toId: 'water-1',
           amount: 2,

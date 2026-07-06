@@ -71,6 +71,7 @@ const area = (): WorldArea => ({
       id: 'tx1',
       at: 1_000,
       kind: 'founder_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:founder-credit',
       toId: 'founder',
       amount: 200_000,
@@ -80,6 +81,7 @@ const area = (): WorldArea => ({
       id: 'tx2',
       at: 1_000,
       kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
       fromId: 'system:sim-credit',
       toId: 'sim1',
       amount: 100,
@@ -89,6 +91,7 @@ const area = (): WorldArea => ({
       id: 'tx3',
       at: 1_000,
       kind: 'insurance_premium',
+      payoutEligibility: 'game_only',
       fromId: 'founder',
       toId: 'ins1',
       amount: 45,
@@ -98,6 +101,7 @@ const area = (): WorldArea => ({
       id: 'tx4',
       at: 2_000,
       kind: 'debt_repayment',
+      payoutEligibility: 'game_only',
       fromId: 'founder',
       toId: 'system:hospital',
       amount: 25,
@@ -253,6 +257,10 @@ describe('worldSim snapshot codec', () => {
     const zeroTransaction = area()
     zeroTransaction.transactions[0].amount = 0
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: zeroTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const payoutEligibleTransaction = area()
+    payoutEligibleTransaction.transactions[0].payoutEligibility = 'payout_eligible'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: payoutEligibleTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects invalid citizen state and business shape', () => {
