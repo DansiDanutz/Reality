@@ -122,6 +122,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   dateSummary: string
   latestReviewText: string | null
   activitySignalText: string
+  economicExposureText: string
   stageText: string
   reviewReadinessText: string
   checklistText: string
@@ -807,6 +808,7 @@ export function founderCovenantOperatorQueueReviewRows(
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
+      economicExposureText: founderCovenantOperatorQueueEconomicExposureText(item),
       stageText: founderCovenantOperatorQueueStageText(item),
       reviewReadinessText: founderCovenantOperatorQueueReviewReadinessText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
@@ -846,6 +848,23 @@ function founderCovenantActivitySignalLabel(
   signal: RealityFounderCovenantReviewQueueItem['activitySignals'][number],
 ): string {
   return `${signal.label} ${signal.value ? 'yes' : 'no'}`
+}
+
+export function founderCovenantOperatorQueueEconomicExposureText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'economicExposure'>,
+): string {
+  const exposure = item.economicExposure
+  const insured = exposure.insured ? 'insured' : 'uninsured'
+  const availability = exposure.hospitalized ? 'hospitalized' : 'available'
+  return [
+    `Founder ${formatMoney(exposure.founderCash)}`,
+    `debt ${formatMoney(exposure.outstandingDebt)} (${exposure.debtCount})`,
+    `businesses ${exposure.businessCount} / ${formatMoney(exposure.businessCash)}`,
+    `unstaffed ${exposure.unstaffedBusinessCount}`,
+    insured,
+    availability,
+    'game credits only',
+  ].join(' · ')
 }
 
 export function founderCovenantOperatorQueueStageText(

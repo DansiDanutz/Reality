@@ -7,6 +7,7 @@ import type {
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
   founderCovenantOperatorQueueActivitySignalText,
+  founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
@@ -39,6 +40,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
+    expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
@@ -124,6 +126,9 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
+    )
+    expect(founderCovenantOperatorQueueEconomicExposureText(manual)).toBe(
+      'Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only',
     )
     expect(founderCovenantOperatorQueueStageText(manual)).toBe(
       'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
