@@ -20,6 +20,7 @@ import {
   type FounderCovenantReviewInput,
   type FounderCovenantReviewQueue,
   type FounderCovenantSignalKind,
+  type FounderCovenantStage,
   type FounderCovenantStatus,
   type RecordFounderCovenantReviewError,
   type WorldArea,
@@ -218,6 +219,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   waitlistHandoffEnabled: false
   activityReview: AreaNeedsDashboard['founderCovenant']['activityReview']
   reviewInputs: readonly FounderCovenantReviewInput[]
+  stages: readonly FounderCovenantStage[]
   reviewChecklist: readonly FounderCovenantReviewChecklistItem[]
   manualActions: readonly FounderCovenantManualAction[]
   economicExposure: WorldFounderCovenantReviewQueueEconomicExposure
@@ -651,6 +653,7 @@ function founderCovenantReviewQueueItem(
     waitlistHandoffEnabled: false,
     activityReview: { ...review.activityReview },
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    stages: review.stages.map(founderCovenantStageSnapshot),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(area, dashboard, founderCitizenId),
@@ -751,6 +754,15 @@ function founderCovenantReviewQueueTotals(
 
 function founderCovenantReviewInputSnapshot(input: FounderCovenantReviewInput): FounderCovenantReviewInput {
   return { ...input }
+}
+
+function founderCovenantStageSnapshot(stage: FounderCovenantStage): FounderCovenantStage {
+  return {
+    ...stage,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }
 }
 
 function founderCovenantReviewChecklistSnapshot(

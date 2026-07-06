@@ -1154,6 +1154,29 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with executable stage snapshots', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        stages: serverFounderCovenantReviewQueue().items[0].stages.map((stage, index) =>
+          index === 0 ? { ...stage, executionEnabled: true } : stage
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable latest-review metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2943,6 +2966,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       waitlistHandoffEnabled: false,
       activityReview: review.activityReview,
       reviewInputs: review.reviewInputs,
+      stages: review.stages,
       reviewChecklist: review.reviewChecklist,
       manualActions: review.manualActions.map((action) => ({
         ...action,

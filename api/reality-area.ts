@@ -1148,6 +1148,7 @@ interface FounderCovenantReviewQueueItem {
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
   reviewInputs: readonly FounderAreaCovenantReviewInput[]
+  stages: readonly FounderAreaCovenantStage[]
   reviewChecklist: readonly FounderAreaCovenantReviewChecklistItem[]
   manualActions: readonly FounderAreaCovenantManualAction[]
   economicExposure: FounderCovenantReviewQueueEconomicExposure
@@ -4348,6 +4349,7 @@ function founderCovenantReviewQueueItem(
     waitlistHandoffEnabled: false,
     activityReview: { ...review.activityReview },
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    stages: review.stages.map(founderCovenantStageSnapshot),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(state),

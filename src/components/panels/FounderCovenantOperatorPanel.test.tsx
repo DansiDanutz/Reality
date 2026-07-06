@@ -28,6 +28,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Founder Review Queue')
     expect(html).toContain('Evidence only')
     expect(html).toContain('#0012 · Bucharest Founder Block')
+    expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
@@ -162,6 +163,52 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
         status: 'manual_needed',
         evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
         manualEvidenceRequired: true,
+      }],
+      stages: [{
+        kind: 'active',
+        label: 'Active',
+        status: 'locked',
+        reason: 'Founder has covenant signals requiring reviewer attention.',
+        requiresMainFounderApproval: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        kind: 'warning',
+        label: 'Warning',
+        status: 'recommended',
+        reason: 'Covenant signals suggest a manual founder warning.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        kind: 'probation',
+        label: 'Probation',
+        status: 'locked',
+        reason: 'Founder score and signals do not suggest probation.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        kind: 'removed',
+        label: 'Removed',
+        status: 'locked',
+        reason: 'Removal is not suggested by current covenant signals.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        kind: 'waitlist_replacement',
+        label: 'Waitlist replacement',
+        status: 'locked',
+        reason: 'Waitlist handoff is disabled until the manual replacement workflow is approved.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
       }],
       reviewChecklist: [{
         key: 'active',

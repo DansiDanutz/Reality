@@ -3424,6 +3424,13 @@ describe('reality area authority API', () => {
             recommendedActionKinds: string[]
           }
           reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
+          stages: {
+            kind: string
+            status: string
+            manualOnly: boolean
+            automationEnabled: boolean
+            executionEnabled: boolean
+          }[]
           reviewChecklist: { key: string; status: string }[]
           manualActions: {
             kind: string
@@ -3567,6 +3574,16 @@ describe('reality area authority API', () => {
         manualEvidenceRequired: true,
       }),
     ]))
+    expect(queue.items[0].stages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'probation', status: 'recommended', executionEnabled: false }),
+      expect.objectContaining({ kind: 'removed', status: 'recommended', executionEnabled: false }),
+      expect.objectContaining({ kind: 'waitlist_replacement', status: 'locked', executionEnabled: false }),
+    ]))
+    expect(queue.items[0].stages.every((stage) =>
+      stage.manualOnly === true &&
+      stage.automationEnabled === false &&
+      stage.executionEnabled === false
+    )).toBe(true)
     expect(queue.items[0].reviewChecklist).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', status: 'manual_review' }),
       expect.objectContaining({ key: 'hospital', status: 'manual_review' }),

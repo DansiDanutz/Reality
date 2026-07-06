@@ -15,6 +15,7 @@ import {
   founderCovenantOperatorQueueEvidenceInputText,
   founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftText,
+  founderCovenantOperatorQueueStageText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueueReviewRows,
@@ -35,6 +36,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
@@ -115,6 +117,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
+    )
+    expect(founderCovenantOperatorQueueStageText(manual)).toBe(
+      'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
     )
     expect(founderCovenantOperatorQueueChecklistText(manual)).toBe(
       'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',
@@ -343,6 +348,7 @@ function founderQueueItem(
       score: 35,
     },
     reviewInputs: founderReviewInputs(),
+    stages: founderStages(),
     reviewChecklist: founderReviewChecklist(),
     manualActions: founderManualActions(),
     economicExposure: {
@@ -384,6 +390,55 @@ function founderQueueItem(
     transactionsAdded: 1,
     ...overrides,
   }
+}
+
+function founderStages(): RealityFounderCovenantReviewQueueItem['stages'] {
+  return [{
+    kind: 'active',
+    label: 'Active',
+    status: 'locked',
+    reason: 'Founder has covenant signals requiring reviewer attention.',
+    requiresMainFounderApproval: false,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'warning',
+    label: 'Warning',
+    status: 'recommended',
+    reason: 'Covenant signals suggest a manual founder warning.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'probation',
+    label: 'Probation',
+    status: 'locked',
+    reason: 'Founder score and signals do not suggest probation.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'removed',
+    label: 'Removed',
+    status: 'locked',
+    reason: 'Removal is not suggested by current covenant signals.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'waitlist_replacement',
+    label: 'Waitlist replacement',
+    status: 'locked',
+    reason: 'Waitlist handoff is disabled until the manual replacement workflow is approved.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }]
 }
 
 function founderManualActions(): RealityFounderCovenantReviewQueueItem['manualActions'] {

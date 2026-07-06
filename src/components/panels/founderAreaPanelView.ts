@@ -121,6 +121,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   summary: string
   dateSummary: string
   latestReviewText: string | null
+  stageText: string
   checklistText: string
   evidenceInputText: string
   manualActionText: string
@@ -803,6 +804,7 @@ export function founderCovenantOperatorQueueReviewRows(
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
+      stageText: founderCovenantOperatorQueueStageText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
@@ -820,6 +822,20 @@ export function founderCovenantOperatorQueueLatestReviewText(
 ): string | null {
   if (!item.latestReview) return null
   return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+}
+
+export function founderCovenantOperatorQueueStageText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'stages'>,
+): string {
+  if (item.stages.length === 0) return 'none'
+  const current = item.stages.find((stage) => stage.status === 'current')
+  const suggested = item.stages.filter((stage) => stage.status === 'recommended')
+  const locked = item.stages.filter((stage) => stage.status === 'locked')
+  const parts: string[] = []
+  if (current) parts.push(`Current: ${current.label}`)
+  if (suggested.length > 0) parts.push(`Suggested: ${suggested.map((stage) => stage.label).join(', ')}`)
+  if (locked.length > 0) parts.push(`Locked: ${locked.map((stage) => stage.label).join(', ')}`)
+  return parts.join(' · ')
 }
 
 export function founderCovenantOperatorQueueChecklistText(
