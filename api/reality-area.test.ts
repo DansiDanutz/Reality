@@ -306,6 +306,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       landRights: { leasesEnabled: true },
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      payoutReadiness: { enabled: true },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -591,6 +595,11 @@ describe('reality area authority API', () => {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
       fixedMonthlyRent: 500,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      kycStatus: 'approved',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
@@ -1357,6 +1366,70 @@ describe('reality area authority API', () => {
       transaction.toId === 'system:reality-platform-fees' ||
       transaction.fromId === 'system:reality-platform-fees' ||
       transaction.memo.toLowerCase().includes('rent')
+    )).toBe(false)
+  })
+
+  test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    const existing = {
+      ...existingState(),
+      balance: 197_500,
+      citizens: existingState().citizens.map((citizen) =>
+        citizen.id === CITIZEN_ID ? { ...citizen, money: 197_500 } : citizen
+      ),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://payout-readiness-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.dashboard.payoutReadiness).toEqual({
+      enabled: false,
+      mode: 'game_credits_only',
+      gameplayLedgerSource: 'reality_server',
+      gameCredits: 197_500,
+      payoutEligibleCredits: 0,
+      realWithdrawalsEnabled: false,
+      manualPayoutApprovalEnabled: false,
+      kycRequired: true,
+      kycStatus: 'not_started',
+      taxProfileRequired: true,
+      taxProfileStatus: 'not_started',
+      complianceReviewRequired: true,
+      noProfitPromise: true,
+      tonSettlementEnabled: false,
+      stablecoinRailPlanned: true,
+      blockers: [
+        'game_credits_only',
+        'payouts_disabled',
+        'withdrawals_disabled',
+        'kyc_disabled',
+        'tax_profile_disabled',
+        'manual_payout_review_required',
+        'compliance_review_required',
+        'ton_settlement_disabled',
+      ],
+    })
+    expect(body.dashboard.settlement).toMatchObject({
+      gameCredits: 197_500,
+      payoutEligibleCredits: 0,
+      withdrawalsEnabled: false,
+      manualReviewRequired: true,
+      complianceReviewRequired: true,
+    })
+    expect(body.state.transactions.some((transaction) =>
+      transaction.memo.toLowerCase().includes('withdraw') ||
+      transaction.memo.toLowerCase().includes('payout')
     )).toBe(false)
   })
 
@@ -4843,6 +4916,7 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     },
     growth: growthDashboard(1, 3),
     settlement: settlementDashboard(state.balance),
+    payoutReadiness: payoutReadinessDashboard(state.balance),
     legacyRoyalty: legacyRoyaltyDashboard(state),
     handoff: handoffDashboard(state),
     landRights: landRightsDashboard(state),
@@ -4893,6 +4967,36 @@ function settlementDashboard(gameCredits: number) {
       'leases_disabled',
       'manual_payout_review_required',
       'compliance_review_required',
+    ],
+  } as const
+}
+
+function payoutReadinessDashboard(gameCredits: number) {
+  return {
+    enabled: false,
+    mode: 'game_credits_only',
+    gameplayLedgerSource: 'reality_server',
+    gameCredits,
+    payoutEligibleCredits: 0,
+    realWithdrawalsEnabled: false,
+    manualPayoutApprovalEnabled: false,
+    kycRequired: true,
+    kycStatus: 'not_started',
+    taxProfileRequired: true,
+    taxProfileStatus: 'not_started',
+    complianceReviewRequired: true,
+    noProfitPromise: true,
+    tonSettlementEnabled: false,
+    stablecoinRailPlanned: true,
+    blockers: [
+      'game_credits_only',
+      'payouts_disabled',
+      'withdrawals_disabled',
+      'kyc_disabled',
+      'tax_profile_disabled',
+      'manual_payout_review_required',
+      'compliance_review_required',
+      'ton_settlement_disabled',
     ],
   } as const
 }

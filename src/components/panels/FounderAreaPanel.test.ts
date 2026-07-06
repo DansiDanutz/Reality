@@ -50,6 +50,10 @@ import {
   founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderPayoutReadinessBlockerText,
+  founderPayoutReadinessPolicyText,
+  founderPayoutReadinessStatusLabel,
+  founderPayoutReadinessSummaryItems,
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
@@ -724,6 +728,53 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderSettlementBlockerText('ton_connect_disabled')).toBe('TON Connect')
     expect(founderSettlementBlockerText('manual_payout_review_required')).toBe('Manual payout review')
     expect(founderSettlementBlockerText('compliance_review_required')).toBe('Compliance review')
+  })
+
+  test('summarizes disabled payout readiness without promising real withdrawals', () => {
+    const payout: Parameters<typeof founderPayoutReadinessSummaryItems>[0] = {
+      enabled: false,
+      mode: 'game_credits_only',
+      gameplayLedgerSource: 'reality_server',
+      gameCredits: 200_000,
+      payoutEligibleCredits: 0,
+      realWithdrawalsEnabled: false,
+      manualPayoutApprovalEnabled: false,
+      kycRequired: true,
+      kycStatus: 'not_started',
+      taxProfileRequired: true,
+      taxProfileStatus: 'not_started',
+      complianceReviewRequired: true,
+      noProfitPromise: true,
+      tonSettlementEnabled: false,
+      stablecoinRailPlanned: true,
+      blockers: [
+        'game_credits_only',
+        'payouts_disabled',
+        'withdrawals_disabled',
+        'kyc_disabled',
+        'tax_profile_disabled',
+        'manual_payout_review_required',
+        'compliance_review_required',
+        'ton_settlement_disabled',
+      ],
+    }
+
+    expect(founderPayoutReadinessStatusLabel(payout)).toBe('Game credits only')
+    expect(founderPayoutReadinessSummaryItems(payout)).toEqual([
+      { key: 'credits', label: 'Game credits', value: '$200,000', tone: 'stable' },
+      { key: 'eligible', label: 'Payout eligible', value: '$0', tone: 'stable' },
+      { key: 'kyc', label: 'KYC', value: 'not started', tone: 'warning' },
+      { key: 'tax', label: 'Tax', value: 'not started', tone: 'warning' },
+    ])
+    expect(founderPayoutReadinessPolicyText(payout)).toBe('no profit promise · stablecoin rail planned later')
+    expect(founderPayoutReadinessBlockerText('game_credits_only')).toBe('Game credits only')
+    expect(founderPayoutReadinessBlockerText('payouts_disabled')).toBe('Payouts')
+    expect(founderPayoutReadinessBlockerText('withdrawals_disabled')).toBe('Withdrawals')
+    expect(founderPayoutReadinessBlockerText('kyc_disabled')).toBe('KYC')
+    expect(founderPayoutReadinessBlockerText('tax_profile_disabled')).toBe('Tax profile')
+    expect(founderPayoutReadinessBlockerText('manual_payout_review_required')).toBe('Manual payout review')
+    expect(founderPayoutReadinessBlockerText('compliance_review_required')).toBe('Compliance review')
+    expect(founderPayoutReadinessBlockerText('ton_settlement_disabled')).toBe('TON settlement')
   })
 
   test('summarizes disabled founder legacy royalty without enabling payouts', () => {

@@ -26,6 +26,8 @@ import type {
   RealityAreaLandRightsDashboard,
   RealityAreaLegacyRoyaltyBlocker,
   RealityAreaLegacyRoyaltyDashboard,
+  RealityAreaPayoutReadinessBlocker,
+  RealityAreaPayoutReadinessDashboard,
   RealityAreaSettlementBlocker,
   RealityAreaSettlementDashboard,
 } from '../../lib/realityArea'
@@ -75,6 +77,13 @@ export interface FounderHandoffSummaryItem {
 }
 
 export interface FounderLandRightsSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderPayoutReadinessSummaryItem {
   key: string
   label: string
   value: string
@@ -284,6 +293,71 @@ export function founderSettlementStatusLabel(settlement: Pick<RealityAreaSettlem
     case 'ledger_only':
       return 'Disabled'
   }
+}
+
+export function founderPayoutReadinessStatusLabel(
+  payout: Pick<RealityAreaPayoutReadinessDashboard, 'enabled' | 'mode'>,
+): string {
+  if (payout.enabled) return 'Enabled'
+  switch (payout.mode) {
+    case 'game_credits_only':
+      return 'Game credits only'
+  }
+}
+
+export function founderPayoutReadinessSummaryItems(
+  payout: RealityAreaPayoutReadinessDashboard,
+): FounderPayoutReadinessSummaryItem[] {
+  return [{
+    key: 'credits',
+    label: 'Game credits',
+    value: formatMoney(payout.gameCredits),
+    tone: 'stable',
+  }, {
+    key: 'eligible',
+    label: 'Payout eligible',
+    value: formatMoney(payout.payoutEligibleCredits),
+    tone: 'stable',
+  }, {
+    key: 'kyc',
+    label: 'KYC',
+    value: payout.kycStatus === 'not_started' ? 'not started' : payout.kycStatus,
+    tone: 'warning',
+  }, {
+    key: 'tax',
+    label: 'Tax',
+    value: payout.taxProfileStatus === 'not_started' ? 'not started' : payout.taxProfileStatus,
+    tone: 'warning',
+  }]
+}
+
+export function founderPayoutReadinessBlockerText(blocker: RealityAreaPayoutReadinessBlocker): string {
+  switch (blocker) {
+    case 'game_credits_only':
+      return 'Game credits only'
+    case 'payouts_disabled':
+      return 'Payouts'
+    case 'withdrawals_disabled':
+      return 'Withdrawals'
+    case 'kyc_disabled':
+      return 'KYC'
+    case 'tax_profile_disabled':
+      return 'Tax profile'
+    case 'manual_payout_review_required':
+      return 'Manual payout review'
+    case 'compliance_review_required':
+      return 'Compliance review'
+    case 'ton_settlement_disabled':
+      return 'TON settlement'
+  }
+}
+
+export function founderPayoutReadinessPolicyText(
+  payout: Pick<RealityAreaPayoutReadinessDashboard, 'noProfitPromise' | 'stablecoinRailPlanned'>,
+): string {
+  const promise = payout.noProfitPromise ? 'no profit promise' : 'profit wording review'
+  const rail = payout.stablecoinRailPlanned ? 'stablecoin rail planned later' : 'no settlement rail'
+  return `${promise} · ${rail}`
 }
 
 export function founderSettlementSummaryItems(

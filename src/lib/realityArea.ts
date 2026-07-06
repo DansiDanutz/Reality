@@ -468,6 +468,35 @@ export interface RealityAreaSettlementDashboard {
   blockers: RealityAreaSettlementBlocker[]
 }
 
+export type RealityAreaPayoutReadinessBlocker =
+  | 'game_credits_only'
+  | 'payouts_disabled'
+  | 'withdrawals_disabled'
+  | 'kyc_disabled'
+  | 'tax_profile_disabled'
+  | 'manual_payout_review_required'
+  | 'compliance_review_required'
+  | 'ton_settlement_disabled'
+
+export interface RealityAreaPayoutReadinessDashboard {
+  enabled: false
+  mode: 'game_credits_only'
+  gameplayLedgerSource: 'reality_server'
+  gameCredits: number
+  payoutEligibleCredits: 0
+  realWithdrawalsEnabled: false
+  manualPayoutApprovalEnabled: false
+  kycRequired: true
+  kycStatus: 'not_started'
+  taxProfileRequired: true
+  taxProfileStatus: 'not_started'
+  complianceReviewRequired: true
+  noProfitPromise: true
+  tonSettlementEnabled: false
+  stablecoinRailPlanned: true
+  blockers: RealityAreaPayoutReadinessBlocker[]
+}
+
 export type RealityAreaLegacyRoyaltyBlocker =
   | 'replacement_workflow_disabled'
   | 'waitlist_handoff_disabled'
@@ -689,6 +718,7 @@ export interface RealityAreaDashboard {
   ledger: RealityAreaLedgerDashboard
   growth: RealityAreaGrowthDashboard
   settlement: RealityAreaSettlementDashboard
+  payoutReadiness: RealityAreaPayoutReadinessDashboard
   legacyRoyalty: RealityAreaLegacyRoyaltyDashboard
   handoff: RealityAreaHandoffDashboard
   landRights: RealityAreaLandRightsDashboard
@@ -697,7 +727,7 @@ export interface RealityAreaDashboard {
 
 export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<
   RealityAreaDashboard,
-  'founderIdentity' | 'growth' | 'settlement' | 'legacyRoyalty' | 'handoff' | 'landRights'
+  'founderIdentity' | 'growth' | 'settlement' | 'payoutReadiness' | 'legacyRoyalty' | 'handoff' | 'landRights'
 >
 
 export interface RealityAreaState {
@@ -972,6 +1002,10 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     settlement: {
       ...serverDashboard.settlement,
       blockers: [...serverDashboard.settlement.blockers],
+    },
+    payoutReadiness: {
+      ...serverDashboard.payoutReadiness,
+      blockers: [...serverDashboard.payoutReadiness.blockers],
     },
     legacyRoyalty: {
       ...serverDashboard.legacyRoyalty,
@@ -1399,6 +1433,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isRealityAreaLedgerDashboard(value.ledger) &&
     isRealityAreaGrowthDashboard(value.growth) &&
     isRealityAreaSettlementDashboard(value.settlement) &&
+    isRealityAreaPayoutReadinessDashboard(value.payoutReadiness) &&
     isRealityAreaLegacyRoyaltyDashboard(value.legacyRoyalty) &&
     isRealityAreaHandoffDashboard(value.handoff) &&
     isRealityAreaLandRightsDashboard(value.landRights) &&
@@ -1471,6 +1506,38 @@ function isRealityAreaSettlementBlocker(value: unknown): value is RealityAreaSet
     value === 'leases_disabled' ||
     value === 'manual_payout_review_required' ||
     value === 'compliance_review_required'
+}
+
+function isRealityAreaPayoutReadinessDashboard(value: unknown): value is RealityAreaPayoutReadinessDashboard {
+  return isRecord(value) &&
+    value.enabled === false &&
+    value.mode === 'game_credits_only' &&
+    value.gameplayLedgerSource === 'reality_server' &&
+    typeof value.gameCredits === 'number' &&
+    value.payoutEligibleCredits === 0 &&
+    value.realWithdrawalsEnabled === false &&
+    value.manualPayoutApprovalEnabled === false &&
+    value.kycRequired === true &&
+    value.kycStatus === 'not_started' &&
+    value.taxProfileRequired === true &&
+    value.taxProfileStatus === 'not_started' &&
+    value.complianceReviewRequired === true &&
+    value.noProfitPromise === true &&
+    value.tonSettlementEnabled === false &&
+    value.stablecoinRailPlanned === true &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaPayoutReadinessBlocker)
+}
+
+function isRealityAreaPayoutReadinessBlocker(value: unknown): value is RealityAreaPayoutReadinessBlocker {
+  return value === 'game_credits_only' ||
+    value === 'payouts_disabled' ||
+    value === 'withdrawals_disabled' ||
+    value === 'kyc_disabled' ||
+    value === 'tax_profile_disabled' ||
+    value === 'manual_payout_review_required' ||
+    value === 'compliance_review_required' ||
+    value === 'ton_settlement_disabled'
 }
 
 function isRealityAreaLegacyRoyaltyDashboard(value: unknown): value is RealityAreaLegacyRoyaltyDashboard {

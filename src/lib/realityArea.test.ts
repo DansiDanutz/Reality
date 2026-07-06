@@ -216,6 +216,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores payout readiness dashboards that enable real withdrawals', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      payoutReadiness: {
+        ...dashboard.payoutReadiness,
+        realWithdrawalsEnabled: true,
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores legacy royalty dashboards that enable successor payouts', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -924,6 +948,8 @@ describe('Reality area client', () => {
     expect((merged as { founderIdentity: RealityAreaDashboard['founderIdentity'] }).founderIdentity).toEqual(server.founderIdentity)
     expect((merged as { growth: RealityAreaDashboard['growth'] }).growth).toEqual(server.growth)
     expect((merged as { settlement: RealityAreaDashboard['settlement'] }).settlement).toEqual(server.settlement)
+    expect((merged as { payoutReadiness: RealityAreaDashboard['payoutReadiness'] }).payoutReadiness)
+      .toEqual(server.payoutReadiness)
     expect((merged as { legacyRoyalty: RealityAreaDashboard['legacyRoyalty'] }).legacyRoyalty).toEqual(server.legacyRoyalty)
     expect((merged as { handoff: RealityAreaDashboard['handoff'] }).handoff).toEqual(server.handoff)
     expect((merged as { landRights: RealityAreaDashboard['landRights'] }).landRights).toEqual(server.landRights)
@@ -1801,6 +1827,33 @@ function serverDashboard(): RealityAreaDashboard {
         'leases_disabled',
         'manual_payout_review_required',
         'compliance_review_required',
+      ],
+    },
+    payoutReadiness: {
+      enabled: false,
+      mode: 'game_credits_only',
+      gameplayLedgerSource: 'reality_server',
+      gameCredits: 200_000,
+      payoutEligibleCredits: 0,
+      realWithdrawalsEnabled: false,
+      manualPayoutApprovalEnabled: false,
+      kycRequired: true,
+      kycStatus: 'not_started',
+      taxProfileRequired: true,
+      taxProfileStatus: 'not_started',
+      complianceReviewRequired: true,
+      noProfitPromise: true,
+      tonSettlementEnabled: false,
+      stablecoinRailPlanned: true,
+      blockers: [
+        'game_credits_only',
+        'payouts_disabled',
+        'withdrawals_disabled',
+        'kyc_disabled',
+        'tax_profile_disabled',
+        'manual_payout_review_required',
+        'compliance_review_required',
+        'ton_settlement_disabled',
       ],
     },
     legacyRoyalty: {

@@ -340,6 +340,15 @@ type FounderAreaSettlementBlocker =
   | 'leases_disabled'
   | 'manual_payout_review_required'
   | 'compliance_review_required'
+type FounderAreaPayoutReadinessBlocker =
+  | 'game_credits_only'
+  | 'payouts_disabled'
+  | 'withdrawals_disabled'
+  | 'kyc_disabled'
+  | 'tax_profile_disabled'
+  | 'manual_payout_review_required'
+  | 'compliance_review_required'
+  | 'ton_settlement_disabled'
 type FounderAreaLegacyRoyaltyBlocker =
   | 'replacement_workflow_disabled'
   | 'waitlist_handoff_disabled'
@@ -658,6 +667,25 @@ interface FounderAreaSettlementDashboard {
   blockers: readonly FounderAreaSettlementBlocker[]
 }
 
+interface FounderAreaPayoutReadinessDashboard {
+  enabled: false
+  mode: 'game_credits_only'
+  gameplayLedgerSource: 'reality_server'
+  gameCredits: number
+  payoutEligibleCredits: 0
+  realWithdrawalsEnabled: false
+  manualPayoutApprovalEnabled: false
+  kycRequired: true
+  kycStatus: 'not_started'
+  taxProfileRequired: true
+  taxProfileStatus: 'not_started'
+  complianceReviewRequired: true
+  noProfitPromise: true
+  tonSettlementEnabled: false
+  stablecoinRailPlanned: true
+  blockers: readonly FounderAreaPayoutReadinessBlocker[]
+}
+
 interface FounderAreaLegacyRoyaltyDashboard {
   enabled: false
   payoutEnabled: false
@@ -773,6 +801,7 @@ interface FounderAreaDashboard {
   ledger: FounderAreaLedgerDashboard
   growth: FounderAreaGrowthDashboard
   settlement: FounderAreaSettlementDashboard
+  payoutReadiness: FounderAreaPayoutReadinessDashboard
   legacyRoyalty: FounderAreaLegacyRoyaltyDashboard
   handoff: FounderAreaHandoffDashboard
   landRights: FounderAreaLandRightsDashboard
@@ -1036,6 +1065,15 @@ const SERVER_OWNED_SETTLEMENT_FIELDS = [
   'tonWalletAddress',
   'tonConnectProof',
   'payoutEligibleCredits',
+  'payoutReadiness',
+  'realWithdrawalsEnabled',
+  'manualPayoutApprovalEnabled',
+  'kycRequired',
+  'kycStatus',
+  'taxProfileRequired',
+  'taxProfileStatus',
+  'noProfitPromise',
+  'stablecoinRailPlanned',
   'walletConnectionEnabled',
   'depositsEnabled',
   'withdrawalsEnabled',
@@ -2603,6 +2641,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     ledger: areaLedgerDashboard(state),
     growth: areaGrowthDashboard(state),
     settlement: areaSettlementDashboard(state),
+    payoutReadiness: areaPayoutReadinessDashboard(state),
     legacyRoyalty: areaLegacyRoyaltyDashboard(state),
     handoff: areaHandoffDashboard(state),
     landRights: areaLandRightsDashboard(state),
@@ -2653,6 +2692,36 @@ function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlement
       'leases_disabled',
       'manual_payout_review_required',
       'compliance_review_required',
+    ],
+  }
+}
+
+function areaPayoutReadinessDashboard(state: FounderAreaState): FounderAreaPayoutReadinessDashboard {
+  return {
+    enabled: false,
+    mode: 'game_credits_only',
+    gameplayLedgerSource: 'reality_server',
+    gameCredits: roundMoney(state.balance),
+    payoutEligibleCredits: 0,
+    realWithdrawalsEnabled: false,
+    manualPayoutApprovalEnabled: false,
+    kycRequired: true,
+    kycStatus: 'not_started',
+    taxProfileRequired: true,
+    taxProfileStatus: 'not_started',
+    complianceReviewRequired: true,
+    noProfitPromise: true,
+    tonSettlementEnabled: false,
+    stablecoinRailPlanned: true,
+    blockers: [
+      'game_credits_only',
+      'payouts_disabled',
+      'withdrawals_disabled',
+      'kyc_disabled',
+      'tax_profile_disabled',
+      'manual_payout_review_required',
+      'compliance_review_required',
+      'ton_settlement_disabled',
     ],
   }
 }

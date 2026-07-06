@@ -23,6 +23,7 @@ import {
   type RealityAreaHandoffDashboard,
   type RealityAreaLandRightsDashboard,
   type RealityAreaLegacyRoyaltyDashboard,
+  type RealityAreaPayoutReadinessDashboard,
   type RealityAreaSettlementDashboard,
   type RealityAreaState,
 } from '../../lib/realityArea'
@@ -78,6 +79,10 @@ import {
   founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderPayoutReadinessBlockerText,
+  founderPayoutReadinessPolicyText,
+  founderPayoutReadinessStatusLabel,
+  founderPayoutReadinessSummaryItems,
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
@@ -134,6 +139,7 @@ export default function FounderAreaPanel() {
   const founderIdentityDashboard = dashboard ? getFounderIdentityDashboard(dashboard) : null
   const growthDashboard = dashboard ? getFounderGrowthDashboard(dashboard) : null
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
+  const payoutReadinessDashboard = dashboard ? getFounderPayoutReadinessDashboard(dashboard) : null
   const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
   const handoffDashboard = dashboard ? getFounderHandoffDashboard(dashboard) : null
   const landRightsDashboard = dashboard ? getFounderLandRightsDashboard(dashboard) : null
@@ -653,6 +659,43 @@ export default function FounderAreaPanel() {
             </section>
           )}
 
+          {payoutReadinessDashboard && (
+            <section className="founder-section" aria-label="Payout readiness">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Payout Readiness</h3>
+                <span className="item-desc">{founderPayoutReadinessStatusLabel(payoutReadinessDashboard)}</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Payout readiness summary">
+                {founderPayoutReadinessSummaryItems(payoutReadinessDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <ul className="item-list founder-payout-policy" aria-label="Payout policy">
+                <li className="item founder-payout-policy-item">
+                  <div className="item-info">
+                    <span className="item-name">Policy</span>
+                    <span className="item-desc">{founderPayoutReadinessPolicyText(payoutReadinessDashboard)}</span>
+                  </div>
+                  <span className="item-locked mono">disabled</span>
+                </li>
+              </ul>
+              <ul className="item-list founder-payout-blockers" aria-label="Payout readiness blockers">
+                {payoutReadinessDashboard.blockers.map((blocker) => (
+                  <li className="item founder-payout-blocker" key={blocker}>
+                    <div className="item-info">
+                      <span className="item-name">{founderPayoutReadinessBlockerText(blocker)}</span>
+                      <span className="item-desc">Locked until compliance review</span>
+                    </div>
+                    <span className="item-locked mono">disabled</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {legacyRoyaltyDashboard && (
             <section className="founder-section" aria-label="Founder legacy royalty">
               <div className="founder-section-head">
@@ -914,6 +957,12 @@ function getFounderSettlementDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): RealityAreaSettlementDashboard | null {
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'settlement'>>).settlement ?? null
+}
+
+function getFounderPayoutReadinessDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaPayoutReadinessDashboard | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'payoutReadiness'>>).payoutReadiness ?? null
 }
 
 function getFounderLegacyRoyaltyDashboard(
