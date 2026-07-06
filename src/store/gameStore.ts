@@ -56,7 +56,7 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened

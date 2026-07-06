@@ -1150,6 +1150,52 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   font-size: 12px;
   color: var(--muted);
 }
+.founder-operator-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.06);
+}
+.founder-operator-field,
+.founder-operator-number {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.founder-operator-field span,
+.founder-operator-number span {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.founder-operator-field input,
+.founder-operator-number input {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(10, 14, 24, 0.32);
+  color: var(--text);
+  font: inherit;
+}
+.founder-operator-field input::placeholder { color: var(--muted); }
+.founder-operator-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.founder-operator-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
 /* ── HUD windows: the player owns the screen ───────────── */
 .hud-window {

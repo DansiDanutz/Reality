@@ -1,0 +1,153 @@
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, test } from 'vitest'
+import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
+import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
+
+describe('FounderCovenantOperatorPanel', () => {
+  test('renders an isolated operator queue shell without a loaded token', () => {
+    const html = renderToStaticMarkup(<FounderCovenantOperatorPanel />)
+
+    expect(html).toContain('Founder Ops')
+    expect(html).toContain('Operator token')
+    expect(html).toContain('read only')
+    expect(html).toContain('ephemeral token')
+    expect(html).toContain('player state isolated')
+    expect(html).toContain('No operator queue loaded.')
+    expect(html).not.toContain('operator-token')
+    expect(html).not.toContain('Approve')
+    expect(html).not.toContain('Replace')
+  })
+
+  test('renders an initial queue through the evidence-only queue panel', () => {
+    const html = renderToStaticMarkup(<FounderCovenantOperatorPanel initialQueue={operatorQueue()} />)
+
+    expect(html).toContain('Founder Review Queue')
+    expect(html).toContain('Evidence only')
+    expect(html).toContain('#0012 · Bucharest Founder Block')
+    expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
+    expect(html).toContain('Next page')
+    expect(html).toContain('More founders available')
+    expect(html).not.toContain('operator-token')
+  })
+
+  test('renders an operator authority error without queue data', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantOperatorPanel initialError="Founder covenant review queue requires an operator token." />,
+    )
+
+    expect(html).toContain('Founder covenant review queue requires an operator token.')
+    expect(html).not.toContain('Founder Review Queue')
+  })
+})
+
+function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
+  return {
+    generatedAt: '2026-07-06T04:00:00.000Z',
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    approvalWorkflowEnabled: false,
+    limit: 1,
+    pages: 1,
+    pagesScanned: 1,
+    cursor: null,
+    nextCursor: 'next-review-cursor',
+    scanned: 1,
+    caughtUp: 1,
+    current: 0,
+    failed: 0,
+    hasMore: true,
+    totals: {
+      founders: 1,
+      active: 0,
+      useful: 0,
+      building: 1,
+      staffed: 0,
+      indebted: 1,
+      hospitalized: 1,
+      atRisk: 1,
+      manualReviewRequired: 1,
+      overdue: 1,
+      totalFounderCash: 199_500,
+      totalOutstandingDebt: 350,
+      totalBusinessCash: 25,
+      unstaffedBusinesses: 1,
+      insuredFounders: 0,
+      pendingApprovals: 1,
+      pendingNotifications: 1,
+      blockers: 3,
+    },
+    items: [{
+      areaId: 'founder-area-0012',
+      areaLabel: 'Bucharest Founder Block',
+      founderCitizenId: 'founder-12',
+      founderNumber: 12,
+      updatedAt: '2026-07-06T04:00:00.000Z',
+      checkedAt: '2026-07-06T04:00:00.000Z',
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
+      nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+      overdue: true,
+      covenantStatus: 'manual_review',
+      nextAction: 'manual_review',
+      manualReviewRequired: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: '2026-07-06T04:00:00.000Z',
+        active: false,
+        useful: false,
+        building: true,
+        staffed: false,
+        indebted: true,
+        hospitalized: true,
+        atRisk: true,
+        score: 35,
+      },
+      economicExposure: {
+        founderCash: 199_500,
+        outstandingDebt: 350,
+        debtCount: 1,
+        businessCash: 25,
+        businessCount: 2,
+        unstaffedBusinessCount: 1,
+        insured: false,
+        hospitalized: true,
+        gameCreditsOnly: true,
+        payoutEligibleCredits: 0,
+        manualPayoutReviewRequired: true,
+      },
+      reviewQueue: {
+        evidenceOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+        nextStep: 'main_founder_approval',
+        recordReviewEnabled: true,
+        recommendedActionKinds: ['send_warning'],
+        pendingApprovalKinds: ['send_warning'],
+        pendingApprovalCount: 1,
+        pendingNotificationKinds: ['manual_review_required'],
+        pendingNotificationCount: 1,
+        blockerCount: 3,
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled', 'replacement_disabled'],
+      },
+      signalCounts: { total: 2, info: 0, warning: 1, critical: 1 },
+      signalKinds: ['founder_debt', 'review_due'],
+      recommendedActionKinds: ['send_warning'],
+      pendingApprovalKinds: ['send_warning'],
+      pendingNotificationKinds: ['manual_review_required'],
+      blockerCount: 3,
+      scanStatus: 'caught_up',
+      transactionsAdded: 1,
+    }],
+    results: [{
+      citizenId: 'founder-12',
+      areaId: 'founder-area-0012',
+      status: 'caught_up',
+      updatedAt: '2026-07-06T04:00:00.000Z',
+      transactionsAdded: 1,
+    }],
+  }
+}
