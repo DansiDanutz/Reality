@@ -1129,6 +1129,28 @@ interface FounderCovenantReviewQueueLatestReview {
   automationEnabled: false
 }
 
+type FounderCovenantActivitySignalKey =
+  | 'active'
+  | 'useful'
+  | 'building'
+  | 'staffed'
+  | 'indebted'
+  | 'hospitalized'
+  | 'at_risk'
+
+type FounderCovenantActivitySignalStatus = 'met' | 'watch' | 'manual_review'
+
+interface FounderCovenantActivitySignal {
+  key: FounderCovenantActivitySignalKey
+  label: string
+  value: boolean
+  status: FounderCovenantActivitySignalStatus
+  summary: string
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
+}
+
 type FounderCovenantReviewReadinessStatus =
   | 'blocked'
   | 'needs_evidence'
@@ -1167,6 +1189,7 @@ interface FounderCovenantReviewQueueItem {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
+  activitySignals: readonly FounderCovenantActivitySignal[]
   reviewInputs: readonly FounderAreaCovenantReviewInput[]
   stages: readonly FounderAreaCovenantStage[]
   reviewReadiness: FounderCovenantReviewReadiness
@@ -2839,6 +2862,75 @@ function founderCovenantStageSnapshot(stage: FounderAreaCovenantStage): FounderA
   }
 }
 
+function founderCovenantActivitySignals(
+  review: FounderAreaCovenantActivityReview,
+): FounderCovenantActivitySignal[] {
+  return [{
+    key: 'active',
+    label: 'Active',
+    value: review.active,
+    status: review.active ? 'met' : 'manual_review',
+    summary: review.active ? 'Recent founder activity is present.' : 'No recent founder activity is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'useful',
+    label: 'Useful',
+    value: review.useful,
+    status: review.useful ? 'met' : 'watch',
+    summary: review.useful ? 'Area service quality or contributions look useful.' : 'Usefulness needs reviewer evidence.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'building',
+    label: 'Building',
+    value: review.building,
+    status: review.building ? 'met' : 'manual_review',
+    summary: review.building ? 'Founder has built or owns local business activity.' : 'No founder-built business activity is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'staffed',
+    label: 'Staffed',
+    value: review.staffed,
+    status: review.staffed ? 'met' : 'watch',
+    summary: review.staffed ? 'Founder businesses have enough staff.' : 'Founder businesses need staffing attention.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'indebted',
+    label: 'Indebted',
+    value: review.indebted,
+    status: review.indebted ? 'watch' : 'met',
+    summary: review.indebted ? 'Founder has outstanding debt.' : 'No founder debt is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'hospitalized',
+    label: 'Hospitalized',
+    value: review.hospitalized,
+    status: review.hospitalized ? 'manual_review' : 'met',
+    summary: review.hospitalized ? 'Founder is unavailable in hospital.' : 'Founder is not hospitalized.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'at_risk',
+    label: 'At risk',
+    value: review.atRisk,
+    status: review.atRisk ? 'manual_review' : 'met',
+    summary: review.atRisk ? 'Founder covenant status requires manual attention.' : 'Founder is not currently at risk.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }]
+}
+
 function founderCovenantReviewReadiness(
   review: FounderAreaCovenantReview,
 ): FounderCovenantReviewReadiness {
@@ -4446,6 +4538,7 @@ function founderCovenantReviewQueueItem(
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview: { ...review.activityReview },
+    activitySignals: founderCovenantActivitySignals(review.activityReview),
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
     stages: review.stages.map(founderCovenantStageSnapshot),
     reviewReadiness: founderCovenantReviewReadiness(review),

@@ -28,6 +28,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Founder Review Queue')
     expect(html).toContain('Evidence only')
     expect(html).toContain('#0012 · Bucharest Founder Block')
+    expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
@@ -146,6 +147,70 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
         atRisk: true,
         score: 35,
       },
+      activitySignals: [{
+        key: 'active',
+        label: 'Active',
+        value: false,
+        status: 'manual_review',
+        summary: 'No recent founder activity is visible.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        key: 'useful',
+        label: 'Useful',
+        value: false,
+        status: 'watch',
+        summary: 'Usefulness needs reviewer evidence.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        key: 'building',
+        label: 'Building',
+        value: true,
+        status: 'met',
+        summary: 'Founder has built or owns local business activity.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        key: 'staffed',
+        label: 'Staffed',
+        value: false,
+        status: 'watch',
+        summary: 'Founder businesses need staffing attention.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        key: 'indebted',
+        label: 'Indebted',
+        value: true,
+        status: 'watch',
+        summary: 'Founder has outstanding debt.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        key: 'hospitalized',
+        label: 'Hospitalized',
+        value: true,
+        status: 'manual_review',
+        summary: 'Founder is unavailable in hospital.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        key: 'at_risk',
+        label: 'At risk',
+        value: true,
+        status: 'manual_review',
+        summary: 'Founder covenant status requires manual attention.',
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }],
       reviewInputs: [{
         kind: 'population_growth',
         label: 'Population growth',

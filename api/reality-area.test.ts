@@ -3424,6 +3424,14 @@ describe('reality area authority API', () => {
             recommendedActionKinds: string[]
           }
           reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
+          activitySignals: {
+            key: string
+            value: boolean
+            status: string
+            manualOnly: boolean
+            automationEnabled: boolean
+            executionEnabled: boolean
+          }[]
           stages: {
             kind: string
             status: string
@@ -3574,6 +3582,26 @@ describe('reality area authority API', () => {
       scanStatus: 'caught_up',
       transactionsAdded: 1,
     })
+    expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
+      expect.objectContaining({ key: 'indebted', value: true, status: 'watch', executionEnabled: false }),
+      expect.objectContaining({ key: 'hospitalized', value: true, status: 'manual_review', executionEnabled: false }),
+      expect.objectContaining({ key: 'at_risk', value: true, status: 'manual_review', executionEnabled: false }),
+    ]))
+    expect(queue.items[0].activitySignals.map((signal) => signal.key)).toEqual([
+      'active',
+      'useful',
+      'building',
+      'staffed',
+      'indebted',
+      'hospitalized',
+      'at_risk',
+    ])
+    expect(queue.items[0].activitySignals.every((signal) =>
+      signal.manualOnly === true &&
+      signal.automationEnabled === false &&
+      signal.executionEnabled === false
+    )).toBe(true)
     expect(queue.items[0].reviewInputs).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'population_growth',

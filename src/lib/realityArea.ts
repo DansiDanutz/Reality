@@ -817,6 +817,28 @@ export interface RealityFounderCovenantReviewQueueLatestReview {
   automationEnabled: false
 }
 
+export type RealityFounderCovenantActivitySignalKey =
+  | 'active'
+  | 'useful'
+  | 'building'
+  | 'staffed'
+  | 'indebted'
+  | 'hospitalized'
+  | 'at_risk'
+
+export type RealityFounderCovenantActivitySignalStatus = 'met' | 'watch' | 'manual_review'
+
+export interface RealityFounderCovenantActivitySignal {
+  key: RealityFounderCovenantActivitySignalKey
+  label: string
+  value: boolean
+  status: RealityFounderCovenantActivitySignalStatus
+  summary: string
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
+}
+
 export type RealityFounderCovenantReviewReadinessStatus =
   | 'blocked'
   | 'needs_evidence'
@@ -855,6 +877,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: RealityAreaCovenantReview['activityReview']
+  activitySignals: readonly RealityFounderCovenantActivitySignal[]
   reviewInputs: readonly RealityAreaCovenantReviewInput[]
   stages: readonly RealityAreaCovenantStage[]
   reviewReadiness: RealityFounderCovenantReviewReadiness
@@ -2239,6 +2262,8 @@ function isRealityFounderCovenantReviewQueueItem(
     value.replacementEnabled === false &&
     value.waitlistHandoffEnabled === false &&
     isRealityAreaCovenantActivityReview(value.activityReview) &&
+    Array.isArray(value.activitySignals) &&
+    value.activitySignals.every(isRealityFounderCovenantActivitySignal) &&
     Array.isArray(value.reviewInputs) &&
     value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
     Array.isArray(value.stages) &&
@@ -2278,6 +2303,20 @@ function isRealityFounderCovenantReviewQueueLatestReview(
     typeof value.summary === 'string' &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
+}
+
+function isRealityFounderCovenantActivitySignal(
+  value: unknown,
+): value is RealityFounderCovenantActivitySignal {
+  return isRecord(value) &&
+    isRealityFounderCovenantActivitySignalKey(value.key) &&
+    typeof value.label === 'string' &&
+    typeof value.value === 'boolean' &&
+    isRealityFounderCovenantActivitySignalStatus(value.status) &&
+    typeof value.summary === 'string' &&
+    value.manualOnly === true &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false
 }
 
 function isRealityFounderCovenantReviewReadiness(
@@ -2570,6 +2609,24 @@ function isRealityAreaCovenantStageKind(value: unknown): value is RealityAreaCov
 
 function isRealityAreaCovenantStageStatus(value: unknown): value is RealityAreaCovenantStageStatus {
   return value === 'current' || value === 'recommended' || value === 'locked'
+}
+
+function isRealityFounderCovenantActivitySignalKey(
+  value: unknown,
+): value is RealityFounderCovenantActivitySignalKey {
+  return value === 'active' ||
+    value === 'useful' ||
+    value === 'building' ||
+    value === 'staffed' ||
+    value === 'indebted' ||
+    value === 'hospitalized' ||
+    value === 'at_risk'
+}
+
+function isRealityFounderCovenantActivitySignalStatus(
+  value: unknown,
+): value is RealityFounderCovenantActivitySignalStatus {
+  return value === 'met' || value === 'watch' || value === 'manual_review'
 }
 
 function isRealityFounderCovenantReviewReadinessStatus(

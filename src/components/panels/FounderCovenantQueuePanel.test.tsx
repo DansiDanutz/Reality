@@ -6,6 +6,7 @@ import type {
 } from '../../lib/realityArea'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
+  founderCovenantOperatorQueueActivitySignalText,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
@@ -37,6 +38,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
@@ -119,6 +121,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
+    )
+    expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
+      'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
     )
     expect(founderCovenantOperatorQueueStageText(manual)).toBe(
       'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
@@ -352,6 +357,7 @@ function founderQueueItem(
       atRisk: true,
       score: 35,
     },
+    activitySignals: founderActivitySignals(),
     reviewInputs: founderReviewInputs(),
     stages: founderStages(),
     reviewReadiness: founderReviewReadiness(),
@@ -441,6 +447,73 @@ function founderStages(): RealityFounderCovenantReviewQueueItem['stages'] {
     status: 'locked',
     reason: 'Waitlist handoff is disabled until the manual replacement workflow is approved.',
     requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }]
+}
+
+function founderActivitySignals(): RealityFounderCovenantReviewQueueItem['activitySignals'] {
+  return [{
+    key: 'active',
+    label: 'Active',
+    value: false,
+    status: 'manual_review',
+    summary: 'No recent founder activity is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'useful',
+    label: 'Useful',
+    value: false,
+    status: 'watch',
+    summary: 'Usefulness needs reviewer evidence.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'building',
+    label: 'Building',
+    value: true,
+    status: 'met',
+    summary: 'Founder has built or owns local business activity.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'staffed',
+    label: 'Staffed',
+    value: false,
+    status: 'watch',
+    summary: 'Founder businesses need staffing attention.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'indebted',
+    label: 'Indebted',
+    value: true,
+    status: 'watch',
+    summary: 'Founder has outstanding debt.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'hospitalized',
+    label: 'Hospitalized',
+    value: true,
+    status: 'manual_review',
+    summary: 'Founder is unavailable in hospital.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'at_risk',
+    label: 'At risk',
+    value: true,
+    status: 'manual_review',
+    summary: 'Founder covenant status requires manual attention.',
     manualOnly: true,
     automationEnabled: false,
     executionEnabled: false,

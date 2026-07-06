@@ -1365,6 +1365,26 @@ describe('runWorldServerCommand', () => {
       },
       signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
     })
+    expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
+      expect.objectContaining({ key: 'indebted', value: true, status: 'watch', executionEnabled: false }),
+      expect.objectContaining({ key: 'hospitalized', value: true, status: 'manual_review', executionEnabled: false }),
+      expect.objectContaining({ key: 'at_risk', value: true, status: 'manual_review', executionEnabled: false }),
+    ]))
+    expect(queue.items[0].activitySignals.map((signal) => signal.key)).toEqual([
+      'active',
+      'useful',
+      'building',
+      'staffed',
+      'indebted',
+      'hospitalized',
+      'at_risk',
+    ])
+    expect(queue.items[0].activitySignals.every((signal) =>
+      signal.manualOnly === true &&
+      signal.automationEnabled === false &&
+      signal.executionEnabled === false
+    )).toBe(true)
     expect(queue.items[0].reviewInputs).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'population_growth',

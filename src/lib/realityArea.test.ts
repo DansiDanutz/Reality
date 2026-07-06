@@ -1202,6 +1202,29 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with executable activity signals', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals.map((signal, index) =>
+          index === 0 ? { ...signal, executionEnabled: true } : signal
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable latest-review metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2990,6 +3013,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
       activityReview: review.activityReview,
+      activitySignals: serverFounderCovenantActivitySignals(review.activityReview),
       reviewInputs: review.reviewInputs,
       stages: review.stages,
       reviewReadiness: serverFounderCovenantReviewReadiness(review),
@@ -3064,6 +3088,75 @@ function serverFounderCovenantReviewReadiness(
     automationEnabled: false,
     executionEnabled: false,
   }
+}
+
+function serverFounderCovenantActivitySignals(
+  review: RealityAreaDashboard['founderCovenant']['activityReview'],
+): RealityFounderCovenantReviewQueueItem['activitySignals'] {
+  return [{
+    key: 'active',
+    label: 'Active',
+    value: review.active,
+    status: review.active ? 'met' : 'manual_review',
+    summary: review.active ? 'Recent founder activity is present.' : 'No recent founder activity is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'useful',
+    label: 'Useful',
+    value: review.useful,
+    status: review.useful ? 'met' : 'watch',
+    summary: review.useful ? 'Area service quality or contributions look useful.' : 'Usefulness needs reviewer evidence.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'building',
+    label: 'Building',
+    value: review.building,
+    status: review.building ? 'met' : 'manual_review',
+    summary: review.building ? 'Founder has built or owns local business activity.' : 'No founder-built business activity is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'staffed',
+    label: 'Staffed',
+    value: review.staffed,
+    status: review.staffed ? 'met' : 'watch',
+    summary: review.staffed ? 'Founder businesses have enough staff.' : 'Founder businesses need staffing attention.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'indebted',
+    label: 'Indebted',
+    value: review.indebted,
+    status: review.indebted ? 'watch' : 'met',
+    summary: review.indebted ? 'Founder has outstanding debt.' : 'No founder debt is visible.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'hospitalized',
+    label: 'Hospitalized',
+    value: review.hospitalized,
+    status: review.hospitalized ? 'manual_review' : 'met',
+    summary: review.hospitalized ? 'Founder is unavailable in hospital.' : 'Founder is not hospitalized.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    key: 'at_risk',
+    label: 'At risk',
+    value: review.atRisk,
+    status: review.atRisk ? 'manual_review' : 'met',
+    summary: review.atRisk ? 'Founder covenant status requires manual attention.' : 'Founder is not currently at risk.',
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }]
 }
 
 function serverStateAreaEvent(): NonNullable<RealityAreaState['areaEvents']>[number] {

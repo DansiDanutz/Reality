@@ -121,6 +121,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   summary: string
   dateSummary: string
   latestReviewText: string | null
+  activitySignalText: string
   stageText: string
   reviewReadinessText: string
   checklistText: string
@@ -805,6 +806,7 @@ export function founderCovenantOperatorQueueReviewRows(
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
+      activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
       stageText: founderCovenantOperatorQueueStageText(item),
       reviewReadinessText: founderCovenantOperatorQueueReviewReadinessText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
@@ -824,6 +826,26 @@ export function founderCovenantOperatorQueueLatestReviewText(
 ): string | null {
   if (!item.latestReview) return null
   return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+}
+
+export function founderCovenantOperatorQueueActivitySignalText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'activitySignals'>,
+): string {
+  if (item.activitySignals.length === 0) return 'none'
+  const manual = item.activitySignals.filter((signal) => signal.status === 'manual_review')
+  const watch = item.activitySignals.filter((signal) => signal.status === 'watch')
+  const met = item.activitySignals.filter((signal) => signal.status === 'met')
+  const parts: string[] = []
+  if (manual.length > 0) parts.push(`Manual: ${manual.map(founderCovenantActivitySignalLabel).join(', ')}`)
+  if (watch.length > 0) parts.push(`Watch: ${watch.map(founderCovenantActivitySignalLabel).join(', ')}`)
+  if (met.length > 0) parts.push(`Met: ${met.map(founderCovenantActivitySignalLabel).join(', ')}`)
+  return parts.join(' · ')
+}
+
+function founderCovenantActivitySignalLabel(
+  signal: RealityFounderCovenantReviewQueueItem['activitySignals'][number],
+): string {
+  return `${signal.label} ${signal.value ? 'yes' : 'no'}`
 }
 
 export function founderCovenantOperatorQueueStageText(
