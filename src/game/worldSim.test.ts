@@ -1606,13 +1606,25 @@ describe('advanceWorldArea — local real-time economy', () => {
           amount: 25,
           issuedAt: HOUR,
           memo: 'Sim sim-worker owes medical debt to clinic1.',
+          repaymentIntent: 'repayDebt',
+          recommendedPayment: 25,
           maxAffordablePayment: 25,
           canRepayNow: true,
+          blockers: [],
         }],
         homeBusinessId: 'home1',
         jobBusinessId: 'food1',
         insuranceBusinessId: 'ins1',
         insuranceActive: true,
+        insuranceAction: {
+          intent: 'buyInsurance',
+          insuranceBusinessId: 'ins1',
+          premium: 45,
+          available: true,
+          canAfford: true,
+          canBuyNow: false,
+          blockers: ['already_insured'],
+        },
       },
       {
         id: 'real-patient',
@@ -1629,15 +1641,79 @@ describe('advanceWorldArea — local real-time economy', () => {
           id: 'debt-real',
           amount: 40,
           creditorId: 'system:hospital',
+          repaymentIntent: 'repayDebt',
+          recommendedPayment: 40,
           maxAffordablePayment: 40,
           canRepayNow: false,
+          blockers: ['actor_unavailable'],
         }],
         insuranceBusinessId: 'ins1',
         insuranceActive: false,
+        insuranceAction: {
+          intent: 'buyInsurance',
+          insuranceBusinessId: 'ins1',
+          premium: 45,
+          available: true,
+          canAfford: true,
+          canBuyNow: false,
+          blockers: ['actor_unavailable'],
+        },
       },
     ])
     dash.citizens[0].debts[0].amount = 999
     expect(start.citizens[0].debts?.[0].amount).toBe(25)
+  })
+
+  test('dashboard surfaces insurance purchase action hints with blockers', () => {
+    const dash = areaNeedsDashboard(area({
+      now: HOUR,
+      citizens: [
+        sim('buyer', { money: 50 }),
+        sim('broke', { money: 10 }),
+        sim('covered', { money: 50, insuranceBusinessId: 'ins-high', insurancePaidUntil: 2 * HOUR }),
+        sim('patient', { money: 50, state: { kind: 'hospitalized', until: 3 * HOUR } }),
+      ],
+      businesses: [
+        business('insurance', 'ins-high', { price: 60 }),
+        business('insurance', 'ins-low', { price: 45 }),
+      ],
+    }))
+
+    expect(dash.citizens.find((citizen) => citizen.id === 'buyer')!.insuranceAction).toEqual({
+      intent: 'buyInsurance',
+      insuranceBusinessId: 'ins-low',
+      premium: 45,
+      available: true,
+      canAfford: true,
+      canBuyNow: true,
+      blockers: [],
+    })
+    expect(dash.citizens.find((citizen) => citizen.id === 'broke')!.insuranceAction).toMatchObject({
+      insuranceBusinessId: 'ins-low',
+      premium: 45,
+      canAfford: false,
+      canBuyNow: false,
+      blockers: ['insufficient_funds'],
+    })
+    expect(dash.citizens.find((citizen) => citizen.id === 'covered')!.insuranceAction).toMatchObject({
+      canBuyNow: false,
+      blockers: ['already_insured'],
+    })
+    expect(dash.citizens.find((citizen) => citizen.id === 'patient')!.insuranceAction).toMatchObject({
+      canBuyNow: false,
+      blockers: ['actor_unavailable'],
+    })
+
+    const noInsurer = areaNeedsDashboard(area({ citizens: [sim('buyer', { money: 50 })] }))
+    expect(noInsurer.citizens[0].insuranceAction).toEqual({
+      intent: 'buyInsurance',
+      insuranceBusinessId: null,
+      premium: null,
+      available: false,
+      canAfford: false,
+      canBuyNow: false,
+      blockers: ['service_unavailable'],
+    })
   })
 
   test('business dashboard ledger separates cash revenue, expenses, wages, and medical receivables', () => {

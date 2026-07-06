@@ -252,6 +252,8 @@ export interface AreaBusinessLedgerDashboard {
   recentTransactions: AreaTransactionDashboard[]
 }
 
+export type AreaDebtRepaymentBlocker = 'actor_unavailable' | 'insufficient_funds'
+
 export interface AreaDebtDashboard {
   id: string
   kind: WorldDebtKind
@@ -259,8 +261,27 @@ export interface AreaDebtDashboard {
   amount: number
   issuedAt: number
   memo: string
+  repaymentIntent: 'repayDebt'
+  recommendedPayment: number
   maxAffordablePayment: number
   canRepayNow: boolean
+  blockers: AreaDebtRepaymentBlocker[]
+}
+
+export type AreaInsuranceActionBlocker =
+  | 'actor_unavailable'
+  | 'already_insured'
+  | 'service_unavailable'
+  | 'insufficient_funds'
+
+export interface AreaInsuranceActionDashboard {
+  intent: 'buyInsurance'
+  insuranceBusinessId: string | null
+  premium: number | null
+  available: boolean
+  canAfford: boolean
+  canBuyNow: boolean
+  blockers: AreaInsuranceActionBlocker[]
 }
 
 export interface AreaCitizenDashboard {
@@ -281,6 +302,7 @@ export interface AreaCitizenDashboard {
   jobBusinessId?: string
   insuranceBusinessId?: string
   insuranceActive: boolean
+  insuranceAction: AreaInsuranceActionDashboard
 }
 
 export interface AreaTransactionDashboard {
@@ -645,7 +667,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     licenseSlots,
     licenses,
     saturation,
-    citizens: area.citizens.map((citizen) => citizenDashboard(citizen, area.now)),
+    citizens: area.citizens.map((citizen) => citizenDashboard(area, citizen, area.now)),
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens),
@@ -781,7 +803,7 @@ function transactionDashboard(transaction: WorldTransaction): AreaTransactionDas
   return { ...transaction }
 }
 
-function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboard {
+function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaCitizenDashboard {
   const presentation = citizenPresentation(citizen)
   return {
     id: citizen.id,
@@ -801,18 +823,53 @@ function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboa
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, at),
+    insuranceAction: insuranceActionDashboard(area, citizen, at),
   }
 }
 
 function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
   return (citizen.debts ?? []).map((debt) => {
     const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
+    const blockers: AreaDebtRepaymentBlocker[] = []
+    if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
+    if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
     return {
       ...debt,
+      repaymentIntent: 'repayDebt',
+      recommendedPayment: maxAffordablePayment,
       maxAffordablePayment,
-      canRepayNow: citizen.state.kind === 'active' && maxAffordablePayment > 0,
+      canRepayNow: blockers.length === 0,
+      blockers,
     }
   })
+}
+
+function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
+  const insurers = area.businesses
+    .filter((business) => business.kind === 'insurance')
+    .sort((a, b) =>
+      (a.price ?? DEFAULT_PRICES.insurance) - (b.price ?? DEFAULT_PRICES.insurance) || a.id.localeCompare(b.id),
+    )
+  const insurer = insurers[0]
+  const premium = insurer ? insurer.price ?? DEFAULT_PRICES.insurance : null
+  const activeInsurance = hasActiveInsurance(citizen, at)
+  const canAfford = premium !== null && citizen.money >= premium
+  const blockers: AreaInsuranceActionBlocker[] = []
+
+  if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
+  if (activeInsurance) blockers.push('already_insured')
+  if (!insurer) blockers.push('service_unavailable')
+  if (insurer && !canAfford) blockers.push('insufficient_funds')
+
+  return {
+    intent: 'buyInsurance',
+    insuranceBusinessId: insurer?.id ?? null,
+    premium,
+    available: Boolean(insurer),
+    canAfford,
+    canBuyNow: blockers.length === 0,
+    blockers,
+  }
 }
 
 function citizenPresentation(citizen: WorldCitizen): {
