@@ -409,10 +409,16 @@ describe('reality area authority API', () => {
   test('normalizes server-clock tickAreas with a bounded scan limit', () => {
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas' })).toEqual({ ok: true, limit: 25 })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2 })).toEqual({ ok: true, limit: 2 })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2, cursor: 'page-cursor-2' }))
+      .toEqual({ ok: true, limit: 2, cursor: 'page-cursor-2' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 0 }))
       .toEqual({ ok: false, error: 'invalid_limit' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 101 }))
       .toEqual({ ok: false, error: 'invalid_limit' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', cursor: '' }))
+      .toEqual({ ok: false, error: 'invalid_cursor' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', cursor: `bad\ncursor` }))
+      .toEqual({ ok: false, error: 'invalid_cursor' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', citizenId: CITIZEN_ID }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
@@ -2266,6 +2272,8 @@ describe('reality area authority API', () => {
     const body = res.body as { ok: true; clock: {
       checkedAt: string
       limit: number
+      cursor: string | null
+      nextCursor: string | null
       scanned: number
       caughtUp: number
       current: number
@@ -2283,6 +2291,8 @@ describe('reality area authority API', () => {
     expect(body.clock).toMatchObject({
       checkedAt: '2026-07-06T08:00:00.000Z',
       limit: 1,
+      cursor: null,
+      nextCursor: null,
       scanned: 1,
       caughtUp: 1,
       current: 0,
@@ -2352,6 +2362,43 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('tickAreas resumes paginated blob scans with an opaque cursor', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([], 'blob://download', {
+        hasMore: true,
+        cursor: 'next-page-cursor',
+      }))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '1', cursor: 'current-page-cursor' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(list).toHaveBeenCalledWith({
+      prefix: 'reality-areas/',
+      limit: 1,
+      cursor: 'current-page-cursor',
+    })
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        limit: 1,
+        cursor: 'current-page-cursor',
+        nextCursor: 'next-page-cursor',
+        scanned: 0,
+        caughtUp: 0,
+        current: 0,
+        failed: 0,
+        hasMore: true,
+        results: [],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas GET rejects invalid limits before scanning areas', async () => {
     const res = responseRecorder()
 
@@ -2366,6 +2413,25 @@ describe('reality area authority API', () => {
       ok: false,
       code: 'invalid_limit',
       error: 'Server clock area limit must be between 1 and 100.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('tickAreas GET rejects invalid cursors before scanning areas', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', cursor: `bad\ncursor` },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'invalid_cursor',
+      error: 'Server clock cursor is invalid.',
     })
     expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
@@ -4650,13 +4716,19 @@ function withBusinesses(
   }
 }
 
-function blobList(pathnames: string[], downloadUrl = 'blob://download'): {
+function blobList(
+  pathnames: string[],
+  downloadUrl = 'blob://download',
+  options: { hasMore?: boolean; cursor?: string } = {},
+): {
   blobs: { pathname: string; downloadUrl: string }[]
   hasMore: boolean
+  cursor?: string
 } {
   return {
     blobs: pathnames.map((pathname) => ({ pathname, downloadUrl })),
-    hasMore: false,
+    hasMore: options.hasMore ?? false,
+    ...(options.cursor ? { cursor: options.cursor } : {}),
   }
 }
 

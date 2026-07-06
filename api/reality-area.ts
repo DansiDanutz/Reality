@@ -18,6 +18,7 @@ const SERVER_CLOCK_TOKEN_ENV = 'REALITY_SERVER_CLOCK_TOKEN'
 const SERVER_CLOCK_TOKEN_HEADER = 'x-reality-server-clock-token'
 const SERVER_CLOCK_DEFAULT_AREA_LIMIT = 25
 const SERVER_CLOCK_MAX_AREA_LIMIT = 100
+const SERVER_CLOCK_CURSOR_MAX_LENGTH = 1024
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * 60 * 60 * 1000
@@ -821,13 +822,14 @@ type ApplyRefreshAreaError =
   | 'area_not_claimed'
 
 type ServerClockTickAreasIntent =
-  | { ok: true; limit: number }
+  | { ok: true; limit: number; cursor?: string }
   | { ok: false; error: ServerClockTickAreasIntentError }
 
 type ServerClockTickAreasIntentError =
   | 'unsupported_intent'
   | 'client_controlled_server_field'
   | 'invalid_limit'
+  | 'invalid_cursor'
 
 type ServerClockTickAreasError =
   | ServerClockTickAreasIntentError
@@ -846,6 +848,8 @@ interface ServerClockAreaTickResult {
 interface ServerClockTickAreasSummary {
   checkedAt: string
   limit: number
+  cursor: string | null
+  nextCursor: string | null
   scanned: number
   caughtUp: number
   current: number
@@ -1343,7 +1347,7 @@ export function normalizeRefreshAreaIntent(input: unknown): RefreshAreaIntent {
 
 export function normalizeServerClockTickAreasIntent(input: unknown): ServerClockTickAreasIntent {
   if (!isRecord(input) || input.type !== 'tickAreas') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => key !== 'type' && key !== 'limit')) {
+  if (Object.keys(input).some((key) => key !== 'type' && key !== 'limit' && key !== 'cursor')) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1352,7 +1356,12 @@ export function normalizeServerClockTickAreasIntent(input: unknown): ServerClock
     return { ok: false, error: 'invalid_limit' }
   }
 
-  return { ok: true, limit }
+  const cursor = input.cursor === undefined ? undefined : text(input.cursor)
+  if (input.cursor !== undefined && (!cursor || cursor.length > SERVER_CLOCK_CURSOR_MAX_LENGTH || hasControlCharacter(cursor))) {
+    return { ok: false, error: 'invalid_cursor' }
+  }
+
+  return cursor ? { ok: true, limit, cursor } : { ok: true, limit }
 }
 
 export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
@@ -3208,12 +3217,20 @@ async function handleServerClockTickAreas(
     return
   }
 
-  const clock = await tickServerClockAreas(new Date(), intent.limit)
+  const clock = await tickServerClockAreas(new Date(), intent.limit, intent.cursor)
   res.status(200).json({ ok: true, clock })
 }
 
-async function tickServerClockAreas(now: Date, limit: number): Promise<ServerClockTickAreasSummary> {
-  const batch = await list({ prefix: 'reality-areas/', limit })
+async function tickServerClockAreas(
+  now: Date,
+  limit: number,
+  cursor?: string,
+): Promise<ServerClockTickAreasSummary> {
+  const batch = await list({
+    prefix: 'reality-areas/',
+    limit,
+    ...(cursor ? { cursor } : {}),
+  })
   const results: ServerClockAreaTickResult[] = []
   for (const blob of batch.blobs) {
     results.push(await tickServerClockAreaBlob(blob, now))
@@ -3224,6 +3241,8 @@ async function tickServerClockAreas(now: Date, limit: number): Promise<ServerClo
   return {
     checkedAt: now.toISOString(),
     limit,
+    cursor: cursor ?? null,
+    nextCursor: typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : null,
     scanned: results.length,
     caughtUp,
     current,
@@ -4525,6 +4544,8 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
       return 'tickAreas is reserved for the server clock.'
     case 'invalid_limit':
       return 'Server clock area limit must be between 1 and 100.'
+    case 'invalid_cursor':
+      return 'Server clock cursor is invalid.'
     default:
       return 'Invalid tickAreas intent.'
   }
@@ -4596,9 +4617,11 @@ function readAuth(req: VercelRequest): { citizenId: string; token: string } | nu
 function readServerClockOrBodyIntent(req: VercelRequest): unknown {
   if (req.method === 'GET' && field(req.query, 'clock') === 'tickAreas') {
     const limit = field(req.query, 'limit')
+    const cursor = field(req.query, 'cursor')
     return {
       type: 'tickAreas',
       ...(limit ? { limit: Number(limit) } : {}),
+      ...(cursor ? { cursor } : {}),
     }
   }
   return (req.body as { intent?: unknown } | undefined)?.intent
