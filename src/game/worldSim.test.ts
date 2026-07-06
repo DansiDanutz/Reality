@@ -1478,6 +1478,65 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('survival signals include actionable service intents with affordability blockers', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [
+        sim('thirsty', { money: 5, needs: fullNeeds({ hydration: 50 }) }),
+        sim('danger', {
+          money: 20,
+          needs: fullNeeds({ hunger: 10, energy: 10 }),
+          health: COLLAPSE_HEALTH + 10,
+        }),
+      ],
+      businesses: [
+        business('water', 'water1', { price: 2 }),
+        business('food', 'food1', { price: 14 }),
+        business('clinic', 'clinic1', { price: 90 }),
+      ],
+    }))
+
+    expect(dash.survival.signals.find((signal) => signal.citizenId === 'thirsty')!.actions).toEqual([
+      {
+        warning: 'water',
+        intent: 'buyWater',
+        serviceKind: 'water',
+        available: true,
+        lowestPrice: 2,
+        canAfford: true,
+        blockers: [],
+      },
+    ])
+    expect(dash.survival.signals.find((signal) => signal.citizenId === 'danger')!.actions).toEqual([
+      {
+        warning: 'food',
+        intent: 'buyFood',
+        serviceKind: 'food',
+        available: true,
+        lowestPrice: 14,
+        canAfford: true,
+        blockers: [],
+      },
+      {
+        warning: 'rest',
+        intent: 'buyHousing',
+        serviceKind: 'housing',
+        available: false,
+        lowestPrice: null,
+        canAfford: false,
+        blockers: ['service_unavailable'],
+      },
+      {
+        warning: 'health',
+        intent: 'visitClinic',
+        serviceKind: 'clinic',
+        available: true,
+        lowestPrice: 90,
+        canAfford: false,
+        blockers: ['insufficient_funds'],
+      },
+    ])
+  })
+
   test('dashboard citizen roster snapshots needs, balances, jobs, homes, and active insurance', () => {
     const start = area({
       now: 2 * HOUR,

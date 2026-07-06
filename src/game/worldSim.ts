@@ -175,6 +175,18 @@ export interface AreaLicenseDashboard {
 
 export type WorldSurvivalRiskLevel = 'stable' | 'warning' | 'danger' | 'hospitalized'
 export type WorldSurvivalWarningKind = 'water' | 'food' | 'rest' | 'health'
+export type WorldSurvivalActionIntent = 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
+export type WorldSurvivalActionBlocker = 'service_unavailable' | 'insufficient_funds'
+
+export interface CitizenSurvivalAction {
+  warning: WorldSurvivalWarningKind
+  intent: WorldSurvivalActionIntent
+  serviceKind: Exclude<WorldBusinessKind, 'insurance'>
+  available: boolean
+  lowestPrice: number | null
+  canAfford: boolean
+  blockers: WorldSurvivalActionBlocker[]
+}
 
 export interface CitizenSurvivalSignal {
   citizenId: string
@@ -186,6 +198,7 @@ export interface CitizenSurvivalSignal {
   visualTone: WorldParticipantVisualTone
   risk: WorldSurvivalRiskLevel
   warnings: WorldSurvivalWarningKind[]
+  actions: CitizenSurvivalAction[]
   hospitalizedUntil?: number
 }
 
@@ -960,7 +973,7 @@ function isCashExpense(kind: WorldTransactionKind): boolean {
 }
 
 function survivalDashboard(area: WorldArea): AreaSurvivalDashboard {
-  const signals = area.citizens.map(citizenSurvivalSignal)
+  const signals = area.citizens.map((citizen) => citizenSurvivalSignal(area, citizen))
   return {
     stableCitizens: signals.filter((signal) => signal.risk === 'stable').length,
     warningCitizens: signals.filter((signal) => signal.risk === 'warning').length,
@@ -970,7 +983,7 @@ function survivalDashboard(area: WorldArea): AreaSurvivalDashboard {
   }
 }
 
-function citizenSurvivalSignal(citizen: WorldCitizen): CitizenSurvivalSignal {
+function citizenSurvivalSignal(area: WorldArea, citizen: WorldCitizen): CitizenSurvivalSignal {
   const presentation = citizenPresentation(citizen)
   if (citizen.state.kind === 'hospitalized') {
     return {
@@ -983,6 +996,7 @@ function citizenSurvivalSignal(citizen: WorldCitizen): CitizenSurvivalSignal {
       visualTone: presentation.visualTone,
       risk: 'hospitalized',
       warnings: ['health'],
+      actions: [survivalActionForWarning(area, citizen, 'health')],
       hospitalizedUntil: citizen.state.until,
     }
   }
@@ -1009,6 +1023,49 @@ function citizenSurvivalSignal(citizen: WorldCitizen): CitizenSurvivalSignal {
     visualTone: presentation.visualTone,
     risk: danger ? 'danger' : warnings.length > 0 ? 'warning' : 'stable',
     warnings,
+    actions: warnings.map((warning) => survivalActionForWarning(area, citizen, warning)),
+  }
+}
+
+function survivalActionForWarning(
+  area: WorldArea,
+  citizen: WorldCitizen,
+  warning: WorldSurvivalWarningKind,
+): CitizenSurvivalAction {
+  const { intent, serviceKind } = survivalActionTarget(warning)
+  const prices = area.businesses
+    .filter((business) => business.kind === serviceKind && serviceCapacity(area, business, 1) > 0)
+    .map((business) => business.price ?? DEFAULT_PRICES[serviceKind])
+  const lowestPrice = prices.length > 0 ? Math.min(...prices) : null
+  const available = lowestPrice !== null
+  const canAfford = lowestPrice !== null && citizen.money >= lowestPrice
+  const blockers: WorldSurvivalActionBlocker[] = []
+  if (!available) blockers.push('service_unavailable')
+  if (available && !canAfford) blockers.push('insufficient_funds')
+  return {
+    warning,
+    intent,
+    serviceKind,
+    available,
+    lowestPrice,
+    canAfford,
+    blockers,
+  }
+}
+
+function survivalActionTarget(warning: WorldSurvivalWarningKind): {
+  intent: WorldSurvivalActionIntent
+  serviceKind: Exclude<WorldBusinessKind, 'insurance'>
+} {
+  switch (warning) {
+    case 'water':
+      return { intent: 'buyWater', serviceKind: 'water' }
+    case 'food':
+      return { intent: 'buyFood', serviceKind: 'food' }
+    case 'rest':
+      return { intent: 'buyHousing', serviceKind: 'housing' }
+    case 'health':
+      return { intent: 'visitClinic', serviceKind: 'clinic' }
   }
 }
 
