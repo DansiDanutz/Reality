@@ -76,6 +76,7 @@ export default function App() {
     useGame.getState().tick()
     void useGame.getState().registerOnline()
     void useGame.getState().ensureSpawn()
+    void useGame.getState().linkTelegram()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()

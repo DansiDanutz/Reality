@@ -49,6 +49,11 @@ import { thoughtForDay } from '../game/thoughts'
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
+import {
+  authenticateTelegramMiniApp,
+  citizenWithTelegramSession,
+  telegramDisplayName,
+} from '../lib/telegram'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
 
@@ -349,6 +354,7 @@ interface GameState {
   /** Re-run IP hometown detection and move the citizen's spawn — null on success, error text otherwise */
   redetectSpawn: () => Promise<string | null>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
+  linkTelegram: () => Promise<string | null>
   registerOnline: () => Promise<void>
   reportScore: () => Promise<void>
   linkGoogle: (credential: string) => Promise<string | null>
@@ -553,6 +559,7 @@ export const useGame = create<GameState>()(
         })
         track('citizen_created')
         void get().registerOnline()
+        void get().linkTelegram()
       },
 
       // Backfill a hometown for citizens created before IP spawn existed
@@ -658,6 +665,27 @@ export const useGame = create<GameState>()(
           })
         }
         void get().reportScore()
+      },
+
+      linkTelegram: async () => {
+        const s = get()
+        if (!s.citizen) return null
+        const result = await authenticateTelegramMiniApp()
+        if (!result.ok) {
+          return result.reason === 'not_in_telegram' ? null : result.error ?? 'Telegram sign-in failed.'
+        }
+
+        const latest = get()
+        if (!latest.citizen) return null
+        const wasLinkedToSameUser = latest.citizen.telegramUserId === result.session.telegramUser.id
+        set({
+          citizen: citizenWithTelegramSession(latest.citizen, result.session, Date.now()),
+          log: wasLinkedToSameUser
+            ? latest.log
+            : note(latest.log, `Telegram linked: ${telegramDisplayName(result.session.telegramUser)}.`),
+        })
+        if (!wasLinkedToSameUser) track('telegram_linked')
+        return null
       },
 
       reportScore: async () => {
