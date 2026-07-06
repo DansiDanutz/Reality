@@ -84,6 +84,12 @@ export function founderCovenantManualActionKindLabel(kind: FounderCovenantManual
   }
 }
 
+export function founderCovenantLatestReviewStatusLabel(
+  review: { evidenceOnly: boolean; automationEnabled: boolean },
+): string {
+  return review.evidenceOnly && !review.automationEnabled ? 'Evidence only' : 'Review'
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),

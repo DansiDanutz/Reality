@@ -25,6 +25,7 @@ import {
 import { useGame } from '../../store/gameStore'
 import {
   founderCovenantChecklistStatusLabel,
+  founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
   founderCovenantNotificationDraftStatusLabel,
@@ -226,6 +227,19 @@ export default function FounderAreaPanel() {
                   </li>
                 ))}
               </ul>
+            )}
+            {dashboard.founderCovenant.latestReview && (
+              <div className="item founder-covenant-latest-review" aria-label="Latest founder review evidence">
+                <div className="item-info">
+                  <span className="item-name">
+                    Latest review: {founderCovenantManualActionKindLabel(dashboard.founderCovenant.latestReview.actionKind)}
+                  </span>
+                  <span className="item-desc">{dashboard.founderCovenant.latestReview.summary}</span>
+                </div>
+                <span className="founder-covenant-latest-review-status mono">
+                  {founderCovenantLatestReviewStatusLabel(dashboard.founderCovenant.latestReview)}
+                </span>
+              </div>
             )}
             <ul className="item-list founder-covenant-checklist" aria-label="Founder manual review checklist">
               {dashboard.founderCovenant.reviewChecklist.map((item) => (

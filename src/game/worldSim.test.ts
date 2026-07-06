@@ -1586,6 +1586,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         overdue: false,
         automationEnabled: false,
       },
+      latestReview: null,
       reviewHistory: [],
       notificationDrafts: [{
         id: 'area-1:0:covenant-notification:manual_review_required:founder',
@@ -1784,6 +1785,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         overdue: false,
         automationEnabled: false,
       },
+      latestReview: null,
       reviewHistory: [],
       notificationDrafts: [],
       signals: [],
@@ -1812,6 +1814,15 @@ describe('advanceWorldArea — local real-time economy', () => {
       weeklyReviewDue: true,
       monthlyReviewDue: false,
       overdue: true,
+      automationEnabled: false,
+    })
+    expect(dash.founderCovenant.latestReview).toEqual({
+      id: 'review-1',
+      reviewedAt: lastReviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      summary: 'Weekly review recorded.',
+      evidenceOnly: true,
       automationEnabled: false,
     })
   })

@@ -159,6 +159,16 @@ export interface RealityAreaCovenantReviewHistoryItem {
   summary: string
 }
 
+export interface RealityAreaCovenantLatestReview {
+  id: string
+  reviewedAt: string
+  reviewerId: string
+  actionKind: RealityAreaCovenantManualActionKind
+  summary: string
+  evidenceOnly: true
+  automationEnabled: false
+}
+
 export interface RealityAreaCovenantReviewSchedule {
   lastReviewAt: string | null
   nextWeeklyReviewAt: string
@@ -207,6 +217,7 @@ export interface RealityAreaCovenantReview {
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   reviewSchedule: RealityAreaCovenantReviewSchedule
+  latestReview: RealityAreaCovenantLatestReview | null
   reviewHistory: RealityAreaCovenantReviewHistoryItem[]
   notificationDrafts: RealityAreaCovenantNotificationDraft[]
   signals: RealityAreaCovenantSignal[]
@@ -705,6 +716,12 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
     reviewSchedule: mergeRealityAreaCovenantReviewSchedule(review.reviewSchedule),
+    latestReview: review.latestReview === null
+      ? null
+      : {
+        ...review.latestReview,
+        reviewedAt: parseInstant(review.latestReview.reviewedAt),
+      },
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
       ...draft,
@@ -1005,6 +1022,7 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     Array.isArray(value.manualActions) &&
     value.manualActions.every(isRealityAreaCovenantManualAction) &&
     isRealityAreaCovenantReviewSchedule(value.reviewSchedule) &&
+    (value.latestReview === null || isRealityAreaCovenantLatestReview(value.latestReview)) &&
     Array.isArray(value.reviewHistory) &&
     value.reviewHistory.every(isRealityAreaCovenantReviewHistoryItem) &&
     Array.isArray(value.notificationDrafts) &&
@@ -1085,6 +1103,17 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     typeof value.reviewerId === 'string' &&
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string'
+}
+
+function isRealityAreaCovenantLatestReview(value: unknown): value is RealityAreaCovenantLatestReview {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.reviewedAt === 'string' &&
+    typeof value.reviewerId === 'string' &&
+    isRealityAreaCovenantManualActionKind(value.actionKind) &&
+    typeof value.summary === 'string' &&
+    value.evidenceOnly === true &&
+    value.automationEnabled === false
 }
 
 function isRealityAreaCovenantReviewSchedule(value: unknown): value is RealityAreaCovenantReviewSchedule {

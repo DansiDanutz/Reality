@@ -229,6 +229,38 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant latest review data that enables automation', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        latestReview: {
+          id: 'review-1',
+          reviewedAt: '2026-07-06T04:00:00.000Z',
+          reviewerId: 'reviewer-1',
+          actionKind: 'record_review',
+          summary: 'Weekly evidence recorded.',
+          evidenceOnly: true,
+          automationEnabled: true,
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('does not contact the server without a registered founder identity', async () => {
     const fetchImpl = vi.fn()
 
@@ -659,6 +691,7 @@ describe('Reality area client', () => {
         overdue: false,
         automationEnabled: false,
       },
+      latestReview: null,
       signals: [{
         kind: 'understaffed_businesses',
         severity: 'warning',
@@ -891,6 +924,7 @@ function serverState(): RealityAreaState {
         checkedAt: '2026-07-06T03:30:00.000Z',
         lastReviewAt: null,
       }),
+      latestReview: null,
       reviewHistory: [],
       notificationDrafts: [{
         id: 'founder-area-0012:1783308600000:covenant-notification:manual_review_required:citizen-1',
@@ -1316,6 +1350,7 @@ function serverDashboard(): RealityAreaDashboard {
         checkedAt: '2026-07-06T04:00:00.000Z',
         lastReviewAt: null,
       }),
+      latestReview: null,
       reviewHistory: [],
       notificationDrafts: [{
         id: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:citizen-1',

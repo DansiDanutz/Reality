@@ -1036,6 +1036,13 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   text-transform: uppercase;
   color: var(--muted);
 }
+.founder-covenant-latest-review { border-color: rgba(64, 200, 136, 0.35); }
+.founder-covenant-latest-review-status {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ok);
+}
 .founder-covenant-checklist-item.watch { border-color: rgba(240, 180, 41, 0.45); }
 .founder-covenant-checklist-item.manual_review { border-color: rgba(229, 72, 77, 0.45); }
 .founder-covenant-checklist-status {

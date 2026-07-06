@@ -447,6 +447,16 @@ export interface FounderCovenantReviewHistoryItem {
   summary: string
 }
 
+export interface FounderCovenantLatestReview {
+  id: string
+  reviewedAt: number
+  reviewerId: string
+  actionKind: FounderCovenantManualActionKind
+  summary: string
+  evidenceOnly: true
+  automationEnabled: false
+}
+
 export interface FounderCovenantReviewSchedule {
   lastReviewAt: number | null
   nextWeeklyReviewAt: number
@@ -485,6 +495,7 @@ export interface AreaFounderCovenantDashboard {
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
   reviewSchedule: FounderCovenantReviewSchedule | null
+  latestReview: FounderCovenantLatestReview | null
   reviewHistory: FounderCovenantReviewHistoryItem[]
   notificationDrafts: FounderCovenantNotificationDraft[]
   signals: FounderCovenantSignal[]
@@ -1172,6 +1183,7 @@ function founderCovenantDashboard(
         },
       }),
       reviewSchedule: null,
+      latestReview: founderCovenantLatestReview(area),
       reviewHistory: founderCovenantReviewHistory(area),
       notificationDrafts: [],
       signals: [],
@@ -1306,6 +1318,7 @@ function founderCovenantDashboard(
     reviewChecklist,
     manualActions,
     reviewSchedule,
+    latestReview: founderCovenantLatestReview(area),
     reviewHistory: founderCovenantReviewHistory(area),
     notificationDrafts,
     signals,
@@ -1467,6 +1480,20 @@ function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHis
     .sort((left, right) => right.at - left.at)
     .slice(0, 5)
     .map((entry) => ({ ...entry }))
+}
+
+function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestReview | null {
+  const latest = founderCovenantReviewHistory(area)[0]
+  if (!latest) return null
+  return {
+    id: latest.id,
+    reviewedAt: latest.at,
+    reviewerId: latest.reviewerId,
+    actionKind: latest.actionKind,
+    summary: latest.summary,
+    evidenceOnly: true,
+    automationEnabled: false,
+  }
 }
 
 function founderCovenantReviewSchedule(area: WorldArea): FounderCovenantReviewSchedule | null {

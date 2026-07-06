@@ -189,6 +189,16 @@ interface FounderAreaCovenantReviewHistoryItem {
   summary: string
 }
 
+interface FounderAreaCovenantLatestReview {
+  id: string
+  reviewedAt: string
+  reviewerId: string
+  actionKind: FounderAreaCovenantManualActionKind
+  summary: string
+  evidenceOnly: true
+  automationEnabled: false
+}
+
 interface FounderAreaCovenantReviewSchedule {
   lastReviewAt: string | null
   nextWeeklyReviewAt: string
@@ -227,6 +237,7 @@ interface FounderAreaCovenantReview {
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   reviewSchedule: FounderAreaCovenantReviewSchedule
+  latestReview: FounderAreaCovenantLatestReview | null
   reviewHistory: FounderAreaCovenantReviewHistoryItem[]
   notificationDrafts: FounderAreaCovenantNotificationDraft[]
   signals: FounderAreaCovenantSignal[]
@@ -1250,6 +1261,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     reviewChecklist,
     manualActions,
     reviewSchedule,
+    latestReview: founderCovenantLatestReview(state),
     reviewHistory: founderCovenantReviewHistory(state),
     notificationDrafts,
     signals,
@@ -1416,6 +1428,20 @@ function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderArea
     .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
     .slice(0, 5)
     .map((entry) => ({ ...entry }))
+}
+
+function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaCovenantLatestReview | null {
+  const latest = founderCovenantReviewHistory(state)[0]
+  if (!latest) return null
+  return {
+    id: latest.id,
+    reviewedAt: latest.at,
+    reviewerId: latest.reviewerId,
+    actionKind: latest.actionKind,
+    summary: latest.summary,
+    evidenceOnly: true,
+    automationEnabled: false,
+  }
 }
 
 function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAreaCovenantReviewSchedule {

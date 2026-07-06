@@ -2021,6 +2021,7 @@ describe('reality area authority API', () => {
           automationEnabled: false,
         }),
       ]),
+      latestReview: null,
       reviewHistory: [],
       signals: expect.arrayContaining([
         expect.objectContaining({ kind: 'founder_unavailable', severity: 'critical' }),
@@ -3129,6 +3130,7 @@ function baseFounderCovenant(checkedAt: string) {
       checkedAt,
       lastReviewAt: null,
     }),
+    latestReview: null,
     reviewHistory: [],
     notificationDrafts: [{
       id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-notification:founder_warning:${CITIZEN_ID}`,
