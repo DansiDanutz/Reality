@@ -20,6 +20,7 @@ import {
   realityAreaStateToWorldArea,
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
+  type RealityAreaLegacyRoyaltyDashboard,
   type RealityAreaSettlementDashboard,
   type RealityAreaState,
 } from '../../lib/realityArea'
@@ -55,6 +56,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderLegacyRoyaltyBlockerText,
+  founderLegacyRoyaltyStatusLabel,
+  founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
   founderSettlementBlockerText,
@@ -111,9 +115,13 @@ export default function FounderAreaPanel() {
   const result = panelState.status === 'ready' ? panelState.result : null
   const dashboard = result?.dashboard
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
+  const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
+  const businessNamesById = new Map(
+    dashboard?.existingBusinesses.map((business) => [business.id, business.name]) ?? [],
+  )
 
   const submitPayload = async (payload: WorldClientIntentPayload | null, label: string) => {
     const commandClient = commandClientRef.current
@@ -508,6 +516,64 @@ export default function FounderAreaPanel() {
             </section>
           )}
 
+          {legacyRoyaltyDashboard && (
+            <section className="founder-section" aria-label="Founder legacy royalty">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Legacy Royalty</h3>
+                <span className="item-desc">{founderLegacyRoyaltyStatusLabel(legacyRoyaltyDashboard)}</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Legacy royalty summary">
+                {founderLegacyRoyaltySummaryItems(legacyRoyaltyDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <ul className="item-list founder-legacy-assets" aria-label="Legacy royalty assets">
+                {legacyRoyaltyDashboard.royaltyEligibleBusinessIds.length === 0 &&
+                  legacyRoyaltyDashboard.royaltyExcludedBusinessIds.length === 0 && (
+                    <li className="item founder-legacy-asset">
+                      <div className="item-info">
+                        <span className="item-name">No inherited founder assets</span>
+                        <span className="item-desc">Royalty review has nothing to apply to.</span>
+                      </div>
+                      <span className="item-locked mono">none</span>
+                    </li>
+                )}
+                {legacyRoyaltyDashboard.royaltyEligibleBusinessIds.map((businessId) => (
+                  <li className="item founder-legacy-asset" key={`eligible:${businessId}`}>
+                    <div className="item-info">
+                      <span className="item-name">{businessNamesById.get(businessId) ?? businessId}</span>
+                      <span className="item-desc">Inherited founder-created asset · {businessId}</span>
+                    </div>
+                    <span className="item-locked mono">review</span>
+                  </li>
+                ))}
+                {legacyRoyaltyDashboard.royaltyExcludedBusinessIds.map((businessId) => (
+                  <li className="item founder-legacy-asset" key={`excluded:${businessId}`}>
+                    <div className="item-info">
+                      <span className="item-name">{businessNamesById.get(businessId) ?? businessId}</span>
+                      <span className="item-desc">Current founder-created asset · {businessId}</span>
+                    </div>
+                    <span className="item-locked mono">excluded</span>
+                  </li>
+                ))}
+              </ul>
+              <ul className="item-list founder-legacy-blockers" aria-label="Legacy royalty blockers">
+                {legacyRoyaltyDashboard.blockers.map((blocker) => (
+                  <li className="item founder-legacy-blocker" key={blocker}>
+                    <div className="item-info">
+                      <span className="item-name">{founderLegacyRoyaltyBlockerText(blocker)}</span>
+                      <span className="item-desc">Locked until review</span>
+                    </div>
+                    <span className="item-locked mono">disabled</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="founder-section" aria-label="First build choices">
             <h3 className="founder-section-title">First Build</h3>
             <ul className="item-list">
@@ -699,6 +765,12 @@ function getFounderSettlementDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): RealityAreaSettlementDashboard | null {
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'settlement'>>).settlement ?? null
+}
+
+function getFounderLegacyRoyaltyDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaLegacyRoyaltyDashboard | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'legacyRoyalty'>>).legacyRoyalty ?? null
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {

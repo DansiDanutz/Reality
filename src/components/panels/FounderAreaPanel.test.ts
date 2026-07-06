@@ -30,6 +30,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderLegacyRoyaltyBlockerText,
+  founderLegacyRoyaltyStatusLabel,
+  founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
   founderSettlementBlockerText,
@@ -541,5 +544,37 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderSettlementBlockerText('ton_connect_disabled')).toBe('TON Connect')
     expect(founderSettlementBlockerText('manual_payout_review_required')).toBe('Manual payout review')
     expect(founderSettlementBlockerText('compliance_review_required')).toBe('Compliance review')
+  })
+
+  test('summarizes disabled founder legacy royalty without enabling payouts', () => {
+    const legacyRoyalty: Parameters<typeof founderLegacyRoyaltySummaryItems>[0] = {
+      enabled: false,
+      payoutEnabled: false,
+      replacementWorkflowEnabled: false,
+      manualReviewRequired: true,
+      appliesTo: 'inherited_founder_created_businesses_only',
+      royaltyRate: 0.1,
+      treasuryAccountId: 'system:founder-legacy-treasury',
+      royaltyEligibleBusinessIds: ['inherited-water'],
+      royaltyExcludedBusinessIds: ['new-food'],
+      blockers: [
+        'replacement_workflow_disabled',
+        'waitlist_handoff_disabled',
+        'treasury_payout_disabled',
+        'compliance_review_required',
+      ],
+    }
+
+    expect(founderLegacyRoyaltyStatusLabel(legacyRoyalty)).toBe('Disabled')
+    expect(founderLegacyRoyaltySummaryItems(legacyRoyalty)).toEqual([
+      { key: 'scope', label: 'Scope', value: 'Inherited assets', tone: 'stable' },
+      { key: 'rate', label: 'Modeled rate', value: '10%', tone: 'warning' },
+      { key: 'eligible', label: 'Eligible assets', value: '1', tone: 'warning' },
+      { key: 'excluded', label: 'Excluded assets', value: '1', tone: 'stable' },
+    ])
+    expect(founderLegacyRoyaltyBlockerText('replacement_workflow_disabled')).toBe('Replacement workflow')
+    expect(founderLegacyRoyaltyBlockerText('waitlist_handoff_disabled')).toBe('Waitlist handoff')
+    expect(founderLegacyRoyaltyBlockerText('treasury_payout_disabled')).toBe('Treasury payout')
+    expect(founderLegacyRoyaltyBlockerText('compliance_review_required')).toBe('Compliance review')
   })
 })

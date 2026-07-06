@@ -17,6 +17,8 @@ import type {
   WorldTransactionKind,
 } from '../../game/worldSim'
 import type {
+  RealityAreaLegacyRoyaltyBlocker,
+  RealityAreaLegacyRoyaltyDashboard,
   RealityAreaSettlementBlocker,
   RealityAreaSettlementDashboard,
 } from '../../lib/realityArea'
@@ -38,6 +40,13 @@ export interface FounderLedgerSummaryItem {
 }
 
 export interface FounderSettlementSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderLegacyRoyaltySummaryItem {
   key: string
   label: string
   value: string
@@ -98,6 +107,53 @@ export function founderSettlementBlockerText(blocker: RealityAreaSettlementBlock
       return 'Land leases'
     case 'manual_payout_review_required':
       return 'Manual payout review'
+    case 'compliance_review_required':
+      return 'Compliance review'
+  }
+}
+
+export function founderLegacyRoyaltyStatusLabel(
+  royalty: Pick<RealityAreaLegacyRoyaltyDashboard, 'payoutEnabled'>,
+): string {
+  return royalty.payoutEnabled ? 'Enabled' : 'Disabled'
+}
+
+export function founderLegacyRoyaltySummaryItems(
+  royalty: RealityAreaLegacyRoyaltyDashboard,
+): FounderLegacyRoyaltySummaryItem[] {
+  const eligibleAssets = royalty.royaltyEligibleBusinessIds.length
+  const excludedAssets = royalty.royaltyExcludedBusinessIds.length
+  return [{
+    key: 'scope',
+    label: 'Scope',
+    value: legacyRoyaltyScopeLabel(royalty.appliesTo),
+    tone: 'stable',
+  }, {
+    key: 'rate',
+    label: 'Modeled rate',
+    value: `${Math.round(royalty.royaltyRate * 100)}%`,
+    tone: eligibleAssets > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'eligible',
+    label: 'Eligible assets',
+    value: String(eligibleAssets),
+    tone: eligibleAssets > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'excluded',
+    label: 'Excluded assets',
+    value: String(excludedAssets),
+    tone: 'stable',
+  }]
+}
+
+export function founderLegacyRoyaltyBlockerText(blocker: RealityAreaLegacyRoyaltyBlocker): string {
+  switch (blocker) {
+    case 'replacement_workflow_disabled':
+      return 'Replacement workflow'
+    case 'waitlist_handoff_disabled':
+      return 'Waitlist handoff'
+    case 'treasury_payout_disabled':
+      return 'Treasury payout'
     case 'compliance_review_required':
       return 'Compliance review'
   }
@@ -399,6 +455,13 @@ export function founderCovenantNotificationDraftStatusLabel(
   draft: Pick<FounderCovenantNotificationDraft, 'sendEnabled'>,
 ): string {
   return draft.sendEnabled ? 'Ready' : 'Disabled'
+}
+
+function legacyRoyaltyScopeLabel(scope: RealityAreaLegacyRoyaltyDashboard['appliesTo']): string {
+  switch (scope) {
+    case 'inherited_founder_created_businesses_only':
+      return 'Inherited assets'
+  }
 }
 
 export function founderCovenantSignalText(signal: FounderCovenantSignal): string {
