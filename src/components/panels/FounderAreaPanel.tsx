@@ -247,7 +247,11 @@ export default function FounderAreaPanel() {
                         </button>
                       ) : (
                         <span className="item-locked">
-                          {candidate.action === 'requires_acceptance' ? 'needs acceptance' : 'waiting'}
+                          {candidate.action === 'requires_acceptance'
+                            ? 'needs acceptance'
+                            : candidate.action === 'founder_unavailable'
+                              ? 'recover first'
+                              : 'waiting'}
                         </span>
                       )}
                     </div>

@@ -153,7 +153,7 @@ export interface AreaJobsDashboard {
   candidates: AreaWorkerCandidateDashboard[]
 }
 
-export type AreaWorkerCandidateAction = 'hire_now' | 'requires_acceptance' | 'waiting_for_position'
+export type AreaWorkerCandidateAction = 'hire_now' | 'requires_acceptance' | 'waiting_for_position' | 'founder_unavailable'
 
 export interface AreaWorkerCandidateDashboard {
   citizenId: string
@@ -658,6 +658,7 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
 export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const activeCitizens = area.citizens.filter((c) => c.state.kind === 'active')
   const founderMoney = founderMoneyForArea(area)
+  const founderCanAct = founderCanActForArea(area)
   const supply = zeroKindRecord()
   const capacity = zeroKindRecord()
   for (const business of area.businesses) {
@@ -704,7 +705,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     citizens: area.citizens.map((citizen) => citizenDashboard(area, citizen, area.now)),
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
     ledger: ledgerDashboard(area),
-    jobs: jobsDashboard(area, activeCitizens),
+    jobs: jobsDashboard(area, activeCitizens, founderCanAct !== false),
     survival: survivalDashboard(area),
     firstBuild: firstBuildGuidance({
       areaId: area.claim ? area.id : undefined,
@@ -713,7 +714,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
       licenseSlots,
       saturation,
       founderMoney,
-      founderCanAct: founderCanActForArea(area),
+      founderCanAct,
       population,
     }),
   }
@@ -992,7 +993,7 @@ function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
   return Boolean(business?.staffCitizenIds.includes(citizen.id))
 }
 
-function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJobsDashboard {
+function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderCanManage = true): AreaJobsDashboard {
   let openPositions = 0
   let understaffedBusinesses = 0
   const hiringSlots: WorldBusiness[] = []
@@ -1007,7 +1008,7 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
   const candidates = activeCitizens
     .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
-    .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null))
+    .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
   return {
     employedCitizens,
     unemployedCitizens: activeCitizens.length - employedCitizens,
@@ -1019,9 +1020,13 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
   }
 }
 
-function workerCandidateDashboard(citizen: WorldCitizen, recommendedBusiness: WorldBusiness | null): AreaWorkerCandidateDashboard {
+function workerCandidateDashboard(
+  citizen: WorldCitizen,
+  recommendedBusiness: WorldBusiness | null,
+  founderCanManage: boolean,
+): AreaWorkerCandidateDashboard {
   const presentation = citizenPresentation(citizen)
-  const canHireNow = citizen.kind === 'sim' && recommendedBusiness !== null
+  const canHireNow = founderCanManage && citizen.kind === 'sim' && recommendedBusiness !== null
   return {
     citizenId: citizen.id,
     name: citizen.name,
@@ -1030,7 +1035,7 @@ function workerCandidateDashboard(citizen: WorldCitizen, recommendedBusiness: Wo
     simulated: presentation.simulated,
     participantLabel: presentation.participantLabel,
     visualTone: presentation.visualTone,
-    action: canHireNow ? 'hire_now' : citizen.kind === 'sim' ? 'waiting_for_position' : 'requires_acceptance',
+    action: workerCandidateAction(citizen, recommendedBusiness, founderCanManage),
     recommendedBusinessId: recommendedBusiness?.id ?? null,
     recommendedBusinessName: recommendedBusiness?.name ?? null,
     recommendedBusinessKind: recommendedBusiness?.kind ?? null,
@@ -1038,6 +1043,17 @@ function workerCandidateDashboard(citizen: WorldCitizen, recommendedBusiness: Wo
       ? { type: 'hireWorker', businessId: recommendedBusiness.id, workerCitizenId: citizen.id }
       : null,
   }
+}
+
+function workerCandidateAction(
+  citizen: WorldCitizen,
+  recommendedBusiness: WorldBusiness | null,
+  founderCanManage: boolean,
+): AreaWorkerCandidateAction {
+  if (citizen.kind !== 'sim') return 'requires_acceptance'
+  if (!founderCanManage && recommendedBusiness) return 'founder_unavailable'
+  if (recommendedBusiness) return 'hire_now'
+  return 'waiting_for_position'
 }
 
 function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusinessDashboard {

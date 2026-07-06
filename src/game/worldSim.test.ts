@@ -1443,6 +1443,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.shortage.water).toBe(26)
   })
 
+  test('dashboard suppresses sim-worker hire payloads while the founder is hospitalized', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.state = { kind: 'hospitalized', until: 5 * HOUR }
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.jobs).toMatchObject({
+      employedCitizens: 0,
+      hireableSimWorkers: 0,
+      openPositions: 1,
+      understaffedBusinesses: 1,
+    })
+    expect(dash.jobs.candidates).toMatchObject([
+      {
+        citizenId: 'worker',
+        action: 'founder_unavailable',
+        recommendedBusinessId: 'water1',
+        clientPayload: null,
+      },
+    ])
+  })
+
   test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {
     const dash = areaNeedsDashboard(area({
       citizens: [
