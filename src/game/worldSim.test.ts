@@ -111,6 +111,28 @@ const covenantManualActionSnapshot = () => [{
   clientPayload: null,
 }]
 
+const covenantApprovalRequestSnapshot = () => [{
+  id: 'approval-1',
+  at: 2 * 24 * HOUR,
+  kind: 'start_probation' as const,
+  label: 'Start probation',
+  reason: 'Reviewer may open probation, but the game will not remove the founder automatically.',
+  status: 'pending_manual_approval' as const,
+  recommended: true as const,
+  requiresApproval: true as const,
+  approvalEnabled: false as const,
+  automationEnabled: false as const,
+  executionEnabled: false as const,
+  authorityGate: {
+    requiredRole: 'main_founder' as const,
+    status: 'approval_required' as const,
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
+  },
+  notificationDraftId: 'notification-1',
+}]
+
 const area = (over: Partial<WorldArea> = {}): WorldArea => ({
   id: 'area-1',
   name: 'Test Area',
@@ -1881,6 +1903,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         activityReview: covenantActivitySnapshot(),
         reviewChecklist: covenantChecklistSnapshot(),
         manualActions: covenantManualActionSnapshot(),
+        approvalRequests: covenantApprovalRequestSnapshot(),
         reviewSchedule: {
           lastReviewAt,
           nextWeeklyReviewAt: lastReviewAt + 7 * 24 * HOUR,
@@ -1920,6 +1943,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       activityReview: covenantActivitySnapshot(),
       reviewChecklist: covenantChecklistSnapshot(),
       manualActions: covenantManualActionSnapshot(),
+      approvalRequests: covenantApprovalRequestSnapshot(),
       reviewSchedule: {
         lastReviewAt,
         nextWeeklyReviewAt: lastReviewAt + 7 * 24 * HOUR,
@@ -1961,6 +1985,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         activityReview: null,
         reviewChecklist: [],
         manualActions: [],
+        approvalRequests: [],
         reviewSchedule: null,
       }],
     })

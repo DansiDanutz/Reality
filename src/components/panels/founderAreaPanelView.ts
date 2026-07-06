@@ -150,6 +150,15 @@ export function founderCovenantReviewActionSummary(
   return `${suggested} suggested · ${executable} executable`
 }
 
+export function founderCovenantReviewApprovalSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'approvalRequests'>,
+): string {
+  const count = review.approvalRequests.length
+  if (count === 0) return 'No approval snapshot'
+  const executable = review.approvalRequests.filter((request) => request.executionEnabled).length
+  return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable`
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),

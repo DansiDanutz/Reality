@@ -183,6 +183,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
+  approvalRequests: RealityAreaCovenantApprovalRequest[]
   reviewSchedule: RealityAreaCovenantReviewSchedule | null
 }
 
@@ -204,6 +205,7 @@ export interface RealityAreaCovenantLatestReview {
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
+  approvalRequests: RealityAreaCovenantApprovalRequest[]
   reviewSchedule: RealityAreaCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
@@ -773,6 +775,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
         reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
         manualActions: review.latestReview.manualActions.map(realityCovenantManualActionToWorldAction),
+        approvalRequests: review.latestReview.approvalRequests.map(realityCovenantApprovalRequestToWorldRequest),
         reviewSchedule: review.latestReview.reviewSchedule === null
           ? null
           : mergeRealityAreaCovenantReviewSchedule(review.latestReview.reviewSchedule),
@@ -814,6 +817,7 @@ function realityReviewHistoryToWorldReviewHistory(
     activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
     reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
     manualActions: entry.manualActions.map(realityCovenantManualActionToWorldAction),
+    approvalRequests: entry.approvalRequests.map(realityCovenantApprovalRequestToWorldRequest),
     reviewSchedule: entry.reviewSchedule === null ? null : mergeRealityAreaCovenantReviewSchedule(entry.reviewSchedule),
   }
 }
@@ -825,6 +829,16 @@ function realityCovenantManualActionToWorldAction(
     ...action,
     authorityGate: { ...action.authorityGate },
     clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
+  }
+}
+
+function realityCovenantApprovalRequestToWorldRequest(
+  request: RealityAreaCovenantApprovalRequest,
+): FounderCovenantReviewHistoryItem['approvalRequests'][number] {
+  return {
+    ...request,
+    at: parseInstant(request.at),
+    authorityGate: { ...request.authorityGate },
   }
 }
 
@@ -1205,6 +1219,8 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
     value.manualActions.every(isRealityAreaCovenantReviewActionSnapshot) &&
+    Array.isArray(value.approvalRequests) &&
+    value.approvalRequests.every(isRealityAreaCovenantReviewApprovalRequestSnapshot) &&
     (value.reviewSchedule === null || isRealityAreaCovenantReviewSchedule(value.reviewSchedule))
 }
 
@@ -1224,6 +1240,8 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
     value.manualActions.every(isRealityAreaCovenantReviewActionSnapshot) &&
+    Array.isArray(value.approvalRequests) &&
+    value.approvalRequests.every(isRealityAreaCovenantReviewApprovalRequestSnapshot) &&
     (value.reviewSchedule === null || isRealityAreaCovenantReviewSchedule(value.reviewSchedule)) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
@@ -1281,6 +1299,16 @@ function isRealityAreaCovenantApprovalRequest(value: unknown): value is RealityA
     value.executionEnabled === false &&
     isRealityAreaCovenantAuthorityGate(value.authorityGate, value.kind) &&
     (typeof value.notificationDraftId === 'string' || value.notificationDraftId === null)
+}
+
+function isRealityAreaCovenantReviewApprovalRequestSnapshot(
+  value: unknown,
+): value is RealityAreaCovenantApprovalRequest {
+  return isRealityAreaCovenantApprovalRequest(value) &&
+    value.approvalEnabled === false &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false &&
+    value.authorityGate.executionEnabled === false
 }
 
 function isRealityAreaCovenantNotificationDraft(value: unknown): value is RealityAreaCovenantNotificationDraft {

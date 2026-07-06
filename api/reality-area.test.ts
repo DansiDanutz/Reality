@@ -432,6 +432,21 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      approvalRequests: [],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      approvalEnabled: true,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      executionEnabled: true,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       clientPayload: {
         type: 'recordCovenantReview',
         actionKind: 'record_review',
@@ -2639,6 +2654,7 @@ describe('reality area authority API', () => {
           activityReview: unknown
           reviewChecklist: unknown[]
           manualActions: unknown[]
+          approvalRequests: unknown[]
           reviewSchedule: unknown
         }[]
       }
@@ -2695,6 +2711,11 @@ describe('reality area authority API', () => {
         probation: true,
         replacement: false,
       }),
+      approvalRequests: manualApprovalRequests({
+        warning: true,
+        probation: true,
+        replacement: false,
+      }, '2026-07-06T03:00:00.000Z', 'founder_warning').map(approvalRequestSnapshot),
       reviewSchedule: covenantReviewSchedule({
         anchorAt: '2026-07-06T03:00:00.000Z',
         checkedAt: '2026-07-06T08:00:00.000Z',
@@ -2714,6 +2735,7 @@ describe('reality area authority API', () => {
       activityReview: body.state.founderReviewHistory[0].activityReview,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
       manualActions: body.state.founderReviewHistory[0].manualActions,
+      approvalRequests: body.state.founderReviewHistory[0].approvalRequests,
       reviewSchedule: body.state.founderReviewHistory[0].reviewSchedule,
       evidenceOnly: true,
       automationEnabled: false,
@@ -3552,6 +3574,16 @@ function manualReviewActionSnapshots(input: { warning: boolean; probation: boole
     authorityGate: { ...action.authorityGate, executionEnabled: false },
     clientPayload: null,
   }))
+}
+
+function approvalRequestSnapshot(request: ReturnType<typeof manualApprovalRequests>[number]) {
+  return {
+    ...request,
+    approvalEnabled: false,
+    automationEnabled: false,
+    executionEnabled: false,
+    authorityGate: { ...request.authorityGate, executionEnabled: false },
+  }
 }
 
 function manualApprovalRequests(

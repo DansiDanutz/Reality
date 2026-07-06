@@ -212,6 +212,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
+  approvalRequests: FounderAreaCovenantApprovalRequest[]
   reviewSchedule: FounderAreaCovenantReviewSchedule | null
 }
 
@@ -233,6 +234,7 @@ interface FounderAreaCovenantLatestReview {
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
+  approvalRequests: FounderAreaCovenantApprovalRequest[]
   reviewSchedule: FounderAreaCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
@@ -808,6 +810,10 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'activityReview',
   'reviewChecklist',
   'manualActions',
+  'approvalRequests',
+  'approvalEnabled',
+  'executionEnabled',
+  'notificationDraftId',
   'clientPayload',
   'reviewSchedule',
   'checkedAt',
@@ -1552,6 +1558,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
+    approvalRequests: latest.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     reviewSchedule: latest.reviewSchedule ? { ...latest.reviewSchedule } : null,
     evidenceOnly: true,
     automationEnabled: false,
@@ -1581,6 +1588,9 @@ function founderCovenantReviewHistoryItem(
       : [],
     manualActions: Array.isArray(legacyEntry.manualActions)
       ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
+      : [],
+    approvalRequests: Array.isArray(legacyEntry.approvalRequests)
+      ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
       : [],
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
@@ -1615,6 +1625,18 @@ function founderCovenantManualActionSnapshot(action: FounderAreaCovenantManualAc
     ...action,
     authorityGate: { ...action.authorityGate, executionEnabled: false },
     clientPayload: null,
+  }
+}
+
+function founderCovenantApprovalRequestSnapshot(
+  request: FounderAreaCovenantApprovalRequest,
+): FounderAreaCovenantApprovalRequest {
+  return {
+    ...request,
+    approvalEnabled: false,
+    automationEnabled: false,
+    executionEnabled: false,
+    authorityGate: { ...request.authorityGate, executionEnabled: false },
   }
 }
 
@@ -3045,6 +3067,7 @@ function applyRecordCovenantReviewIntent(
     activityReview: { ...review.activityReview },
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
+    approvalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     reviewSchedule: { ...review.reviewSchedule },
   }
 

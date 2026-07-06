@@ -9,6 +9,7 @@ import {
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
   founderCovenantReviewActionSummary,
+  founderCovenantReviewApprovalSummary,
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
@@ -107,6 +108,33 @@ describe('FounderAreaPanel covenant presenters', () => {
         clientPayload: null,
       }],
     })).toBe('2 suggested · 0 executable')
+  })
+
+  test('summarizes captured covenant approval snapshots', () => {
+    expect(founderCovenantReviewApprovalSummary({ approvalRequests: [] })).toBe('No approval snapshot')
+    expect(founderCovenantReviewApprovalSummary({
+      approvalRequests: [{
+        id: 'approval-1',
+        at: 1_000,
+        kind: 'send_warning',
+        label: 'Send warning',
+        reason: 'Covenant signals suggest a manual founder warning.',
+        status: 'pending_manual_approval',
+        recommended: true,
+        requiresApproval: true,
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        notificationDraftId: 'draft-1',
+      }],
+    })).toBe('1 approval captured · 0 executable')
   })
 
   test('labels latest covenant review evidence without enabling automation', () => {

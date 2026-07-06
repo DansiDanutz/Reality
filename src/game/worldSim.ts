@@ -470,6 +470,7 @@ export interface FounderCovenantReviewHistoryItem {
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
+  approvalRequests: FounderCovenantApprovalRequest[]
   reviewSchedule: FounderCovenantReviewSchedule | null
 }
 
@@ -491,6 +492,7 @@ export interface FounderCovenantLatestReview {
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
+  approvalRequests: FounderCovenantApprovalRequest[]
   reviewSchedule: FounderCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
@@ -1587,6 +1589,7 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
+    approvalRequests: latest.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     reviewSchedule: latest.reviewSchedule ? { ...latest.reviewSchedule } : null,
     evidenceOnly: true,
     automationEnabled: false,
@@ -1606,6 +1609,9 @@ function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryIte
       : [],
     manualActions: Array.isArray(legacyEntry.manualActions)
       ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
+      : [],
+    approvalRequests: Array.isArray(legacyEntry.approvalRequests)
+      ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
       : [],
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
@@ -1640,6 +1646,18 @@ function founderCovenantManualActionSnapshot(action: FounderCovenantManualAction
     ...action,
     authorityGate: { ...action.authorityGate, executionEnabled: false },
     clientPayload: null,
+  }
+}
+
+function founderCovenantApprovalRequestSnapshot(
+  request: FounderCovenantApprovalRequest,
+): FounderCovenantApprovalRequest {
+  return {
+    ...request,
+    approvalEnabled: false,
+    automationEnabled: false,
+    executionEnabled: false,
+    authorityGate: { ...request.authorityGate, executionEnabled: false },
   }
 }
 
