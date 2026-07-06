@@ -1,4 +1,5 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
+import type { ResourceKind } from './resources'
 import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
 /**
@@ -96,7 +97,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook'
+  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -104,6 +105,12 @@ export interface Activity {
   title?: string
   /** Recipe being cooked, for 'cook' activities */
   recipeId?: string
+  /** Resource gathered when a gathering activity completes. */
+  resourceKind?: ResourceKind
+  resourceAmount?: number
+  /** Construction project worked on when a construction activity completes. */
+  projectId?: string
+  laborMinutes?: number
 }
 
 /**
@@ -212,6 +219,7 @@ export interface LiveOutput extends WorldSlice {
 const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
+  if (activity.kind === 'gather' || activity.kind === 'construction') return 'working'
   if (activity.kind === 'cook') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }
