@@ -183,6 +183,7 @@ type FounderAreaCovenantSignalKind =
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
+  | 'sim_departure'
   | 'founder_debt'
   | 'review_due'
 
@@ -2024,6 +2025,23 @@ function hasSimDepartureEvent(events: FounderAreaEvent[], citizenId: string): bo
   )
 }
 
+function unreviewedSimDepartureEvents(
+  state: FounderAreaStateInput,
+  lastReviewAt: string | null,
+): FounderAreaEvent[] {
+  const lastReviewMs = lastReviewAt === null ? null : Date.parse(lastReviewAt)
+  return normalizeFounderAreaEvents(state.areaEvents).filter((event) => {
+    if (event.kind !== 'sim_citizen_departure' || !event.simulated) return false
+    if (lastReviewMs === null || !Number.isFinite(lastReviewMs)) return true
+    const eventMs = Date.parse(event.at)
+    return Number.isFinite(eventMs) && eventMs > lastReviewMs
+  })
+}
+
+function uniqueBusinessKinds(kinds: readonly FounderAreaDepartureServiceKind[]): FounderAreaBusinessKind[] {
+  return BUSINESS_KINDS.filter((kind) => kinds.includes(kind))
+}
+
 function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenantReview {
   const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
@@ -2034,6 +2052,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const founderDebt = founder ? totalCitizenDebt(founder) : 0
   const signals: FounderAreaCovenantSignal[] = []
   const reviewSchedule = founderCovenantReviewSchedule(state)
+  const unreviewedSimDepartures = unreviewedSimDepartureEvents(state, reviewSchedule.lastReviewAt)
   const demand = areaServiceDemand(state.citizens)
   const capacity = areaServiceCapacity(state.citizens, state.businesses)
   const essentialShortages = (['water', 'food', 'housing'] as const)
@@ -2079,6 +2098,16 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
       message: 'The area has unserved water, food, or housing demand.',
       businessKinds: essentialShortages,
       amount: essentialShortages.reduce((total, kind) => total + Math.max(0, demand[kind] - capacity[kind]), 0),
+    })
+  }
+  if (unreviewedSimDepartures.length > 0) {
+    const departedServiceKinds = uniqueBusinessKinds(unreviewedSimDepartures.map((event) => event.serviceKind))
+    signals.push({
+      kind: 'sim_departure',
+      severity: 'warning',
+      message: `${unreviewedSimDepartures.length} Sim Citizen${unreviewedSimDepartures.length === 1 ? '' : 's'} left after the latest review because essential services stayed unserved.`,
+      businessKinds: departedServiceKinds,
+      amount: unreviewedSimDepartures.length,
     })
   }
   if (founderDebt > 0) {
@@ -2183,7 +2212,7 @@ function founderCovenantReviewInputs(input: {
   simPopulation: number
 }): FounderAreaCovenantReviewInput[] {
   const serviceIssues = input.signals.some((signal) =>
-    signal.kind === 'essential_shortage' || signal.kind === 'understaffed_businesses'
+    signal.kind === 'essential_shortage' || signal.kind === 'understaffed_businesses' || signal.kind === 'sim_departure'
   )
   const activityCaptured = input.activityReview.active && (input.activityReview.building || input.activityReview.useful)
   return [

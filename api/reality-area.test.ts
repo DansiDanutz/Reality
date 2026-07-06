@@ -3529,6 +3529,14 @@ describe('reality area authority API', () => {
         visualTone: 'simulated',
       }],
     })
+    expect(body.state.founderCovenant.signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'sim_departure',
+        severity: 'warning',
+        businessKinds: ['water'],
+        amount: 1,
+      }),
+    ]))
     expect(body.state.transactions).toHaveLength(existing.transactions.length)
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -4756,6 +4764,64 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('recordCovenantReview captures and clears reviewed Sim departure signals', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = {
+      ...existingState(),
+      citizens: existingState().citizens.filter((citizen) => citizen.id !== 'founder-area-0012:sim-water'),
+      areaEvents: [simDepartureEvent()],
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://reviewed-departure-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          note: 'Reviewed Sim departure and water shortage.',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as {
+      ok: true
+      state: ReturnType<typeof existingState> & {
+        founderReviewHistory: {
+          signals: { kind: string; severity: string; amount?: number; businessKinds?: string[] }[]
+        }[]
+      }
+    }
+    expect(body.state.founderReviewHistory[0].signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'sim_departure',
+        severity: 'warning',
+        amount: 1,
+        businessKinds: ['water'],
+      }),
+    ]))
+    expect(body.state.founderCovenant.latestReview?.signals).toEqual(body.state.founderReviewHistory[0].signals)
+    expect((body.state.founderCovenant.signals as { kind: string }[]).some((signal) =>
+      signal.kind === 'sim_departure'
+    )).toBe(false)
+    expect(body.state.founderCovenant.reviewSchedule).toEqual(covenantReviewSchedule({
+      anchorAt: '2026-07-06T03:00:00.000Z',
+      checkedAt: '2026-07-06T08:00:00.000Z',
+      lastReviewAt: '2026-07-06T08:00:00.000Z',
+    }))
+    expect(put).toHaveBeenCalledTimes(1)
   })
 
   test('recordCovenantReview catches up stale area state before recording covenant evidence', async () => {

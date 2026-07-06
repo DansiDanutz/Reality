@@ -784,6 +784,8 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
       return `Understaffed: ${signal.businessIds?.join(', ') ?? 'businesses'}`
     case 'essential_shortage':
       return `Shortage: ${signal.businessKinds?.join(', ') ?? 'essential services'}`
+    case 'sim_departure':
+      return `Sim departures: ${signal.amount ?? 0}`
     case 'founder_debt':
       return `Founder debt: ${formatMoney(signal.amount ?? 0)}`
     case 'review_due':

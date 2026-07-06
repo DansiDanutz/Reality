@@ -142,6 +142,7 @@ export type RealityAreaCovenantSignalKind =
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
+  | 'sim_departure'
   | 'founder_debt'
   | 'review_due'
 
@@ -2175,6 +2176,7 @@ function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCo
     value === 'no_business_built' ||
     value === 'understaffed_businesses' ||
     value === 'essential_shortage' ||
+    value === 'sim_departure' ||
     value === 'founder_debt' ||
     value === 'review_due'
 }

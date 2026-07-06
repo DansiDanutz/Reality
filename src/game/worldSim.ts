@@ -418,6 +418,7 @@ export type FounderCovenantSignalKind =
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
+  | 'sim_departure'
   | 'founder_debt'
   | 'review_due'
 

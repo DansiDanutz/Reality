@@ -574,6 +574,13 @@ describe('FounderAreaPanel covenant presenters', () => {
     })).toBe('Shortage: water, housing')
 
     expect(founderCovenantSignalText({
+      kind: 'sim_departure',
+      severity: 'warning',
+      message: '2 Sim Citizens left after the latest review because essential services stayed unserved.',
+      amount: 2,
+    })).toBe('Sim departures: 2')
+
+    expect(founderCovenantSignalText({
       kind: 'founder_debt',
       severity: 'info',
       message: 'Founder has unpaid debt that should be reviewed before profit or succession decisions.',
