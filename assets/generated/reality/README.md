@@ -1,12 +1,29 @@
 # Reality HD asset system
 
 Realistic, transparent, animation-ready source assets for Reality, generated
-through **Nano Banana** (Gemini 2.5 Flash Image) per
-[`docs/plan/11-ASSET-GENERATION.md`](../../../docs/plan/11-ASSET-GENERATION.md).
+through **Nano Banana** (Gemini 2.5 Flash Image) + **rembg** background removal
+per [`docs/plan/11-ASSET-GENERATION.md`](../../../docs/plan/11-ASSET-GENERATION.md).
 
-**Status: inventory, prompts, metadata schema, and runner are READY. Generation
-is BLOCKED on Nano Banana credentials** — see [Blocker report](#blocker-report)
-below. Per the plan, no fallback generator is used.
+**Status: first batch of 74 assets GENERATED, all `pending-review`.** All pass
+the technical gate (valid RGBA PNGs with real transparency); a visual review of
+a representative sample found 0 needing regeneration. Every asset is
+`qualityStatus: "pending-review"` awaiting human sign-off before runtime
+integration — see [Quality gate](#quality-gate).
+
+## Why Nano Banana + rembg
+
+Nano Banana (both `gemini-2.5-flash-image` and `nano-banana-pro-preview`)
+emits **opaque RGB images with no alpha channel**, even when the prompt
+explicitly requests a transparent background — a known model limitation. The
+rendered content is high quality (realistic 3D objects, correct palette,
+isolated composition), so the pipeline is:
+
+1. **Nano Banana** generates the opaque RGB source (1024×1024).
+2. **rembg** (u2net, runs locally in the venv — not a repo dependency) strips
+   the background, producing the transparent RGBA PNG the plan requires.
+
+Both stages run automatically in `scripts/generate.py`. No manual step between
+them.
 
 ## Layout
 
@@ -116,29 +133,45 @@ with a reviewed PNG reference, keeping the emoji as the fallback for the
 minimized-dock state. This is a small, contained change — do it after the
 market integration is proven.
 
-## Blocker report
+## Generation status — first batch complete
 
-**Blocker:** Nano Banana (Gemini 2.5 Flash Image) requires an API key. None of
-`GEMINI_API_KEY`, `GOOGLE_API_KEY`, or `GOOGLE_GENAI_API_KEY` is set in the
-working environment.
+**74 assets generated, 0 failures.** All pass the technical gate (valid RGBA
+PNG, real alpha, transparent background). A visual review of a representative
+18-asset sample (one per kind + key categories) found 0 needing regeneration —
+consistent style, no embedded text/logos, objects isolated and un-cropped,
+correct top-down 3/4 angle, on-palette.
 
-**What is ready (the moment credentials arrive):**
-- `manifest.json` — 115 market items + 5 dashboard + 13 category targets, with
-  exact source-of-truth lineage back to `catalog.ts` and `HudWindow.tsx`.
-- `prompts/*.json` — 74 full prompt records (the entire first batch), each
-  carrying the master-template prompt, a curated object description, the
-  negative prompt, and the target PNG path.
-- `metadata/SCHEMA.json` — the contract every accepted asset follows.
-- `scripts/generate.mjs` — the Nano Banana runner, credential-gated, with
-  per-asset generation, throttling pacing, and pending-review metadata output.
+| Group | Count | Size | Status |
+|---|---|---|---|
+| Dashboard / HUD icons | 5 | 1024² | pending-review |
+| Market category icons | 13 | 1024² | pending-review |
+| Market items (missing image) | 34 | 1024² | pending-review |
+| Businesses | 16 | 1024² | pending-review |
+| Homes | 6 | 1024² | pending-review |
+| **Total** | **74** | ~47 MB | **all pending-review** |
 
-**To unblock:**
+> **Size note:** Nano Banana outputs 1024×1024 regardless of the requested
+> 2048×2048. The 2048² requirement in the plan applies to "important" assets
+> (businesses, homes, key shop items); an upscaling pass (e.g. Real-ESRGAN)
+> can be added to the pipeline later if 1024² proves insufficient at card
+> render sizes. Dashboards and category icons are correctly 1024² as specified.
+
+Each asset's metadata is `qualityStatus: "pending-review"` with the full
+`qualityChecks` map (all `false`). To accept: review the asset, flip the
+checks to `true`, and set `qualityStatus: "accepted"`.
+
+### To regenerate or extend
 ```bash
-export GEMINI_API_KEY=<key>           # or GOOGLE_API_KEY / GOOGLE_GENAI_API_KEY
-node assets/generated/reality/scripts/generate.mjs --only coffeeshop   # smoke one
-node assets/generated/reality/scripts/generate.mjs                     # first batch
+# Regenerate one (overwrites its PNG + metadata)
+python3 assets/generated/reality/scripts/generate.py --only coffeeshop
+
+# Regenerate all (skips assets already present unless their PNG is deleted first)
+python3 assets/generated/reality/scripts/generate.py
+
+# Add a new item to the batch: edit catalog.ts, re-run extract + build-prompts,
+# then run generate.py (it only generates first-batch + missing items).
 ```
 
-**Per `docs/plan/11-ASSET-GENERATION.md` we do not switch to a fallback
-generator.** Inventory and integration prep proceed; pixels wait for Nano
-Banana.
+The runner loads `~/ZCodeProject/Reality/.env.local` automatically and skips
+assets whose PNG + metadata already exist (resume-safe).
+
