@@ -3351,13 +3351,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'recordCovenantReview') {
-      const result = applyRecordCovenantReviewIntent(existing, rawIntent, new Date(), citizen.citizenId)
+      const intent = normalizeRecordCovenantReviewIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(recordCovenantReviewStatus(intent.error)).json({
+          ok: false,
+          error: recordCovenantReviewMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+      if (intent.actionKind !== 'record_review') {
+        res.status(recordCovenantReviewStatus('review_action_disabled')).json({
+          ok: false,
+          error: recordCovenantReviewMessage('review_action_disabled'),
+          code: 'review_action_disabled',
+          state: existing,
+        })
+        return
+      }
+
+      const now = new Date()
+      const stateForReview = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      const result = applyRecordCovenantReviewIntent(
+        stateForReview,
+        { type: 'recordCovenantReview', actionKind: intent.actionKind, note: intent.note },
+        now,
+        citizen.citizenId,
+      )
       if (!result.ok) {
         res.status(recordCovenantReviewStatus(result.error)).json({
           ok: false,
           error: recordCovenantReviewMessage(result.error),
           code: result.error,
-          state: existing,
+          state: stateForReview,
         })
         return
       }

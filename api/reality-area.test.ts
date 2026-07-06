@@ -3109,7 +3109,11 @@ describe('reality area authority API', () => {
   test('recordCovenantReview appends manual evidence without touching money or ledger transactions', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
-    const existing = existingState()
+    const existing = {
+      ...existingState(),
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
+    }
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-area'))
@@ -3178,7 +3182,7 @@ describe('reality area authority API', () => {
         amount: 3,
       }],
       activityReview: {
-        checkedAt: '2026-07-06T03:00:00.000Z',
+        checkedAt: '2026-07-06T08:00:00.000Z',
         active: true,
         useful: false,
         building: false,
@@ -3224,7 +3228,7 @@ describe('reality area authority API', () => {
         warning: true,
         probation: true,
         replacement: false,
-      }, '2026-07-06T03:00:00.000Z', 'founder_warning').map(approvalRequestSnapshot),
+      }, '2026-07-06T08:00:00.000Z', 'founder_warning').map(approvalRequestSnapshot),
       reviewSchedule: covenantReviewSchedule({
         anchorAt: '2026-07-06T03:00:00.000Z',
         checkedAt: '2026-07-06T08:00:00.000Z',
@@ -3295,6 +3299,110 @@ describe('reality area authority API', () => {
       sendEnabled: false,
       authorityGate: mainFounderApprovalGate(),
     }])
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('recordCovenantReview catches up stale area state before recording covenant evidence', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = {
+      ...fragileFounder,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          note: 'Weekly review after server catch-up.',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as {
+      ok: true
+      state: ReturnType<typeof withCitizen> & {
+        founderReviewHistory: {
+          summary: string
+          decision: { status: string; nextAction: string; manualReviewRequired: boolean }
+          signals: { kind: string; severity: string }[]
+          activityReview: {
+            checkedAt: string
+            active: boolean
+            hospitalized: boolean
+            atRisk: boolean
+            score: number
+          }
+        }[]
+      }
+    }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const review = body.state.founderReviewHistory[0]
+    expect(founder?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T16:00:00.000Z' })
+    expect(body.state.balance).toBe(199_650)
+    expect(body.state.transactions.at(-1)).toMatchObject({
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: CITIZEN_ID,
+      toId: 'system:hospital',
+      amount: 350,
+    })
+    expect(body.state.transactions.some((transaction) => transaction.kind === 'founder_review')).toBe(false)
+    expect(review).toMatchObject({
+      summary: 'Covenant snapshot: score 10/100; active no; useful no; building no; staffed no; debt no; hospital yes; at risk yes. Note: Weekly review after server catch-up.',
+      decision: {
+        status: 'manual_review',
+        nextAction: 'manual_review',
+        manualReviewRequired: true,
+      },
+      activityReview: {
+        checkedAt: '2026-07-06T08:00:00.000Z',
+        active: false,
+        hospitalized: true,
+        atRisk: true,
+        score: 10,
+      },
+    })
+    expect(review.signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'founder_unavailable', severity: 'critical' }),
+    ]))
+    expect(body.state.founderCovenant.latestReview).toMatchObject({
+      summary: review.summary,
+      activityReview: review.activityReview,
+      evidenceOnly: true,
+      automationEnabled: false,
+    })
+    expect(body.state.founderCovenant.replacementEnabled).toBe(false)
+    expect(body.state.founderCovenant.waitlistHandoffEnabled).toBe(false)
+    expect(body.state.founderCovenant.manualActions.every((action) =>
+      action.requiresApproval === true && action.automationEnabled === false
+    )).toBe(true)
+    expect(body.state.founderCovenant.manualActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'recommend_replacement',
+        authorityGate: mainFounderApprovalGate(),
+        recommended: true,
+      }),
+    ]))
+    expect(put).toHaveBeenCalledTimes(2)
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
