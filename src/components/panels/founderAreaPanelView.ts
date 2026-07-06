@@ -32,6 +32,8 @@ import type {
   RealityAreaPayoutReadinessDashboard,
   RealityAreaSettlementBlocker,
   RealityAreaSettlementDashboard,
+  RealityFounderCovenantReviewQueueDashboard,
+  RealityFounderCovenantReviewQueueItem,
 } from '../../lib/realityArea'
 
 export type FounderCovenantReviewTone = 'stable' | 'warning' | 'critical'
@@ -689,6 +691,42 @@ export function founderCovenantReviewQueueSnapshotSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'reviewQueue'>,
 ): string {
   return `Queue snapshot · ${founderCovenantReviewQueueSummary(review.reviewQueue)} · ${review.reviewQueue.blockerCount} blocker${review.reviewQueue.blockerCount === 1 ? '' : 's'}`
+}
+
+export function founderCovenantOperatorQueueSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals' | 'hasMore'>,
+): string {
+  const { totals } = queue
+  const riskParts = [
+    `${totals.manualReviewRequired} manual review${totals.manualReviewRequired === 1 ? '' : 's'}`,
+    `${totals.overdue} overdue`,
+    `${totals.hospitalized} hospitalized`,
+    `${totals.indebted} indebted`,
+  ]
+  return `${totals.founders} founder${totals.founders === 1 ? '' : 's'} · ${riskParts.join(' · ')} · ${formatMoney(totals.totalOutstandingDebt)} debt${queue.hasMore ? ' · more available' : ''}`
+}
+
+export function founderCovenantOperatorQueuePageSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'scanned' | 'caughtUp' | 'current' | 'failed' | 'hasMore'>,
+): string {
+  return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed${queue.hasMore ? ' · next page ready' : ''}`
+}
+
+export function founderCovenantOperatorQueueItemSummary(
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    | 'covenantStatus'
+    | 'manualReviewRequired'
+    | 'activityReview'
+    | 'economicExposure'
+    | 'signalCounts'
+    | 'blockerCount'
+    | 'transactionsAdded'
+  >,
+): string {
+  const status = founderCovenantStatusLabel(item.covenantStatus)
+  const review = item.manualReviewRequired ? 'manual review' : 'watch'
+  return `${status} · ${review} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
 }
 
 function founderCovenantNextActionLabel(

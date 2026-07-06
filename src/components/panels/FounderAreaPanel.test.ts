@@ -13,6 +13,9 @@ import {
   founderCovenantNotificationDraftGateText,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
+  founderCovenantOperatorQueueItemSummary,
+  founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueSummary,
   founderCovenantReviewActionSummary,
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewCadenceSummary,
@@ -555,6 +558,82 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantReviewQueueStatusLabel(queue)).toBe('Evidence only')
     expect(founderCovenantReviewQueueSnapshotSummary({ reviewQueue: queue })).toBe(
       'Queue snapshot · Main founder approval · 1 approval · 1 draft · 2 blockers',
+    )
+  })
+
+  test('summarizes the operator founder covenant review queue without enforcement controls', () => {
+    const queue = {
+      hasMore: true,
+      scanned: 2,
+      caughtUp: 1,
+      current: 0,
+      failed: 1,
+      totals: {
+        founders: 2,
+        active: 1,
+        useful: 1,
+        building: 1,
+        staffed: 0,
+        indebted: 1,
+        hospitalized: 1,
+        atRisk: 2,
+        manualReviewRequired: 1,
+        overdue: 1,
+        totalFounderCash: 399_000,
+        totalOutstandingDebt: 350,
+        totalBusinessCash: 25,
+        unstaffedBusinesses: 1,
+        insuredFounders: 0,
+        pendingApprovals: 2,
+        pendingNotifications: 1,
+        blockers: 5,
+      },
+    }
+    const item = {
+      covenantStatus: 'manual_review',
+      manualReviewRequired: true,
+      activityReview: {
+        checkedAt: '2026-07-06T04:00:00.000Z',
+        active: false,
+        useful: false,
+        building: true,
+        staffed: false,
+        indebted: true,
+        hospitalized: true,
+        atRisk: true,
+        score: 35,
+      },
+      economicExposure: {
+        founderCash: 199_650,
+        outstandingDebt: 350,
+        debtCount: 1,
+        businessCash: 25,
+        businessCount: 1,
+        unstaffedBusinessCount: 1,
+        insured: false,
+        hospitalized: true,
+        gameCreditsOnly: true,
+        payoutEligibleCredits: 0,
+        manualPayoutReviewRequired: true,
+      },
+      signalCounts: {
+        total: 4,
+        info: 1,
+        warning: 2,
+        critical: 1,
+      },
+      blockerCount: 5,
+      transactionsAdded: 1,
+    } as const
+
+    expect(founderCovenantOperatorQueueSummary(queue)).toBe(
+      '2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available',
+    )
+    expect(founderCovenantOperatorQueuePageSummary(queue)).toBe(
+      '2 scanned · 1 caught up · 0 current · 1 failed · next page ready',
+    )
+    expect(founderCovenantOperatorQueueItemSummary(item)).toBe(
+      'Manual review · manual review · score 35/100 · $350 debt · 2 warnings · 1 critical · 5 blockers · 1 tx',
     )
   })
 
