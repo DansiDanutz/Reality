@@ -311,6 +311,23 @@ const FULL_NEEDS: FounderAreaNeeds = {
   fun: 90,
 }
 
+const NEED_DECAY_PER_HOUR: FounderAreaNeeds = {
+  hunger: 4,
+  hydration: 5,
+  energy: 3,
+  hygiene: 1,
+  fun: 1,
+}
+
+const NEED_PURCHASE_THRESHOLD = 65
+const HEALTH_PURCHASE_THRESHOLD = 75
+const SERVICE_EFFECTS: Record<Exclude<FounderAreaBusinessKind, 'insurance'>, Partial<FounderAreaNeeds> & { health?: number }> = {
+  water: { hydration: 35 },
+  food: { hunger: 35 },
+  housing: { energy: 35 },
+  clinic: { health: 30 },
+}
+
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
 }
@@ -813,8 +830,11 @@ function applyAdvanceHourIntent(
 
   const at = now.toISOString()
   const transactions: FounderAreaTransaction[] = []
-  const citizens = state.citizens.map((citizen) => ({ ...citizen }))
-  const businesses = state.businesses.map((business) => {
+  const citizens = state.citizens.map(cloneCitizen)
+  const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
+
+  applySimCitizenHour(state.areaId, citizens, businesses, now, at, transactions)
+  for (const business of businesses) {
     let cash = business.cash
     const paidWorkerIds: string[] = []
     for (const workerId of business.staffCitizenIds ?? []) {
@@ -834,8 +854,8 @@ function applyAdvanceHourIntent(
         memo: `${business.name} paid ${workerId} for one hour of work.`,
       })
     }
-    return paidWorkerIds.length > 0 ? { ...business, cash } : business
-  })
+    business.cash = cash
+  }
 
   return {
     ok: true,
@@ -890,14 +910,96 @@ function applyServicePurchaseIntent(
   }
 }
 
+function applySimCitizenHour(
+  areaId: string,
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  now: Date,
+  at: string,
+  transactions: FounderAreaTransaction[],
+): void {
+  let purchaseSequence = 0
+  for (const citizen of citizens) {
+    if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') continue
+    decayNeeds(citizen)
+    for (const serviceKind of serviceNeedsForCitizen(citizen)) {
+      const business = chooseServiceBusinessFromBusinesses(businesses, serviceKind)
+      if (!business || citizen.money < business.price) continue
+      citizen.money = roundMoney(citizen.money - business.price)
+      business.cash = roundMoney(business.cash + business.price)
+      applyServiceEffect(citizen, serviceKind)
+      purchaseSequence += 1
+      transactions.push({
+        id: `${areaId}:${now.getTime()}:sim-purchase:${citizen.id}:${serviceKind}:${business.id}:${purchaseSequence}`,
+        at,
+        kind: 'customer_purchase',
+        fromId: citizen.id,
+        toId: business.id,
+        amount: business.price,
+        memo: `${citizen.name} bought ${serviceKind} from ${business.name}.`,
+      })
+    }
+  }
+}
+
+function cloneCitizen(citizen: FounderAreaCitizen): FounderAreaCitizen {
+  return {
+    ...citizen,
+    needs: { ...citizen.needs },
+    state: { ...citizen.state },
+  }
+}
+
+function decayNeeds(citizen: FounderAreaCitizen): void {
+  citizen.needs = {
+    hunger: clampNeed(citizen.needs.hunger - NEED_DECAY_PER_HOUR.hunger),
+    hydration: clampNeed(citizen.needs.hydration - NEED_DECAY_PER_HOUR.hydration),
+    energy: clampNeed(citizen.needs.energy - NEED_DECAY_PER_HOUR.energy),
+    hygiene: clampNeed(citizen.needs.hygiene - NEED_DECAY_PER_HOUR.hygiene),
+    fun: clampNeed(citizen.needs.fun - NEED_DECAY_PER_HOUR.fun),
+  }
+}
+
+function serviceNeedsForCitizen(citizen: FounderAreaCitizen): Exclude<FounderAreaBusinessKind, 'insurance'>[] {
+  const services: Exclude<FounderAreaBusinessKind, 'insurance'>[] = []
+  if (citizen.needs.hydration < NEED_PURCHASE_THRESHOLD) services.push('water')
+  if (citizen.needs.hunger < NEED_PURCHASE_THRESHOLD) services.push('food')
+  if (citizen.needs.energy < NEED_PURCHASE_THRESHOLD) services.push('housing')
+  if (citizen.health < HEALTH_PURCHASE_THRESHOLD) services.push('clinic')
+  return services
+}
+
+function applyServiceEffect(
+  citizen: FounderAreaCitizen,
+  serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>,
+): void {
+  const effect = SERVICE_EFFECTS[serviceKind]
+  citizen.needs = {
+    ...citizen.needs,
+    hunger: effect.hunger === undefined ? citizen.needs.hunger : clampNeed(citizen.needs.hunger + effect.hunger),
+    hydration: effect.hydration === undefined ? citizen.needs.hydration : clampNeed(citizen.needs.hydration + effect.hydration),
+    energy: effect.energy === undefined ? citizen.needs.energy : clampNeed(citizen.needs.energy + effect.energy),
+    hygiene: effect.hygiene === undefined ? citizen.needs.hygiene : clampNeed(citizen.needs.hygiene + effect.hygiene),
+    fun: effect.fun === undefined ? citizen.needs.fun : clampNeed(citizen.needs.fun + effect.fun),
+  }
+  if (effect.health !== undefined) citizen.health = clampNeed(citizen.health + effect.health)
+}
+
 function chooseServiceBusiness(
   state: FounderAreaState,
   kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
 ): FounderAreaBusiness | null {
-  const businesses = state.businesses
+  return chooseServiceBusinessFromBusinesses(state.businesses, kind)
+}
+
+function chooseServiceBusinessFromBusinesses(
+  businesses: FounderAreaBusiness[],
+  kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
+): FounderAreaBusiness | null {
+  const candidates = businesses
     .filter((business) => business.kind === kind)
     .sort((a, b) => a.price - b.price || a.createdAt.localeCompare(b.createdAt))
-  return businesses[0] ?? null
+  return candidates[0] ?? null
 }
 
 function setFounderCitizenMoney(state: FounderAreaState, money: number): FounderAreaCitizen[] {
@@ -1040,6 +1142,12 @@ function hasControlCharacter(value: string): boolean {
 }
 
 function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function clampNeed(value: number): number {
+  if (value < 0) return 0
+  if (value > 100) return 100
   return Math.round(value * 100) / 100
 }
 

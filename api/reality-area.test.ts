@@ -738,6 +738,53 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('advanceHour lets Sim Citizens buy needed local services from their server balances', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const existing = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const simWater = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(simWater?.money).toBe(98)
+    expect(simWater?.needs.hydration).toBe(72)
+    expect(body.state.businesses[0].cash).toBe(7)
+    expect(body.state.transactions.at(-1)).toEqual({
+      id: 'founder-area-0012:1783321200000:sim-purchase:founder-area-0012:sim-water:water:water-1:1',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'customer_purchase',
+      fromId: 'founder-area-0012:sim-water',
+      toId: 'water-1',
+      amount: 2,
+      memo: 'Demo Water Resident bought water from Founder Water.',
+    })
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
@@ -766,8 +813,12 @@ describe('reality area authority API', () => {
 
     expect(res.statusCode).toBe(200)
     const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
-    expect(body.state.businesses[0].cash).toBe(36)
-    expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.money).toBe(114)
+    expect(body.state.businesses[0].cash).toBe(38)
+    expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.money).toBe(112)
+    expect(body.state.transactions.slice(-2).map((transaction) => transaction.kind)).toEqual([
+      'customer_purchase',
+      'worker_wage',
+    ])
     expect(body.state.transactions.at(-1)).toEqual({
       id: 'founder-area-0012:1783321200000:worker-wage:water-1:founder-area-0012:sim-water:1',
       at: '2026-07-06T07:00:00.000Z',
