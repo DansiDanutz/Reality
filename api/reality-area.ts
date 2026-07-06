@@ -123,6 +123,7 @@ type FounderAreaCovenantSignalKind =
   | 'understaffed_businesses'
   | 'essential_shortage'
   | 'founder_debt'
+  | 'review_due'
 
 interface FounderAreaCovenantSignal {
   kind: FounderAreaCovenantSignalKind
@@ -1139,6 +1140,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const building = founderBusinesses.length > 0
   const founderDebt = founder ? totalCitizenDebt(founder) : 0
   const signals: FounderAreaCovenantSignal[] = []
+  const reviewSchedule = founderCovenantReviewSchedule(state)
   const demand = areaServiceDemand(state.citizens)
   const capacity = areaServiceCapacity(state.citizens, state.businesses)
   const essentialShortages = (['water', 'food', 'housing'] as const)
@@ -1195,6 +1197,14 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     })
   }
 
+  if (reviewSchedule.overdue) {
+    signals.push({
+      kind: 'review_due',
+      severity: 'warning',
+      message: founderCovenantReviewDueMessage(reviewSchedule),
+    })
+  }
+
   const manualReviewRequired = signals.some((signal) => signal.severity === 'critical')
   const status: FounderAreaCovenantStatus = manualReviewRequired ? 'manual_review' : signals.length > 0 ? 'watch' : 'active'
   const activityReview: FounderAreaCovenantActivityReview = {
@@ -1212,6 +1222,8 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   }
   const nextAction: FounderAreaCovenantNextAction = manualReviewRequired
     ? 'manual_review'
+    : reviewSchedule.overdue
+      ? 'manual_review'
     : signals.some((signal) => signal.severity === 'warning')
       ? 'warn_founder'
       : 'none'
@@ -1225,7 +1237,6 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const notificationDrafts = founderCovenantNotificationDrafts(state, {
     nextAction,
   })
-  const reviewSchedule = founderCovenantReviewSchedule(state)
 
   return {
     founderCitizenId: state.founderCitizenId,
@@ -1439,6 +1450,11 @@ function safeDateMs(value: string, fallback: string): number {
   if (Number.isFinite(ms)) return ms
   const fallbackMs = Date.parse(fallback)
   return Number.isFinite(fallbackMs) ? fallbackMs : 0
+}
+
+function founderCovenantReviewDueMessage(schedule: FounderAreaCovenantReviewSchedule): string {
+  const cadence = schedule.monthlyReviewDue ? 'monthly' : 'weekly'
+  return `Founder covenant ${cadence} review is due; record manual evidence before any warning, probation, or replacement decision.`
 }
 
 function founderCovenantNotificationDrafts(

@@ -105,6 +105,7 @@ export type RealityAreaCovenantSignalKind =
   | 'understaffed_businesses'
   | 'essential_shortage'
   | 'founder_debt'
+  | 'review_due'
 
 export interface RealityAreaCovenantSignal {
   kind: RealityAreaCovenantSignalKind
@@ -1158,7 +1159,8 @@ function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCo
     value === 'no_business_built' ||
     value === 'understaffed_businesses' ||
     value === 'essential_shortage' ||
-    value === 'founder_debt'
+    value === 'founder_debt' ||
+    value === 'review_due'
 }
 
 function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {

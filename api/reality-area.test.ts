@@ -620,6 +620,63 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('GET surfaces overdue founder covenant review as manual review signal without enforcement', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T04:00:00.000Z'))
+    const existing = {
+      ...existingState(),
+      updatedAt: '2026-07-14T04:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://overdue-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const dashboard = (res.body as { dashboard: ReturnType<typeof serverDashboard> }).dashboard
+    expect(dashboard.founderCovenant).toMatchObject({
+      status: 'watch',
+      nextAction: 'manual_review',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      reviewSchedule: covenantReviewSchedule({
+        anchorAt: '2026-07-06T03:00:00.000Z',
+        checkedAt: '2026-07-14T04:00:00.000Z',
+        lastReviewAt: null,
+      }),
+      notificationDrafts: [expect.objectContaining({
+        kind: 'manual_review_required',
+        sendEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
+      })],
+    })
+    expect(dashboard.founderCovenant.signals).toEqual(expect.arrayContaining([
+      {
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+      },
+    ]))
+    expect(dashboard.founderCovenant.manualActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'send_warning',
+        recommended: false,
+        automationEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
+      }),
+      expect.objectContaining({
+        kind: 'recommend_replacement',
+        automationEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
+      }),
+    ]))
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('catches up elapsed real hours when reading an existing server area', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))

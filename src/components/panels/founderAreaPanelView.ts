@@ -99,6 +99,8 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
       return `Shortage: ${signal.businessKinds?.join(', ') ?? 'essential services'}`
     case 'founder_debt':
       return `Founder debt: ${formatMoney(signal.amount ?? 0)}`
+    case 'review_due':
+      return 'Review due'
   }
 }
 

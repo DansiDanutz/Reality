@@ -55,6 +55,12 @@ describe('FounderAreaPanel covenant presenters', () => {
       message: 'Founder has unpaid debt that should be reviewed before profit or succession decisions.',
       amount: 120,
     })).toBe('Founder debt: $120')
+
+    expect(founderCovenantSignalText({
+      kind: 'review_due',
+      severity: 'warning',
+      message: 'Founder covenant weekly review is due.',
+    })).toBe('Review due')
   })
 
   test('formats manual activity review flags for founder covenant badges', () => {

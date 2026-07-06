@@ -1816,6 +1816,79 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('dashboard turns overdue covenant review into a manual-review signal only', () => {
+    const lastReviewAt = 2 * 24 * HOUR
+    const start = claimedArea({
+      now: 10 * 24 * HOUR,
+      citizens: [
+        sim('water-worker', { jobBusinessId: 'water1', homeBusinessId: 'home1' }),
+        sim('food-worker-1', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('food-worker-2', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('home-worker', { jobBusinessId: 'home1', homeBusinessId: 'home1' }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'founder', staffCitizenIds: ['water-worker'] }),
+        business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['food-worker-1', 'food-worker-2'] }),
+        business('housing', 'home1', { ownerId: 'founder', staffCitizenIds: ['home-worker'] }),
+      ],
+      founderReviewHistory: [{
+        id: 'review-1',
+        at: lastReviewAt,
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        summary: 'Weekly review recorded.',
+      }],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant).toMatchObject({
+      status: 'watch',
+      nextAction: 'manual_review',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        active: true,
+        useful: true,
+        building: true,
+        staffed: true,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 100,
+      },
+      notificationDrafts: [expect.objectContaining({
+        kind: 'manual_review_required',
+        sendEnabled: false,
+        authorityGate: expect.objectContaining({
+          requiredRole: 'main_founder',
+          executionEnabled: false,
+        }),
+      })],
+    })
+    expect(dash.founderCovenant.signals).toEqual([{
+      kind: 'review_due',
+      severity: 'warning',
+      message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+    }])
+    expect(dash.founderCovenant.manualActions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'start_probation',
+        recommended: false,
+        automationEnabled: false,
+        authorityGate: expect.objectContaining({ executionEnabled: false }),
+      }),
+      expect.objectContaining({
+        kind: 'recommend_replacement',
+        recommended: false,
+        automationEnabled: false,
+        authorityGate: expect.objectContaining({ executionEnabled: false }),
+      }),
+    ]))
+  })
+
   test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {
     const dash = areaNeedsDashboard(area({
       citizens: [

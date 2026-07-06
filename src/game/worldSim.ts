@@ -381,6 +381,7 @@ export type FounderCovenantSignalKind =
   | 'understaffed_businesses'
   | 'essential_shortage'
   | 'founder_debt'
+  | 'review_due'
 
 export interface FounderCovenantSignal {
   kind: FounderCovenantSignalKind
@@ -1189,6 +1190,7 @@ function founderCovenantDashboard(
   const understaffedBusinesses = founderBusinesses.filter((business) =>
     activeStaffCount(area, business) < TARGET_STAFF_BY_KIND[business.kind],
   )
+  const reviewSchedule = founderCovenantReviewSchedule(area)
   const staffed = building && understaffedBusinesses.length === 0
   const essentialShortages = (['water', 'food', 'housing'] as const)
     .filter((kind) => input.shortage[kind] > 0)
@@ -1244,6 +1246,14 @@ function founderCovenantDashboard(
     })
   }
 
+  if (reviewSchedule?.overdue) {
+    signals.push({
+      kind: 'review_due',
+      severity: 'warning',
+      message: founderCovenantReviewDueMessage(reviewSchedule),
+    })
+  }
+
   const manualReviewRequired = signals.some((signal) => signal.severity === 'critical')
   const status: FounderCovenantStatus = manualReviewRequired ? 'manual_review' : signals.length > 0 ? 'watch' : 'active'
   const activityReview: FounderCovenantActivityReview = {
@@ -1267,6 +1277,8 @@ function founderCovenantDashboard(
   }
   const nextAction: FounderCovenantNextAction = manualReviewRequired
     ? 'manual_review'
+    : reviewSchedule?.overdue
+      ? 'manual_review'
     : signals.some((signal) => signal.severity === 'warning')
       ? 'warn_founder'
       : 'none'
@@ -1281,7 +1293,6 @@ function founderCovenantDashboard(
     founderCitizenId,
     nextAction,
   })
-  const reviewSchedule = founderCovenantReviewSchedule(area)
 
   return {
     founderCitizenId,
@@ -1482,6 +1493,11 @@ function latestFounderReviewAt(area: WorldArea): number | null {
     .map((entry) => entry.at)
     .filter((at) => Number.isFinite(at))
   return reviewedAt.length > 0 ? Math.max(...reviewedAt) : null
+}
+
+function founderCovenantReviewDueMessage(schedule: FounderCovenantReviewSchedule): string {
+  const cadence = schedule.monthlyReviewDue ? 'monthly' : 'weekly'
+  return `Founder covenant ${cadence} review is due; record manual evidence before any warning, probation, or replacement decision.`
 }
 
 function founderCovenantNotificationDrafts(
