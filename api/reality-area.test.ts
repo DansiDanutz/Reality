@@ -215,8 +215,10 @@ describe('reality area authority API', () => {
     await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ ok: true, state: existing, founderNumber: 12 })
-    expect(res.body.state.founderCovenant).toMatchObject({
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard>; founderNumber: 12 }
+    expect(body.state).toEqual(existing)
+    expect(body.founderNumber).toBe(12)
+    expect(body.state.founderCovenant).toMatchObject({
       status: 'watch',
       nextAction: 'warn_founder',
       reviewCadence: 'weekly_monthly_manual',
@@ -233,6 +235,7 @@ describe('reality area authority API', () => {
         score: 40,
       },
     })
+    expect(body.dashboard).toMatchObject(serverDashboard(existing))
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -382,6 +385,21 @@ describe('reality area authority API', () => {
         hospitalized: false,
         atRisk: true,
         score: 40,
+      },
+    })
+    expect((res.body as { dashboard: ReturnType<typeof serverDashboard> }).dashboard).toMatchObject({
+      population: 4,
+      simPopulation: 3,
+      realPopulation: 1,
+      simDemand: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 3 },
+      realDemand: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 1 },
+      shortage: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
+      jobs: {
+        employedCitizens: 0,
+        unemployedCitizens: 4,
+        hireableSimWorkers: 3,
+        openPositions: 0,
+        understaffedBusinesses: 0,
       },
     })
     expect(put).toHaveBeenCalledWith(
@@ -821,6 +839,22 @@ describe('reality area authority API', () => {
         atRisk: true,
         score: 100,
       },
+    })
+    expect((accepted.body as { dashboard: ReturnType<typeof serverDashboard> }).dashboard).toMatchObject({
+      demand: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
+      supply: { water: 1, food: 0, housing: 0, clinic: 0, insurance: 0 },
+      capacity: { water: 42, food: 0, housing: 0, clinic: 0, insurance: 0 },
+      shortage: { water: 0, food: 1, housing: 1, clinic: 0, insurance: 4 },
+      jobs: {
+        employedCitizens: 1,
+        unemployedCitizens: 3,
+        hireableSimWorkers: 2,
+        openPositions: 0,
+        understaffedBusinesses: 0,
+      },
+      founderCovenant: expect.objectContaining({
+        activityReview: expect.objectContaining({ building: true, staffed: true }),
+      }),
     })
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -2127,6 +2161,30 @@ function baseFounderCovenant(checkedAt: string) {
       businessKinds: ['water', 'food', 'housing'],
       amount: 3,
     }],
+  } as const
+}
+
+function serverDashboard(state: ReturnType<typeof existingState>) {
+  return {
+    areaId: state.areaId,
+    updatedAt: state.updatedAt,
+    population: 4,
+    simPopulation: 3,
+    realPopulation: 1,
+    demand: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
+    simDemand: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 3 },
+    realDemand: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 1 },
+    supply: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 },
+    capacity: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 },
+    shortage: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
+    jobs: {
+      employedCitizens: 0,
+      unemployedCitizens: 4,
+      hireableSimWorkers: 3,
+      openPositions: 0,
+      understaffedBusinesses: 0,
+    },
+    founderCovenant: state.founderCovenant,
   } as const
 }
 

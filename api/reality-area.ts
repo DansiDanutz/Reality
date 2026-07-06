@@ -145,6 +145,30 @@ interface FounderAreaCovenantReview {
   signals: FounderAreaCovenantSignal[]
 }
 
+interface FounderAreaJobsDashboard {
+  employedCitizens: number
+  unemployedCitizens: number
+  hireableSimWorkers: number
+  openPositions: number
+  understaffedBusinesses: number
+}
+
+interface FounderAreaDashboard {
+  areaId: string
+  updatedAt: string
+  population: number
+  simPopulation: number
+  realPopulation: number
+  demand: Record<FounderAreaBusinessKind, number>
+  simDemand: Record<FounderAreaBusinessKind, number>
+  realDemand: Record<FounderAreaBusinessKind, number>
+  supply: Record<FounderAreaBusinessKind, number>
+  capacity: Record<FounderAreaBusinessKind, number>
+  shortage: Record<FounderAreaBusinessKind, number>
+  jobs: FounderAreaJobsDashboard
+  founderCovenant: FounderAreaCovenantReview
+}
+
 interface FounderAreaState {
   version: typeof AREA_STATE_VERSION
   areaId: string
@@ -873,6 +897,83 @@ function founderActivityScore(input: {
     (!input.indebted ? 10 : 0)
 }
 
+function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
+  const demand = areaServiceDemand(state.citizens)
+  const simDemand = areaServiceDemand(state.citizens.filter((citizen) => citizen.kind === 'sim'))
+  const realDemand = areaServiceDemand(state.citizens.filter((citizen) => citizen.kind === 'real'))
+  const supply = areaServiceSupply(state.businesses)
+  const capacity = areaServiceCapacity(state.citizens, state.businesses)
+  const shortage = emptyBusinessKindRecord()
+  for (const kind of BUSINESS_KINDS) {
+    shortage[kind] = Math.max(0, demand[kind] - capacity[kind])
+  }
+  return {
+    areaId: state.areaId,
+    updatedAt: state.updatedAt,
+    population: state.citizens.length,
+    simPopulation: state.citizens.filter((citizen) => citizen.kind === 'sim').length,
+    realPopulation: state.citizens.filter((citizen) => citizen.kind === 'real').length,
+    demand,
+    simDemand,
+    realDemand,
+    supply,
+    capacity,
+    shortage,
+    jobs: areaJobsDashboard(state),
+    founderCovenant: state.founderCovenant,
+  }
+}
+
+function areaServiceSupply(businesses: FounderAreaBusiness[]): Record<FounderAreaBusinessKind, number> {
+  const supply = emptyBusinessKindRecord()
+  for (const business of businesses) {
+    supply[business.kind] += 1
+  }
+  return supply
+}
+
+function areaJobsDashboard(state: FounderAreaState): FounderAreaJobsDashboard {
+  let employedCitizens = 0
+  let hireableSimWorkers = 0
+  let openPositions = 0
+  let understaffedBusinesses = 0
+  for (const citizen of state.citizens) {
+    const employed = Boolean(
+      citizen.jobBusinessId &&
+      state.businesses.some((business) =>
+        business.id === citizen.jobBusinessId && business.staffCitizenIds.includes(citizen.id)
+      ),
+    )
+    if (employed) employedCitizens += 1
+    if (!employed && citizen.kind === 'sim' && citizen.state.kind === 'active') hireableSimWorkers += 1
+  }
+  for (const business of state.businesses) {
+    const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
+    const activeStaff = activeStaffCount(state.citizens, business)
+    if (activeStaff < targetStaff) {
+      understaffedBusinesses += 1
+      openPositions += targetStaff - activeStaff
+    }
+  }
+  return {
+    employedCitizens,
+    unemployedCitizens: state.citizens.length - employedCitizens,
+    hireableSimWorkers,
+    openPositions,
+    understaffedBusinesses,
+  }
+}
+
+function areaPayload(state: FounderAreaState | null): {
+  state: FounderAreaState | null
+  dashboard: FounderAreaDashboard | null
+} {
+  return {
+    state,
+    dashboard: state ? founderAreaDashboard(state) : null,
+  }
+}
+
 function founderCitizenRecord(citizen: CitizenAuthRecord, money: number): FounderAreaCitizen {
   const paddedFounder = String(citizen.founderNumber).padStart(4, '0')
   return {
@@ -964,7 +1065,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const existing = await readAreaState(citizen.citizenId)
     if (req.method === 'GET') {
-      res.status(200).json({ ok: true, state: existing, founderNumber: citizen.founderNumber })
+      res.status(200).json({ ok: true, ...areaPayload(existing), founderNumber: citizen.founderNumber })
       return
     }
 
@@ -992,7 +1093,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, buildFounderAreaState(citizen, intent, new Date()), false)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
@@ -1009,7 +1110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
@@ -1026,7 +1127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
@@ -1043,7 +1144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
@@ -1060,7 +1161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
@@ -1077,7 +1178,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
@@ -1094,7 +1195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, state })
+      res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
 
