@@ -1129,6 +1129,26 @@ interface FounderCovenantReviewQueueLatestReview {
   automationEnabled: false
 }
 
+type FounderCovenantReviewReadinessStatus =
+  | 'blocked'
+  | 'needs_evidence'
+  | 'overdue'
+  | 'ready'
+  | 'monitoring'
+
+interface FounderCovenantReviewReadiness {
+  status: FounderCovenantReviewReadinessStatus
+  label: string
+  summary: string
+  evidenceRequiredCount: number
+  approvalRequestCount: number
+  blockerCount: number
+  overdue: boolean
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
+}
+
 interface FounderCovenantReviewQueueItem {
   areaId: string
   areaLabel: string
@@ -1149,6 +1169,7 @@ interface FounderCovenantReviewQueueItem {
   activityReview: FounderAreaCovenantActivityReview
   reviewInputs: readonly FounderAreaCovenantReviewInput[]
   stages: readonly FounderAreaCovenantStage[]
+  reviewReadiness: FounderCovenantReviewReadiness
   reviewChecklist: readonly FounderAreaCovenantReviewChecklistItem[]
   manualActions: readonly FounderAreaCovenantManualAction[]
   economicExposure: FounderCovenantReviewQueueEconomicExposure
@@ -2818,6 +2839,83 @@ function founderCovenantStageSnapshot(stage: FounderAreaCovenantStage): FounderA
   }
 }
 
+function founderCovenantReviewReadiness(
+  review: FounderAreaCovenantReview,
+): FounderCovenantReviewReadiness {
+  const evidenceRequiredCount = review.reviewInputs.filter((input) =>
+    input.manualEvidenceRequired || input.status === 'manual_needed'
+  ).length
+  const approvalRequestCount = review.approvalRequests.length
+  const blockerCount = review.reviewQueue.blockerCount
+  const overdue = review.reviewSchedule.overdue
+  const status = founderCovenantReviewReadinessStatus({
+    evidenceRequiredCount,
+    blockerCount,
+    overdue,
+    manualReviewRequired: review.manualReviewRequired,
+    recordReviewEnabled: review.reviewQueue.recordReviewEnabled,
+  })
+  return {
+    status,
+    label: founderCovenantReviewReadinessLabel(status),
+    summary: founderCovenantReviewReadinessSummary(status, {
+      evidenceRequiredCount,
+      approvalRequestCount,
+      blockerCount,
+    }),
+    evidenceRequiredCount,
+    approvalRequestCount,
+    blockerCount,
+    overdue,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }
+}
+
+function founderCovenantReviewReadinessStatus(input: {
+  evidenceRequiredCount: number
+  blockerCount: number
+  overdue: boolean
+  manualReviewRequired: boolean
+  recordReviewEnabled: boolean
+}): FounderCovenantReviewReadinessStatus {
+  if (input.blockerCount > 0) return 'blocked'
+  if (input.evidenceRequiredCount > 0) return 'needs_evidence'
+  if (input.overdue) return 'overdue'
+  if (input.manualReviewRequired || input.recordReviewEnabled) return 'ready'
+  return 'monitoring'
+}
+
+function founderCovenantReviewReadinessLabel(status: FounderCovenantReviewReadinessStatus): string {
+  if (status === 'blocked') return 'Blocked'
+  if (status === 'needs_evidence') return 'Needs evidence'
+  if (status === 'overdue') return 'Overdue'
+  if (status === 'ready') return 'Ready'
+  return 'Monitoring'
+}
+
+function founderCovenantReviewReadinessSummary(
+  status: FounderCovenantReviewReadinessStatus,
+  counts: {
+    evidenceRequiredCount: number
+    approvalRequestCount: number
+    blockerCount: number
+  },
+): string {
+  if (status === 'blocked') {
+    return `${counts.blockerCount} approval blocker${counts.blockerCount === 1 ? '' : 's'} before enforcement.`
+  }
+  if (status === 'needs_evidence') {
+    return `${counts.evidenceRequiredCount} manual evidence gap${counts.evidenceRequiredCount === 1 ? '' : 's'} to review.`
+  }
+  if (status === 'overdue') return 'Manual review date is overdue.'
+  if (status === 'ready') return 'Evidence-only review can be recorded.'
+  return counts.approvalRequestCount > 0
+    ? 'Manual approvals remain visible but locked.'
+    : 'No manual review required yet.'
+}
+
 function founderCovenantManualActionSnapshot(action: FounderAreaCovenantManualAction): FounderAreaCovenantManualAction {
   return {
     ...action,
@@ -4350,6 +4448,7 @@ function founderCovenantReviewQueueItem(
     activityReview: { ...review.activityReview },
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
     stages: review.stages.map(founderCovenantStageSnapshot),
+    reviewReadiness: founderCovenantReviewReadiness(review),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(state),

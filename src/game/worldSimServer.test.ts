@@ -1387,6 +1387,18 @@ describe('runWorldServerCommand', () => {
       stage.automationEnabled === false &&
       stage.executionEnabled === false
     )).toBe(true)
+    expect(queue.items[0].reviewReadiness).toMatchObject({
+      status: 'blocked',
+      label: 'Blocked',
+      approvalRequestCount: queue.items[0].pendingApprovalRequests.length,
+      blockerCount: queue.items[0].blockerCount,
+      overdue: queue.items[0].overdue,
+      manualOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+    })
+    expect(queue.items[0].reviewReadiness.evidenceRequiredCount).toBeGreaterThan(0)
+    expect(queue.items[0].reviewReadiness.summary).toBe(`${queue.items[0].blockerCount} approval blockers before enforcement.`)
     expect(queue.items[0].reviewChecklist).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', status: 'manual_review' }),
       expect.objectContaining({ key: 'hospital', status: 'manual_review' }),

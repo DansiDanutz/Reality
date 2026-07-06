@@ -69,6 +69,7 @@ export function FounderCovenantQueuePanel({
                 <span className="item-desc">{row.dateSummary}</span>
                 {row.latestReviewText && <span className="item-desc">{row.latestReviewText}</span>}
                 <span className="item-desc">Stages: {row.stageText}</span>
+                <span className="item-desc">Readiness: {row.reviewReadinessText}</span>
                 <span className="item-desc">Checklist: {row.checklistText}</span>
                 <span className="item-desc">Evidence: {row.evidenceInputText}</span>
                 <span className="item-desc">Actions: {row.manualActionText}</span>

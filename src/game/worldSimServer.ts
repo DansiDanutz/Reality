@@ -202,6 +202,26 @@ export interface WorldFounderCovenantReviewQueueLatestReview {
   automationEnabled: false
 }
 
+export type WorldFounderCovenantReviewReadinessStatus =
+  | 'blocked'
+  | 'needs_evidence'
+  | 'overdue'
+  | 'ready'
+  | 'monitoring'
+
+export interface WorldFounderCovenantReviewReadiness {
+  status: WorldFounderCovenantReviewReadinessStatus
+  label: string
+  summary: string
+  evidenceRequiredCount: number
+  approvalRequestCount: number
+  blockerCount: number
+  overdue: boolean
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
+}
+
 export interface WorldFounderCovenantReviewQueueItem {
   areaId: string
   areaName: string
@@ -220,6 +240,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   activityReview: AreaNeedsDashboard['founderCovenant']['activityReview']
   reviewInputs: readonly FounderCovenantReviewInput[]
   stages: readonly FounderCovenantStage[]
+  reviewReadiness: WorldFounderCovenantReviewReadiness
   reviewChecklist: readonly FounderCovenantReviewChecklistItem[]
   manualActions: readonly FounderCovenantManualAction[]
   economicExposure: WorldFounderCovenantReviewQueueEconomicExposure
@@ -654,6 +675,7 @@ function founderCovenantReviewQueueItem(
     activityReview: { ...review.activityReview },
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
     stages: review.stages.map(founderCovenantStageSnapshot),
+    reviewReadiness: founderCovenantReviewReadiness(review),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(area, dashboard, founderCitizenId),
@@ -763,6 +785,85 @@ function founderCovenantStageSnapshot(stage: FounderCovenantStage): FounderCoven
     automationEnabled: false,
     executionEnabled: false,
   }
+}
+
+function founderCovenantReviewReadiness(
+  review: AreaNeedsDashboard['founderCovenant'],
+): WorldFounderCovenantReviewReadiness {
+  const evidenceRequiredCount = review.reviewInputs.filter((input) =>
+    input.manualEvidenceRequired || input.status === 'manual_needed'
+  ).length
+  const approvalRequestCount = review.approvalRequests.length
+  const blockerCount = review.reviewQueue.blockerCount
+  const overdue = review.reviewSchedule?.overdue ?? false
+  const status = founderCovenantReviewReadinessStatus({
+    evidenceRequiredCount,
+    blockerCount,
+    overdue,
+    manualReviewRequired: review.manualReviewRequired,
+    recordReviewEnabled: review.reviewQueue.recordReviewEnabled,
+  })
+  return {
+    status,
+    label: founderCovenantReviewReadinessLabel(status),
+    summary: founderCovenantReviewReadinessSummary(status, {
+      evidenceRequiredCount,
+      approvalRequestCount,
+      blockerCount,
+    }),
+    evidenceRequiredCount,
+    approvalRequestCount,
+    blockerCount,
+    overdue,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }
+}
+
+function founderCovenantReviewReadinessStatus(input: {
+  evidenceRequiredCount: number
+  blockerCount: number
+  overdue: boolean
+  manualReviewRequired: boolean
+  recordReviewEnabled: boolean
+}): WorldFounderCovenantReviewReadinessStatus {
+  if (input.blockerCount > 0) return 'blocked'
+  if (input.evidenceRequiredCount > 0) return 'needs_evidence'
+  if (input.overdue) return 'overdue'
+  if (input.manualReviewRequired || input.recordReviewEnabled) return 'ready'
+  return 'monitoring'
+}
+
+function founderCovenantReviewReadinessLabel(
+  status: WorldFounderCovenantReviewReadinessStatus,
+): string {
+  if (status === 'blocked') return 'Blocked'
+  if (status === 'needs_evidence') return 'Needs evidence'
+  if (status === 'overdue') return 'Overdue'
+  if (status === 'ready') return 'Ready'
+  return 'Monitoring'
+}
+
+function founderCovenantReviewReadinessSummary(
+  status: WorldFounderCovenantReviewReadinessStatus,
+  counts: {
+    evidenceRequiredCount: number
+    approvalRequestCount: number
+    blockerCount: number
+  },
+): string {
+  if (status === 'blocked') {
+    return `${counts.blockerCount} approval blocker${counts.blockerCount === 1 ? '' : 's'} before enforcement.`
+  }
+  if (status === 'needs_evidence') {
+    return `${counts.evidenceRequiredCount} manual evidence gap${counts.evidenceRequiredCount === 1 ? '' : 's'} to review.`
+  }
+  if (status === 'overdue') return 'Manual review date is overdue.'
+  if (status === 'ready') return 'Evidence-only review can be recorded.'
+  return counts.approvalRequestCount > 0
+    ? 'Manual approvals remain visible but locked.'
+    : 'No manual review required yet.'
 }
 
 function founderCovenantReviewChecklistSnapshot(

@@ -15,6 +15,7 @@ import {
   founderCovenantOperatorQueueEvidenceInputText,
   founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftText,
+  founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
@@ -37,6 +38,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
+    expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
@@ -120,6 +122,9 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueStageText(manual)).toBe(
       'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
+    )
+    expect(founderCovenantOperatorQueueReviewReadinessText(manual)).toBe(
+      'Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue',
     )
     expect(founderCovenantOperatorQueueChecklistText(manual)).toBe(
       'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',
@@ -349,6 +354,7 @@ function founderQueueItem(
     },
     reviewInputs: founderReviewInputs(),
     stages: founderStages(),
+    reviewReadiness: founderReviewReadiness(),
     reviewChecklist: founderReviewChecklist(),
     manualActions: founderManualActions(),
     economicExposure: {
@@ -439,6 +445,21 @@ function founderStages(): RealityFounderCovenantReviewQueueItem['stages'] {
     automationEnabled: false,
     executionEnabled: false,
   }]
+}
+
+function founderReviewReadiness(): RealityFounderCovenantReviewQueueItem['reviewReadiness'] {
+  return {
+    status: 'blocked',
+    label: 'Blocked',
+    summary: '3 approval blockers before enforcement.',
+    evidenceRequiredCount: 3,
+    approvalRequestCount: 1,
+    blockerCount: 3,
+    overdue: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }
 }
 
 function founderManualActions(): RealityFounderCovenantReviewQueueItem['manualActions'] {

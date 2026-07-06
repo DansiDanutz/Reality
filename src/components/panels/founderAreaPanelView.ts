@@ -122,6 +122,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   dateSummary: string
   latestReviewText: string | null
   stageText: string
+  reviewReadinessText: string
   checklistText: string
   evidenceInputText: string
   manualActionText: string
@@ -805,6 +806,7 @@ export function founderCovenantOperatorQueueReviewRows(
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       stageText: founderCovenantOperatorQueueStageText(item),
+      reviewReadinessText: founderCovenantOperatorQueueReviewReadinessText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
@@ -836,6 +838,25 @@ export function founderCovenantOperatorQueueStageText(
   if (suggested.length > 0) parts.push(`Suggested: ${suggested.map((stage) => stage.label).join(', ')}`)
   if (locked.length > 0) parts.push(`Locked: ${locked.map((stage) => stage.label).join(', ')}`)
   return parts.join(' · ')
+}
+
+export function founderCovenantOperatorQueueReviewReadinessText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewReadiness'>,
+): string {
+  const readiness = item.reviewReadiness
+  const details: string[] = []
+  if (readiness.evidenceRequiredCount > 0) {
+    details.push(`${readiness.evidenceRequiredCount} evidence gap${readiness.evidenceRequiredCount === 1 ? '' : 's'}`)
+  }
+  if (readiness.approvalRequestCount > 0) {
+    details.push(`${readiness.approvalRequestCount} approval request${readiness.approvalRequestCount === 1 ? '' : 's'}`)
+  }
+  if (readiness.blockerCount > 0) {
+    details.push(`${readiness.blockerCount} blocker${readiness.blockerCount === 1 ? '' : 's'}`)
+  }
+  if (readiness.overdue) details.push('overdue')
+  const detailText = details.length > 0 ? ` · ${details.join(', ')}` : ''
+  return `${readiness.label}: ${readiness.summary}${detailText}`
 }
 
 export function founderCovenantOperatorQueueChecklistText(

@@ -18,6 +18,7 @@ import {
   type RealityAreaDashboard,
   type RealityAreaState,
   type RealityFounderCovenantReviewQueueDashboard,
+  type RealityFounderCovenantReviewQueueItem,
 } from './realityArea'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
 import { areaNeedsDashboard } from '../game/worldSim'
@@ -1162,6 +1163,30 @@ describe('Reality area client', () => {
         stages: serverFounderCovenantReviewQueue().items[0].stages.map((stage, index) =>
           index === 0 ? { ...stage, executionEnabled: true } : stage
         ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with executable readiness snapshots', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewReadiness: {
+          ...serverFounderCovenantReviewQueue().items[0].reviewReadiness,
+          executionEnabled: true,
+        },
       }],
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -2967,6 +2992,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       activityReview: review.activityReview,
       reviewInputs: review.reviewInputs,
       stages: review.stages,
+      reviewReadiness: serverFounderCovenantReviewReadiness(review),
       reviewChecklist: review.reviewChecklist,
       manualActions: review.manualActions.map((action) => ({
         ...action,
@@ -3010,6 +3036,33 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       updatedAt: dashboard.updatedAt,
       transactionsAdded: 1,
     }],
+  }
+}
+
+function serverFounderCovenantReviewReadiness(
+  review: RealityAreaDashboard['founderCovenant'],
+): RealityFounderCovenantReviewQueueItem['reviewReadiness'] {
+  const evidenceRequiredCount = review.reviewInputs.filter((input) =>
+    input.manualEvidenceRequired || input.status === 'manual_needed'
+  ).length
+  const blockerCount = review.reviewQueue.blockerCount
+  const status = blockerCount > 0 ? 'blocked' : evidenceRequiredCount > 0 ? 'needs_evidence' : 'monitoring'
+  const label = blockerCount > 0 ? 'Blocked' : evidenceRequiredCount > 0 ? 'Needs evidence' : 'Monitoring'
+  return {
+    status,
+    label,
+    summary: blockerCount > 0
+      ? `${blockerCount} approval blocker${blockerCount === 1 ? '' : 's'} before enforcement.`
+      : evidenceRequiredCount > 0
+        ? `${evidenceRequiredCount} manual evidence gap${evidenceRequiredCount === 1 ? '' : 's'} to review.`
+        : 'No manual review required yet.',
+    evidenceRequiredCount,
+    approvalRequestCount: review.approvalRequests.length,
+    blockerCount,
+    overdue: review.reviewSchedule.overdue,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
   }
 }
 

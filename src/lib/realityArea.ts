@@ -817,6 +817,26 @@ export interface RealityFounderCovenantReviewQueueLatestReview {
   automationEnabled: false
 }
 
+export type RealityFounderCovenantReviewReadinessStatus =
+  | 'blocked'
+  | 'needs_evidence'
+  | 'overdue'
+  | 'ready'
+  | 'monitoring'
+
+export interface RealityFounderCovenantReviewReadiness {
+  status: RealityFounderCovenantReviewReadinessStatus
+  label: string
+  summary: string
+  evidenceRequiredCount: number
+  approvalRequestCount: number
+  blockerCount: number
+  overdue: boolean
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
+}
+
 export interface RealityFounderCovenantReviewQueueItem {
   areaId: string
   areaLabel: string
@@ -837,6 +857,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   activityReview: RealityAreaCovenantReview['activityReview']
   reviewInputs: readonly RealityAreaCovenantReviewInput[]
   stages: readonly RealityAreaCovenantStage[]
+  reviewReadiness: RealityFounderCovenantReviewReadiness
   reviewChecklist: readonly RealityAreaCovenantReviewChecklistItem[]
   manualActions: readonly RealityAreaCovenantManualAction[]
   economicExposure: RealityFounderCovenantReviewQueueEconomicExposure
@@ -2222,6 +2243,7 @@ function isRealityFounderCovenantReviewQueueItem(
     value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
     Array.isArray(value.stages) &&
     value.stages.every(isRealityAreaCovenantStage) &&
+    isRealityFounderCovenantReviewReadiness(value.reviewReadiness) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
@@ -2256,6 +2278,22 @@ function isRealityFounderCovenantReviewQueueLatestReview(
     typeof value.summary === 'string' &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
+}
+
+function isRealityFounderCovenantReviewReadiness(
+  value: unknown,
+): value is RealityFounderCovenantReviewReadiness {
+  return isRecord(value) &&
+    isRealityFounderCovenantReviewReadinessStatus(value.status) &&
+    typeof value.label === 'string' &&
+    typeof value.summary === 'string' &&
+    typeof value.evidenceRequiredCount === 'number' &&
+    typeof value.approvalRequestCount === 'number' &&
+    typeof value.blockerCount === 'number' &&
+    typeof value.overdue === 'boolean' &&
+    value.manualOnly === true &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false
 }
 
 function isRealityFounderCovenantReviewQueueEconomicExposure(
@@ -2532,6 +2570,16 @@ function isRealityAreaCovenantStageKind(value: unknown): value is RealityAreaCov
 
 function isRealityAreaCovenantStageStatus(value: unknown): value is RealityAreaCovenantStageStatus {
   return value === 'current' || value === 'recommended' || value === 'locked'
+}
+
+function isRealityFounderCovenantReviewReadinessStatus(
+  value: unknown,
+): value is RealityFounderCovenantReviewReadinessStatus {
+  return value === 'blocked' ||
+    value === 'needs_evidence' ||
+    value === 'overdue' ||
+    value === 'ready' ||
+    value === 'monitoring'
 }
 
 function isRealityAreaCovenantReviewQueueNextStep(value: unknown): value is RealityAreaCovenantReviewQueueNextStep {
