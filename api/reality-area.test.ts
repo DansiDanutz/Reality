@@ -216,6 +216,23 @@ describe('reality area authority API', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ ok: true, state: existing, founderNumber: 12 })
+    expect(res.body.state.founderCovenant).toMatchObject({
+      status: 'watch',
+      nextAction: 'warn_founder',
+      reviewCadence: 'weekly_monthly_manual',
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        active: true,
+        useful: false,
+        building: false,
+        staffed: false,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 40,
+      },
+    })
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -242,6 +259,7 @@ describe('reality area authority API', () => {
       { id: 'founder-area-0012:sim-housing', kind: 'sim', money: 100 },
     ])
     expect(body.state.transactions.filter((transaction) => transaction.kind === 'sim_citizen_credit')).toHaveLength(3)
+    expect(body.state.founderCovenant).toMatchObject(baseFounderCovenant('2026-07-06T03:00:00.000Z'))
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -348,6 +366,24 @@ describe('reality area authority API', () => {
       amount: 100,
       memo: 'Demo Housing Resident received simulated resident game credit.',
     }])
+    expect(body.state.founderCovenant).toMatchObject({
+      status: 'watch',
+      nextAction: 'warn_founder',
+      reviewCadence: 'weekly_monthly_manual',
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: '2026-07-06T03:30:00.000Z',
+        active: true,
+        useful: false,
+        building: false,
+        staffed: false,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 40,
+      },
+    })
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
@@ -769,6 +805,23 @@ describe('reality area authority API', () => {
     expect(body.state.businesses[0].wagePerHour).toBe(14)
     expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.jobBusinessId).toBe('water-1')
     expect(body.state.transactions).toHaveLength(existing.transactions.length)
+    expect(body.state.founderCovenant).toMatchObject({
+      status: 'watch',
+      nextAction: 'warn_founder',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        active: true,
+        useful: true,
+        building: true,
+        staffed: true,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 100,
+      },
+    })
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
@@ -1164,6 +1217,27 @@ describe('reality area authority API', () => {
       amount: 300,
       memo: 'Founder #0012 left the hospital bill as medical debt.',
     }])
+    expect(body.state.founderCovenant).toMatchObject({
+      status: 'manual_review',
+      nextAction: 'manual_review',
+      manualReviewRequired: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        active: false,
+        useful: true,
+        building: true,
+        staffed: false,
+        indebted: true,
+        hospitalized: true,
+        atRisk: true,
+        score: 45,
+      },
+      signals: expect.arrayContaining([
+        expect.objectContaining({ kind: 'founder_unavailable', severity: 'critical' }),
+        expect.objectContaining({ kind: 'founder_debt', severity: 'info', amount: 300 }),
+      ]),
+    })
   })
 
   test('advanceHour recovers hospitalized founders without decaying them during that hour', async () => {
@@ -2010,6 +2084,7 @@ function existingState() {
       amount: 100,
       memo: 'Demo Housing Resident received simulated resident game credit.',
     }],
+    founderCovenant: baseFounderCovenant('2026-07-06T03:00:00.000Z'),
     updatedAt: '2026-07-06T03:00:00.000Z',
   } as const
 }
@@ -2018,6 +2093,40 @@ function advanceReadyState() {
   return {
     ...existingState(),
     updatedAt: '2026-07-06T06:00:00.000Z',
+  } as const
+}
+
+function baseFounderCovenant(checkedAt: string) {
+  return {
+    founderCitizenId: CITIZEN_ID,
+    status: 'watch',
+    nextAction: 'warn_founder',
+    reviewCadence: 'weekly_monthly_manual',
+    manualReviewRequired: false,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    activityReview: {
+      checkedAt,
+      active: true,
+      useful: false,
+      building: false,
+      staffed: false,
+      indebted: false,
+      hospitalized: false,
+      atRisk: true,
+      score: 40,
+    },
+    signals: [{
+      kind: 'no_business_built',
+      severity: 'warning',
+      message: 'Founder has not built a local business yet.',
+    }, {
+      kind: 'essential_shortage',
+      severity: 'warning',
+      message: 'The area has unserved water, food, or housing demand.',
+      businessKinds: ['water', 'food', 'housing'],
+      amount: 3,
+    }],
   } as const
 }
 

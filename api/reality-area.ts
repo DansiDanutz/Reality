@@ -102,6 +102,49 @@ interface FounderAreaBusiness {
   createdBy: string
 }
 
+type FounderAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
+type FounderAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
+type FounderAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
+type FounderAreaCovenantSignalKind =
+  | 'founder_unavailable'
+  | 'no_business_built'
+  | 'understaffed_businesses'
+  | 'essential_shortage'
+  | 'founder_debt'
+
+interface FounderAreaCovenantSignal {
+  kind: FounderAreaCovenantSignalKind
+  severity: FounderAreaCovenantSignalSeverity
+  message: string
+  businessIds?: string[]
+  businessKinds?: FounderAreaBusinessKind[]
+  amount?: number
+}
+
+interface FounderAreaCovenantActivityReview {
+  checkedAt: string
+  active: boolean
+  useful: boolean
+  building: boolean
+  staffed: boolean
+  indebted: boolean
+  hospitalized: boolean
+  atRisk: boolean
+  score: number
+}
+
+interface FounderAreaCovenantReview {
+  founderCitizenId: string
+  status: FounderAreaCovenantStatus
+  nextAction: FounderAreaCovenantNextAction
+  reviewCadence: 'weekly_monthly_manual'
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  activityReview: FounderAreaCovenantActivityReview
+  signals: FounderAreaCovenantSignal[]
+}
+
 interface FounderAreaState {
   version: typeof AREA_STATE_VERSION
   areaId: string
@@ -112,7 +155,12 @@ interface FounderAreaState {
   businesses: FounderAreaBusiness[]
   citizens: FounderAreaCitizen[]
   transactions: FounderAreaTransaction[]
+  founderCovenant: FounderAreaCovenantReview
   updatedAt: string
+}
+
+type FounderAreaStateInput = Omit<FounderAreaState, 'founderCovenant'> & {
+  founderCovenant?: FounderAreaCovenantReview
 }
 
 type ClaimAreaIntent =
@@ -609,7 +657,7 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     simCitizenCreditTransaction(areaId, at, now.getTime(), index + 1, simCitizen)
   )
 
-  return {
+  return withFounderCovenantReview({
     version: AREA_STATE_VERSION,
     areaId,
     founderCitizenId: citizen.citizenId,
@@ -629,7 +677,7 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     citizens: [founderCitizen, ...simCitizens],
     transactions: [transaction, ...simTransactions],
     updatedAt: at,
-  }
+  })
 }
 
 function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
@@ -665,7 +713,164 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
     }
   }
 
-  return { ...state, citizens, transactions }
+  return withFounderCovenantReview({ ...state, citizens, transactions })
+}
+
+function withFounderCovenantReview(state: FounderAreaStateInput): FounderAreaState {
+  return {
+    ...state,
+    founderCovenant: founderCovenantReview(state),
+  }
+}
+
+function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenantReview {
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
+  const founderBusinessIds = new Set(founderBusinesses.map((business) => business.id))
+  const founderActive = founder?.state.kind === 'active'
+  const founderHospitalized = founder?.state.kind === 'hospitalized'
+  const building = founderBusinesses.length > 0
+  const founderDebt = founder ? totalCitizenDebt(founder) : 0
+  const signals: FounderAreaCovenantSignal[] = []
+  const demand = areaServiceDemand(state.citizens)
+  const capacity = areaServiceCapacity(state.citizens, state.businesses)
+  const essentialShortages = (['water', 'food', 'housing'] as const)
+    .filter((kind) => demand[kind] > capacity[kind])
+  const understaffedBusinesses = founderBusinesses.filter((business) =>
+    activeStaffCount(state.citizens, business) < TARGET_STAFF_BY_KIND[business.kind]
+  )
+  const staffed = building && understaffedBusinesses.length === 0
+  const servedCustomers = state.transactions.some((transaction) =>
+    transaction.kind === 'customer_purchase' && founderBusinessIds.has(transaction.toId)
+  )
+  const demandServedByFounder = founderBusinesses.some((business) =>
+    demand[business.kind] > 0 && capacity[business.kind] >= demand[business.kind]
+  )
+  const useful = building && (servedCustomers || demandServedByFounder || essentialShortages.length === 0)
+
+  if (!founder || !founderActive) {
+    signals.push({
+      kind: 'founder_unavailable',
+      severity: 'critical',
+      message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+  if (!building) {
+    signals.push({
+      kind: 'no_business_built',
+      severity: 'warning',
+      message: 'Founder has not built a local business yet.',
+    })
+  }
+  if (understaffedBusinesses.length > 0) {
+    signals.push({
+      kind: 'understaffed_businesses',
+      severity: 'warning',
+      message: 'Founder-owned businesses need workers before the area can run reliably.',
+      businessIds: understaffedBusinesses.map((business) => business.id),
+    })
+  }
+  if (essentialShortages.length > 0) {
+    signals.push({
+      kind: 'essential_shortage',
+      severity: 'warning',
+      message: 'The area has unserved water, food, or housing demand.',
+      businessKinds: essentialShortages,
+      amount: essentialShortages.reduce((total, kind) => total + Math.max(0, demand[kind] - capacity[kind]), 0),
+    })
+  }
+  if (founderDebt > 0) {
+    signals.push({
+      kind: 'founder_debt',
+      severity: 'info',
+      message: 'Founder has unpaid debt that should be reviewed before profit or succession decisions.',
+      amount: founderDebt,
+    })
+  }
+
+  const manualReviewRequired = signals.some((signal) => signal.severity === 'critical')
+  const status: FounderAreaCovenantStatus = manualReviewRequired ? 'manual_review' : signals.length > 0 ? 'watch' : 'active'
+  const activityReview: FounderAreaCovenantActivityReview = {
+    checkedAt: state.updatedAt,
+    active: founderActive,
+    useful,
+    building,
+    staffed,
+    indebted: founderDebt > 0,
+    hospitalized: founderHospitalized,
+    atRisk: status !== 'active',
+    score: founder
+      ? founderActivityScore({ active: founderActive, useful, building, staffed, indebted: founderDebt > 0 })
+      : 0,
+  }
+
+  return {
+    founderCitizenId: state.founderCitizenId,
+    status,
+    nextAction: manualReviewRequired
+      ? 'manual_review'
+      : signals.some((signal) => signal.severity === 'warning')
+        ? 'warn_founder'
+        : 'none',
+    reviewCadence: 'weekly_monthly_manual',
+    manualReviewRequired,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    activityReview,
+    signals,
+  }
+}
+
+function areaServiceDemand(citizens: FounderAreaCitizen[]): Record<FounderAreaBusinessKind, number> {
+  const demand = emptyBusinessKindRecord()
+  for (const citizen of citizens) {
+    if (citizen.needs.hydration < 70) demand.water += 1
+    if (citizen.needs.hunger < 70) demand.food += 1
+    if (citizen.needs.energy < 60) demand.housing += 1
+    if (citizen.health < 80) demand.clinic += 1
+    if (!citizen.insurancePaidUntil) demand.insurance += 1
+  }
+  return demand
+}
+
+function areaServiceCapacity(
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+): Record<FounderAreaBusinessKind, number> {
+  const capacity = emptyBusinessKindRecord()
+  for (const business of businesses) {
+    capacity[business.kind] += hourlyServiceCapacity(citizens, business)
+  }
+  return capacity
+}
+
+function emptyBusinessKindRecord(): Record<FounderAreaBusinessKind, number> {
+  return {
+    water: 0,
+    food: 0,
+    housing: 0,
+    clinic: 0,
+    insurance: 0,
+  }
+}
+
+function totalCitizenDebt(citizen: FounderAreaCitizen): number {
+  const itemizedDebt = (citizen.debts ?? []).reduce((total, debt) => total + debt.amount, 0)
+  return roundMoney(Math.max(citizen.debt, itemizedDebt))
+}
+
+function founderActivityScore(input: {
+  active: boolean
+  useful: boolean
+  building: boolean
+  staffed: boolean
+  indebted: boolean
+}): number {
+  return (input.active ? 30 : 0) +
+    (input.useful ? 25 : 0) +
+    (input.building ? 20 : 0) +
+    (input.staffed ? 15 : 0) +
+    (!input.indebted ? 10 : 0)
 }
 
 function founderCitizenRecord(citizen: CitizenAuthRecord, money: number): FounderAreaCitizen {
@@ -721,6 +926,21 @@ function simCitizenCreditTransaction(
   }
 }
 
+async function persistAreaState(
+  citizenId: string,
+  state: FounderAreaStateInput,
+  allowOverwrite: boolean,
+): Promise<FounderAreaState> {
+  const reviewed = withFounderCovenantReview(state)
+  await put(areaStatePath(citizenId), JSON.stringify(reviewed), {
+    access: 'private',
+    addRandomSuffix: false,
+    allowOverwrite,
+    contentType: 'application/json',
+  })
+  return reviewed
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
 
@@ -771,13 +991,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      const state = buildFounderAreaState(citizen, intent, new Date())
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: false,
-        contentType: 'application/json',
-      })
+      const state = await persistAreaState(citizen.citizenId, buildFounderAreaState(citizen, intent, new Date()), false)
       res.status(200).json({ ok: true, state })
       return
     }
@@ -794,13 +1008,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
-      res.status(200).json({ ok: true, state: result.state })
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, state })
       return
     }
 
@@ -816,13 +1025,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
-      res.status(200).json({ ok: true, state: result.state })
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, state })
       return
     }
 
@@ -838,13 +1042,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
-      res.status(200).json({ ok: true, state: result.state })
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, state })
       return
     }
 
@@ -860,13 +1059,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
-      res.status(200).json({ ok: true, state: result.state })
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, state })
       return
     }
 
@@ -882,13 +1076,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
-      res.status(200).json({ ok: true, state: result.state })
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, state })
       return
     }
 
@@ -904,13 +1093,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
-      res.status(200).json({ ok: true, state: result.state })
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, state })
       return
     }
 
