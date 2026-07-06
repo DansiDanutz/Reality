@@ -384,6 +384,18 @@ export interface FounderCovenantSignal {
   amount?: number
 }
 
+export interface FounderCovenantActivityReview {
+  checkedAt: number
+  active: boolean
+  useful: boolean
+  building: boolean
+  staffed: boolean
+  indebted: boolean
+  hospitalized: boolean
+  atRisk: boolean
+  score: number
+}
+
 export interface AreaFounderCovenantDashboard {
   founderCitizenId: string | null
   status: FounderCovenantStatus
@@ -392,6 +404,7 @@ export interface AreaFounderCovenantDashboard {
   manualReviewRequired: boolean
   replacementEnabled: false
   waitlistHandoffEnabled: false
+  activityReview: FounderCovenantActivityReview
   signals: FounderCovenantSignal[]
 }
 
@@ -749,7 +762,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens, founderCanAct !== false),
     survival: survivalDashboard(area),
-    founderCovenant: founderCovenantDashboard(area, { shortage }),
+    founderCovenant: founderCovenantDashboard(area, { demand, shortage }),
     firstBuild: firstBuildGuidance({
       areaId: area.claim ? area.id : undefined,
       demand,
@@ -1028,7 +1041,10 @@ function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: nu
 
 function founderCovenantDashboard(
   area: WorldArea,
-  input: { shortage: Record<WorldBusinessKind, number> },
+  input: {
+    demand: Record<WorldBusinessKind, number>
+    shortage: Record<WorldBusinessKind, number>
+  },
 ): AreaFounderCovenantDashboard {
   if (!area.claim) {
     return {
@@ -1039,6 +1055,17 @@ function founderCovenantDashboard(
       manualReviewRequired: false,
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: area.now,
+        active: false,
+        useful: false,
+        building: false,
+        staffed: false,
+        indebted: false,
+        hospitalized: false,
+        atRisk: false,
+        score: 0,
+      },
       signals: [],
     }
   }
@@ -1046,9 +1073,27 @@ function founderCovenantDashboard(
   const founderCitizenId = area.claim.founderCitizenId
   const founder = area.citizens.find((citizen) => citizen.id === founderCitizenId)
   const founderBusinesses = area.businesses.filter((business) => business.ownerId === founderCitizenId)
+  const founderBusinessIds = new Set(founderBusinesses.map((business) => business.id))
   const signals: FounderCovenantSignal[] = []
+  const founderActive = founder?.state.kind === 'active'
+  const founderHospitalized = founder?.state.kind === 'hospitalized'
+  const building = founderBusinesses.length > 0
+  const founderDebt = founder ? totalDebt(founder) : 0
+  const understaffedBusinesses = founderBusinesses.filter((business) =>
+    activeStaffCount(area, business) < TARGET_STAFF_BY_KIND[business.kind],
+  )
+  const staffed = building && understaffedBusinesses.length === 0
+  const essentialShortages = (['water', 'food', 'housing'] as const)
+    .filter((kind) => input.shortage[kind] > 0)
+  const servedCustomers = area.transactions.some((transaction) =>
+    transaction.kind === 'customer_purchase' && founderBusinessIds.has(transaction.toId)
+  )
+  const demandServedByFounder = founderBusinesses.some((business) =>
+    input.demand[business.kind] > 0 && input.shortage[business.kind] < input.demand[business.kind]
+  )
+  const useful = building && (servedCustomers || demandServedByFounder || essentialShortages.length === 0)
 
-  if (!founder || founder.state.kind !== 'active') {
+  if (!founder || !founderActive) {
     signals.push({
       kind: 'founder_unavailable',
       severity: 'critical',
@@ -1056,7 +1101,7 @@ function founderCovenantDashboard(
     })
   }
 
-  if (founderBusinesses.length === 0) {
+  if (!building) {
     signals.push({
       kind: 'no_business_built',
       severity: 'warning',
@@ -1064,9 +1109,6 @@ function founderCovenantDashboard(
     })
   }
 
-  const understaffedBusinesses = founderBusinesses.filter((business) =>
-    activeStaffCount(area, business) < TARGET_STAFF_BY_KIND[business.kind],
-  )
   if (understaffedBusinesses.length > 0) {
     signals.push({
       kind: 'understaffed_businesses',
@@ -1076,8 +1118,6 @@ function founderCovenantDashboard(
     })
   }
 
-  const essentialShortages = (['water', 'food', 'housing'] as const)
-    .filter((kind) => input.shortage[kind] > 0)
   if (essentialShortages.length > 0) {
     signals.push({
       kind: 'essential_shortage',
@@ -1088,7 +1128,6 @@ function founderCovenantDashboard(
     })
   }
 
-  const founderDebt = founder ? totalDebt(founder) : 0
   if (founderDebt > 0) {
     signals.push({
       kind: 'founder_debt',
@@ -1099,9 +1138,30 @@ function founderCovenantDashboard(
   }
 
   const manualReviewRequired = signals.some((signal) => signal.severity === 'critical')
+  const status: FounderCovenantStatus = manualReviewRequired ? 'manual_review' : signals.length > 0 ? 'watch' : 'active'
+  const activityReview: FounderCovenantActivityReview = {
+    checkedAt: area.now,
+    active: founderActive,
+    useful,
+    building,
+    staffed,
+    indebted: founderDebt > 0,
+    hospitalized: founderHospitalized,
+    atRisk: status !== 'active',
+    score: founder
+      ? founderActivityScore({
+        active: founderActive,
+        useful,
+        building,
+        staffed,
+        indebted: founderDebt > 0,
+      })
+      : 0,
+  }
+
   return {
     founderCitizenId,
-    status: manualReviewRequired ? 'manual_review' : signals.length > 0 ? 'watch' : 'active',
+    status,
     nextAction: manualReviewRequired
       ? 'manual_review'
       : signals.some((signal) => signal.severity === 'warning')
@@ -1111,8 +1171,23 @@ function founderCovenantDashboard(
     manualReviewRequired,
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
+    activityReview,
     signals,
   }
+}
+
+function founderActivityScore(input: {
+  active: boolean
+  useful: boolean
+  building: boolean
+  staffed: boolean
+  indebted: boolean
+}): number {
+  return (input.active ? 30 : 0) +
+    (input.useful ? 25 : 0) +
+    (input.building ? 20 : 0) +
+    (input.staffed ? 15 : 0) +
+    (!input.indebted ? 10 : 0)
 }
 
 function citizenPresentation(citizen: WorldCitizen): {

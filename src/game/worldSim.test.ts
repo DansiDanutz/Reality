@@ -1512,6 +1512,17 @@ describe('advanceWorldArea — local real-time economy', () => {
       manualReviewRequired: true,
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: 0,
+        active: false,
+        useful: false,
+        building: false,
+        staffed: false,
+        indebted: true,
+        hospitalized: true,
+        atRisk: true,
+        score: 0,
+      },
     })
     expect(dash.founderCovenant.signals).toEqual([
       {
@@ -1566,6 +1577,17 @@ describe('advanceWorldArea — local real-time economy', () => {
       manualReviewRequired: false,
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: 0,
+        active: true,
+        useful: true,
+        building: true,
+        staffed: true,
+        indebted: false,
+        hospitalized: false,
+        atRisk: false,
+        score: 100,
+      },
       signals: [],
     })
   })
