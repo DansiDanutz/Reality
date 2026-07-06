@@ -35,7 +35,7 @@ const DEFAULT_CENTER = {
   lng: 26.08,
 }
 
-export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId' | 'name' | 'homeCity' | 'spawnLat' | 'spawnLng'>): FounderAreaProfile {
+export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId' | 'name' | 'homeCity' | 'spawnLat' | 'spawnLng' | 'telegramAccountId'>): FounderAreaProfile {
   const founderId = cleanClientId(citizen.citizenId ?? citizen.name, 'founder')
   const areaPlace = citizen.homeCity?.trim() || 'Founder'
   const centerLat = finiteCoordinate(citizen.spawnLat, DEFAULT_CENTER.lat)
@@ -48,7 +48,11 @@ export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId'
     centerLat,
     centerLng,
     radiusKm: 1,
-    claimSource: citizen.spawnLat !== undefined && citizen.spawnLng !== undefined ? 'geolocation' : 'manual',
+    claimSource: citizen.telegramAccountId
+      ? 'telegram'
+      : citizen.spawnLat !== undefined && citizen.spawnLng !== undefined
+        ? 'geolocation'
+        : 'manual',
   }
 }
 

@@ -7,6 +7,7 @@ import {
 import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
+import { claimRealityFounderArea, founderAreaProfileWithServerClaim } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
   founderCovenantSignalText,
@@ -17,6 +18,7 @@ import {
 type PanelState =
   | { status: 'loading' }
   | { status: 'ready'; result: WorldServerCommandResult }
+  | { status: 'error'; message: string }
 
 export default function FounderAreaPanel() {
   const citizen = useGame((s) => s.citizen)
@@ -29,20 +31,35 @@ export default function FounderAreaPanel() {
 
   useEffect(() => {
     let alive = true
-    if (!profile) return
-    const commandClient = createMemoryFounderAreaClient(profile)
-    commandClientRef.current = commandClient
+    if (!profile || !citizen) return
+    const activeCitizen = citizen
     setPanelState({ status: 'loading' })
-    void commandClient.claim(Date.now()).then((result) => {
+    void claimRealityFounderArea(activeCitizen, profile).then(async (serverClaim) => {
+      if (!alive) return
+      if (!serverClaim.ok) {
+        commandClientRef.current = null
+        const message = serverClaim.error
+        setPanelState({ status: 'error', message })
+        setLastEvent(message)
+        return
+      }
+      const commandClient = createMemoryFounderAreaClient(founderAreaProfileWithServerClaim(profile, serverClaim.state))
+      commandClientRef.current = commandClient
+      const claimedAt = Date.parse(serverClaim.state.claim.claimedAt)
+      const result = await commandClient.claim(Number.isFinite(claimedAt) ? claimedAt : Date.now())
       if (!alive) return
       setPanelState({ status: 'ready', result })
-      setLastEvent(result.ok ? 'Area claimed.' : `Command failed: ${result.error}`)
+      setLastEvent(
+        result.ok
+          ? serverClaim.restoredExisting ? 'Server area restored.' : 'Server area claimed.'
+          : `Command failed: ${result.error}`,
+      )
     })
     return () => {
       alive = false
       commandClientRef.current = null
     }
-  }, [profile])
+  }, [citizen, profile])
 
   if (!citizen || !profile) return null
 
@@ -83,6 +100,7 @@ export default function FounderAreaPanel() {
       <h2 className="panel-title">Founder Area</h2>
 
       {panelState.status === 'loading' && <p className="panel-sub">Claiming area…</p>}
+      {panelState.status === 'error' && <p className="waitlist-error">{panelState.message}</p>}
       {panelState.status === 'ready' && !dashboard && <p className="waitlist-error">{lastEvent}</p>}
       {dashboard && area && (
         <>
