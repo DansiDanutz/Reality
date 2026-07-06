@@ -1,4 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  requestRealityOperatorQueueToken,
+  type RealityOperatorQueueAuthResult,
+} from '../../lib/realityOperatorAuth'
 import {
   readRealityFounderCovenantOperatorQueue,
   type RealityFounderCovenantOperatorQueueRequest,
@@ -11,24 +15,41 @@ type ReadOperatorQueue = (
   request: RealityFounderCovenantOperatorQueueRequest,
 ) => Promise<RealityFounderCovenantReviewQueueResult>
 
+type RequestOperatorToken = () => Promise<RealityOperatorQueueAuthResult>
+
 type OperatorQueuePanelState =
   | { status: 'idle' }
   | { status: 'loading'; queue: RealityFounderCovenantReviewQueueDashboard | null }
   | { status: 'ready'; queue: RealityFounderCovenantReviewQueueDashboard }
   | { status: 'error'; message: string; queue: RealityFounderCovenantReviewQueueDashboard | null }
 
+export type FounderCovenantOperatorAuthState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; expiresAt: number }
+  | { status: 'unavailable'; message: string }
+  | { status: 'error'; message: string }
+
 export interface FounderCovenantOperatorPanelProps {
+  initialOperatorAuth?: FounderCovenantOperatorAuthState
   initialError?: string
   initialQueue?: RealityFounderCovenantReviewQueueDashboard
   readQueue?: ReadOperatorQueue
+  requestOperatorToken?: RequestOperatorToken
 }
 
 export default function FounderCovenantOperatorPanel({
+  initialOperatorAuth,
   initialError,
   initialQueue,
   readQueue = readRealityFounderCovenantOperatorQueue,
+  requestOperatorToken = requestRealityOperatorQueueToken,
 }: FounderCovenantOperatorPanelProps) {
-  const [operatorToken, setOperatorToken] = useState('')
+  const [manualOperatorToken, setManualOperatorToken] = useState('')
+  const [telegramOperatorToken, setTelegramOperatorToken] = useState('')
+  const [operatorAuthState, setOperatorAuthState] = useState<FounderCovenantOperatorAuthState>(
+    initialOperatorAuth ?? { status: 'idle' },
+  )
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
   const [panelState, setPanelState] = useState<OperatorQueuePanelState>(() => {
@@ -36,21 +57,77 @@ export default function FounderCovenantOperatorPanel({
     if (initialError) return { status: 'error', message: initialError, queue: null }
     return { status: 'idle' }
   })
+  const initialAuthAttempted = useRef(false)
 
   const queue = panelState.status === 'ready' || panelState.status === 'loading' || panelState.status === 'error'
     ? panelState.queue
     : null
   const loading = panelState.status === 'loading'
+  const operatorToken = manualOperatorToken.trim() || telegramOperatorToken.trim()
+
+  const applyOperatorAuthResult = useCallback((result: RealityOperatorQueueAuthResult) => {
+    if (result.ok) {
+      setTelegramOperatorToken(result.operatorToken)
+      setOperatorAuthState({ status: 'ready', expiresAt: result.expiresAt })
+      return
+    }
+
+    setTelegramOperatorToken('')
+    if (result.reason === 'not_in_telegram') {
+      setOperatorAuthState({
+        status: 'unavailable',
+        message: 'Telegram Mini App session not detected. Manual operator token remains available.',
+      })
+      return
+    }
+
+    setOperatorAuthState({
+      status: 'error',
+      message: operatorAuthErrorMessage(result),
+    })
+  }, [])
+
+  const requestTelegramOperatorToken = useCallback(async () => {
+    setOperatorAuthState({ status: 'loading' })
+    try {
+      const result = await requestOperatorToken()
+      applyOperatorAuthResult(result)
+    } catch {
+      setTelegramOperatorToken('')
+      setOperatorAuthState({ status: 'error', message: 'Reality operator auth is unavailable.' })
+    }
+  }, [applyOperatorAuthResult, requestOperatorToken])
+
+  useEffect(() => {
+    if (initialOperatorAuth || initialAuthAttempted.current) return
+    initialAuthAttempted.current = true
+    let cancelled = false
+
+    setOperatorAuthState({ status: 'loading' })
+    void requestOperatorToken()
+      .then((result) => {
+        if (!cancelled) applyOperatorAuthResult(result)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTelegramOperatorToken('')
+          setOperatorAuthState({ status: 'error', message: 'Reality operator auth is unavailable.' })
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [applyOperatorAuthResult, initialOperatorAuth, requestOperatorToken])
 
   const loadQueue = async (cursor: string | null = null) => {
-    const token = operatorToken.trim()
-    if (!token) {
+    if (!operatorToken) {
       setPanelState({ status: 'error', message: 'Operator token is required.', queue })
       return
     }
     setPanelState({ status: 'loading', queue })
     const result = await readQueue({
-      operatorToken: token,
+      operatorToken,
       limit,
       pages,
       ...(cursor ? { cursor } : {}),
@@ -76,12 +153,25 @@ export default function FounderCovenantOperatorPanel({
           <input
             autoComplete="off"
             disabled={loading}
-            onChange={(event) => setOperatorToken(event.target.value)}
+            onChange={(event) => setManualOperatorToken(event.target.value)}
             placeholder="Operator token"
             type="password"
-            value={operatorToken}
+            value={manualOperatorToken}
           />
         </label>
+        <div className="founder-operator-auth" aria-label="Telegram operator auth">
+          <span className={`founder-operator-auth-status ${operatorAuthState.status}`}>
+            {operatorAuthStatusLabel(operatorAuthState)}
+          </span>
+          <button
+            className="btn small ghost"
+            disabled={loading || operatorAuthState.status === 'loading'}
+            onClick={() => void requestTelegramOperatorToken()}
+            type="button"
+          >
+            Telegram
+          </button>
+        </div>
         <div className="founder-operator-controls">
           <label className="founder-operator-number">
             <span>Limit</span>
@@ -107,14 +197,16 @@ export default function FounderCovenantOperatorPanel({
           </label>
         </div>
         <div className="founder-operator-actions">
-          <button className="btn small primary" disabled={loading || operatorToken.trim().length === 0} type="submit">
+          <button className="btn small primary" disabled={loading || operatorToken.length === 0} type="submit">
             {loading ? 'Scanning' : 'Scan'}
           </button>
           <button
             className="btn small ghost"
             disabled={loading && !queue}
             onClick={() => {
-              setOperatorToken('')
+              setManualOperatorToken('')
+              setTelegramOperatorToken('')
+              setOperatorAuthState({ status: 'idle' })
               setPanelState({ status: 'idle' })
             }}
             type="button"
@@ -138,7 +230,7 @@ export default function FounderCovenantOperatorPanel({
           <div className="founder-operator-actions">
             <button
               className="btn small ghost"
-              disabled={loading || !queue.nextCursor || operatorToken.trim().length === 0}
+              disabled={loading || !queue.nextCursor || operatorToken.length === 0}
               onClick={() => void loadQueue(queue.nextCursor)}
               type="button"
             >
@@ -158,4 +250,40 @@ function clampNumber(value: string, min: number, max: number, fallback: number):
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
   return Math.min(max, Math.max(min, Math.trunc(parsed)))
+}
+
+function operatorAuthStatusLabel(state: FounderCovenantOperatorAuthState): string {
+  switch (state.status) {
+    case 'loading':
+      return 'Checking Telegram operator access'
+    case 'ready':
+      return `Telegram operator ready until ${formatOperatorAuthExpiry(state.expiresAt)}`
+    case 'unavailable':
+    case 'error':
+      return state.message
+    case 'idle':
+      return 'Telegram operator auth idle'
+  }
+}
+
+function formatOperatorAuthExpiry(expiresAt: number): string {
+  return `${new Date(expiresAt).toISOString().slice(11, 16)} UTC`
+}
+
+function operatorAuthErrorMessage(result: Exclude<RealityOperatorQueueAuthResult, { ok: true }>): string {
+  if (result.error) return result.error
+  switch (result.reason) {
+    case 'invalid_session':
+      return 'Telegram operator session could not be verified.'
+    case 'not_allowed':
+      return 'Telegram account is not approved for Reality operator review.'
+    case 'not_configured':
+      return 'Reality operator auth is not configured.'
+    case 'request_failed':
+      return 'Reality operator auth is unavailable.'
+    case 'server_rejected':
+      return 'Reality operator auth was rejected.'
+    case 'not_in_telegram':
+      return 'Telegram Mini App session not detected.'
+  }
 }

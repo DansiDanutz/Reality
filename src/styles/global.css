@@ -1185,6 +1185,28 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   font: inherit;
 }
 .founder-operator-field input::placeholder { color: var(--muted); }
+.founder-operator-auth {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.founder-operator-auth-status {
+  flex: 1 1 220px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(120, 150, 205, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.founder-operator-auth-status.ready { color: var(--ok); }
+.founder-operator-auth-status.error { color: #e5484d; }
 .founder-operator-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

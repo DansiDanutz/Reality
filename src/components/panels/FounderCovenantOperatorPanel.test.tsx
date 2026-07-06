@@ -9,6 +9,7 @@ describe('FounderCovenantOperatorPanel', () => {
 
     expect(html).toContain('Founder Ops')
     expect(html).toContain('Operator token')
+    expect(html).toContain('Telegram operator auth idle')
     expect(html).toContain('read only')
     expect(html).toContain('ephemeral token')
     expect(html).toContain('player state isolated')
@@ -37,6 +38,34 @@ describe('FounderCovenantOperatorPanel', () => {
 
     expect(html).toContain('Founder covenant review queue requires an operator token.')
     expect(html).not.toContain('Founder Review Queue')
+  })
+
+  test('renders Telegram operator readiness without printing the scoped token', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantOperatorPanel
+        initialOperatorAuth={{ status: 'ready', expiresAt: Date.parse('2026-07-06T12:15:00.000Z') }}
+      />,
+    )
+
+    expect(html).toContain('Telegram operator ready until 12:15 UTC')
+    expect(html).toContain('Operator token')
+    expect(html).not.toContain('operator-token')
+    expect(html).not.toContain('roqt1.')
+  })
+
+  test('keeps manual operator token fallback visible when Telegram auth is unavailable', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantOperatorPanel
+        initialOperatorAuth={{
+          status: 'unavailable',
+          message: 'Telegram Mini App session not detected. Manual operator token remains available.',
+        }}
+      />,
+    )
+
+    expect(html).toContain('Telegram Mini App session not detected. Manual operator token remains available.')
+    expect(html).toContain('Operator token')
+    expect(html).toContain('Scan')
   })
 })
 
