@@ -1,4 +1,5 @@
 import { jobById } from '../../game/catalog'
+import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 
 const countdown = (endsAt: number): string => {
@@ -16,6 +17,7 @@ export default function ActionDock() {
   const startSleep = useGame((s) => s.startSleep)
   const startShift = useGame((s) => s.startShift)
   const leaveActivity = useGame((s) => s.leaveActivity)
+  const setStreetMode = useGame((s) => s.setStreetMode)
   const setPanel = useGame((s) => s.setPanel)
   const cancelPlacing = useGame((s) => s.cancelPlacing)
   const log = useGame((s) => s.log)
@@ -64,6 +66,10 @@ export default function ActionDock() {
   }
 
   const job = jobId ? jobById(jobId) : undefined
+  const enterStreetMode = () => {
+    preloadStreetMode()
+    setStreetMode(true)
+  }
 
   return (
     <div className="dock">
@@ -100,7 +106,13 @@ export default function ActionDock() {
         </button>
         <button
           className="btn ghost"
-          onClick={() => useGame.getState().setStreetMode(true)}
+          onFocus={preloadStreetMode}
+          onPointerEnter={preloadStreetMode}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return
+            enterStreetMode()
+          }}
+          onClick={enterStreetMode}
           title="Walk your real streets in first person"
         >
           Walk
