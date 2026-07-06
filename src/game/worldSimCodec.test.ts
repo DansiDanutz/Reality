@@ -124,6 +124,54 @@ const area = (): WorldArea => ({
   }],
 })
 
+const founderReview = (): NonNullable<WorldArea['founderReviewHistory']>[number] => ({
+  id: 'review1',
+  at: 4_000,
+  reviewerId: 'reviewer-1',
+  actionKind: 'record_review',
+  summary: 'Manual founder covenant review recorded.',
+  authorityGate: {
+    requiredRole: 'area_reviewer',
+    status: 'evidence_only',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
+  },
+  decision: {
+    status: 'watch',
+    nextAction: 'warn_founder',
+    manualReviewRequired: false,
+  },
+  signals: [{
+    kind: 'sim_departure',
+    severity: 'warning',
+    message: 'A Sim Citizen left after the latest review.',
+    businessKinds: ['food'],
+    amount: 1,
+  }],
+  activityReview: null,
+  reviewQueue: {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: 'record_review',
+    recordReviewEnabled: true,
+    recommendedActionKinds: ['record_review'],
+    pendingApprovalKinds: [],
+    pendingApprovalCount: 0,
+    pendingNotificationKinds: [],
+    pendingNotificationCount: 0,
+    blockerCount: 0,
+    blockers: [],
+  },
+  reviewInputs: [],
+  stages: [],
+  reviewChecklist: [],
+  manualActions: [],
+  approvalRequests: [],
+  reviewSchedule: null,
+})
+
 describe('worldSim snapshot codec', () => {
   test('round-trips a versioned world area snapshot', () => {
     const source = area()
@@ -158,6 +206,28 @@ describe('worldSim snapshot codec', () => {
     expect(decoded.ok).toBe(true)
     if (!decoded.ok) throw new Error('expected legacy snapshot to decode')
     expect(decoded.area.areaEvents).toBeUndefined()
+  })
+
+  test('round-trips founder covenant review history evidence', () => {
+    const reviewed = area()
+    reviewed.founderReviewHistory = [founderReview()]
+
+    const decoded = decodeWorldAreaSnapshot(encodeWorldAreaSnapshot(reviewed))
+
+    expect(decoded.ok).toBe(true)
+    if (!decoded.ok) throw new Error('expected review history snapshot to decode')
+    expect(decoded.area.founderReviewHistory).toEqual(reviewed.founderReviewHistory)
+  })
+
+  test('rejects malformed founder covenant review history', () => {
+    const reviewed = area()
+    reviewed.founderReviewHistory = [founderReview()]
+    reviewed.founderReviewHistory[0].authorityGate.executionEnabled = true
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: reviewed,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('accepts historical ledger entries for departed Sim Citizens with event evidence', () => {

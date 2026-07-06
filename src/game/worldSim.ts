@@ -441,6 +441,10 @@ export type FounderCovenantReviewInputKind =
   | 'external_contribution'
   | 'ideas_feedback'
   | 'review_consistency'
+export type FounderCovenantManualEvidenceKind = Extract<
+  FounderCovenantReviewInputKind,
+  'population_growth' | 'external_contribution' | 'ideas_feedback'
+>
 export type FounderCovenantReviewInputStatus = 'captured' | 'watch' | 'manual_needed'
 export type FounderCovenantStageKind = 'active' | 'warning' | 'probation' | 'removed' | 'waitlist_replacement'
 export type FounderCovenantStageStatus = 'current' | 'recommended' | 'locked'
@@ -524,6 +528,7 @@ export interface FounderCovenantManualActionClientPayload {
   type: 'recordCovenantReview'
   actionKind: 'record_review'
   note?: string
+  evidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
 }
 
 export type FounderCovenantAuthorityRole = 'area_reviewer' | 'main_founder'
@@ -690,6 +695,24 @@ export interface AreaNeedsDashboard {
   founderCovenant: AreaFounderCovenantDashboard
   firstBuild: FirstBuildRecommendation[]
 }
+
+export interface RecordFounderCovenantReviewInput {
+  reviewedAt: number
+  reviewerId: string
+  actionKind: FounderCovenantManualActionKind
+  note?: string
+  evidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
+}
+
+export type RecordFounderCovenantReviewError =
+  | 'area_not_claimed'
+  | 'invalid_review_time'
+  | 'invalid_reviewer'
+  | 'review_action_disabled'
+
+export type RecordFounderCovenantReviewResult =
+  | { ok: true; area: WorldArea; entry: FounderCovenantReviewHistoryItem }
+  | { ok: false; area: WorldArea; error: RecordFounderCovenantReviewError }
 
 export type ClaimWorldAreaError =
   | 'area_already_claimed'
@@ -1037,6 +1060,53 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
       founderCanAct,
       population,
     }),
+  }
+}
+
+export function recordFounderCovenantReview(
+  area: WorldArea,
+  input: RecordFounderCovenantReviewInput,
+): RecordFounderCovenantReviewResult {
+  if (!area.claim) return { ok: false, area, error: 'area_not_claimed' }
+  if (!Number.isFinite(input.reviewedAt) || input.reviewedAt < 0 || input.reviewedAt !== area.now) {
+    return { ok: false, area, error: 'invalid_review_time' }
+  }
+  const reviewerId = input.reviewerId.trim()
+  if (!reviewerId) return { ok: false, area, error: 'invalid_reviewer' }
+  if (input.actionKind !== 'record_review') return { ok: false, area, error: 'review_action_disabled' }
+
+  const covenant = areaNeedsDashboard(area).founderCovenant
+  const evidenceKinds = uniqueFounderCovenantManualEvidenceKinds(input.evidenceKinds ?? [])
+  const entry: FounderCovenantReviewHistoryItem = {
+    id: `${area.id}:${input.reviewedAt}:founder-review:${reviewerId}`,
+    at: input.reviewedAt,
+    reviewerId,
+    actionKind: input.actionKind,
+    summary: founderCovenantReviewSummary(covenant.activityReview, input.note, evidenceKinds),
+    authorityGate: founderCovenantReviewEvidenceAuthority(),
+    decision: {
+      status: covenant.status,
+      nextAction: covenant.nextAction,
+      manualReviewRequired: covenant.manualReviewRequired,
+    },
+    signals: covenant.signals.map(founderCovenantSignalSnapshot),
+    activityReview: { ...covenant.activityReview },
+    reviewQueue: founderCovenantReviewQueueSnapshot(covenant.reviewQueue),
+    reviewInputs: founderCovenantReviewInputsWithManualEvidence(covenant.reviewInputs, evidenceKinds),
+    stages: covenant.stages.map(founderCovenantStageSnapshot),
+    reviewChecklist: covenant.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    manualActions: covenant.manualActions.map(founderCovenantManualActionSnapshot),
+    approvalRequests: covenant.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
+    reviewSchedule: covenant.reviewSchedule ? { ...covenant.reviewSchedule } : null,
+  }
+
+  return {
+    ok: true,
+    area: {
+      ...area,
+      founderReviewHistory: [...(area.founderReviewHistory ?? []), entry],
+    },
+    entry,
   }
 }
 
@@ -2096,6 +2166,55 @@ function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryIte
     approvalRequests,
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
+}
+
+function founderCovenantReviewSummary(
+  activityReview: FounderCovenantActivityReview,
+  note: string | undefined,
+  evidenceKinds: readonly FounderCovenantManualEvidenceKind[],
+): string {
+  const trimmedNote = note?.trim()
+  if (trimmedNote) return trimmedNote
+  const evidence = evidenceKinds.length > 0
+    ? ` Manual evidence: ${evidenceKinds.map(founderCovenantReviewInputLabel).join(', ')}.`
+    : ''
+  return `Manual founder covenant review recorded. Activity score: ${activityReview.score}.${evidence}`
+}
+
+function founderCovenantReviewInputsWithManualEvidence(
+  inputs: readonly FounderCovenantReviewInput[],
+  evidenceKinds: readonly FounderCovenantManualEvidenceKind[],
+): FounderCovenantReviewInput[] {
+  if (evidenceKinds.length === 0) return inputs.map(founderCovenantReviewInputSnapshot)
+  const evidence = new Set(evidenceKinds)
+  return inputs.map((input) => {
+    if (!evidence.has(input.kind as FounderCovenantManualEvidenceKind)) {
+      return founderCovenantReviewInputSnapshot(input)
+    }
+    return {
+      ...input,
+      status: 'captured',
+      evidence: `${input.label} evidence was attached by the reviewer.`,
+      manualEvidenceRequired: false,
+    }
+  })
+}
+
+function uniqueFounderCovenantManualEvidenceKinds(
+  kinds: readonly FounderCovenantManualEvidenceKind[],
+): FounderCovenantManualEvidenceKind[] {
+  const allowed: readonly FounderCovenantManualEvidenceKind[] = [
+    'population_growth',
+    'external_contribution',
+    'ideas_feedback',
+  ]
+  return allowed.filter((kind) => kinds.includes(kind))
+}
+
+function founderCovenantReviewInputLabel(kind: FounderCovenantManualEvidenceKind): string {
+  if (kind === 'population_growth') return 'Population growth'
+  if (kind === 'external_contribution') return 'External contribution'
+  return 'Ideas and feedback'
 }
 
 function founderCovenantReviewEvidenceAuthority(): FounderCovenantAuthorityGate {

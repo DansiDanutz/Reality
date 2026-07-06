@@ -5,10 +5,14 @@ import {
   claimWorldArea,
   FOUNDER_STARTING_BALANCE,
   SIM_CITIZEN_STARTING_BALANCE,
+  recordFounderCovenantReview,
   type AdvanceWorldAreaResult,
   type AreaNeedsDashboard,
   type AreaClaimSource,
   type ClaimWorldAreaError,
+  type FounderCovenantManualActionKind,
+  type FounderCovenantManualEvidenceKind,
+  type RecordFounderCovenantReviewError,
   type WorldArea,
   type WorldAreaClaim,
   type WorldCitizen,
@@ -95,6 +99,15 @@ export type WorldServerCommand =
     now: number
     payload: unknown
   }
+  | {
+    type: 'recordFounderCovenantReview'
+    areaId: string
+    now: number
+    reviewerId: string
+    actionKind: FounderCovenantManualActionKind
+    note?: string
+    evidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
+  }
 
 export type WorldServerCommandError =
   | 'area_exists'
@@ -112,6 +125,7 @@ export type WorldServerCommandError =
   | DecodeClientWorldIntentError
   | ClaimWorldAreaError
   | WorldIntentError
+  | RecordFounderCovenantReviewError
 
 export type WorldServerCommandResult =
   | {
@@ -149,6 +163,8 @@ export async function runWorldServerCommand(
       return applyFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.intent)
     case 'applyClientFounderIntent':
       return applyClientFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.payload)
+    case 'recordFounderCovenantReview':
+      return recordFounderCovenantReviewForStoredArea(repo, command)
   }
 }
 
@@ -542,5 +558,55 @@ async function applyIntentToAreaRecord(
     dashboard: areaNeedsDashboard(applied.area),
     transactions: transactionDelta(applied.area, startingTransactionCount),
     summary: advanced.summary,
+  }
+}
+
+async function recordFounderCovenantReviewForStoredArea(
+  repo: WorldAreaRepository,
+  command: Extract<WorldServerCommand, { type: 'recordFounderCovenantReview' }>,
+): Promise<WorldServerCommandResult> {
+  const normalizedAreaId = command.areaId.trim()
+  const reviewerId = command.reviewerId.trim()
+  if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
+  if (!isValidCommandTime(command.now)) return { ok: false, error: 'invalid_command_time' }
+  if (!reviewerId) return { ok: false, error: 'invalid_reviewer' }
+  if (command.actionKind !== 'record_review') return { ok: false, error: 'review_action_disabled' }
+
+  const loaded = await loadStoredArea(repo, normalizedAreaId)
+  if (!loaded) return { ok: false, error: 'area_not_found' }
+  const { area } = loaded
+  if (command.now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
+
+  const advanced: AdvanceWorldAreaResult | null = command.now === area.now
+    ? null
+    : advanceWorldArea(area, command.now)
+  const reviewArea = advanced?.area ?? area
+  const startingTransactionCount = area.transactions.length
+  const recorded = recordFounderCovenantReview(reviewArea, {
+    reviewedAt: command.now,
+    reviewerId,
+    actionKind: command.actionKind,
+    note: command.note,
+    evidenceKinds: command.evidenceKinds,
+  })
+  if (!recorded.ok) {
+    return {
+      ok: false,
+      error: recorded.error,
+      area: reviewArea,
+      dashboard: areaNeedsDashboard(reviewArea),
+      transactions: transactionDelta(reviewArea, startingTransactionCount),
+      summary: advanced?.summary,
+    }
+  }
+
+  const saved = await saveStoredArea(repo, recorded.area, { expectedRevision: loaded.revision })
+  if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
+  return {
+    ok: true,
+    area: recorded.area,
+    dashboard: areaNeedsDashboard(recorded.area),
+    transactions: transactionDelta(recorded.area, startingTransactionCount),
+    summary: advanced?.summary,
   }
 }

@@ -1,5 +1,25 @@
 import type {
   AreaClaimSource,
+  FounderCovenantApprovalBlocker,
+  FounderCovenantApprovalRequest,
+  FounderCovenantApprovalRequestKind,
+  FounderCovenantApprovalRequestStatus,
+  FounderCovenantAuthorityRole,
+  FounderCovenantAuthorityStatus,
+  FounderCovenantManualAction,
+  FounderCovenantManualActionKind,
+  FounderCovenantNextAction,
+  FounderCovenantNotificationDraftKind,
+  FounderCovenantReviewChecklistStatus,
+  FounderCovenantReviewHistoryItem,
+  FounderCovenantReviewInputKind,
+  FounderCovenantReviewInputStatus,
+  FounderCovenantReviewQueueNextStep,
+  FounderCovenantSignalKind,
+  FounderCovenantSignalSeverity,
+  FounderCovenantStageKind,
+  FounderCovenantStageStatus,
+  FounderCovenantStatus,
   WorldArea,
   WorldAreaEvent,
   WorldAreaEventKind,
@@ -42,6 +62,66 @@ const AREA_EVENT_KINDS: WorldAreaEventKind[] = ['sim_citizen_departure']
 const AREA_EVENT_SEVERITIES: WorldAreaEventSeverity[] = ['info', 'warning', 'critical']
 const DEPARTURE_REASONS: WorldDepartureReason[] = ['water_unserved', 'food_unserved', 'housing_unserved']
 const DEPARTURE_SERVICE_KINDS: WorldDepartureServiceKind[] = ['water', 'food', 'housing']
+const COVENANT_STATUSES: FounderCovenantStatus[] = ['unclaimed', 'active', 'watch', 'manual_review']
+const COVENANT_NEXT_ACTIONS: FounderCovenantNextAction[] = ['claim_area', 'none', 'warn_founder', 'manual_review']
+const COVENANT_SIGNAL_SEVERITIES: FounderCovenantSignalSeverity[] = ['info', 'warning', 'critical']
+const COVENANT_SIGNAL_KINDS: FounderCovenantSignalKind[] = [
+  'founder_unavailable',
+  'no_business_built',
+  'understaffed_businesses',
+  'essential_shortage',
+  'sim_departure',
+  'founder_debt',
+  'review_due',
+]
+const COVENANT_CHECKLIST_STATUSES: FounderCovenantReviewChecklistStatus[] = ['met', 'watch', 'manual_review']
+const COVENANT_REVIEW_INPUT_KINDS: FounderCovenantReviewInputKind[] = [
+  'in_game_activity',
+  'area_health',
+  'population_growth',
+  'external_contribution',
+  'ideas_feedback',
+  'review_consistency',
+]
+const COVENANT_REVIEW_INPUT_STATUSES: FounderCovenantReviewInputStatus[] = ['captured', 'watch', 'manual_needed']
+const COVENANT_STAGE_KINDS: FounderCovenantStageKind[] = [
+  'active',
+  'warning',
+  'probation',
+  'removed',
+  'waitlist_replacement',
+]
+const COVENANT_STAGE_STATUSES: FounderCovenantStageStatus[] = ['current', 'recommended', 'locked']
+const COVENANT_MANUAL_ACTION_KINDS: FounderCovenantManualActionKind[] = [
+  'record_review',
+  'send_warning',
+  'start_probation',
+  'recommend_replacement',
+]
+const COVENANT_QUEUE_NEXT_STEPS: FounderCovenantReviewQueueNextStep[] = [
+  'record_review',
+  'main_founder_approval',
+  'monitor',
+]
+const COVENANT_AUTHORITY_ROLES: FounderCovenantAuthorityRole[] = ['area_reviewer', 'main_founder']
+const COVENANT_AUTHORITY_STATUSES: FounderCovenantAuthorityStatus[] = ['evidence_only', 'approval_required']
+const COVENANT_APPROVAL_KINDS: FounderCovenantApprovalRequestKind[] = [
+  'send_warning',
+  'start_probation',
+  'recommend_replacement',
+]
+const COVENANT_APPROVAL_STATUSES: FounderCovenantApprovalRequestStatus[] = ['pending_manual_approval']
+const COVENANT_APPROVAL_BLOCKERS: FounderCovenantApprovalBlocker[] = [
+  'approval_workflow_disabled',
+  'telegram_delivery_disabled',
+  'probation_execution_disabled',
+  'replacement_disabled',
+  'waitlist_handoff_disabled',
+]
+const COVENANT_NOTIFICATION_DRAFT_KINDS: FounderCovenantNotificationDraftKind[] = [
+  'founder_warning',
+  'manual_review_required',
+]
 const SYSTEM_HOSPITAL_ACCOUNT = 'system:hospital'
 const SYSTEM_LEDGER_ACCOUNTS = new Set([
   'system:founder-credit',
@@ -101,6 +181,16 @@ function isWorldArea(value: unknown): value is WorldArea {
   if (
     value.areaEvents !== undefined &&
     (!Array.isArray(value.areaEvents) || !value.areaEvents.every(isWorldAreaEvent) || !hasUniqueIds(value.areaEvents))
+  ) {
+    return false
+  }
+  if (
+    value.founderReviewHistory !== undefined &&
+    (
+      !Array.isArray(value.founderReviewHistory) ||
+      !value.founderReviewHistory.every(isFounderCovenantReviewHistoryItem) ||
+      !hasUniqueIds(value.founderReviewHistory)
+    )
   ) {
     return false
   }
@@ -194,6 +284,172 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
     isPercentage(value.health) &&
     isNeeds(value.needs) &&
     isNonEmptyString(value.message)
+}
+
+function isFounderCovenantReviewHistoryItem(value: unknown): value is FounderCovenantReviewHistoryItem {
+  return isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isFiniteNumber(value.at) &&
+    isNonEmptyString(value.reviewerId) &&
+    isOneOf(value.actionKind, COVENANT_MANUAL_ACTION_KINDS) &&
+    isNonEmptyString(value.summary) &&
+    isFounderCovenantEvidenceAuthorityGate(value.authorityGate) &&
+    (value.decision === null || isFounderCovenantReviewDecision(value.decision)) &&
+    Array.isArray(value.signals) &&
+    value.signals.every(isFounderCovenantSignal) &&
+    (value.activityReview === null || isFounderCovenantActivityReview(value.activityReview)) &&
+    isFounderCovenantReviewQueue(value.reviewQueue) &&
+    Array.isArray(value.reviewInputs) &&
+    value.reviewInputs.every(isFounderCovenantReviewInput) &&
+    Array.isArray(value.stages) &&
+    value.stages.every(isFounderCovenantStage) &&
+    Array.isArray(value.reviewChecklist) &&
+    value.reviewChecklist.every(isFounderCovenantReviewChecklistItem) &&
+    Array.isArray(value.manualActions) &&
+    value.manualActions.every(isFounderCovenantManualAction) &&
+    Array.isArray(value.approvalRequests) &&
+    value.approvalRequests.every(isFounderCovenantApprovalRequest) &&
+    (value.reviewSchedule === null || isFounderCovenantReviewSchedule(value.reviewSchedule))
+}
+
+function isFounderCovenantEvidenceAuthorityGate(value: unknown): boolean {
+  return isRecord(value) &&
+    value.requiredRole === 'area_reviewer' &&
+    value.status === 'evidence_only' &&
+    value.approvedById === null &&
+    value.approvedAt === null &&
+    value.executionEnabled === false
+}
+
+function isFounderCovenantAuthorityGate(value: unknown): boolean {
+  return isRecord(value) &&
+    isOneOf(value.requiredRole, COVENANT_AUTHORITY_ROLES) &&
+    isOneOf(value.status, COVENANT_AUTHORITY_STATUSES) &&
+    value.approvedById === null &&
+    value.approvedAt === null &&
+    typeof value.executionEnabled === 'boolean'
+}
+
+function isFounderCovenantReviewDecision(value: unknown): boolean {
+  return isRecord(value) &&
+    isOneOf(value.status, COVENANT_STATUSES) &&
+    isOneOf(value.nextAction, COVENANT_NEXT_ACTIONS) &&
+    typeof value.manualReviewRequired === 'boolean'
+}
+
+function isFounderCovenantSignal(value: unknown): boolean {
+  return isRecord(value) &&
+    isOneOf(value.kind, COVENANT_SIGNAL_KINDS) &&
+    isOneOf(value.severity, COVENANT_SIGNAL_SEVERITIES) &&
+    isNonEmptyString(value.message) &&
+    (value.businessIds === undefined || (Array.isArray(value.businessIds) && value.businessIds.every(isNonEmptyString))) &&
+    (value.businessKinds === undefined || (Array.isArray(value.businessKinds) && value.businessKinds.every((kind) => isOneOf(kind, BUSINESS_KINDS)))) &&
+    (value.amount === undefined || isFiniteNumber(value.amount))
+}
+
+function isFounderCovenantActivityReview(value: unknown): boolean {
+  return isRecord(value) &&
+    isFiniteNumber(value.checkedAt) &&
+    typeof value.active === 'boolean' &&
+    typeof value.useful === 'boolean' &&
+    typeof value.building === 'boolean' &&
+    typeof value.staffed === 'boolean' &&
+    typeof value.indebted === 'boolean' &&
+    typeof value.hospitalized === 'boolean' &&
+    typeof value.atRisk === 'boolean' &&
+    isFiniteNumber(value.score)
+}
+
+function isFounderCovenantReviewQueue(value: unknown): boolean {
+  return isRecord(value) &&
+    value.evidenceOnly === true &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false &&
+    isOneOf(value.nextStep, COVENANT_QUEUE_NEXT_STEPS) &&
+    typeof value.recordReviewEnabled === 'boolean' &&
+    Array.isArray(value.recommendedActionKinds) &&
+    value.recommendedActionKinds.every((kind) => isOneOf(kind, COVENANT_MANUAL_ACTION_KINDS)) &&
+    Array.isArray(value.pendingApprovalKinds) &&
+    value.pendingApprovalKinds.every((kind) => isOneOf(kind, COVENANT_APPROVAL_KINDS)) &&
+    isFiniteNumber(value.pendingApprovalCount) &&
+    Array.isArray(value.pendingNotificationKinds) &&
+    value.pendingNotificationKinds.every((kind) => isOneOf(kind, COVENANT_NOTIFICATION_DRAFT_KINDS)) &&
+    isFiniteNumber(value.pendingNotificationCount) &&
+    isFiniteNumber(value.blockerCount) &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every((blocker) => isOneOf(blocker, COVENANT_APPROVAL_BLOCKERS))
+}
+
+function isFounderCovenantReviewInput(value: unknown): boolean {
+  return isRecord(value) &&
+    isOneOf(value.kind, COVENANT_REVIEW_INPUT_KINDS) &&
+    isNonEmptyString(value.label) &&
+    isOneOf(value.status, COVENANT_REVIEW_INPUT_STATUSES) &&
+    isNonEmptyString(value.evidence) &&
+    typeof value.manualEvidenceRequired === 'boolean'
+}
+
+function isFounderCovenantStage(value: unknown): boolean {
+  return isRecord(value) &&
+    isOneOf(value.kind, COVENANT_STAGE_KINDS) &&
+    isNonEmptyString(value.label) &&
+    isOneOf(value.status, COVENANT_STAGE_STATUSES) &&
+    isNonEmptyString(value.reason) &&
+    typeof value.requiresMainFounderApproval === 'boolean' &&
+    value.manualOnly === true &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false
+}
+
+function isFounderCovenantReviewChecklistItem(value: unknown): boolean {
+  return isRecord(value) &&
+    isNonEmptyString(value.key) &&
+    isNonEmptyString(value.label) &&
+    isOneOf(value.status, COVENANT_CHECKLIST_STATUSES) &&
+    isNonEmptyString(value.evidence)
+}
+
+function isFounderCovenantManualAction(value: unknown): value is FounderCovenantManualAction {
+  return isRecord(value) &&
+    isOneOf(value.kind, COVENANT_MANUAL_ACTION_KINDS) &&
+    isNonEmptyString(value.label) &&
+    typeof value.recommended === 'boolean' &&
+    value.requiresApproval === true &&
+    value.automationEnabled === false &&
+    isFounderCovenantAuthorityGate(value.authorityGate) &&
+    isNonEmptyString(value.reason) &&
+    value.clientPayload === null
+}
+
+function isFounderCovenantApprovalRequest(value: unknown): value is FounderCovenantApprovalRequest {
+  return isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isFiniteNumber(value.at) &&
+    isOneOf(value.kind, COVENANT_APPROVAL_KINDS) &&
+    isNonEmptyString(value.label) &&
+    isNonEmptyString(value.reason) &&
+    isOneOf(value.status, COVENANT_APPROVAL_STATUSES) &&
+    value.recommended === true &&
+    value.requiresApproval === true &&
+    value.approvalEnabled === false &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false &&
+    isFounderCovenantAuthorityGate(value.authorityGate) &&
+    (value.notificationDraftId === null || isNonEmptyString(value.notificationDraftId)) &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every((blocker) => isOneOf(blocker, COVENANT_APPROVAL_BLOCKERS))
+}
+
+function isFounderCovenantReviewSchedule(value: unknown): boolean {
+  return isRecord(value) &&
+    (value.lastReviewAt === null || isFiniteNumber(value.lastReviewAt)) &&
+    isFiniteNumber(value.nextWeeklyReviewAt) &&
+    isFiniteNumber(value.nextMonthlyReviewAt) &&
+    typeof value.weeklyReviewDue === 'boolean' &&
+    typeof value.monthlyReviewDue === 'boolean' &&
+    typeof value.overdue === 'boolean' &&
+    value.overdue === (value.weeklyReviewDue || value.monthlyReviewDue) &&
+    value.automationEnabled === false
 }
 
 function departureReasonServiceKind(reason: WorldDepartureReason): WorldDepartureServiceKind {

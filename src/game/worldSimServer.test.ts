@@ -138,6 +138,21 @@ const business = (kind: WorldBusinessKind, id = `${kind}1`, over: Partial<WorldB
   ...over,
 })
 
+const simDepartureEvent = (at: number): NonNullable<WorldArea['areaEvents']>[number] => ({
+  id: `area-1:${at}:sim-departure:departed-water:water`,
+  at,
+  kind: 'sim_citizen_departure',
+  severity: 'warning',
+  citizenId: 'departed-water',
+  citizenName: 'Departed Water Resident',
+  simulated: true,
+  reason: 'water_unserved',
+  serviceKind: 'water',
+  health: 20,
+  needs: needs({ hydration: 0 }),
+  message: 'Departed Water Resident left the area because water stayed unserved while health was low.',
+})
+
 const createArea = async (repo: MemoryWorldRepo, founder = citizen('founder'), simCitizens: WorldCitizen[] = []) => {
   const result = await runWorldServerCommand(repo, {
     type: 'createClaimedArea',
@@ -979,6 +994,108 @@ describe('runWorldServerCommand', () => {
         visualTone: 'simulated',
       }],
     })
+  })
+
+  test('records founder covenant review evidence through server authority', async () => {
+    const repo = new MemoryWorldRepo()
+    const reviewAt = 1_000 + 8 * 24 * HOUR
+    const created = await createArea(repo, citizen('founder'), [
+      citizen('water-worker', { kind: 'sim' }),
+      citizen('food-worker-1', { kind: 'sim' }),
+      citizen('food-worker-2', { kind: 'sim' }),
+      citizen('home-worker', { kind: 'sim' }),
+    ])
+    await repo.saveArea({
+      ...created.area,
+      now: reviewAt,
+      citizens: created.area.citizens.map((existing) => {
+        if (existing.id === 'founder') return { ...existing, homeBusinessId: 'home1' }
+        if (existing.id === 'water-worker') return { ...existing, jobBusinessId: 'water1', homeBusinessId: 'home1' }
+        if (existing.id === 'food-worker-1') return { ...existing, jobBusinessId: 'food1', homeBusinessId: 'home1' }
+        if (existing.id === 'food-worker-2') return { ...existing, jobBusinessId: 'food1', homeBusinessId: 'home1' }
+        if (existing.id === 'home-worker') return { ...existing, jobBusinessId: 'home1', homeBusinessId: 'home1' }
+        return existing
+      }),
+      businesses: [
+        business('water', 'water1', { staffCitizenIds: ['water-worker'] }),
+        business('food', 'food1', { staffCitizenIds: ['food-worker-1', 'food-worker-2'] }),
+        business('housing', 'home1', { staffCitizenIds: ['home-worker'] }),
+      ],
+      areaEvents: [simDepartureEvent(1_000 + HOUR)],
+    })
+    const saveCount = repo.saves
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'recordFounderCovenantReview',
+      areaId: ' area-1 ',
+      now: reviewAt,
+      reviewerId: ' reviewer-1 ',
+      actionKind: 'record_review',
+      note: 'Weekly review: founder fixed staffing and reviewed departures.',
+      evidenceKinds: ['external_contribution', 'ideas_feedback'],
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected covenant review to record')
+    expect(result.transactions).toEqual([])
+    expect(result.area.founderReviewHistory).toHaveLength(1)
+    expect(result.area.founderReviewHistory?.[0]).toMatchObject({
+      at: reviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      summary: 'Weekly review: founder fixed staffing and reviewed departures.',
+      authorityGate: {
+        requiredRole: 'area_reviewer',
+        status: 'evidence_only',
+        executionEnabled: false,
+      },
+      decision: {
+        status: 'watch',
+        nextAction: 'manual_review',
+        manualReviewRequired: false,
+      },
+      signals: expect.arrayContaining([
+        expect.objectContaining({ kind: 'sim_departure', amount: 1, businessKinds: ['water'] }),
+        expect.objectContaining({ kind: 'review_due' }),
+      ]),
+    })
+    expect(result.area.founderReviewHistory?.[0].reviewInputs.find((input) =>
+      input.kind === 'external_contribution'
+    )).toMatchObject({
+      status: 'captured',
+      evidence: 'External contribution evidence was attached by the reviewer.',
+      manualEvidenceRequired: false,
+    })
+    expect(result.dashboard.founderCovenant.signals).toEqual([])
+    expect(result.dashboard.founderCovenant.latestReview).toMatchObject({
+      reviewedAt: reviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      evidenceOnly: true,
+      automationEnabled: false,
+    })
+    expect(saved?.founderReviewHistory).toEqual(result.area.founderReviewHistory)
+    expect(repo.saves).toBe(saveCount + 1)
+  })
+
+  test('rejects disabled founder covenant actions without loading or saving', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    const loads = repo.loads
+    const saves = repo.saves
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'recordFounderCovenantReview',
+      areaId: 'area-1',
+      now: 1_000,
+      reviewerId: 'reviewer-1',
+      actionKind: 'send_warning',
+    })
+
+    expect(result).toEqual({ ok: false, error: 'review_action_disabled' })
+    expect(repo.loads).toBe(loads)
+    expect(repo.saves).toBe(saves)
   })
 
   test('reads a founder area by authenticated founder and advances server time', async () => {
