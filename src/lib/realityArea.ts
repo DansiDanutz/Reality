@@ -592,6 +592,8 @@ export interface RealityAreaDashboard {
   founderCovenant: RealityAreaCovenantReview
 }
 
+export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<RealityAreaDashboard, 'settlement' | 'legacyRoyalty'>
+
 export interface RealityAreaState {
   version: 1
   areaId: string
@@ -812,7 +814,7 @@ export function realityAreaStateToWorldArea(state: RealityAreaState): WorldArea 
 export function mergeRealityAreaDashboardIntoWorldDashboard(
   dashboard: AreaNeedsDashboard,
   serverDashboard: RealityAreaDashboard | undefined,
-): AreaNeedsDashboard {
+): AreaNeedsDashboard | MergedRealityAreaDashboard {
   if (!serverDashboard) return dashboard
 
   const licenseSlots = { ...dashboard.licenseSlots, ...serverDashboard.licenseSlots }
@@ -856,6 +858,16 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     ),
     survival: mergeRealityAreaSurvivalDashboard(serverDashboard.survival),
     ledger: mergeRealityAreaLedgerDashboard(serverDashboard.ledger),
+    settlement: {
+      ...serverDashboard.settlement,
+      blockers: [...serverDashboard.settlement.blockers],
+    },
+    legacyRoyalty: {
+      ...serverDashboard.legacyRoyalty,
+      royaltyEligibleBusinessIds: [...serverDashboard.legacyRoyalty.royaltyEligibleBusinessIds],
+      royaltyExcludedBusinessIds: [...serverDashboard.legacyRoyalty.royaltyExcludedBusinessIds],
+      blockers: [...serverDashboard.legacyRoyalty.blockers],
+    },
     founderCovenant: mergeRealityAreaCovenantReview(serverDashboard.founderCovenant),
   }
 }

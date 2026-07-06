@@ -32,6 +32,9 @@ import {
   founderCovenantTone,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderSettlementBlockerText,
+  founderSettlementStatusLabel,
+  founderSettlementSummaryItems,
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
@@ -499,5 +502,44 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderLedgerTransactionTitle({ kind: 'customer_purchase' })).toBe('Customer purchase')
     expect(founderLedgerTransactionTitle({ kind: 'medical_debt' })).toBe('Medical debt')
     expect(founderLedgerTransactionTitle({ kind: 'debt_repayment' })).toBe('Debt repayment')
+  })
+
+  test('summarizes disabled TON settlement without enabling value movement', () => {
+    const settlement: Parameters<typeof founderSettlementSummaryItems>[0] = {
+      rail: 'ton',
+      mode: 'ledger_only',
+      gameplayLedgerSource: 'reality_server',
+      gameCredits: 200_000,
+      payoutEligibleCredits: 0,
+      walletConnectionRequired: false,
+      walletConnectionEnabled: false,
+      depositsEnabled: false,
+      withdrawalsEnabled: false,
+      landReservationsEnabled: false,
+      landLeasesEnabled: false,
+      highFrequencyOnChainTransactions: false,
+      manualReviewRequired: true,
+      complianceReviewRequired: true,
+      blockers: [
+        'ton_connect_disabled',
+        'deposits_disabled',
+        'withdrawals_disabled',
+        'land_reservations_disabled',
+        'leases_disabled',
+        'manual_payout_review_required',
+        'compliance_review_required',
+      ],
+    }
+
+    expect(founderSettlementStatusLabel(settlement)).toBe('Disabled')
+    expect(founderSettlementSummaryItems(settlement)).toEqual([
+      { key: 'rail', label: 'Rail', value: 'TON', tone: 'warning' },
+      { key: 'mode', label: 'Mode', value: 'ledger only', tone: 'stable' },
+      { key: 'credits', label: 'Game credits', value: '$200,000', tone: 'stable' },
+      { key: 'eligible', label: 'Payout eligible', value: '$0', tone: 'stable' },
+    ])
+    expect(founderSettlementBlockerText('ton_connect_disabled')).toBe('TON Connect')
+    expect(founderSettlementBlockerText('manual_payout_review_required')).toBe('Manual payout review')
+    expect(founderSettlementBlockerText('compliance_review_required')).toBe('Compliance review')
   })
 })

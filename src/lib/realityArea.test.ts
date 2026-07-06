@@ -808,7 +808,8 @@ describe('Reality area client', () => {
 
   test('uses server first-build guidance over locally inferred build choices', () => {
     const localDashboard = areaNeedsDashboard(realityAreaStateToWorldArea(serverState()))
-    const merged = mergeRealityAreaDashboardIntoWorldDashboard(localDashboard, serverDashboard())
+    const server = serverDashboard()
+    const merged = mergeRealityAreaDashboardIntoWorldDashboard(localDashboard, server)
     const water = merged.firstBuild.find((recommendation) => recommendation.kind === 'water')
     const food = merged.firstBuild.find((recommendation) => recommendation.kind === 'food')
     const worker = merged.jobs.candidates[0]
@@ -848,6 +849,8 @@ describe('Reality area client', () => {
         amount: 2,
       }],
     })
+    expect((merged as { settlement: RealityAreaDashboard['settlement'] }).settlement).toEqual(server.settlement)
+    expect((merged as { legacyRoyalty: RealityAreaDashboard['legacyRoyalty'] }).legacyRoyalty).toEqual(server.legacyRoyalty)
     expect(merged.jobs).toMatchObject({
       openPositions: 1,
       hireableSimWorkers: 1,

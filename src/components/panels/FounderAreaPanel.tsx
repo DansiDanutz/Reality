@@ -20,6 +20,7 @@ import {
   realityAreaStateToWorldArea,
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
+  type RealityAreaSettlementDashboard,
   type RealityAreaState,
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
@@ -56,6 +57,9 @@ import {
   founderCovenantTone,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderSettlementBlockerText,
+  founderSettlementStatusLabel,
+  founderSettlementSummaryItems,
 } from './founderAreaPanelView'
 
 type PanelState =
@@ -106,6 +110,7 @@ export default function FounderAreaPanel() {
 
   const result = panelState.status === 'ready' ? panelState.result : null
   const dashboard = result?.dashboard
+  const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
@@ -475,6 +480,34 @@ export default function FounderAreaPanel() {
             )}
           </section>
 
+          {settlementDashboard && (
+            <section className="founder-section" aria-label="Settlement">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Settlement</h3>
+                <span className="item-desc">{founderSettlementStatusLabel(settlementDashboard)}</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Settlement summary">
+                {founderSettlementSummaryItems(settlementDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <ul className="item-list founder-settlement-blockers" aria-label="Settlement blockers">
+                {settlementDashboard.blockers.map((blocker) => (
+                  <li className="item founder-settlement-blocker" key={blocker}>
+                    <div className="item-info">
+                      <span className="item-name">{founderSettlementBlockerText(blocker)}</span>
+                      <span className="item-desc">Locked until review</span>
+                    </div>
+                    <span className="item-locked mono">disabled</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="founder-section" aria-label="First build choices">
             <h3 className="founder-section-title">First Build</h3>
             <ul className="item-list">
@@ -660,6 +693,12 @@ async function hydrateServerArea(
     ...result,
     dashboard: mergeRealityAreaDashboardIntoWorldDashboard(result.dashboard, serverDashboard),
   }
+}
+
+function getFounderSettlementDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaSettlementDashboard | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'settlement'>>).settlement ?? null
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {

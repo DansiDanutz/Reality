@@ -16,6 +16,10 @@ import type {
   FounderCovenantStage,
   WorldTransactionKind,
 } from '../../game/worldSim'
+import type {
+  RealityAreaSettlementBlocker,
+  RealityAreaSettlementDashboard,
+} from '../../lib/realityArea'
 
 export type FounderCovenantReviewTone = 'stable' | 'warning' | 'critical'
 
@@ -33,11 +37,70 @@ export interface FounderLedgerSummaryItem {
   tone: FounderCovenantReviewTone
 }
 
+export interface FounderSettlementSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
 export interface FounderCovenantScheduleItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
+}
+
+export function founderSettlementStatusLabel(settlement: Pick<RealityAreaSettlementDashboard, 'mode'>): string {
+  switch (settlement.mode) {
+    case 'ledger_only':
+      return 'Disabled'
+  }
+}
+
+export function founderSettlementSummaryItems(
+  settlement: RealityAreaSettlementDashboard,
+): FounderSettlementSummaryItem[] {
+  return [{
+    key: 'rail',
+    label: 'Rail',
+    value: settlement.rail.toUpperCase(),
+    tone: 'warning',
+  }, {
+    key: 'mode',
+    label: 'Mode',
+    value: 'ledger only',
+    tone: 'stable',
+  }, {
+    key: 'credits',
+    label: 'Game credits',
+    value: formatMoney(settlement.gameCredits),
+    tone: 'stable',
+  }, {
+    key: 'eligible',
+    label: 'Payout eligible',
+    value: formatMoney(settlement.payoutEligibleCredits),
+    tone: 'stable',
+  }]
+}
+
+export function founderSettlementBlockerText(blocker: RealityAreaSettlementBlocker): string {
+  switch (blocker) {
+    case 'ton_connect_disabled':
+      return 'TON Connect'
+    case 'deposits_disabled':
+      return 'Deposits'
+    case 'withdrawals_disabled':
+      return 'Withdrawals'
+    case 'land_reservations_disabled':
+      return 'Land reservations'
+    case 'leases_disabled':
+      return 'Land leases'
+    case 'manual_payout_review_required':
+      return 'Manual payout review'
+    case 'compliance_review_required':
+      return 'Compliance review'
+  }
 }
 
 export function founderCovenantStatusLabel(status: AreaFounderCovenantDashboard['status']): string {
