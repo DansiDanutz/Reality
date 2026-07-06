@@ -13,6 +13,7 @@ import {
 } from './worldSim'
 import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCodec'
 import {
+  readWorldFounderCovenantReviewQueue,
   runWorldServerCommand,
   type SaveWorldAreaOptions,
   type SaveWorldAreaResult,
@@ -48,6 +49,17 @@ class MemoryWorldRepo implements WorldAreaRepository {
   async loadAreaRecord(areaId: string): Promise<WorldAreaRecord | null> {
     this.loads += 1
     return this.areaRecord(areaId)
+  }
+
+  async listAreaRecords(): Promise<WorldAreaRecord[]> {
+    this.loads += 1
+    return [...this.snapshots.keys()]
+      .sort((a, b) => a.localeCompare(b))
+      .map((areaId) => {
+        const record = this.areaRecord(areaId)
+        if (!record) throw new Error(`missing stored area: ${areaId}`)
+        return record
+      })
   }
 
   async loadAreaByFounder(founderCitizenId: string): Promise<WorldAreaRecord | null> {
@@ -1241,6 +1253,128 @@ describe('runWorldServerCommand', () => {
     expect(result.summary).toBeUndefined()
     expect(result.transactions).toEqual([])
     expect(repo.saves).toBe(1)
+  })
+
+  test('builds an evidence-only founder covenant review queue across stored areas', async () => {
+    const repo = new MemoryWorldRepo()
+    const now = 1_000 + HOUR
+    await createArea(repo, citizen('founder'))
+    const createdRisk = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-2',
+      name: 'Risk District',
+      now: 1_000,
+      authenticatedFounderId: 'founder-2',
+      founder: citizen('founder-2', { money: 1_000 }),
+      simCitizens: [],
+      claim: {
+        founderCitizenId: 'founder-2',
+        label: 'Risk District',
+        centerLat: 45.45,
+        centerLng: 27.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    if (!createdRisk.ok) throw new Error(`expected second area creation to succeed: ${createdRisk.error}`)
+    await repo.saveArea({
+      ...createdRisk.area,
+      citizens: createdRisk.area.citizens.map((existing) =>
+        existing.id === 'founder-2'
+          ? {
+            ...existing,
+            debt: 350,
+            debts: [{
+              id: 'medical-1',
+              kind: 'medical',
+              creditorId: 'system:hospital',
+              amount: 350,
+              issuedAt: 1_000,
+              memo: 'Founder owes hospital debt.',
+            }],
+            state: { kind: 'hospitalized', until: now + HOUR },
+          }
+          : existing
+      ),
+    })
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, now)
+    const savedSafe = await repo.loadArea('area-1')
+    const savedRisk = await repo.loadArea('area-2')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected review queue to build: ${result.error}`)
+    const queue = result.founderCovenantReviewQueue
+    expect(queue).toMatchObject({
+      generatedAt: now,
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      approvalWorkflowEnabled: false,
+      scanned: 2,
+      caughtUp: 2,
+      current: 0,
+      failed: 0,
+    })
+    expect(queue.items.map((item) => item.founderCitizenId)).toEqual(['founder-2', 'founder'])
+    expect(queue.items[0]).toMatchObject({
+      areaId: 'area-2',
+      covenantStatus: 'manual_review',
+      nextAction: 'manual_review',
+      manualReviewRequired: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        active: false,
+        hospitalized: true,
+        indebted: true,
+        atRisk: true,
+      },
+      economicExposure: {
+        founderCash: FOUNDER_STARTING_BALANCE,
+        outstandingDebt: 350,
+        debtCount: 1,
+        hospitalized: true,
+        gameCreditsOnly: true,
+        payoutEligibleCredits: 0,
+        manualPayoutReviewRequired: true,
+      },
+      signalCounts: {
+        critical: 1,
+      },
+      signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
+    })
+    expect(queue.totals).toMatchObject({
+      founders: 2,
+      active: 1,
+      hospitalized: 1,
+      indebted: 1,
+      atRisk: 2,
+      manualReviewRequired: 1,
+      totalOutstandingDebt: 350,
+    })
+    expect(queue.results).toEqual([
+      { areaId: 'area-1', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },
+      { areaId: 'area-2', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },
+    ])
+    expect(savedSafe?.now).toBe(now)
+    expect(savedRisk?.now).toBe(now)
+  })
+
+  test('reports unavailable founder covenant review queue repositories', async () => {
+    const repo: WorldAreaRepository = {
+      loadArea: async () => null,
+      loadAreaByFounder: async () => null,
+      saveArea: async () => undefined,
+    }
+
+    await expect(readWorldFounderCovenantReviewQueue(repo, 1_000))
+      .resolves.toEqual({ ok: false, error: 'review_queue_unavailable' })
+    await expect(readWorldFounderCovenantReviewQueue(repo, Number.NaN))
+      .resolves.toEqual({ ok: false, error: 'invalid_command_time' })
   })
 
   test('rejects founder area reads without a claimed area', async () => {

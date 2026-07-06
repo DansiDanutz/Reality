@@ -67,6 +67,22 @@ describe('createMemoryWorldAreaRepository', () => {
     expect(secondLoad?.citizens[0].money).toBe(FOUNDER_STARTING_BALANCE)
   })
 
+  test('lists decoded area records in stable order', async () => {
+    const repo = createMemoryWorldAreaRepository([
+      area('area-b', 'founder-b'),
+      area('area-a', 'founder-a'),
+    ])
+
+    const records = await repo.listAreaRecords()
+    records[0].area.name = 'mutated'
+
+    expect(records.map((record) => [record.area.id, record.revision])).toEqual([
+      ['area-a', '1'],
+      ['area-b', '1'],
+    ])
+    expect((await repo.loadArea('area-a'))?.name).toBe('area-a District')
+  })
+
   test('rejects stale revisions and duplicate area creation expectations', async () => {
     const repo = createMemoryWorldAreaRepository([area('area-1', 'founder')])
 

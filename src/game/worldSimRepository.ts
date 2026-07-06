@@ -9,6 +9,7 @@ import type {
 
 export interface MemoryWorldAreaRepository extends WorldAreaRepository {
   loadAreaRecord: (areaId: string) => Promise<WorldAreaRecord | null>
+  listAreaRecords: () => Promise<WorldAreaRecord[]>
   areaIds: () => string[]
   snapshotOf: (areaId: string) => string | null
   revisionOf: (areaId: string) => string | null
@@ -43,6 +44,16 @@ export function createMemoryWorldAreaRepository(initialAreas: WorldArea[] = []):
 
     async loadAreaRecord(areaId: string): Promise<WorldAreaRecord | null> {
       return areaRecord(areaId)
+    },
+
+    async listAreaRecords(): Promise<WorldAreaRecord[]> {
+      return [...snapshots.keys()]
+        .sort((a, b) => a.localeCompare(b))
+        .map((areaId) => {
+          const record = areaRecord(areaId)
+          if (!record) throw new Error(`missing stored world area: ${areaId}`)
+          return record
+        })
     },
 
     async loadAreaByFounder(founderCitizenId: string): Promise<WorldAreaRecord | null> {

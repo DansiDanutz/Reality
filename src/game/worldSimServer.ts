@@ -12,6 +12,10 @@ import {
   type ClaimWorldAreaError,
   type FounderCovenantManualActionKind,
   type FounderCovenantManualEvidenceKind,
+  type FounderCovenantNextAction,
+  type FounderCovenantReviewQueue,
+  type FounderCovenantSignalKind,
+  type FounderCovenantStatus,
   type RecordFounderCovenantReviewError,
   type WorldArea,
   type WorldAreaClaim,
@@ -33,6 +37,7 @@ import type { Needs } from './types'
 export interface WorldAreaRepository {
   loadArea: (areaId: string) => Promise<WorldArea | null>
   loadAreaRecord?: (areaId: string) => Promise<WorldAreaRecord | null>
+  listAreaRecords?: () => Promise<WorldAreaRecord[]>
   loadAreaByFounder: (founderCitizenId: string) => Promise<WorldAreaRecord | null>
   saveArea: (area: WorldArea, options?: SaveWorldAreaOptions) => Promise<void | SaveWorldAreaResult>
 }
@@ -137,6 +142,111 @@ export type WorldServerCommandError =
   | WorldIntentError
   | RecordFounderCovenantReviewError
 
+export type WorldFounderCovenantReviewQueueError =
+  | 'invalid_command_time'
+  | 'review_queue_unavailable'
+
+export type WorldFounderCovenantReviewQueueScanStatus =
+  | 'current'
+  | 'caught_up'
+  | 'time_moved_backward'
+  | 'write_conflict'
+
+export interface WorldFounderCovenantReviewQueueSignalCounts {
+  total: number
+  info: number
+  warning: number
+  critical: number
+}
+
+export interface WorldFounderCovenantReviewQueueEconomicExposure {
+  founderCash: number
+  outstandingDebt: number
+  debtCount: number
+  businessCash: number
+  businessCount: number
+  unstaffedBusinessCount: number
+  insured: boolean
+  hospitalized: boolean
+  gameCreditsOnly: true
+  payoutEligibleCredits: 0
+  manualPayoutReviewRequired: true
+}
+
+export interface WorldFounderCovenantReviewQueueItem {
+  areaId: string
+  areaName: string
+  founderCitizenId: string
+  checkedAt: number
+  lastReviewAt: number | null
+  nextWeeklyReviewAt: number | null
+  nextMonthlyReviewAt: number | null
+  overdue: boolean
+  covenantStatus: FounderCovenantStatus
+  nextAction: FounderCovenantNextAction
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  activityReview: AreaNeedsDashboard['founderCovenant']['activityReview']
+  economicExposure: WorldFounderCovenantReviewQueueEconomicExposure
+  reviewQueue: FounderCovenantReviewQueue
+  signalCounts: WorldFounderCovenantReviewQueueSignalCounts
+  signalKinds: readonly FounderCovenantSignalKind[]
+  recommendedActionKinds: readonly FounderCovenantManualActionKind[]
+  pendingApprovalKinds: AreaNeedsDashboard['founderCovenant']['reviewQueue']['pendingApprovalKinds']
+  pendingNotificationKinds: AreaNeedsDashboard['founderCovenant']['reviewQueue']['pendingNotificationKinds']
+  blockerCount: number
+  scanStatus: WorldFounderCovenantReviewQueueScanStatus
+  transactionsAdded: number
+}
+
+export interface WorldFounderCovenantReviewQueueScanResult {
+  areaId: string
+  status: WorldFounderCovenantReviewQueueScanStatus
+  checkedAt: number | null
+  transactionsAdded: number
+}
+
+export interface WorldFounderCovenantReviewQueueDashboard {
+  generatedAt: number
+  evidenceOnly: true
+  automationEnabled: false
+  executionEnabled: false
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  approvalWorkflowEnabled: false
+  scanned: number
+  caughtUp: number
+  current: number
+  failed: number
+  totals: {
+    founders: number
+    active: number
+    useful: number
+    building: number
+    staffed: number
+    indebted: number
+    hospitalized: number
+    atRisk: number
+    manualReviewRequired: number
+    overdue: number
+    totalFounderCash: number
+    totalOutstandingDebt: number
+    totalBusinessCash: number
+    unstaffedBusinesses: number
+    insuredFounders: number
+    pendingApprovals: number
+    pendingNotifications: number
+    blockers: number
+  }
+  items: WorldFounderCovenantReviewQueueItem[]
+  results: WorldFounderCovenantReviewQueueScanResult[]
+}
+
+export type WorldFounderCovenantReviewQueueResult =
+  | { ok: true; founderCovenantReviewQueue: WorldFounderCovenantReviewQueueDashboard }
+  | { ok: false; error: WorldFounderCovenantReviewQueueError }
+
 export type WorldServerCommandResult =
   | {
     ok: true
@@ -177,6 +287,47 @@ export async function runWorldServerCommand(
       return recordFounderCovenantReviewForStoredArea(repo, command)
     case 'recordClientFounderCovenantReview':
       return recordClientFounderCovenantReviewForStoredArea(repo, command)
+  }
+}
+
+export async function readWorldFounderCovenantReviewQueue(
+  repo: WorldAreaRepository,
+  now: number,
+): Promise<WorldFounderCovenantReviewQueueResult> {
+  if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
+  if (!repo.listAreaRecords) return { ok: false, error: 'review_queue_unavailable' }
+
+  const records = await repo.listAreaRecords()
+  const items: WorldFounderCovenantReviewQueueItem[] = []
+  const results: WorldFounderCovenantReviewQueueScanResult[] = []
+
+  for (const record of records) {
+    const result = await founderCovenantReviewQueueRecord(repo, record, now)
+    results.push(result.result)
+    if (result.item) items.push(result.item)
+  }
+
+  const sortedItems = [...items].sort(compareFounderCovenantReviewQueueItems)
+  return {
+    ok: true,
+    founderCovenantReviewQueue: {
+      generatedAt: now,
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      approvalWorkflowEnabled: false,
+      scanned: results.length,
+      caughtUp: results.filter((result) => result.status === 'caught_up').length,
+      current: results.filter((result) => result.status === 'current').length,
+      failed: results.filter((result) =>
+        result.status === 'time_moved_backward' || result.status === 'write_conflict'
+      ).length,
+      totals: founderCovenantReviewQueueTotals(sortedItems),
+      items: sortedItems,
+      results,
+    },
   }
 }
 
@@ -340,6 +491,218 @@ async function saveStoredArea(
 
 function transactionDelta(area: WorldArea, fromIndex: number): WorldTransaction[] {
   return area.transactions.slice(fromIndex).map((transaction) => ({ ...transaction }))
+}
+
+async function founderCovenantReviewQueueRecord(
+  repo: WorldAreaRepository,
+  record: WorldAreaRecord,
+  now: number,
+): Promise<{
+  result: WorldFounderCovenantReviewQueueScanResult
+  item: WorldFounderCovenantReviewQueueItem | null
+}> {
+  const { area } = record
+  if (now < area.now) {
+    return {
+      result: {
+        areaId: area.id,
+        status: 'time_moved_backward',
+        checkedAt: area.now,
+        transactionsAdded: 0,
+      },
+      item: null,
+    }
+  }
+
+  const advanced = now === area.now ? null : advanceWorldArea(area, now)
+  const reviewArea = advanced?.area ?? area
+  const transactionsAdded = advanced ? Math.max(0, reviewArea.transactions.length - area.transactions.length) : 0
+  const scanStatus: WorldFounderCovenantReviewQueueScanStatus = advanced ? 'caught_up' : 'current'
+
+  if (advanced) {
+    const saved = await saveStoredArea(repo, reviewArea, { expectedRevision: record.revision })
+    if (!saved.ok) {
+      return {
+        result: {
+          areaId: area.id,
+          status: 'write_conflict',
+          checkedAt: area.now,
+          transactionsAdded: 0,
+        },
+        item: null,
+      }
+    }
+  }
+
+  const dashboard = areaNeedsDashboard(reviewArea)
+  const founderCitizenId = reviewArea.claim?.founderCitizenId
+  if (!founderCitizenId || !dashboard.founderCovenant.founderCitizenId) {
+    return {
+      result: {
+        areaId: reviewArea.id,
+        status: scanStatus,
+        checkedAt: reviewArea.now,
+        transactionsAdded,
+      },
+      item: null,
+    }
+  }
+
+  return {
+    result: {
+      areaId: reviewArea.id,
+      status: scanStatus,
+      checkedAt: reviewArea.now,
+      transactionsAdded,
+    },
+    item: founderCovenantReviewQueueItem(reviewArea, dashboard, scanStatus, transactionsAdded),
+  }
+}
+
+function founderCovenantReviewQueueItem(
+  area: WorldArea,
+  dashboard: AreaNeedsDashboard,
+  scanStatus: WorldFounderCovenantReviewQueueScanStatus,
+  transactionsAdded: number,
+): WorldFounderCovenantReviewQueueItem {
+  const review = dashboard.founderCovenant
+  const founderCitizenId = review.founderCitizenId ?? area.claim?.founderCitizenId ?? ''
+  return {
+    areaId: area.id,
+    areaName: area.name,
+    founderCitizenId,
+    checkedAt: review.activityReview.checkedAt,
+    lastReviewAt: review.reviewSchedule?.lastReviewAt ?? null,
+    nextWeeklyReviewAt: review.reviewSchedule?.nextWeeklyReviewAt ?? null,
+    nextMonthlyReviewAt: review.reviewSchedule?.nextMonthlyReviewAt ?? null,
+    overdue: review.reviewSchedule?.overdue ?? false,
+    covenantStatus: review.status,
+    nextAction: review.nextAction,
+    manualReviewRequired: review.manualReviewRequired,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    activityReview: { ...review.activityReview },
+    economicExposure: founderCovenantReviewQueueEconomicExposure(area, dashboard, founderCitizenId),
+    reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
+    signalCounts: founderCovenantReviewSignalCounts(review.signals),
+    signalKinds: review.signals.map((signal) => signal.kind),
+    recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
+    pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
+    pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
+    blockerCount: review.reviewQueue.blockerCount,
+    scanStatus,
+    transactionsAdded,
+  }
+}
+
+function founderCovenantReviewQueueEconomicExposure(
+  area: WorldArea,
+  dashboard: AreaNeedsDashboard,
+  founderCitizenId: string,
+): WorldFounderCovenantReviewQueueEconomicExposure {
+  const founder = area.citizens.find((citizen) => citizen.id === founderCitizenId)
+  const founderDashboard = dashboard.citizens.find((citizen) => citizen.id === founderCitizenId)
+  const founderBusinesses = dashboard.existingBusinesses.filter((business) => business.ownerId === founderCitizenId)
+  const outstandingDebt = founderDebtForQueue(founder)
+  return {
+    founderCash: roundServerMoney(founder?.money ?? 0),
+    outstandingDebt,
+    debtCount: (founder?.debts?.length ?? 0) || (outstandingDebt > 0 ? 1 : 0),
+    businessCash: roundServerMoney(founderBusinesses.reduce((total, business) => total + business.cash, 0)),
+    businessCount: founderBusinesses.length,
+    unstaffedBusinessCount: founderBusinesses.filter((business) => business.openPositions > 0).length,
+    insured: founderDashboard?.insuranceActive ?? false,
+    hospitalized: founder?.state.kind === 'hospitalized',
+    gameCreditsOnly: true,
+    payoutEligibleCredits: 0,
+    manualPayoutReviewRequired: true,
+  }
+}
+
+function founderDebtForQueue(founder: WorldCitizen | undefined): number {
+  if (!founder) return 0
+  const itemizedDebt = founder.debts?.reduce((total, debt) => total + debt.amount, 0) ?? 0
+  return roundServerMoney(itemizedDebt > 0 ? itemizedDebt : founder.debt)
+}
+
+function founderCovenantReviewSignalCounts(
+  signals: AreaNeedsDashboard['founderCovenant']['signals'],
+): WorldFounderCovenantReviewQueueSignalCounts {
+  return {
+    total: signals.length,
+    info: signals.filter((signal) => signal.severity === 'info').length,
+    warning: signals.filter((signal) => signal.severity === 'warning').length,
+    critical: signals.filter((signal) => signal.severity === 'critical').length,
+  }
+}
+
+function founderCovenantReviewQueueTotals(
+  items: WorldFounderCovenantReviewQueueItem[],
+): WorldFounderCovenantReviewQueueDashboard['totals'] {
+  return {
+    founders: items.length,
+    active: items.filter((item) => item.activityReview.active).length,
+    useful: items.filter((item) => item.activityReview.useful).length,
+    building: items.filter((item) => item.activityReview.building).length,
+    staffed: items.filter((item) => item.activityReview.staffed).length,
+    indebted: items.filter((item) => item.activityReview.indebted).length,
+    hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
+    atRisk: items.filter((item) => item.activityReview.atRisk).length,
+    manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
+    overdue: items.filter((item) => item.overdue).length,
+    totalFounderCash: roundServerMoney(items.reduce((total, item) => total + item.economicExposure.founderCash, 0)),
+    totalOutstandingDebt: roundServerMoney(items.reduce((total, item) =>
+      total + item.economicExposure.outstandingDebt, 0)),
+    totalBusinessCash: roundServerMoney(items.reduce((total, item) => total + item.economicExposure.businessCash, 0)),
+    unstaffedBusinesses: items.reduce((total, item) => total + item.economicExposure.unstaffedBusinessCount, 0),
+    insuredFounders: items.filter((item) => item.economicExposure.insured).length,
+    pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
+    pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
+    blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+  }
+}
+
+function founderCovenantReviewQueueSnapshot(queue: FounderCovenantReviewQueue): FounderCovenantReviewQueue {
+  return {
+    ...queue,
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    recommendedActionKinds: [...queue.recommendedActionKinds],
+    pendingApprovalKinds: [...queue.pendingApprovalKinds],
+    pendingNotificationKinds: [...queue.pendingNotificationKinds],
+    blockers: [...queue.blockers],
+  }
+}
+
+function compareFounderCovenantReviewQueueItems(
+  left: WorldFounderCovenantReviewQueueItem,
+  right: WorldFounderCovenantReviewQueueItem,
+): number {
+  return founderCovenantReviewQueuePriority(right) - founderCovenantReviewQueuePriority(left) ||
+    left.activityReview.score - right.activityReview.score ||
+    left.areaId.localeCompare(right.areaId)
+}
+
+function founderCovenantReviewQueuePriority(item: WorldFounderCovenantReviewQueueItem): number {
+  let priority = 0
+  if (item.manualReviewRequired) priority += 120
+  if (item.overdue) priority += 100
+  if (item.activityReview.hospitalized) priority += 90
+  if (item.signalCounts.critical > 0) priority += item.signalCounts.critical * 40
+  if (item.activityReview.atRisk) priority += 70
+  if (item.activityReview.indebted) priority += 50
+  if (!item.activityReview.active) priority += 40
+  if (!item.activityReview.useful) priority += 30
+  if (!item.activityReview.building) priority += 20
+  if (!item.activityReview.staffed) priority += 15
+  priority += item.signalCounts.warning * 10
+  priority += item.reviewQueue.pendingApprovalCount * 5
+  return priority
+}
+
+function roundServerMoney(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 function isValidCommandTime(now: number): boolean {
