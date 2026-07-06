@@ -1068,6 +1068,20 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueEconomicExposure {
+  founderCash: number
+  outstandingDebt: number
+  debtCount: number
+  businessCash: number
+  businessCount: number
+  unstaffedBusinessCount: number
+  insured: boolean
+  hospitalized: boolean
+  gameCreditsOnly: true
+  payoutEligibleCredits: 0
+  manualPayoutReviewRequired: true
+}
+
 interface FounderCovenantReviewQueueItem {
   areaId: string
   areaLabel: string
@@ -1085,6 +1099,7 @@ interface FounderCovenantReviewQueueItem {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
+  economicExposure: FounderCovenantReviewQueueEconomicExposure
   reviewQueue: FounderAreaCovenantReviewQueue
   signalCounts: FounderCovenantReviewQueueSignalCounts
   signalKinds: FounderAreaCovenantSignalKind[]
@@ -1133,6 +1148,11 @@ interface FounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     overdue: number
+    totalFounderCash: number
+    totalOutstandingDebt: number
+    totalBusinessCash: number
+    unstaffedBusinesses: number
+    insuredFounders: number
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
@@ -4056,6 +4076,7 @@ function founderCovenantReviewQueueItem(
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview: { ...review.activityReview },
+    economicExposure: founderCovenantReviewQueueEconomicExposure(state),
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
     signalCounts: founderCovenantReviewSignalCounts(review.signals),
     signalKinds: review.signals.map((signal) => signal.kind),
@@ -4065,6 +4086,31 @@ function founderCovenantReviewQueueItem(
     blockerCount: review.reviewQueue.blockerCount,
     scanStatus,
     transactionsAdded,
+  }
+}
+
+function founderCovenantReviewQueueEconomicExposure(
+  state: FounderAreaState,
+): FounderCovenantReviewQueueEconomicExposure {
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
+  const outstandingDebt = founder ? totalCitizenDebt(founder) : 0
+  const itemizedDebtCount = founder?.debts?.length ?? 0
+  const checkedAt = new Date(state.updatedAt)
+  return {
+    founderCash: roundMoney(founder?.money ?? 0),
+    outstandingDebt,
+    debtCount: itemizedDebtCount > 0 ? itemizedDebtCount : outstandingDebt > 0 ? 1 : 0,
+    businessCash: roundMoney(founderBusinesses.reduce((total, business) => total + business.cash, 0)),
+    businessCount: founderBusinesses.length,
+    unstaffedBusinessCount: founderBusinesses.filter((business) =>
+      activeStaffCount(state.citizens, business) < TARGET_STAFF_BY_KIND[business.kind]
+    ).length,
+    insured: founder ? hasActiveInsurance(founder, checkedAt) : false,
+    hospitalized: founder?.state.kind === 'hospitalized',
+    gameCreditsOnly: true,
+    payoutEligibleCredits: 0,
+    manualPayoutReviewRequired: true,
   }
 }
 
@@ -4093,6 +4139,11 @@ function founderCovenantReviewQueueTotals(
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     overdue: items.filter((item) => item.overdue).length,
+    totalFounderCash: roundMoney(items.reduce((total, item) => total + item.economicExposure.founderCash, 0)),
+    totalOutstandingDebt: roundMoney(items.reduce((total, item) => total + item.economicExposure.outstandingDebt, 0)),
+    totalBusinessCash: roundMoney(items.reduce((total, item) => total + item.economicExposure.businessCash, 0)),
+    unstaffedBusinesses: items.reduce((total, item) => total + item.economicExposure.unstaffedBusinessCount, 0),
+    insuredFounders: items.filter((item) => item.economicExposure.insured).length,
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
