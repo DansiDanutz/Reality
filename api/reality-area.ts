@@ -454,6 +454,7 @@ const BASE_SERVICE_CAPACITY_PER_HOUR: Record<FounderAreaBusinessKind, number> = 
 }
 const STAFF_CAPACITY_MULTIPLIER = 0.75
 const SERVER_AREA_TICK_MS = 3_600_000
+const MAX_SERVER_AREA_CATCH_UP_HOURS = 24
 
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
@@ -1025,17 +1026,45 @@ function applyAdvanceHourIntent(
   if (!state) return { ok: false, error: 'area_not_claimed' }
   const intent = normalizeAdvanceHourIntent(input)
   if (!intent.ok) return intent
-  if (!canAdvanceAreaClock(state, now)) return { ok: false, error: 'clock_not_ready' }
+  const tickDates = areaClockTickDates(state, now)
+  if (tickDates.length === 0) return { ok: false, error: 'clock_not_ready' }
 
-  const at = now.toISOString()
   const transactions: FounderAreaTransaction[] = []
   const citizens = state.citizens.map(cloneCitizen)
   const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
+  for (const tickNow of tickDates) {
+    applyAreaHourTick(state.areaId, state.founderCitizenId, citizens, businesses, tickNow, transactions)
+  }
+  const founder = citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const balance = founder ? roundMoney(founder.money) : state.balance
+  const updatedAt = tickDates.at(-1)?.toISOString() ?? state.updatedAt
 
-  renewInsurancePolicies(state.areaId, citizens, businesses, now, at, transactions)
-  applyFounderHour(state.areaId, state.founderCitizenId, citizens, businesses, now, at, transactions)
+  return {
+    ok: true,
+    state: {
+      ...state,
+      balance,
+      businesses,
+      citizens,
+      transactions: [...state.transactions, ...transactions],
+      updatedAt,
+    },
+  }
+}
+
+function applyAreaHourTick(
+  areaId: string,
+  founderCitizenId: string,
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  now: Date,
+  transactions: FounderAreaTransaction[],
+): void {
+  const at = now.toISOString()
+  renewInsurancePolicies(areaId, citizens, businesses, now, at, transactions)
+  applyFounderHour(areaId, founderCitizenId, citizens, businesses, now, at, transactions)
   degradeUnmanagedBusinesses(citizens, businesses)
-  applySimCitizenHour(state.areaId, citizens, businesses, now, at, transactions)
+  applySimCitizenHour(areaId, citizens, businesses, now, at, transactions)
   for (const business of businesses) {
     let cash = business.cash
     const paidWorkerIds: string[] = []
@@ -1047,7 +1076,7 @@ function applyAdvanceHourIntent(
       worker.money = roundMoney(worker.money + business.wagePerHour)
       paidWorkerIds.push(workerId)
       transactions.push({
-        id: `${state.areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`,
+        id: `${areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`,
         at,
         kind: 'worker_wage',
         fromId: business.id,
@@ -1058,26 +1087,15 @@ function applyAdvanceHourIntent(
     }
     business.cash = cash
   }
-  const founder = citizens.find((citizen) => citizen.id === state.founderCitizenId)
-  const balance = founder ? roundMoney(founder.money) : state.balance
-
-  return {
-    ok: true,
-    state: {
-      ...state,
-      balance,
-      businesses,
-      citizens,
-      transactions: [...state.transactions, ...transactions],
-      updatedAt: at,
-    },
-  }
 }
 
-function canAdvanceAreaClock(state: FounderAreaState, now: Date): boolean {
+function areaClockTickDates(state: FounderAreaState, now: Date): Date[] {
   const updatedMs = Date.parse(state.updatedAt)
-  if (!Number.isFinite(updatedMs)) return true
-  return now.getTime() - updatedMs >= SERVER_AREA_TICK_MS
+  if (!Number.isFinite(updatedMs)) return [now]
+  const elapsedMs = now.getTime() - updatedMs
+  if (elapsedMs < SERVER_AREA_TICK_MS) return []
+  const tickCount = Math.min(MAX_SERVER_AREA_CATCH_UP_HOURS, Math.floor(elapsedMs / SERVER_AREA_TICK_MS))
+  return Array.from({ length: tickCount }, (_, index) => new Date(updatedMs + (index + 1) * SERVER_AREA_TICK_MS))
 }
 
 function applyServicePurchaseIntent(

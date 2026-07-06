@@ -870,7 +870,7 @@ describe('reality area authority API', () => {
   test('advanceHour lets Sim Citizens buy needed local services from their server balances', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const existing = withBusiness(existingState(), {
+    const existing = withBusiness(advanceReadyState(), {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
@@ -945,10 +945,42 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('advanceHour catches up every full real hour since the last server tick', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const waiting = {
+      ...existingState(),
+      updatedAt: '2026-07-06T05:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://catch-up-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(waiting), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const simWater = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(body.state.updatedAt).toBe('2026-07-06T07:00:00.000Z')
+    expect(founder?.needs).toEqual({ hunger: 82, hydration: 80, energy: 84, hygiene: 88, fun: 88 })
+    expect(simWater?.needs.hydration).toBe(32)
+    expect(body.state.transactions).toHaveLength(waiting.transactions.length)
+  })
+
   test('advanceHour scales Sim Citizen service effects by degraded business quality', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const hospitalized = withCitizen(existingState(), CITIZEN_ID, {
+    const hospitalized = withCitizen(advanceReadyState(), CITIZEN_ID, {
       state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
     })
     const existing = withBusiness(hospitalized, {
@@ -992,7 +1024,7 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
     const hungry = withCitizen(
-      withCitizen(existingState(), 'founder-area-0012:sim-water', { needs: { hunger: 40 } }),
+      withCitizen(advanceReadyState(), 'founder-area-0012:sim-water', { needs: { hunger: 40 } }),
       'founder-area-0012:sim-housing',
       { needs: { hunger: 40 } },
     )
@@ -1046,7 +1078,7 @@ describe('reality area authority API', () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-decay-area'))
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(advanceReadyState()), { status: 200 })))
     const res = responseRecorder()
 
     await handler({
@@ -1072,7 +1104,7 @@ describe('reality area authority API', () => {
   test('advanceHour hospitalizes collapsed founders and keeps balance synced to server money', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const collapsed = withCitizen({ ...existingState(), balance: 50 }, CITIZEN_ID, {
+    const collapsed = withCitizen({ ...advanceReadyState(), balance: 50 }, CITIZEN_ID, {
       money: 50,
       health: 15,
       needs: { hydration: 0 },
@@ -1137,7 +1169,7 @@ describe('reality area authority API', () => {
   test('advanceHour recovers hospitalized founders without decaying them during that hour', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const recovering = withCitizen({ ...existingState(), balance: 123 }, CITIZEN_ID, {
+    const recovering = withCitizen({ ...advanceReadyState(), balance: 123 }, CITIZEN_ID, {
       money: 123,
       health: 30,
       needs: { hunger: 5, hydration: 5, energy: 5, hygiene: 90, fun: 90 },
@@ -1172,7 +1204,7 @@ describe('reality area authority API', () => {
   test('advanceHour degrades unstaffed businesses while their owner is hospitalized', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const hospitalized = withCitizen(existingState(), CITIZEN_ID, {
+    const hospitalized = withCitizen(advanceReadyState(), CITIZEN_ID, {
       state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
     })
     const existing = withBusinesses(hospitalized, [{
@@ -1225,7 +1257,7 @@ describe('reality area authority API', () => {
   test('advanceHour hospitalizes collapsed Sim Citizens and creates medical debt', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const collapsed = withCitizen(existingState(), 'founder-area-0012:sim-food', {
+    const collapsed = withCitizen(advanceReadyState(), 'founder-area-0012:sim-food', {
       money: 50,
       health: 15,
     })
@@ -1287,7 +1319,7 @@ describe('reality area authority API', () => {
   test('advanceHour uses active insurance cash before patient cash and shortens recovery', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const collapsed = withCitizen(existingState(), 'founder-area-0012:sim-food', {
+    const collapsed = withCitizen(advanceReadyState(), 'founder-area-0012:sim-food', {
       money: 50,
       health: 15,
       insuranceBusinessId: 'insurance-1',
@@ -1368,7 +1400,7 @@ describe('reality area authority API', () => {
   test('advanceHour does not shorten recovery when active insurer has no cash', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const collapsed = withCitizen(existingState(), 'founder-area-0012:sim-food', {
+    const collapsed = withCitizen(advanceReadyState(), 'founder-area-0012:sim-food', {
       money: 50,
       health: 15,
       insuranceBusinessId: 'insurance-1',
@@ -1867,7 +1899,7 @@ describe('reality area authority API', () => {
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
-    const existing = withBusiness(existingState(), {
+    const existing = withBusiness(advanceReadyState(), {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
@@ -1979,6 +2011,13 @@ function existingState() {
       memo: 'Demo Housing Resident received simulated resident game credit.',
     }],
     updatedAt: '2026-07-06T03:00:00.000Z',
+  } as const
+}
+
+function advanceReadyState() {
+  return {
+    ...existingState(),
+    updatedAt: '2026-07-06T06:00:00.000Z',
   } as const
 }
 
