@@ -13,6 +13,7 @@ const BUILDER_RECEIVER_ID = 'system:builders'
 const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
 const AREA_STATE_VERSION = 1
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
+const INSURANCE_COVERAGE = 0.6
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
 const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
 
@@ -46,6 +47,7 @@ interface FounderAreaTransaction {
     | 'worker_wage'
     | 'hospital_bill'
     | 'insurance_premium'
+    | 'insurance_payout'
     | 'medical_debt'
     | 'debt_repayment'
   fromId: string
@@ -431,6 +433,7 @@ const HEALTH_PURCHASE_THRESHOLD = 75
 const COLLAPSE_HEALTH = 20
 const HOSPITAL_BILL = 350
 const HOSPITALIZATION_HOURS = 8
+const INSURED_HOSPITALIZATION_HOURS = 5
 const RECOVERY_HEALTH = 55
 const SERVICE_EFFECTS: Record<Exclude<FounderAreaBusinessKind, 'insurance'>, Partial<FounderAreaNeeds> & { health?: number }> = {
   water: { hydration: 35 },
@@ -1305,10 +1308,11 @@ function hospitalizeCitizen(
   at: string,
   transactions: FounderAreaTransaction[],
 ): void {
-  const until = new Date(now.getTime() + HOSPITALIZATION_HOURS * 3_600_000).toISOString()
   citizen.health = Math.max(citizen.health, 30)
+  const insurancePaid = settleHospitalBill(areaId, citizen, businesses, now, at, transactions)
+  const recoveryHours = insurancePaid ? INSURED_HOSPITALIZATION_HOURS : HOSPITALIZATION_HOURS
+  const until = new Date(now.getTime() + recoveryHours * 3_600_000).toISOString()
   citizen.state = { kind: 'hospitalized', until }
-  settleHospitalBill(areaId, citizen, businesses, now, at, transactions)
 }
 
 function settleHospitalBill(
@@ -1318,13 +1322,37 @@ function settleHospitalBill(
   now: Date,
   at: string,
   transactions: FounderAreaTransaction[],
-): void {
+): boolean {
   const clinic = chooseServiceBusinessFromBusinesses(businesses, 'clinic')
   const receiverId = clinic?.id ?? SYSTEM_HOSPITAL_ACCOUNT_ID
-  const paid = roundMoney(Math.min(HOSPITAL_BILL, citizen.money))
+  let remaining = HOSPITAL_BILL
+  let insurancePaid = false
+
+  const insurer = activeInsuranceBusiness(citizen, businesses, now)
+  if (insurer) {
+    const coverage = roundMoney(Math.min(HOSPITAL_BILL * INSURANCE_COVERAGE, insurer.cash))
+    if (coverage > 0) {
+      insurancePaid = true
+      insurer.cash = roundMoney(insurer.cash - coverage)
+      if (clinic) clinic.cash = roundMoney(clinic.cash + coverage)
+      remaining = roundMoney(remaining - coverage)
+      transactions.push({
+        id: `${areaId}:${now.getTime()}:insurance-payout:${insurer.id}:${citizen.id}`,
+        at,
+        kind: 'insurance_payout',
+        fromId: insurer.id,
+        toId: receiverId,
+        amount: coverage,
+        memo: `${insurer.name} covered part of ${citizen.name}'s hospital bill.`,
+      })
+    }
+  }
+
+  const paid = roundMoney(Math.min(remaining, citizen.money))
   if (paid > 0) {
     citizen.money = roundMoney(citizen.money - paid)
     if (clinic) clinic.cash = roundMoney(clinic.cash + paid)
+    remaining = roundMoney(remaining - paid)
     transactions.push({
       id: `${areaId}:${now.getTime()}:hospital-bill:${citizen.id}`,
       at,
@@ -1336,14 +1364,13 @@ function settleHospitalBill(
     })
   }
 
-  const unpaid = roundMoney(HOSPITAL_BILL - paid)
-  if (unpaid <= 0) return
-  citizen.debt = roundMoney(citizen.debt + unpaid)
+  if (remaining <= 0) return insurancePaid
+  citizen.debt = roundMoney(citizen.debt + remaining)
   const debt: FounderAreaDebt = {
     id: `${citizen.id}:${now.getTime()}:${(citizen.debts?.length ?? 0) + 1}:medical`,
     kind: 'medical',
     creditorId: receiverId,
-    amount: unpaid,
+    amount: remaining,
     issuedAt: at,
     memo: `${citizen.name} owes medical debt to ${receiverId}.`,
   }
@@ -1354,9 +1381,23 @@ function settleHospitalBill(
     kind: 'medical_debt',
     fromId: citizen.id,
     toId: receiverId,
-    amount: unpaid,
+    amount: remaining,
     memo: `${citizen.name} left the hospital bill as medical debt.`,
   })
+  return insurancePaid
+}
+
+function activeInsuranceBusiness(
+  citizen: FounderAreaCitizen,
+  businesses: FounderAreaBusiness[],
+  now: Date,
+): FounderAreaBusiness | null {
+  if (!citizen.insuranceBusinessId || !citizen.insurancePaidUntil) return null
+  const paidUntilMs = Date.parse(citizen.insurancePaidUntil)
+  if (!Number.isFinite(paidUntilMs) || paidUntilMs <= now.getTime()) return null
+  return businesses.find((business) =>
+    business.id === citizen.insuranceBusinessId && business.kind === 'insurance'
+  ) ?? null
 }
 
 function serviceNeedsForCitizen(citizen: FounderAreaCitizen): Exclude<FounderAreaBusinessKind, 'insurance'>[] {

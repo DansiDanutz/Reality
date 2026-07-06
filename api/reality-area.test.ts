@@ -901,6 +901,139 @@ describe('reality area authority API', () => {
     }])
   })
 
+  test('advanceHour uses active insurance cash before patient cash and shortens recovery', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const collapsed = withCitizen(existingState(), 'founder-area-0012:sim-food', {
+      money: 50,
+      health: 15,
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-07-06T08:00:00.000Z',
+    })
+    const existing = withBusinesses(collapsed, [{
+      id: 'clinic-1',
+      name: 'Founder Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 10,
+    }, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 1_000,
+    }])
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://insured-clinic-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusinesses> }
+    const patient = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-food')
+    const clinic = body.state.businesses.find((business) => business.id === 'clinic-1')
+    const insurer = body.state.businesses.find((business) => business.id === 'insurance-1')
+    expect(patient?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T12:00:00.000Z' })
+    expect(patient?.money).toBe(0)
+    expect(patient?.debt).toBe(90)
+    expect(patient?.debts).toMatchObject([{
+      kind: 'medical',
+      creditorId: 'clinic-1',
+      amount: 90,
+      issuedAt: '2026-07-06T07:00:00.000Z',
+      memo: 'Demo Food Resident owes medical debt to clinic-1.',
+    }])
+    expect(clinic?.cash).toBe(270)
+    expect(insurer?.cash).toBe(790)
+    expect(body.state.transactions.slice(-3)).toEqual([{
+      id: 'founder-area-0012:1783321200000:insurance-payout:insurance-1:founder-area-0012:sim-food',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'insurance_payout',
+      fromId: 'insurance-1',
+      toId: 'clinic-1',
+      amount: 210,
+      memo: "Founder Insurance covered part of Demo Food Resident's hospital bill.",
+    }, {
+      id: 'founder-area-0012:1783321200000:hospital-bill:founder-area-0012:sim-food',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: 'founder-area-0012:sim-food',
+      toId: 'clinic-1',
+      amount: 50,
+      memo: 'Demo Food Resident paid a hospital bill.',
+    }, {
+      id: 'founder-area-0012:1783321200000:medical-debt:founder-area-0012:sim-food',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'medical_debt',
+      fromId: 'founder-area-0012:sim-food',
+      toId: 'clinic-1',
+      amount: 90,
+      memo: 'Demo Food Resident left the hospital bill as medical debt.',
+    }])
+  })
+
+  test('advanceHour does not shorten recovery when active insurer has no cash', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const collapsed = withCitizen(existingState(), 'founder-area-0012:sim-food', {
+      money: 50,
+      health: 15,
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-07-06T08:00:00.000Z',
+    })
+    const existing = withBusinesses(collapsed, [{
+      id: 'clinic-1',
+      name: 'Founder Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 10,
+    }, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 0,
+    }])
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://empty-insurer-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusinesses> }
+    const patient = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-food')
+    const clinic = body.state.businesses.find((business) => business.id === 'clinic-1')
+    const insurer = body.state.businesses.find((business) => business.id === 'insurance-1')
+    expect(patient?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' })
+    expect(patient?.debt).toBe(300)
+    expect(clinic?.cash).toBe(60)
+    expect(insurer?.cash).toBe(0)
+    expect(body.state.transactions.slice(-2).map((transaction) => transaction.kind)).toEqual([
+      'hospital_bill',
+      'medical_debt',
+    ])
+  })
+
   test('advanceHour recovers hospitalized Sim Citizens without letting them act during that hour', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
@@ -1449,13 +1582,28 @@ function withBusiness(
     staffCitizenIds?: string[]
   },
 ) {
-  const staffCitizenIds = business.staffCitizenIds ?? []
+  return withBusinesses(state, [business])
+}
+
+function withBusinesses(
+  state: ReturnType<typeof existingState>,
+  businesses: {
+    id: string
+    name: string
+    kind: 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
+    price: number
+    cash: number
+    staffCitizenIds?: string[]
+  }[],
+) {
+  const staffByBusiness = new Map(businesses.map((business) => [business.id, business.staffCitizenIds ?? []]))
   return {
     ...state,
-    citizens: state.citizens.map((citizen) =>
-      staffCitizenIds.includes(citizen.id) ? { ...citizen, jobBusinessId: business.id } : citizen
-    ),
-    businesses: [{
+    citizens: state.citizens.map((citizen) => {
+      const employer = businesses.find((business) => (business.staffCitizenIds ?? []).includes(citizen.id))
+      return employer ? { ...citizen, jobBusinessId: employer.id } : citizen
+    }),
+    businesses: businesses.map((business) => ({
       id: business.id,
       name: business.name,
       kind: business.kind,
@@ -1464,10 +1612,10 @@ function withBusiness(
       price: business.price,
       wagePerHour: 14,
       quality: 1,
-      staffCitizenIds,
+      staffCitizenIds: staffByBusiness.get(business.id) ?? [],
       createdAt: '2026-07-06T04:00:00.000Z',
       createdBy: CITIZEN_ID,
-    }],
+    })),
   }
 }
 
