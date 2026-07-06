@@ -26,6 +26,8 @@ import {
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderLedgerSummaryItems,
+  founderLedgerTransactionTitle,
 } from './founderAreaPanelView'
 
 type PanelState =
@@ -194,6 +196,36 @@ export default function FounderAreaPanel() {
               <NeedMetric label="housing" demand={dashboard.demand.housing} shortage={dashboard.shortage.housing} />
               <NeedMetric label="jobs" demand={dashboard.jobs.unemployedCitizens} shortage={dashboard.jobs.openPositions} />
             </div>
+          </section>
+
+          <section className="founder-section" aria-label="Area Ledger">
+            <div className="founder-section-head">
+              <h3 className="founder-section-title">Area Ledger</h3>
+              <span className="item-desc">{dashboard.ledger.transactionCount} events</span>
+            </div>
+            <div className="founder-ledger-summary" aria-label="Area ledger summary">
+              {founderLedgerSummaryItems(dashboard.ledger).map((item) => (
+                <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </span>
+              ))}
+            </div>
+            {dashboard.ledger.recentTransactions.length === 0 ? (
+              <p className="panel-sub">No ledger events yet.</p>
+            ) : (
+              <ul className="item-list founder-ledger-events">
+                {dashboard.ledger.recentTransactions.slice(0, 4).map((transaction) => (
+                  <li className="item founder-ledger-event" key={transaction.id}>
+                    <div className="item-info">
+                      <span className="item-name">{founderLedgerTransactionTitle(transaction)}</span>
+                      <span className="item-desc">{transaction.fromId} -&gt; {transaction.toId}</span>
+                    </div>
+                    <span className="item-price mono">{formatMoney(transaction.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="founder-section" aria-label="First build choices">

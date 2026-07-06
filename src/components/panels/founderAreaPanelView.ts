@@ -1,13 +1,23 @@
 import { formatMoney } from '../../game/engine'
 import type {
   AreaFounderCovenantDashboard,
+  AreaLedgerDashboard,
+  AreaTransactionDashboard,
   FounderCovenantActivityReview,
   FounderCovenantSignal,
+  WorldTransactionKind,
 } from '../../game/worldSim'
 
 export type FounderCovenantReviewTone = 'stable' | 'warning' | 'critical'
 
 export interface FounderCovenantReviewItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderLedgerSummaryItem {
   key: string
   label: string
   value: string
@@ -57,6 +67,59 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
       return `Shortage: ${signal.businessKinds?.join(', ') ?? 'essential services'}`
     case 'founder_debt':
       return `Founder debt: ${formatMoney(signal.amount ?? 0)}`
+  }
+}
+
+export function founderLedgerSummaryItems(ledger: AreaLedgerDashboard): FounderLedgerSummaryItem[] {
+  return [{
+    key: 'events',
+    label: 'Events',
+    value: String(ledger.transactionCount),
+    tone: ledger.transactionCount > 0 ? 'stable' : 'warning',
+  }, {
+    key: 'sales',
+    label: 'Sales',
+    value: formatMoney(ledger.totalsByKind.customer_purchase),
+    tone: ledger.totalsByKind.customer_purchase > 0 ? 'stable' : 'warning',
+  }, {
+    key: 'wages',
+    label: 'Wages',
+    value: formatMoney(ledger.totalsByKind.worker_wage),
+    tone: ledger.totalsByKind.worker_wage > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'debt',
+    label: 'Debt issued',
+    value: formatMoney(ledger.totalsByKind.medical_debt),
+    tone: ledger.totalsByKind.medical_debt > 0 ? 'critical' : 'stable',
+  }]
+}
+
+export function founderLedgerTransactionTitle(transaction: Pick<AreaTransactionDashboard, 'kind'>): string {
+  return ledgerKindLabel(transaction.kind)
+}
+
+function ledgerKindLabel(kind: WorldTransactionKind): string {
+  switch (kind) {
+    case 'founder_credit':
+      return 'Founder credit'
+    case 'sim_citizen_credit':
+      return 'Sim citizen credit'
+    case 'business_build':
+      return 'Business build'
+    case 'customer_purchase':
+      return 'Customer purchase'
+    case 'worker_wage':
+      return 'Worker wage'
+    case 'hospital_bill':
+      return 'Hospital bill'
+    case 'insurance_premium':
+      return 'Insurance premium'
+    case 'insurance_payout':
+      return 'Insurance payout'
+    case 'medical_debt':
+      return 'Medical debt'
+    case 'debt_repayment':
+      return 'Debt repayment'
   }
 }
 

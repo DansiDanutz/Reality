@@ -4,6 +4,8 @@ import {
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderLedgerSummaryItems,
+  founderLedgerTransactionTitle,
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
@@ -59,5 +61,35 @@ describe('FounderAreaPanel covenant presenters', () => {
       { key: 'hospitalized', label: 'Hospital', value: 'yes', tone: 'critical' },
       { key: 'atRisk', label: 'At risk', value: 'yes', tone: 'critical' },
     ])
+  })
+
+  test('summarizes server-owned ledger totals for the founder panel', () => {
+    expect(founderLedgerSummaryItems({
+      transactionCount: 4,
+      totalsByKind: {
+        founder_credit: 200_000,
+        sim_citizen_credit: 300,
+        customer_purchase: 12,
+        business_build: 8_000,
+        worker_wage: 14,
+        hospital_bill: 0,
+        insurance_premium: 45,
+        insurance_payout: 0,
+        medical_debt: 300,
+        debt_repayment: 120,
+      },
+      recentTransactions: [],
+    })).toEqual([
+      { key: 'events', label: 'Events', value: '4', tone: 'stable' },
+      { key: 'sales', label: 'Sales', value: '$12', tone: 'stable' },
+      { key: 'wages', label: 'Wages', value: '$14', tone: 'warning' },
+      { key: 'debt', label: 'Debt issued', value: '$300', tone: 'critical' },
+    ])
+  })
+
+  test('labels ledger transaction kinds for recent events', () => {
+    expect(founderLedgerTransactionTitle({ kind: 'customer_purchase' })).toBe('Customer purchase')
+    expect(founderLedgerTransactionTitle({ kind: 'medical_debt' })).toBe('Medical debt')
+    expect(founderLedgerTransactionTitle({ kind: 'debt_repayment' })).toBe('Debt repayment')
   })
 })

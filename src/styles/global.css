@@ -1026,6 +1026,36 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .founder-covenant-severity.info { color: var(--muted); }
 .founder-covenant-severity.warning { color: var(--warn); }
 .founder-covenant-severity.critical { color: #e5484d; }
+.founder-ledger-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.founder-ledger-chip {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(120, 150, 205, 0.06);
+  font-size: 11px;
+  color: var(--muted);
+}
+.founder-ledger-chip strong {
+  color: var(--text);
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.founder-ledger-chip.stable { border-color: rgba(64, 200, 136, 0.35); }
+.founder-ledger-chip.warning { border-color: rgba(240, 180, 41, 0.45); }
+.founder-ledger-chip.critical { border-color: rgba(229, 72, 77, 0.45); }
+.founder-ledger-chip.stable strong { color: var(--ok); }
+.founder-ledger-chip.warning strong { color: var(--warn); }
+.founder-ledger-chip.critical strong { color: #e5484d; }
+.founder-ledger-event .item-price { color: var(--text); }
 .founder-choice .item-yield { color: var(--ok); }
 .founder-citizen.simulated .item-name { color: var(--sky); }
 .founder-business.warning { border-color: rgba(240, 180, 41, 0.45); }
