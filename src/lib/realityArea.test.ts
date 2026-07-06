@@ -228,6 +228,33 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant approval requests with unknown blockers', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        approvalRequests: dashboard.founderCovenant.approvalRequests.map((request) => ({
+          ...request,
+          blockers: ['unknown_blocker'],
+        })),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores malformed covenant review schedule data', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -760,6 +787,7 @@ describe('Reality area client', () => {
         executionEnabled: false,
         authorityGate: mainFounderApprovalGate(),
         notificationDraftId: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:citizen-1',
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       }],
     })
     expect(simWater).toMatchObject({
@@ -1076,7 +1104,16 @@ function manualApprovalRequests(
       executionEnabled: false,
       authorityGate: mainFounderApprovalGate(),
       notificationDraftId: approvalNotificationDraftId(action.kind, checkedAt, notificationKind),
+      blockers: approvalBlockers(action.kind),
     }))
+}
+
+function approvalBlockers(
+  actionKind: 'send_warning' | 'start_probation' | 'recommend_replacement',
+): RealityAreaCovenantApprovalRequest['blockers'] {
+  if (actionKind === 'send_warning') return ['approval_workflow_disabled', 'telegram_delivery_disabled']
+  if (actionKind === 'start_probation') return ['approval_workflow_disabled', 'probation_execution_disabled']
+  return ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled']
 }
 
 function isRecommendedApprovalAction(

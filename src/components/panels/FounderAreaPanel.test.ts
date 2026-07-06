@@ -67,9 +67,10 @@ describe('FounderAreaPanel covenant presenters', () => {
         executionEnabled: false,
       },
       notificationDraftId: 'draft-1',
+      blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
     } as const
 
-    expect(founderCovenantApprovalRequestText(request)).toBe('Main founder approval · execution disabled')
+    expect(founderCovenantApprovalRequestText(request)).toBe('Main founder approval · 2 blockers')
     expect(founderCovenantApprovalRequestStatusLabel(request)).toBe('Locked')
   })
 
@@ -133,6 +134,7 @@ describe('FounderAreaPanel covenant presenters', () => {
           executionEnabled: false,
         },
         notificationDraftId: 'draft-1',
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       }],
     })).toBe('1 approval captured · 0 executable')
   })

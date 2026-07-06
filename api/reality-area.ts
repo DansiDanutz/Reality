@@ -183,6 +183,12 @@ interface FounderAreaCovenantManualAction {
 
 type FounderAreaCovenantApprovalRequestKind = Exclude<FounderAreaCovenantManualActionKind, 'record_review'>
 type FounderAreaCovenantApprovalRequestStatus = 'pending_manual_approval'
+type FounderAreaCovenantApprovalBlocker =
+  | 'approval_workflow_disabled'
+  | 'telegram_delivery_disabled'
+  | 'probation_execution_disabled'
+  | 'replacement_disabled'
+  | 'waitlist_handoff_disabled'
 
 interface FounderAreaCovenantApprovalRequest {
   id: string
@@ -198,6 +204,7 @@ interface FounderAreaCovenantApprovalRequest {
   executionEnabled: false
   authorityGate: FounderAreaCovenantAuthorityGate
   notificationDraftId: string | null
+  blockers: readonly FounderAreaCovenantApprovalBlocker[]
 }
 
 interface FounderAreaCovenantReviewHistoryItem {
@@ -814,6 +821,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'approvalEnabled',
   'executionEnabled',
   'notificationDraftId',
+  'blockers',
   'clientPayload',
   'reviewSchedule',
   'checkedAt',
@@ -1508,6 +1516,7 @@ function founderCovenantApprovalRequests(
       executionEnabled: false,
       authorityGate: { ...action.authorityGate, executionEnabled: false },
       notificationDraftId: founderCovenantApprovalNotificationDraftId(action, input.notificationDrafts),
+      blockers: founderCovenantApprovalBlockers(action),
     }))
 }
 
@@ -1525,6 +1534,14 @@ function founderCovenantApprovalNotificationDraftId(
     ? 'founder_warning'
     : 'manual_review_required'
   return drafts.find((draft) => draft.kind === matchingKind)?.id ?? null
+}
+
+function founderCovenantApprovalBlockers(
+  action: FounderAreaCovenantManualAction & { kind: FounderAreaCovenantApprovalRequestKind },
+): FounderAreaCovenantApprovalBlocker[] {
+  if (action.kind === 'send_warning') return ['approval_workflow_disabled', 'telegram_delivery_disabled']
+  if (action.kind === 'start_probation') return ['approval_workflow_disabled', 'probation_execution_disabled']
+  return ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled']
 }
 
 function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview, note: string | undefined): string {
@@ -1637,6 +1654,7 @@ function founderCovenantApprovalRequestSnapshot(
     automationEnabled: false,
     executionEnabled: false,
     authorityGate: { ...request.authorityGate, executionEnabled: false },
+    blockers: [...request.blockers],
   }
 }
 

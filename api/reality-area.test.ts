@@ -447,6 +447,11 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      blockers: ['approval_workflow_disabled'],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       clientPayload: {
         type: 'recordCovenantReview',
         actionKind: 'record_review',
@@ -748,6 +753,7 @@ describe('reality area authority API', () => {
         automationEnabled: false,
         executionEnabled: false,
         notificationDraftId: `founder-area-0012:${Date.parse('2026-07-14T04:00:00.000Z')}:covenant-notification:manual_review_required:${CITIZEN_ID}`,
+        blockers: ['approval_workflow_disabled', 'probation_execution_disabled'],
       }),
     ])
     expect(put).not.toHaveBeenCalled()
@@ -2105,6 +2111,7 @@ describe('reality area authority API', () => {
           automationEnabled: false,
           executionEnabled: false,
           notificationDraftId: `founder-area-0012:${Date.parse('2026-07-06T07:00:00.000Z')}:covenant-notification:manual_review_required:${CITIZEN_ID}`,
+          blockers: ['approval_workflow_disabled', 'probation_execution_disabled'],
         }),
         expect.objectContaining({
           kind: 'recommend_replacement',
@@ -2113,6 +2120,7 @@ describe('reality area authority API', () => {
           automationEnabled: false,
           executionEnabled: false,
           notificationDraftId: `founder-area-0012:${Date.parse('2026-07-06T07:00:00.000Z')}:covenant-notification:manual_review_required:${CITIZEN_ID}`,
+          blockers: ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled'],
         }),
       ]),
       latestReview: null,
@@ -3607,7 +3615,23 @@ function manualApprovalRequests(
       executionEnabled: false,
       authorityGate: mainFounderApprovalGate(),
       notificationDraftId: approvalNotificationDraftId(action.kind, checkedAt, notificationKind),
+      blockers: approvalBlockers(action.kind),
     }))
+}
+
+type ApprovalBlocker =
+  | 'approval_workflow_disabled'
+  | 'telegram_delivery_disabled'
+  | 'probation_execution_disabled'
+  | 'replacement_disabled'
+  | 'waitlist_handoff_disabled'
+
+function approvalBlockers(
+  actionKind: 'send_warning' | 'start_probation' | 'recommend_replacement',
+): readonly ApprovalBlocker[] {
+  if (actionKind === 'send_warning') return ['approval_workflow_disabled', 'telegram_delivery_disabled']
+  if (actionKind === 'start_probation') return ['approval_workflow_disabled', 'probation_execution_disabled']
+  return ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled']
 }
 
 function approvalNotificationDraftId(

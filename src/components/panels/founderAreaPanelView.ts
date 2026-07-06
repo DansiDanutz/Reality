@@ -87,7 +87,7 @@ export function founderCovenantManualActionKindLabel(kind: FounderCovenantManual
 }
 
 export function founderCovenantApprovalRequestText(request: FounderCovenantApprovalRequest): string {
-  return `${founderCovenantAuthorityRoleLabel(request.authorityGate.requiredRole)} approval · execution disabled`
+  return `${founderCovenantAuthorityRoleLabel(request.authorityGate.requiredRole)} approval · ${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
 }
 
 export function founderCovenantApprovalRequestStatusLabel(

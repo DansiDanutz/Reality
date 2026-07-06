@@ -441,6 +441,12 @@ export interface FounderCovenantManualAction {
 
 export type FounderCovenantApprovalRequestKind = Exclude<FounderCovenantManualActionKind, 'record_review'>
 export type FounderCovenantApprovalRequestStatus = 'pending_manual_approval'
+export type FounderCovenantApprovalBlocker =
+  | 'approval_workflow_disabled'
+  | 'telegram_delivery_disabled'
+  | 'probation_execution_disabled'
+  | 'replacement_disabled'
+  | 'waitlist_handoff_disabled'
 
 export interface FounderCovenantApprovalRequest {
   id: string
@@ -456,6 +462,7 @@ export interface FounderCovenantApprovalRequest {
   executionEnabled: false
   authorityGate: FounderCovenantAuthorityGate
   notificationDraftId: string | null
+  blockers: readonly FounderCovenantApprovalBlocker[]
 }
 
 export interface FounderCovenantReviewHistoryItem {
@@ -1548,6 +1555,7 @@ function founderCovenantApprovalRequests(
       executionEnabled: false,
       authorityGate: { ...action.authorityGate, executionEnabled: false },
       notificationDraftId: founderCovenantApprovalNotificationDraftId(action, input.notificationDrafts),
+      blockers: founderCovenantApprovalBlockers(action),
     }))
 }
 
@@ -1565,6 +1573,14 @@ function founderCovenantApprovalNotificationDraftId(
     ? 'founder_warning'
     : 'manual_review_required'
   return drafts.find((draft) => draft.kind === matchingKind)?.id ?? null
+}
+
+function founderCovenantApprovalBlockers(
+  action: FounderCovenantManualAction & { kind: FounderCovenantApprovalRequestKind },
+): FounderCovenantApprovalBlocker[] {
+  if (action.kind === 'send_warning') return ['approval_workflow_disabled', 'telegram_delivery_disabled']
+  if (action.kind === 'start_probation') return ['approval_workflow_disabled', 'probation_execution_disabled']
+  return ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled']
 }
 
 function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHistoryItem[] {
@@ -1658,6 +1674,7 @@ function founderCovenantApprovalRequestSnapshot(
     automationEnabled: false,
     executionEnabled: false,
     authorityGate: { ...request.authorityGate, executionEnabled: false },
+    blockers: [...request.blockers],
   }
 }
 

@@ -154,6 +154,12 @@ export interface RealityAreaCovenantManualAction {
 
 export type RealityAreaCovenantApprovalRequestKind = Exclude<RealityAreaCovenantManualActionKind, 'record_review'>
 export type RealityAreaCovenantApprovalRequestStatus = 'pending_manual_approval'
+export type RealityAreaCovenantApprovalBlocker =
+  | 'approval_workflow_disabled'
+  | 'telegram_delivery_disabled'
+  | 'probation_execution_disabled'
+  | 'replacement_disabled'
+  | 'waitlist_handoff_disabled'
 
 export interface RealityAreaCovenantApprovalRequest {
   id: string
@@ -169,6 +175,7 @@ export interface RealityAreaCovenantApprovalRequest {
   executionEnabled: false
   authorityGate: RealityAreaCovenantAuthorityGate
   notificationDraftId: string | null
+  blockers: readonly RealityAreaCovenantApprovalBlocker[]
 }
 
 export interface RealityAreaCovenantReviewHistoryItem {
@@ -1298,7 +1305,9 @@ function isRealityAreaCovenantApprovalRequest(value: unknown): value is RealityA
     value.automationEnabled === false &&
     value.executionEnabled === false &&
     isRealityAreaCovenantAuthorityGate(value.authorityGate, value.kind) &&
-    (typeof value.notificationDraftId === 'string' || value.notificationDraftId === null)
+    (typeof value.notificationDraftId === 'string' || value.notificationDraftId === null) &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaCovenantApprovalBlocker)
 }
 
 function isRealityAreaCovenantReviewApprovalRequestSnapshot(
@@ -1358,6 +1367,14 @@ function isRealityAreaCovenantApprovalRequestKind(value: unknown): value is Real
   return value === 'send_warning' ||
     value === 'start_probation' ||
     value === 'recommend_replacement'
+}
+
+function isRealityAreaCovenantApprovalBlocker(value: unknown): value is RealityAreaCovenantApprovalBlocker {
+  return value === 'approval_workflow_disabled' ||
+    value === 'telegram_delivery_disabled' ||
+    value === 'probation_execution_disabled' ||
+    value === 'replacement_disabled' ||
+    value === 'waitlist_handoff_disabled'
 }
 
 function isRealityAreaCovenantNotificationDraftKind(value: unknown): value is RealityAreaCovenantNotificationDraftKind {

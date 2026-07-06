@@ -131,6 +131,7 @@ const covenantApprovalRequestSnapshot = () => [{
     executionEnabled: false,
   },
   notificationDraftId: 'notification-1',
+  blockers: ['approval_workflow_disabled', 'probation_execution_disabled'] as const,
 }]
 
 const area = (over: Partial<WorldArea> = {}): WorldArea => ({
@@ -1657,6 +1658,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           automationEnabled: false,
           executionEnabled: false,
           notificationDraftId: 'area-1:0:covenant-notification:manual_review_required:founder',
+          blockers: ['approval_workflow_disabled', 'probation_execution_disabled'],
         }),
         expect.objectContaining({
           kind: 'recommend_replacement',
@@ -1665,6 +1667,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           automationEnabled: false,
           executionEnabled: false,
           notificationDraftId: 'area-1:0:covenant-notification:manual_review_required:founder',
+          blockers: ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled'],
         }),
       ]),
       reviewSchedule: {
