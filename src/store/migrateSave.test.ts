@@ -65,6 +65,15 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.streakBest).toBe(0)
     expect(out.luckyMomentsSeen).toBe(0)
     expect(out.luckyMomentsSeenIds).toEqual([])
+    // v7: courier packages + construction resources
+    expect(out.resources).toEqual({ wood: 0, stone: 0, metal: 0, glass: 0 })
+    expect(out.resourceNodes).toEqual([])
+    expect(out.constructionProjects).toEqual([])
+    expect(out.placingConstruction).toBeNull()
+    expect(out.activeCourierPackage).toBeNull()
+    expect(out.courierLastDay).toBe(0)
+    expect(out.courierOpenedDays).toEqual([])
+    expect(out.completedCourierDays).toEqual([])
     // achievementsClaimed was added with the achievements feature; ensure it
     // doesn't crash if absent (the store's FRESH merge handles undefined).
   })
@@ -176,6 +185,8 @@ describe('migrateSave — completeness guard', () => {
       'streakLength', 'streakLastClaimDay', 'streakBest',
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
+      'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
+      'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
     for (const f of tickCriticalFields) {
       expect((out as unknown as Record<string, unknown>)[f], `field ${f} is undefined after migrate`).toBeDefined()
@@ -197,6 +208,6 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(6)
+    expect(SAVE_VERSION).toBe(7)
   })
 })
