@@ -16,6 +16,8 @@ const FOUNDER_LEGACY_ROYALTY_RATE = 0.1
 const AREA_STATE_VERSION = 1
 const SERVER_CLOCK_TOKEN_ENV = 'REALITY_SERVER_CLOCK_TOKEN'
 const SERVER_CLOCK_TOKEN_HEADER = 'x-reality-server-clock-token'
+const SERVER_CLOCK_DEFAULT_AREA_LIMIT = 25
+const SERVER_CLOCK_MAX_AREA_LIMIT = 100
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * 60 * 60 * 1000
@@ -818,6 +820,40 @@ type ApplyRefreshAreaError =
   | RefreshAreaIntentError
   | 'area_not_claimed'
 
+type ServerClockTickAreasIntent =
+  | { ok: true; limit: number }
+  | { ok: false; error: ServerClockTickAreasIntentError }
+
+type ServerClockTickAreasIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_limit'
+
+type ServerClockTickAreasError =
+  | ServerClockTickAreasIntentError
+  | 'server_clock_unauthorized'
+
+type ServerClockAreaTickStatus = 'caught_up' | 'current' | 'invalid' | 'unavailable'
+
+interface ServerClockAreaTickResult {
+  citizenId: string | null
+  areaId: string | null
+  status: ServerClockAreaTickStatus
+  updatedAt: string | null
+  transactionsAdded: number
+}
+
+interface ServerClockTickAreasSummary {
+  checkedAt: string
+  limit: number
+  scanned: number
+  caughtUp: number
+  current: number
+  failed: number
+  hasMore: boolean
+  results: ServerClockAreaTickResult[]
+}
+
 type RepayDebtIntent =
   | {
     ok: true
@@ -1303,6 +1339,20 @@ export function normalizeRefreshAreaIntent(input: unknown): RefreshAreaIntent {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
+}
+
+export function normalizeServerClockTickAreasIntent(input: unknown): ServerClockTickAreasIntent {
+  if (!isRecord(input) || input.type !== 'tickAreas') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => key !== 'type' && key !== 'limit')) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const limit = input.limit === undefined ? SERVER_CLOCK_DEFAULT_AREA_LIMIT : Number(input.limit)
+  if (!Number.isInteger(limit) || limit < 1 || limit > SERVER_CLOCK_MAX_AREA_LIMIT) {
+    return { ok: false, error: 'invalid_limit' }
+  }
+
+  return { ok: true, limit }
 }
 
 export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
@@ -3134,11 +3184,116 @@ async function catchUpPersistedAreaState(
   return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
 }
 
+async function handleServerClockTickAreas(
+  req: VercelRequest,
+  res: VercelResponse,
+  rawIntent: unknown,
+): Promise<void> {
+  if (!hasServerClockAuthority(req)) {
+    res.status(serverClockTickAreasStatus('server_clock_unauthorized')).json({
+      ok: false,
+      error: serverClockTickAreasMessage('server_clock_unauthorized'),
+      code: 'server_clock_unauthorized',
+    })
+    return
+  }
+
+  const intent = normalizeServerClockTickAreasIntent(rawIntent)
+  if (!intent.ok) {
+    res.status(serverClockTickAreasStatus(intent.error)).json({
+      ok: false,
+      error: serverClockTickAreasMessage(intent.error),
+      code: intent.error,
+    })
+    return
+  }
+
+  const clock = await tickServerClockAreas(new Date(), intent.limit)
+  res.status(200).json({ ok: true, clock })
+}
+
+async function tickServerClockAreas(now: Date, limit: number): Promise<ServerClockTickAreasSummary> {
+  const batch = await list({ prefix: 'reality-areas/', limit })
+  const results: ServerClockAreaTickResult[] = []
+  for (const blob of batch.blobs) {
+    results.push(await tickServerClockAreaBlob(blob, now))
+  }
+
+  const caughtUp = results.filter((result) => result.status === 'caught_up').length
+  const current = results.filter((result) => result.status === 'current').length
+  return {
+    checkedAt: now.toISOString(),
+    limit,
+    scanned: results.length,
+    caughtUp,
+    current,
+    failed: results.length - caughtUp - current,
+    hasMore: Boolean(batch.hasMore),
+    results,
+  }
+}
+
+async function tickServerClockAreaBlob(
+  blob: { pathname?: string; downloadUrl?: string },
+  now: Date,
+): Promise<ServerClockAreaTickResult> {
+  const citizenId = citizenIdFromAreaStatePath(blob.pathname)
+  if (!citizenId || !blob.downloadUrl) {
+    return serverClockAreaTickResult(null, null, 'invalid', null, 0)
+  }
+
+  try {
+    const response = await fetch(blob.downloadUrl)
+    if (!response.ok) return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0)
+    const value = await response.json() as unknown
+    if (!isFounderAreaState(value, citizenId)) return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0)
+
+    const state = normalizeAreaCitizens(value)
+    const previousUpdatedAt = state.updatedAt
+    const previousTransactionCount = state.transactions.length
+    const next = await catchUpPersistedAreaState(citizenId, state, now)
+    const transactionsAdded = Math.max(0, next.transactions.length - previousTransactionCount)
+    const status: ServerClockAreaTickStatus = next.updatedAt === previousUpdatedAt && transactionsAdded === 0
+      ? 'current'
+      : 'caught_up'
+    return serverClockAreaTickResult(citizenId, next.areaId, status, next.updatedAt, transactionsAdded)
+  } catch {
+    return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0)
+  }
+}
+
+function serverClockAreaTickResult(
+  citizenId: string | null,
+  areaId: string | null,
+  status: ServerClockAreaTickStatus,
+  updatedAt: string | null,
+  transactionsAdded: number,
+): ServerClockAreaTickResult {
+  return { citizenId, areaId, status, updatedAt, transactionsAdded }
+}
+
+function citizenIdFromAreaStatePath(pathname: string | undefined): string | null {
+  const match = pathname?.match(/^reality-areas\/([0-9a-f-]+)\.json$/)
+  const citizenId = match?.[1]
+  return citizenId && UUID_RE.test(citizenId) ? citizenId : null
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
 
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
+    return
+  }
+
+  const rawIntent = (req.body as { intent?: unknown } | undefined)?.intent
+  const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
+  if (req.method === 'POST' && intentType === 'tickAreas') {
+    try {
+      await handleServerClockTickAreas(req, res, rawIntent)
+    } catch {
+      res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
+    }
     return
   }
 
@@ -3149,8 +3304,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const rawIntent = (req.body as { intent?: unknown } | undefined)?.intent
-    const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
     const citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
     if (!citizen) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
@@ -4350,6 +4503,22 @@ function refreshAreaMessage(error: ApplyRefreshAreaError): string {
       return 'Area must be claimed before refreshing the server area.'
     default:
       return 'Invalid refreshArea intent.'
+  }
+}
+
+function serverClockTickAreasStatus(error: ServerClockTickAreasError): number {
+  if (error === 'server_clock_unauthorized') return 403
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
+  switch (error) {
+    case 'server_clock_unauthorized':
+      return 'tickAreas is reserved for the server clock.'
+    case 'invalid_limit':
+      return 'Server clock area limit must be between 1 and 100.'
+    default:
+      return 'Invalid tickAreas intent.'
   }
 }
 

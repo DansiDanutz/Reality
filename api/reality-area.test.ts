@@ -11,6 +11,7 @@ import handler, {
   normalizeRecordCovenantReviewIntent,
   normalizeRefreshAreaIntent,
   normalizeRepayDebtIntent,
+  normalizeServerClockTickAreasIntent,
   normalizeServicePurchaseIntent,
   verifyCitizen,
 } from './reality-area'
@@ -402,6 +403,17 @@ describe('reality area authority API', () => {
     expect(normalizeRefreshAreaIntent({ type: 'refreshArea', cash: 999 }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRefreshAreaIntent({ type: 'refreshArea', note: 'please advance me' }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+  })
+
+  test('normalizes server-clock tickAreas with a bounded scan limit', () => {
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas' })).toEqual({ ok: true, limit: 25 })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2 })).toEqual({ ok: true, limit: 2 })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 0 }))
+      .toEqual({ ok: false, error: 'invalid_limit' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 101 }))
+      .toEqual({ ok: false, error: 'invalid_limit' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', citizenId: CITIZEN_ID }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
@@ -2204,6 +2216,118 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('tickAreas rejects requests without server-clock authority before scanning blobs', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        intent: { type: 'tickAreas', limit: 1 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'server_clock_unauthorized',
+      error: 'tickAreas is reserved for the server clock.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('tickAreas scans area blobs and persists caught-up server-clock state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = {
+      ...fragileFounder,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://clock-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        intent: { type: 'tickAreas', limit: 1 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; clock: {
+      checkedAt: string
+      limit: number
+      scanned: number
+      caughtUp: number
+      current: number
+      failed: number
+      hasMore: boolean
+      results: {
+        citizenId: string | null
+        areaId: string | null
+        status: string
+        updatedAt: string | null
+        transactionsAdded: number
+      }[]
+    } }
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(body.clock).toMatchObject({
+      checkedAt: '2026-07-06T08:00:00.000Z',
+      limit: 1,
+      scanned: 1,
+      caughtUp: 1,
+      current: 0,
+      failed: 0,
+      hasMore: false,
+    })
+    expect(body.clock.results).toEqual([{
+      citizenId: CITIZEN_ID,
+      areaId: 'founder-area-0012',
+      status: 'caught_up',
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      transactionsAdded: 1,
+    }])
+    expect(put).toHaveBeenCalledTimes(1)
+    const persisted = JSON.parse(vi.mocked(put).mock.calls[0][1] as string) as ReturnType<typeof withCitizen>
+    const founder = persisted.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(founder?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T16:00:00.000Z' })
+    expect(persisted.transactions.at(-1)).toMatchObject({
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: CITIZEN_ID,
+      toId: 'system:hospital',
+      amount: 350,
+    })
+  })
+
+  test('tickAreas rejects client-controlled fields before scanning areas', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        intent: { type: 'tickAreas', limit: 1, citizenId: CITIZEN_ID },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'client_controlled_server_field',
+      error: 'Invalid tickAreas intent.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('refreshArea catches up stale area state through the authenticated server path', async () => {
