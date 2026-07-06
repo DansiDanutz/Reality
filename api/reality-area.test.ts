@@ -9,6 +9,7 @@ import handler, {
   normalizeClaimAreaIntent,
   normalizeFounderCovenantReviewQueueIntent,
   normalizeHireWorkerIntent,
+  normalizeOperatorRecordCovenantReviewIntent,
   normalizeRecordCovenantReviewIntent,
   normalizeRefreshAreaIntent,
   normalizeRepayDebtIntent,
@@ -3183,6 +3184,201 @@ describe('reality area authority API', () => {
       error: 'Founder covenant review queue is reserved for server operators.',
     })
     expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('normalizes operator founder covenant review evidence targets without server-owned fields', () => {
+    expect(normalizeOperatorRecordCovenantReviewIntent({
+      type: 'recordFounderCovenantOperatorReview',
+      founderCitizenId: CITIZEN_ID,
+      areaId: ' founder-area-0012 ',
+      actionKind: 'record_review',
+      note: ' Manual evidence attached. ',
+      evidenceKinds: ['population_growth', 'population_growth'],
+    })).toEqual({
+      ok: true,
+      founderCitizenId: CITIZEN_ID,
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      note: 'Manual evidence attached.',
+      evidenceKinds: ['population_growth'],
+    })
+
+    expect(normalizeOperatorRecordCovenantReviewIntent({
+      type: 'recordFounderCovenantOperatorReview',
+      founderCitizenId: CITIZEN_ID,
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      replacementEnabled: true,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+  })
+
+  test('Telegram operators can record founder covenant evidence without enabling enforcement or money movement', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://operator-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          note: 'Weekly operator evidence reviewed.',
+          evidenceKinds: ['external_contribution', 'ideas_feedback'],
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(put).toHaveBeenCalledTimes(1)
+    const persisted = JSON.parse(vi.mocked(put).mock.calls[0][1] as string) as {
+      founderReviewHistory: {
+        reviewerId: string
+        actionKind: string
+        summary: string
+        authorityGate: { status: string; executionEnabled: boolean }
+      }[]
+      transactions: unknown[]
+      founderCovenant: { replacementEnabled: boolean; waitlistHandoffEnabled: boolean }
+    }
+    expect(persisted.founderReviewHistory).toHaveLength(1)
+    expect(persisted.founderReviewHistory[0]).toMatchObject({
+      reviewerId: 'telegram-operator:42424242',
+      actionKind: 'record_review',
+      authorityGate: {
+        status: 'evidence_only',
+        executionEnabled: false,
+      },
+    })
+    expect(persisted.founderReviewHistory[0].summary).toContain('External contribution')
+    expect(persisted.founderReviewHistory[0].summary).toContain('Ideas and feedback')
+    expect(persisted.founderReviewHistory[0].summary).toContain('Weekly operator evidence reviewed.')
+    expect(persisted.transactions).toHaveLength(existing.transactions.length)
+    expect(persisted.founderCovenant).toMatchObject({
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+    })
+    expect(res.body).toMatchObject({
+      ok: true,
+      state: {
+        founderReviewHistory: [{
+          reviewerId: 'telegram-operator:42424242',
+          actionKind: 'record_review',
+        }],
+      },
+      dashboard: {
+        founderCovenant: {
+          latestReview: {
+            reviewerId: 'telegram-operator:42424242',
+            evidenceOnly: true,
+            automationEnabled: false,
+          },
+          replacementEnabled: false,
+          waitlistHandoffEnabled: false,
+        },
+      },
+    })
+  })
+
+  test('operator founder covenant review rejects disabled enforcement actions before loading areas', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'recommend_replacement',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Founder warning, probation, and replacement actions are disabled until manual approval workflow is ready.',
+      code: 'review_action_disabled',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('operator founder covenant review rejects expired tokens and mismatched area targets', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const expiredClaims = realityOperatorQueueTokenClaims('42424242', Date.now() - 30 * 60 * 1000, 15 * 60 * 1000)
+    const expiredToken = signRealityOperatorQueueToken(expiredClaims!, OPERATOR_AUTH_SECRET)
+    const expiredRes = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${expiredToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+        },
+      },
+    } as never, expiredRes as never)
+
+    expect(expiredRes.statusCode).toBe(403)
+    expect(expiredRes.body).toEqual({
+      ok: false,
+      error: 'Founder covenant operator review requires a valid operator token.',
+      code: 'operator_unauthorized',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://operator-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    const mismatchRes = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'wrong-area',
+          actionKind: 'record_review',
+        },
+      },
+    } as never, mismatchRes as never)
+
+    expect(mismatchRes.statusCode).toBe(409)
+    expect(mismatchRes.body).toMatchObject({
+      ok: false,
+      error: 'Founder covenant review target does not match the stored founder area.',
+      code: 'area_mismatch',
+      state: { areaId: 'founder-area-0012' },
+    })
     expect(put).not.toHaveBeenCalled()
   })
 

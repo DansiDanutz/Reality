@@ -113,7 +113,9 @@ export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_
 export interface FounderCovenantOperatorQueueReviewRow {
   key: string
   title: string
+  areaId: string
   founderCitizenId: string
+  canRecordReview: boolean
   statusClass: FounderCovenantOperatorQueueStatusClass
   statusLabel: string
   summary: string
@@ -787,7 +789,9 @@ export function founderCovenantOperatorQueueReviewRows(
     .map((item) => ({
       key: `${item.areaId}:${item.founderCitizenId}`,
       title: founderCovenantOperatorQueueItemTitle(item),
+      areaId: item.areaId,
       founderCitizenId: item.founderCitizenId,
+      canRecordReview: item.reviewQueue.recordReviewEnabled,
       statusClass: founderCovenantOperatorQueueItemStatusClass(item),
       statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
       summary: founderCovenantOperatorQueueItemSummary(item),

@@ -37,6 +37,16 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).not.toContain('Replace')
   })
 
+  test('renders evidence recording controls only when an operator handler is provided', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantQueuePanel canRecordReview onRecordReview={() => undefined} queue={founderQueue()} />,
+    )
+
+    expect(html).toContain('Record evidence')
+    expect(html).not.toContain('Approve')
+    expect(html).not.toContain('Replace')
+  })
+
   test('labels founder covenant queue row status and dates for manual review', () => {
     const manual = founderQueueItem()
     const watch = founderQueueItem({

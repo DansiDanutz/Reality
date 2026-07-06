@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { verifyRealityOperatorQueueToken } from './reality-operator-token'
+import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const FOUNDER_STARTER_CREDIT = 200_000
@@ -1241,6 +1241,29 @@ type ApplyRecordCovenantReviewError =
   | 'area_not_claimed'
   | 'review_action_disabled'
 
+type OperatorRecordCovenantReviewIntent =
+  | {
+    ok: true
+    founderCitizenId: string
+    areaId: string
+    actionKind: FounderAreaCovenantManualActionKind
+    note?: string
+    evidenceKinds: FounderAreaCovenantManualEvidenceKind[]
+  }
+  | { ok: false; error: OperatorRecordCovenantReviewIntentError }
+
+type OperatorRecordCovenantReviewIntentError =
+  | RecordCovenantReviewIntentError
+  | 'client_controlled_server_field'
+  | 'invalid_founder_identity'
+  | 'invalid_area_identity'
+
+type ApplyOperatorRecordCovenantReviewError =
+  | ApplyRecordCovenantReviewError
+  | OperatorRecordCovenantReviewIntentError
+  | 'operator_unauthorized'
+  | 'area_mismatch'
+
 const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
   buyWater: 'water',
   buyFood: 'food',
@@ -1476,6 +1499,10 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'transactions',
   'citizens',
 ])
+const OPERATOR_REVIEW_ALLOWED_FIELDS = ['type', 'founderCitizenId', 'areaId', 'actionKind', 'note', 'evidenceKinds']
+const FORBIDDEN_OPERATOR_REVIEW_FIELDS = new Set(
+  [...FORBIDDEN_REVIEW_FIELDS].filter((key) => key !== 'areaId' && key !== 'founderCitizenId'),
+)
 
 const FORBIDDEN_SERVICE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
@@ -1843,6 +1870,44 @@ export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCoven
   if (!evidenceKinds.ok) return evidenceKinds
 
   return { ok: true, actionKind, note: note || undefined, evidenceKinds: evidenceKinds.evidenceKinds }
+}
+
+export function normalizeOperatorRecordCovenantReviewIntent(input: unknown): OperatorRecordCovenantReviewIntent {
+  if (!isRecord(input) || input.type !== 'recordFounderCovenantOperatorReview') {
+    return { ok: false, error: 'unsupported_intent' }
+  }
+  if (Object.keys(input).some((key) =>
+    !OPERATOR_REVIEW_ALLOWED_FIELDS.includes(key) ||
+    FORBIDDEN_OPERATOR_REVIEW_FIELDS.has(key)
+  )) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const founderCitizenId = text(input.founderCitizenId)
+  if (!UUID_RE.test(founderCitizenId)) return { ok: false, error: 'invalid_founder_identity' }
+
+  const areaId = text(input.areaId)
+  if (!isClientId(areaId)) return { ok: false, error: 'invalid_area_identity' }
+
+  const actionKind = text(input.actionKind)
+  if (!isFounderAreaCovenantManualActionKind(actionKind)) return { ok: false, error: 'invalid_review_action' }
+
+  const note = input.note === undefined ? undefined : text(input.note)
+  if (note !== undefined && (note.length > 280 || hasControlCharacter(note))) {
+    return { ok: false, error: 'invalid_review_note' }
+  }
+
+  const evidenceKinds = normalizeFounderCovenantManualEvidenceKinds(input.evidenceKinds)
+  if (!evidenceKinds.ok) return evidenceKinds
+
+  return {
+    ok: true,
+    founderCitizenId,
+    areaId,
+    actionKind,
+    note: note || undefined,
+    evidenceKinds: evidenceKinds.evidenceKinds,
+  }
 }
 
 function normalizeFounderCovenantManualEvidenceKinds(
@@ -4005,6 +4070,77 @@ async function handleFounderCovenantReviewQueue(
   res.status(200).json({ ok: true, founderCovenantReviewQueue })
 }
 
+async function handleFounderCovenantOperatorReview(
+  req: VercelRequest,
+  res: VercelResponse,
+  rawIntent: unknown,
+): Promise<void> {
+  const operatorClaims = founderCovenantOperatorClaims(req)
+  if (!operatorClaims) {
+    res.status(operatorRecordCovenantReviewStatus('operator_unauthorized')).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage('operator_unauthorized'),
+      code: 'operator_unauthorized',
+    })
+    return
+  }
+
+  const intent = normalizeOperatorRecordCovenantReviewIntent(rawIntent)
+  if (!intent.ok) {
+    res.status(operatorRecordCovenantReviewStatus(intent.error)).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage(intent.error),
+      code: intent.error,
+    })
+    return
+  }
+  if (intent.actionKind !== 'record_review') {
+    res.status(operatorRecordCovenantReviewStatus('review_action_disabled')).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage('review_action_disabled'),
+      code: 'review_action_disabled',
+    })
+    return
+  }
+
+  const now = new Date()
+  const existing = await readAreaState(intent.founderCitizenId)
+  const stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
+  if (stateForReview && stateForReview.areaId !== intent.areaId) {
+    res.status(operatorRecordCovenantReviewStatus('area_mismatch')).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage('area_mismatch'),
+      code: 'area_mismatch',
+      ...areaPayload(stateForReview),
+    })
+    return
+  }
+
+  const result = applyRecordCovenantReviewIntent(
+    stateForReview,
+    {
+      type: 'recordCovenantReview',
+      actionKind: intent.actionKind,
+      note: intent.note,
+      evidenceKinds: intent.evidenceKinds,
+    },
+    now,
+    `telegram-operator:${operatorClaims.telegramUserId}`,
+  )
+  if (!result.ok) {
+    res.status(operatorRecordCovenantReviewStatus(result.error)).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage(result.error),
+      code: result.error,
+      ...areaPayload(stateForReview),
+    })
+    return
+  }
+
+  const state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  res.status(200).json({ ok: true, ...areaPayload(state) })
+}
+
 async function tickServerClockAreas(
   now: Date,
   limit: number,
@@ -4361,6 +4497,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (intentType === 'founderCovenantReviewQueue') {
     try {
       await handleFounderCovenantReviewQueue(req, res, rawIntent)
+    } catch {
+      res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
+    }
+    return
+  }
+  if (req.method === 'POST' && intentType === 'recordFounderCovenantOperatorReview') {
+    try {
+      await handleFounderCovenantOperatorReview(req, res, rawIntent)
     } catch {
       res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
     }
@@ -5827,6 +5971,27 @@ function recordCovenantReviewMessage(error: ApplyRecordCovenantReviewError): str
   }
 }
 
+function operatorRecordCovenantReviewStatus(error: ApplyOperatorRecordCovenantReviewError): number {
+  if (error === 'operator_unauthorized') return 403
+  if (error === 'area_not_claimed' || error === 'area_mismatch' || error === 'review_action_disabled') return 409
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function operatorRecordCovenantReviewMessage(error: ApplyOperatorRecordCovenantReviewError): string {
+  switch (error) {
+    case 'operator_unauthorized':
+      return 'Founder covenant operator review requires a valid operator token.'
+    case 'area_mismatch':
+      return 'Founder covenant review target does not match the stored founder area.'
+    case 'invalid_founder_identity':
+      return 'Founder covenant review target founder is invalid.'
+    case 'invalid_area_identity':
+      return 'Founder covenant review target area is invalid.'
+    default:
+      return recordCovenantReviewMessage(error)
+  }
+}
+
 function readAuth(req: VercelRequest): { citizenId: string; token: string } | null {
   const source = req.method === 'GET' ? req.query : req.body
   const citizenId = field(source, 'citizenId')
@@ -5872,9 +6037,14 @@ function hasServerClockAuthority(req: VercelRequest): boolean {
 
 function hasFounderCovenantReviewQueueAuthority(req: VercelRequest): boolean {
   if (hasServerClockAuthority(req)) return true
+  return Boolean(founderCovenantOperatorClaims(req))
+}
+
+function founderCovenantOperatorClaims(req: VercelRequest): RealityOperatorQueueTokenClaims | null {
   const token = bearerToken(req)
-  if (!token) return false
-  return verifyRealityOperatorQueueToken(token, process.env[OPERATOR_AUTH_SECRET_ENV]).ok
+  if (!token) return null
+  const result = verifyRealityOperatorQueueToken(token, process.env[OPERATOR_AUTH_SECRET_ENV])
+  return result.ok ? result.claims : null
 }
 
 function bearerToken(req: VercelRequest): string | null {

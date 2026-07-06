@@ -4,16 +4,31 @@ import {
   type RealityOperatorQueueAuthResult,
 } from '../../lib/realityOperatorAuth'
 import {
+  recordRealityFounderCovenantOperatorReview,
   readRealityFounderCovenantOperatorQueue,
+  type RealityAreaCovenantManualEvidenceKind,
   type RealityFounderCovenantOperatorQueueRequest,
+  type RealityFounderCovenantOperatorReviewRequest,
+  type RealityFounderCovenantOperatorReviewResult,
   type RealityFounderCovenantReviewQueueDashboard,
   type RealityFounderCovenantReviewQueueResult,
 } from '../../lib/realityArea'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
+import type { FounderCovenantOperatorQueueReviewRow } from './founderAreaPanelView'
+
+const OPERATOR_REVIEW_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; label: string }[] = [
+  { kind: 'population_growth', label: 'Population' },
+  { kind: 'external_contribution', label: 'Contribution' },
+  { kind: 'ideas_feedback', label: 'Ideas' },
+]
 
 type ReadOperatorQueue = (
   request: RealityFounderCovenantOperatorQueueRequest,
 ) => Promise<RealityFounderCovenantReviewQueueResult>
+
+type RecordOperatorReview = (
+  request: RealityFounderCovenantOperatorReviewRequest,
+) => Promise<RealityFounderCovenantOperatorReviewResult>
 
 type RequestOperatorToken = () => Promise<RealityOperatorQueueAuthResult>
 
@@ -35,6 +50,7 @@ export interface FounderCovenantOperatorPanelProps {
   initialError?: string
   initialQueue?: RealityFounderCovenantReviewQueueDashboard
   readQueue?: ReadOperatorQueue
+  recordReview?: RecordOperatorReview
   requestOperatorToken?: RequestOperatorToken
 }
 
@@ -43,6 +59,7 @@ export default function FounderCovenantOperatorPanel({
   initialError,
   initialQueue,
   readQueue = readRealityFounderCovenantOperatorQueue,
+  recordReview = recordRealityFounderCovenantOperatorReview,
   requestOperatorToken = requestRealityOperatorQueueToken,
 }: FounderCovenantOperatorPanelProps) {
   const [manualOperatorToken, setManualOperatorToken] = useState('')
@@ -50,6 +67,10 @@ export default function FounderCovenantOperatorPanel({
   const [operatorAuthState, setOperatorAuthState] = useState<FounderCovenantOperatorAuthState>(
     initialOperatorAuth ?? { status: 'idle' },
   )
+  const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
+  const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
+  const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
+  const [reviewNote, setReviewNote] = useState('')
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
   const [panelState, setPanelState] = useState<OperatorQueuePanelState>(() => {
@@ -144,6 +165,50 @@ export default function FounderCovenantOperatorPanel({
     void loadQueue()
   }
 
+  const recordOperatorReview = async (row: FounderCovenantOperatorQueueReviewRow) => {
+    if (!operatorToken) {
+      setPanelState({ status: 'error', message: 'Operator token is required.', queue })
+      return
+    }
+
+    setRecordingReviewKey(row.key)
+    setOperatorReviewMessage(null)
+    try {
+      const result = await recordReview({
+        operatorToken,
+        founderCitizenId: row.founderCitizenId,
+        areaId: row.areaId,
+        actionKind: 'record_review',
+        note: reviewNote.trim() || undefined,
+        evidenceKinds: reviewEvidenceKinds,
+      })
+      if (!result.ok) {
+        setPanelState({ status: 'error', message: result.error, queue })
+        return
+      }
+
+      setReviewNote('')
+      setReviewEvidenceKinds([])
+      setOperatorReviewMessage(`Review evidence recorded for ${row.title}.`)
+      const refreshed = await readQueue({ operatorToken, limit, pages })
+      if (refreshed.ok) {
+        setPanelState({ status: 'ready', queue: refreshed.founderCovenantReviewQueue })
+      } else {
+        setPanelState({ status: 'error', message: refreshed.error, queue })
+      }
+    } finally {
+      setRecordingReviewKey(null)
+    }
+  }
+
+  const toggleReviewEvidenceKind = (kind: RealityAreaCovenantManualEvidenceKind) => {
+    setReviewEvidenceKinds((current) =>
+      current.includes(kind)
+        ? current.filter((item) => item !== kind)
+        : [...current, kind]
+    )
+  }
+
   return (
     <section className="panel founder-operator-panel" aria-label="Founder covenant operations">
       <h2 className="panel-title">Founder Ops</h2>
@@ -217,16 +282,47 @@ export default function FounderCovenantOperatorPanel({
       </form>
 
       <div className="founder-covenant-meta" aria-label="Founder operator authority">
-        <span>read only</span>
+        <span>enforcement locked</span>
         <span>ephemeral token</span>
         <span>player state isolated</span>
+        <span>evidence writes only</span>
+      </div>
+
+      <div className="founder-operator-review" aria-label="Founder operator review evidence">
+        <textarea
+          className="founder-covenant-note"
+          disabled={loading || Boolean(recordingReviewKey)}
+          maxLength={280}
+          onChange={(event) => setReviewNote(event.target.value)}
+          placeholder="Review note"
+          value={reviewNote}
+        />
+        <div className="founder-covenant-evidence" aria-label="Founder operator evidence tags">
+          {OPERATOR_REVIEW_EVIDENCE_OPTIONS.map((option) => (
+            <label className="founder-covenant-evidence-option" key={option.kind}>
+              <input
+                checked={reviewEvidenceKinds.includes(option.kind)}
+                disabled={loading || Boolean(recordingReviewKey)}
+                onChange={() => toggleReviewEvidenceKind(option.kind)}
+                type="checkbox"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       {panelState.status === 'idle' && <p className="panel-sub">No operator queue loaded.</p>}
       {panelState.status === 'error' && <p className="waitlist-error">{panelState.message}</p>}
+      {operatorReviewMessage && <p className="panel-sub">{operatorReviewMessage}</p>}
       {queue && (
         <>
-          <FounderCovenantQueuePanel queue={queue} />
+          <FounderCovenantQueuePanel
+            canRecordReview={operatorToken.length > 0 && !loading && !recordingReviewKey}
+            onRecordReview={(row) => void recordOperatorReview(row)}
+            queue={queue}
+            recordingReviewKey={recordingReviewKey}
+          />
           <div className="founder-operator-actions">
             <button
               className="btn small ghost"

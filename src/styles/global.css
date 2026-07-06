@@ -1218,6 +1218,12 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   flex-wrap: wrap;
   gap: 8px;
 }
+.founder-operator-review {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+}
 
 /* ── HUD windows: the player owns the screen ───────────── */
 .hud-window {

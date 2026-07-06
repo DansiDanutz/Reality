@@ -967,6 +967,19 @@ export interface RealityFounderCovenantOperatorQueueRequest {
   cursor?: string
 }
 
+export interface RealityFounderCovenantOperatorReviewRequest {
+  operatorToken?: string
+  founderCitizenId: string
+  areaId: string
+  actionKind: 'record_review'
+  note?: string
+  evidenceKinds?: RealityAreaCovenantManualEvidenceKind[]
+}
+
+export type RealityFounderCovenantOperatorReviewResult =
+  | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
+  | { ok: false; reason: 'missing_operator_token' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
 
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
@@ -1103,6 +1116,53 @@ export async function readRealityFounderCovenantOperatorQueue(
     ...scan,
     serverClockToken: operatorToken,
   }, fetchImpl)
+}
+
+export async function recordRealityFounderCovenantOperatorReview(
+  request: RealityFounderCovenantOperatorReviewRequest,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityFounderCovenantOperatorReviewResult> {
+  const token = request.operatorToken?.trim()
+  if (!token) {
+    return {
+      ok: false,
+      reason: 'missing_operator_token',
+      error: 'Founder covenant review requires an operator token.',
+      code: 'operator_unauthorized',
+    }
+  }
+
+  try {
+    const response = await fetchImpl('/api/reality-area', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: request.founderCitizenId,
+          areaId: request.areaId,
+          actionKind: request.actionKind,
+          ...(request.note ? { note: request.note } : {}),
+          ...(request.evidenceKinds ? { evidenceKinds: request.evidenceKinds } : {}),
+        },
+      }),
+    })
+    const data = await response.json() as Record<string, unknown>
+    const state = isRealityAreaState(data.state) ? data.state : null
+    const dashboard = isRealityAreaDashboard(data.dashboard) ? data.dashboard : undefined
+    if (response.ok && data.ok === true && state) return { ok: true, state, dashboard }
+    return {
+      ok: false,
+      reason: 'server_rejected',
+      error: typeof data.error === 'string' ? data.error : 'Founder covenant review was rejected.',
+      code: typeof data.code === 'string' ? data.code : undefined,
+    }
+  } catch {
+    return { ok: false, reason: 'request_failed', error: 'Reality area server is unreachable.' }
+  }
 }
 
 async function applyRealityAreaPayload(

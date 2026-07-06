@@ -1,15 +1,24 @@
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import {
+  type FounderCovenantOperatorQueueReviewRow,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueSummary,
 } from './founderAreaPanelView'
 
 export interface FounderCovenantQueuePanelProps {
+  canRecordReview?: boolean
+  onRecordReview?: (row: FounderCovenantOperatorQueueReviewRow) => void
   queue: RealityFounderCovenantReviewQueueDashboard
+  recordingReviewKey?: string | null
 }
 
-export function FounderCovenantQueuePanel({ queue }: FounderCovenantQueuePanelProps) {
+export function FounderCovenantQueuePanel({
+  canRecordReview = false,
+  onRecordReview,
+  queue,
+  recordingReviewKey = null,
+}: FounderCovenantQueuePanelProps) {
   const reviewRows = founderCovenantOperatorQueueReviewRows(queue)
 
   return (
@@ -65,7 +74,18 @@ export function FounderCovenantQueuePanel({ queue }: FounderCovenantQueuePanelPr
                 <span className={`founder-covenant-checklist-status mono ${row.statusClass}`}>
                   {row.statusLabel}
                 </span>
-                <span className="item-locked mono">manual only</span>
+                {onRecordReview ? (
+                  <button
+                    className="btn small ghost"
+                    disabled={!canRecordReview || !row.canRecordReview || recordingReviewKey === row.key}
+                    onClick={() => onRecordReview(row)}
+                    type="button"
+                  >
+                    {recordingReviewKey === row.key ? 'Recording' : 'Record evidence'}
+                  </button>
+                ) : (
+                  <span className="item-locked mono">manual only</span>
+                )}
               </div>
             </li>
           ))}

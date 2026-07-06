@@ -7,6 +7,7 @@ import {
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
+  recordRealityFounderCovenantOperatorReview,
   recordRealityFounderCovenantReview,
   readRealityFounderCovenantOperatorQueue,
   readRealityFounderCovenantReviewQueue,
@@ -952,6 +953,85 @@ describe('Reality area client', () => {
       code: 'server_clock_unauthorized',
     })
     expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('records operator founder covenant review evidence without founder credentials', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: ' operator-token ',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      note: 'Reviewed external contribution evidence.',
+      evidenceKinds: ['external_contribution'],
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer operator-token',
+      },
+      body: JSON.stringify({
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: 'citizen-1',
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          note: 'Reviewed external contribution evidence.',
+          evidenceKinds: ['external_contribution'],
+        },
+      }),
+    })
+    const request = fetchImpl.mock.calls[0][1]
+    expect(request).toBeDefined()
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body.citizenId).toBeUndefined()
+    expect(body.token).toBeUndefined()
+  })
+
+  test('keeps operator review evidence blocked without operator authority', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: '   ',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'missing_operator_token',
+      error: 'Founder covenant review requires an operator token.',
+      code: 'operator_unauthorized',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('surfaces disabled operator review enforcement actions as server rejections', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(409, {
+        ok: false,
+        error: 'Founder warning, probation, and replacement actions are disabled until manual approval workflow is ready.',
+        code: 'review_action_disabled',
+      }))
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder warning, probation, and replacement actions are disabled until manual approval workflow is ready.',
+      code: 'review_action_disabled',
+    })
   })
 
   test('rejects malformed founder covenant review queue responses', async () => {
