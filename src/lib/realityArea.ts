@@ -1,7 +1,9 @@
 import type { Citizen } from '../game/types'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
 import type {
+  AreaJobsDashboard,
   AreaNeedsDashboard,
+  AreaWorkerCandidateAction,
   FirstBuildAction,
   FirstBuildBlocker,
   FirstBuildRecommendation,
@@ -136,6 +138,31 @@ export interface RealityAreaFirstBuildRecommendation {
   reason: string
 }
 
+export interface RealityAreaWorkerCandidateDashboard {
+  citizenId: string
+  name: string
+  displayName: string
+  kind: 'real' | 'sim'
+  simulated: boolean
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+  action: AreaWorkerCandidateAction
+  recommendedBusinessId: string | null
+  recommendedBusinessName: string | null
+  recommendedBusinessKind: WorldBusinessKind | null
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'hireWorker' }> | null
+}
+
+export interface RealityAreaJobsDashboard {
+  employedCitizens: number
+  unemployedCitizens: number
+  hireableSimWorkers: number
+  realWorkersRequiringAcceptance: number
+  openPositions: number
+  understaffedBusinesses: number
+  candidates: RealityAreaWorkerCandidateDashboard[]
+}
+
 export interface RealityAreaDashboard {
   areaId: string
   updatedAt: string
@@ -151,6 +178,7 @@ export interface RealityAreaDashboard {
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
   licenses: Record<WorldBusinessKind, RealityAreaLicenseDashboard>
+  jobs: RealityAreaJobsDashboard
   firstBuild: RealityAreaFirstBuildRecommendation[]
 }
 
@@ -382,9 +410,26 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     licenseSlots,
     saturation,
     licenses,
+    jobs: mergeRealityAreaJobsDashboard(dashboard.jobs, serverDashboard.jobs),
     firstBuild: serverDashboard.firstBuild.map((recommendation) =>
       mergeFirstBuildRecommendation(recommendation, dashboard.firstBuild.find((candidate) => candidate.kind === recommendation.kind), serverDashboard)
     ),
+  }
+}
+
+function mergeRealityAreaJobsDashboard(
+  fallback: AreaJobsDashboard,
+  serverJobs: RealityAreaJobsDashboard,
+): AreaJobsDashboard {
+  return {
+    ...fallback,
+    employedCitizens: serverJobs.employedCitizens,
+    unemployedCitizens: serverJobs.unemployedCitizens,
+    hireableSimWorkers: serverJobs.hireableSimWorkers,
+    realWorkersRequiringAcceptance: serverJobs.realWorkersRequiringAcceptance,
+    openPositions: serverJobs.openPositions,
+    understaffedBusinesses: serverJobs.understaffedBusinesses,
+    candidates: serverJobs.candidates.map((candidate) => ({ ...candidate })),
   }
 }
 
@@ -487,6 +532,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isKindNumberRecord(value.licenseSlots) &&
     isKindNumberRecord(value.saturation) &&
     isLicenseDashboardRecord(value.licenses) &&
+    isRealityAreaJobsDashboard(value.jobs) &&
     Array.isArray(value.firstBuild) &&
     value.firstBuild.every(isRealityAreaFirstBuildRecommendation)
 }
@@ -505,6 +551,34 @@ function isRealityAreaLicenseDashboard(value: unknown): value is RealityAreaLice
     typeof value.used === 'number' &&
     typeof value.remaining === 'number' &&
     typeof value.saturation === 'number'
+}
+
+function isRealityAreaJobsDashboard(value: unknown): value is RealityAreaJobsDashboard {
+  return isRecord(value) &&
+    typeof value.employedCitizens === 'number' &&
+    typeof value.unemployedCitizens === 'number' &&
+    typeof value.hireableSimWorkers === 'number' &&
+    typeof value.realWorkersRequiringAcceptance === 'number' &&
+    typeof value.openPositions === 'number' &&
+    typeof value.understaffedBusinesses === 'number' &&
+    Array.isArray(value.candidates) &&
+    value.candidates.every(isRealityAreaWorkerCandidateDashboard)
+}
+
+function isRealityAreaWorkerCandidateDashboard(value: unknown): value is RealityAreaWorkerCandidateDashboard {
+  if (!isRecord(value)) return false
+  return typeof value.citizenId === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.displayName === 'string' &&
+    (value.kind === 'real' || value.kind === 'sim') &&
+    typeof value.simulated === 'boolean' &&
+    (value.participantLabel === 'Sim Citizen' || value.participantLabel === 'Real Citizen') &&
+    (value.visualTone === 'simulated' || value.visualTone === 'real') &&
+    isWorkerCandidateAction(value.action) &&
+    (typeof value.recommendedBusinessId === 'string' || value.recommendedBusinessId === null) &&
+    (typeof value.recommendedBusinessName === 'string' || value.recommendedBusinessName === null) &&
+    (isBusinessKind(value.recommendedBusinessKind) || value.recommendedBusinessKind === null) &&
+    (isRealityAreaHirePayload(value.clientPayload) || value.clientPayload === null)
 }
 
 function isRealityAreaFirstBuildRecommendation(value: unknown): value is RealityAreaFirstBuildRecommendation {
@@ -529,6 +603,20 @@ function isRealityAreaBuildPayload(value: unknown): value is Extract<WorldClient
     isBusinessKind(value.businessKind) &&
     typeof value.businessId === 'string' &&
     (typeof value.name === 'string' || value.name === undefined)
+}
+
+function isRealityAreaHirePayload(value: unknown): value is Extract<WorldClientIntentPayload, { type: 'hireWorker' }> {
+  return isRecord(value) &&
+    value.type === 'hireWorker' &&
+    typeof value.businessId === 'string' &&
+    typeof value.workerCitizenId === 'string'
+}
+
+function isWorkerCandidateAction(value: unknown): value is AreaWorkerCandidateAction {
+  return value === 'hire_now' ||
+    value === 'requires_acceptance' ||
+    value === 'waiting_for_position' ||
+    value === 'founder_unavailable'
 }
 
 function isBusinessKind(value: unknown): value is WorldBusinessKind {

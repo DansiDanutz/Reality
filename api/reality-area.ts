@@ -149,8 +149,35 @@ interface FounderAreaJobsDashboard {
   employedCitizens: number
   unemployedCitizens: number
   hireableSimWorkers: number
+  realWorkersRequiringAcceptance: number
   openPositions: number
   understaffedBusinesses: number
+  candidates: FounderAreaWorkerCandidateDashboard[]
+}
+
+type FounderAreaWorkerCandidateAction =
+  | 'hire_now'
+  | 'requires_acceptance'
+  | 'waiting_for_position'
+  | 'founder_unavailable'
+
+interface FounderAreaWorkerCandidateDashboard {
+  citizenId: string
+  name: string
+  displayName: string
+  kind: FounderAreaCitizen['kind']
+  simulated: boolean
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+  action: FounderAreaWorkerCandidateAction
+  recommendedBusinessId: string | null
+  recommendedBusinessName: string | null
+  recommendedBusinessKind: FounderAreaBusinessKind | null
+  clientPayload: {
+    type: 'hireWorker'
+    businessId: string
+    workerCitizenId: string
+  } | null
 }
 
 interface FounderAreaLicenseDashboard {
@@ -1062,31 +1089,84 @@ function areaJobsDashboard(state: FounderAreaState): FounderAreaJobsDashboard {
   let hireableSimWorkers = 0
   let openPositions = 0
   let understaffedBusinesses = 0
+  const hiringSlots: FounderAreaBusiness[] = []
   for (const citizen of state.citizens) {
-    const employed = Boolean(
-      citizen.jobBusinessId &&
-      state.businesses.some((business) =>
-        business.id === citizen.jobBusinessId && business.staffCitizenIds.includes(citizen.id)
-      ),
-    )
+    const employed = hasActiveJob(state, citizen)
     if (employed) employedCitizens += 1
     if (!employed && citizen.kind === 'sim' && citizen.state.kind === 'active') hireableSimWorkers += 1
   }
   for (const business of state.businesses) {
     const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
     const activeStaff = activeStaffCount(state.citizens, business)
-    if (activeStaff < targetStaff) {
+    const openForBusiness = Math.max(0, targetStaff - activeStaff)
+    if (openForBusiness > 0) {
       understaffedBusinesses += 1
-      openPositions += targetStaff - activeStaff
+      openPositions += openForBusiness
+      for (let slot = 0; slot < openForBusiness; slot += 1) hiringSlots.push(business)
     }
   }
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const founderCanManage = founder?.state.kind === 'active'
+  const candidates = state.citizens
+    .filter((citizen) =>
+      citizen.id !== state.founderCitizenId &&
+      citizen.state.kind === 'active' &&
+      !hasActiveJob(state, citizen) &&
+      !citizen.jobBusinessId
+    )
+    .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
   return {
     employedCitizens,
     unemployedCitizens: state.citizens.length - employedCitizens,
     hireableSimWorkers,
+    realWorkersRequiringAcceptance: candidates.filter((candidate) => candidate.action === 'requires_acceptance').length,
     openPositions,
     understaffedBusinesses,
+    candidates,
   }
+}
+
+function hasActiveJob(state: FounderAreaState, citizen: FounderAreaCitizen): boolean {
+  if (citizen.state.kind !== 'active' || !citizen.jobBusinessId) return false
+  return state.businesses.some((business) =>
+    business.id === citizen.jobBusinessId && business.staffCitizenIds.includes(citizen.id)
+  )
+}
+
+function workerCandidateDashboard(
+  citizen: FounderAreaCitizen,
+  recommendedBusiness: FounderAreaBusiness | null,
+  founderCanManage: boolean,
+): FounderAreaWorkerCandidateDashboard {
+  const simulated = citizen.kind === 'sim'
+  const canHireNow = founderCanManage && simulated && recommendedBusiness !== null
+  return {
+    citizenId: citizen.id,
+    name: citizen.name,
+    displayName: simulated ? `${citizen.name} (Sim)` : citizen.name,
+    kind: citizen.kind,
+    simulated,
+    participantLabel: simulated ? 'Sim Citizen' : 'Real Citizen',
+    visualTone: simulated ? 'simulated' : 'real',
+    action: workerCandidateAction(citizen, recommendedBusiness, founderCanManage),
+    recommendedBusinessId: recommendedBusiness?.id ?? null,
+    recommendedBusinessName: recommendedBusiness?.name ?? null,
+    recommendedBusinessKind: recommendedBusiness?.kind ?? null,
+    clientPayload: canHireNow
+      ? { type: 'hireWorker', businessId: recommendedBusiness.id, workerCitizenId: citizen.id }
+      : null,
+  }
+}
+
+function workerCandidateAction(
+  citizen: FounderAreaCitizen,
+  recommendedBusiness: FounderAreaBusiness | null,
+  founderCanManage: boolean,
+): FounderAreaWorkerCandidateAction {
+  if (citizen.kind !== 'sim') return 'requires_acceptance'
+  if (!founderCanManage && recommendedBusiness) return 'founder_unavailable'
+  if (recommendedBusiness) return 'hire_now'
+  return 'waiting_for_position'
 }
 
 function areaPayload(state: FounderAreaState | null): {

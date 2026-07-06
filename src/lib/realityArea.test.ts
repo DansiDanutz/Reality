@@ -360,8 +360,25 @@ describe('Reality area client', () => {
     const merged = mergeRealityAreaDashboardIntoWorldDashboard(localDashboard, serverDashboard())
     const water = merged.firstBuild.find((recommendation) => recommendation.kind === 'water')
     const food = merged.firstBuild.find((recommendation) => recommendation.kind === 'food')
+    const worker = merged.jobs.candidates[0]
 
     expect(merged.licenses.water).toMatchObject({ slots: 1, used: 1, remaining: 0, saturation: 1 })
+    expect(merged.jobs).toMatchObject({
+      openPositions: 1,
+      hireableSimWorkers: 1,
+      understaffedBusinesses: 1,
+    })
+    expect(worker).toMatchObject({
+      citizenId: 'sim-food',
+      displayName: 'Demo Food Resident (Sim)',
+      action: 'hire_now',
+      recommendedBusinessId: 'water-1',
+      clientPayload: {
+        type: 'hireWorker',
+        businessId: 'water-1',
+        workerCitizenId: 'sim-food',
+      },
+    })
     expect(water).toMatchObject({
       currentSupply: 1,
       licensesRemaining: 0,
@@ -513,6 +530,32 @@ function serverDashboard(): RealityAreaDashboard {
       housing: { slots: 1, used: 0, remaining: 1, saturation: 0 },
       clinic: { slots: 0, used: 0, remaining: 0, saturation: 0 },
       insurance: { slots: 0, used: 0, remaining: 0, saturation: 0 },
+    },
+    jobs: {
+      employedCitizens: 1,
+      unemployedCitizens: 1,
+      hireableSimWorkers: 1,
+      realWorkersRequiringAcceptance: 0,
+      openPositions: 1,
+      understaffedBusinesses: 1,
+      candidates: [{
+        citizenId: 'sim-food',
+        name: 'Demo Food Resident',
+        displayName: 'Demo Food Resident (Sim)',
+        kind: 'sim',
+        simulated: true,
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
+        action: 'hire_now',
+        recommendedBusinessId: 'water-1',
+        recommendedBusinessName: 'Founder Water',
+        recommendedBusinessKind: 'water',
+        clientPayload: {
+          type: 'hireWorker',
+          businessId: 'water-1',
+          workerCitizenId: 'sim-food',
+        },
+      }],
     },
     firstBuild: [{
       kind: 'food',

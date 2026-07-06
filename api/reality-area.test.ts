@@ -25,6 +25,27 @@ const FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
 const NON_FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__0.json`
 
 type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
+  jobs: ReturnType<typeof serverDashboard>['jobs'] & {
+    realWorkersRequiringAcceptance: number
+    candidates: {
+      citizenId: string
+      name: string
+      displayName: string
+      kind: string
+      simulated: boolean
+      participantLabel: string
+      visualTone: string
+      action: string
+      recommendedBusinessId: string | null
+      recommendedBusinessName: string | null
+      recommendedBusinessKind: string | null
+      clientPayload: {
+        type: string
+        businessId: string
+        workerCitizenId: string
+      } | null
+    }[]
+  }
   licenseSlots: Record<string, number>
   saturation: Record<string, number>
   licenses: Record<string, { slots: number; used: number; remaining: number; saturation: number }>
@@ -633,11 +654,71 @@ describe('reality area authority API', () => {
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
     })
+    expect(dashboard.jobs).toMatchObject({
+      openPositions: 1,
+      understaffedBusinesses: 1,
+      hireableSimWorkers: 3,
+      realWorkersRequiringAcceptance: 0,
+    })
+    expect(dashboard.jobs.candidates[0]).toMatchObject({
+      citizenId: 'founder-area-0012:sim-water',
+      name: 'Demo Water Resident',
+      displayName: 'Demo Water Resident (Sim)',
+      kind: 'sim',
+      simulated: true,
+      participantLabel: 'Sim Citizen',
+      visualTone: 'simulated',
+      action: 'hire_now',
+      recommendedBusinessId: 'water-1',
+      recommendedBusinessName: 'Founder Water',
+      recommendedBusinessKind: 'water',
+      clientPayload: {
+        type: 'hireWorker',
+        businessId: 'water-1',
+        workerCitizenId: 'founder-area-0012:sim-water',
+      },
+    })
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('dashboard suppresses server hire payloads while the founder is hospitalized', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const existing = withBusiness(withCitizen(existingState(), CITIZEN_ID, {
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+    }), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-staffing-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const dashboard = (res.body as { dashboard: DashboardWithBuildGuidance }).dashboard
+    expect(dashboard.jobs).toMatchObject({
+      openPositions: 1,
+      understaffedBusinesses: 1,
+      hireableSimWorkers: 3,
+    })
+    expect(dashboard.jobs.candidates[0]).toMatchObject({
+      citizenId: 'founder-area-0012:sim-water',
+      action: 'founder_unavailable',
+      recommendedBusinessId: 'water-1',
+      clientPayload: null,
+    })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
