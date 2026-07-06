@@ -368,7 +368,17 @@ export interface AreaTransactionDashboard {
 export interface AreaLedgerDashboard {
   transactionCount: number
   totalsByKind: Record<WorldTransactionKind, number>
+  payoutClassification: AreaLedgerPayoutClassificationDashboard
   recentTransactions: AreaTransactionDashboard[]
+}
+
+export interface AreaLedgerPayoutClassificationDashboard {
+  gameOnlyTransactionCount: number
+  gameOnlyAmount: number
+  payoutEligibleTransactionCount: number
+  payoutEligibleAmount: number
+  manualPayoutReviewRequired: true
+  realWithdrawalEligible: false
 }
 
 export type FounderCovenantStatus = 'unclaimed' | 'active' | 'watch' | 'manual_review'
@@ -1142,12 +1152,39 @@ function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
   return {
     transactionCount: area.transactions.length,
     totalsByKind,
+    payoutClassification: ledgerPayoutClassification(area.transactions),
     recentTransactions: area.transactions.slice(-10).reverse().map(transactionDashboard),
   }
 }
 
 function transactionDashboard(transaction: WorldTransaction): AreaTransactionDashboard {
   return { ...transaction }
+}
+
+function ledgerPayoutClassification(transactions: WorldTransaction[]): AreaLedgerPayoutClassificationDashboard {
+  let gameOnlyTransactionCount = 0
+  let gameOnlyAmount = 0
+  let payoutEligibleTransactionCount = 0
+  let payoutEligibleAmount = 0
+
+  for (const transaction of transactions) {
+    if (transaction.payoutEligibility === 'game_only') {
+      gameOnlyTransactionCount += 1
+      gameOnlyAmount = roundMoney(gameOnlyAmount + transaction.amount)
+    } else {
+      payoutEligibleTransactionCount += 1
+      payoutEligibleAmount = roundMoney(payoutEligibleAmount + transaction.amount)
+    }
+  }
+
+  return {
+    gameOnlyTransactionCount,
+    gameOnlyAmount,
+    payoutEligibleTransactionCount,
+    payoutEligibleAmount,
+    manualPayoutReviewRequired: true,
+    realWithdrawalEligible: false,
+  }
 }
 
 function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaCitizenDashboard {

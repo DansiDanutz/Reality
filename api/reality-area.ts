@@ -648,7 +648,17 @@ interface FounderAreaSurvivalDashboard {
 interface FounderAreaLedgerDashboard {
   transactionCount: number
   totalsByKind: Record<FounderAreaTransactionKind, number>
+  payoutClassification: FounderAreaLedgerPayoutClassificationDashboard
   recentTransactions: FounderAreaTransaction[]
+}
+
+interface FounderAreaLedgerPayoutClassificationDashboard {
+  gameOnlyTransactionCount: number
+  gameOnlyAmount: number
+  payoutEligibleTransactionCount: 0
+  payoutEligibleAmount: 0
+  manualPayoutReviewRequired: true
+  realWithdrawalEligible: false
 }
 
 interface FounderAreaSettlementDashboard {
@@ -2865,7 +2875,22 @@ function areaLedgerDashboard(state: FounderAreaState): FounderAreaLedgerDashboar
   return {
     transactionCount: state.transactions.length,
     totalsByKind,
+    payoutClassification: ledgerPayoutClassification(state.transactions),
     recentTransactions: state.transactions.slice(-10).reverse().map((transaction) => ({ ...transaction })),
+  }
+}
+
+function ledgerPayoutClassification(
+  transactions: FounderAreaTransaction[],
+): FounderAreaLedgerPayoutClassificationDashboard {
+  const gameOnlyTransactions = transactions.filter((transaction) => transaction.payoutEligibility === 'game_only')
+  return {
+    gameOnlyTransactionCount: gameOnlyTransactions.length,
+    gameOnlyAmount: roundMoney(gameOnlyTransactions.reduce((total, transaction) => total + transaction.amount, 0)),
+    payoutEligibleTransactionCount: 0,
+    payoutEligibleAmount: 0,
+    manualPayoutReviewRequired: true,
+    realWithdrawalEligible: false,
   }
 }
 

@@ -58,10 +58,19 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
   ledger: {
     transactionCount: number
     totalsByKind: Record<string, number>
+    payoutClassification: {
+      gameOnlyTransactionCount: number
+      gameOnlyAmount: number
+      payoutEligibleTransactionCount: number
+      payoutEligibleAmount: number
+      manualPayoutReviewRequired: boolean
+      realWithdrawalEligible: boolean
+    }
     recentTransactions: {
       id: string
       at: string
       kind: string
+      payoutEligibility: string
       fromId: string
       toId: string
       amount: number
@@ -125,6 +134,7 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
         id: string
         at: string
         kind: string
+        payoutEligibility: string
         fromId: string
         toId: string
         amount: number
@@ -674,6 +684,14 @@ describe('reality area authority API', () => {
         insurance_payout: 0,
         medical_debt: 0,
         debt_repayment: 0,
+      },
+      payoutClassification: {
+        gameOnlyTransactionCount: 4,
+        gameOnlyAmount: 200_300,
+        payoutEligibleTransactionCount: 0,
+        payoutEligibleAmount: 0,
+        manualPayoutReviewRequired: true,
+        realWithdrawalEligible: false,
       },
       recentTransactions: [{
         kind: 'sim_citizen_credit',
@@ -1442,6 +1460,8 @@ describe('reality area authority API', () => {
   })
 
   test('normalizes persisted ledger entries to game-only payout eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
     const existing = {
       ...existingState(),
       transactions: existingState().transactions.map((transaction, index) =>
@@ -1470,6 +1490,14 @@ describe('reality area authority API', () => {
     expect(body.dashboard.ledger.recentTransactions.every((transaction) =>
       transaction.payoutEligibility === 'game_only'
     )).toBe(true)
+    expect(body.dashboard.ledger.payoutClassification).toEqual({
+      gameOnlyTransactionCount: 4,
+      gameOnlyAmount: 200_300,
+      payoutEligibleTransactionCount: 0,
+      payoutEligibleAmount: 0,
+      manualPayoutReviewRequired: true,
+      realWithdrawalEligible: false,
+    })
     expect(body.dashboard.payoutReadiness).toMatchObject({
       payoutEligibleCredits: 0,
       realWithdrawalsEnabled: false,
@@ -4973,6 +5001,7 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     supply: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 },
     capacity: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 },
     shortage: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
+    ledger: ledgerDashboard(state),
     jobs: {
       employedCitizens: 0,
       unemployedCitizens: 4,
@@ -4987,6 +5016,38 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     handoff: handoffDashboard(state),
     landRights: landRightsDashboard(state),
     founderCovenant: state.founderCovenant,
+  } as const
+}
+
+function ledgerDashboard(state: ReturnType<typeof existingState>) {
+  const totalsByKind = {
+    founder_credit: 0,
+    sim_citizen_credit: 0,
+    business_build: 0,
+    customer_purchase: 0,
+    worker_wage: 0,
+    hospital_bill: 0,
+    insurance_premium: 0,
+    insurance_payout: 0,
+    medical_debt: 0,
+    debt_repayment: 0,
+  }
+  for (const transaction of state.transactions) {
+    totalsByKind[transaction.kind] += transaction.amount
+  }
+  const gameOnlyTransactions = state.transactions.filter((transaction) => transaction.payoutEligibility === 'game_only')
+  return {
+    transactionCount: state.transactions.length,
+    totalsByKind,
+    payoutClassification: {
+      gameOnlyTransactionCount: gameOnlyTransactions.length,
+      gameOnlyAmount: gameOnlyTransactions.reduce((total, transaction) => total + transaction.amount, 0),
+      payoutEligibleTransactionCount: 0,
+      payoutEligibleAmount: 0,
+      manualPayoutReviewRequired: true,
+      realWithdrawalEligible: false,
+    },
+    recentTransactions: state.transactions.slice(-10).reverse(),
   } as const
 }
 

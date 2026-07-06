@@ -846,6 +846,16 @@ export function founderLedgerSummaryItems(ledger: AreaLedgerDashboard): FounderL
     label: 'Debt issued',
     value: formatMoney(ledger.totalsByKind.medical_debt),
     tone: ledger.totalsByKind.medical_debt > 0 ? 'critical' : 'stable',
+  }, {
+    key: 'game-only',
+    label: 'Game-only',
+    value: formatMoney(ledger.payoutClassification.gameOnlyAmount),
+    tone: 'stable',
+  }, {
+    key: 'payout-eligible',
+    label: 'Payout eligible',
+    value: formatMoney(ledger.payoutClassification.payoutEligibleAmount),
+    tone: ledger.payoutClassification.payoutEligibleAmount > 0 ? 'critical' : 'stable',
   }]
 }
 

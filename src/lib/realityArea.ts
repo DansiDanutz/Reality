@@ -421,7 +421,17 @@ export interface RealityAreaBusinessLedgerDashboard {
 export interface RealityAreaLedgerDashboard {
   transactionCount: number
   totalsByKind: Record<WorldTransactionKind, number>
+  payoutClassification: RealityAreaLedgerPayoutClassificationDashboard
   recentTransactions: RealityAreaTransaction[]
+}
+
+export interface RealityAreaLedgerPayoutClassificationDashboard {
+  gameOnlyTransactionCount: number
+  gameOnlyAmount: number
+  payoutEligibleTransactionCount: 0
+  payoutEligibleAmount: 0
+  manualPayoutReviewRequired: true
+  realWithdrawalEligible: false
 }
 
 export type RealityAreaGrowthBlocker =
@@ -1032,6 +1042,7 @@ function mergeRealityAreaLedgerDashboard(ledger: RealityAreaLedgerDashboard): Ar
   return {
     transactionCount: ledger.transactionCount,
     totalsByKind: { ...ledger.totalsByKind },
+    payoutClassification: { ...ledger.payoutClassification },
     recentTransactions: ledger.recentTransactions.map((transaction) => ({
       ...transaction,
       at: parseInstant(transaction.at),
@@ -1454,8 +1465,21 @@ function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedge
   return isRecord(value) &&
     typeof value.transactionCount === 'number' &&
     isTransactionKindNumberRecord(value.totalsByKind) &&
+    isRealityAreaLedgerPayoutClassification(value.payoutClassification) &&
     Array.isArray(value.recentTransactions) &&
     value.recentTransactions.every(isRealityAreaTransaction)
+}
+
+function isRealityAreaLedgerPayoutClassification(
+  value: unknown,
+): value is RealityAreaLedgerPayoutClassificationDashboard {
+  return isRecord(value) &&
+    typeof value.gameOnlyTransactionCount === 'number' &&
+    typeof value.gameOnlyAmount === 'number' &&
+    value.payoutEligibleTransactionCount === 0 &&
+    value.payoutEligibleAmount === 0 &&
+    value.manualPayoutReviewRequired === true &&
+    value.realWithdrawalEligible === false
 }
 
 function isRealityAreaGrowthDashboard(value: unknown): value is RealityAreaGrowthDashboard {

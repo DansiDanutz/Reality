@@ -2717,6 +2717,14 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.ledger.totalsByKind.customer_purchase).toBe(26)
     expect(dash.ledger.totalsByKind.insurance_premium).toBe(30)
     expect(dash.ledger.totalsByKind.medical_debt).toBe(0)
+    expect(dash.ledger.payoutClassification).toEqual({
+      gameOnlyTransactionCount: 12,
+      gameOnlyAmount: 78,
+      payoutEligibleTransactionCount: 0,
+      payoutEligibleAmount: 0,
+      manualPayoutReviewRequired: true,
+      realWithdrawalEligible: false,
+    })
     expect(dash.ledger.recentTransactions).toHaveLength(10)
     expect(dash.ledger.recentTransactions.map((transaction) => transaction.id)).toEqual([
       'tx12',

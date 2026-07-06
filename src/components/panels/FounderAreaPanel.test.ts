@@ -676,12 +676,22 @@ describe('FounderAreaPanel covenant presenters', () => {
         medical_debt: 300,
         debt_repayment: 120,
       },
+      payoutClassification: {
+        gameOnlyTransactionCount: 4,
+        gameOnlyAmount: 208_791,
+        payoutEligibleTransactionCount: 0,
+        payoutEligibleAmount: 0,
+        manualPayoutReviewRequired: true,
+        realWithdrawalEligible: false,
+      },
       recentTransactions: [],
     })).toEqual([
       { key: 'events', label: 'Events', value: '4', tone: 'stable' },
       { key: 'sales', label: 'Sales', value: '$12', tone: 'stable' },
       { key: 'wages', label: 'Wages', value: '$14', tone: 'warning' },
       { key: 'debt', label: 'Debt issued', value: '$300', tone: 'critical' },
+      { key: 'game-only', label: 'Game-only', value: '$208,791', tone: 'stable' },
+      { key: 'payout-eligible', label: 'Payout eligible', value: '$0', tone: 'stable' },
     ])
   })
 

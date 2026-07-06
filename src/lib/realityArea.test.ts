@@ -268,6 +268,34 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores server dashboards that report payout eligible ledger totals', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      ledger: {
+        ...dashboard.ledger,
+        payoutClassification: {
+          ...dashboard.ledger.payoutClassification,
+          payoutEligibleTransactionCount: 1,
+          payoutEligibleAmount: 12,
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores legacy royalty dashboards that enable successor payouts', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -957,6 +985,14 @@ describe('Reality area client', () => {
         insurance_payout: 0,
         medical_debt: 0,
         debt_repayment: 0,
+      },
+      payoutClassification: {
+        gameOnlyTransactionCount: 2,
+        gameOnlyAmount: 16,
+        payoutEligibleTransactionCount: 0,
+        payoutEligibleAmount: 0,
+        manualPayoutReviewRequired: true,
+        realWithdrawalEligible: false,
       },
       recentTransactions: [{
         id: 'tx-wage',
@@ -1799,6 +1835,14 @@ function serverDashboard(): RealityAreaDashboard {
         insurance_payout: 0,
         medical_debt: 0,
         debt_repayment: 0,
+      },
+      payoutClassification: {
+        gameOnlyTransactionCount: 2,
+        gameOnlyAmount: 16,
+        payoutEligibleTransactionCount: 0,
+        payoutEligibleAmount: 0,
+        manualPayoutReviewRequired: true,
+        realWithdrawalEligible: false,
       },
       recentTransactions: [{
         id: 'tx-wage',
