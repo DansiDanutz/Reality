@@ -31,6 +31,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderIdentityClaimSourceLabel,
+  founderIdentitySeatLabel,
+  founderIdentityTelegramStatusLabel,
   founderLegacyRoyaltyBlockerText,
   founderLegacyRoyaltyStatusLabel,
   founderLegacyRoyaltySummaryItems,
@@ -42,6 +45,29 @@ import {
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
+  test('summarizes server-verified founder Telegram identity', () => {
+    const identity = {
+      citizenId: 'citizen-1',
+      founderNumber: 12,
+      claimSource: 'telegram',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+    } as const
+
+    expect(founderIdentitySeatLabel(identity)).toBe('Founder #0012')
+    expect(founderIdentityClaimSourceLabel(identity.claimSource)).toBe('Telegram claim')
+    expect(founderIdentityClaimSourceLabel('geolocation')).toBe('Geolocation claim')
+    expect(founderIdentityTelegramStatusLabel(identity)).toBe('Telegram linked 42424242')
+    expect(founderIdentityTelegramStatusLabel({
+      telegramUserId: null,
+      telegramAccountId: 'telegram:777',
+    })).toBe('Telegram linked 777')
+    expect(founderIdentityTelegramStatusLabel({
+      telegramUserId: null,
+      telegramAccountId: null,
+    })).toBe('Telegram pending')
+  })
+
   test('labels covenant status with operational tones', () => {
     expect(founderCovenantStatusLabel('active')).toBe('Active')
     expect(founderCovenantStatusLabel('watch')).toBe('Watch')

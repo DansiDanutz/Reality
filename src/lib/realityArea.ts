@@ -592,7 +592,7 @@ export interface RealityAreaDashboard {
   founderCovenant: RealityAreaCovenantReview
 }
 
-export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<RealityAreaDashboard, 'settlement' | 'legacyRoyalty'>
+export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<RealityAreaDashboard, 'founderIdentity' | 'settlement' | 'legacyRoyalty'>
 
 export interface RealityAreaState {
   version: 1
@@ -834,6 +834,7 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
 
   return {
     ...dashboard,
+    founderIdentity: { ...serverDashboard.founderIdentity },
     population: serverDashboard.population,
     simPopulation: serverDashboard.simPopulation,
     realPopulation: serverDashboard.realPopulation,

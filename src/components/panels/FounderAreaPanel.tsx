@@ -57,6 +57,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderIdentityClaimSourceLabel,
+  founderIdentitySeatLabel,
+  founderIdentityTelegramStatusLabel,
   founderLegacyRoyaltyBlockerText,
   founderLegacyRoyaltyStatusLabel,
   founderLegacyRoyaltySummaryItems,
@@ -115,6 +118,7 @@ export default function FounderAreaPanel() {
 
   const result = panelState.status === 'ready' ? panelState.result : null
   const dashboard = result?.dashboard
+  const founderIdentityDashboard = dashboard ? getFounderIdentityDashboard(dashboard) : null
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
   const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
   const area = result?.area
@@ -207,6 +211,18 @@ export default function FounderAreaPanel() {
               <span className="stat-label">founder balance</span>
               <span className="stat-value mono gold">{formatMoney(founder?.money ?? 0)}</span>
             </div>
+            {founderIdentityDashboard && (
+              <>
+                <div className="stat">
+                  <span className="stat-label">identity</span>
+                  <span className="stat-value mono">{founderIdentitySeatLabel(founderIdentityDashboard)}</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-label">{founderIdentityClaimSourceLabel(founderIdentityDashboard.claimSource)}</span>
+                  <span className="stat-value mono">{founderIdentityTelegramStatusLabel(founderIdentityDashboard)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           <section
@@ -762,6 +778,12 @@ async function hydrateServerArea(
     ...result,
     dashboard: mergeRealityAreaDashboardIntoWorldDashboard(result.dashboard, serverDashboard),
   }
+}
+
+function getFounderIdentityDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaDashboard['founderIdentity'] | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'founderIdentity'>>).founderIdentity ?? null
 }
 
 function getFounderSettlementDashboard(

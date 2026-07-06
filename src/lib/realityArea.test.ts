@@ -849,6 +849,7 @@ describe('Reality area client', () => {
         amount: 2,
       }],
     })
+    expect((merged as { founderIdentity: RealityAreaDashboard['founderIdentity'] }).founderIdentity).toEqual(server.founderIdentity)
     expect((merged as { settlement: RealityAreaDashboard['settlement'] }).settlement).toEqual(server.settlement)
     expect((merged as { legacyRoyalty: RealityAreaDashboard['legacyRoyalty'] }).legacyRoyalty).toEqual(server.legacyRoyalty)
     expect(merged.jobs).toMatchObject({

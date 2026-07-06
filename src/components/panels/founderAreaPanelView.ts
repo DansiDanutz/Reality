@@ -17,6 +17,7 @@ import type {
   WorldTransactionKind,
 } from '../../game/worldSim'
 import type {
+  RealityAreaDashboard,
   RealityAreaLegacyRoyaltyBlocker,
   RealityAreaLegacyRoyaltyDashboard,
   RealityAreaSettlementBlocker,
@@ -58,6 +59,35 @@ export interface FounderCovenantScheduleItem {
   label: string
   value: string
   tone: FounderCovenantReviewTone
+}
+
+export function founderIdentitySeatLabel(
+  identity: Pick<RealityAreaDashboard['founderIdentity'], 'founderNumber'>,
+): string {
+  return `Founder #${String(identity.founderNumber).padStart(4, '0')}`
+}
+
+export function founderIdentityClaimSourceLabel(
+  source: RealityAreaDashboard['founderIdentity']['claimSource'],
+): string {
+  switch (source) {
+    case 'telegram':
+      return 'Telegram claim'
+    case 'geolocation':
+      return 'Geolocation claim'
+    case 'ip':
+      return 'IP claim'
+    case 'manual':
+      return 'Manual claim'
+  }
+}
+
+export function founderIdentityTelegramStatusLabel(
+  identity: Pick<RealityAreaDashboard['founderIdentity'], 'telegramUserId' | 'telegramAccountId'>,
+): string {
+  if (identity.telegramUserId) return `Telegram linked ${identity.telegramUserId}`
+  if (identity.telegramAccountId) return `Telegram linked ${identity.telegramAccountId.replace(/^telegram:/, '')}`
+  return 'Telegram pending'
 }
 
 export function founderSettlementStatusLabel(settlement: Pick<RealityAreaSettlementDashboard, 'mode'>): string {
