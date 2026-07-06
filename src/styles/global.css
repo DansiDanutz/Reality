@@ -930,6 +930,56 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   border-radius: var(--radius);
 }
 
+/* Founder Area — playable sim-spine drawer. */
+.founder-area-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(240, 180, 41, 0.3);
+  border-radius: var(--radius);
+}
+.founder-section { display: flex; flex-direction: column; gap: 10px; }
+.founder-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.founder-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.founder-need-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.founder-need {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.06);
+}
+.founder-need.short { border-color: rgba(229, 72, 77, 0.45); }
+.founder-choice .item-yield { color: var(--ok); }
+.founder-citizen.simulated .item-name { color: var(--sky); }
+.founder-business.warning { border-color: rgba(240, 180, 41, 0.45); }
+.founder-business.critical { border-color: rgba(229, 72, 77, 0.45); }
+.founder-event {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.06);
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ── HUD windows: the player owns the screen ───────────── */
 .hud-window {
   position: absolute;
@@ -2327,6 +2377,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   /* Drawer panels fill the viewport minus the topbar; close button stays put. */
   .drawer { top: 108px; right: 12px; bottom: 12px; width: calc(100vw - 24px); }
   .drawer-close { width: 36px; height: 36px; }
+  .founder-area-summary,
+  .founder-need-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .welcome { padding: 28px 22px; }
 

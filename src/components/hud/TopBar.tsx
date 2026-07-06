@@ -35,7 +35,7 @@ export default function TopBar() {
   const placeName = home ? clock.place : (citizen.homeCity ?? clock.place)
   const day = dayOfLife(citizen.createdAt)
 
-  const toggle = (id: 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'achievements' | 'boxes') => setPanel(panel === id ? null : id)
+  const toggle = (id: 'shop' | 'work' | 'assets' | 'founder' | 'top' | 'profile' | 'achievements' | 'boxes') => setPanel(panel === id ? null : id)
 
   return (
     <header className="topbar">
@@ -81,6 +81,7 @@ export default function TopBar() {
         <button className={panel === 'shop' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('shop')}>Shop</button>
         <button className={panel === 'work' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('work')}>Work</button>
         <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
+        <button className={panel === 'founder' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('founder')}>Area</button>
         <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
         <button
           className={panel === 'boxes' ? 'nav-btn active' : 'nav-btn'}

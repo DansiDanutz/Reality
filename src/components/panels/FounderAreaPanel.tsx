@@ -1,0 +1,235 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  advanceFounderArea,
+  applyFounderAreaPayload,
+  claimFounderArea,
+  createFounderAreaSession,
+  founderAreaProfileFromCitizen,
+  type FounderAreaSession,
+} from '../../game/founderAreaSession'
+import { formatMoney } from '../../game/engine'
+import type { WorldClientIntentPayload } from '../../game/worldSim'
+import type { WorldServerCommandResult } from '../../game/worldSimServer'
+import { useGame } from '../../store/gameStore'
+
+type PanelState =
+  | { status: 'loading' }
+  | { status: 'ready'; result: WorldServerCommandResult }
+
+export default function FounderAreaPanel() {
+  const citizen = useGame((s) => s.citizen)
+  const sessionRef = useRef<FounderAreaSession | null>(null)
+  const [panelState, setPanelState] = useState<PanelState>({ status: 'loading' })
+  const [busy, setBusy] = useState(false)
+  const [lastEvent, setLastEvent] = useState('Area claimed.')
+
+  const profile = useMemo(() => citizen ? founderAreaProfileFromCitizen(citizen) : null, [citizen])
+
+  useEffect(() => {
+    let alive = true
+    if (!profile) return
+    const session = createFounderAreaSession(profile)
+    sessionRef.current = session
+    setPanelState({ status: 'loading' })
+    void claimFounderArea(session, Date.now()).then((result) => {
+      if (!alive) return
+      setPanelState({ status: 'ready', result })
+      setLastEvent(result.ok ? 'Area claimed.' : `Command failed: ${result.error}`)
+    })
+    return () => {
+      alive = false
+    }
+  }, [profile])
+
+  if (!citizen || !profile) return null
+
+  const result = panelState.status === 'ready' ? panelState.result : null
+  const dashboard = result?.dashboard
+  const area = result?.area
+  const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
+  const transactions = result?.transactions ?? []
+
+  const submitPayload = async (payload: WorldClientIntentPayload | null, label: string) => {
+    const session = sessionRef.current
+    if (!session || !payload || !area) return
+    setBusy(true)
+    const next = await applyFounderAreaPayload(session, area.now, payload)
+    setPanelState({ status: 'ready', result: next })
+    setLastEvent(next.ok ? label : `Command failed: ${next.error}`)
+    setBusy(false)
+  }
+
+  const advance = async () => {
+    const session = sessionRef.current
+    if (!session || !area) return
+    setBusy(true)
+    const next = await advanceFounderArea(session, area.now)
+    setPanelState({ status: 'ready', result: next })
+    setLastEvent(next.ok ? 'One real-time hour advanced.' : `Command failed: ${next.error}`)
+    setBusy(false)
+  }
+
+  return (
+    <section className="panel founder-area" aria-label="Founder Area">
+      <h2 className="panel-title">Founder Area</h2>
+
+      {panelState.status === 'loading' && <p className="panel-sub">Claiming area…</p>}
+      {panelState.status === 'ready' && !dashboard && <p className="waitlist-error">{lastEvent}</p>}
+      {dashboard && area && (
+        <>
+          <div className="founder-area-summary">
+            <div className="stat">
+              <span className="stat-label">area</span>
+              <span className="stat-value">{area.claim?.label ?? area.name}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">population</span>
+              <span className="stat-value mono">{dashboard.realPopulation} real · {dashboard.simPopulation} sim</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">founder balance</span>
+              <span className="stat-value mono gold">{formatMoney(founder?.money ?? 0)}</span>
+            </div>
+          </div>
+
+          <section className="founder-section" aria-label="Needs Dashboard">
+            <h3 className="founder-section-title">Needs Dashboard</h3>
+            <div className="founder-need-grid">
+              <NeedMetric label="water" demand={dashboard.demand.water} shortage={dashboard.shortage.water} />
+              <NeedMetric label="food" demand={dashboard.demand.food} shortage={dashboard.shortage.food} />
+              <NeedMetric label="housing" demand={dashboard.demand.housing} shortage={dashboard.shortage.housing} />
+              <NeedMetric label="jobs" demand={dashboard.jobs.unemployedCitizens} shortage={dashboard.jobs.openPositions} />
+            </div>
+          </section>
+
+          <section className="founder-section" aria-label="First build choices">
+            <h3 className="founder-section-title">First Build</h3>
+            <ul className="item-list">
+              {dashboard.firstBuild.slice(0, 4).map((recommendation) => (
+                <li className="item founder-choice" key={recommendation.kind}>
+                  <div className="item-info">
+                    <span className="item-name">{recommendation.name}</span>
+                    <span className="item-desc">
+                      demand {recommendation.currentDemand} · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
+                    </span>
+                    <span className={recommendation.estimatedHourlyProfit >= 0 ? 'item-yield mono' : 'item-locked mono'}>
+                      {recommendation.estimatedHourlyProfit >= 0 ? '+' : '-'}
+                      {formatMoney(Math.abs(recommendation.estimatedHourlyProfit))}/hour
+                    </span>
+                  </div>
+                  <div className="item-buy">
+                    <span className="item-price mono">{formatMoney(recommendation.buildCost)}</span>
+                    <button
+                      className={recommendation.canBuildNow ? 'btn small primary' : 'btn small ghost'}
+                      disabled={busy || !recommendation.canBuildNow || !recommendation.clientPayload}
+                      onClick={() => void submitPayload(recommendation.clientPayload, `Built ${recommendation.name}.`)}
+                    >
+                      Build
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="founder-section" aria-label="Citizens">
+            <h3 className="founder-section-title">Citizens</h3>
+            <ul className="item-list">
+              {dashboard.citizens.slice(0, 6).map((resident) => {
+                const survival = dashboard.survival.signals.find((signal) => signal.citizenId === resident.id)
+                const survivalAction = survival?.actions.find((action) => action.available && action.canAfford)
+                const debtAction = resident.debts.find((debt) => debt.canRepayNow)
+                const canBuyInsurance = resident.id === profile.founderId && resident.insuranceAction.canBuyNow
+                return (
+                  <li className={`item founder-citizen ${resident.visualTone}`} key={resident.id}>
+                    <div className="item-info">
+                      <span className="item-name">{resident.displayName}</span>
+                      <span className="item-desc">
+                        {resident.state} · health {Math.round(resident.health)} · {resident.participantLabel}
+                      </span>
+                      {resident.debt > 0 && <span className="item-locked mono">debt {formatMoney(resident.debt)}</span>}
+                    </div>
+                    <div className="item-buy">
+                      {survivalAction && resident.id === profile.founderId && (
+                        <button
+                          className="btn small"
+                          disabled={busy}
+                          onClick={() => void submitPayload(survivalAction.clientPayload, `Handled ${survivalAction.warning}.`)}
+                        >
+                          {survivalAction.intent}
+                        </button>
+                      )}
+                      {canBuyInsurance && (
+                        <button
+                          className="btn small"
+                          disabled={busy}
+                          onClick={() => void submitPayload(resident.insuranceAction.clientPayload, 'Insurance bought.')}
+                        >
+                          Insure
+                        </button>
+                      )}
+                      {debtAction && resident.id === profile.founderId && (
+                        <button
+                          className="btn small ghost"
+                          disabled={busy}
+                          onClick={() => void submitPayload(debtAction.clientPayload, 'Debt repaid.')}
+                        >
+                          Repay
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+
+          <section className="founder-section" aria-label="Businesses">
+            <div className="founder-section-head">
+              <h3 className="founder-section-title">Businesses</h3>
+              <button className="btn small" disabled={busy} onClick={() => void advance()}>
+                Advance 1h
+              </button>
+            </div>
+            {dashboard.existingBusinesses.length === 0 ? (
+              <p className="panel-sub">No local businesses yet.</p>
+            ) : (
+              <ul className="item-list">
+                {dashboard.existingBusinesses.map((business) => (
+                  <li className={`item founder-business ${business.status}`} key={business.id}>
+                    <div className="item-info">
+                      <span className="item-name">{business.name}</span>
+                      <span className="item-desc">
+                        {business.kind} · staff {business.activeStaff}/{business.targetStaff} · capacity {business.hourlyCapacity}/hour
+                      </span>
+                    </div>
+                    <span className="item-price mono">{formatMoney(business.cash)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <div className="founder-event">
+            <span>{lastEvent}</span>
+            {transactions.length > 0 && (
+              <span className="mono">
+                {transactions.map((transaction) => `${transaction.kind} ${formatMoney(transaction.amount)}`).join(' · ')}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {
+  return (
+    <div className={shortage > 0 ? 'founder-need short' : 'founder-need'}>
+      <span className="stat-label">{label}</span>
+      <span className="stat-value mono">{demand}</span>
+      <span className="item-desc">short {shortage}</span>
+    </div>
+  )
+}

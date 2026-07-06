@@ -50,7 +50,7 @@ import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
