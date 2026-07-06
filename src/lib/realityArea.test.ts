@@ -264,6 +264,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores land rights dashboards that enable lease execution', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      landRights: {
+        ...dashboard.landRights,
+        leasesEnabled: true,
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores covenant manual actions that enable enforcement execution', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -902,6 +926,7 @@ describe('Reality area client', () => {
     expect((merged as { settlement: RealityAreaDashboard['settlement'] }).settlement).toEqual(server.settlement)
     expect((merged as { legacyRoyalty: RealityAreaDashboard['legacyRoyalty'] }).legacyRoyalty).toEqual(server.legacyRoyalty)
     expect((merged as { handoff: RealityAreaDashboard['handoff'] }).handoff).toEqual(server.handoff)
+    expect((merged as { landRights: RealityAreaDashboard['landRights'] }).landRights).toEqual(server.landRights)
     expect(merged.jobs).toMatchObject({
       openPositions: 1,
       hireableSimWorkers: 1,
@@ -1829,6 +1854,44 @@ function serverDashboard(): RealityAreaDashboard {
         'candidate_selection_disabled',
         'main_founder_approval_required',
         'manual_review_required',
+      ],
+    },
+    landRights: {
+      enabled: false,
+      mode: 'disabled_until_survival_business_loop_review',
+      publicWording: 'reservation_building_rights',
+      landSalesEnabled: false,
+      reservationsEnabled: false,
+      purchasesEnabled: false,
+      leasesEnabled: false,
+      rentCollectionEnabled: false,
+      platformFeeEnabled: false,
+      areaId: 'founder-area-0012',
+      areaLabel: 'Bucharest Founder Block',
+      ownerCitizenId: 'citizen-1',
+      radiusKm: 0.8,
+      businessCount: 1,
+      operatorCount: 0,
+      leaseTemplate: {
+        enabled: false,
+        termDays: 30,
+        fixedMonthlyRent: null,
+        rentCurrency: 'game_credits',
+        payerCitizenId: null,
+        receiverCitizenId: 'citizen-1',
+        platformFeeRate: 0.05,
+        platformFeeReceiverId: 'system:reality-platform-fees',
+        requiresOperator: true,
+        requiresDemand: true,
+      },
+      blockers: [
+        'land_reservations_disabled',
+        'land_purchases_disabled',
+        'leases_disabled',
+        'rent_collection_disabled',
+        'operator_acceptance_disabled',
+        'manual_review_required',
+        'compliance_review_required',
       ],
     },
     jobs: {

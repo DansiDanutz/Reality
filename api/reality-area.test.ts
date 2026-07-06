@@ -302,6 +302,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       handoff: { enabled: true },
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      landRights: { leasesEnabled: true },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -582,6 +586,11 @@ describe('reality area authority API', () => {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
       waitlistHandoffEnabled: true,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      fixedMonthlyRent: 500,
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
@@ -1277,6 +1286,77 @@ describe('reality area authority API', () => {
     expect(body.state.businesses.every((business) => business.ownerId === CITIZEN_ID)).toBe(true)
     expect(body.state.transactions.some((transaction) =>
       transaction.toId === 'real-heir' || transaction.fromId === 'real-heir'
+    )).toBe(false)
+  })
+
+  test('surfaces disabled land rights lease readiness without rent or sale execution', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    const existing = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 80,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://land-rights-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.dashboard.landRights).toEqual({
+      enabled: false,
+      mode: 'disabled_until_survival_business_loop_review',
+      publicWording: 'reservation_building_rights',
+      landSalesEnabled: false,
+      reservationsEnabled: false,
+      purchasesEnabled: false,
+      leasesEnabled: false,
+      rentCollectionEnabled: false,
+      platformFeeEnabled: false,
+      areaId: 'founder-area-0012',
+      areaLabel: 'Bucharest Founder Block',
+      ownerCitizenId: CITIZEN_ID,
+      radiusKm: 0.8,
+      businessCount: 1,
+      operatorCount: 0,
+      leaseTemplate: {
+        enabled: false,
+        termDays: 30,
+        fixedMonthlyRent: null,
+        rentCurrency: 'game_credits',
+        payerCitizenId: null,
+        receiverCitizenId: CITIZEN_ID,
+        platformFeeRate: 0.05,
+        platformFeeReceiverId: 'system:reality-platform-fees',
+        requiresOperator: true,
+        requiresDemand: true,
+      },
+      blockers: [
+        'land_reservations_disabled',
+        'land_purchases_disabled',
+        'leases_disabled',
+        'rent_collection_disabled',
+        'operator_acceptance_disabled',
+        'manual_review_required',
+        'compliance_review_required',
+      ],
+    })
+    expect(body.state.transactions.some((transaction) =>
+      transaction.toId === 'system:reality-platform-fees' ||
+      transaction.fromId === 'system:reality-platform-fees' ||
+      transaction.memo.toLowerCase().includes('rent')
     )).toBe(false)
   })
 
@@ -4765,6 +4845,7 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     settlement: settlementDashboard(state.balance),
     legacyRoyalty: legacyRoyaltyDashboard(state),
     handoff: handoffDashboard(state),
+    landRights: landRightsDashboard(state),
     founderCovenant: state.founderCovenant,
   } as const
 }
@@ -4888,6 +4969,47 @@ function handoffDashboard(state: ReturnType<typeof existingState>) {
       'candidate_selection_disabled',
       'main_founder_approval_required',
       'manual_review_required',
+    ],
+  } as const
+}
+
+function landRightsDashboard(state: ReturnType<typeof existingState>) {
+  return {
+    enabled: false,
+    mode: 'disabled_until_survival_business_loop_review',
+    publicWording: 'reservation_building_rights',
+    landSalesEnabled: false,
+    reservationsEnabled: false,
+    purchasesEnabled: false,
+    leasesEnabled: false,
+    rentCollectionEnabled: false,
+    platformFeeEnabled: false,
+    areaId: state.areaId,
+    areaLabel: state.claim.label,
+    ownerCitizenId: state.founderCitizenId,
+    radiusKm: state.claim.radiusKm,
+    businessCount: state.businesses.length,
+    operatorCount: 0,
+    leaseTemplate: {
+      enabled: false,
+      termDays: 30,
+      fixedMonthlyRent: null,
+      rentCurrency: 'game_credits',
+      payerCitizenId: null,
+      receiverCitizenId: state.founderCitizenId,
+      platformFeeRate: 0.05,
+      platformFeeReceiverId: 'system:reality-platform-fees',
+      requiresOperator: true,
+      requiresDemand: true,
+    },
+    blockers: [
+      'land_reservations_disabled',
+      'land_purchases_disabled',
+      'leases_disabled',
+      'rent_collection_disabled',
+      'operator_acceptance_disabled',
+      'manual_review_required',
+      'compliance_review_required',
     ],
   } as const
 }

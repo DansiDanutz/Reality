@@ -527,6 +527,48 @@ export interface RealityAreaHandoffDashboard {
   blockers: RealityAreaHandoffBlocker[]
 }
 
+export type RealityAreaLandRightsBlocker =
+  | 'land_reservations_disabled'
+  | 'land_purchases_disabled'
+  | 'leases_disabled'
+  | 'rent_collection_disabled'
+  | 'operator_acceptance_disabled'
+  | 'manual_review_required'
+  | 'compliance_review_required'
+
+export interface RealityAreaLandLeaseTemplate {
+  enabled: false
+  termDays: 30
+  fixedMonthlyRent: null
+  rentCurrency: 'game_credits'
+  payerCitizenId: null
+  receiverCitizenId: string
+  platformFeeRate: 0.05
+  platformFeeReceiverId: 'system:reality-platform-fees'
+  requiresOperator: true
+  requiresDemand: true
+}
+
+export interface RealityAreaLandRightsDashboard {
+  enabled: false
+  mode: 'disabled_until_survival_business_loop_review'
+  publicWording: 'reservation_building_rights'
+  landSalesEnabled: false
+  reservationsEnabled: false
+  purchasesEnabled: false
+  leasesEnabled: false
+  rentCollectionEnabled: false
+  platformFeeEnabled: false
+  areaId: string
+  areaLabel: string
+  ownerCitizenId: string
+  radiusKm: number
+  businessCount: number
+  operatorCount: 0
+  leaseTemplate: RealityAreaLandLeaseTemplate
+  blockers: RealityAreaLandRightsBlocker[]
+}
+
 export interface RealityAreaCitizenDebtDashboard {
   id: string
   kind: 'medical'
@@ -649,12 +691,13 @@ export interface RealityAreaDashboard {
   settlement: RealityAreaSettlementDashboard
   legacyRoyalty: RealityAreaLegacyRoyaltyDashboard
   handoff: RealityAreaHandoffDashboard
+  landRights: RealityAreaLandRightsDashboard
   founderCovenant: RealityAreaCovenantReview
 }
 
 export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<
   RealityAreaDashboard,
-  'founderIdentity' | 'growth' | 'settlement' | 'legacyRoyalty' | 'handoff'
+  'founderIdentity' | 'growth' | 'settlement' | 'legacyRoyalty' | 'handoff' | 'landRights'
 >
 
 export interface RealityAreaState {
@@ -940,6 +983,11 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
       ...serverDashboard.handoff,
       transferPackage: { ...serverDashboard.handoff.transferPackage },
       blockers: [...serverDashboard.handoff.blockers],
+    },
+    landRights: {
+      ...serverDashboard.landRights,
+      leaseTemplate: { ...serverDashboard.landRights.leaseTemplate },
+      blockers: [...serverDashboard.landRights.blockers],
     },
     founderCovenant: mergeRealityAreaCovenantReview(serverDashboard.founderCovenant),
   }
@@ -1353,6 +1401,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isRealityAreaSettlementDashboard(value.settlement) &&
     isRealityAreaLegacyRoyaltyDashboard(value.legacyRoyalty) &&
     isRealityAreaHandoffDashboard(value.handoff) &&
+    isRealityAreaLandRightsDashboard(value.landRights) &&
     isRealityAreaCovenantReview(value.founderCovenant)
 }
 
@@ -1494,6 +1543,52 @@ function isRealityAreaHandoffBlocker(value: unknown): value is RealityAreaHandof
     value === 'candidate_selection_disabled' ||
     value === 'main_founder_approval_required' ||
     value === 'manual_review_required'
+}
+
+function isRealityAreaLandRightsDashboard(value: unknown): value is RealityAreaLandRightsDashboard {
+  return isRecord(value) &&
+    value.enabled === false &&
+    value.mode === 'disabled_until_survival_business_loop_review' &&
+    value.publicWording === 'reservation_building_rights' &&
+    value.landSalesEnabled === false &&
+    value.reservationsEnabled === false &&
+    value.purchasesEnabled === false &&
+    value.leasesEnabled === false &&
+    value.rentCollectionEnabled === false &&
+    value.platformFeeEnabled === false &&
+    typeof value.areaId === 'string' &&
+    typeof value.areaLabel === 'string' &&
+    typeof value.ownerCitizenId === 'string' &&
+    typeof value.radiusKm === 'number' &&
+    typeof value.businessCount === 'number' &&
+    value.operatorCount === 0 &&
+    isRealityAreaLandLeaseTemplate(value.leaseTemplate) &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaLandRightsBlocker)
+}
+
+function isRealityAreaLandLeaseTemplate(value: unknown): value is RealityAreaLandLeaseTemplate {
+  return isRecord(value) &&
+    value.enabled === false &&
+    value.termDays === 30 &&
+    value.fixedMonthlyRent === null &&
+    value.rentCurrency === 'game_credits' &&
+    value.payerCitizenId === null &&
+    typeof value.receiverCitizenId === 'string' &&
+    value.platformFeeRate === 0.05 &&
+    value.platformFeeReceiverId === 'system:reality-platform-fees' &&
+    value.requiresOperator === true &&
+    value.requiresDemand === true
+}
+
+function isRealityAreaLandRightsBlocker(value: unknown): value is RealityAreaLandRightsBlocker {
+  return value === 'land_reservations_disabled' ||
+    value === 'land_purchases_disabled' ||
+    value === 'leases_disabled' ||
+    value === 'rent_collection_disabled' ||
+    value === 'operator_acceptance_disabled' ||
+    value === 'manual_review_required' ||
+    value === 'compliance_review_required'
 }
 
 function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovenantReview {

@@ -41,6 +41,10 @@ import {
   founderIdentityClaimSourceLabel,
   founderIdentitySeatLabel,
   founderIdentityTelegramStatusLabel,
+  founderLandRightsBlockerText,
+  founderLandRightsLeaseTemplateText,
+  founderLandRightsStatusLabel,
+  founderLandRightsSummaryItems,
   founderLegacyRoyaltyBlockerText,
   founderLegacyRoyaltyStatusLabel,
   founderLegacyRoyaltySummaryItems,
@@ -157,6 +161,63 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderHandoffBlockerText('candidate_selection_disabled')).toBe('Candidate selection')
     expect(founderHandoffBlockerText('main_founder_approval_required')).toBe('Main founder approval')
     expect(founderHandoffBlockerText('manual_review_required')).toBe('Manual review')
+  })
+
+  test('summarizes disabled land rights without implying sale or rent execution', () => {
+    const landRights: Parameters<typeof founderLandRightsSummaryItems>[0] = {
+      enabled: false,
+      mode: 'disabled_until_survival_business_loop_review',
+      publicWording: 'reservation_building_rights',
+      landSalesEnabled: false,
+      reservationsEnabled: false,
+      purchasesEnabled: false,
+      leasesEnabled: false,
+      rentCollectionEnabled: false,
+      platformFeeEnabled: false,
+      areaId: 'founder-area-0012',
+      areaLabel: 'Bucharest Founder Block',
+      ownerCitizenId: 'citizen-1',
+      radiusKm: 0.8,
+      businessCount: 1,
+      operatorCount: 0,
+      leaseTemplate: {
+        enabled: false,
+        termDays: 30,
+        fixedMonthlyRent: null,
+        rentCurrency: 'game_credits',
+        payerCitizenId: null,
+        receiverCitizenId: 'citizen-1',
+        platformFeeRate: 0.05,
+        platformFeeReceiverId: 'system:reality-platform-fees',
+        requiresOperator: true,
+        requiresDemand: true,
+      },
+      blockers: [
+        'land_reservations_disabled',
+        'land_purchases_disabled',
+        'leases_disabled',
+        'rent_collection_disabled',
+        'operator_acceptance_disabled',
+        'manual_review_required',
+        'compliance_review_required',
+      ],
+    }
+
+    expect(founderLandRightsStatusLabel(landRights)).toBe('Disabled')
+    expect(founderLandRightsSummaryItems(landRights)).toEqual([
+      { key: 'wording', label: 'Wording', value: 'Building rights', tone: 'stable' },
+      { key: 'area', label: 'Area', value: 'Bucharest Founder Block', tone: 'stable' },
+      { key: 'businesses', label: 'Businesses', value: '1', tone: 'stable' },
+      { key: 'rent', label: 'Rent', value: 'not quoted', tone: 'warning' },
+    ])
+    expect(founderLandRightsLeaseTemplateText(landRights)).toBe('30 days · receiver citizen-1 · platform fee 5%')
+    expect(founderLandRightsBlockerText('land_reservations_disabled')).toBe('Land reservations')
+    expect(founderLandRightsBlockerText('land_purchases_disabled')).toBe('Land purchases')
+    expect(founderLandRightsBlockerText('leases_disabled')).toBe('Land leases')
+    expect(founderLandRightsBlockerText('rent_collection_disabled')).toBe('Rent collection')
+    expect(founderLandRightsBlockerText('operator_acceptance_disabled')).toBe('Operator acceptance')
+    expect(founderLandRightsBlockerText('manual_review_required')).toBe('Manual review')
+    expect(founderLandRightsBlockerText('compliance_review_required')).toBe('Compliance review')
   })
 
   test('labels covenant status with operational tones', () => {

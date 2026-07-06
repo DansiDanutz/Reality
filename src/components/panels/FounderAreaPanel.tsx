@@ -21,6 +21,7 @@ import {
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
   type RealityAreaHandoffDashboard,
+  type RealityAreaLandRightsDashboard,
   type RealityAreaLegacyRoyaltyDashboard,
   type RealityAreaSettlementDashboard,
   type RealityAreaState,
@@ -68,6 +69,10 @@ import {
   founderIdentityClaimSourceLabel,
   founderIdentitySeatLabel,
   founderIdentityTelegramStatusLabel,
+  founderLandRightsBlockerText,
+  founderLandRightsLeaseTemplateText,
+  founderLandRightsStatusLabel,
+  founderLandRightsSummaryItems,
   founderLegacyRoyaltyBlockerText,
   founderLegacyRoyaltyStatusLabel,
   founderLegacyRoyaltySummaryItems,
@@ -131,6 +136,7 @@ export default function FounderAreaPanel() {
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
   const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
   const handoffDashboard = dashboard ? getFounderHandoffDashboard(dashboard) : null
+  const landRightsDashboard = dashboard ? getFounderLandRightsDashboard(dashboard) : null
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
@@ -542,6 +548,43 @@ export default function FounderAreaPanel() {
             </section>
           )}
 
+          {landRightsDashboard && (
+            <section className="founder-section" aria-label="Land rights">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Land Rights</h3>
+                <span className="item-desc">{founderLandRightsStatusLabel(landRightsDashboard)}</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Land rights summary">
+                {founderLandRightsSummaryItems(landRightsDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <ul className="item-list founder-land-template" aria-label="Land lease template">
+                <li className="item founder-land-template-item">
+                  <div className="item-info">
+                    <span className="item-name">Lease template</span>
+                    <span className="item-desc">{founderLandRightsLeaseTemplateText(landRightsDashboard)}</span>
+                  </div>
+                  <span className="item-locked mono">disabled</span>
+                </li>
+              </ul>
+              <ul className="item-list founder-land-blockers" aria-label="Land rights blockers">
+                {landRightsDashboard.blockers.map((blocker) => (
+                  <li className="item founder-land-blocker" key={blocker}>
+                    <div className="item-info">
+                      <span className="item-name">{founderLandRightsBlockerText(blocker)}</span>
+                      <span className="item-desc">Locked until gameplay value and review</span>
+                    </div>
+                    <span className="item-locked mono">disabled</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="founder-section" aria-label="Needs Dashboard">
             <h3 className="founder-section-title">Needs Dashboard</h3>
             <div className="founder-need-grid">
@@ -883,6 +926,12 @@ function getFounderHandoffDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): RealityAreaHandoffDashboard | null {
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'handoff'>>).handoff ?? null
+}
+
+function getFounderLandRightsDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaLandRightsDashboard | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'landRights'>>).landRights ?? null
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {

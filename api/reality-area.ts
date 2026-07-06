@@ -12,7 +12,10 @@ const SIM_CREDIT_ACCOUNT_ID = 'system:sim-credit'
 const BUILDER_RECEIVER_ID = 'system:builders'
 const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
 const FOUNDER_LEGACY_TREASURY_ACCOUNT_ID = 'system:founder-legacy-treasury'
+const PLATFORM_FEE_ACCOUNT_ID = 'system:reality-platform-fees'
 const FOUNDER_LEGACY_ROYALTY_RATE = 0.1
+const LAND_LEASE_PLATFORM_FEE_RATE = 0.05
+const LAND_LEASE_TEMPLATE_TERM_DAYS = 30
 const AREA_STATE_VERSION = 1
 const SERVER_CLOCK_TOKEN_ENV = 'REALITY_SERVER_CLOCK_TOKEN'
 const SERVER_CLOCK_TOKEN_HEADER = 'x-reality-server-clock-token'
@@ -348,6 +351,14 @@ type FounderAreaHandoffBlocker =
   | 'candidate_selection_disabled'
   | 'main_founder_approval_required'
   | 'manual_review_required'
+type FounderAreaLandRightsBlocker =
+  | 'land_reservations_disabled'
+  | 'land_purchases_disabled'
+  | 'leases_disabled'
+  | 'rent_collection_disabled'
+  | 'operator_acceptance_disabled'
+  | 'manual_review_required'
+  | 'compliance_review_required'
 type FounderAreaGrowthBlocker =
   | 'telegram_invite_links_disabled'
   | 'invite_tracking_disabled'
@@ -693,6 +704,39 @@ interface FounderAreaHandoffDashboard {
   blockers: readonly FounderAreaHandoffBlocker[]
 }
 
+interface FounderAreaLandLeaseTemplate {
+  enabled: false
+  termDays: typeof LAND_LEASE_TEMPLATE_TERM_DAYS
+  fixedMonthlyRent: null
+  rentCurrency: 'game_credits'
+  payerCitizenId: null
+  receiverCitizenId: string
+  platformFeeRate: typeof LAND_LEASE_PLATFORM_FEE_RATE
+  platformFeeReceiverId: typeof PLATFORM_FEE_ACCOUNT_ID
+  requiresOperator: true
+  requiresDemand: true
+}
+
+interface FounderAreaLandRightsDashboard {
+  enabled: false
+  mode: 'disabled_until_survival_business_loop_review'
+  publicWording: 'reservation_building_rights'
+  landSalesEnabled: false
+  reservationsEnabled: false
+  purchasesEnabled: false
+  leasesEnabled: false
+  rentCollectionEnabled: false
+  platformFeeEnabled: false
+  areaId: string
+  areaLabel: string
+  ownerCitizenId: string
+  radiusKm: number
+  businessCount: number
+  operatorCount: 0
+  leaseTemplate: FounderAreaLandLeaseTemplate
+  blockers: readonly FounderAreaLandRightsBlocker[]
+}
+
 interface FounderAreaGrowthDashboard {
   channel: 'telegram'
   inviteLinkEnabled: false
@@ -731,6 +775,7 @@ interface FounderAreaDashboard {
   settlement: FounderAreaSettlementDashboard
   legacyRoyalty: FounderAreaLegacyRoyaltyDashboard
   handoff: FounderAreaHandoffDashboard
+  landRights: FounderAreaLandRightsDashboard
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -1027,11 +1072,31 @@ const SERVER_OWNED_HANDOFF_FIELDS = [
   'successorCitizenId',
 ] as const
 
+const SERVER_OWNED_LAND_RIGHTS_FIELDS = [
+  'landRights',
+  'leaseTemplate',
+  'landSalesEnabled',
+  'reservationsEnabled',
+  'purchasesEnabled',
+  'leasesEnabled',
+  'rentCollectionEnabled',
+  'platformFeeEnabled',
+  'fixedMonthlyRent',
+  'rentCurrency',
+  'payerCitizenId',
+  'receiverCitizenId',
+  'platformFeeRate',
+  'platformFeeReceiverId',
+  'operatorCitizenId',
+  'leaseContractId',
+] as const
+
 const FORBIDDEN_CLAIM_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
 ])
 
 const FORBIDDEN_HIRE_FIELDS = new Set([
@@ -1039,6 +1104,7 @@ const FORBIDDEN_HIRE_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1063,6 +1129,7 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1096,6 +1163,7 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1121,6 +1189,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1178,6 +1247,7 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1203,6 +1273,7 @@ const FORBIDDEN_INSURANCE_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1230,6 +1301,7 @@ const FORBIDDEN_BUILD_FIELDS = new Set([
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
   ...SERVER_OWNED_HANDOFF_FIELDS,
+  ...SERVER_OWNED_LAND_RIGHTS_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -2533,6 +2605,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     settlement: areaSettlementDashboard(state),
     legacyRoyalty: areaLegacyRoyaltyDashboard(state),
     handoff: areaHandoffDashboard(state),
+    landRights: areaLandRightsDashboard(state),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -2658,6 +2731,47 @@ function areaHandoffDashboard(state: FounderAreaState): FounderAreaHandoffDashbo
       'candidate_selection_disabled',
       'main_founder_approval_required',
       'manual_review_required',
+    ],
+  }
+}
+
+function areaLandRightsDashboard(state: FounderAreaState): FounderAreaLandRightsDashboard {
+  return {
+    enabled: false,
+    mode: 'disabled_until_survival_business_loop_review',
+    publicWording: 'reservation_building_rights',
+    landSalesEnabled: false,
+    reservationsEnabled: false,
+    purchasesEnabled: false,
+    leasesEnabled: false,
+    rentCollectionEnabled: false,
+    platformFeeEnabled: false,
+    areaId: state.areaId,
+    areaLabel: state.claim.label,
+    ownerCitizenId: state.founderCitizenId,
+    radiusKm: state.claim.radiusKm,
+    businessCount: state.businesses.length,
+    operatorCount: 0,
+    leaseTemplate: {
+      enabled: false,
+      termDays: LAND_LEASE_TEMPLATE_TERM_DAYS,
+      fixedMonthlyRent: null,
+      rentCurrency: 'game_credits',
+      payerCitizenId: null,
+      receiverCitizenId: state.founderCitizenId,
+      platformFeeRate: LAND_LEASE_PLATFORM_FEE_RATE,
+      platformFeeReceiverId: PLATFORM_FEE_ACCOUNT_ID,
+      requiresOperator: true,
+      requiresDemand: true,
+    },
+    blockers: [
+      'land_reservations_disabled',
+      'land_purchases_disabled',
+      'leases_disabled',
+      'rent_collection_disabled',
+      'operator_acceptance_disabled',
+      'manual_review_required',
+      'compliance_review_required',
     ],
   }
 }

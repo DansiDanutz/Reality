@@ -22,6 +22,8 @@ import type {
   RealityAreaGrowthDashboard,
   RealityAreaHandoffBlocker,
   RealityAreaHandoffDashboard,
+  RealityAreaLandRightsBlocker,
+  RealityAreaLandRightsDashboard,
   RealityAreaLegacyRoyaltyBlocker,
   RealityAreaLegacyRoyaltyDashboard,
   RealityAreaSettlementBlocker,
@@ -66,6 +68,13 @@ export interface FounderGrowthSummaryItem {
 }
 
 export interface FounderHandoffSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderLandRightsSummaryItem {
   key: string
   label: string
   value: string
@@ -207,6 +216,67 @@ function founderHandoffCandidateLabel(
 ): string {
   if (handoff.successorCandidateName) return handoff.successorCandidateName
   return handoff.successorCandidateSource === 'named_heir' ? 'Named heir' : 'None'
+}
+
+export function founderLandRightsStatusLabel(
+  land: Pick<RealityAreaLandRightsDashboard, 'enabled' | 'mode'>,
+): string {
+  if (land.enabled) return 'Enabled'
+  switch (land.mode) {
+    case 'disabled_until_survival_business_loop_review':
+      return 'Disabled'
+  }
+}
+
+export function founderLandRightsSummaryItems(land: RealityAreaLandRightsDashboard): FounderLandRightsSummaryItem[] {
+  return [{
+    key: 'wording',
+    label: 'Wording',
+    value: land.publicWording === 'reservation_building_rights' ? 'Building rights' : land.publicWording,
+    tone: 'stable',
+  }, {
+    key: 'area',
+    label: 'Area',
+    value: land.areaLabel,
+    tone: 'stable',
+  }, {
+    key: 'businesses',
+    label: 'Businesses',
+    value: String(land.businessCount),
+    tone: land.businessCount > 0 ? 'stable' : 'warning',
+  }, {
+    key: 'rent',
+    label: 'Rent',
+    value: land.leaseTemplate.fixedMonthlyRent === null
+      ? 'not quoted'
+      : formatMoney(land.leaseTemplate.fixedMonthlyRent),
+    tone: 'warning',
+  }]
+}
+
+export function founderLandRightsLeaseTemplateText(land: RealityAreaLandRightsDashboard): string {
+  const template = land.leaseTemplate
+  const feePercent = Math.round(template.platformFeeRate * 100)
+  return `${template.termDays} days · receiver ${template.receiverCitizenId} · platform fee ${feePercent}%`
+}
+
+export function founderLandRightsBlockerText(blocker: RealityAreaLandRightsBlocker): string {
+  switch (blocker) {
+    case 'land_reservations_disabled':
+      return 'Land reservations'
+    case 'land_purchases_disabled':
+      return 'Land purchases'
+    case 'leases_disabled':
+      return 'Land leases'
+    case 'rent_collection_disabled':
+      return 'Rent collection'
+    case 'operator_acceptance_disabled':
+      return 'Operator acceptance'
+    case 'manual_review_required':
+      return 'Manual review'
+    case 'compliance_review_required':
+      return 'Compliance review'
+  }
 }
 
 export function founderSettlementStatusLabel(settlement: Pick<RealityAreaSettlementDashboard, 'mode'>): string {
