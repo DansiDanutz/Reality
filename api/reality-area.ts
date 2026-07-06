@@ -16,9 +16,22 @@ const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const INSURANCE_COVERAGE = 0.6
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
 const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
+const TRANSACTION_KINDS = [
+  'founder_credit',
+  'sim_citizen_credit',
+  'business_build',
+  'customer_purchase',
+  'worker_wage',
+  'hospital_bill',
+  'insurance_premium',
+  'insurance_payout',
+  'medical_debt',
+  'debt_repayment',
+] as const
 
 type AreaClaimSource = typeof CLAIM_SOURCES[number]
 type FounderAreaBusinessKind = typeof BUSINESS_KINDS[number]
+type FounderAreaTransactionKind = typeof TRANSACTION_KINDS[number]
 
 interface CitizenAuthRecord {
   citizenId: string
@@ -39,17 +52,7 @@ interface FounderAreaClaim {
 interface FounderAreaTransaction {
   id: string
   at: string
-  kind:
-    | 'founder_credit'
-    | 'sim_citizen_credit'
-    | 'business_build'
-    | 'customer_purchase'
-    | 'worker_wage'
-    | 'hospital_bill'
-    | 'insurance_premium'
-    | 'insurance_payout'
-    | 'medical_debt'
-    | 'debt_repayment'
+  kind: FounderAreaTransactionKind
   fromId: string
   toId: string
   amount: number
@@ -369,6 +372,12 @@ interface FounderAreaSurvivalDashboard {
   signals: FounderAreaSurvivalSignal[]
 }
 
+interface FounderAreaLedgerDashboard {
+  transactionCount: number
+  totalsByKind: Record<FounderAreaTransactionKind, number>
+  recentTransactions: FounderAreaTransaction[]
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -389,6 +398,7 @@ interface FounderAreaDashboard {
   existingBusinesses: FounderAreaBusinessDashboard[]
   citizens: FounderAreaCitizenDashboard[]
   survival: FounderAreaSurvivalDashboard
+  ledger: FounderAreaLedgerDashboard
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -1161,8 +1171,26 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     existingBusinesses: state.businesses.map((business) => businessDashboard(state, business)),
     citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
     survival: survivalDashboard(state),
+    ledger: areaLedgerDashboard(state),
     founderCovenant: state.founderCovenant,
   }
+}
+
+function areaLedgerDashboard(state: FounderAreaState): FounderAreaLedgerDashboard {
+  const totalsByKind = zeroTransactionKindRecord()
+  for (const transaction of state.transactions) {
+    totalsByKind[transaction.kind] = roundMoney(totalsByKind[transaction.kind] + transaction.amount)
+  }
+
+  return {
+    transactionCount: state.transactions.length,
+    totalsByKind,
+    recentTransactions: state.transactions.slice(-10).reverse().map((transaction) => ({ ...transaction })),
+  }
+}
+
+function zeroTransactionKindRecord(): Record<FounderAreaTransactionKind, number> {
+  return Object.fromEntries(TRANSACTION_KINDS.map((kind) => [kind, 0])) as Record<FounderAreaTransactionKind, number>
 }
 
 function areaServiceSupply(businesses: FounderAreaBusiness[]): Record<FounderAreaBusinessKind, number> {

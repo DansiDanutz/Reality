@@ -8,6 +8,7 @@ import type {
   AreaDebtRepaymentBlocker,
   AreaFounderCovenantDashboard,
   AreaInsuranceActionBlocker,
+  AreaLedgerDashboard,
   AreaJobsDashboard,
   AreaNeedsDashboard,
   AreaSurvivalDashboard,
@@ -20,6 +21,7 @@ import type {
   WorldBusinessKind,
   WorldCitizen,
   WorldClientIntentPayload,
+  WorldTransactionKind,
   WorldSurvivalActionBlocker,
   WorldSurvivalActionIntent,
   WorldSurvivalRiskLevel,
@@ -217,6 +219,12 @@ export interface RealityAreaBusinessLedgerDashboard {
   recentTransactions: RealityAreaTransaction[]
 }
 
+export interface RealityAreaLedgerDashboard {
+  transactionCount: number
+  totalsByKind: Record<WorldTransactionKind, number>
+  recentTransactions: RealityAreaTransaction[]
+}
+
 export interface RealityAreaCitizenDebtDashboard {
   id: string
   kind: 'medical'
@@ -326,6 +334,7 @@ export interface RealityAreaDashboard {
   existingBusinesses: RealityAreaBusinessDashboard[]
   citizens: RealityAreaCitizenDashboard[]
   survival: RealityAreaSurvivalDashboard
+  ledger: RealityAreaLedgerDashboard
   founderCovenant: RealityAreaCovenantReview
 }
 
@@ -568,7 +577,19 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
       mergeRealityAreaCitizenDashboard(citizen, dashboard.citizens.find((candidate) => candidate.id === citizen.id))
     ),
     survival: mergeRealityAreaSurvivalDashboard(serverDashboard.survival),
+    ledger: mergeRealityAreaLedgerDashboard(serverDashboard.ledger),
     founderCovenant: mergeRealityAreaCovenantReview(serverDashboard.founderCovenant),
+  }
+}
+
+function mergeRealityAreaLedgerDashboard(ledger: RealityAreaLedgerDashboard): AreaLedgerDashboard {
+  return {
+    transactionCount: ledger.transactionCount,
+    totalsByKind: { ...ledger.totalsByKind },
+    recentTransactions: ledger.recentTransactions.map((transaction) => ({
+      ...transaction,
+      at: parseInstant(transaction.at),
+    })),
   }
 }
 
@@ -757,6 +778,18 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
 }
 
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
+const TRANSACTION_KINDS: WorldTransactionKind[] = [
+  'founder_credit',
+  'sim_citizen_credit',
+  'business_build',
+  'customer_purchase',
+  'worker_wage',
+  'hospital_bill',
+  'insurance_premium',
+  'insurance_payout',
+  'medical_debt',
+  'debt_repayment',
+]
 
 function mergeFirstBuildRecommendation(
   recommendation: RealityAreaFirstBuildRecommendation,
@@ -816,7 +849,16 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     Array.isArray(value.citizens) &&
     value.citizens.every(isRealityAreaCitizenDashboard) &&
     isRealityAreaSurvivalDashboard(value.survival) &&
+    isRealityAreaLedgerDashboard(value.ledger) &&
     isRealityAreaCovenantReview(value.founderCovenant)
+}
+
+function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedgerDashboard {
+  return isRecord(value) &&
+    typeof value.transactionCount === 'number' &&
+    isTransactionKindNumberRecord(value.totalsByKind) &&
+    Array.isArray(value.recentTransactions) &&
+    value.recentTransactions.every(isRealityAreaTransaction)
 }
 
 function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovenantReview {
@@ -874,6 +916,10 @@ function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCo
 
 function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {
   return isRecord(value) && BUSINESS_KINDS.every((kind) => typeof value[kind] === 'number')
+}
+
+function isTransactionKindNumberRecord(value: unknown): value is Record<WorldTransactionKind, number> {
+  return isRecord(value) && TRANSACTION_KINDS.every((kind) => typeof value[kind] === 'number')
 }
 
 function isLicenseDashboardRecord(value: unknown): value is Record<WorldBusinessKind, RealityAreaLicenseDashboard> {
@@ -936,11 +982,15 @@ function isRealityAreaTransaction(value: unknown): value is RealityAreaTransacti
   return isRecord(value) &&
     typeof value.id === 'string' &&
     typeof value.at === 'string' &&
-    typeof value.kind === 'string' &&
+    isTransactionKind(value.kind) &&
     typeof value.fromId === 'string' &&
     typeof value.toId === 'string' &&
     typeof value.amount === 'number' &&
     typeof value.memo === 'string'
+}
+
+function isTransactionKind(value: unknown): value is WorldTransactionKind {
+  return TRANSACTION_KINDS.includes(value as WorldTransactionKind)
 }
 
 function isBusinessAlert(value: unknown): value is AreaBusinessAlert {

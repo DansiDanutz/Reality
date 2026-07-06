@@ -387,6 +387,36 @@ describe('Reality area client', () => {
     const survival = merged.survival.signals.find((signal) => signal.citizenId === 'sim-water')
 
     expect(merged.licenses.water).toMatchObject({ slots: 1, used: 1, remaining: 0, saturation: 1 })
+    expect(merged.ledger).toMatchObject({
+      transactionCount: 2,
+      totalsByKind: {
+        founder_credit: 0,
+        sim_citizen_credit: 0,
+        business_build: 0,
+        customer_purchase: 2,
+        worker_wage: 14,
+        hospital_bill: 0,
+        insurance_premium: 0,
+        insurance_payout: 0,
+        medical_debt: 0,
+        debt_repayment: 0,
+      },
+      recentTransactions: [{
+        id: 'tx-wage',
+        at: Date.parse('2026-07-06T04:00:00.000Z'),
+        kind: 'worker_wage',
+        fromId: 'water-1',
+        toId: 'sim-water',
+        amount: 14,
+      }, {
+        id: 'tx-sale',
+        at: Date.parse('2026-07-06T03:50:00.000Z'),
+        kind: 'customer_purchase',
+        fromId: 'sim-water',
+        toId: 'water-1',
+        amount: 2,
+      }],
+    })
     expect(merged.jobs).toMatchObject({
       openPositions: 1,
       hireableSimWorkers: 1,
@@ -695,6 +725,38 @@ function serverDashboard(): RealityAreaDashboard {
       housing: { slots: 1, used: 0, remaining: 1, saturation: 0 },
       clinic: { slots: 0, used: 0, remaining: 0, saturation: 0 },
       insurance: { slots: 0, used: 0, remaining: 0, saturation: 0 },
+    },
+    ledger: {
+      transactionCount: 2,
+      totalsByKind: {
+        founder_credit: 0,
+        sim_citizen_credit: 0,
+        business_build: 0,
+        customer_purchase: 2,
+        worker_wage: 14,
+        hospital_bill: 0,
+        insurance_premium: 0,
+        insurance_payout: 0,
+        medical_debt: 0,
+        debt_repayment: 0,
+      },
+      recentTransactions: [{
+        id: 'tx-wage',
+        at: '2026-07-06T04:00:00.000Z',
+        kind: 'worker_wage',
+        fromId: 'water-1',
+        toId: 'sim-water',
+        amount: 14,
+        memo: 'Founder Water paid Demo Water Resident for one hour of work.',
+      }, {
+        id: 'tx-sale',
+        at: '2026-07-06T03:50:00.000Z',
+        kind: 'customer_purchase',
+        fromId: 'sim-water',
+        toId: 'water-1',
+        amount: 2,
+        memo: 'Demo Water Resident bought water from Founder Water.',
+      }],
     },
     jobs: {
       employedCitizens: 1,

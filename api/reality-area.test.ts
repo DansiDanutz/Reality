@@ -49,6 +49,19 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
   licenseSlots: Record<string, number>
   saturation: Record<string, number>
   licenses: Record<string, { slots: number; used: number; remaining: number; saturation: number }>
+  ledger: {
+    transactionCount: number
+    totalsByKind: Record<string, number>
+    recentTransactions: {
+      id: string
+      at: string
+      kind: string
+      fromId: string
+      toId: string
+      amount: number
+      memo: string
+    }[]
+  }
   firstBuild: {
     kind: string
     name: string
@@ -412,6 +425,38 @@ describe('reality area authority API', () => {
     expect(dashboard.licenseSlots).toEqual({ water: 1, food: 1, housing: 1, clinic: 0, insurance: 0 })
     expect(dashboard.saturation).toEqual({ water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 })
     expect(dashboard.licenses.water).toEqual({ slots: 1, used: 0, remaining: 1, saturation: 0 })
+    expect(dashboard.ledger).toMatchObject({
+      transactionCount: 4,
+      totalsByKind: {
+        founder_credit: 200_000,
+        sim_citizen_credit: 300,
+        business_build: 0,
+        customer_purchase: 0,
+        worker_wage: 0,
+        hospital_bill: 0,
+        insurance_premium: 0,
+        insurance_payout: 0,
+        medical_debt: 0,
+        debt_repayment: 0,
+      },
+      recentTransactions: [{
+        kind: 'sim_citizen_credit',
+        toId: 'founder-area-0012:sim-housing',
+        amount: 100,
+      }, {
+        kind: 'sim_citizen_credit',
+        toId: 'founder-area-0012:sim-food',
+        amount: 100,
+      }, {
+        kind: 'sim_citizen_credit',
+        toId: 'founder-area-0012:sim-water',
+        amount: 100,
+      }, {
+        kind: 'founder_credit',
+        toId: CITIZEN_ID,
+        amount: 200_000,
+      }],
+    })
     expect(dashboard.firstBuild.map((recommendation) => recommendation.kind)).toEqual([
       'water',
       'food',
