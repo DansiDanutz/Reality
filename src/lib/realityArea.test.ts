@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
+  applyRealityFounderAreaIntent,
   claimRealityFounderArea,
   founderAreaClaimSource,
   founderAreaProfileWithServerClaim,
@@ -87,6 +88,62 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 0 }, profile, fetchImpl as never))
       .resolves.toEqual({ ok: false, reason: 'not_founder', error: 'Founder seat required.' })
     expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('sends buildBusiness intents through the server area authority without client money', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      name: 'Founder Water',
+    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'water',
+          businessId: 'water-1',
+          name: 'Founder Water',
+        },
+      }),
+    })
+    const body = JSON.parse((fetchImpl.mock.calls[0][1]?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body.balance).toBeUndefined()
+    expect(body.transactions).toBeUndefined()
+  })
+
+  test('surfaces server-side buildBusiness rejection before local simulation can apply it', async () => {
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-2',
+    }, vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(409, {
+      ok: false,
+      code: 'business_saturated',
+      error: 'This business type has no open starter license.',
+      state: serverState(),
+    })) as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'This business type has no open starter license.',
+      code: 'business_saturated',
+    })
   })
 
   test('rejects malformed server state and surfaces server errors', async () => {

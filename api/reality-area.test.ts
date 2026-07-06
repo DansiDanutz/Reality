@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import handler, { areaStatePath, normalizeClaimAreaIntent, verifyCitizen } from './reality-area'
+import handler, { areaStatePath, normalizeBuildBusinessIntent, normalizeClaimAreaIntent, verifyCitizen } from './reality-area'
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
@@ -57,6 +57,37 @@ describe('reality area authority API', () => {
       .toEqual({ ok: false, error: 'invalid_claim_source' })
   })
 
+  test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      name: '  Water Point  ',
+    })).toEqual({
+      ok: true,
+      businessKind: 'water',
+      businessId: 'water-1',
+      name: 'Water Point',
+    })
+
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      money: 999_999,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
+      businessKind: 'luxury',
+      businessId: 'water-1',
+    })).toEqual({ ok: false, error: 'invalid_business_kind' })
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: '../water',
+    })).toEqual({ ok: false, error: 'invalid_business_id' })
+  })
+
   test('requires a registered citizen before reading area state', async () => {
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
@@ -101,7 +132,7 @@ describe('reality area authority API', () => {
     expect(res.statusCode).toBe(403)
     expect(res.body).toEqual({
       ok: false,
-      error: 'Founder seat required to claim an area.',
+      error: 'Founder seat required.',
       code: 'founder_required',
     })
     expect(put).not.toHaveBeenCalled()
@@ -189,6 +220,121 @@ describe('reality area authority API', () => {
       state: existing,
     })
     expect(put).not.toHaveBeenCalled()
+  })
+
+  test('buildBusiness charges server balance and records a build ledger event', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T04:00:00.000Z'))
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        balance: 999_999_999,
+        transactions: [{ amount: 999_999_999 }],
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'water',
+          businessId: 'water-1',
+          name: 'Founder Water',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState> }
+    expect(body.state.balance).toBe(192_000)
+    expect(body.state.businesses).toEqual([{
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      ownerId: CITIZEN_ID,
+      cash: 0,
+      price: 2,
+      wagePerHour: 14,
+      quality: 1,
+      createdAt: '2026-07-06T04:00:00.000Z',
+      createdBy: CITIZEN_ID,
+    }])
+    expect(body.state.transactions.at(-1)).toEqual({
+      id: 'founder-area-0012:1783310400000:business-build:water-1',
+      at: '2026-07-06T04:00:00.000Z',
+      kind: 'business_build',
+      fromId: CITIZEN_ID,
+      toId: 'system:builders',
+      amount: 8_000,
+      memo: 'Founder Water built as a water business.',
+    })
+    expect(put).toHaveBeenCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([]))
+    const unclaimed = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buildBusiness', businessKind: 'water', businessId: 'water-1' },
+      },
+    } as never, unclaimed as never)
+
+    expect(unclaimed.statusCode).toBe(409)
+    expect(unclaimed.body).toMatchObject({
+      ok: false,
+      code: 'area_not_claimed',
+    })
+
+    const saturatedState = {
+      ...existingState(),
+      businesses: [{
+        id: 'water-1',
+        name: 'Water Point',
+        kind: 'water',
+        ownerId: CITIZEN_ID,
+        cash: 0,
+        price: 2,
+        wagePerHour: 14,
+        quality: 1,
+        createdAt: '2026-07-06T04:00:00.000Z',
+        createdBy: CITIZEN_ID,
+      }],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://saturated-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(saturatedState), { status: 200 })))
+    const saturated = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buildBusiness', businessKind: 'water', businessId: 'water-2' },
+      },
+    } as never, saturated as never)
+
+    expect(saturated.statusCode).toBe(409)
+    expect(saturated.body).toMatchObject({
+      ok: false,
+      code: 'business_saturated',
+    })
   })
 })
 

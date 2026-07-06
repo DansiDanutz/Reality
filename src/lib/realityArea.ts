@@ -1,5 +1,6 @@
 import type { Citizen } from '../game/types'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
+import type { WorldClientIntentPayload } from '../game/worldSim'
 
 export type RealityAreaClaimSource = 'manual' | 'ip' | 'geolocation' | 'telegram'
 
@@ -37,6 +38,12 @@ export type RealityAreaClaimResult =
   | { ok: true; state: RealityAreaState; restoredExisting: boolean }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
+export type RealityAreaBuildPayload = Extract<WorldClientIntentPayload, { type: 'buildBusiness' }>
+
+export type RealityAreaApplyResult =
+  | { ok: true; state: RealityAreaState }
+  | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
   if (citizen.telegramAccountId) return 'telegram'
   return citizen.spawnLat !== undefined && citizen.spawnLng !== undefined ? 'geolocation' : 'manual'
@@ -47,12 +54,8 @@ export async function claimRealityFounderArea(
   profile: FounderAreaProfile,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaClaimResult> {
-  if (!citizen.citizenId || !citizen.token) {
-    return { ok: false, reason: 'missing_identity', error: 'Connect to the world first.' }
-  }
-  if (citizen.founderNumber <= 0) {
-    return { ok: false, reason: 'not_founder', error: 'Founder seat required.' }
-  }
+  const ready = readyFounderCredentials(citizen)
+  if (!ready.ok) return ready
 
   try {
     const response = await fetchImpl('/api/reality-area', {
@@ -83,6 +86,38 @@ export async function claimRealityFounderArea(
       ok: false,
       reason: 'server_rejected',
       error: typeof data.error === 'string' ? data.error : 'Area claim was rejected.',
+      code: typeof data.code === 'string' ? data.code : undefined,
+    }
+  } catch {
+    return { ok: false, reason: 'request_failed', error: 'Reality area server is unreachable.' }
+  }
+}
+
+export async function applyRealityFounderAreaIntent(
+  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  payload: RealityAreaBuildPayload,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityAreaApplyResult> {
+  const ready = readyFounderCredentials(citizen)
+  if (!ready.ok) return ready
+
+  try {
+    const response = await fetchImpl('/api/reality-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        citizenId: citizen.citizenId,
+        token: citizen.token,
+        intent: payload,
+      }),
+    })
+    const data = await response.json() as Record<string, unknown>
+    const state = isRealityAreaState(data.state) ? data.state : null
+    if (response.ok && data.ok === true && state) return { ok: true, state }
+    return {
+      ok: false,
+      reason: 'server_rejected',
+      error: typeof data.error === 'string' ? data.error : 'Reality area intent was rejected.',
       code: typeof data.code === 'string' ? data.code : undefined,
     }
   } catch {
@@ -127,6 +162,18 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
 
 function isClaimSource(value: unknown): value is RealityAreaClaimSource {
   return value === 'manual' || value === 'ip' || value === 'geolocation' || value === 'telegram'
+}
+
+function readyFounderCredentials(
+  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+): { ok: true } | { ok: false; reason: 'missing_identity' | 'not_founder'; error: string } {
+  if (!citizen.citizenId || !citizen.token) {
+    return { ok: false, reason: 'missing_identity', error: 'Connect to the world first.' }
+  }
+  if (citizen.founderNumber <= 0) {
+    return { ok: false, reason: 'not_founder', error: 'Founder seat required.' }
+  }
+  return { ok: true }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

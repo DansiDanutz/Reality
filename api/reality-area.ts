@@ -7,10 +7,13 @@ const FOUNDER_STARTER_CREDIT = 200_000
 const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 const MAX_FOUNDER_AREA_RADIUS_KM = 5
 const PLATFORM_BANK_ID = 'reality-founder-bank'
+const BUILDER_RECEIVER_ID = 'system:builders'
 const AREA_STATE_VERSION = 1
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
+const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
 
 type AreaClaimSource = typeof CLAIM_SOURCES[number]
+type FounderAreaBusinessKind = typeof BUSINESS_KINDS[number]
 
 interface CitizenAuthRecord {
   citizenId: string
@@ -31,11 +34,24 @@ interface FounderAreaClaim {
 interface FounderAreaTransaction {
   id: string
   at: string
-  kind: 'founder_credit'
+  kind: 'founder_credit' | 'business_build'
   fromId: string
   toId: string
   amount: number
   memo: string
+}
+
+interface FounderAreaBusiness {
+  id: string
+  name: string
+  kind: FounderAreaBusinessKind
+  ownerId: string
+  cash: number
+  price: number
+  wagePerHour: number
+  quality: number
+  createdAt: string
+  createdBy: string
 }
 
 interface FounderAreaState {
@@ -45,7 +61,7 @@ interface FounderAreaState {
   founderNumber: number
   balance: number
   claim: FounderAreaClaim
-  businesses: []
+  businesses: FounderAreaBusiness[]
   citizens: []
   transactions: FounderAreaTransaction[]
   updatedAt: string
@@ -69,6 +85,71 @@ type ClaimAreaIntentError =
   | 'area_too_small'
   | 'area_too_large'
   | 'invalid_claim_source'
+
+type BuildBusinessIntent =
+  | {
+    ok: true
+    businessKind: FounderAreaBusinessKind
+    businessId: string
+    name: string
+  }
+  | { ok: false; error: BuildBusinessIntentError }
+
+type BuildBusinessIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_business_kind'
+  | 'invalid_business_id'
+  | 'invalid_business_name'
+
+type ApplyBuildBusinessError =
+  | BuildBusinessIntentError
+  | 'area_not_claimed'
+  | 'business_id_taken'
+  | 'business_saturated'
+  | 'insufficient_funds'
+
+const FORBIDDEN_BUILD_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'ownerId',
+  'createdBy',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'buildCost',
+  'price',
+  'wagePerHour',
+  'quality',
+  'blueprint',
+  'businesses',
+  'transactions',
+  'citizens',
+])
+
+const BUSINESS_BLUEPRINTS: Record<FounderAreaBusinessKind, {
+  name: string
+  buildCost: number
+  price: number
+  wagePerHour: number
+}> = {
+  water: { name: 'Water Point', buildCost: 8_000, price: 2, wagePerHour: 14 },
+  food: { name: 'Food Shop', buildCost: 12_000, price: 14, wagePerHour: 15 },
+  housing: { name: 'Basic Housing', buildCost: 25_000, price: 28, wagePerHour: 16 },
+  clinic: { name: 'Clinic', buildCost: 75_000, price: 90, wagePerHour: 24 },
+  insurance: { name: 'Insurance Office', buildCost: 60_000, price: 45, wagePerHour: 20 },
+}
+
+const STARTER_LICENSE_SLOTS: Record<FounderAreaBusinessKind, number> = {
+  water: 1,
+  food: 1,
+  housing: 1,
+  clinic: 0,
+  insurance: 0,
+}
 
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
@@ -103,6 +184,24 @@ export function normalizeClaimAreaIntent(input: unknown): ClaimAreaIntent {
   if (!isClaimSource(source)) return { ok: false, error: 'invalid_claim_source' }
 
   return { ok: true, label, centerLat, centerLng, radiusKm, source }
+}
+
+export function normalizeBuildBusinessIntent(input: unknown): BuildBusinessIntent {
+  if (!isRecord(input) || input.type !== 'buildBusiness') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_BUILD_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const businessKind = text(input.businessKind)
+  if (!isBusinessKind(businessKind)) return { ok: false, error: 'invalid_business_kind' }
+
+  const businessId = text(input.businessId)
+  if (!/^[A-Za-z0-9:_-]{1,96}$/.test(businessId)) return { ok: false, error: 'invalid_business_id' }
+
+  const name = text(input.name) || BUSINESS_BLUEPRINTS[businessKind].name
+  if (!name || name.length > 80 || hasControlCharacter(name)) return { ok: false, error: 'invalid_business_name' }
+
+  return { ok: true, businessKind, businessId, name }
 }
 
 export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
@@ -191,34 +290,139 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (citizen.founderNumber <= 0) {
-      res.status(403).json({ ok: false, error: 'Founder seat required to claim an area.', code: 'founder_required' })
-      return
-    }
-    if (existing) {
-      res.status(409).json({ ok: false, error: 'Area already claimed.', code: 'area_already_claimed', state: existing })
+      res.status(403).json({ ok: false, error: 'Founder seat required.', code: 'founder_required' })
       return
     }
 
-    const intent = normalizeClaimAreaIntent((req.body as { intent?: unknown } | undefined)?.intent)
-    if (!intent.ok) {
-      res.status(intent.error === 'unsupported_intent' ? 400 : 422).json({
-        ok: false,
-        error: 'Invalid area claim intent.',
-        code: intent.error,
+    const rawIntent = (req.body as { intent?: unknown } | undefined)?.intent
+    const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
+    if (intentType === 'claimArea') {
+      if (existing) {
+        res.status(409).json({ ok: false, error: 'Area already claimed.', code: 'area_already_claimed', state: existing })
+        return
+      }
+
+      const intent = normalizeClaimAreaIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(intent.error === 'unsupported_intent' ? 400 : 422).json({
+          ok: false,
+          error: 'Invalid area claim intent.',
+          code: intent.error,
+        })
+        return
+      }
+
+      const state = buildFounderAreaState(citizen, intent, new Date())
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: false,
+        contentType: 'application/json',
       })
+      res.status(200).json({ ok: true, state })
       return
     }
 
-    const state = buildFounderAreaState(citizen, intent, new Date())
-    await put(areaStatePath(citizen.citizenId), JSON.stringify(state), {
-      access: 'private',
-      addRandomSuffix: false,
-      allowOverwrite: false,
-      contentType: 'application/json',
-    })
-    res.status(200).json({ ok: true, state })
+    if (intentType === 'buildBusiness') {
+      const result = applyBuildBusinessIntent(existing, rawIntent, new Date())
+      if (!result.ok) {
+        res.status(buildBusinessStatus(result.error)).json({
+          ok: false,
+          error: buildBusinessMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+      res.status(200).json({ ok: true, state: result.state })
+      return
+    }
+
+    res.status(400).json({ ok: false, error: 'Unsupported area intent.', code: 'unsupported_intent' })
   } catch {
     res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
+  }
+}
+
+function applyBuildBusinessIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyBuildBusinessError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeBuildBusinessIntent(input)
+  if (!intent.ok) return intent
+  if (state.businesses.some((business) => business.id === intent.businessId)) {
+    return { ok: false, error: 'business_id_taken' }
+  }
+  if (state.businesses.filter((business) => business.kind === intent.businessKind).length >= STARTER_LICENSE_SLOTS[intent.businessKind]) {
+    return { ok: false, error: 'business_saturated' }
+  }
+
+  const blueprint = BUSINESS_BLUEPRINTS[intent.businessKind]
+  if (state.balance < blueprint.buildCost) return { ok: false, error: 'insufficient_funds' }
+
+  const at = now.toISOString()
+  const business: FounderAreaBusiness = {
+    id: intent.businessId,
+    name: intent.name,
+    kind: intent.businessKind,
+    ownerId: state.founderCitizenId,
+    cash: 0,
+    price: blueprint.price,
+    wagePerHour: blueprint.wagePerHour,
+    quality: 1,
+    createdAt: at,
+    createdBy: state.founderCitizenId,
+  }
+  const transaction: FounderAreaTransaction = {
+    id: `${state.areaId}:${now.getTime()}:business-build:${intent.businessId}`,
+    at,
+    kind: 'business_build',
+    fromId: state.founderCitizenId,
+    toId: BUILDER_RECEIVER_ID,
+    amount: blueprint.buildCost,
+    memo: `${intent.name} built as a ${intent.businessKind} business.`,
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      balance: roundMoney(state.balance - blueprint.buildCost),
+      businesses: [...state.businesses, business],
+      transactions: [...state.transactions, transaction],
+      updatedAt: at,
+    },
+  }
+}
+
+function buildBusinessStatus(error: ApplyBuildBusinessError): number {
+  if (error === 'area_not_claimed') return 409
+  if (error === 'business_id_taken' || error === 'business_saturated') return 409
+  if (error === 'insufficient_funds') return 402
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function buildBusinessMessage(error: ApplyBuildBusinessError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before building.'
+    case 'business_id_taken':
+      return 'Business id is already used in this area.'
+    case 'business_saturated':
+      return 'This business type has no open starter license.'
+    case 'insufficient_funds':
+      return 'Founder balance is too low for this build.'
+    default:
+      return 'Invalid buildBusiness intent.'
   }
 }
 
@@ -244,6 +448,22 @@ function isClaimSource(value: string): value is AreaClaimSource {
   return CLAIM_SOURCES.includes(value as AreaClaimSource)
 }
 
+function isBusinessKind(value: string): value is FounderAreaBusinessKind {
+  return BUSINESS_KINDS.includes(value as FounderAreaBusinessKind)
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code <= 31 || code === 127) return true
+  }
+  return false
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -256,5 +476,6 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     typeof value.founderNumber === 'number' &&
     typeof value.balance === 'number' &&
     isRecord(value.claim) &&
+    Array.isArray(value.businesses) &&
     Array.isArray(value.transactions)
 }

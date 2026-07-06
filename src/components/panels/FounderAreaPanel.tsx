@@ -7,7 +7,7 @@ import {
 import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
-import { claimRealityFounderArea, founderAreaProfileWithServerClaim } from '../../lib/realityArea'
+import { applyRealityFounderAreaIntent, claimRealityFounderArea, founderAreaProfileWithServerClaim } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
   founderCovenantSignalText,
@@ -71,9 +71,16 @@ export default function FounderAreaPanel() {
 
   const submitPayload = async (payload: WorldClientIntentPayload | null, label: string) => {
     const commandClient = commandClientRef.current
-    if (!commandClient || !payload || !area) return
+    if (!commandClient || !payload || !area || !citizen) return
     setBusy(true)
     try {
+      if (payload.type === 'buildBusiness') {
+        const serverApplied = await applyRealityFounderAreaIntent(citizen, payload)
+        if (!serverApplied.ok) {
+          setLastEvent(serverApplied.error)
+          return
+        }
+      }
       const next = await commandClient.apply(area.now, payload)
       setPanelState({ status: 'ready', result: next })
       setLastEvent(next.ok ? label : `Command failed: ${next.error}`)
