@@ -3438,6 +3438,102 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('advanceHour lets severely unserved Sim Citizens leave and clears staffing references', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const leaving = withCitizen(advanceReadyState(), 'founder-area-0012:sim-water', {
+      health: 35,
+      needs: { hydration: 5 },
+    })
+    const existing = withBusiness(leaving, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 100,
+      staffCitizenIds: ['founder-area-0012:sim-water'],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://sim-departure-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    expect(body.state.citizens.some((citizen) => citizen.id === 'founder-area-0012:sim-water')).toBe(false)
+    expect(body.state.businesses.find((business) => business.id === 'insurance-1')?.staffCitizenIds).toEqual([])
+    expect(body.state.transactions).toHaveLength(existing.transactions.length)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('advanceHour keeps real citizens and Sim business owners from silent departure', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const simOwnerId = 'founder-area-0012:sim-food'
+    const fragile = withCitizen(
+      withCitizen(advanceReadyState(), CITIZEN_ID, {
+        health: 35,
+        needs: { hydration: 5 },
+      }),
+      simOwnerId,
+      {
+        health: 35,
+        needs: { hydration: 5 },
+      },
+    )
+    const founderOwned = withBusiness(fragile, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 100,
+    })
+    const existing = {
+      ...founderOwned,
+      businesses: founderOwned.businesses.map((business) => (
+        business.id === 'insurance-1' ? { ...business, ownerId: simOwnerId } : business
+      )),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://real-and-owner-departure-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: typeof existing }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const simOwner = body.state.citizens.find((citizen) => citizen.id === simOwnerId)
+    expect(founder).toMatchObject({ id: CITIZEN_ID, kind: 'real', state: { kind: 'hospitalized' } })
+    expect(simOwner).toMatchObject({ id: simOwnerId, kind: 'sim', state: { kind: 'hospitalized' } })
+    expect(body.state.businesses.find((business) => business.id === 'insurance-1')?.ownerId).toBe(simOwnerId)
+  })
+
   test('advanceHour rejects ticks before a real hour elapsed since the server update', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))

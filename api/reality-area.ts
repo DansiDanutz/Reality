@@ -1587,6 +1587,8 @@ const INSURED_HOSPITALIZATION_HOURS = 5
 const RECOVERY_HEALTH = 55
 const MIN_BUSINESS_QUALITY = 0.35
 const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+const SIM_LEAVES_HEALTH = 35
+const SIM_LEAVES_NEED_LEVEL = 5
 const SURVIVAL_WARNING_HYDRATION = 50
 const SURVIVAL_WARNING_HUNGER = 50
 const SURVIVAL_WARNING_ENERGY = 35
@@ -5115,6 +5117,7 @@ function applySimCitizenHour(
 ): void {
   let purchaseSequence = 0
   const capacityUsed = new Map<string, number>()
+  const departingCitizenIds = new Set<string>()
   for (const citizen of citizens) {
     if (citizen.kind !== 'sim') continue
     if (citizen.state.kind === 'hospitalized') {
@@ -5142,9 +5145,61 @@ function applySimCitizenHour(
       })
     }
     applyUnmetNeedHealthPenalty(citizen)
+    if (shouldSimCitizenLeaveArea(citizen, citizens, businesses, capacityUsed)) {
+      departingCitizenIds.add(citizen.id)
+      continue
+    }
     if (shouldHospitalize(citizen)) {
       hospitalizeCitizen(areaId, citizen, businesses, now, at, transactions)
     }
+  }
+  removeDepartingSimCitizens(citizens, businesses, departingCitizenIds)
+}
+
+function shouldSimCitizenLeaveArea(
+  citizen: FounderAreaCitizen,
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  capacityUsed: Map<string, number>,
+): boolean {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return false
+  if (businesses.some((business) => business.ownerId === citizen.id)) return false
+  if (citizen.health > SIM_LEAVES_HEALTH) return false
+  return (
+    citizen.needs.hydration <= SIM_LEAVES_NEED_LEVEL &&
+    !hasRemainingServiceCapacity(citizens, businesses, 'water', capacityUsed)
+  ) || (
+    citizen.needs.hunger <= SIM_LEAVES_NEED_LEVEL &&
+    !hasRemainingServiceCapacity(citizens, businesses, 'food', capacityUsed)
+  ) || (
+    citizen.needs.energy <= SIM_LEAVES_NEED_LEVEL &&
+    !hasRemainingServiceCapacity(citizens, businesses, 'housing', capacityUsed)
+  )
+}
+
+function hasRemainingServiceCapacity(
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
+  capacityUsed: Map<string, number>,
+): boolean {
+  return businesses.some((business) =>
+    business.kind === kind &&
+    hourlyServiceCapacity(citizens, business) > (capacityUsed.get(business.id) ?? 0)
+  )
+}
+
+function removeDepartingSimCitizens(
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  citizenIds: Set<string>,
+): void {
+  if (citizenIds.size === 0) return
+  for (let index = citizens.length - 1; index >= 0; index -= 1) {
+    if (citizenIds.has(citizens[index].id)) citizens.splice(index, 1)
+  }
+  for (const business of businesses) {
+    business.staffCitizenIds = business.staffCitizenIds.filter((citizenId) => !citizenIds.has(citizenId))
   }
 }
 
