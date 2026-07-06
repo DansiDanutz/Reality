@@ -178,9 +178,35 @@ export type WorldSurvivalWarningKind = 'water' | 'food' | 'rest' | 'health'
 export type WorldSurvivalActionIntent = 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
 export type WorldSurvivalActionBlocker = 'service_unavailable' | 'insufficient_funds'
 
+export type WorldClientIntentPayload =
+  | {
+    type: 'buildBusiness'
+    businessKind: WorldBusinessKind
+    businessId: string
+    name?: string
+  }
+  | {
+    type: WorldSurvivalActionIntent
+  }
+  | {
+    type: 'hireWorker'
+    businessId: string
+    workerCitizenId: string
+  }
+  | {
+    type: 'buyInsurance'
+    insuranceBusinessId: string
+  }
+  | {
+    type: 'repayDebt'
+    debtId: string
+    amount: number
+  }
+
 export interface CitizenSurvivalAction {
   warning: WorldSurvivalWarningKind
   intent: WorldSurvivalActionIntent
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
   serviceKind: Exclude<WorldBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -262,6 +288,7 @@ export interface AreaDebtDashboard {
   issuedAt: number
   memo: string
   repaymentIntent: 'repayDebt'
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'repayDebt' }> | null
   recommendedPayment: number
   maxAffordablePayment: number
   canRepayNow: boolean
@@ -276,6 +303,7 @@ export type AreaInsuranceActionBlocker =
 
 export interface AreaInsuranceActionDashboard {
   intent: 'buyInsurance'
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'buyInsurance' }> | null
   insuranceBusinessId: string | null
   premium: number | null
   available: boolean
@@ -836,6 +864,9 @@ function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
     return {
       ...debt,
       repaymentIntent: 'repayDebt',
+      clientPayload: maxAffordablePayment > 0
+        ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
+        : null,
       recommendedPayment: maxAffordablePayment,
       maxAffordablePayment,
       canRepayNow: blockers.length === 0,
@@ -863,6 +894,7 @@ function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: nu
 
   return {
     intent: 'buyInsurance',
+    clientPayload: insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
     insuranceBusinessId: insurer?.id ?? null,
     premium,
     available: Boolean(insurer),
@@ -1126,6 +1158,7 @@ function survivalActionForWarning(
   return {
     warning,
     intent,
+    clientPayload: { type: intent },
     serviceKind,
     available,
     lowestPrice,

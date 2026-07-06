@@ -1499,6 +1499,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         warning: 'water',
         intent: 'buyWater',
+        clientPayload: { type: 'buyWater' },
         serviceKind: 'water',
         available: true,
         lowestPrice: 2,
@@ -1510,6 +1511,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         warning: 'food',
         intent: 'buyFood',
+        clientPayload: { type: 'buyFood' },
         serviceKind: 'food',
         available: true,
         lowestPrice: 14,
@@ -1519,6 +1521,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         warning: 'rest',
         intent: 'buyHousing',
+        clientPayload: { type: 'buyHousing' },
         serviceKind: 'housing',
         available: false,
         lowestPrice: null,
@@ -1528,6 +1531,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         warning: 'health',
         intent: 'visitClinic',
+        clientPayload: { type: 'visitClinic' },
         serviceKind: 'clinic',
         available: true,
         lowestPrice: 90,
@@ -1607,6 +1611,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           issuedAt: HOUR,
           memo: 'Sim sim-worker owes medical debt to clinic1.',
           repaymentIntent: 'repayDebt',
+          clientPayload: { type: 'repayDebt', debtId: 'debt-sim', amount: 25 },
           recommendedPayment: 25,
           maxAffordablePayment: 25,
           canRepayNow: true,
@@ -1618,6 +1623,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: true,
         insuranceAction: {
           intent: 'buyInsurance',
+          clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
           insuranceBusinessId: 'ins1',
           premium: 45,
           available: true,
@@ -1642,6 +1648,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           amount: 40,
           creditorId: 'system:hospital',
           repaymentIntent: 'repayDebt',
+          clientPayload: { type: 'repayDebt', debtId: 'debt-real', amount: 40 },
           recommendedPayment: 40,
           maxAffordablePayment: 40,
           canRepayNow: false,
@@ -1651,6 +1658,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: false,
         insuranceAction: {
           intent: 'buyInsurance',
+          clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
           insuranceBusinessId: 'ins1',
           premium: 45,
           available: true,
@@ -1681,6 +1689,7 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(dash.citizens.find((citizen) => citizen.id === 'buyer')!.insuranceAction).toEqual({
       intent: 'buyInsurance',
+      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins-low' },
       insuranceBusinessId: 'ins-low',
       premium: 45,
       available: true,
@@ -1689,6 +1698,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       blockers: [],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'broke')!.insuranceAction).toMatchObject({
+      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins-low' },
       insuranceBusinessId: 'ins-low',
       premium: 45,
       canAfford: false,
@@ -1707,6 +1717,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     const noInsurer = areaNeedsDashboard(area({ citizens: [sim('buyer', { money: 50 })] }))
     expect(noInsurer.citizens[0].insuranceAction).toEqual({
       intent: 'buyInsurance',
+      clientPayload: null,
       insuranceBusinessId: null,
       premium: null,
       available: false,

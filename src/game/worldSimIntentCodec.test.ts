@@ -1,9 +1,61 @@
 import { describe, expect, test } from 'vitest'
-import { DEFAULT_BUSINESS_BLUEPRINTS } from './worldSim'
+import {
+  areaNeedsDashboard,
+  DEFAULT_BUSINESS_BLUEPRINTS,
+  WORLD_SIM_HOUR_MS,
+  type WorldArea,
+  type WorldBusiness,
+  type WorldBusinessKind,
+  type WorldCitizen,
+} from './worldSim'
 import {
   decodeClientWorldAreaClaimPayload,
   decodeClientWorldIntentPayload,
 } from './worldSimIntentCodec'
+import type { Needs } from './types'
+
+const HOUR = WORLD_SIM_HOUR_MS
+
+const needs = (over: Partial<Needs> = {}): Needs => ({
+  hunger: 90,
+  hydration: 90,
+  energy: 90,
+  hygiene: 90,
+  fun: 90,
+  ...over,
+})
+
+const citizen = (id: string, over: Partial<WorldCitizen> = {}): WorldCitizen => ({
+  id,
+  name: id,
+  kind: 'real',
+  money: 100,
+  debt: 0,
+  needs: needs(),
+  health: 100,
+  state: { kind: 'active' },
+  ...over,
+})
+
+const business = (kind: WorldBusinessKind, id = `${kind}1`, over: Partial<WorldBusiness> = {}): WorldBusiness => ({
+  id,
+  name: `${kind} shop`,
+  kind,
+  ownerId: 'founder',
+  cash: 0,
+  staffCitizenIds: [],
+  ...over,
+})
+
+const area = (over: Partial<WorldArea> = {}): WorldArea => ({
+  id: 'area-1',
+  name: 'Founder District',
+  now: HOUR,
+  citizens: [],
+  businesses: [],
+  transactions: [],
+  ...over,
+})
 
 describe('decodeClientWorldAreaClaimPayload', () => {
   test('decodes an area claim with server founder identity, time, and source', () => {
@@ -178,6 +230,46 @@ describe('decodeClientWorldIntentPayload', () => {
         debtId: 'founder:1000:1:medical',
         amount: 12.35,
       },
+    })
+  })
+
+  test('decodes dashboard client payloads into server-owned intents', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [
+        citizen('founder', {
+          money: 75,
+          needs: needs({ hydration: 45 }),
+          debt: 20,
+          debts: [{
+            id: 'debt1',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 20,
+            issuedAt: HOUR,
+            memo: 'Founder owes medical debt to clinic1.',
+          }],
+        }),
+      ],
+      businesses: [
+        business('water', 'water1', { price: 2 }),
+        business('insurance', 'ins1', { price: 45 }),
+        business('clinic', 'clinic1'),
+      ],
+    }))
+    const founder = dash.citizens[0]
+    const waterAction = dash.survival.signals[0].actions.find((action) => action.intent === 'buyWater')!
+
+    expect(decodeClientWorldIntentPayload(waterAction.clientPayload, ' founder ')).toEqual({
+      ok: true,
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+    expect(decodeClientWorldIntentPayload(founder.insuranceAction.clientPayload, 'founder')).toEqual({
+      ok: true,
+      intent: { type: 'buyInsurance', actorCitizenId: 'founder', insuranceBusinessId: 'ins1' },
+    })
+    expect(decodeClientWorldIntentPayload(founder.debts[0].clientPayload, 'founder')).toEqual({
+      ok: true,
+      intent: { type: 'repayDebt', actorCitizenId: 'founder', debtId: 'debt1', amount: 20 },
     })
   })
 
