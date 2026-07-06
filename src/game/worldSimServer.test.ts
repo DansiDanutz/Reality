@@ -1156,6 +1156,69 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 
+  test('applies dashboard hire payloads through authenticated founder identity', async () => {
+    const repo = new MemoryWorldRepo()
+    const created = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    if (!created.ok) throw new Error(`expected area creation to succeed: ${created.error}`)
+    const built = await runWorldServerCommand(repo, {
+      type: 'applyClientFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+      payload: {
+        type: 'buildBusiness',
+        businessKind: 'water',
+        businessId: 'water-a',
+      },
+    })
+    if (!built.ok) throw new Error(`expected build to succeed: ${built.error}`)
+    const hirePayload = built.dashboard.jobs.candidates.find((candidate) => candidate.clientPayload)?.clientPayload
+    expect(hirePayload).toEqual({
+      type: 'hireWorker',
+      businessId: 'water-a',
+      workerCitizenId: 'area-1:sim-water',
+    })
+
+    const hired = await runWorldServerCommand(repo, {
+      type: 'applyClientFounderIntent',
+      authenticatedFounderId: ' founder ',
+      now: built.area.now,
+      payload: hirePayload,
+    })
+
+    expect(hired.ok).toBe(true)
+    if (!hired.ok) throw new Error(`expected hire to succeed: ${hired.error}`)
+    expect(hired.area.businesses.find((business) => business.id === 'water-a')?.staffCitizenIds).toEqual([
+      'area-1:sim-water',
+    ])
+    expect(hired.area.citizens.find((candidate) => candidate.id === 'area-1:sim-water')?.jobBusinessId).toBe('water-a')
+    expect(hired.dashboard.jobs).toMatchObject({
+      employedCitizens: 1,
+      hireableSimWorkers: 0,
+      openPositions: 0,
+      understaffedBusinesses: 0,
+    })
+    expect(hired.dashboard.jobs.candidates.map((candidate) => candidate.action)).toEqual([
+      'waiting_for_position',
+      'waiting_for_position',
+    ])
+  })
+
   test('rejects client founder payloads that try to control server fields before loading', async () => {
     const repo = new MemoryWorldRepo()
 

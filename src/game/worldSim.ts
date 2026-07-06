@@ -153,7 +153,7 @@ export interface AreaJobsDashboard {
   candidates: AreaWorkerCandidateDashboard[]
 }
 
-export type AreaWorkerCandidateAction = 'hire_now' | 'requires_acceptance'
+export type AreaWorkerCandidateAction = 'hire_now' | 'requires_acceptance' | 'waiting_for_position'
 
 export interface AreaWorkerCandidateDashboard {
   citizenId: string
@@ -164,6 +164,10 @@ export interface AreaWorkerCandidateDashboard {
   participantLabel: WorldParticipantLabel
   visualTone: WorldParticipantVisualTone
   action: AreaWorkerCandidateAction
+  recommendedBusinessId: string | null
+  recommendedBusinessName: string | null
+  recommendedBusinessKind: WorldBusinessKind | null
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'hireWorker' }> | null
 }
 
 export interface AreaLicenseDashboard {
@@ -965,17 +969,19 @@ function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
 function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJobsDashboard {
   let openPositions = 0
   let understaffedBusinesses = 0
+  const hiringSlots: WorldBusiness[] = []
   for (const business of area.businesses) {
     const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
     const openForBusiness = Math.max(0, targetStaff - activeStaffCount(area, business))
     openPositions += openForBusiness
     if (openForBusiness > 0) understaffedBusinesses += 1
+    for (let slot = 0; slot < openForBusiness; slot += 1) hiringSlots.push(business)
   }
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
   const candidates = activeCitizens
     .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
-    .map(workerCandidateDashboard)
+    .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null))
   return {
     employedCitizens,
     unemployedCitizens: activeCitizens.length - employedCitizens,
@@ -987,8 +993,9 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
   }
 }
 
-function workerCandidateDashboard(citizen: WorldCitizen): AreaWorkerCandidateDashboard {
+function workerCandidateDashboard(citizen: WorldCitizen, recommendedBusiness: WorldBusiness | null): AreaWorkerCandidateDashboard {
   const presentation = citizenPresentation(citizen)
+  const canHireNow = citizen.kind === 'sim' && recommendedBusiness !== null
   return {
     citizenId: citizen.id,
     name: citizen.name,
@@ -997,7 +1004,13 @@ function workerCandidateDashboard(citizen: WorldCitizen): AreaWorkerCandidateDas
     simulated: presentation.simulated,
     participantLabel: presentation.participantLabel,
     visualTone: presentation.visualTone,
-    action: citizen.kind === 'sim' ? 'hire_now' : 'requires_acceptance',
+    action: canHireNow ? 'hire_now' : citizen.kind === 'sim' ? 'waiting_for_position' : 'requires_acceptance',
+    recommendedBusinessId: recommendedBusiness?.id ?? null,
+    recommendedBusinessName: recommendedBusiness?.name ?? null,
+    recommendedBusinessKind: recommendedBusiness?.kind ?? null,
+    clientPayload: canHireNow
+      ? { type: 'hireWorker', businessId: recommendedBusiness.id, workerCitizenId: citizen.id }
+      : null,
   }
 }
 

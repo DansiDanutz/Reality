@@ -214,6 +214,49 @@ export default function FounderAreaPanel() {
             )}
           </section>
 
+          <section className="founder-section" aria-label="Staffing">
+            <div className="founder-section-head">
+              <h3 className="founder-section-title">Staffing</h3>
+              <span className="item-desc">
+                {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready
+              </span>
+            </div>
+            {dashboard.jobs.candidates.length === 0 || dashboard.jobs.openPositions === 0 ? (
+              <p className="panel-sub">No open staffing needs.</p>
+            ) : (
+              <ul className="item-list">
+                {dashboard.jobs.candidates.slice(0, 5).map((candidate) => (
+                  <li className={`item founder-citizen ${candidate.visualTone}`} key={candidate.citizenId}>
+                    <div className="item-info">
+                      <span className="item-name">{candidate.displayName}</span>
+                      <span className="item-desc">
+                        {candidate.participantLabel} · {candidate.recommendedBusinessName ?? 'no open business'}
+                      </span>
+                      {candidate.recommendedBusinessKind && (
+                        <span className="item-yield mono">{candidate.recommendedBusinessKind} worker</span>
+                      )}
+                    </div>
+                    <div className="item-buy">
+                      {candidate.clientPayload ? (
+                        <button
+                          className="btn small"
+                          disabled={busy}
+                          onClick={() => void submitPayload(candidate.clientPayload, `Hired ${candidate.displayName}.`)}
+                        >
+                          Hire
+                        </button>
+                      ) : (
+                        <span className="item-locked">
+                          {candidate.action === 'requires_acceptance' ? 'needs acceptance' : 'waiting'}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <div className="founder-event">
             <span>{lastEvent}</span>
             {transactions.length > 0 && (

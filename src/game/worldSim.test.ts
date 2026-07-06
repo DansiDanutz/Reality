@@ -787,6 +787,11 @@ describe('advanceWorldArea — local real-time economy', () => {
       realWorkersRequiringAcceptance: 0,
     })
     expect(dashboard.jobs.candidates.map((candidate) => candidate.citizenId)).toEqual(['thirsty', 'hungry', 'tired'])
+    expect(dashboard.jobs.candidates.map((candidate) => candidate.clientPayload)).toEqual([
+      { type: 'hireWorker', businessId: 'water1', workerCitizenId: 'thirsty' },
+      { type: 'hireWorker', businessId: 'food1', workerCitizenId: 'hungry' },
+      { type: 'hireWorker', businessId: 'home1', workerCitizenId: 'tired' },
+    ])
     expect(dashboard.capacity).toMatchObject({
       water: 24,
       food: 24,
@@ -1405,6 +1410,8 @@ describe('advanceWorldArea — local real-time economy', () => {
         participantLabel: 'Real Citizen',
         visualTone: 'real',
         action: 'requires_acceptance',
+        recommendedBusinessId: 'water1',
+        clientPayload: null,
       },
     ])
     expect(dash.firstBuild[0]).toMatchObject({
