@@ -134,6 +134,19 @@ const covenantApprovalRequestSnapshot = () => [{
   blockers: ['approval_workflow_disabled', 'probation_execution_disabled'] as const,
 }]
 
+const covenantReviewQueueSnapshot = () => ({
+  evidenceOnly: true as const,
+  automationEnabled: false as const,
+  executionEnabled: false as const,
+  nextStep: 'main_founder_approval' as const,
+  recordReviewEnabled: false,
+  recommendedActionKinds: ['start_probation'] as const,
+  pendingApprovalCount: 1,
+  pendingNotificationCount: 1,
+  blockerCount: 2,
+  blockers: ['approval_workflow_disabled', 'probation_execution_disabled'] as const,
+})
+
 const area = (over: Partial<WorldArea> = {}): WorldArea => ({
   id: 'area-1',
   name: 'Test Area',
@@ -1933,6 +1946,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           message: 'Previous weekly review was due.',
         }],
         activityReview: covenantActivitySnapshot(),
+        reviewQueue: covenantReviewQueueSnapshot(),
         reviewChecklist: covenantChecklistSnapshot(),
         manualActions: covenantManualActionSnapshot(),
         approvalRequests: covenantApprovalRequestSnapshot(),
@@ -1973,6 +1987,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         message: 'Previous weekly review was due.',
       }],
       activityReview: covenantActivitySnapshot(),
+      reviewQueue: covenantReviewQueueSnapshot(),
       reviewChecklist: covenantChecklistSnapshot(),
       manualActions: covenantManualActionSnapshot(),
       approvalRequests: covenantApprovalRequestSnapshot(),
@@ -2015,6 +2030,18 @@ describe('advanceWorldArea — local real-time economy', () => {
         decision: null,
         signals: [],
         activityReview: null,
+        reviewQueue: {
+          evidenceOnly: true,
+          automationEnabled: false,
+          executionEnabled: false,
+          nextStep: 'monitor',
+          recordReviewEnabled: false,
+          recommendedActionKinds: [],
+          pendingApprovalCount: 0,
+          pendingNotificationCount: 0,
+          blockerCount: 0,
+          blockers: [],
+        },
         reviewChecklist: [],
         manualActions: [],
         approvalRequests: [],

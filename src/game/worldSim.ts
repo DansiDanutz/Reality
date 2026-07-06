@@ -489,6 +489,7 @@ export interface FounderCovenantReviewHistoryItem {
   decision: FounderCovenantReviewDecisionSnapshot | null
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
+  reviewQueue: FounderCovenantReviewQueue
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
   approvalRequests: FounderCovenantApprovalRequest[]
@@ -511,6 +512,7 @@ export interface FounderCovenantLatestReview {
   decision: FounderCovenantReviewDecisionSnapshot | null
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
+  reviewQueue: FounderCovenantReviewQueue
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
   approvalRequests: FounderCovenantApprovalRequest[]
@@ -1649,6 +1651,7 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     decision: latest.decision ? { ...latest.decision } : null,
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
+    reviewQueue: founderCovenantReviewQueueSnapshot(latest.reviewQueue),
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: latest.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
@@ -1660,21 +1663,26 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
 
 function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryItem): FounderCovenantReviewHistoryItem {
   const legacyEntry = entry as Partial<FounderCovenantReviewHistoryItem>
+  const manualActions = Array.isArray(legacyEntry.manualActions)
+    ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
+    : []
+  const approvalRequests = Array.isArray(legacyEntry.approvalRequests)
+    ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
+    : []
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
     decision: legacyEntry.decision ? { ...legacyEntry.decision } : null,
     signals: (entry.signals ?? []).map(founderCovenantSignalSnapshot),
     activityReview: legacyEntry.activityReview ? { ...legacyEntry.activityReview } : null,
+    reviewQueue: legacyEntry.reviewQueue
+      ? founderCovenantReviewQueueSnapshot(legacyEntry.reviewQueue)
+      : founderCovenantReviewQueueFromSnapshot({ manualActions, approvalRequests }),
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
-    manualActions: Array.isArray(legacyEntry.manualActions)
-      ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
-      : [],
-    approvalRequests: Array.isArray(legacyEntry.approvalRequests)
-      ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
-      : [],
+    manualActions,
+    approvalRequests,
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
 }
@@ -1721,6 +1729,49 @@ function founderCovenantApprovalRequestSnapshot(
     executionEnabled: false,
     authorityGate: { ...request.authorityGate, executionEnabled: false },
     blockers: [...request.blockers],
+  }
+}
+
+function founderCovenantReviewQueueSnapshot(queue: FounderCovenantReviewQueue): FounderCovenantReviewQueue {
+  return {
+    ...queue,
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    recommendedActionKinds: [...queue.recommendedActionKinds],
+    blockers: [...queue.blockers],
+  }
+}
+
+function founderCovenantReviewQueueFromSnapshot(input: {
+  manualActions: FounderCovenantManualAction[]
+  approvalRequests: FounderCovenantApprovalRequest[]
+}): FounderCovenantReviewQueue {
+  const recordReviewEnabled = input.manualActions.some((action) =>
+    action.kind === 'record_review' && action.recommended
+  )
+  const recommendedActionKinds = input.manualActions
+    .filter((action) => action.recommended)
+    .map((action) => action.kind)
+  const blockers = Array.from(new Set(input.approvalRequests.flatMap((request) => request.blockers)))
+  const notificationDraftIds = new Set(input.approvalRequests
+    .map((request) => request.notificationDraftId)
+    .filter((id): id is string => typeof id === 'string'))
+  return {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: input.approvalRequests.length > 0
+      ? 'main_founder_approval'
+      : recordReviewEnabled
+        ? 'record_review'
+        : 'monitor',
+    recordReviewEnabled,
+    recommendedActionKinds,
+    pendingApprovalCount: input.approvalRequests.length,
+    pendingNotificationCount: notificationDraftIds.size,
+    blockerCount: input.approvalRequests.reduce((total, request) => total + request.blockers.length, 0),
+    blockers,
   }
 }
 

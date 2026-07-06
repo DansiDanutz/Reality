@@ -188,6 +188,12 @@ export function founderCovenantReviewQueueStatusLabel(queue: FounderCovenantRevi
   return queue.executionEnabled ? 'Executable' : 'Evidence only'
 }
 
+export function founderCovenantReviewQueueSnapshotSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'reviewQueue'>,
+): string {
+  return `Queue snapshot · ${founderCovenantReviewQueueSummary(review.reviewQueue)} · ${review.reviewQueue.blockerCount} blocker${review.reviewQueue.blockerCount === 1 ? '' : 's'}`
+}
+
 function founderCovenantNextActionLabel(
   nextAction: NonNullable<FounderCovenantReviewHistoryItem['decision']>['nextAction'],
 ): string {

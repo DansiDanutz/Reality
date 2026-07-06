@@ -2708,6 +2708,11 @@ describe('reality area authority API', () => {
         atRisk: true,
         score: 40,
       },
+      reviewQueue: covenantReviewQueue({
+        warning: true,
+        probation: true,
+        replacement: false,
+      }, 1),
       reviewChecklist: expect.arrayContaining([{
         key: 'building',
         label: 'Building',
@@ -2746,6 +2751,7 @@ describe('reality area authority API', () => {
       decision: body.state.founderReviewHistory[0].decision,
       signals: body.state.founderReviewHistory[0].signals,
       activityReview: body.state.founderReviewHistory[0].activityReview,
+      reviewQueue: body.state.founderReviewHistory[0].reviewQueue,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
       manualActions: body.state.founderReviewHistory[0].manualActions,
       approvalRequests: body.state.founderReviewHistory[0].approvalRequests,

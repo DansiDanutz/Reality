@@ -202,6 +202,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   decision: RealityAreaCovenantReviewDecisionSnapshot | null
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
+  reviewQueue: RealityAreaCovenantReviewQueue
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   approvalRequests: RealityAreaCovenantApprovalRequest[]
@@ -224,6 +225,7 @@ export interface RealityAreaCovenantLatestReview {
   decision: RealityAreaCovenantReviewDecisionSnapshot | null
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
+  reviewQueue: RealityAreaCovenantReviewQueue
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   approvalRequests: RealityAreaCovenantApprovalRequest[]
@@ -800,6 +802,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         decision: review.latestReview.decision === null ? null : { ...review.latestReview.decision },
         signals: review.latestReview.signals.map(realityCovenantSignalToWorldSignal),
         activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
+        reviewQueue: realityCovenantReviewQueueToWorldQueue(review.latestReview.reviewQueue),
         reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
         manualActions: review.latestReview.manualActions.map(realityCovenantManualActionToWorldAction),
         approvalRequests: review.latestReview.approvalRequests.map(realityCovenantApprovalRequestToWorldRequest),
@@ -842,6 +845,7 @@ function realityReviewHistoryToWorldReviewHistory(
     decision: entry.decision === null ? null : { ...entry.decision },
     signals: entry.signals.map(realityCovenantSignalToWorldSignal),
     activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
+    reviewQueue: realityCovenantReviewQueueToWorldQueue(entry.reviewQueue),
     reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
     manualActions: entry.manualActions.map(realityCovenantManualActionToWorldAction),
     approvalRequests: entry.approvalRequests.map(realityCovenantApprovalRequestToWorldRequest),
@@ -866,6 +870,16 @@ function realityCovenantApprovalRequestToWorldRequest(
     ...request,
     at: parseInstant(request.at),
     authorityGate: { ...request.authorityGate },
+  }
+}
+
+function realityCovenantReviewQueueToWorldQueue(
+  queue: RealityAreaCovenantReviewQueue,
+): FounderCovenantReviewHistoryItem['reviewQueue'] {
+  return {
+    ...queue,
+    recommendedActionKinds: [...queue.recommendedActionKinds],
+    blockers: [...queue.blockers],
   }
 }
 
@@ -1259,6 +1273,7 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal) &&
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
+    isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
@@ -1280,6 +1295,7 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal) &&
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
+    isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&

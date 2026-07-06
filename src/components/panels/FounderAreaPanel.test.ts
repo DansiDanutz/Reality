@@ -15,6 +15,7 @@ import {
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
   founderCovenantReviewQueueStatusLabel,
+  founderCovenantReviewQueueSnapshotSummary,
   founderCovenantReviewQueueSummary,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
@@ -270,6 +271,9 @@ describe('FounderAreaPanel covenant presenters', () => {
 
     expect(founderCovenantReviewQueueSummary(queue)).toBe('Main founder approval · 1 approval · 1 draft')
     expect(founderCovenantReviewQueueStatusLabel(queue)).toBe('Evidence only')
+    expect(founderCovenantReviewQueueSnapshotSummary({ reviewQueue: queue })).toBe(
+      'Queue snapshot · Main founder approval · 1 approval · 1 draft · 2 blockers',
+    )
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

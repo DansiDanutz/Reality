@@ -231,6 +231,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   decision: FounderAreaCovenantReviewDecisionSnapshot | null
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
+  reviewQueue: FounderAreaCovenantReviewQueue
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -253,6 +254,7 @@ interface FounderAreaCovenantLatestReview {
   decision: FounderAreaCovenantReviewDecisionSnapshot | null
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
+  reviewQueue: FounderAreaCovenantReviewQueue
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -1625,6 +1627,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     decision: latest.decision ? { ...latest.decision } : null,
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
+    reviewQueue: founderCovenantReviewQueueSnapshot(latest.reviewQueue),
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: latest.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
@@ -1644,6 +1647,12 @@ function founderCovenantReviewHistoryItem(
   entry: FounderAreaCovenantReviewHistoryItem,
 ): FounderAreaCovenantReviewHistoryItem {
   const legacyEntry = entry as Partial<FounderAreaCovenantReviewHistoryItem>
+  const manualActions = Array.isArray(legacyEntry.manualActions)
+    ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
+    : []
+  const approvalRequests = Array.isArray(legacyEntry.approvalRequests)
+    ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
+    : []
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
@@ -1652,15 +1661,14 @@ function founderCovenantReviewHistoryItem(
       ? entry.signals.map(founderCovenantSignalSnapshot)
       : [],
     activityReview: legacyEntry.activityReview ? { ...legacyEntry.activityReview } : null,
+    reviewQueue: legacyEntry.reviewQueue
+      ? founderCovenantReviewQueueSnapshot(legacyEntry.reviewQueue)
+      : founderCovenantReviewQueueFromSnapshot({ manualActions, approvalRequests }),
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
-    manualActions: Array.isArray(legacyEntry.manualActions)
-      ? legacyEntry.manualActions.map(founderCovenantManualActionSnapshot)
-      : [],
-    approvalRequests: Array.isArray(legacyEntry.approvalRequests)
-      ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
-      : [],
+    manualActions,
+    approvalRequests,
     reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
 }
@@ -1707,6 +1715,49 @@ function founderCovenantApprovalRequestSnapshot(
     executionEnabled: false,
     authorityGate: { ...request.authorityGate, executionEnabled: false },
     blockers: [...request.blockers],
+  }
+}
+
+function founderCovenantReviewQueueSnapshot(queue: FounderAreaCovenantReviewQueue): FounderAreaCovenantReviewQueue {
+  return {
+    ...queue,
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    recommendedActionKinds: [...queue.recommendedActionKinds],
+    blockers: [...queue.blockers],
+  }
+}
+
+function founderCovenantReviewQueueFromSnapshot(input: {
+  manualActions: FounderAreaCovenantManualAction[]
+  approvalRequests: FounderAreaCovenantApprovalRequest[]
+}): FounderAreaCovenantReviewQueue {
+  const recordReviewEnabled = input.manualActions.some((action) =>
+    action.kind === 'record_review' && action.recommended
+  )
+  const recommendedActionKinds = input.manualActions
+    .filter((action) => action.recommended)
+    .map((action) => action.kind)
+  const blockers = Array.from(new Set(input.approvalRequests.flatMap((request) => request.blockers)))
+  const notificationDraftIds = new Set(input.approvalRequests
+    .map((request) => request.notificationDraftId)
+    .filter((id): id is string => typeof id === 'string'))
+  return {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: input.approvalRequests.length > 0
+      ? 'main_founder_approval'
+      : recordReviewEnabled
+        ? 'record_review'
+        : 'monitor',
+    recordReviewEnabled,
+    recommendedActionKinds,
+    pendingApprovalCount: input.approvalRequests.length,
+    pendingNotificationCount: notificationDraftIds.size,
+    blockerCount: input.approvalRequests.reduce((total, request) => total + request.blockers.length, 0),
+    blockers,
   }
 }
 
@@ -3135,6 +3186,7 @@ function applyRecordCovenantReviewIntent(
     },
     signals: review.signals.map(founderCovenantSignalSnapshot),
     activityReview: { ...review.activityReview },
+    reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
