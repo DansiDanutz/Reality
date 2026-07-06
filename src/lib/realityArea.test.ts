@@ -241,6 +241,7 @@ describe('Reality area client', () => {
           reviewerId: 'reviewer-1',
           actionKind: 'record_review',
           summary: 'Weekly evidence recorded.',
+          authorityGate: areaReviewerEvidenceGate(false),
           evidenceOnly: true,
           automationEnabled: true,
         },

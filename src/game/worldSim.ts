@@ -445,6 +445,7 @@ export interface FounderCovenantReviewHistoryItem {
   reviewerId: string
   actionKind: FounderCovenantManualActionKind
   summary: string
+  authorityGate: FounderCovenantAuthorityGate
 }
 
 export interface FounderCovenantLatestReview {
@@ -453,6 +454,7 @@ export interface FounderCovenantLatestReview {
   reviewerId: string
   actionKind: FounderCovenantManualActionKind
   summary: string
+  authorityGate: FounderCovenantAuthorityGate
   evidenceOnly: true
   automationEnabled: false
 }
@@ -1479,7 +1481,7 @@ function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHis
   return [...(area.founderReviewHistory ?? [])]
     .sort((left, right) => right.at - left.at)
     .slice(0, 5)
-    .map((entry) => ({ ...entry }))
+    .map(founderCovenantReviewHistoryItem)
 }
 
 function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestReview | null {
@@ -1491,8 +1493,26 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     reviewerId: latest.reviewerId,
     actionKind: latest.actionKind,
     summary: latest.summary,
+    authorityGate: { ...latest.authorityGate },
     evidenceOnly: true,
     automationEnabled: false,
+  }
+}
+
+function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryItem): FounderCovenantReviewHistoryItem {
+  return {
+    ...entry,
+    authorityGate: founderCovenantReviewEvidenceAuthority(),
+  }
+}
+
+function founderCovenantReviewEvidenceAuthority(): FounderCovenantAuthorityGate {
+  return {
+    requiredRole: 'area_reviewer',
+    status: 'evidence_only',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
   }
 }
 

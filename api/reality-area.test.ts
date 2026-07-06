@@ -395,6 +395,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Looks good.',
+      authorityGate: areaReviewerEvidenceGate(true),
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
       actionKind: 'remove_founder',
       note: 'Remove immediately.',
     })).toEqual({ ok: false, error: 'invalid_review_action' })
@@ -2548,7 +2554,14 @@ describe('reality area authority API', () => {
     const body = res.body as {
       ok: true
       state: ReturnType<typeof existingState> & {
-        founderReviewHistory: { id: string; at: string; reviewerId: string; actionKind: string; summary: string }[]
+        founderReviewHistory: {
+          id: string
+          at: string
+          reviewerId: string
+          actionKind: string
+          summary: string
+          authorityGate: ReturnType<typeof areaReviewerEvidenceGate>
+        }[]
       }
     }
     expect(body.state.balance).toBe(existing.balance)
@@ -2559,8 +2572,19 @@ describe('reality area authority API', () => {
       reviewerId: CITIZEN_ID,
       actionKind: 'record_review',
       summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
+      authorityGate: areaReviewerEvidenceGate(false),
     }])
     expect(body.state.founderCovenant.reviewHistory).toEqual(body.state.founderReviewHistory)
+    expect(body.state.founderCovenant.latestReview).toEqual({
+      id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}`,
+      reviewedAt: '2026-07-06T08:00:00.000Z',
+      reviewerId: CITIZEN_ID,
+      actionKind: 'record_review',
+      summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
+      authorityGate: areaReviewerEvidenceGate(false),
+      evidenceOnly: true,
+      automationEnabled: false,
+    })
     expect(body.state.founderCovenant.manualActions.every((action) =>
       action.requiresApproval === true && action.automationEnabled === false
     )).toBe(true)

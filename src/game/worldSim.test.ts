@@ -61,6 +61,14 @@ const business = (kind: WorldBusinessKind, id = `${kind}1`, over: Partial<WorldB
   ...over,
 })
 
+const areaReviewerEvidenceGate = () => ({
+  requiredRole: 'area_reviewer' as const,
+  status: 'evidence_only' as const,
+  approvedById: null,
+  approvedAt: null,
+  executionEnabled: false,
+})
+
 const area = (over: Partial<WorldArea> = {}): WorldArea => ({
   id: 'area-1',
   name: 'Test Area',
@@ -1802,6 +1810,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         reviewerId: 'reviewer-1',
         actionKind: 'record_review',
         summary: 'Weekly review recorded.',
+        authorityGate: areaReviewerEvidenceGate(),
       }],
     })
 
@@ -1822,6 +1831,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       reviewerId: 'reviewer-1',
       actionKind: 'record_review',
       summary: 'Weekly review recorded.',
+      authorityGate: areaReviewerEvidenceGate(),
       evidenceOnly: true,
       automationEnabled: false,
     })
@@ -1848,6 +1858,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         reviewerId: 'reviewer-1',
         actionKind: 'record_review',
         summary: 'Weekly review recorded.',
+        authorityGate: areaReviewerEvidenceGate(),
       }],
     })
     start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'

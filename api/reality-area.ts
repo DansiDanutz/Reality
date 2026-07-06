@@ -187,6 +187,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   reviewerId: string
   actionKind: FounderAreaCovenantManualActionKind
   summary: string
+  authorityGate: FounderAreaCovenantAuthorityGate
 }
 
 interface FounderAreaCovenantLatestReview {
@@ -195,6 +196,7 @@ interface FounderAreaCovenantLatestReview {
   reviewerId: string
   actionKind: FounderAreaCovenantManualActionKind
   summary: string
+  authorityGate: FounderAreaCovenantAuthorityGate
   evidenceOnly: true
   automationEnabled: false
 }
@@ -755,6 +757,11 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'price',
   'wagePerHour',
   'reviewerId',
+  'authorityGate',
+  'reviewedAt',
+  'evidenceOnly',
+  'approvedById',
+  'approvedAt',
   'founderCitizenId',
   'replacementEnabled',
   'waitlistHandoffEnabled',
@@ -1136,9 +1143,12 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
 }
 
 function withFounderCovenantReview(state: FounderAreaStateInput): FounderAreaState {
+  const normalizedState = state.founderReviewHistory === undefined
+    ? state
+    : { ...state, founderReviewHistory: normalizeFounderCovenantReviewHistory(state.founderReviewHistory) }
   return {
-    ...state,
-    founderCovenant: founderCovenantReview(state),
+    ...normalizedState,
+    founderCovenant: founderCovenantReview(normalizedState),
   }
 }
 
@@ -1427,7 +1437,7 @@ function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderArea
   return [...(state.founderReviewHistory ?? [])]
     .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
     .slice(0, 5)
-    .map((entry) => ({ ...entry }))
+    .map(founderCovenantReviewHistoryItem)
 }
 
 function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaCovenantLatestReview | null {
@@ -1439,8 +1449,34 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     reviewerId: latest.reviewerId,
     actionKind: latest.actionKind,
     summary: latest.summary,
+    authorityGate: { ...latest.authorityGate },
     evidenceOnly: true,
     automationEnabled: false,
+  }
+}
+
+function normalizeFounderCovenantReviewHistory(
+  history: FounderAreaStateInput['founderReviewHistory'],
+): FounderAreaCovenantReviewHistoryItem[] {
+  return [...(history ?? [])].map(founderCovenantReviewHistoryItem)
+}
+
+function founderCovenantReviewHistoryItem(
+  entry: FounderAreaCovenantReviewHistoryItem,
+): FounderAreaCovenantReviewHistoryItem {
+  return {
+    ...entry,
+    authorityGate: founderCovenantReviewEvidenceAuthority(),
+  }
+}
+
+function founderCovenantReviewEvidenceAuthority(): FounderAreaCovenantAuthorityGate {
+  return {
+    requiredRole: 'area_reviewer',
+    status: 'evidence_only',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
   }
 }
 
@@ -2861,6 +2897,7 @@ function applyRecordCovenantReviewIntent(
     reviewerId,
     actionKind: intent.actionKind,
     summary: founderCovenantReviewSummary(review.activityReview, intent.note),
+    authorityGate: founderCovenantReviewEvidenceAuthority(),
   }
 
   return {

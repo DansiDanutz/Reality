@@ -85,9 +85,14 @@ export function founderCovenantManualActionKindLabel(kind: FounderCovenantManual
 }
 
 export function founderCovenantLatestReviewStatusLabel(
-  review: { evidenceOnly: boolean; automationEnabled: boolean },
+  review: {
+    evidenceOnly: boolean
+    automationEnabled: boolean
+    authorityGate: { requiredRole: FounderCovenantManualAction['authorityGate']['requiredRole'] }
+  },
 ): string {
-  return review.evidenceOnly && !review.automationEnabled ? 'Evidence only' : 'Review'
+  const role = founderCovenantAuthorityRoleLabel(review.authorityGate.requiredRole)
+  return review.evidenceOnly && !review.automationEnabled ? `${role} / Evidence only` : role
 }
 
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
@@ -126,7 +131,7 @@ export function founderCovenantReviewScheduleItems(
 }
 
 export function founderCovenantNotificationDraftText(draft: FounderCovenantNotificationDraft): string {
-  return `${channelLabel(draft.channel)} / ${authorityRoleLabel(draft.authorityGate.requiredRole)} approval`
+  return `${channelLabel(draft.channel)} / ${founderCovenantAuthorityRoleLabel(draft.authorityGate.requiredRole)} approval`
 }
 
 export function founderCovenantNotificationDraftStatusLabel(
@@ -167,7 +172,9 @@ function channelLabel(channel: FounderCovenantNotificationDraft['channel']): str
   }
 }
 
-function authorityRoleLabel(role: FounderCovenantNotificationDraft['authorityGate']['requiredRole']): string {
+function founderCovenantAuthorityRoleLabel(
+  role: FounderCovenantNotificationDraft['authorityGate']['requiredRole'],
+): string {
   switch (role) {
     case 'area_reviewer':
       return 'Area reviewer'

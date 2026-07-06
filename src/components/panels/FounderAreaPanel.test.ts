@@ -42,7 +42,10 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantLatestReviewStatusLabel({
       evidenceOnly: true,
       automationEnabled: false,
-    })).toBe('Evidence only')
+      authorityGate: {
+        requiredRole: 'area_reviewer',
+      },
+    })).toBe('Area reviewer / Evidence only')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

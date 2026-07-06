@@ -157,6 +157,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   reviewerId: string
   actionKind: RealityAreaCovenantManualActionKind
   summary: string
+  authorityGate: RealityAreaCovenantAuthorityGate
 }
 
 export interface RealityAreaCovenantLatestReview {
@@ -165,6 +166,7 @@ export interface RealityAreaCovenantLatestReview {
   reviewerId: string
   actionKind: RealityAreaCovenantManualActionKind
   summary: string
+  authorityGate: RealityAreaCovenantAuthorityGate
   evidenceOnly: true
   automationEnabled: false
 }
@@ -721,6 +723,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       : {
         ...review.latestReview,
         reviewedAt: parseInstant(review.latestReview.reviewedAt),
+        authorityGate: { ...review.latestReview.authorityGate },
       },
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
@@ -753,6 +756,7 @@ function realityReviewHistoryToWorldReviewHistory(
   return {
     ...entry,
     at: parseInstant(entry.at),
+    authorityGate: { ...entry.authorityGate },
   }
 }
 
@@ -1102,7 +1106,8 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     typeof value.at === 'string' &&
     typeof value.reviewerId === 'string' &&
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
-    typeof value.summary === 'string'
+    typeof value.summary === 'string' &&
+    isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate)
 }
 
 function isRealityAreaCovenantLatestReview(value: unknown): value is RealityAreaCovenantLatestReview {
@@ -1112,8 +1117,18 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     typeof value.reviewerId === 'string' &&
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string' &&
+    isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
+}
+
+function isRealityAreaCovenantEvidenceAuthorityGate(value: unknown): value is RealityAreaCovenantAuthorityGate {
+  return isRecord(value) &&
+    value.requiredRole === 'area_reviewer' &&
+    value.status === 'evidence_only' &&
+    value.approvedById === null &&
+    value.approvedAt === null &&
+    value.executionEnabled === false
 }
 
 function isRealityAreaCovenantReviewSchedule(value: unknown): value is RealityAreaCovenantReviewSchedule {
