@@ -16,6 +16,7 @@ import type {
   CitizenSurvivalSignal,
   FirstBuildBlocker,
   FirstBuildRecommendation,
+  FounderCovenantReviewHistoryItem,
   WorldArea,
   WorldBusiness,
   WorldBusinessKind,
@@ -93,6 +94,11 @@ export type RealityAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
 export type RealityAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
 export type RealityAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
 export type RealityAreaCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
+export type RealityAreaCovenantManualActionKind =
+  | 'record_review'
+  | 'send_warning'
+  | 'start_probation'
+  | 'recommend_replacement'
 export type RealityAreaCovenantSignalKind =
   | 'founder_unavailable'
   | 'no_business_built'
@@ -116,6 +122,23 @@ export interface RealityAreaCovenantReviewChecklistItem {
   evidence: string
 }
 
+export interface RealityAreaCovenantManualAction {
+  kind: RealityAreaCovenantManualActionKind
+  label: string
+  recommended: boolean
+  requiresApproval: true
+  automationEnabled: false
+  reason: string
+}
+
+export interface RealityAreaCovenantReviewHistoryItem {
+  id: string
+  at: string
+  reviewerId: string
+  actionKind: RealityAreaCovenantManualActionKind
+  summary: string
+}
+
 export interface RealityAreaCovenantReview {
   founderCitizenId: string
   status: RealityAreaCovenantStatus
@@ -136,6 +159,8 @@ export interface RealityAreaCovenantReview {
     score: number
   }
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
+  manualActions: RealityAreaCovenantManualAction[]
+  reviewHistory: RealityAreaCovenantReviewHistoryItem[]
   signals: RealityAreaCovenantSignal[]
 }
 
@@ -366,6 +391,7 @@ export interface RealityAreaState {
   businesses: RealityAreaBusiness[]
   citizens: RealityAreaCitizen[]
   transactions: RealityAreaTransaction[]
+  founderReviewHistory?: RealityAreaCovenantReviewHistoryItem[]
   founderCovenant: RealityAreaCovenantReview
   updatedAt: string
 }
@@ -537,6 +563,7 @@ export function realityAreaStateToWorldArea(state: RealityAreaState): WorldArea 
     citizens: state.citizens.map(realityCitizenToWorldCitizen),
     businesses: state.businesses.map(realityBusinessToWorldBusiness),
     transactions: state.transactions.map(realityTransactionToWorldTransaction),
+    founderReviewHistory: state.founderReviewHistory?.map(realityReviewHistoryToWorldReviewHistory),
   }
 }
 
@@ -616,11 +643,22 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       checkedAt: parseInstant(review.activityReview.checkedAt),
     },
     reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
+    manualActions: review.manualActions.map((action) => ({ ...action })),
+    reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     signals: review.signals.map((signal) => ({
       ...signal,
       businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
       businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
     })),
+  }
+}
+
+function realityReviewHistoryToWorldReviewHistory(
+  entry: RealityAreaCovenantReviewHistoryItem,
+): FounderCovenantReviewHistoryItem {
+  return {
+    ...entry,
+    at: parseInstant(entry.at),
   }
 }
 
@@ -775,7 +813,11 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     !Array.isArray(value.businesses) ||
     !Array.isArray(value.citizens) ||
     !isRealityAreaCovenantReview(value.founderCovenant) ||
-    !Array.isArray(value.transactions)
+    !Array.isArray(value.transactions) ||
+    (value.founderReviewHistory !== undefined && (
+      !Array.isArray(value.founderReviewHistory) ||
+      !value.founderReviewHistory.every(isRealityAreaCovenantReviewHistoryItem)
+    ))
   ) {
     return false
   }
@@ -883,6 +925,10 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     isRealityAreaCovenantActivityReview(value.activityReview) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
+    Array.isArray(value.manualActions) &&
+    value.manualActions.every(isRealityAreaCovenantManualAction) &&
+    Array.isArray(value.reviewHistory) &&
+    value.reviewHistory.every(isRealityAreaCovenantReviewHistoryItem) &&
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal)
 }
@@ -908,6 +954,25 @@ function isRealityAreaCovenantReviewChecklistItem(value: unknown): value is Real
     typeof value.evidence === 'string'
 }
 
+function isRealityAreaCovenantManualAction(value: unknown): value is RealityAreaCovenantManualAction {
+  return isRecord(value) &&
+    isRealityAreaCovenantManualActionKind(value.kind) &&
+    typeof value.label === 'string' &&
+    typeof value.recommended === 'boolean' &&
+    value.requiresApproval === true &&
+    value.automationEnabled === false &&
+    typeof value.reason === 'string'
+}
+
+function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is RealityAreaCovenantReviewHistoryItem {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.at === 'string' &&
+    typeof value.reviewerId === 'string' &&
+    isRealityAreaCovenantManualActionKind(value.actionKind) &&
+    typeof value.summary === 'string'
+}
+
 function isRealityAreaCovenantSignal(value: unknown): value is RealityAreaCovenantSignal {
   return isRecord(value) &&
     isRealityAreaCovenantSignalKind(value.kind) &&
@@ -928,6 +993,13 @@ function isRealityAreaCovenantNextAction(value: unknown): value is RealityAreaCo
 
 function isRealityAreaCovenantReviewChecklistStatus(value: unknown): value is RealityAreaCovenantReviewChecklistStatus {
   return value === 'met' || value === 'watch' || value === 'manual_review'
+}
+
+function isRealityAreaCovenantManualActionKind(value: unknown): value is RealityAreaCovenantManualActionKind {
+  return value === 'record_review' ||
+    value === 'send_warning' ||
+    value === 'start_probation' ||
+    value === 'recommend_replacement'
 }
 
 function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {

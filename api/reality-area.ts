@@ -110,6 +110,11 @@ type FounderAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
 type FounderAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
 type FounderAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
 type FounderAreaCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
+type FounderAreaCovenantManualActionKind =
+  | 'record_review'
+  | 'send_warning'
+  | 'start_probation'
+  | 'recommend_replacement'
 type FounderAreaCovenantSignalKind =
   | 'founder_unavailable'
   | 'no_business_built'
@@ -145,6 +150,23 @@ interface FounderAreaCovenantReviewChecklistItem {
   evidence: string
 }
 
+interface FounderAreaCovenantManualAction {
+  kind: FounderAreaCovenantManualActionKind
+  label: string
+  recommended: boolean
+  requiresApproval: true
+  automationEnabled: false
+  reason: string
+}
+
+interface FounderAreaCovenantReviewHistoryItem {
+  id: string
+  at: string
+  reviewerId: string
+  actionKind: FounderAreaCovenantManualActionKind
+  summary: string
+}
+
 interface FounderAreaCovenantReview {
   founderCitizenId: string
   status: FounderAreaCovenantStatus
@@ -155,6 +177,8 @@ interface FounderAreaCovenantReview {
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
+  manualActions: FounderAreaCovenantManualAction[]
+  reviewHistory: FounderAreaCovenantReviewHistoryItem[]
   signals: FounderAreaCovenantSignal[]
 }
 
@@ -421,6 +445,7 @@ interface FounderAreaState {
   businesses: FounderAreaBusiness[]
   citizens: FounderAreaCitizen[]
   transactions: FounderAreaTransaction[]
+  founderReviewHistory?: FounderAreaCovenantReviewHistoryItem[]
   founderCovenant: FounderAreaCovenantReview
   updatedAt: string
 }
@@ -948,6 +973,7 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     businesses: [],
     citizens: [founderCitizen, ...simCitizens],
     transactions: [transaction, ...simTransactions],
+    founderReviewHistory: [],
     updatedAt: at,
   })
 }
@@ -1075,27 +1101,31 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
       ? founderActivityScore({ active: founderActive, useful, building, staffed, indebted: founderDebt > 0 })
       : 0,
   }
+  const nextAction: FounderAreaCovenantNextAction = manualReviewRequired
+    ? 'manual_review'
+    : signals.some((signal) => signal.severity === 'warning')
+      ? 'warn_founder'
+      : 'none'
   const reviewChecklist = founderCovenantReviewChecklist({
     activityReview,
     manualReviewRequired,
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
   })
+  const manualActions = founderCovenantManualActions({ status, nextAction, activityReview })
 
   return {
     founderCitizenId: state.founderCitizenId,
     status,
-    nextAction: manualReviewRequired
-      ? 'manual_review'
-      : signals.some((signal) => signal.severity === 'warning')
-        ? 'warn_founder'
-        : 'none',
+    nextAction,
     reviewCadence: 'weekly_monthly_manual',
     manualReviewRequired,
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview,
     reviewChecklist,
+    manualActions,
+    reviewHistory: founderCovenantReviewHistory(state),
     signals,
   }
 }
@@ -1159,6 +1189,64 @@ function founderCovenantReviewChecklist(input: {
         : 'Removal controls must remain manually approved.',
     },
   ]
+}
+
+function founderCovenantManualActions(input: {
+  status: FounderAreaCovenantStatus
+  nextAction: FounderAreaCovenantNextAction
+  activityReview: FounderAreaCovenantActivityReview
+}): FounderAreaCovenantManualAction[] {
+  const review = input.activityReview
+  const warningRecommended = input.nextAction === 'warn_founder'
+  const probationRecommended = input.status === 'manual_review' || review.score < 60
+  const replacementRecommended = input.status === 'manual_review' && !review.active
+  return [
+    {
+      kind: 'record_review',
+      label: 'Record review',
+      recommended: true,
+      requiresApproval: true,
+      automationEnabled: false,
+      reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+    },
+    {
+      kind: 'send_warning',
+      label: 'Send warning',
+      recommended: warningRecommended,
+      requiresApproval: true,
+      automationEnabled: false,
+      reason: warningRecommended
+        ? 'Covenant signals suggest a manual founder warning.'
+        : 'No manual warning is currently suggested by covenant signals.',
+    },
+    {
+      kind: 'start_probation',
+      label: 'Start probation',
+      recommended: probationRecommended,
+      requiresApproval: true,
+      automationEnabled: false,
+      reason: probationRecommended
+        ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
+        : 'Founder score and signals do not suggest probation.',
+    },
+    {
+      kind: 'recommend_replacement',
+      label: 'Recommend replacement',
+      recommended: replacementRecommended,
+      requiresApproval: true,
+      automationEnabled: false,
+      reason: replacementRecommended
+        ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
+        : 'Replacement is not suggested and waitlist handoff is disabled.',
+    },
+  ]
+}
+
+function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderAreaCovenantReviewHistoryItem[] {
+  return [...(state.founderReviewHistory ?? [])]
+    .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
+    .slice(0, 5)
+    .map((entry) => ({ ...entry }))
 }
 
 function areaServiceDemand(citizens: FounderAreaCitizen[]): Record<FounderAreaBusinessKind, number> {

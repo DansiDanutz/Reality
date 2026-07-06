@@ -23,6 +23,8 @@ import {
 import { useGame } from '../../store/gameStore'
 import {
   founderCovenantChecklistStatusLabel,
+  founderCovenantManualActionKindLabel,
+  founderCovenantManualActionStatusLabel,
   founderCovenantReviewItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
@@ -185,6 +187,35 @@ export default function FounderAreaPanel() {
                 </li>
               ))}
             </ul>
+            <ul className="item-list founder-covenant-actions" aria-label="Founder manual review actions">
+              {dashboard.founderCovenant.manualActions.map((action) => (
+                <li
+                  className={`item founder-covenant-action ${action.recommended ? 'recommended' : 'manual'}`}
+                  key={action.kind}
+                >
+                  <div className="item-info">
+                    <span className="item-name">{action.label}</span>
+                    <span className="item-desc">{action.reason}</span>
+                  </div>
+                  <span className={`founder-covenant-action-status mono ${action.recommended ? 'recommended' : 'manual'}`}>
+                    {founderCovenantManualActionStatusLabel(action)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {dashboard.founderCovenant.reviewHistory.length > 0 && (
+              <ul className="item-list founder-covenant-history" aria-label="Founder manual review history">
+                {dashboard.founderCovenant.reviewHistory.map((entry) => (
+                  <li className="item founder-covenant-history-item" key={entry.id}>
+                    <div className="item-info">
+                      <span className="item-name">{founderCovenantManualActionKindLabel(entry.actionKind)}</span>
+                      <span className="item-desc">{entry.summary}</span>
+                    </div>
+                    <span className="item-price mono">{entry.reviewerId}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {dashboard.founderCovenant.signals.length === 0 ? (
               <p className="panel-sub">No covenant signals.</p>
             ) : (

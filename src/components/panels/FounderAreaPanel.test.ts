@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
   founderCovenantChecklistStatusLabel,
+  founderCovenantManualActionKindLabel,
+  founderCovenantManualActionStatusLabel,
   founderCovenantReviewItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
@@ -23,6 +25,13 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantChecklistStatusLabel('met')).toBe('Met')
     expect(founderCovenantChecklistStatusLabel('watch')).toBe('Watch')
     expect(founderCovenantChecklistStatusLabel('manual_review')).toBe('Manual')
+  })
+
+  test('labels manual covenant actions without enabling automation', () => {
+    expect(founderCovenantManualActionStatusLabel({ recommended: true })).toBe('Suggested')
+    expect(founderCovenantManualActionStatusLabel({ recommended: false })).toBe('Manual')
+    expect(founderCovenantManualActionKindLabel('record_review')).toBe('Record review')
+    expect(founderCovenantManualActionKindLabel('recommend_replacement')).toBe('Recommend replacement')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

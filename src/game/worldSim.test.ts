@@ -1549,6 +1549,21 @@ describe('advanceWorldArea — local real-time economy', () => {
           evidence: 'Automatic removal and waitlist handoff are disabled.',
         },
       ]),
+      manualActions: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'start_probation',
+          recommended: true,
+          requiresApproval: true,
+          automationEnabled: false,
+        }),
+        expect.objectContaining({
+          kind: 'recommend_replacement',
+          recommended: true,
+          requiresApproval: true,
+          automationEnabled: false,
+        }),
+      ]),
+      reviewHistory: [],
     })
     expect(dash.founderCovenant.signals).toEqual([
       {
@@ -1655,6 +1670,36 @@ describe('advanceWorldArea — local real-time economy', () => {
         status: 'met',
         evidence: 'Automatic removal and waitlist handoff are disabled.',
       }],
+      manualActions: [{
+        kind: 'record_review',
+        label: 'Record review',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+      }, {
+        kind: 'send_warning',
+        label: 'Send warning',
+        recommended: false,
+        requiresApproval: true,
+        automationEnabled: false,
+        reason: 'No manual warning is currently suggested by covenant signals.',
+      }, {
+        kind: 'start_probation',
+        label: 'Start probation',
+        recommended: false,
+        requiresApproval: true,
+        automationEnabled: false,
+        reason: 'Founder score and signals do not suggest probation.',
+      }, {
+        kind: 'recommend_replacement',
+        label: 'Recommend replacement',
+        recommended: false,
+        requiresApproval: true,
+        automationEnabled: false,
+        reason: 'Replacement is not suggested and waitlist handoff is disabled.',
+      }],
+      reviewHistory: [],
       signals: [],
     })
   })

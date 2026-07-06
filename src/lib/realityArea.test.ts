@@ -8,6 +8,7 @@ import {
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
   realityAreaStateToWorldArea,
+  type RealityAreaCovenantManualAction,
   type RealityAreaDashboard,
   type RealityAreaState,
 } from './realityArea'
@@ -735,6 +736,12 @@ function serverState(): RealityAreaState {
         status: 'met',
         evidence: 'Automatic removal and waitlist handoff are disabled.',
       }],
+      manualActions: manualReviewActions({
+        warning: false,
+        probation: true,
+        replacement: true,
+      }),
+      reviewHistory: [],
       signals: [{
         kind: 'founder_unavailable',
         severity: 'critical',
@@ -743,6 +750,46 @@ function serverState(): RealityAreaState {
     },
     updatedAt: '2026-07-06T03:30:00.000Z',
   }
+}
+
+function manualReviewActions(
+  input: { warning: boolean; probation: boolean; replacement: boolean },
+): RealityAreaCovenantManualAction[] {
+  return [{
+    kind: 'record_review',
+    label: 'Record review',
+    recommended: true,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+  }, {
+    kind: 'send_warning',
+    label: 'Send warning',
+    recommended: input.warning,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: input.warning
+      ? 'Covenant signals suggest a manual founder warning.'
+      : 'No manual warning is currently suggested by covenant signals.',
+  }, {
+    kind: 'start_probation',
+    label: 'Start probation',
+    recommended: input.probation,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: input.probation
+      ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
+      : 'Founder score and signals do not suggest probation.',
+  }, {
+    kind: 'recommend_replacement',
+    label: 'Recommend replacement',
+    recommended: input.replacement,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: input.replacement
+      ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
+      : 'Replacement is not suggested and waitlist handoff is disabled.',
+  }]
 }
 
 function serverDashboard(): RealityAreaDashboard {
@@ -1044,6 +1091,12 @@ function serverDashboard(): RealityAreaDashboard {
         status: 'met',
         evidence: 'Automatic removal and waitlist handoff are disabled.',
       }],
+      manualActions: manualReviewActions({
+        warning: true,
+        probation: false,
+        replacement: false,
+      }),
+      reviewHistory: [],
       signals: [{
         kind: 'understaffed_businesses',
         severity: 'warning',

@@ -4,6 +4,7 @@ import type {
   AreaLedgerDashboard,
   AreaTransactionDashboard,
   FounderCovenantActivityReview,
+  FounderCovenantManualAction,
   FounderCovenantReviewChecklistItem,
   FounderCovenantSignal,
   WorldTransactionKind,
@@ -54,6 +55,23 @@ export function founderCovenantChecklistStatusLabel(
       return 'Watch'
     case 'manual_review':
       return 'Manual'
+  }
+}
+
+export function founderCovenantManualActionStatusLabel(action: Pick<FounderCovenantManualAction, 'recommended'>): string {
+  return action.recommended ? 'Suggested' : 'Manual'
+}
+
+export function founderCovenantManualActionKindLabel(kind: FounderCovenantManualAction['kind']): string {
+  switch (kind) {
+    case 'record_review':
+      return 'Record review'
+    case 'send_warning':
+      return 'Send warning'
+    case 'start_probation':
+      return 'Start probation'
+    case 'recommend_replacement':
+      return 'Recommend replacement'
   }
 }
 

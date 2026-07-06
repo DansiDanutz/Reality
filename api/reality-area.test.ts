@@ -1916,6 +1916,21 @@ describe('reality area authority API', () => {
           evidence: 'Automatic removal and waitlist handoff are disabled.',
         },
       ]),
+      manualActions: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'start_probation',
+          recommended: true,
+          requiresApproval: true,
+          automationEnabled: false,
+        }),
+        expect.objectContaining({
+          kind: 'recommend_replacement',
+          recommended: true,
+          requiresApproval: true,
+          automationEnabled: false,
+        }),
+      ]),
+      reviewHistory: [],
       signals: expect.arrayContaining([
         expect.objectContaining({ kind: 'founder_unavailable', severity: 'critical' }),
         expect.objectContaining({ kind: 'founder_debt', severity: 'info', amount: 300 }),
@@ -2895,6 +2910,12 @@ function baseFounderCovenant(checkedAt: string) {
       status: 'met',
       evidence: 'Automatic removal and waitlist handoff are disabled.',
     }],
+    manualActions: manualReviewActions({
+      warning: true,
+      probation: true,
+      replacement: false,
+    }),
+    reviewHistory: [],
     signals: [{
       kind: 'no_business_built',
       severity: 'warning',
@@ -3079,6 +3100,44 @@ function responseRecorder(): {
     },
   }
   return recorder
+}
+
+function manualReviewActions(input: { warning: boolean; probation: boolean; replacement: boolean }) {
+  return [{
+    kind: 'record_review',
+    label: 'Record review',
+    recommended: true,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+  }, {
+    kind: 'send_warning',
+    label: 'Send warning',
+    recommended: input.warning,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: input.warning
+      ? 'Covenant signals suggest a manual founder warning.'
+      : 'No manual warning is currently suggested by covenant signals.',
+  }, {
+    kind: 'start_probation',
+    label: 'Start probation',
+    recommended: input.probation,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: input.probation
+      ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
+      : 'Founder score and signals do not suggest probation.',
+  }, {
+    kind: 'recommend_replacement',
+    label: 'Recommend replacement',
+    recommended: input.replacement,
+    requiresApproval: true,
+    automationEnabled: false,
+    reason: input.replacement
+      ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
+      : 'Replacement is not suggested and waitlist handoff is disabled.',
+  }]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
