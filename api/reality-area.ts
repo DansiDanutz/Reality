@@ -1019,6 +1019,7 @@ function applyAdvanceHourIntent(
   const citizens = state.citizens.map(cloneCitizen)
   const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
 
+  applyFounderHour(state.areaId, state.founderCitizenId, citizens, businesses, now, at, transactions)
   applySimCitizenHour(state.areaId, citizens, businesses, now, at, transactions)
   for (const business of businesses) {
     let cash = business.cash
@@ -1042,11 +1043,14 @@ function applyAdvanceHourIntent(
     }
     business.cash = cash
   }
+  const founder = citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const balance = founder ? roundMoney(founder.money) : state.balance
 
   return {
     ok: true,
     state: {
       ...state,
+      balance,
       businesses,
       citizens,
       transactions: [...state.transactions, ...transactions],
@@ -1224,6 +1228,28 @@ function applyRepayDebtIntent(
       transactions: [...state.transactions, transaction],
       updatedAt: at,
     },
+  }
+}
+
+function applyFounderHour(
+  areaId: string,
+  founderCitizenId: string,
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  now: Date,
+  at: string,
+  transactions: FounderAreaTransaction[],
+): void {
+  const founder = citizens.find((citizen) => citizen.id === founderCitizenId)
+  if (!founder) return
+  if (founder.state.kind === 'hospitalized') {
+    recoverIfReady(founder, now)
+    return
+  }
+  decayNeeds(founder)
+  applyUnmetNeedHealthPenalty(founder)
+  if (shouldHospitalize(founder)) {
+    hospitalizeCitizen(areaId, founder, businesses, now, at, transactions)
   }
 }
 
