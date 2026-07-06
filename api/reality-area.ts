@@ -1042,6 +1042,15 @@ async function persistAreaState(
   return reviewed
 }
 
+async function catchUpPersistedAreaState(
+  citizenId: string,
+  state: FounderAreaState,
+  now: Date,
+): Promise<FounderAreaState> {
+  const caughtUp = catchUpAreaClock(state, now)
+  return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
 
@@ -1065,7 +1074,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const existing = await readAreaState(citizen.citizenId)
     if (req.method === 'GET') {
-      res.status(200).json({ ok: true, ...areaPayload(existing), founderNumber: citizen.founderNumber })
+      const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date()) : null
+      res.status(200).json({ ok: true, ...areaPayload(state), founderNumber: citizen.founderNumber })
       return
     }
 
@@ -1078,7 +1088,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
     if (intentType === 'claimArea') {
       if (existing) {
-        res.status(409).json({ ok: false, error: 'Area already claimed.', code: 'area_already_claimed', state: existing })
+        const state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        res.status(409).json({
+          ok: false,
+          error: 'Area already claimed.',
+          code: 'area_already_claimed',
+          ...areaPayload(state),
+        })
         return
       }
 
@@ -1311,8 +1327,13 @@ function applyAdvanceHourIntent(
   if (!state) return { ok: false, error: 'area_not_claimed' }
   const intent = normalizeAdvanceHourIntent(input)
   if (!intent.ok) return intent
+  const caughtUp = catchUpAreaClock(state, now)
+  return caughtUp ? { ok: true, state: caughtUp } : { ok: false, error: 'clock_not_ready' }
+}
+
+function catchUpAreaClock(state: FounderAreaState, now: Date): FounderAreaState | null {
   const tickDates = areaClockTickDates(state, now)
-  if (tickDates.length === 0) return { ok: false, error: 'clock_not_ready' }
+  if (tickDates.length === 0) return null
 
   const transactions: FounderAreaTransaction[] = []
   const citizens = state.citizens.map(cloneCitizen)
@@ -1324,17 +1345,14 @@ function applyAdvanceHourIntent(
   const balance = founder ? roundMoney(founder.money) : state.balance
   const updatedAt = tickDates.at(-1)?.toISOString() ?? state.updatedAt
 
-  return {
-    ok: true,
-    state: {
-      ...state,
-      balance,
-      businesses,
-      citizens,
-      transactions: [...state.transactions, ...transactions],
-      updatedAt,
-    },
-  }
+  return withFounderCovenantReview({
+    ...state,
+    balance,
+    businesses,
+    citizens,
+    transactions: [...state.transactions, ...transactions],
+    updatedAt,
+  })
 }
 
 function applyAreaHourTick(

@@ -205,6 +205,8 @@ describe('reality area authority API', () => {
   })
 
   test('returns an existing server-owned area state without creating money', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = existingState()
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
@@ -239,7 +241,40 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('catches up elapsed real hours when reading an existing server area', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const stale = {
+      ...existingState(),
+      updatedAt: '2026-07-06T05:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const simWater = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(body.state.updatedAt).toBe('2026-07-06T07:00:00.000Z')
+    expect(body.dashboard.updatedAt).toBe('2026-07-06T07:00:00.000Z')
+    expect(founder?.needs).toEqual({ hunger: 82, hydration: 80, energy: 84, hygiene: 88, fun: 88 })
+    expect(simWater?.needs.hydration).toBe(32)
+    expect(body.state.transactions).toHaveLength(stale.transactions.length)
+    expect(put).toHaveBeenCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
   test('hydrates older empty-roster area states with server-owned Sim Citizens', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const legacy = {
       ...existingState(),
       citizens: [],
@@ -410,6 +445,8 @@ describe('reality area authority API', () => {
   })
 
   test('does not overwrite an already claimed area', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = existingState()
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
@@ -427,13 +464,52 @@ describe('reality area authority API', () => {
     } as never, res as never)
 
     expect(res.statusCode).toBe(409)
-    expect(res.body).toEqual({
+    expect(res.body).toMatchObject({
       ok: false,
       error: 'Area already claimed.',
       code: 'area_already_claimed',
       state: existing,
+      dashboard: serverDashboard(existing),
     })
     expect(put).not.toHaveBeenCalled()
+  })
+
+  test('restored claim responses catch up elapsed area hours before returning state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const stale = {
+      ...existingState(),
+      updatedAt: '2026-07-06T05:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-claimed-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: validClaimIntent(),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    const body = res.body as { ok: false; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body).toMatchObject({
+      ok: false,
+      code: 'area_already_claimed',
+      error: 'Area already claimed.',
+    })
+    expect(body.state.updatedAt).toBe('2026-07-06T07:00:00.000Z')
+    expect(body.dashboard.updatedAt).toBe('2026-07-06T07:00:00.000Z')
+    expect(put).toHaveBeenCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
   })
 
   test('buildBusiness charges server balance and records a build ledger event', async () => {
