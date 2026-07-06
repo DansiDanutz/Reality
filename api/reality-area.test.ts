@@ -97,7 +97,20 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     needs: Record<string, number>
     money: number
     debt: number
-    debts: { id: string; kind: string; creditorId: string; amount: number; issuedAt: string; memo: string }[]
+    debts: {
+      id: string
+      kind: string
+      creditorId: string
+      amount: number
+      issuedAt: string
+      memo: string
+      repaymentIntent: string
+      clientPayload: { type: string; debtId: string; amount: number } | null
+      recommendedPayment: number
+      maxAffordablePayment: number
+      canRepayNow: boolean
+      blockers: string[]
+    }[]
     homeBusinessId?: string
     jobBusinessId?: string
     insuranceBusinessId?: string
@@ -862,6 +875,50 @@ describe('reality area authority API', () => {
       recommendedBusinessId: 'water-1',
       clientPayload: null,
     })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('dashboard serves debt repayment hints and blockers from founder state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const existing = withCitizen({ ...existingState(), balance: 50 }, CITIZEN_ID, {
+      money: 50,
+      debt: 120,
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+      debts: [{
+        id: 'founder-medical-1',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 120,
+        issuedAt: '2026-07-06T07:00:00.000Z',
+        memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-debt-dashboard-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const dashboard = (res.body as { dashboard: DashboardWithBuildGuidance }).dashboard
+    const founder = dashboard.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(founder?.debts).toMatchObject([{
+      id: 'founder-medical-1',
+      kind: 'medical',
+      creditorId: 'system:hospital',
+      amount: 120,
+      issuedAt: '2026-07-06T07:00:00.000Z',
+      memo: 'Founder #0012 owes medical debt to system:hospital.',
+      repaymentIntent: 'repayDebt',
+      clientPayload: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 50 },
+      recommendedPayment: 50,
+      maxAffordablePayment: 50,
+      canRepayNow: false,
+      blockers: ['actor_unavailable'],
+    }])
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -2109,12 +2166,27 @@ describe('reality area authority API', () => {
     } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness>; dashboard: DashboardWithBuildGuidance }
     const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const dashboardFounder = body.dashboard.citizens.find((citizen) => citizen.id === CITIZEN_ID)
     expect(body.state.balance).toBe(199_880)
     expect(founder?.money).toBe(199_880)
     expect(founder?.debt).toBe(180)
     expect(founder?.debts).toMatchObject([{ id: 'founder-medical-1', amount: 180, creditorId: 'clinic-1' }])
+    expect(dashboardFounder?.debts).toMatchObject([{
+      id: 'founder-medical-1',
+      kind: 'medical',
+      creditorId: 'clinic-1',
+      amount: 180,
+      issuedAt: '2026-07-06T07:00:00.000Z',
+      memo: 'Founder #0012 owes medical debt to clinic-1.',
+      repaymentIntent: 'repayDebt',
+      clientPayload: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 180 },
+      recommendedPayment: 180,
+      maxAffordablePayment: 180,
+      canRepayNow: true,
+      blockers: [],
+    }])
     expect(body.state.businesses[0].cash).toBe(130)
     expect(body.state.transactions.at(-1)).toEqual({
       id: 'founder-area-0012:1783324800000:debt-repayment:11111111-1111-4111-8111-111111111111:founder-medical-1',

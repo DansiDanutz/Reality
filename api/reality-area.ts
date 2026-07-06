@@ -239,6 +239,8 @@ interface FounderAreaBusinessDashboard {
   alerts: FounderAreaBusinessAlert[]
 }
 
+type FounderAreaDebtRepaymentBlocker = 'actor_unavailable' | 'insufficient_funds'
+
 interface FounderAreaCitizenDebtDashboard {
   id: string
   kind: FounderAreaDebt['kind']
@@ -246,6 +248,12 @@ interface FounderAreaCitizenDebtDashboard {
   amount: number
   issuedAt: string
   memo: string
+  repaymentIntent: 'repayDebt'
+  clientPayload: { type: 'repayDebt'; debtId: string; amount: number } | null
+  recommendedPayment: number
+  maxAffordablePayment: number
+  canRepayNow: boolean
+  blockers: FounderAreaDebtRepaymentBlocker[]
 }
 
 interface FounderAreaCitizenDashboard {
@@ -1358,11 +1366,29 @@ function citizenDashboard(state: FounderAreaState, citizen: FounderAreaCitizen):
     needs: { ...citizen.needs },
     money: citizen.money,
     debt: totalCitizenDebt(citizen),
-    debts: (citizen.debts ?? []).map((debt) => ({ ...debt })),
+    debts: (citizen.debts ?? []).map((debt) => debtDashboard(citizen, debt)),
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, now),
+  }
+}
+
+function debtDashboard(citizen: FounderAreaCitizen, debt: FounderAreaDebt): FounderAreaCitizenDebtDashboard {
+  const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
+  const blockers: FounderAreaDebtRepaymentBlocker[] = []
+  if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
+  if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
+  return {
+    ...debt,
+    repaymentIntent: 'repayDebt',
+    clientPayload: maxAffordablePayment > 0
+      ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
+      : null,
+    recommendedPayment: maxAffordablePayment,
+    maxAffordablePayment,
+    canRepayNow: blockers.length === 0,
+    blockers,
   }
 }
 

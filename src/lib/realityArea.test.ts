@@ -402,6 +402,20 @@ describe('Reality area client', () => {
       debt: 300,
       insuranceActive: false,
     })
+    expect(founder?.debts[0]).toMatchObject({
+      id: 'debt-1',
+      kind: 'medical',
+      creditorId: 'clinic-1',
+      amount: 300,
+      issuedAt: Date.parse('2026-07-06T03:30:00.000Z'),
+      memo: 'David owes medical debt to clinic-1.',
+      repaymentIntent: 'repayDebt',
+      clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+      recommendedPayment: 300,
+      maxAffordablePayment: 300,
+      canRepayNow: false,
+      blockers: ['actor_unavailable'],
+    })
     expect(simWater).toMatchObject({
       displayName: 'Demo Water Resident (Sim)',
       kind: 'sim',
@@ -647,6 +661,12 @@ function serverDashboard(): RealityAreaDashboard {
         amount: 300,
         issuedAt: '2026-07-06T03:30:00.000Z',
         memo: 'David owes medical debt to clinic-1.',
+        repaymentIntent: 'repayDebt',
+        clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+        recommendedPayment: 300,
+        maxAffordablePayment: 300,
+        canRepayNow: false,
+        blockers: ['actor_unavailable'],
       }],
       insuranceActive: false,
     }, {

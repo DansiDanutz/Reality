@@ -5,6 +5,7 @@ import type {
   AreaBusinessDashboard,
   AreaBusinessStatus,
   AreaCitizenDashboard,
+  AreaDebtRepaymentBlocker,
   AreaJobsDashboard,
   AreaNeedsDashboard,
   AreaSurvivalDashboard,
@@ -197,6 +198,12 @@ export interface RealityAreaCitizenDebtDashboard {
   amount: number
   issuedAt: string
   memo: string
+  repaymentIntent: 'repayDebt'
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'repayDebt' }> | null
+  recommendedPayment: number
+  maxAffordablePayment: number
+  canRepayNow: boolean
+  blockers: AreaDebtRepaymentBlocker[]
 }
 
 export interface RealityAreaCitizenDashboard {
@@ -606,7 +613,7 @@ function mergeRealityAreaCitizenDashboard(
     needs: { ...citizen.needs },
     money: citizen.money,
     debt: citizen.debt,
-    debts: citizen.debts.map((debt) => mergeRealityAreaDebtDashboard(debt, fallbackDebts.get(debt.id), citizen)),
+    debts: citizen.debts.map((debt) => mergeRealityAreaDebtDashboard(debt, fallbackDebts.get(debt.id))),
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
@@ -634,12 +641,7 @@ function mergeRealityAreaCitizenDashboard(
 function mergeRealityAreaDebtDashboard(
   debt: RealityAreaCitizenDebtDashboard,
   fallback: AreaCitizenDashboard['debts'][number] | undefined,
-  citizen: RealityAreaCitizenDashboard,
 ): AreaCitizenDashboard['debts'][number] {
-  const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
-  const blockers: AreaCitizenDashboard['debts'][number]['blockers'] = []
-  if (citizen.state !== 'active') blockers.push('actor_unavailable')
-  if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
   return {
     ...fallback,
     id: debt.id,
@@ -648,14 +650,12 @@ function mergeRealityAreaDebtDashboard(
     amount: debt.amount,
     issuedAt: parseInstant(debt.issuedAt),
     memo: debt.memo,
-    repaymentIntent: 'repayDebt',
-    clientPayload: maxAffordablePayment > 0
-      ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
-      : null,
-    recommendedPayment: maxAffordablePayment,
-    maxAffordablePayment,
-    canRepayNow: blockers.length === 0,
-    blockers,
+    repaymentIntent: debt.repaymentIntent,
+    clientPayload: debt.clientPayload ? { ...debt.clientPayload } : null,
+    recommendedPayment: debt.recommendedPayment,
+    maxAffordablePayment: debt.maxAffordablePayment,
+    canRepayNow: debt.canRepayNow,
+    blockers: [...debt.blockers],
   }
 }
 
@@ -850,7 +850,14 @@ function isRealityAreaCitizenDebtDashboard(value: unknown): value is RealityArea
     typeof value.creditorId === 'string' &&
     typeof value.amount === 'number' &&
     typeof value.issuedAt === 'string' &&
-    typeof value.memo === 'string'
+    typeof value.memo === 'string' &&
+    value.repaymentIntent === 'repayDebt' &&
+    (isRealityAreaRepayDebtPayload(value.clientPayload) || value.clientPayload === null) &&
+    typeof value.recommendedPayment === 'number' &&
+    typeof value.maxAffordablePayment === 'number' &&
+    typeof value.canRepayNow === 'boolean' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isDebtRepaymentBlocker)
 }
 
 function isRealityAreaSurvivalDashboard(value: unknown): value is RealityAreaSurvivalDashboard {
@@ -954,6 +961,17 @@ function isRealityAreaHirePayload(value: unknown): value is Extract<WorldClientI
     typeof value.workerCitizenId === 'string'
 }
 
+function isRealityAreaRepayDebtPayload(value: unknown): value is Extract<WorldClientIntentPayload, { type: 'repayDebt' }> {
+  return isRecord(value) &&
+    value.type === 'repayDebt' &&
+    typeof value.debtId === 'string' &&
+    typeof value.amount === 'number'
+}
+
+function isDebtRepaymentBlocker(value: unknown): value is AreaDebtRepaymentBlocker {
+  return value === 'actor_unavailable' || value === 'insufficient_funds'
+}
+
 function isWorkerCandidateAction(value: unknown): value is AreaWorkerCandidateAction {
   return value === 'hire_now' ||
     value === 'requires_acceptance' ||
@@ -1051,10 +1069,6 @@ function parseOptionalInstant(value: string | undefined): number | undefined {
   if (!value) return undefined
   const parsed = Date.parse(value)
   return Number.isFinite(parsed) ? parsed : undefined
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100
 }
 
 function isClaimSource(value: unknown): value is RealityAreaClaimSource {
