@@ -13,6 +13,7 @@ const NOW_SECONDS = 1_783_307_000
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   vi.unstubAllEnvs()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
@@ -24,6 +25,7 @@ describe('register API Telegram identity bridge', () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
     vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
     vi.mocked(list)
+      .mockResolvedValueOnce(blobList([]))
       .mockResolvedValueOnce(blobList([]))
       .mockResolvedValueOnce(blobList([]))
     const initData = signedInitData({
@@ -105,6 +107,97 @@ describe('register API Telegram identity bridge', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('rejects Telegram registration when the account already belongs to a citizen', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    vi.mocked(list).mockResolvedValueOnce(blobList(['telegram-users/42424242.json'], 'blob://telegram-existing'))
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({
+        realityAccountId: 'telegram:42424242',
+        telegramUserId: '42424242',
+        citizenId: '11111111-1111-4111-8111-111111111111',
+        founderNumber: 12,
+        citizenLinkedAt: '2026-07-06T01:00:00.000Z',
+        firstName: 'David',
+        username: 'davidreality',
+        authDate: NOW_SECONDS - 60,
+        lastVerifiedAt: '2026-07-06T01:00:00.000Z',
+        provider: 'telegram-mini-app',
+      }), { status: 200 })
+    ))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': '203.0.113.42' },
+      body: {
+        name: 'Second David',
+        telegramInitData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 42424242, first_name: 'David', username: 'davidreality' }),
+        }),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({
+      ok: false,
+      code: 'telegram_account_taken',
+      error: 'This Telegram account is already linked to a Reality citizen.',
+    })
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledWith({ prefix: 'telegram-users/42424242.json', limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('links an unclaimed Telegram auth record during first registration', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList(['telegram-users/42424242.json'], 'blob://telegram-existing'))
+      .mockResolvedValueOnce(blobList([]))
+      .mockResolvedValueOnce(blobList([]))
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({
+        realityAccountId: 'telegram:42424242',
+        telegramUserId: '42424242',
+        firstName: 'Old',
+        username: 'oldusername',
+        authDate: NOW_SECONDS - 120,
+        lastVerifiedAt: '2026-07-06T01:00:00.000Z',
+        provider: 'telegram-mini-app',
+      }), { status: 200 })
+    ))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': '203.0.113.42' },
+      body: {
+        name: 'David',
+        telegramInitData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 42424242, first_name: 'David', username: 'davidreality' }),
+        }),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const telegramPut = vi.mocked(put).mock.calls.find(([pathname]) => pathname === 'telegram-users/42424242.json')
+    expect(JSON.parse(String(telegramPut?.[1]))).toMatchObject({
+      realityAccountId: 'telegram:42424242',
+      telegramUserId: '42424242',
+      citizenId: expect.any(String),
+      founderNumber: 1,
+      citizenLinkedAt: new Date(NOW_SECONDS * 1000).toISOString(),
+      firstName: 'David',
+      username: 'davidreality',
+      lastVerifiedAt: new Date(NOW_SECONDS * 1000).toISOString(),
+    })
+  })
+
   test('keeps non-Telegram registration available', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([]))
@@ -139,9 +232,12 @@ function signedInitData(fields: Record<string, string>, botToken = BOT_TOKEN): s
   return new URLSearchParams({ ...fields, hash }).toString()
 }
 
-function blobList(pathnames: string[]): { blobs: { pathname: string }[]; hasMore: boolean } {
+function blobList(pathnames: string[], downloadUrl = 'blob://download'): {
+  blobs: { pathname: string; downloadUrl: string }[]
+  hasMore: boolean
+} {
   return {
-    blobs: pathnames.map((pathname) => ({ pathname })),
+    blobs: pathnames.map((pathname) => ({ pathname, downloadUrl })),
     hasMore: false,
   }
 }

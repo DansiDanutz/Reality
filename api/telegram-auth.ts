@@ -131,7 +131,7 @@ export function telegramRealityAccountRecord(
   }
 }
 
-async function readTelegramRealityAccountRecord(
+export async function readTelegramRealityAccountRecord(
   user: Pick<TelegramMiniAppUser, 'id'>,
 ): Promise<TelegramRealityAccountRecord | null> {
   const path = telegramRealityAccountPath(user)

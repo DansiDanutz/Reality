@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
+  readTelegramRealityAccountRecord,
   telegramRealityAccountPath,
   telegramRealityAccountRecord,
   verifyTelegramMiniAppInitData,
@@ -59,6 +60,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const registeredAt = new Date()
     const verifiedTelegramSession = verifiedTelegram?.ok ? verifiedTelegram : null
+    const existingTelegramAccount = verifiedTelegramSession
+      ? await readTelegramRealityAccountRecord(verifiedTelegramSession.user)
+      : null
+    if (existingTelegramAccount?.citizenId) {
+      res.status(409).json({
+        ok: false,
+        code: 'telegram_account_taken',
+        error: 'This Telegram account is already linked to a Reality citizen.',
+      })
+      return
+    }
 
     // Bot brake: a handful of citizens per IP per day is plenty for humans
     const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
@@ -125,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const telegramAccountRecord = verifiedTelegramSession
-      ? telegramRealityAccountRecord(verifiedTelegramSession, registeredAt, null, {
+      ? telegramRealityAccountRecord(verifiedTelegramSession, registeredAt, existingTelegramAccount, {
         citizenId,
         founderNumber,
         citizenLinkedAt: registeredAt.toISOString(),
