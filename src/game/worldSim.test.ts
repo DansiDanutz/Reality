@@ -755,6 +755,11 @@ describe('advanceWorldArea — local real-time economy', () => {
       kind: 'food',
       activeStaff: 1,
       hourlyCapacity: 24,
+      status: 'warning',
+      alerts: [
+        { kind: 'understaffed', severity: 'warning' },
+        { kind: 'negative_cash_flow', severity: 'warning' },
+      ],
       ledger: {
         transactionCount: 3,
         revenue: 14,
@@ -769,6 +774,10 @@ describe('advanceWorldArea — local real-time economy', () => {
       revenue: 2,
       expenses: 0,
       netCashFlow: 2,
+    })
+    expect(dashboard.existingBusinesses.find((business) => business.id === 'water1')).toMatchObject({
+      status: 'critical',
+      alerts: [{ kind: 'understaffed', severity: 'critical' }],
     })
     expect(dashboard.jobs).toMatchObject({
       employedCitizens: 1,
@@ -1529,6 +1538,68 @@ describe('advanceWorldArea — local real-time economy', () => {
         { id: 'tx5', kind: 'hospital_bill' },
         { id: 'tx4', kind: 'insurance_payout' },
       ],
+    })
+  })
+
+  test('business dashboard surfaces operational alerts from staffing, cash, owner state, and quality', () => {
+    const owner = sim('owner', { state: { kind: 'hospitalized', until: 3 * HOUR } })
+    const worker = sim('worker', { jobBusinessId: 'food1' })
+    const stableWorker = sim('stable-worker', { jobBusinessId: 'clinic1' })
+    const stableInsuranceWorker = sim('stable-insurance-worker', { jobBusinessId: 'ins1' })
+    const dash = areaNeedsDashboard(area({
+      citizens: [owner, worker, stableWorker, stableInsuranceWorker],
+      businesses: [
+        business('food', 'food1', {
+          ownerId: 'owner',
+          cash: 5,
+          staffCitizenIds: ['worker'],
+          wagePerHour: 10,
+          quality: 0.5,
+        }),
+        business('water', 'water1', {
+          ownerId: 'owner',
+          cash: 0,
+          staffCitizenIds: [],
+          quality: 1,
+        }),
+        business('clinic', 'clinic1', {
+          ownerId: 'owner',
+          cash: 200,
+          staffCitizenIds: ['stable-worker'],
+          quality: 1,
+        }),
+        business('insurance', 'ins1', {
+          ownerId: 'owner',
+          cash: 200,
+          staffCitizenIds: ['stable-insurance-worker'],
+          quality: 1,
+        }),
+      ],
+    }))
+
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'food1')).toMatchObject({
+      status: 'critical',
+      alerts: [
+        { kind: 'understaffed', severity: 'warning' },
+        { kind: 'cash_risk', severity: 'critical' },
+        { kind: 'quality_degraded', severity: 'warning' },
+      ],
+    })
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'water1')).toMatchObject({
+      status: 'critical',
+      alerts: [
+        { kind: 'understaffed', severity: 'critical' },
+        { kind: 'owner_unavailable', severity: 'critical' },
+        { kind: 'quality_degraded', severity: 'critical' },
+      ],
+    })
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'clinic1')).toMatchObject({
+      status: 'warning',
+      alerts: [{ kind: 'understaffed', severity: 'warning' }],
+    })
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'ins1')).toMatchObject({
+      status: 'stable',
+      alerts: [],
     })
   })
 

@@ -164,6 +164,22 @@ export interface AreaBusinessDashboard {
   openPositions: number
   hourlyCapacity: number
   ledger: AreaBusinessLedgerDashboard
+  status: AreaBusinessStatus
+  alerts: AreaBusinessAlert[]
+}
+
+export type AreaBusinessStatus = 'stable' | 'warning' | 'critical'
+export type AreaBusinessAlertSeverity = 'warning' | 'critical'
+export type AreaBusinessAlertKind =
+  | 'understaffed'
+  | 'cash_risk'
+  | 'owner_unavailable'
+  | 'quality_degraded'
+  | 'negative_cash_flow'
+
+export interface AreaBusinessAlert {
+  kind: AreaBusinessAlertKind
+  severity: AreaBusinessAlertSeverity
 }
 
 export interface AreaBusinessLedgerDashboard {
@@ -672,6 +688,14 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
 function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusinessDashboard {
   const activeStaff = activeStaffCount(area, business)
   const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
+  const quality = effectiveBusinessQuality(business, area)
+  const ledger = businessLedgerDashboard(area, business)
+  const alerts = businessAlerts(area, business, {
+    activeStaff,
+    targetStaff,
+    quality,
+    ledger,
+  })
   return {
     id: business.id,
     name: business.name,
@@ -680,13 +704,55 @@ function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusine
     cash: business.cash,
     price: business.price ?? DEFAULT_PRICES[business.kind],
     wagePerHour: business.wagePerHour ?? DEFAULT_WORKER_WAGE,
-    quality: effectiveBusinessQuality(business, area),
+    quality,
     activeStaff,
     targetStaff,
     openPositions: Math.max(0, targetStaff - activeStaff),
     hourlyCapacity: serviceCapacity(area, business, 1),
-    ledger: businessLedgerDashboard(area, business),
+    ledger,
+    status: businessStatus(alerts),
+    alerts,
   }
+}
+
+function businessAlerts(
+  area: WorldArea,
+  business: WorldBusiness,
+  input: {
+    activeStaff: number
+    targetStaff: number
+    quality: number
+    ledger: AreaBusinessLedgerDashboard
+  },
+): AreaBusinessAlert[] {
+  const alerts: AreaBusinessAlert[] = []
+  const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
+  if (input.activeStaff < input.targetStaff) {
+    alerts.push({
+      kind: 'understaffed',
+      severity: input.activeStaff === 0 && input.targetStaff > 0 ? 'critical' : 'warning',
+    })
+  }
+  const nextHourWageDue = (business.wagePerHour ?? DEFAULT_WORKER_WAGE) * input.activeStaff
+  if (input.activeStaff > 0 && business.cash < nextHourWageDue) {
+    alerts.push({ kind: 'cash_risk', severity: 'critical' })
+  }
+  if (owner?.state.kind === 'hospitalized' && input.activeStaff === 0) {
+    alerts.push({ kind: 'owner_unavailable', severity: 'critical' })
+  }
+  if (input.quality <= MIN_BUSINESS_QUALITY || input.quality < 0.6) {
+    alerts.push({ kind: 'quality_degraded', severity: input.quality <= MIN_BUSINESS_QUALITY ? 'critical' : 'warning' })
+  }
+  if (input.ledger.transactionCount > 0 && input.ledger.netCashFlow < 0) {
+    alerts.push({ kind: 'negative_cash_flow', severity: 'warning' })
+  }
+  return alerts
+}
+
+function businessStatus(alerts: AreaBusinessAlert[]): AreaBusinessStatus {
+  if (alerts.some((alert) => alert.severity === 'critical')) return 'critical'
+  if (alerts.length > 0) return 'warning'
+  return 'stable'
 }
 
 function businessLedgerDashboard(area: WorldArea, business: WorldBusiness): AreaBusinessLedgerDashboard {
