@@ -118,6 +118,7 @@ export type WorldServerCommandResult =
     ok: true
     area: WorldArea
     dashboard: AreaNeedsDashboard
+    transactions: WorldTransaction[]
     summary?: AdvanceWorldAreaResult['summary']
   }
   | {
@@ -125,6 +126,7 @@ export type WorldServerCommandResult =
     error: WorldServerCommandError
     area?: WorldArea
     dashboard?: AreaNeedsDashboard
+    transactions?: WorldTransaction[]
     summary?: AdvanceWorldAreaResult['summary']
   }
 
@@ -207,7 +209,12 @@ async function createClaimedArea(
     expectedFounderAreaEmpty: command.authenticatedFounderId,
   })
   if (!saved.ok) return { ok: false, error: saved.error }
-  return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
+  return {
+    ok: true,
+    area: claimed.area,
+    dashboard: areaNeedsDashboard(claimed.area),
+    transactions: transactionDelta(claimed.area, 0),
+  }
 }
 
 async function createClientClaimedArea(
@@ -255,6 +262,7 @@ async function advanceStoredArea(
     ok: true,
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
+    transactions: transactionDelta(advanced.area, area.transactions.length),
     summary: advanced.summary,
   }
 }
@@ -272,7 +280,7 @@ async function readFounderArea(
   if (!loaded) return { ok: false, error: 'area_not_found' }
   const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
-  if (now === area.now) return { ok: true, area, dashboard: areaNeedsDashboard(area) }
+  if (now === area.now) return { ok: true, area, dashboard: areaNeedsDashboard(area), transactions: [] }
 
   const advanced = advanceWorldArea(area, now)
   const saved = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
@@ -281,6 +289,7 @@ async function readFounderArea(
     ok: true,
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
+    transactions: transactionDelta(advanced.area, area.transactions.length),
     summary: advanced.summary,
   }
 }
@@ -299,6 +308,10 @@ async function saveStoredArea(
   const result = await repo.saveArea(area, options)
   if (result && !result.ok) return result
   return result ?? { ok: true }
+}
+
+function transactionDelta(area: WorldArea, fromIndex: number): WorldTransaction[] {
+  return area.transactions.slice(fromIndex).map((transaction) => ({ ...transaction }))
 }
 
 function isValidCommandTime(now: number): boolean {
@@ -503,6 +516,7 @@ async function applyIntentToAreaRecord(
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
 
   const advanced = advanceWorldArea(area, now)
+  const startingTransactionCount = area.transactions.length
 
   const applied = applyWorldIntent(advanced.area, intent)
   if (!applied.ok) {
@@ -513,6 +527,7 @@ async function applyIntentToAreaRecord(
       error: applied.error,
       area: advanced.area,
       dashboard: areaNeedsDashboard(advanced.area),
+      transactions: transactionDelta(advanced.area, startingTransactionCount),
       summary: advanced.summary,
     }
   }
@@ -523,6 +538,7 @@ async function applyIntentToAreaRecord(
     ok: true,
     area: applied.area,
     dashboard: areaNeedsDashboard(applied.area),
+    transactions: transactionDelta(applied.area, startingTransactionCount),
     summary: advanced.summary,
   }
 }

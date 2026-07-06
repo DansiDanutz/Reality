@@ -5,6 +5,8 @@ import {
   SIM_CITIZEN_STARTING_BALANCE,
   WORLD_SIM_HOUR_MS,
   type WorldArea,
+  type WorldBusiness,
+  type WorldBusinessKind,
   type WorldCitizen,
 } from './worldSim'
 import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot } from './worldSimCodec'
@@ -124,6 +126,16 @@ const citizen = (id: string, over: Partial<WorldCitizen> = {}): WorldCitizen => 
   ...over,
 })
 
+const business = (kind: WorldBusinessKind, id = `${kind}1`, over: Partial<WorldBusiness> = {}): WorldBusiness => ({
+  id,
+  name: `${kind} shop`,
+  kind,
+  ownerId: 'founder',
+  cash: 0,
+  staffCitizenIds: [],
+  ...over,
+})
+
 const createArea = async (repo: MemoryWorldRepo, founder = citizen('founder'), simCitizens: WorldCitizen[] = []) => {
   const result = await runWorldServerCommand(repo, {
     type: 'createClaimedArea',
@@ -173,6 +185,9 @@ describe('runWorldServerCommand', () => {
     })
     expect(result.dashboard.firstBuild[0].kind).toBe('housing')
     expect(result.area.transactions).toMatchObject([
+      { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
+    ])
+    expect(result.transactions).toMatchObject([
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
     ])
     expect(repo.saves).toBe(1)
@@ -233,6 +248,12 @@ describe('runWorldServerCommand', () => {
       },
     ])
     expect(result.area.transactions.map((transaction) => transaction.kind)).toEqual([
+      'founder_credit',
+      'sim_citizen_credit',
+      'sim_citizen_credit',
+      'sim_citizen_credit',
+    ])
+    expect(result.transactions.map((transaction) => transaction.kind)).toEqual([
       'founder_credit',
       'sim_citizen_credit',
       'sim_citizen_credit',
@@ -889,7 +910,34 @@ describe('runWorldServerCommand', () => {
     if (!advanced.ok) throw new Error('expected advance to succeed')
     expect(advanced.area.now).toBe(1_000 + HOUR)
     expect(advanced.area.citizens[0].needs.hydration).toBeLessThan(50)
+    expect(advanced.transactions).toEqual([])
     expect(repo.saves).toBe(2)
+  })
+
+  test('advance returns only transaction events created by that server tick', async () => {
+    const repo = new MemoryWorldRepo()
+    const created = await createArea(repo, citizen('founder'), [
+      citizen('thirsty', { kind: 'sim', money: 100, needs: needs({ hydration: 40 }) }),
+    ])
+    await repo.saveArea({
+      ...created.area,
+      businesses: [business('water', 'water-a', { price: 2 })],
+    })
+
+    const advanced = await runWorldServerCommand(repo, { type: 'advance', areaId: 'area-1', now: 1_000 + HOUR })
+
+    expect(advanced.ok).toBe(true)
+    if (!advanced.ok) throw new Error('expected advance with purchase to succeed')
+    expect(advanced.area.transactions.map((transaction) => transaction.kind)).toEqual([
+      'founder_credit',
+      'sim_citizen_credit',
+      'customer_purchase',
+    ])
+    expect(advanced.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'thirsty', toId: 'water-a', amount: 2 },
+    ])
+    advanced.transactions[0].amount = 999
+    expect(advanced.area.transactions[2].amount).toBe(2)
   })
 
   test('reads a founder area by authenticated founder and advances server time', async () => {
@@ -910,6 +958,7 @@ describe('runWorldServerCommand', () => {
     expect(result.area.citizens[0].needs.hydration).toBeLessThan(50)
     expect(result.dashboard.realPopulation).toBe(1)
     expect(result.summary?.purchases).toBe(0)
+    expect(result.transactions).toEqual([])
     expect(saved?.now).toBe(1_000 + HOUR)
     expect(repo.saves).toBe(2)
   })
@@ -929,6 +978,7 @@ describe('runWorldServerCommand', () => {
     expect(result.area.id).toBe('area-1')
     expect(result.area.now).toBe(1_000)
     expect(result.summary).toBeUndefined()
+    expect(result.transactions).toEqual([])
     expect(repo.saves).toBe(1)
   })
 
@@ -1025,6 +1075,9 @@ describe('runWorldServerCommand', () => {
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
       { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
     ])
+    expect(result.transactions).toMatchObject([
+      { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
+    ])
     expect(repo.saves).toBe(2)
   })
 
@@ -1052,6 +1105,9 @@ describe('runWorldServerCommand', () => {
     expect(result.area.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
     expect(result.area.transactions).toMatchObject([
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
+      { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
+    ])
+    expect(result.transactions).toMatchObject([
       { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
     ])
     expect(saved?.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
@@ -1088,6 +1144,9 @@ describe('runWorldServerCommand', () => {
     })
     expect(result.area.transactions).toMatchObject([
       { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
+      { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
+    ])
+    expect(result.transactions).toMatchObject([
       { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
     ])
     expect(saved?.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
@@ -1237,6 +1296,9 @@ describe('runWorldServerCommand', () => {
     expect(bought.area.citizens.find((c) => c.id === 'founder')!.needs.hydration).toBe(55)
     expect(bought.area.businesses.find((b) => b.id === 'water-a')!.cash).toBe(2)
     expect(bought.area.transactions.map((tx) => tx.kind)).toEqual(['founder_credit', 'business_build', 'customer_purchase'])
+    expect(bought.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'founder', toId: 'water-a', amount: 2 },
+    ])
     expect(repo.saves).toBe(3)
   })
 
@@ -1272,6 +1334,9 @@ describe('runWorldServerCommand', () => {
     expect(rested.area.citizens.find((c) => c.id === 'founder')!.homeBusinessId).toBe('housing-a')
     expect(rested.area.businesses.find((b) => b.id === 'housing-a')!.cash).toBe(28)
     expect(rested.area.transactions.map((tx) => tx.kind)).toEqual(['founder_credit', 'business_build', 'customer_purchase'])
+    expect(rested.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'founder', toId: 'housing-a', amount: 28 },
+    ])
     expect(repo.saves).toBe(3)
   })
 
@@ -1316,6 +1381,9 @@ describe('runWorldServerCommand', () => {
     expect(repaid.area.transactions.filter((tx) => tx.kind === 'debt_repayment')).toMatchObject([
       { kind: 'debt_repayment', fromId: 'founder', toId: 'system:hospital', amount: 25 },
     ])
+    expect(repaid.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'founder', toId: 'system:hospital', amount: 25 },
+    ])
     expect(saved?.citizens[0].debt).toBe(50)
     expect(repo.saves).toBe(3)
   })
@@ -1344,6 +1412,37 @@ describe('runWorldServerCommand', () => {
     expect(saved?.businesses).toEqual([])
     expect(saved?.now).toBe(1_000 + HOUR)
     expect(repo.saves).toBe(2)
+  })
+
+  test('failed intents still return persisted server-simulation transaction deltas', async () => {
+    const repo = new MemoryWorldRepo()
+    const created = await createArea(repo, citizen('founder'), [
+      citizen('thirsty', { kind: 'sim', money: 100, needs: needs({ hydration: 40 }) }),
+    ])
+    await repo.saveArea({
+      ...created.area,
+      businesses: [business('water', 'water-a', { price: 2 })],
+    })
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000 + HOUR,
+      authenticatedCitizenId: 'missing',
+      intent: { type: 'buyFood', actorCitizenId: 'missing' },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'actor_not_found' })
+    expect(result.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'thirsty', toId: 'water-a', amount: 2 },
+    ])
+    expect(saved?.transactions.map((transaction) => transaction.kind)).toEqual([
+      'founder_credit',
+      'sim_citizen_credit',
+      'customer_purchase',
+    ])
+    expect(repo.saves).toBe(3)
   })
 
   test('rejects intents whose claimed actor does not match the authenticated citizen', async () => {
