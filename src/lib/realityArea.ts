@@ -146,6 +146,21 @@ export interface RealityAreaCovenantReviewHistoryItem {
   summary: string
 }
 
+export type RealityAreaCovenantNotificationDraftKind = 'founder_warning' | 'manual_review_required'
+export type RealityAreaCovenantNotificationChannel = 'telegram'
+
+export interface RealityAreaCovenantNotificationDraft {
+  id: string
+  at: string
+  kind: RealityAreaCovenantNotificationDraftKind
+  channel: RealityAreaCovenantNotificationChannel
+  recipientCitizenId: string
+  title: string
+  body: string
+  requiresApproval: true
+  sendEnabled: false
+}
+
 export interface RealityAreaCovenantReview {
   founderCitizenId: string
   status: RealityAreaCovenantStatus
@@ -168,6 +183,7 @@ export interface RealityAreaCovenantReview {
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   reviewHistory: RealityAreaCovenantReviewHistoryItem[]
+  notificationDrafts: RealityAreaCovenantNotificationDraft[]
   signals: RealityAreaCovenantSignal[]
 }
 
@@ -663,6 +679,10 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
+    notificationDrafts: review.notificationDrafts.map((draft) => ({
+      ...draft,
+      at: parseInstant(draft.at),
+    })),
     signals: review.signals.map((signal) => ({
       ...signal,
       businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
@@ -947,6 +967,8 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     value.manualActions.every(isRealityAreaCovenantManualAction) &&
     Array.isArray(value.reviewHistory) &&
     value.reviewHistory.every(isRealityAreaCovenantReviewHistoryItem) &&
+    Array.isArray(value.notificationDrafts) &&
+    value.notificationDrafts.every(isRealityAreaCovenantNotificationDraft) &&
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal)
 }
@@ -1000,6 +1022,19 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     typeof value.summary === 'string'
 }
 
+function isRealityAreaCovenantNotificationDraft(value: unknown): value is RealityAreaCovenantNotificationDraft {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.at === 'string' &&
+    isRealityAreaCovenantNotificationDraftKind(value.kind) &&
+    value.channel === 'telegram' &&
+    typeof value.recipientCitizenId === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.body === 'string' &&
+    value.requiresApproval === true &&
+    value.sendEnabled === false
+}
+
 function isRealityAreaCovenantSignal(value: unknown): value is RealityAreaCovenantSignal {
   return isRecord(value) &&
     isRealityAreaCovenantSignalKind(value.kind) &&
@@ -1027,6 +1062,10 @@ function isRealityAreaCovenantManualActionKind(value: unknown): value is Reality
     value === 'send_warning' ||
     value === 'start_probation' ||
     value === 'recommend_replacement'
+}
+
+function isRealityAreaCovenantNotificationDraftKind(value: unknown): value is RealityAreaCovenantNotificationDraftKind {
+  return value === 'founder_warning' || value === 'manual_review_required'
 }
 
 function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {

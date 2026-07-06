@@ -434,6 +434,21 @@ export interface FounderCovenantReviewHistoryItem {
   summary: string
 }
 
+export type FounderCovenantNotificationDraftKind = 'founder_warning' | 'manual_review_required'
+export type FounderCovenantNotificationChannel = 'telegram'
+
+export interface FounderCovenantNotificationDraft {
+  id: string
+  at: number
+  kind: FounderCovenantNotificationDraftKind
+  channel: FounderCovenantNotificationChannel
+  recipientCitizenId: string
+  title: string
+  body: string
+  requiresApproval: true
+  sendEnabled: false
+}
+
 export interface AreaFounderCovenantDashboard {
   founderCitizenId: string | null
   status: FounderCovenantStatus
@@ -446,6 +461,7 @@ export interface AreaFounderCovenantDashboard {
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
   reviewHistory: FounderCovenantReviewHistoryItem[]
+  notificationDrafts: FounderCovenantNotificationDraft[]
   signals: FounderCovenantSignal[]
 }
 
@@ -1129,6 +1145,7 @@ function founderCovenantDashboard(
         },
       }),
       reviewHistory: founderCovenantReviewHistory(area),
+      notificationDrafts: [],
       signals: [],
     }
   }
@@ -1233,6 +1250,10 @@ function founderCovenantDashboard(
     waitlistHandoffEnabled: false,
   })
   const manualActions = founderCovenantManualActions({ status, nextAction, activityReview })
+  const notificationDrafts = founderCovenantNotificationDrafts(area, {
+    founderCitizenId,
+    nextAction,
+  })
 
   return {
     founderCitizenId,
@@ -1246,6 +1267,7 @@ function founderCovenantDashboard(
     reviewChecklist,
     manualActions,
     reviewHistory: founderCovenantReviewHistory(area),
+    notificationDrafts,
     signals,
   }
 }
@@ -1378,6 +1400,31 @@ function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHis
     .sort((left, right) => right.at - left.at)
     .slice(0, 5)
     .map((entry) => ({ ...entry }))
+}
+
+function founderCovenantNotificationDrafts(
+  area: WorldArea,
+  input: {
+    founderCitizenId: string
+    nextAction: FounderCovenantNextAction
+  },
+): FounderCovenantNotificationDraft[] {
+  if (input.nextAction === 'none' || input.nextAction === 'claim_area') return []
+  const manualReview = input.nextAction === 'manual_review'
+  const kind: FounderCovenantNotificationDraftKind = manualReview ? 'manual_review_required' : 'founder_warning'
+  return [{
+    id: `${area.id}:${area.now}:covenant-notification:${kind}:${input.founderCitizenId}`,
+    at: area.now,
+    kind,
+    channel: 'telegram',
+    recipientCitizenId: input.founderCitizenId,
+    title: manualReview ? 'Founder covenant manual review required' : 'Founder covenant warning recommended',
+    body: manualReview
+      ? 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.'
+      : 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
+    requiresApproval: true,
+    sendEnabled: false,
+  }]
 }
 
 function founderActivityScore(input: {

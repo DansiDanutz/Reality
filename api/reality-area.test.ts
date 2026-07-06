@@ -2506,6 +2506,17 @@ describe('reality area authority API', () => {
     expect(body.state.founderCovenant.manualActions.every((action) =>
       action.requiresApproval === true && action.automationEnabled === false
     )).toBe(true)
+    expect(body.state.founderCovenant.notificationDrafts).toEqual([{
+      id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:covenant-notification:founder_warning:${CITIZEN_ID}`,
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'founder_warning',
+      channel: 'telegram',
+      recipientCitizenId: CITIZEN_ID,
+      title: 'Founder covenant warning recommended',
+      body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
+      requiresApproval: true,
+      sendEnabled: false,
+    }])
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
@@ -3033,6 +3044,17 @@ function baseFounderCovenant(checkedAt: string) {
       replacement: false,
     }),
     reviewHistory: [],
+    notificationDrafts: [{
+      id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-notification:founder_warning:${CITIZEN_ID}`,
+      at: checkedAt,
+      kind: 'founder_warning',
+      channel: 'telegram',
+      recipientCitizenId: CITIZEN_ID,
+      title: 'Founder covenant warning recommended',
+      body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
+      requiresApproval: true,
+      sendEnabled: false,
+    }],
     signals: [{
       kind: 'no_business_built',
       severity: 'warning',

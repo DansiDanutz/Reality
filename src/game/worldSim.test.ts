@@ -1564,6 +1564,17 @@ describe('advanceWorldArea — local real-time economy', () => {
         }),
       ]),
       reviewHistory: [],
+      notificationDrafts: [{
+        id: 'area-1:0:covenant-notification:manual_review_required:founder',
+        at: 0,
+        kind: 'manual_review_required',
+        channel: 'telegram',
+        recipientCitizenId: 'founder',
+        title: 'Founder covenant manual review required',
+        body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
+        requiresApproval: true,
+        sendEnabled: false,
+      }],
     })
     expect(dash.founderCovenant.signals).toEqual([
       {
@@ -1707,6 +1718,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         clientPayload: null,
       }],
       reviewHistory: [],
+      notificationDrafts: [],
       signals: [],
     })
   })

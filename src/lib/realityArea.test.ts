@@ -139,6 +139,33 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant notification drafts that enable Telegram sending', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        notificationDrafts: dashboard.founderCovenant.notificationDrafts.map((draft) => ({
+          ...draft,
+          sendEnabled: true,
+        })),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('does not contact the server without a registered founder identity', async () => {
     const fetchImpl = vi.fn()
 
@@ -566,6 +593,17 @@ describe('Reality area client', () => {
         message: 'Server says founder-owned businesses need staffing.',
         businessIds: ['water-1'],
       }],
+      notificationDrafts: [{
+        id: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:citizen-1',
+        at: Date.parse('2026-07-06T04:00:00.000Z'),
+        kind: 'founder_warning',
+        channel: 'telegram',
+        recipientCitizenId: 'citizen-1',
+        title: 'Founder covenant warning recommended',
+        body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
+        requiresApproval: true,
+        sendEnabled: false,
+      }],
     })
     expect(simWater).toMatchObject({
       displayName: 'Demo Water Resident (Sim)',
@@ -776,6 +814,17 @@ function serverState(): RealityAreaState {
         replacement: true,
       }),
       reviewHistory: [],
+      notificationDrafts: [{
+        id: 'founder-area-0012:1783308600000:covenant-notification:manual_review_required:citizen-1',
+        at: '2026-07-06T03:30:00.000Z',
+        kind: 'manual_review_required',
+        channel: 'telegram',
+        recipientCitizenId: 'citizen-1',
+        title: 'Founder covenant manual review required',
+        body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
+        requiresApproval: true,
+        sendEnabled: false,
+      }],
       signals: [{
         kind: 'founder_unavailable',
         severity: 'critical',
@@ -1138,6 +1187,17 @@ function serverDashboard(): RealityAreaDashboard {
         replacement: false,
       }),
       reviewHistory: [],
+      notificationDrafts: [{
+        id: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:citizen-1',
+        at: '2026-07-06T04:00:00.000Z',
+        kind: 'founder_warning',
+        channel: 'telegram',
+        recipientCitizenId: 'citizen-1',
+        title: 'Founder covenant warning recommended',
+        body: 'Founder covenant signals suggest a warning. A reviewer must approve delivery before Telegram is used.',
+        requiresApproval: true,
+        sendEnabled: false,
+      }],
       signals: [{
         kind: 'understaffed_businesses',
         severity: 'warning',
