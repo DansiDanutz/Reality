@@ -153,7 +153,7 @@ interface FounderAreaCovenantReviewChecklistItem {
 interface FounderAreaCovenantManualActionClientPayload {
   type: 'recordCovenantReview'
   actionKind: 'record_review'
-  summary: string
+  note?: string
 }
 
 interface FounderAreaCovenantManualAction {
@@ -602,7 +602,7 @@ type RecordCovenantReviewIntent =
   | {
     ok: true
     actionKind: FounderAreaCovenantManualActionKind
-    summary: string
+    note?: string
   }
   | { ok: false; error: RecordCovenantReviewIntentError }
 
@@ -610,7 +610,7 @@ type RecordCovenantReviewIntentError =
   | 'unsupported_intent'
   | 'client_controlled_server_field'
   | 'invalid_review_action'
-  | 'invalid_review_summary'
+  | 'invalid_review_note'
 
 type ApplyRecordCovenantReviewError =
   | RecordCovenantReviewIntentError
@@ -705,6 +705,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'replacementEnabled',
   'waitlistHandoffEnabled',
   'automationEnabled',
+  'summary',
   'businesses',
   'transactions',
   'citizens',
@@ -972,12 +973,12 @@ export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCoven
   const actionKind = text(input.actionKind)
   if (!isFounderAreaCovenantManualActionKind(actionKind)) return { ok: false, error: 'invalid_review_action' }
 
-  const summary = text(input.summary)
-  if (!summary || summary.length > 280 || hasControlCharacter(summary)) {
-    return { ok: false, error: 'invalid_review_summary' }
+  const note = input.note === undefined ? undefined : text(input.note)
+  if (note !== undefined && (note.length > 280 || hasControlCharacter(note))) {
+    return { ok: false, error: 'invalid_review_note' }
   }
 
-  return { ok: true, actionKind, summary }
+  return { ok: true, actionKind, note: note || undefined }
 }
 
 export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
@@ -1277,7 +1278,6 @@ function founderCovenantManualActions(input: {
       clientPayload: {
         type: 'recordCovenantReview',
         actionKind: 'record_review',
-        summary: founderCovenantReviewSummary(review),
       },
     },
     {
@@ -1316,8 +1316,9 @@ function founderCovenantManualActions(input: {
   ]
 }
 
-function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview): string {
-  return `Covenant snapshot: score ${review.score}/100; active ${yesNo(review.active)}; useful ${yesNo(review.useful)}; building ${yesNo(review.building)}; staffed ${yesNo(review.staffed)}; debt ${yesNo(review.indebted)}; hospital ${yesNo(review.hospitalized)}; at risk ${yesNo(review.atRisk)}.`
+function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview, note: string | undefined): string {
+  const snapshot = `Covenant snapshot: score ${review.score}/100; active ${yesNo(review.active)}; useful ${yesNo(review.useful)}; building ${yesNo(review.building)}; staffed ${yesNo(review.staffed)}; debt ${yesNo(review.indebted)}; hospital ${yesNo(review.hospitalized)}; at risk ${yesNo(review.atRisk)}.`
+  return note ? `${snapshot} Note: ${note}` : snapshot
 }
 
 function yesNo(value: boolean): 'yes' | 'no' {
@@ -2671,12 +2672,13 @@ function applyRecordCovenantReviewIntent(
   if (intent.actionKind !== 'record_review') return { ok: false, error: 'review_action_disabled' }
 
   const at = now.toISOString()
+  const review = founderCovenantReview(state)
   const entry: FounderAreaCovenantReviewHistoryItem = {
     id: `${state.areaId}:${now.getTime()}:founder-review:${reviewerId}`,
     at,
     reviewerId,
     actionKind: intent.actionKind,
-    summary: intent.summary,
+    summary: founderCovenantReviewSummary(review.activityReview, intent.note),
   }
 
   return {

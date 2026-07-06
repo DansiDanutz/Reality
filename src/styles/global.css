@@ -1034,6 +1034,19 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 .founder-covenant-action-status.recommended { color: var(--warn); }
 .founder-covenant-action-status.manual { color: var(--muted); }
+.founder-covenant-note {
+  width: 100%;
+  min-height: 54px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(120, 150, 205, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+.founder-covenant-note::placeholder { color: var(--muted); }
 .founder-covenant-history-item .item-price { color: var(--muted); }
 .founder-covenant-signal.warning { border-color: rgba(240, 180, 41, 0.45); }
 .founder-covenant-signal.critical { border-color: rgba(229, 72, 77, 0.45); }

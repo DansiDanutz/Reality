@@ -381,28 +381,33 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
-      summary: '  Weekly review: founder built water and needs staff.  ',
+      note: '  Weekly review: founder built water and needs staff.  ',
     })).toEqual({
       ok: true,
       actionKind: 'record_review',
-      summary: 'Weekly review: founder built water and needs staff.',
+      note: 'Weekly review: founder built water and needs staff.',
     })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
-      summary: 'Looks good.',
+      note: 'Looks good.',
       reviewerId: 'spoofed-reviewer',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'remove_founder',
-      summary: 'Remove immediately.',
+      note: 'Remove immediately.',
     })).toEqual({ ok: false, error: 'invalid_review_action' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
-      summary: '',
-    })).toEqual({ ok: false, error: 'invalid_review_summary' })
+      summary: 'Client cannot submit the server snapshot.',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: `${'x'.repeat(281)}`,
+    })).toEqual({ ok: false, error: 'invalid_review_note' })
   })
 
   test('requires a registered citizen before reading area state', async () => {
@@ -2476,7 +2481,7 @@ describe('reality area authority API', () => {
         intent: {
           type: 'recordCovenantReview',
           actionKind: 'record_review',
-          summary: 'Weekly review: founder needs staffing follow-up.',
+          note: 'Weekly review: founder needs staffing follow-up.',
         },
       },
     } as never, res as never)
@@ -2495,7 +2500,7 @@ describe('reality area authority API', () => {
       at: '2026-07-06T08:00:00.000Z',
       reviewerId: CITIZEN_ID,
       actionKind: 'record_review',
-      summary: 'Weekly review: founder needs staffing follow-up.',
+      summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
     }])
     expect(body.state.founderCovenant.reviewHistory).toEqual(body.state.founderReviewHistory)
     expect(body.state.founderCovenant.manualActions.every((action) =>
@@ -2526,7 +2531,7 @@ describe('reality area authority API', () => {
         intent: {
           type: 'recordCovenantReview',
           actionKind: 'recommend_replacement',
-          summary: 'Try to replace founder early.',
+          note: 'Try to replace founder early.',
         },
       },
     } as never, res as never)
@@ -3225,7 +3230,6 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     clientPayload: {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
-      summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes.',
     },
   }, {
     kind: 'send_warning',

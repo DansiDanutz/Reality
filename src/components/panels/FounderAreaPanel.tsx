@@ -46,6 +46,7 @@ export default function FounderAreaPanel() {
   const [panelState, setPanelState] = useState<PanelState>({ status: 'loading' })
   const [busy, setBusy] = useState(false)
   const [lastEvent, setLastEvent] = useState('Area claimed.')
+  const [reviewNote, setReviewNote] = useState('')
 
   const profile = useMemo(() => citizen ? founderAreaProfileFromCitizen(citizen) : null, [citizen])
 
@@ -140,6 +141,7 @@ export default function FounderAreaPanel() {
       }
       const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
       setPanelState({ status: 'ready', result: next })
+      setReviewNote('')
       setLastEvent(next.ok ? 'Founder review evidence recorded.' : `Command failed: ${next.error}`)
     } finally {
       setBusy(false)
@@ -225,7 +227,10 @@ export default function FounderAreaPanel() {
                       <button
                         className="btn small ghost"
                         disabled={busy}
-                        onClick={() => void recordCovenantReview(action.clientPayload)}
+                        onClick={() => void recordCovenantReview({
+                          ...action.clientPayload!,
+                          note: reviewNote.trim() || undefined,
+                        })}
                       >
                         Record
                       </button>
@@ -234,6 +239,17 @@ export default function FounderAreaPanel() {
                 </li>
               ))}
             </ul>
+            {dashboard.founderCovenant.manualActions.some((action) => action.clientPayload) && (
+              <textarea
+                aria-label="Founder review note"
+                className="founder-covenant-note"
+                disabled={busy}
+                maxLength={280}
+                onChange={(event) => setReviewNote(event.target.value)}
+                placeholder="Review note"
+                value={reviewNote}
+              />
+            )}
             {dashboard.founderCovenant.reviewHistory.length > 0 && (
               <ul className="item-list founder-covenant-history" aria-label="Founder manual review history">
                 {dashboard.founderCovenant.reviewHistory.map((entry) => (

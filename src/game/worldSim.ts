@@ -413,7 +413,7 @@ export interface FounderCovenantReviewChecklistItem {
 export interface FounderCovenantManualActionClientPayload {
   type: 'recordCovenantReview'
   actionKind: 'record_review'
-  summary: string
+  note?: string
 }
 
 export interface FounderCovenantManualAction {
@@ -1335,7 +1335,6 @@ function founderCovenantManualActions(input: {
         : {
           type: 'recordCovenantReview',
           actionKind: 'record_review',
-          summary: founderCovenantReviewSummary(review),
         },
     },
     {
@@ -1372,14 +1371,6 @@ function founderCovenantManualActions(input: {
       clientPayload: null,
     },
   ]
-}
-
-function founderCovenantReviewSummary(review: FounderCovenantActivityReview): string {
-  return `Covenant snapshot: score ${review.score}/100; active ${yesNo(review.active)}; useful ${yesNo(review.useful)}; building ${yesNo(review.building)}; staffed ${yesNo(review.staffed)}; debt ${yesNo(review.indebted)}; hospital ${yesNo(review.hospitalized)}; at risk ${yesNo(review.atRisk)}.`
-}
-
-function yesNo(value: boolean): 'yes' | 'no' {
-  return value ? 'yes' : 'no'
 }
 
 function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHistoryItem[] {

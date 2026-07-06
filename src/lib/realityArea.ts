@@ -125,7 +125,7 @@ export interface RealityAreaCovenantReviewChecklistItem {
 export interface RealityAreaCovenantReviewPayload {
   type: 'recordCovenantReview'
   actionKind: 'record_review'
-  summary: string
+  note?: string
 }
 
 export interface RealityAreaCovenantManualAction {
@@ -987,7 +987,8 @@ function isRealityAreaCovenantReviewPayload(value: unknown): value is RealityAre
   return isRecord(value) &&
     value.type === 'recordCovenantReview' &&
     value.actionKind === 'record_review' &&
-    typeof value.summary === 'string'
+    value.summary === undefined &&
+    (typeof value.note === 'string' || value.note === undefined)
 }
 
 function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is RealityAreaCovenantReviewHistoryItem {

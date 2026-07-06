@@ -280,7 +280,7 @@ describe('Reality area client', () => {
     }, {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
-      summary: 'Weekly review: founder needs staffing follow-up.',
+      note: 'Weekly review: founder needs staffing follow-up.',
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -296,7 +296,7 @@ describe('Reality area client', () => {
         intent: {
           type: 'recordCovenantReview',
           actionKind: 'record_review',
-          summary: 'Weekly review: founder needs staffing follow-up.',
+          note: 'Weekly review: founder needs staffing follow-up.',
         },
       }),
     })
@@ -799,9 +799,6 @@ function manualReviewActions(
     clientPayload: {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
-      summary: input.replacement
-        ? 'Covenant snapshot: score 60/100; active no; useful yes; building yes; staffed yes; debt yes; hospital yes; at risk yes.'
-        : 'Covenant snapshot: score 75/100; active yes; useful yes; building yes; staffed no; debt yes; hospital no; at risk yes.',
     },
   }, {
     kind: 'send_warning',

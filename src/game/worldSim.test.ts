@@ -1680,7 +1680,6 @@ describe('advanceWorldArea — local real-time economy', () => {
         clientPayload: {
           type: 'recordCovenantReview',
           actionKind: 'record_review',
-          summary: 'Covenant snapshot: score 100/100; active yes; useful yes; building yes; staffed yes; debt no; hospital no; at risk no.',
         },
       }, {
         kind: 'send_warning',
