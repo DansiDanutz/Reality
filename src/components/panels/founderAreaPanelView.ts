@@ -20,6 +20,8 @@ import type {
   RealityAreaDashboard,
   RealityAreaGrowthBlocker,
   RealityAreaGrowthDashboard,
+  RealityAreaHandoffBlocker,
+  RealityAreaHandoffDashboard,
   RealityAreaLegacyRoyaltyBlocker,
   RealityAreaLegacyRoyaltyDashboard,
   RealityAreaSettlementBlocker,
@@ -57,6 +59,13 @@ export interface FounderLegacyRoyaltySummaryItem {
 }
 
 export interface FounderGrowthSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderHandoffSummaryItem {
   key: string
   label: string
   value: string
@@ -140,6 +149,64 @@ export function founderGrowthBlockerText(blocker: RealityAreaGrowthBlocker): str
     case 'manual_review_required':
       return 'Manual review'
   }
+}
+
+export function founderHandoffStatusLabel(
+  handoff: Pick<RealityAreaHandoffDashboard, 'enabled' | 'manualReviewRequired'>,
+): string {
+  return handoff.enabled ? 'Enabled' : handoff.manualReviewRequired ? 'Manual review' : 'Disabled'
+}
+
+export function founderHandoffSummaryItems(handoff: RealityAreaHandoffDashboard): FounderHandoffSummaryItem[] {
+  const transfer = handoff.transferPackage
+  return [{
+    key: 'seat',
+    label: 'Seat',
+    value: `#${String(transfer.founderNumber).padStart(4, '0')}`,
+    tone: 'stable',
+  }, {
+    key: 'businesses',
+    label: 'Businesses',
+    value: String(transfer.businessCount),
+    tone: transfer.businessCount > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'debt',
+    label: 'Debt',
+    value: formatMoney(transfer.outstandingDebt),
+    tone: transfer.outstandingDebt > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'candidate',
+    label: 'Candidate',
+    value: founderHandoffCandidateLabel(handoff),
+    tone: handoff.successorCandidateCitizenId ? 'warning' : 'stable',
+  }]
+}
+
+export function founderHandoffBlockerText(blocker: RealityAreaHandoffBlocker): string {
+  switch (blocker) {
+    case 'replacement_workflow_disabled':
+      return 'Replacement workflow'
+    case 'waitlist_handoff_disabled':
+      return 'Waitlist handoff'
+    case 'candidate_selection_disabled':
+      return 'Candidate selection'
+    case 'main_founder_approval_required':
+      return 'Main founder approval'
+    case 'manual_review_required':
+      return 'Manual review'
+  }
+}
+
+export function founderHandoffPackageText(handoff: RealityAreaHandoffDashboard): string {
+  const transfer = handoff.transferPackage
+  return `${transfer.areaId} · ${transfer.founderCreatedBusinessCount} founder-created · ${transfer.inheritedBusinessCount} inherited`
+}
+
+function founderHandoffCandidateLabel(
+  handoff: Pick<RealityAreaHandoffDashboard, 'successorCandidateName' | 'successorCandidateSource'>,
+): string {
+  if (handoff.successorCandidateName) return handoff.successorCandidateName
+  return handoff.successorCandidateSource === 'named_heir' ? 'Named heir' : 'None'
 }
 
 export function founderSettlementStatusLabel(settlement: Pick<RealityAreaSettlementDashboard, 'mode'>): string {

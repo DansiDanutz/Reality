@@ -240,6 +240,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores handoff dashboards that enable waitlist transfer execution', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      handoff: {
+        ...dashboard.handoff,
+        waitlistHandoffEnabled: true,
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores covenant manual actions that enable enforcement execution', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -877,6 +901,7 @@ describe('Reality area client', () => {
     expect((merged as { growth: RealityAreaDashboard['growth'] }).growth).toEqual(server.growth)
     expect((merged as { settlement: RealityAreaDashboard['settlement'] }).settlement).toEqual(server.settlement)
     expect((merged as { legacyRoyalty: RealityAreaDashboard['legacyRoyalty'] }).legacyRoyalty).toEqual(server.legacyRoyalty)
+    expect((merged as { handoff: RealityAreaDashboard['handoff'] }).handoff).toEqual(server.handoff)
     expect(merged.jobs).toMatchObject({
       openPositions: 1,
       hireableSimWorkers: 1,
@@ -1768,6 +1793,42 @@ function serverDashboard(): RealityAreaDashboard {
         'waitlist_handoff_disabled',
         'treasury_payout_disabled',
         'compliance_review_required',
+      ],
+    },
+    handoff: {
+      enabled: false,
+      mode: 'manual_disabled',
+      candidateSelectionEnabled: false,
+      replacementWorkflowEnabled: false,
+      waitlistHandoffEnabled: false,
+      seatTransferEnabled: false,
+      areaTransferEnabled: false,
+      businessTransferEnabled: false,
+      debtTransferEnabled: false,
+      legacyRulesTransferEnabled: false,
+      manualReviewRequired: true,
+      successorCandidateSource: 'none',
+      successorCandidateCitizenId: null,
+      successorCandidateName: null,
+      transferPackage: {
+        founderNumber: 12,
+        founderCitizenId: 'citizen-1',
+        areaId: 'founder-area-0012',
+        businessCount: 1,
+        founderCreatedBusinessCount: 1,
+        inheritedBusinessCount: 0,
+        outstandingDebt: 300,
+        debtObligationCount: 1,
+        protectedByInsurance: false,
+        legacyRoyaltyRate: 0.1,
+        legacyTreasuryAccountId: 'system:founder-legacy-treasury',
+      },
+      blockers: [
+        'replacement_workflow_disabled',
+        'waitlist_handoff_disabled',
+        'candidate_selection_disabled',
+        'main_founder_approval_required',
+        'manual_review_required',
       ],
     },
     jobs: {

@@ -342,6 +342,12 @@ type FounderAreaLegacyRoyaltyBlocker =
   | 'waitlist_handoff_disabled'
   | 'treasury_payout_disabled'
   | 'compliance_review_required'
+type FounderAreaHandoffBlocker =
+  | 'replacement_workflow_disabled'
+  | 'waitlist_handoff_disabled'
+  | 'candidate_selection_disabled'
+  | 'main_founder_approval_required'
+  | 'manual_review_required'
 type FounderAreaGrowthBlocker =
   | 'telegram_invite_links_disabled'
   | 'invite_tracking_disabled'
@@ -654,6 +660,39 @@ interface FounderAreaLegacyRoyaltyDashboard {
   blockers: readonly FounderAreaLegacyRoyaltyBlocker[]
 }
 
+interface FounderAreaHandoffTransferPackage {
+  founderNumber: number
+  founderCitizenId: string
+  areaId: string
+  businessCount: number
+  founderCreatedBusinessCount: number
+  inheritedBusinessCount: number
+  outstandingDebt: number
+  debtObligationCount: number
+  protectedByInsurance: boolean
+  legacyRoyaltyRate: number
+  legacyTreasuryAccountId: typeof FOUNDER_LEGACY_TREASURY_ACCOUNT_ID
+}
+
+interface FounderAreaHandoffDashboard {
+  enabled: false
+  mode: 'manual_disabled'
+  candidateSelectionEnabled: false
+  replacementWorkflowEnabled: false
+  waitlistHandoffEnabled: false
+  seatTransferEnabled: false
+  areaTransferEnabled: false
+  businessTransferEnabled: false
+  debtTransferEnabled: false
+  legacyRulesTransferEnabled: false
+  manualReviewRequired: true
+  successorCandidateSource: 'none' | 'named_heir'
+  successorCandidateCitizenId: string | null
+  successorCandidateName: string | null
+  transferPackage: FounderAreaHandoffTransferPackage
+  blockers: readonly FounderAreaHandoffBlocker[]
+}
+
 interface FounderAreaGrowthDashboard {
   channel: 'telegram'
   inviteLinkEnabled: false
@@ -691,6 +730,7 @@ interface FounderAreaDashboard {
   growth: FounderAreaGrowthDashboard
   settlement: FounderAreaSettlementDashboard
   legacyRoyalty: FounderAreaLegacyRoyaltyDashboard
+  handoff: FounderAreaHandoffDashboard
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -968,16 +1008,37 @@ const SERVER_OWNED_LEGACY_ROYALTY_FIELDS = [
   'legacyRoyaltyPayoutEnabled',
 ] as const
 
+const SERVER_OWNED_HANDOFF_FIELDS = [
+  'handoff',
+  'transferPackage',
+  'successorCandidateSource',
+  'successorCandidateCitizenId',
+  'successorCandidateName',
+  'candidateSelectionEnabled',
+  'replacementWorkflowEnabled',
+  'waitlistHandoffEnabled',
+  'seatTransferEnabled',
+  'areaTransferEnabled',
+  'businessTransferEnabled',
+  'debtTransferEnabled',
+  'legacyRulesTransferEnabled',
+  'waitlistCandidateId',
+  'replacementCandidateId',
+  'successorCitizenId',
+] as const
+
 const FORBIDDEN_CLAIM_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
 ])
 
 const FORBIDDEN_HIRE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1001,6 +1062,7 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1033,6 +1095,7 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1057,6 +1120,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1113,6 +1177,7 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1137,6 +1202,7 @@ const FORBIDDEN_INSURANCE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1163,6 +1229,7 @@ const FORBIDDEN_BUILD_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
   ...SERVER_OWNED_SETTLEMENT_FIELDS,
   ...SERVER_OWNED_LEGACY_ROYALTY_FIELDS,
+  ...SERVER_OWNED_HANDOFF_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -2465,6 +2532,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     growth: areaGrowthDashboard(state),
     settlement: areaSettlementDashboard(state),
     legacyRoyalty: areaLegacyRoyaltyDashboard(state),
+    handoff: areaHandoffDashboard(state),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -2539,6 +2607,57 @@ function areaLegacyRoyaltyDashboard(state: FounderAreaState): FounderAreaLegacyR
       'waitlist_handoff_disabled',
       'treasury_payout_disabled',
       'compliance_review_required',
+    ],
+  }
+}
+
+function areaHandoffDashboard(state: FounderAreaState): FounderAreaHandoffDashboard {
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const now = new Date(state.updatedAt)
+  const namedHeir = founder?.heirCitizenId
+    ? state.citizens.find((citizen) => citizen.id === founder.heirCitizenId && citizen.kind === 'real')
+    : undefined
+  const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
+  const founderCreatedBusinessCount = founderBusinesses
+    .filter((business) => business.createdBy === state.founderCitizenId)
+    .length
+  const inheritedBusinessCount = founderBusinesses.length - founderCreatedBusinessCount
+  const debts = founder?.debts ?? []
+
+  return {
+    enabled: false,
+    mode: 'manual_disabled',
+    candidateSelectionEnabled: false,
+    replacementWorkflowEnabled: false,
+    waitlistHandoffEnabled: false,
+    seatTransferEnabled: false,
+    areaTransferEnabled: false,
+    businessTransferEnabled: false,
+    debtTransferEnabled: false,
+    legacyRulesTransferEnabled: false,
+    manualReviewRequired: true,
+    successorCandidateSource: namedHeir ? 'named_heir' : 'none',
+    successorCandidateCitizenId: namedHeir?.id ?? null,
+    successorCandidateName: namedHeir?.name ?? null,
+    transferPackage: {
+      founderNumber: state.founderNumber,
+      founderCitizenId: state.founderCitizenId,
+      areaId: state.areaId,
+      businessCount: founderBusinesses.length,
+      founderCreatedBusinessCount,
+      inheritedBusinessCount,
+      outstandingDebt: founder ? totalCitizenDebt(founder) : 0,
+      debtObligationCount: debts.length,
+      protectedByInsurance: founder ? hasActiveInsurance(founder, now) : false,
+      legacyRoyaltyRate: FOUNDER_LEGACY_ROYALTY_RATE,
+      legacyTreasuryAccountId: FOUNDER_LEGACY_TREASURY_ACCOUNT_ID,
+    },
+    blockers: [
+      'replacement_workflow_disabled',
+      'waitlist_handoff_disabled',
+      'candidate_selection_disabled',
+      'main_founder_approval_required',
+      'manual_review_required',
     ],
   }
 }

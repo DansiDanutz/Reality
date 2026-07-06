@@ -487,6 +487,46 @@ export interface RealityAreaLegacyRoyaltyDashboard {
   blockers: RealityAreaLegacyRoyaltyBlocker[]
 }
 
+export type RealityAreaHandoffBlocker =
+  | 'replacement_workflow_disabled'
+  | 'waitlist_handoff_disabled'
+  | 'candidate_selection_disabled'
+  | 'main_founder_approval_required'
+  | 'manual_review_required'
+
+export interface RealityAreaHandoffTransferPackage {
+  founderNumber: number
+  founderCitizenId: string
+  areaId: string
+  businessCount: number
+  founderCreatedBusinessCount: number
+  inheritedBusinessCount: number
+  outstandingDebt: number
+  debtObligationCount: number
+  protectedByInsurance: boolean
+  legacyRoyaltyRate: number
+  legacyTreasuryAccountId: 'system:founder-legacy-treasury'
+}
+
+export interface RealityAreaHandoffDashboard {
+  enabled: false
+  mode: 'manual_disabled'
+  candidateSelectionEnabled: false
+  replacementWorkflowEnabled: false
+  waitlistHandoffEnabled: false
+  seatTransferEnabled: false
+  areaTransferEnabled: false
+  businessTransferEnabled: false
+  debtTransferEnabled: false
+  legacyRulesTransferEnabled: false
+  manualReviewRequired: true
+  successorCandidateSource: 'none' | 'named_heir'
+  successorCandidateCitizenId: string | null
+  successorCandidateName: string | null
+  transferPackage: RealityAreaHandoffTransferPackage
+  blockers: RealityAreaHandoffBlocker[]
+}
+
 export interface RealityAreaCitizenDebtDashboard {
   id: string
   kind: 'medical'
@@ -608,10 +648,14 @@ export interface RealityAreaDashboard {
   growth: RealityAreaGrowthDashboard
   settlement: RealityAreaSettlementDashboard
   legacyRoyalty: RealityAreaLegacyRoyaltyDashboard
+  handoff: RealityAreaHandoffDashboard
   founderCovenant: RealityAreaCovenantReview
 }
 
-export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<RealityAreaDashboard, 'founderIdentity' | 'growth' | 'settlement' | 'legacyRoyalty'>
+export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<
+  RealityAreaDashboard,
+  'founderIdentity' | 'growth' | 'settlement' | 'legacyRoyalty' | 'handoff'
+>
 
 export interface RealityAreaState {
   version: 1
@@ -891,6 +935,11 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
       royaltyEligibleBusinessIds: [...serverDashboard.legacyRoyalty.royaltyEligibleBusinessIds],
       royaltyExcludedBusinessIds: [...serverDashboard.legacyRoyalty.royaltyExcludedBusinessIds],
       blockers: [...serverDashboard.legacyRoyalty.blockers],
+    },
+    handoff: {
+      ...serverDashboard.handoff,
+      transferPackage: { ...serverDashboard.handoff.transferPackage },
+      blockers: [...serverDashboard.handoff.blockers],
     },
     founderCovenant: mergeRealityAreaCovenantReview(serverDashboard.founderCovenant),
   }
@@ -1303,6 +1352,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isRealityAreaGrowthDashboard(value.growth) &&
     isRealityAreaSettlementDashboard(value.settlement) &&
     isRealityAreaLegacyRoyaltyDashboard(value.legacyRoyalty) &&
+    isRealityAreaHandoffDashboard(value.handoff) &&
     isRealityAreaCovenantReview(value.founderCovenant)
 }
 
@@ -1398,6 +1448,52 @@ function isRealityAreaLegacyRoyaltyBlocker(value: unknown): value is RealityArea
     value === 'waitlist_handoff_disabled' ||
     value === 'treasury_payout_disabled' ||
     value === 'compliance_review_required'
+}
+
+function isRealityAreaHandoffDashboard(value: unknown): value is RealityAreaHandoffDashboard {
+  return isRecord(value) &&
+    value.enabled === false &&
+    value.mode === 'manual_disabled' &&
+    value.candidateSelectionEnabled === false &&
+    value.replacementWorkflowEnabled === false &&
+    value.waitlistHandoffEnabled === false &&
+    value.seatTransferEnabled === false &&
+    value.areaTransferEnabled === false &&
+    value.businessTransferEnabled === false &&
+    value.debtTransferEnabled === false &&
+    value.legacyRulesTransferEnabled === false &&
+    value.manualReviewRequired === true &&
+    (value.successorCandidateSource === 'none' || value.successorCandidateSource === 'named_heir') &&
+    (value.successorCandidateCitizenId === null || typeof value.successorCandidateCitizenId === 'string') &&
+    (value.successorCandidateName === null || typeof value.successorCandidateName === 'string') &&
+    isRealityAreaHandoffTransferPackage(value.transferPackage) &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaHandoffBlocker)
+}
+
+function isRealityAreaHandoffTransferPackage(value: unknown): value is RealityAreaHandoffTransferPackage {
+  return isRecord(value) &&
+    typeof value.founderNumber === 'number' &&
+    typeof value.founderCitizenId === 'string' &&
+    typeof value.areaId === 'string' &&
+    typeof value.businessCount === 'number' &&
+    typeof value.founderCreatedBusinessCount === 'number' &&
+    typeof value.inheritedBusinessCount === 'number' &&
+    typeof value.outstandingDebt === 'number' &&
+    typeof value.debtObligationCount === 'number' &&
+    typeof value.protectedByInsurance === 'boolean' &&
+    typeof value.legacyRoyaltyRate === 'number' &&
+    value.legacyRoyaltyRate >= 0 &&
+    value.legacyRoyaltyRate <= 1 &&
+    value.legacyTreasuryAccountId === 'system:founder-legacy-treasury'
+}
+
+function isRealityAreaHandoffBlocker(value: unknown): value is RealityAreaHandoffBlocker {
+  return value === 'replacement_workflow_disabled' ||
+    value === 'waitlist_handoff_disabled' ||
+    value === 'candidate_selection_disabled' ||
+    value === 'main_founder_approval_required' ||
+    value === 'manual_review_required'
 }
 
 function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovenantReview {

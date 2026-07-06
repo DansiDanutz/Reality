@@ -298,6 +298,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       legacyRoyaltyRate: 0.5,
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      handoff: { enabled: true },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -573,6 +577,11 @@ describe('reality area authority API', () => {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
       nextAction: 'none',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      waitlistHandoffEnabled: true,
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
@@ -1158,6 +1167,116 @@ describe('reality area authority API', () => {
     expect(body.state.transactions.some((transaction) =>
       transaction.toId === 'system:founder-legacy-treasury' ||
       transaction.fromId === 'system:founder-legacy-treasury'
+    )).toBe(false)
+  })
+
+  test('surfaces disabled founder handoff readiness without transfer execution', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    const built = withBusinesses(existingState(), [{
+      id: 'current-food',
+      name: 'Current Food',
+      kind: 'food',
+      price: 14,
+      cash: 120,
+    }, {
+      id: 'inherited-water',
+      name: 'Inherited Water',
+      kind: 'water',
+      price: 2,
+      cash: 80,
+    }])
+    const existing = {
+      ...built,
+      businesses: built.businesses.map((business) => business.id === 'inherited-water'
+        ? { ...business, createdBy: 'previous-founder-citizen' }
+        : business
+      ),
+      citizens: [
+        {
+          ...built.citizens[0],
+          heirCitizenId: 'real-heir',
+          insuranceBusinessId: 'insurance-office-1',
+          insurancePaidUntil: '2026-08-06T03:00:00.000Z',
+          debt: 125,
+          debts: [{
+            id: 'medical-debt-1',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: 125,
+            issuedAt: '2026-07-06T02:30:00.000Z',
+            memo: 'Founder owes hospital debt.',
+          }],
+        },
+        ...built.citizens.slice(1),
+        {
+          id: 'real-heir',
+          name: 'Mara Heir',
+          kind: 'real',
+          money: 50,
+          debt: 0,
+          needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
+          health: 100,
+          state: { kind: 'active' },
+        },
+      ],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://handoff-readiness-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.dashboard.handoff).toEqual({
+      enabled: false,
+      mode: 'manual_disabled',
+      candidateSelectionEnabled: false,
+      replacementWorkflowEnabled: false,
+      waitlistHandoffEnabled: false,
+      seatTransferEnabled: false,
+      areaTransferEnabled: false,
+      businessTransferEnabled: false,
+      debtTransferEnabled: false,
+      legacyRulesTransferEnabled: false,
+      manualReviewRequired: true,
+      successorCandidateSource: 'named_heir',
+      successorCandidateCitizenId: 'real-heir',
+      successorCandidateName: 'Mara Heir',
+      transferPackage: {
+        founderNumber: 12,
+        founderCitizenId: CITIZEN_ID,
+        areaId: 'founder-area-0012',
+        businessCount: 2,
+        founderCreatedBusinessCount: 1,
+        inheritedBusinessCount: 1,
+        outstandingDebt: 125,
+        debtObligationCount: 1,
+        protectedByInsurance: true,
+        legacyRoyaltyRate: 0.1,
+        legacyTreasuryAccountId: 'system:founder-legacy-treasury',
+      },
+      blockers: [
+        'replacement_workflow_disabled',
+        'waitlist_handoff_disabled',
+        'candidate_selection_disabled',
+        'main_founder_approval_required',
+        'manual_review_required',
+      ],
+    })
+    expect(body.state.founderCitizenId).toBe(CITIZEN_ID)
+    expect(body.state.businesses.every((business) => business.ownerId === CITIZEN_ID)).toBe(true)
+    expect(body.state.transactions.some((transaction) =>
+      transaction.toId === 'real-heir' || transaction.fromId === 'real-heir'
     )).toBe(false)
   })
 
@@ -4645,6 +4764,7 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     growth: growthDashboard(1, 3),
     settlement: settlementDashboard(state.balance),
     legacyRoyalty: legacyRoyaltyDashboard(state),
+    handoff: handoffDashboard(state),
     founderCovenant: state.founderCovenant,
   } as const
 }
@@ -4716,6 +4836,58 @@ function legacyRoyaltyDashboard(state: ReturnType<typeof existingState>) {
       'waitlist_handoff_disabled',
       'treasury_payout_disabled',
       'compliance_review_required',
+    ],
+  } as const
+}
+
+function handoffDashboard(state: ReturnType<typeof existingState>) {
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const heir = founder?.heirCitizenId
+    ? state.citizens.find((citizen) => citizen.id === founder.heirCitizenId && citizen.kind === 'real')
+    : undefined
+  const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
+  const founderCreatedBusinessCount = founderBusinesses
+    .filter((business) => business.createdBy === state.founderCitizenId)
+    .length
+  const inheritedBusinessCount = founderBusinesses.length - founderCreatedBusinessCount
+  const debts = founder?.debts ?? []
+  const debtTotal = debts.reduce((total, debt) => total + debt.amount, 0)
+  const insuranceActive = Boolean(founder?.insurancePaidUntil && Date.parse(founder.insurancePaidUntil) > Date.parse(state.updatedAt))
+
+  return {
+    enabled: false,
+    mode: 'manual_disabled',
+    candidateSelectionEnabled: false,
+    replacementWorkflowEnabled: false,
+    waitlistHandoffEnabled: false,
+    seatTransferEnabled: false,
+    areaTransferEnabled: false,
+    businessTransferEnabled: false,
+    debtTransferEnabled: false,
+    legacyRulesTransferEnabled: false,
+    manualReviewRequired: true,
+    successorCandidateSource: heir ? 'named_heir' : 'none',
+    successorCandidateCitizenId: heir?.id ?? null,
+    successorCandidateName: heir?.name ?? null,
+    transferPackage: {
+      founderNumber: state.founderNumber,
+      founderCitizenId: state.founderCitizenId,
+      areaId: state.areaId,
+      businessCount: founderBusinesses.length,
+      founderCreatedBusinessCount,
+      inheritedBusinessCount,
+      outstandingDebt: Math.max(founder?.debt ?? 0, debtTotal),
+      debtObligationCount: debts.length,
+      protectedByInsurance: insuranceActive,
+      legacyRoyaltyRate: 0.1,
+      legacyTreasuryAccountId: 'system:founder-legacy-treasury',
+    },
+    blockers: [
+      'replacement_workflow_disabled',
+      'waitlist_handoff_disabled',
+      'candidate_selection_disabled',
+      'main_founder_approval_required',
+      'manual_review_required',
     ],
   } as const
 }

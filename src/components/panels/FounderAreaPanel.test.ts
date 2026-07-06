@@ -34,6 +34,10 @@ import {
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
+  founderHandoffBlockerText,
+  founderHandoffPackageText,
+  founderHandoffStatusLabel,
+  founderHandoffSummaryItems,
   founderIdentityClaimSourceLabel,
   founderIdentitySeatLabel,
   founderIdentityTelegramStatusLabel,
@@ -100,6 +104,59 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderGrowthBlockerText('invite_tracking_disabled')).toBe('Invite tracking')
     expect(founderGrowthBlockerText('automatic_growth_rewards_disabled')).toBe('Automatic growth rewards')
     expect(founderGrowthBlockerText('manual_review_required')).toBe('Manual review')
+  })
+
+  test('summarizes disabled founder handoff readiness without implying transfer execution', () => {
+    const handoff: Parameters<typeof founderHandoffSummaryItems>[0] = {
+      enabled: false,
+      mode: 'manual_disabled',
+      candidateSelectionEnabled: false,
+      replacementWorkflowEnabled: false,
+      waitlistHandoffEnabled: false,
+      seatTransferEnabled: false,
+      areaTransferEnabled: false,
+      businessTransferEnabled: false,
+      debtTransferEnabled: false,
+      legacyRulesTransferEnabled: false,
+      manualReviewRequired: true,
+      successorCandidateSource: 'named_heir',
+      successorCandidateCitizenId: 'heir-1',
+      successorCandidateName: 'Ada Heir',
+      transferPackage: {
+        founderNumber: 12,
+        founderCitizenId: 'citizen-1',
+        areaId: 'founder-area-0012',
+        businessCount: 2,
+        founderCreatedBusinessCount: 1,
+        inheritedBusinessCount: 1,
+        outstandingDebt: 300,
+        debtObligationCount: 1,
+        protectedByInsurance: true,
+        legacyRoyaltyRate: 0.1,
+        legacyTreasuryAccountId: 'system:founder-legacy-treasury',
+      },
+      blockers: [
+        'replacement_workflow_disabled',
+        'waitlist_handoff_disabled',
+        'candidate_selection_disabled',
+        'main_founder_approval_required',
+        'manual_review_required',
+      ],
+    }
+
+    expect(founderHandoffStatusLabel(handoff)).toBe('Manual review')
+    expect(founderHandoffSummaryItems(handoff)).toEqual([
+      { key: 'seat', label: 'Seat', value: '#0012', tone: 'stable' },
+      { key: 'businesses', label: 'Businesses', value: '2', tone: 'warning' },
+      { key: 'debt', label: 'Debt', value: '$300', tone: 'warning' },
+      { key: 'candidate', label: 'Candidate', value: 'Ada Heir', tone: 'warning' },
+    ])
+    expect(founderHandoffPackageText(handoff)).toBe('founder-area-0012 · 1 founder-created · 1 inherited')
+    expect(founderHandoffBlockerText('replacement_workflow_disabled')).toBe('Replacement workflow')
+    expect(founderHandoffBlockerText('waitlist_handoff_disabled')).toBe('Waitlist handoff')
+    expect(founderHandoffBlockerText('candidate_selection_disabled')).toBe('Candidate selection')
+    expect(founderHandoffBlockerText('main_founder_approval_required')).toBe('Main founder approval')
+    expect(founderHandoffBlockerText('manual_review_required')).toBe('Manual review')
   })
 
   test('labels covenant status with operational tones', () => {

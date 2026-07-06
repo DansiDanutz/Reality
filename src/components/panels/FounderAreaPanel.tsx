@@ -20,6 +20,7 @@ import {
   realityAreaStateToWorldArea,
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
+  type RealityAreaHandoffDashboard,
   type RealityAreaLegacyRoyaltyDashboard,
   type RealityAreaSettlementDashboard,
   type RealityAreaState,
@@ -60,6 +61,10 @@ import {
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
+  founderHandoffBlockerText,
+  founderHandoffPackageText,
+  founderHandoffStatusLabel,
+  founderHandoffSummaryItems,
   founderIdentityClaimSourceLabel,
   founderIdentitySeatLabel,
   founderIdentityTelegramStatusLabel,
@@ -125,6 +130,7 @@ export default function FounderAreaPanel() {
   const growthDashboard = dashboard ? getFounderGrowthDashboard(dashboard) : null
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
   const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
+  const handoffDashboard = dashboard ? getFounderHandoffDashboard(dashboard) : null
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
@@ -499,6 +505,43 @@ export default function FounderAreaPanel() {
             </section>
           )}
 
+          {handoffDashboard && (
+            <section className="founder-section" aria-label="Founder handoff readiness">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Handoff Readiness</h3>
+                <span className="item-desc">{founderHandoffStatusLabel(handoffDashboard)}</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Founder handoff summary">
+                {founderHandoffSummaryItems(handoffDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              <ul className="item-list founder-handoff-package" aria-label="Founder handoff package">
+                <li className="item founder-handoff-asset">
+                  <div className="item-info">
+                    <span className="item-name">Transfer package</span>
+                    <span className="item-desc">{founderHandoffPackageText(handoffDashboard)}</span>
+                  </div>
+                  <span className="item-locked mono">disabled</span>
+                </li>
+              </ul>
+              <ul className="item-list founder-handoff-blockers" aria-label="Founder handoff blockers">
+                {handoffDashboard.blockers.map((blocker) => (
+                  <li className="item founder-handoff-blocker" key={blocker}>
+                    <div className="item-info">
+                      <span className="item-name">{founderHandoffBlockerText(blocker)}</span>
+                      <span className="item-desc">Locked until main founder review</span>
+                    </div>
+                    <span className="item-locked mono">disabled</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="founder-section" aria-label="Needs Dashboard">
             <h3 className="founder-section-title">Needs Dashboard</h3>
             <div className="founder-need-grid">
@@ -834,6 +877,12 @@ function getFounderLegacyRoyaltyDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): RealityAreaLegacyRoyaltyDashboard | null {
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'legacyRoyalty'>>).legacyRoyalty ?? null
+}
+
+function getFounderHandoffDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaHandoffDashboard | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'handoff'>>).handoff ?? null
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {
