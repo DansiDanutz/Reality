@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import handler, {
   areaStatePath,
   normalizeAdvanceHourIntent,
@@ -24,6 +24,9 @@ const TOKEN = 'founder-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
 const FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
 const NON_FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__0.json`
+const SERVER_CLOCK_TOKEN = 'test-server-clock-token'
+const SERVER_CLOCK_HEADERS = { 'x-reality-server-clock-token': SERVER_CLOCK_TOKEN }
+const ORIGINAL_SERVER_CLOCK_TOKEN = process.env.REALITY_SERVER_CLOCK_TOKEN
 
 type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
   jobs: ReturnType<typeof serverDashboard>['jobs'] & {
@@ -208,11 +211,20 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
   }
 }
 
+beforeEach(() => {
+  process.env.REALITY_SERVER_CLOCK_TOKEN = SERVER_CLOCK_TOKEN
+})
+
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  if (ORIGINAL_SERVER_CLOCK_TOKEN === undefined) {
+    delete process.env.REALITY_SERVER_CLOCK_TOKEN
+  } else {
+    process.env.REALITY_SERVER_CLOCK_TOKEN = ORIGINAL_SERVER_CLOCK_TOKEN
+  }
 })
 
 describe('reality area authority API', () => {
@@ -2185,6 +2197,44 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('advanceHour rejects browser requests without server-clock authority', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const existing = withBusiness(advanceReadyState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://public-clock-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    const body = res.body as { ok: false; code: string; error: string; state: ReturnType<typeof withBusiness> }
+    expect(body).toMatchObject({
+      ok: false,
+      code: 'server_clock_unauthorized',
+      error: 'advanceHour is reserved for the server clock.',
+    })
+    expect(body.state.updatedAt).toBe(existing.updatedAt)
+    expect(body.state.transactions).toEqual(existing.transactions)
+    expect(body.state.businesses[0]).toMatchObject({ id: 'water-1', cash: 5 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('advanceHour lets Sim Citizens buy needed local services from their server balances', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
@@ -2203,6 +2253,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2247,6 +2298,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2278,6 +2330,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2317,6 +2370,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2362,6 +2416,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2401,6 +2456,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2442,6 +2498,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2572,6 +2629,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2627,6 +2685,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2665,6 +2724,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2735,6 +2795,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2816,6 +2877,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2861,6 +2923,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2910,6 +2973,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -2952,6 +3016,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
@@ -3795,6 +3860,7 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,

@@ -623,25 +623,20 @@ describe('Reality area client', () => {
     })
   })
 
-  test('sends advanceHour through the server area authority before local simulation advances', async () => {
-    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      jsonResponse(200, { ok: true, state: serverState() }))
+  test('does not send advanceHour from browser clients', async () => {
+    const fetchImpl = vi.fn()
 
     await expect(advanceRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
       founderNumber: 12,
-    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
-
-    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
-        intent: { type: 'advanceHour' },
-      }),
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Reality area clock advances only from the server clock.',
+      code: 'server_clock_unauthorized',
     })
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   test('sends founder covenant review evidence through the server area authority', async () => {

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
@@ -14,6 +14,8 @@ const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
 const FOUNDER_LEGACY_TREASURY_ACCOUNT_ID = 'system:founder-legacy-treasury'
 const FOUNDER_LEGACY_ROYALTY_RATE = 0.1
 const AREA_STATE_VERSION = 1
+const SERVER_CLOCK_TOKEN_ENV = 'REALITY_SERVER_CLOCK_TOKEN'
+const SERVER_CLOCK_TOKEN_HEADER = 'x-reality-server-clock-token'
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * 60 * 60 * 1000
@@ -804,6 +806,7 @@ type ApplyAdvanceHourError =
   | AdvanceHourIntentError
   | 'area_not_claimed'
   | 'clock_not_ready'
+  | 'server_clock_unauthorized'
 
 type RepayDebtIntent =
   | {
@@ -3300,6 +3303,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'advanceHour') {
+      if (!hasServerClockAuthority(req)) {
+        res.status(advanceHourStatus('server_clock_unauthorized')).json({
+          ok: false,
+          error: advanceHourMessage('server_clock_unauthorized'),
+          code: 'server_clock_unauthorized',
+          state: existing,
+        })
+        return
+      }
+
       const result = applyAdvanceHourIntent(existing, rawIntent, new Date())
       if (!result.ok) {
         res.status(advanceHourStatus(result.error)).json({
@@ -4278,6 +4291,7 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
 }
 
 function advanceHourStatus(error: ApplyAdvanceHourError): number {
+  if (error === 'server_clock_unauthorized') return 403
   if (error === 'area_not_claimed' || error === 'clock_not_ready') return 409
   return error === 'unsupported_intent' ? 400 : 422
 }
@@ -4288,6 +4302,8 @@ function advanceHourMessage(error: ApplyAdvanceHourError): string {
       return 'Area must be claimed before advancing the simulation.'
     case 'clock_not_ready':
       return 'Reality area can advance only after a real hour has elapsed.'
+    case 'server_clock_unauthorized':
+      return 'advanceHour is reserved for the server clock.'
     default:
       return 'Invalid advanceHour intent.'
   }
@@ -4335,6 +4351,29 @@ function readAuth(req: VercelRequest): { citizenId: string; token: string } | nu
   const citizenId = field(source, 'citizenId')
   const token = field(source, 'token')
   return citizenId && token ? { citizenId, token } : null
+}
+
+function hasServerClockAuthority(req: VercelRequest): boolean {
+  const expected = process.env[SERVER_CLOCK_TOKEN_ENV]?.trim()
+  if (!expected) return false
+
+  const provided = header(req, SERVER_CLOCK_TOKEN_HEADER)
+  if (!provided) return false
+
+  return tokenMatches(provided, expected)
+}
+
+function header(req: VercelRequest, key: string): string | null {
+  const headers = req.headers ?? {}
+  const value = headers[key] ?? headers[key.toLowerCase()]
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0].trim() || null : null
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function tokenMatches(provided: string, expected: string): boolean {
+  const providedHash = createHash('sha256').update(provided).digest()
+  const expectedHash = createHash('sha256').update(expected).digest()
+  return timingSafeEqual(providedHash, expectedHash)
 }
 
 function field(source: unknown, key: string): string | null {
