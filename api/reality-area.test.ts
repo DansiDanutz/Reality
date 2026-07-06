@@ -3418,9 +3418,20 @@ describe('reality area authority API', () => {
       ok: true
       founderCovenantReviewQueue: {
         items: {
-          reviewQueue: { automationEnabled: boolean; executionEnabled: boolean }
+          reviewQueue: {
+            automationEnabled: boolean
+            executionEnabled: boolean
+            recommendedActionKinds: string[]
+          }
           reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
           reviewChecklist: { key: string; status: string }[]
+          manualActions: {
+            kind: string
+            recommended: boolean
+            automationEnabled: boolean
+            clientPayload: unknown
+            authorityGate: { executionEnabled: boolean }
+          }[]
           pendingApprovalKinds: string[]
           pendingApprovalRequests: {
             kind: string
@@ -3561,6 +3572,14 @@ describe('reality area authority API', () => {
       expect.objectContaining({ key: 'hospital', status: 'manual_review' }),
       expect.objectContaining({ key: 'risk', status: 'manual_review' }),
     ]))
+    expect(queue.items[0].manualActions.filter((action) => action.recommended).map((action) => action.kind)).toEqual(
+      queue.items[0].reviewQueue.recommendedActionKinds,
+    )
+    expect(queue.items[0].manualActions.every((action) =>
+      action.automationEnabled === false &&
+      action.clientPayload === null &&
+      action.authorityGate.executionEnabled === false
+    )).toBe(true)
     expect(queue.items[0].pendingApprovalRequests.map((request) => request.kind)).toEqual(
       queue.items[0].pendingApprovalKinds,
     )

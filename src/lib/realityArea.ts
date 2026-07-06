@@ -837,6 +837,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   activityReview: RealityAreaCovenantReview['activityReview']
   reviewInputs: readonly RealityAreaCovenantReviewInput[]
   reviewChecklist: readonly RealityAreaCovenantReviewChecklistItem[]
+  manualActions: readonly RealityAreaCovenantManualAction[]
   economicExposure: RealityFounderCovenantReviewQueueEconomicExposure
   reviewQueue: RealityAreaCovenantReviewQueue
   signalCounts: RealityFounderCovenantReviewQueueSignalCounts
@@ -2220,6 +2221,8 @@ function isRealityFounderCovenantReviewQueueItem(
     value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
+    Array.isArray(value.manualActions) &&
+    value.manualActions.every(isRealityAreaCovenantReviewActionSnapshot) &&
     isRealityFounderCovenantReviewQueueEconomicExposure(value.economicExposure) &&
     isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     isRealityFounderCovenantReviewQueueSignalCounts(value.signalCounts) &&

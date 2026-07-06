@@ -29,6 +29,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Evidence only')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
@@ -167,6 +168,37 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
         label: 'Active',
         status: 'manual_review',
         evidence: 'Founder is unavailable and needs manual review.',
+      }],
+      manualActions: [{
+        kind: 'record_review',
+        label: 'Record review',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'area_reviewer',
+          status: 'evidence_only',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+        clientPayload: null,
+      }, {
+        kind: 'send_warning',
+        label: 'Send warning',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        reason: 'Covenant signals suggest a manual founder warning.',
+        clientPayload: null,
       }],
       economicExposure: {
         founderCash: 199_500,

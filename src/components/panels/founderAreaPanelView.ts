@@ -123,6 +123,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   latestReviewText: string | null
   checklistText: string
   evidenceInputText: string
+  manualActionText: string
   approvalRequestText: string
   notificationDraftText: string
   signalText: string
@@ -804,6 +805,7 @@ export function founderCovenantOperatorQueueReviewRows(
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
+      manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
@@ -840,6 +842,19 @@ export function founderCovenantOperatorQueueEvidenceInputText(
   if (manual.length > 0) return manual.map((input) => input.label).join(', ')
   const watch = item.reviewInputs.filter((input) => input.status === 'watch')
   return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'complete'
+}
+
+export function founderCovenantOperatorQueueManualActionText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'manualActions'>,
+): string {
+  const suggested = item.manualActions.filter((action) => action.recommended)
+  if (suggested.length === 0) return 'none'
+  return suggested
+    .map((action) => {
+      const status = action.kind === 'record_review' ? 'evidence-only' : 'locked'
+      return `${founderCovenantManualActionKindLabel(action.kind)} ${status}`
+    })
+    .join(', ')
 }
 
 export function founderCovenantOperatorQueueApprovalRequestText(

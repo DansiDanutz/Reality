@@ -11,6 +11,7 @@ import {
   type AreaClaimSource,
   type ClaimWorldAreaError,
   type FounderCovenantApprovalRequest,
+  type FounderCovenantManualAction,
   type FounderCovenantManualActionKind,
   type FounderCovenantManualEvidenceKind,
   type FounderCovenantNextAction,
@@ -218,6 +219,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   activityReview: AreaNeedsDashboard['founderCovenant']['activityReview']
   reviewInputs: readonly FounderCovenantReviewInput[]
   reviewChecklist: readonly FounderCovenantReviewChecklistItem[]
+  manualActions: readonly FounderCovenantManualAction[]
   economicExposure: WorldFounderCovenantReviewQueueEconomicExposure
   reviewQueue: FounderCovenantReviewQueue
   signalCounts: WorldFounderCovenantReviewQueueSignalCounts
@@ -650,6 +652,7 @@ function founderCovenantReviewQueueItem(
     activityReview: { ...review.activityReview },
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(area, dashboard, founderCitizenId),
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
     signalCounts: founderCovenantReviewSignalCounts(review.signals),
@@ -754,6 +757,14 @@ function founderCovenantReviewChecklistSnapshot(
   item: FounderCovenantReviewChecklistItem,
 ): FounderCovenantReviewChecklistItem {
   return { ...item }
+}
+
+function founderCovenantManualActionSnapshot(action: FounderCovenantManualAction): FounderCovenantManualAction {
+  return {
+    ...action,
+    authorityGate: { ...action.authorityGate, executionEnabled: false },
+    clientPayload: null,
+  }
 }
 
 function founderCovenantApprovalRequestSnapshot(

@@ -1382,6 +1382,14 @@ describe('runWorldServerCommand', () => {
       expect.objectContaining({ key: 'hospital', status: 'manual_review' }),
       expect.objectContaining({ key: 'debt', status: 'watch' }),
     ]))
+    expect(queue.items[0].manualActions.filter((action) => action.recommended).map((action) => action.kind)).toEqual(
+      queue.items[0].reviewQueue.recommendedActionKinds,
+    )
+    expect(queue.items[0].manualActions.every((action) =>
+      action.automationEnabled === false &&
+      action.clientPayload === null &&
+      action.authorityGate.executionEnabled === false
+    )).toBe(true)
     expect(queue.items[0].pendingApprovalRequests.map((request) => request.kind)).toEqual(
       queue.items[0].pendingApprovalKinds,
     )

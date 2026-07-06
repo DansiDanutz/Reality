@@ -1126,6 +1126,34 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with executable manual action snapshots', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        manualActions: serverFounderCovenantReviewQueue().items[0].manualActions.map((action, index) =>
+          index === 0
+            ? {
+              ...action,
+              authorityGate: { ...action.authorityGate, executionEnabled: true },
+            }
+            : action
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable latest-review metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2916,6 +2944,11 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       activityReview: review.activityReview,
       reviewInputs: review.reviewInputs,
       reviewChecklist: review.reviewChecklist,
+      manualActions: review.manualActions.map((action) => ({
+        ...action,
+        authorityGate: { ...action.authorityGate, executionEnabled: false },
+        clientPayload: null,
+      })),
       economicExposure: {
         founderCash: 199_650,
         outstandingDebt: 300,

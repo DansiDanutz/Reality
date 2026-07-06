@@ -70,6 +70,7 @@ export function FounderCovenantQueuePanel({
                 {row.latestReviewText && <span className="item-desc">{row.latestReviewText}</span>}
                 <span className="item-desc">Checklist: {row.checklistText}</span>
                 <span className="item-desc">Evidence: {row.evidenceInputText}</span>
+                <span className="item-desc">Actions: {row.manualActionText}</span>
                 <span className="item-desc">Approvals: {row.approvalRequestText}</span>
                 <span className="item-desc">Drafts: {row.notificationDraftText}</span>
                 <span className="item-desc">Priority: {row.priorityReasons.join(', ')}</span>

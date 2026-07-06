@@ -13,6 +13,7 @@ import {
   founderCovenantOperatorQueueApprovalRequestText,
   founderCovenantOperatorQueueChecklistText,
   founderCovenantOperatorQueueEvidenceInputText,
+  founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
@@ -36,6 +37,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
@@ -119,6 +121,9 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
       'Population growth, External contribution, Ideas and feedback',
+    )
+    expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
+      'Record review evidence-only, Send warning locked',
     )
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
@@ -339,6 +344,7 @@ function founderQueueItem(
     },
     reviewInputs: founderReviewInputs(),
     reviewChecklist: founderReviewChecklist(),
+    manualActions: founderManualActions(),
     economicExposure: {
       founderCash: 199_500,
       outstandingDebt: 350,
@@ -378,6 +384,55 @@ function founderQueueItem(
     transactionsAdded: 1,
     ...overrides,
   }
+}
+
+function founderManualActions(): RealityFounderCovenantReviewQueueItem['manualActions'] {
+  return [{
+    kind: 'record_review',
+    label: 'Record review',
+    recommended: true,
+    requiresApproval: true,
+    automationEnabled: false,
+    authorityGate: {
+      requiredRole: 'area_reviewer',
+      status: 'evidence_only',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled: false,
+    },
+    reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+    clientPayload: null,
+  }, {
+    kind: 'send_warning',
+    label: 'Send warning',
+    recommended: true,
+    requiresApproval: true,
+    automationEnabled: false,
+    authorityGate: {
+      requiredRole: 'main_founder',
+      status: 'approval_required',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled: false,
+    },
+    reason: 'Covenant signals suggest a manual founder warning.',
+    clientPayload: null,
+  }, {
+    kind: 'start_probation',
+    label: 'Start probation',
+    recommended: false,
+    requiresApproval: true,
+    automationEnabled: false,
+    authorityGate: {
+      requiredRole: 'main_founder',
+      status: 'approval_required',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled: false,
+    },
+    reason: 'Founder score and signals do not suggest probation.',
+    clientPayload: null,
+  }]
 }
 
 function founderReviewInputs(): RealityFounderCovenantReviewQueueItem['reviewInputs'] {
