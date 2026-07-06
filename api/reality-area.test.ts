@@ -1036,6 +1036,49 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('preserves departed Sim Citizens when legacy roster hydration runs later', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const departureEvent = simDepartureEvent()
+    const departed = {
+      ...existingState(),
+      citizens: existingState().citizens.filter((citizen) => citizen.id !== 'founder-area-0012:sim-water'),
+      areaEvents: [departureEvent],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://departed-sim-area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(departed), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: DashboardWithBuildGuidance }
+    expect(body.state.citizens.some((citizen) => citizen.id === 'founder-area-0012:sim-water')).toBe(false)
+    expect(body.state.citizens.map((citizen) => citizen.id)).toEqual([
+      CITIZEN_ID,
+      'founder-area-0012:sim-food',
+      'founder-area-0012:sim-housing',
+    ])
+    expect(body.state.areaEvents).toEqual([departureEvent])
+    expect(body.dashboard.population).toBe(3)
+    expect(body.dashboard.simPopulation).toBe(2)
+    expect(body.dashboard.areaEvents).toMatchObject({
+      eventCount: 1,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 0,
+      recentEvents: [{
+        id: departureEvent.id,
+        displayName: 'Demo Water Resident (Sim)',
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
+      }],
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('requires a founder seat before claiming an area', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([NON_FOUNDER_PATH]))
@@ -3473,6 +3516,19 @@ describe('reality area authority API', () => {
     const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
     expect(body.state.citizens.some((citizen) => citizen.id === 'founder-area-0012:sim-water')).toBe(false)
     expect(body.state.businesses.find((business) => business.id === 'insurance-1')?.staffCitizenIds).toEqual([])
+    expect(body.state.areaEvents).toEqual([simDepartureEvent()])
+    expect((res.body as { dashboard: DashboardWithBuildGuidance }).dashboard.areaEvents).toMatchObject({
+      eventCount: 1,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 0,
+      recentEvents: [{
+        ...simDepartureEvent(),
+        displayName: 'Demo Water Resident (Sim)',
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
+      }],
+    })
     expect(body.state.transactions).toHaveLength(existing.transactions.length)
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -5327,6 +5383,7 @@ function existingState() {
       amount: 100,
       memo: 'Demo Housing Resident received simulated resident game credit.',
     }],
+    areaEvents: [],
     founderCovenant: baseFounderCovenant('2026-07-06T03:00:00.000Z'),
     updatedAt: '2026-07-06T03:00:00.000Z',
   } as const
@@ -5537,6 +5594,7 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     capacity: { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 },
     shortage: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
     ledger: ledgerDashboard(state),
+    areaEvents: areaEventsDashboard(state),
     jobs: {
       employedCitizens: 0,
       unemployedCitizens: 4,
@@ -5551,6 +5609,23 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
     handoff: handoffDashboard(state),
     landRights: landRightsDashboard(state),
     founderCovenant: state.founderCovenant,
+  } as const
+}
+
+function areaEventsDashboard(state: ReturnType<typeof existingState>) {
+  const events = state.areaEvents ?? []
+  return {
+    eventCount: events.length,
+    simDepartures: events.filter((event) => event.kind === 'sim_citizen_departure' && event.simulated).length,
+    warningEvents: events.filter((event) => event.severity === 'warning').length,
+    criticalEvents: events.filter((event) => event.severity === 'critical').length,
+    recentEvents: events.slice(-10).reverse().map((event) => ({
+      ...event,
+      needs: { ...event.needs },
+      displayName: event.simulated ? `${event.citizenName} (Sim)` : event.citizenName,
+      participantLabel: event.simulated ? 'Sim Citizen' : 'Real Citizen',
+      visualTone: event.simulated ? 'simulated' : 'real',
+    })),
   } as const
 }
 
@@ -5909,6 +5984,23 @@ function withBusinesses(
       createdBy: CITIZEN_ID,
     })),
   }
+}
+
+function simDepartureEvent() {
+  return {
+    id: 'founder-area-0012:1783321200000:sim-departure:founder-area-0012:sim-water:water',
+    at: '2026-07-06T07:00:00.000Z',
+    kind: 'sim_citizen_departure',
+    severity: 'warning',
+    citizenId: 'founder-area-0012:sim-water',
+    citizenName: 'Demo Water Resident',
+    simulated: true,
+    reason: 'water_unserved',
+    serviceKind: 'water',
+    health: 20,
+    needs: { hunger: 86, hydration: 0, energy: 87, hygiene: 89, fun: 89 },
+    message: 'Demo Water Resident left the area because water stayed unserved while health was low.',
+  } as const
 }
 
 function blobList(

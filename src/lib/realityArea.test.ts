@@ -1044,6 +1044,7 @@ describe('Reality area client', () => {
       }],
     })
     expect((merged as { founderIdentity: RealityAreaDashboard['founderIdentity'] }).founderIdentity).toEqual(server.founderIdentity)
+    expect((merged as { areaEvents: RealityAreaDashboard['areaEvents'] }).areaEvents).toEqual(server.areaEvents)
     expect((merged as { growth: RealityAreaDashboard['growth'] }).growth).toEqual(server.growth)
     expect((merged as { settlement: RealityAreaDashboard['settlement'] }).settlement).toEqual(server.settlement)
     expect((merged as { payoutReadiness: RealityAreaDashboard['payoutReadiness'] }).payoutReadiness)
@@ -1941,6 +1942,13 @@ function serverDashboard(): RealityAreaDashboard {
         memo: 'Demo Water Resident bought water from Founder Water.',
       }],
     },
+    areaEvents: {
+      eventCount: 1,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 0,
+      recentEvents: [serverAreaEvent()],
+    },
     growth: {
       channel: 'telegram',
       inviteLinkEnabled: false,
@@ -2568,5 +2576,25 @@ function serverDashboard(): RealityAreaDashboard {
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
     }],
+  }
+}
+
+function serverAreaEvent(): RealityAreaDashboard['areaEvents']['recentEvents'][number] {
+  return {
+    id: 'founder-area-0012:1783321200000:sim-departure:sim-food:food',
+    at: '2026-07-06T07:00:00.000Z',
+    kind: 'sim_citizen_departure',
+    severity: 'warning',
+    citizenId: 'sim-food',
+    citizenName: 'Demo Food Resident',
+    simulated: true,
+    reason: 'food_unserved',
+    serviceKind: 'food',
+    health: 20,
+    needs: { hunger: 0, hydration: 86, energy: 87, hygiene: 89, fun: 89 },
+    message: 'Demo Food Resident left the area because food stayed unserved while health was low.',
+    displayName: 'Demo Food Resident (Sim)',
+    participantLabel: 'Sim Citizen',
+    visualTone: 'simulated',
   }
 }

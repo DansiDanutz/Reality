@@ -52,6 +52,10 @@ type AreaClaimSource = typeof CLAIM_SOURCES[number]
 type FounderAreaBusinessKind = typeof BUSINESS_KINDS[number]
 type FounderAreaTransactionKind = typeof TRANSACTION_KINDS[number]
 type FounderAreaTransactionPayoutEligibility = 'game_only' | 'payout_eligible'
+type FounderAreaEventKind = 'sim_citizen_departure'
+type FounderAreaEventSeverity = 'info' | 'warning' | 'critical'
+type FounderAreaDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
+type FounderAreaDepartureServiceKind = 'water' | 'food' | 'housing'
 
 interface CitizenAuthRecord {
   citizenId: string
@@ -85,6 +89,21 @@ interface FounderAreaTransaction {
   toId: string
   amount: number
   memo: string
+}
+
+interface FounderAreaEvent {
+  id: string
+  at: string
+  kind: FounderAreaEventKind
+  severity: FounderAreaEventSeverity
+  citizenId: string
+  citizenName: string
+  simulated: boolean
+  reason: FounderAreaDepartureReason
+  serviceKind: FounderAreaDepartureServiceKind
+  health: number
+  needs: FounderAreaNeeds
+  message: string
 }
 
 interface FounderAreaNeeds {
@@ -690,6 +709,20 @@ interface FounderAreaLedgerPayoutClassificationDashboard {
   realWithdrawalEligible: false
 }
 
+interface FounderAreaEventDashboard extends FounderAreaEvent {
+  displayName: string
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+}
+
+interface FounderAreaEventsDashboard {
+  eventCount: number
+  simDepartures: number
+  warningEvents: number
+  criticalEvents: number
+  recentEvents: FounderAreaEventDashboard[]
+}
+
 interface FounderAreaSettlementDashboard {
   rail: FounderAreaSettlementRail
   mode: FounderAreaSettlementMode
@@ -840,6 +873,7 @@ interface FounderAreaDashboard {
   citizens: FounderAreaCitizenDashboard[]
   survival: FounderAreaSurvivalDashboard
   ledger: FounderAreaLedgerDashboard
+  areaEvents: FounderAreaEventsDashboard
   growth: FounderAreaGrowthDashboard
   settlement: FounderAreaSettlementDashboard
   payoutReadiness: FounderAreaPayoutReadinessDashboard
@@ -867,6 +901,7 @@ interface FounderAreaState {
   businesses: FounderAreaBusiness[]
   citizens: FounderAreaCitizen[]
   transactions: FounderAreaTransaction[]
+  areaEvents?: FounderAreaEvent[]
   founderReviewHistory?: FounderAreaCovenantReviewHistoryItem[]
   founderCovenant: FounderAreaCovenantReview
   updatedAt: string
@@ -1912,6 +1947,7 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     businesses: [],
     citizens: [founderCitizen, ...simCitizens],
     transactions: [transaction, ...simTransactions],
+    areaEvents: [],
     founderReviewHistory: [],
     updatedAt: at,
   })
@@ -1933,9 +1969,11 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
     citizen.id === state.founderCitizenId ? { ...citizen, money: state.balance } : citizen
   )
   const transactions = state.transactions.map(normalizeFounderAreaTransaction)
+  const areaEvents = normalizeFounderAreaEvents(state.areaEvents)
 
   for (const expected of expectedCitizens) {
     if (citizens.some((citizen) => citizen.id === expected.id)) continue
+    if (expected.kind === 'sim' && hasSimDepartureEvent(areaEvents, expected.id)) continue
     citizens = [...citizens, expected]
     if (expected.kind === 'sim' && !transactions.some((transaction) =>
       transaction.kind === 'sim_citizen_credit' && transaction.toId === expected.id
@@ -1950,7 +1988,7 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
     }
   }
 
-  return withFounderCovenantReview({ ...state, citizens, transactions })
+  return withFounderCovenantReview({ ...state, citizens, transactions, areaEvents })
 }
 
 function withFounderCovenantReview(state: FounderAreaStateInput): FounderAreaState {
@@ -1968,6 +2006,22 @@ function normalizeFounderAreaTransaction(transaction: FounderAreaTransaction): F
     ...transaction,
     payoutEligibility: 'game_only',
   }
+}
+
+function normalizeFounderAreaEvents(input: unknown): FounderAreaEvent[] {
+  if (!Array.isArray(input)) return []
+  return input.filter(isFounderAreaEvent).map((event) => ({
+    ...event,
+    needs: { ...event.needs },
+  }))
+}
+
+function hasSimDepartureEvent(events: FounderAreaEvent[], citizenId: string): boolean {
+  return events.some((event) =>
+    event.kind === 'sim_citizen_departure' &&
+    event.simulated &&
+    event.citizenId === citizenId
+  )
 }
 
 function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenantReview {
@@ -2896,6 +2950,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
     survival: survivalDashboard(state),
     ledger: areaLedgerDashboard(state),
+    areaEvents: areaEventsDashboard(state),
     growth: areaGrowthDashboard(state),
     settlement: areaSettlementDashboard(state),
     payoutReadiness: areaPayoutReadinessDashboard(state),
@@ -3113,6 +3168,27 @@ function areaLedgerDashboard(state: FounderAreaState): FounderAreaLedgerDashboar
     totalsByKind,
     payoutClassification: ledgerPayoutClassification(state.transactions),
     recentTransactions: state.transactions.slice(-10).reverse().map((transaction) => ({ ...transaction })),
+  }
+}
+
+function areaEventsDashboard(state: FounderAreaState): FounderAreaEventsDashboard {
+  const events = normalizeFounderAreaEvents(state.areaEvents)
+  return {
+    eventCount: events.length,
+    simDepartures: events.filter((event) => event.kind === 'sim_citizen_departure' && event.simulated).length,
+    warningEvents: events.filter((event) => event.severity === 'warning').length,
+    criticalEvents: events.filter((event) => event.severity === 'critical').length,
+    recentEvents: events.slice(-10).reverse().map(areaEventDashboard),
+  }
+}
+
+function areaEventDashboard(event: FounderAreaEvent): FounderAreaEventDashboard {
+  return {
+    ...event,
+    needs: { ...event.needs },
+    displayName: event.simulated ? `${event.citizenName} (Sim)` : event.citizenName,
+    participantLabel: event.simulated ? 'Sim Citizen' : 'Real Citizen',
+    visualTone: event.simulated ? 'simulated' : 'real',
   }
 }
 
@@ -4725,14 +4801,16 @@ function catchUpAreaClock(state: FounderAreaState, now: Date): FounderAreaState 
   if (tickDates.length === 0) return null
 
   const transactions: FounderAreaTransaction[] = []
+  const areaEvents: FounderAreaEvent[] = []
   const citizens = state.citizens.map(cloneCitizen)
   const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
   for (const tickNow of tickDates) {
-    applyAreaHourTick(state.areaId, state.founderCitizenId, citizens, businesses, tickNow, transactions)
+    applyAreaHourTick(state.areaId, state.founderCitizenId, citizens, businesses, tickNow, transactions, areaEvents)
   }
   const founder = citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const balance = founder ? roundMoney(founder.money) : state.balance
   const updatedAt = tickDates.at(-1)?.toISOString() ?? state.updatedAt
+  const existingAreaEvents = normalizeFounderAreaEvents(state.areaEvents)
 
   return withFounderCovenantReview({
     ...state,
@@ -4740,6 +4818,7 @@ function catchUpAreaClock(state: FounderAreaState, now: Date): FounderAreaState 
     businesses,
     citizens,
     transactions: [...state.transactions, ...transactions],
+    areaEvents: [...existingAreaEvents, ...areaEvents],
     updatedAt,
   })
 }
@@ -4751,12 +4830,13 @@ function applyAreaHourTick(
   businesses: FounderAreaBusiness[],
   now: Date,
   transactions: FounderAreaTransaction[],
+  areaEvents: FounderAreaEvent[],
 ): void {
   const at = now.toISOString()
   renewInsurancePolicies(areaId, citizens, businesses, now, at, transactions)
   applyFounderHour(areaId, founderCitizenId, citizens, businesses, now, at, transactions)
   degradeUnmanagedBusinesses(citizens, businesses)
-  applySimCitizenHour(areaId, citizens, businesses, now, at, transactions)
+  applySimCitizenHour(areaId, citizens, businesses, now, at, transactions, areaEvents)
   for (const business of businesses) {
     let cash = business.cash
     const paidWorkerIds: string[] = []
@@ -5114,6 +5194,7 @@ function applySimCitizenHour(
   now: Date,
   at: string,
   transactions: FounderAreaTransaction[],
+  areaEvents: FounderAreaEvent[],
 ): void {
   let purchaseSequence = 0
   const capacityUsed = new Map<string, number>()
@@ -5145,8 +5226,10 @@ function applySimCitizenHour(
       })
     }
     applyUnmetNeedHealthPenalty(citizen)
-    if (shouldSimCitizenLeaveArea(citizen, citizens, businesses, capacityUsed)) {
+    const departureReason = simCitizenDepartureReason(citizen, citizens, businesses, capacityUsed)
+    if (departureReason) {
       departingCitizenIds.add(citizen.id)
+      areaEvents.push(simCitizenDepartureEvent(areaId, citizen, now, at, departureReason))
       continue
     }
     if (shouldHospitalize(citizen)) {
@@ -5156,25 +5239,34 @@ function applySimCitizenHour(
   removeDepartingSimCitizens(citizens, businesses, departingCitizenIds)
 }
 
-function shouldSimCitizenLeaveArea(
+function simCitizenDepartureReason(
   citizen: FounderAreaCitizen,
   citizens: FounderAreaCitizen[],
   businesses: FounderAreaBusiness[],
   capacityUsed: Map<string, number>,
-): boolean {
-  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return false
-  if (businesses.some((business) => business.ownerId === citizen.id)) return false
-  if (citizen.health > SIM_LEAVES_HEALTH) return false
-  return (
+): FounderAreaDepartureReason | null {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return null
+  if (businesses.some((business) => business.ownerId === citizen.id)) return null
+  if (citizen.health > SIM_LEAVES_HEALTH) return null
+  if (
     citizen.needs.hydration <= SIM_LEAVES_NEED_LEVEL &&
     !hasRemainingServiceCapacity(citizens, businesses, 'water', capacityUsed)
-  ) || (
+  ) {
+    return 'water_unserved'
+  }
+  if (
     citizen.needs.hunger <= SIM_LEAVES_NEED_LEVEL &&
     !hasRemainingServiceCapacity(citizens, businesses, 'food', capacityUsed)
-  ) || (
+  ) {
+    return 'food_unserved'
+  }
+  if (
     citizen.needs.energy <= SIM_LEAVES_NEED_LEVEL &&
     !hasRemainingServiceCapacity(citizens, businesses, 'housing', capacityUsed)
-  )
+  ) {
+    return 'housing_unserved'
+  }
+  return null
 }
 
 function hasRemainingServiceCapacity(
@@ -5187,6 +5279,41 @@ function hasRemainingServiceCapacity(
     business.kind === kind &&
     hourlyServiceCapacity(citizens, business) > (capacityUsed.get(business.id) ?? 0)
   )
+}
+
+function simCitizenDepartureEvent(
+  areaId: string,
+  citizen: FounderAreaCitizen,
+  now: Date,
+  at: string,
+  reason: FounderAreaDepartureReason,
+): FounderAreaEvent {
+  const serviceKind = departureReasonServiceKind(reason)
+  return {
+    id: `${areaId}:${now.getTime()}:sim-departure:${citizen.id}:${serviceKind}`,
+    at,
+    kind: 'sim_citizen_departure',
+    severity: 'warning',
+    citizenId: citizen.id,
+    citizenName: citizen.name,
+    simulated: true,
+    reason,
+    serviceKind,
+    health: citizen.health,
+    needs: { ...citizen.needs },
+    message: `${citizen.name} left the area because ${serviceKind} stayed unserved while health was low.`,
+  }
+}
+
+function departureReasonServiceKind(reason: FounderAreaDepartureReason): FounderAreaDepartureServiceKind {
+  switch (reason) {
+    case 'water_unserved':
+      return 'water'
+    case 'food_unserved':
+      return 'food'
+    case 'housing_unserved':
+      return 'housing'
+  }
 }
 
 function removeDepartingSimCitizens(
@@ -5818,5 +5945,43 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
     (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
     Array.isArray(value.businesses) &&
-    Array.isArray(value.transactions)
+    Array.isArray(value.transactions) &&
+    (value.areaEvents === undefined || Array.isArray(value.areaEvents))
+}
+
+function isFounderAreaEvent(value: unknown): value is FounderAreaEvent {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.at === 'string' &&
+    value.kind === 'sim_citizen_departure' &&
+    isFounderAreaEventSeverity(value.severity) &&
+    typeof value.citizenId === 'string' &&
+    typeof value.citizenName === 'string' &&
+    typeof value.simulated === 'boolean' &&
+    isFounderAreaDepartureReason(value.reason) &&
+    isFounderAreaDepartureServiceKind(value.serviceKind) &&
+    typeof value.health === 'number' &&
+    isFounderAreaNeeds(value.needs) &&
+    typeof value.message === 'string'
+}
+
+function isFounderAreaEventSeverity(value: unknown): value is FounderAreaEventSeverity {
+  return value === 'info' || value === 'warning' || value === 'critical'
+}
+
+function isFounderAreaDepartureReason(value: unknown): value is FounderAreaDepartureReason {
+  return value === 'water_unserved' || value === 'food_unserved' || value === 'housing_unserved'
+}
+
+function isFounderAreaDepartureServiceKind(value: unknown): value is FounderAreaDepartureServiceKind {
+  return value === 'water' || value === 'food' || value === 'housing'
+}
+
+function isFounderAreaNeeds(value: unknown): value is FounderAreaNeeds {
+  return isRecord(value) &&
+    typeof value.hunger === 'number' &&
+    typeof value.hydration === 'number' &&
+    typeof value.energy === 'number' &&
+    typeof value.hygiene === 'number' &&
+    typeof value.fun === 'number'
 }

@@ -94,6 +94,25 @@ export interface RealityAreaTransaction {
   memo: string
 }
 
+export type RealityAreaEventSeverity = 'info' | 'warning' | 'critical'
+export type RealityAreaDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
+export type RealityAreaDepartureServiceKind = 'water' | 'food' | 'housing'
+
+export interface RealityAreaEvent {
+  id: string
+  at: string
+  kind: 'sim_citizen_departure'
+  severity: RealityAreaEventSeverity
+  citizenId: string
+  citizenName: string
+  simulated: boolean
+  reason: RealityAreaDepartureReason
+  serviceKind: RealityAreaDepartureServiceKind
+  health: number
+  needs: RealityAreaNeeds
+  message: string
+}
+
 export type RealityAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
 export type RealityAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
 export type RealityAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
@@ -440,6 +459,20 @@ export interface RealityAreaLedgerPayoutClassificationDashboard {
   realWithdrawalEligible: false
 }
 
+export interface RealityAreaEventDashboard extends RealityAreaEvent {
+  displayName: string
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+}
+
+export interface RealityAreaEventsDashboard {
+  eventCount: number
+  simDepartures: number
+  warningEvents: number
+  criticalEvents: number
+  recentEvents: RealityAreaEventDashboard[]
+}
+
 export type RealityAreaGrowthBlocker =
   | 'telegram_invite_links_disabled'
   | 'invite_tracking_disabled'
@@ -740,6 +773,7 @@ export interface RealityAreaDashboard {
   citizens: RealityAreaCitizenDashboard[]
   survival: RealityAreaSurvivalDashboard
   ledger: RealityAreaLedgerDashboard
+  areaEvents: RealityAreaEventsDashboard
   growth: RealityAreaGrowthDashboard
   settlement: RealityAreaSettlementDashboard
   payoutReadiness: RealityAreaPayoutReadinessDashboard
@@ -751,7 +785,14 @@ export interface RealityAreaDashboard {
 
 export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<
   RealityAreaDashboard,
-  'founderIdentity' | 'growth' | 'settlement' | 'payoutReadiness' | 'legacyRoyalty' | 'handoff' | 'landRights'
+  | 'founderIdentity'
+  | 'areaEvents'
+  | 'growth'
+  | 'settlement'
+  | 'payoutReadiness'
+  | 'legacyRoyalty'
+  | 'handoff'
+  | 'landRights'
 >
 
 export interface RealityAreaState {
@@ -775,6 +816,7 @@ export interface RealityAreaState {
   businesses: RealityAreaBusiness[]
   citizens: RealityAreaCitizen[]
   transactions: RealityAreaTransaction[]
+  areaEvents?: RealityAreaEvent[]
   founderReviewHistory?: RealityAreaCovenantReviewHistoryItem[]
   founderCovenant: RealityAreaCovenantReview
   updatedAt: string
@@ -1019,6 +1061,7 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     ),
     survival: mergeRealityAreaSurvivalDashboard(serverDashboard.survival),
     ledger: mergeRealityAreaLedgerDashboard(serverDashboard.ledger),
+    areaEvents: mergeRealityAreaEventsDashboard(serverDashboard.areaEvents),
     growth: {
       ...serverDashboard.growth,
       blockers: [...serverDashboard.growth.blockers],
@@ -1048,6 +1091,19 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
       blockers: [...serverDashboard.landRights.blockers],
     },
     founderCovenant: mergeRealityAreaCovenantReview(serverDashboard.founderCovenant),
+  }
+}
+
+function mergeRealityAreaEventsDashboard(events: RealityAreaEventsDashboard): RealityAreaEventsDashboard {
+  return {
+    eventCount: events.eventCount,
+    simDepartures: events.simDepartures,
+    warningEvents: events.warningEvents,
+    criticalEvents: events.criticalEvents,
+    recentEvents: events.recentEvents.map((event) => ({
+      ...event,
+      needs: { ...event.needs },
+    })),
   }
 }
 
@@ -1365,6 +1421,10 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     !Array.isArray(value.citizens) ||
     !isRealityAreaCovenantReview(value.founderCovenant) ||
     !Array.isArray(value.transactions) ||
+    (value.areaEvents !== undefined && (
+      !Array.isArray(value.areaEvents) ||
+      !value.areaEvents.every(isRealityAreaEvent)
+    )) ||
     (value.founderReviewHistory !== undefined && (
       !Array.isArray(value.founderReviewHistory) ||
       !value.founderReviewHistory.every(isRealityAreaCovenantReviewHistoryItem)
@@ -1456,6 +1516,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     value.citizens.every(isRealityAreaCitizenDashboard) &&
     isRealityAreaSurvivalDashboard(value.survival) &&
     isRealityAreaLedgerDashboard(value.ledger) &&
+    isRealityAreaEventsDashboard(value.areaEvents) &&
     isRealityAreaGrowthDashboard(value.growth) &&
     isRealityAreaSettlementDashboard(value.settlement) &&
     isRealityAreaPayoutReadinessDashboard(value.payoutReadiness) &&
@@ -1481,6 +1542,51 @@ function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedge
     isRealityAreaLedgerPayoutClassification(value.payoutClassification) &&
     Array.isArray(value.recentTransactions) &&
     value.recentTransactions.every(isRealityAreaTransaction)
+}
+
+function isRealityAreaEventsDashboard(value: unknown): value is RealityAreaEventsDashboard {
+  return isRecord(value) &&
+    typeof value.eventCount === 'number' &&
+    typeof value.simDepartures === 'number' &&
+    typeof value.warningEvents === 'number' &&
+    typeof value.criticalEvents === 'number' &&
+    Array.isArray(value.recentEvents) &&
+    value.recentEvents.every(isRealityAreaEventDashboard)
+}
+
+function isRealityAreaEventDashboard(value: unknown): value is RealityAreaEventDashboard {
+  if (!isRealityAreaEvent(value) || !isRecord(value)) return false
+  return typeof value.displayName === 'string' &&
+    (value.participantLabel === 'Sim Citizen' || value.participantLabel === 'Real Citizen') &&
+    (value.visualTone === 'simulated' || value.visualTone === 'real')
+}
+
+function isRealityAreaEvent(value: unknown): value is RealityAreaEvent {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.at === 'string' &&
+    value.kind === 'sim_citizen_departure' &&
+    isRealityAreaEventSeverity(value.severity) &&
+    typeof value.citizenId === 'string' &&
+    typeof value.citizenName === 'string' &&
+    typeof value.simulated === 'boolean' &&
+    isRealityAreaDepartureReason(value.reason) &&
+    isRealityAreaDepartureServiceKind(value.serviceKind) &&
+    typeof value.health === 'number' &&
+    isRealityAreaNeeds(value.needs) &&
+    typeof value.message === 'string'
+}
+
+function isRealityAreaEventSeverity(value: unknown): value is RealityAreaEventSeverity {
+  return value === 'info' || value === 'warning' || value === 'critical'
+}
+
+function isRealityAreaDepartureReason(value: unknown): value is RealityAreaDepartureReason {
+  return value === 'water_unserved' || value === 'food_unserved' || value === 'housing_unserved'
+}
+
+function isRealityAreaDepartureServiceKind(value: unknown): value is RealityAreaDepartureServiceKind {
+  return value === 'water' || value === 'food' || value === 'housing'
 }
 
 function isRealityAreaLedgerPayoutClassification(
