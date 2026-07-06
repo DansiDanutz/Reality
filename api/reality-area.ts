@@ -45,6 +45,7 @@ interface FounderAreaTransaction {
     | 'worker_wage'
     | 'hospital_bill'
     | 'medical_debt'
+    | 'debt_repayment'
   fromId: string
   toId: string
   amount: number
@@ -201,6 +202,27 @@ type ApplyAdvanceHourError =
   | AdvanceHourIntentError
   | 'area_not_claimed'
 
+type RepayDebtIntent =
+  | {
+    ok: true
+    debtId: string
+    amount: number
+  }
+  | { ok: false; error: RepayDebtIntentError }
+
+type RepayDebtIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_debt_id'
+  | 'invalid_debt_payment'
+
+type ApplyRepayDebtError =
+  | RepayDebtIntentError
+  | 'area_not_claimed'
+  | 'actor_unavailable'
+  | 'debt_not_found'
+  | 'insufficient_funds'
+
 const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
   buyWater: 'water',
   buyFood: 'food',
@@ -249,6 +271,26 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
   'transactions',
   'citizens',
   'summary',
+])
+
+const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'ownerId',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'price',
+  'wagePerHour',
+  'creditorId',
+  'debt',
+  'debts',
+  'businesses',
+  'transactions',
+  'citizens',
 ])
 
 const FORBIDDEN_SERVICE_FIELDS = new Set([
@@ -434,6 +476,21 @@ export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
+}
+
+export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
+  if (!isRecord(input) || input.type !== 'repayDebt') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_REPAY_DEBT_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const debtId = text(input.debtId)
+  if (!isClientId(debtId)) return { ok: false, error: 'invalid_debt_id' }
+
+  const amount = roundMoney(Number(input.amount))
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'invalid_debt_payment' }
+
+  return { ok: true, debtId, amount }
 }
 
 export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
@@ -737,6 +794,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (intentType === 'repayDebt') {
+      const result = applyRepayDebtIntent(existing, rawIntent, new Date())
+      if (!result.ok) {
+        res.status(repayDebtStatus(result.error)).json({
+          ok: false,
+          error: repayDebtMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+      res.status(200).json({ ok: true, state: result.state })
+      return
+    }
+
     res.status(400).json({ ok: false, error: 'Unsupported area intent.', code: 'unsupported_intent' })
   } catch {
     res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
@@ -926,6 +1005,65 @@ function applyServicePurchaseIntent(
           : candidate
       ),
       citizens: setFounderCitizenMoney(state, roundMoney(state.balance - business.price)),
+      transactions: [...state.transactions, transaction],
+      updatedAt: at,
+    },
+  }
+}
+
+function applyRepayDebtIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyRepayDebtError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeRepayDebtIntent(input)
+  if (!intent.ok) return intent
+
+  const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
+
+  const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
+  if (!debt || debt.amount <= 0) return { ok: false, error: 'debt_not_found' }
+
+  const payment = roundMoney(Math.min(intent.amount, debt.amount))
+  if (payment <= 0) return { ok: false, error: 'invalid_debt_payment' }
+  if (actor.money < payment) return { ok: false, error: 'insufficient_funds' }
+
+  const at = now.toISOString()
+  const nextDebtAmount = roundMoney(debt.amount - payment)
+  const citizens = state.citizens.map((citizen) => {
+    if (citizen.id !== actor.id) return citizen
+    const nextDebts = (citizen.debts ?? [])
+      .map((candidate) => candidate.id === debt.id ? { ...candidate, amount: nextDebtAmount } : candidate)
+      .filter((candidate) => candidate.amount > 0)
+    return {
+      ...citizen,
+      money: roundMoney(citizen.money - payment),
+      debt: roundMoney(Math.max(0, citizen.debt - payment)),
+      debts: nextDebts.length > 0 ? nextDebts : undefined,
+    }
+  })
+  const businesses = state.businesses.map((business) =>
+    business.id === debt.creditorId ? { ...business, cash: roundMoney(business.cash + payment) } : business
+  )
+  const transaction: FounderAreaTransaction = {
+    id: `${state.areaId}:${now.getTime()}:debt-repayment:${actor.id}:${debt.id}`,
+    at,
+    kind: 'debt_repayment',
+    fromId: actor.id,
+    toId: debt.creditorId,
+    amount: payment,
+    memo: `${actor.name} repaid debt to ${debt.creditorId}.`,
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      balance: roundMoney(state.balance - payment),
+      businesses,
+      citizens,
       transactions: [...state.transactions, transaction],
       updatedAt: at,
     },
@@ -1218,6 +1356,27 @@ function advanceHourMessage(error: ApplyAdvanceHourError): string {
       return 'Area must be claimed before advancing the simulation.'
     default:
       return 'Invalid advanceHour intent.'
+  }
+}
+
+function repayDebtStatus(error: ApplyRepayDebtError): number {
+  if (error === 'area_not_claimed' || error === 'actor_unavailable' || error === 'debt_not_found') return 409
+  if (error === 'insufficient_funds') return 402
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function repayDebtMessage(error: ApplyRepayDebtError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before repaying debt.'
+    case 'actor_unavailable':
+      return 'Founder must be active before repaying debt.'
+    case 'debt_not_found':
+      return 'Debt must exist on the server before repayment.'
+    case 'insufficient_funds':
+      return 'Founder balance is too low for this debt repayment.'
+    default:
+      return 'Invalid repayDebt intent.'
   }
 }
 

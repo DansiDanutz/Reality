@@ -147,6 +147,28 @@ describe('Reality area client', () => {
     })
   })
 
+  test('sends debt repayments through the server area authority', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 }, fetchImpl as never))
+      .resolves.toEqual({ ok: true, state: serverState() })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      }),
+    })
+  })
+
   test('sends advanceHour through the server area authority before local simulation advances', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
@@ -176,6 +198,7 @@ describe('Reality area client', () => {
       businessId: 'water-1',
     })).toBe(true)
     expect(isRealityAreaServerPayload({ type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-1' })).toBe(true)
+    expect(isRealityAreaServerPayload({ type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 })).toBe(true)
     expect(isRealityAreaServerPayload({ type: 'buyInsurance', insuranceBusinessId: 'ins-1' })).toBe(false)
   })
 

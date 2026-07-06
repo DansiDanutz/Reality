@@ -7,6 +7,7 @@ import handler, {
   normalizeBuildBusinessIntent,
   normalizeClaimAreaIntent,
   normalizeHireWorkerIntent,
+  normalizeRepayDebtIntent,
   normalizeServicePurchaseIntent,
   verifyCitizen,
 } from './reality-area'
@@ -137,6 +138,34 @@ describe('reality area authority API', () => {
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', hours: 24 }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
+  })
+
+  test('normalizes repayDebt without accepting client-controlled debt or creditor fields', () => {
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120.456,
+    })).toEqual({
+      ok: true,
+      debtId: 'founder-medical-1',
+      amount: 120.46,
+    })
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120,
+      creditorId: 'clinic-1',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
+      debtId: '../debt',
+      amount: 120,
+    })).toEqual({ ok: false, error: 'invalid_debt_id' })
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 0,
+    })).toEqual({ ok: false, error: 'invalid_debt_payment' })
   })
 
   test('requires a registered citizen before reading area state', async () => {
@@ -887,6 +916,147 @@ describe('reality area authority API', () => {
     expect(recovered?.money).toBe(100)
     expect(body.state.businesses[0].cash).toBe(5)
     expect(body.state.transactions).toHaveLength(existing.transactions.length)
+  })
+
+  test('repayDebt pays the recorded creditor and reduces the founder debt line', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const indebted = withCitizen(existingState(), CITIZEN_ID, {
+      money: 200_000,
+      debt: 300,
+      debts: [{
+        id: 'founder-medical-1',
+        kind: 'medical',
+        creditorId: 'clinic-1',
+        amount: 300,
+        issuedAt: '2026-07-06T07:00:00.000Z',
+        memo: 'Founder #0012 owes medical debt to clinic-1.',
+      }],
+    })
+    const existing = withBusiness(indebted, {
+      id: 'clinic-1',
+      name: 'Founder Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 10,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://debt-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(body.state.balance).toBe(199_880)
+    expect(founder?.money).toBe(199_880)
+    expect(founder?.debt).toBe(180)
+    expect(founder?.debts).toMatchObject([{ id: 'founder-medical-1', amount: 180, creditorId: 'clinic-1' }])
+    expect(body.state.businesses[0].cash).toBe(130)
+    expect(body.state.transactions.at(-1)).toEqual({
+      id: 'founder-area-0012:1783324800000:debt-repayment:11111111-1111-4111-8111-111111111111:founder-medical-1',
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'debt_repayment',
+      fromId: CITIZEN_ID,
+      toId: 'clinic-1',
+      amount: 120,
+      memo: 'Founder #0012 repaid debt to clinic-1.',
+    })
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('repayDebt requires a server debt, active founder, and funds', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://no-debt-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    const missing = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      },
+    } as never, missing as never)
+
+    expect(missing.statusCode).toBe(409)
+    expect(missing.body).toMatchObject({ ok: false, code: 'debt_not_found' })
+
+    const hospitalizedState = withCitizen(existingState(), CITIZEN_ID, {
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+      debt: 120,
+      debts: [{
+        id: 'founder-medical-1',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 120,
+        issuedAt: '2026-07-06T07:00:00.000Z',
+        memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-debt-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(hospitalizedState), { status: 200 })))
+    const unavailable = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      },
+    } as never, unavailable as never)
+
+    expect(unavailable.statusCode).toBe(409)
+    expect(unavailable.body).toMatchObject({ ok: false, code: 'actor_unavailable' })
+
+    const brokeState = withCitizen({ ...existingState(), balance: 50 }, CITIZEN_ID, {
+      money: 50,
+      debt: 120,
+      debts: [{
+        id: 'founder-medical-1',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 120,
+        issuedAt: '2026-07-06T07:00:00.000Z',
+        memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://broke-debt-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(brokeState), { status: 200 })))
+    const broke = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      },
+    } as never, broke as never)
+
+    expect(broke.statusCode).toBe(402)
+    expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
