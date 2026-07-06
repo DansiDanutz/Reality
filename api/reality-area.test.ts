@@ -635,8 +635,8 @@ describe('reality area authority API', () => {
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
-      nextLicensePopulation: 4,
-      citizensUntilNextLicense: 0,
+      nextLicensePopulation: 70,
+      citizensUntilNextLicense: 66,
       saturation: 0,
       founderCanAfford: true,
       canBuildNow: true,
@@ -661,8 +661,8 @@ describe('reality area authority API', () => {
       action: 'grow_demand',
       licenseSlots: 0,
       licensesRemaining: 0,
-      nextLicensePopulation: 8,
-      citizensUntilNextLicense: 4,
+      nextLicensePopulation: 80,
+      citizensUntilNextLicense: 76,
       canBuildNow: false,
       blockers: ['license_unavailable'],
       licensed: false,
@@ -1551,6 +1551,50 @@ describe('reality area authority API', () => {
     expect(saturated.body).toMatchObject({
       ok: false,
       code: 'business_saturated',
+    })
+  })
+
+  test('buildBusiness unlocks another same-kind license as active population grows', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
+    const expanded = withAdditionalSimCitizens(withBusiness(existingState(), {
+      id: 'food-1',
+      name: 'Founder Food',
+      kind: 'food',
+      price: 14,
+      cash: 0,
+    }), 56)
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://expanded-food-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(expanded), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'food',
+          businessId: 'food-2',
+          name: 'Second Food Shop',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: DashboardWithBuildGuidance }
+    expect(body.state.businesses.map((business) => business.id)).toEqual(['food-1', 'food-2'])
+    expect(body.dashboard.licenses.food).toEqual({ slots: 2, used: 2, remaining: 0, saturation: 1 })
+    expect(body.dashboard.firstBuild.find((recommendation) => recommendation.kind === 'food')).toMatchObject({
+      licenseSlots: 2,
+      licensesRemaining: 0,
+      nextLicensePopulation: 90,
+      citizensUntilNextLicense: 30,
+      saturated: true,
+      clientPayload: null,
     })
   })
 
@@ -3799,6 +3843,25 @@ function withCitizen(
         }
         : citizen
     ),
+  }
+}
+
+function withAdditionalSimCitizens(state: ReturnType<typeof existingState>, count: number) {
+  return {
+    ...state,
+    citizens: [
+      ...state.citizens,
+      ...Array.from({ length: count }, (_, index) => ({
+        id: `${state.areaId}:sim-growth-${index + 1}`,
+        name: `Demo Growth Resident ${index + 1}`,
+        kind: 'sim' as const,
+        money: 100,
+        debt: 0,
+        needs: { hunger: 55, hydration: 55, energy: 70, hygiene: 90, fun: 90 },
+        health: 100,
+        state: { kind: 'active' as const },
+      })),
+    ],
   }
 }
 

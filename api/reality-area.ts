@@ -1105,12 +1105,20 @@ const BUSINESS_BLUEPRINTS: Record<FounderAreaBusinessKind, {
   insurance: { name: 'Insurance Office', buildCost: 60_000, price: 45, wagePerHour: 20 },
 }
 
-const STARTER_LICENSE_SLOTS: Record<FounderAreaBusinessKind, number> = {
+const MIN_LICENSE_SLOTS: Record<FounderAreaBusinessKind, number> = {
   water: 1,
   food: 1,
   housing: 1,
   clinic: 0,
   insurance: 0,
+}
+
+const LICENSE_POPULATION_STEP: Record<FounderAreaBusinessKind, number> = {
+  water: 35,
+  food: 30,
+  housing: 22,
+  clinic: 80,
+  insurance: 90,
 }
 
 const TARGET_STAFF_BY_KIND: Record<FounderAreaBusinessKind, number> = {
@@ -2292,7 +2300,8 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
   const realDemand = areaServiceDemand(state.citizens.filter((citizen) => citizen.kind === 'real'))
   const supply = areaServiceSupply(state.businesses)
   const capacity = areaServiceCapacity(state.citizens, state.businesses)
-  const licenses = areaLicenseDashboard(supply)
+  const licensePopulation = activePopulation(state)
+  const licenses = areaLicenseDashboard(licensePopulation, supply)
   const licenseSlots = emptyBusinessKindRecord()
   const saturation = emptyBusinessKindRecord()
   const shortage = emptyBusinessKindRecord()
@@ -2416,11 +2425,12 @@ function areaServiceSupply(businesses: FounderAreaBusiness[]): Record<FounderAre
 }
 
 function areaLicenseDashboard(
+  population: number,
   supply: Record<FounderAreaBusinessKind, number>,
 ): Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard> {
   const licenses = {} as Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
   for (const kind of BUSINESS_KINDS) {
-    const slots = STARTER_LICENSE_SLOTS[kind]
+    const slots = licenseSlotsForPopulation(population, kind)
     const used = supply[kind]
     licenses[kind] = {
       slots,
@@ -2430,6 +2440,14 @@ function areaLicenseDashboard(
     }
   }
   return licenses
+}
+
+function activePopulation(state: FounderAreaState): number {
+  return state.citizens.filter((citizen) => citizen.state.kind === 'active').length
+}
+
+function licenseSlotsForPopulation(population: number, kind: FounderAreaBusinessKind): number {
+  return Math.max(MIN_LICENSE_SLOTS[kind], Math.floor(population / LICENSE_POPULATION_STEP[kind]))
 }
 
 function firstBuildRecommendations(
@@ -2442,7 +2460,7 @@ function firstBuildRecommendations(
 ): FounderAreaFirstBuildRecommendation[] {
   const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const founderActive = founder?.state.kind === 'active'
-  const population = state.citizens.length
+  const population = activePopulation(state)
 
   return BUSINESS_KINDS.map((kind) => {
     const blueprint = BUSINESS_BLUEPRINTS[kind]
@@ -2603,9 +2621,7 @@ function firstBuildEconomics(
 }
 
 function nextLicenseUnlockPopulation(population: number, kind: FounderAreaBusinessKind): number {
-  const starterSlots = STARTER_LICENSE_SLOTS[kind]
-  if (starterSlots > 0) return population
-  return kind === 'clinic' || kind === 'insurance' ? Math.max(population, 8) : population
+  return (licenseSlotsForPopulation(population, kind) + 1) * LICENSE_POPULATION_STEP[kind]
 }
 
 function firstBuildReason(input: {
@@ -3289,7 +3305,8 @@ function applyBuildBusinessIntent(
   if (state.businesses.some((business) => business.id === intent.businessId)) {
     return { ok: false, error: 'business_id_taken' }
   }
-  if (state.businesses.filter((business) => business.kind === intent.businessKind).length >= STARTER_LICENSE_SLOTS[intent.businessKind]) {
+  const licenseSlots = licenseSlotsForPopulation(activePopulation(state), intent.businessKind)
+  if (state.businesses.filter((business) => business.kind === intent.businessKind).length >= licenseSlots) {
     return { ok: false, error: 'business_saturated' }
   }
 
