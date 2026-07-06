@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import {
   createMemoryFounderAreaClient,
   founderAreaProfileFromCitizen,
   type FounderAreaCommandClient,
+  type FounderAreaProfile,
 } from '../../game/founderAreaSession'
+import { createMemoryWorldAreaRepository } from '../../game/worldSimRepository'
 import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
@@ -13,6 +15,8 @@ import {
   claimRealityFounderArea,
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
+  realityAreaStateToWorldArea,
+  type RealityAreaState,
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
@@ -50,10 +54,7 @@ export default function FounderAreaPanel() {
         setLastEvent(message)
         return
       }
-      const commandClient = createMemoryFounderAreaClient(founderAreaProfileWithServerClaim(profile, serverClaim.state))
-      commandClientRef.current = commandClient
-      const claimedAt = Date.parse(serverClaim.state.claim.claimedAt)
-      const result = await commandClient.claim(Number.isFinite(claimedAt) ? claimedAt : Date.now())
+      const result = await hydrateServerArea(profile, serverClaim.state, commandClientRef)
       if (!alive) return
       setPanelState({ status: 'ready', result })
       setLastEvent(
@@ -87,6 +88,10 @@ export default function FounderAreaPanel() {
           setLastEvent(serverApplied.error)
           return
         }
+        const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef)
+        setPanelState({ status: 'ready', result: next })
+        setLastEvent(next.ok ? label : `Command failed: ${next.error}`)
+        return
       }
       const next = await commandClient.apply(area.now, payload)
       setPanelState({ status: 'ready', result: next })
@@ -106,9 +111,9 @@ export default function FounderAreaPanel() {
         setLastEvent(serverApplied.error)
         return
       }
-      const next = await commandClient.advance(area.now)
+      const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef)
       setPanelState({ status: 'ready', result: next })
-      setLastEvent(next.ok ? 'One real-time hour advanced.' : `Command failed: ${next.error}`)
+      setLastEvent(next.ok ? 'Reality server caught up.' : `Command failed: ${next.error}`)
     } finally {
       setBusy(false)
     }
@@ -356,6 +361,18 @@ export default function FounderAreaPanel() {
       )}
     </section>
   )
+}
+
+async function hydrateServerArea(
+  profile: FounderAreaProfile,
+  state: RealityAreaState,
+  commandClientRef: MutableRefObject<FounderAreaCommandClient | null>,
+): Promise<WorldServerCommandResult> {
+  const serverProfile = founderAreaProfileWithServerClaim(profile, state)
+  const serverArea = realityAreaStateToWorldArea(state)
+  const commandClient = createMemoryFounderAreaClient(serverProfile, createMemoryWorldAreaRepository([serverArea]))
+  commandClientRef.current = commandClient
+  return commandClient.read(serverArea.now)
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {

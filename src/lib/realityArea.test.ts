@@ -6,6 +6,7 @@ import {
   founderAreaClaimSource,
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
+  realityAreaStateToWorldArea,
   type RealityAreaState,
 } from './realityArea'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
@@ -273,12 +274,50 @@ describe('Reality area client', () => {
   test('hydrates the local founder session profile from the server-owned claim', () => {
     expect(founderAreaProfileWithServerClaim(profile, serverState())).toEqual({
       ...profile,
+      founderId: 'citizen-1',
       areaId: 'founder-area-0012',
       areaLabel: 'Stored Server Area',
       centerLat: 45,
       centerLng: 27,
       radiusKm: 0.75,
       claimSource: 'manual',
+    })
+  })
+
+  test('converts server-owned area snapshots into the playable WorldArea shape', () => {
+    const area = realityAreaStateToWorldArea(serverState())
+
+    expect(area).toMatchObject({
+      id: 'founder-area-0012',
+      name: 'Stored Server Area',
+      now: Date.parse('2026-07-06T03:30:00.000Z'),
+      claim: {
+        founderCitizenId: 'citizen-1',
+        claimedAt: Date.parse('2026-07-06T03:30:00.000Z'),
+        source: 'manual',
+      },
+      businesses: [{
+        id: 'water-1',
+        kind: 'water',
+        ownerId: 'citizen-1',
+        price: 2,
+        wagePerHour: 14,
+        quality: 1,
+        staffCitizenIds: ['sim-water'],
+      }],
+    })
+    expect(area.citizens).toMatchObject([{
+      id: 'citizen-1',
+      state: { kind: 'hospitalized', until: Date.parse('2026-07-06T11:30:00.000Z') },
+      debts: [{ issuedAt: Date.parse('2026-07-06T03:30:00.000Z') }],
+    }, {
+      id: 'sim-water',
+      jobBusinessId: 'water-1',
+      insurancePaidUntil: Date.parse('2026-08-06T03:30:00.000Z'),
+    }])
+    expect(area.transactions[0]).toMatchObject({
+      at: Date.parse('2026-07-06T03:30:00.000Z'),
+      kind: 'founder_credit',
     })
   })
 })
@@ -308,8 +347,49 @@ function serverState(): RealityAreaState {
       claimedAt: '2026-07-06T03:30:00.000Z',
       source: 'manual',
     },
-    businesses: [],
-    citizens: [],
+    businesses: [{
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      ownerId: 'citizen-1',
+      cash: 25,
+      price: 2,
+      wagePerHour: 14,
+      quality: 1,
+      staffCitizenIds: ['sim-water'],
+      createdAt: '2026-07-06T03:30:00.000Z',
+      createdBy: 'citizen-1',
+    }],
+    citizens: [{
+      id: 'citizen-1',
+      name: 'David',
+      kind: 'real',
+      money: 199_650,
+      debt: 300,
+      debts: [{
+        id: 'debt-1',
+        kind: 'medical',
+        creditorId: 'clinic-1',
+        amount: 300,
+        issuedAt: '2026-07-06T03:30:00.000Z',
+        memo: 'David owes medical debt to clinic-1.',
+      }],
+      needs: { hunger: 82, hydration: 80, energy: 84, hygiene: 88, fun: 88 },
+      health: 30,
+      state: { kind: 'hospitalized', until: '2026-07-06T11:30:00.000Z' },
+    }, {
+      id: 'sim-water',
+      name: 'Demo Water Resident',
+      kind: 'sim',
+      money: 100,
+      debt: 0,
+      needs: { hunger: 90, hydration: 42, energy: 90, hygiene: 90, fun: 90 },
+      health: 100,
+      state: { kind: 'active' },
+      jobBusinessId: 'water-1',
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-08-06T03:30:00.000Z',
+    }],
     transactions: [{
       id: 'founder-area-0012:1783308600000:founder-credit',
       at: '2026-07-06T03:30:00.000Z',
@@ -319,6 +399,31 @@ function serverState(): RealityAreaState {
       amount: 200_000,
       memo: 'Founder #0012 starter operating credit.',
     }],
+    founderCovenant: {
+      founderCitizenId: 'citizen-1',
+      status: 'manual_review',
+      nextAction: 'manual_review',
+      reviewCadence: 'weekly_monthly_manual',
+      manualReviewRequired: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: '2026-07-06T03:30:00.000Z',
+        active: false,
+        useful: true,
+        building: true,
+        staffed: true,
+        indebted: true,
+        hospitalized: true,
+        atRisk: true,
+        score: 60,
+      },
+      signals: [{
+        kind: 'founder_unavailable',
+        severity: 'critical',
+        message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+      }],
+    },
     updatedAt: '2026-07-06T03:30:00.000Z',
   }
 }

@@ -1,8 +1,114 @@
 import type { Citizen } from '../game/types'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
-import type { WorldClientIntentPayload } from '../game/worldSim'
+import type {
+  WorldArea,
+  WorldBusiness,
+  WorldBusinessKind,
+  WorldCitizen,
+  WorldClientIntentPayload,
+  WorldDebt,
+  WorldTransaction,
+} from '../game/worldSim'
 
 export type RealityAreaClaimSource = 'manual' | 'ip' | 'geolocation' | 'telegram'
+
+export interface RealityAreaNeeds {
+  hunger: number
+  hydration: number
+  energy: number
+  hygiene: number
+  fun: number
+}
+
+export interface RealityAreaDebt {
+  id: string
+  kind: 'medical'
+  creditorId: string
+  amount: number
+  issuedAt: string
+  memo: string
+}
+
+export interface RealityAreaCitizen {
+  id: string
+  name: string
+  kind: 'real' | 'sim'
+  money: number
+  debt: number
+  debts?: RealityAreaDebt[]
+  needs: RealityAreaNeeds
+  health: number
+  state: { kind: 'active' } | { kind: 'hospitalized'; until: string }
+  homeBusinessId?: string
+  jobBusinessId?: string
+  insuranceBusinessId?: string
+  insurancePaidUntil?: string
+}
+
+export interface RealityAreaBusiness {
+  id: string
+  name: string
+  kind: WorldBusinessKind
+  ownerId: string
+  cash: number
+  price: number
+  wagePerHour: number
+  quality: number
+  staffCitizenIds: string[]
+  createdAt: string
+  createdBy: string
+}
+
+export interface RealityAreaTransaction {
+  id: string
+  at: string
+  kind: WorldTransaction['kind']
+  fromId: string
+  toId: string
+  amount: number
+  memo: string
+}
+
+export type RealityAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
+export type RealityAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
+export type RealityAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
+export type RealityAreaCovenantSignalKind =
+  | 'founder_unavailable'
+  | 'no_business_built'
+  | 'understaffed_businesses'
+  | 'essential_shortage'
+  | 'founder_debt'
+
+export interface RealityAreaCovenantSignal {
+  kind: RealityAreaCovenantSignalKind
+  severity: RealityAreaCovenantSignalSeverity
+  message: string
+  businessIds?: string[]
+  businessKinds?: WorldBusinessKind[]
+  amount?: number
+}
+
+export interface RealityAreaCovenantReview {
+  founderCitizenId: string
+  status: RealityAreaCovenantStatus
+  nextAction: RealityAreaCovenantNextAction
+  reviewCadence: 'weekly_monthly_manual'
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  activityReview: {
+    checkedAt: string
+    active: boolean
+    useful: boolean
+    building: boolean
+    staffed: boolean
+    indebted: boolean
+    hospitalized: boolean
+    atRisk: boolean
+    score: number
+  }
+  signals: RealityAreaCovenantSignal[]
+}
 
 export interface RealityAreaState {
   version: 1
@@ -20,17 +126,10 @@ export interface RealityAreaState {
     claimedAt: string
     source: RealityAreaClaimSource
   }
-  businesses: unknown[]
-  citizens: unknown[]
-  transactions: {
-    id: string
-    at: string
-    kind: string
-    fromId: string
-    toId: string
-    amount: number
-    memo: string
-  }[]
+  businesses: RealityAreaBusiness[]
+  citizens: RealityAreaCitizen[]
+  transactions: RealityAreaTransaction[]
+  founderCovenant: RealityAreaCovenantReview
   updatedAt: string
 }
 
@@ -172,12 +271,33 @@ export function founderAreaProfileWithServerClaim(
 ): FounderAreaProfile {
   return {
     ...profile,
+    founderId: state.founderCitizenId,
     areaId: state.areaId,
     areaLabel: state.claim.label,
     centerLat: state.claim.centerLat,
     centerLng: state.claim.centerLng,
     radiusKm: state.claim.radiusKm,
     claimSource: state.claim.source,
+  }
+}
+
+export function realityAreaStateToWorldArea(state: RealityAreaState): WorldArea {
+  return {
+    id: state.areaId,
+    name: state.claim.label,
+    now: parseInstant(state.updatedAt),
+    claim: {
+      founderCitizenId: state.founderCitizenId,
+      label: state.claim.label,
+      centerLat: state.claim.centerLat,
+      centerLng: state.claim.centerLng,
+      radiusKm: state.claim.radiusKm,
+      claimedAt: parseInstant(state.claim.claimedAt),
+      source: state.claim.source,
+    },
+    citizens: state.citizens.map(realityCitizenToWorldCitizen),
+    businesses: state.businesses.map(realityBusinessToWorldBusiness),
+    transactions: state.transactions.map(realityTransactionToWorldTransaction),
   }
 }
 
@@ -189,6 +309,9 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     typeof value.founderNumber !== 'number' ||
     typeof value.balance !== 'number' ||
     !isRecord(value.claim) ||
+    !Array.isArray(value.businesses) ||
+    !Array.isArray(value.citizens) ||
+    !isRecord(value.founderCovenant) ||
     !Array.isArray(value.transactions)
   ) {
     return false
@@ -199,6 +322,66 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     typeof value.claim.radiusKm === 'number' &&
     typeof value.claim.claimedAt === 'string' &&
     isClaimSource(value.claim.source)
+}
+
+function realityCitizenToWorldCitizen(citizen: RealityAreaCitizen): WorldCitizen {
+  return {
+    id: citizen.id,
+    name: citizen.name,
+    kind: citizen.kind,
+    money: citizen.money,
+    debt: citizen.debt,
+    debts: citizen.debts?.map(realityDebtToWorldDebt),
+    needs: { ...citizen.needs },
+    health: citizen.health,
+    state: citizen.state.kind === 'hospitalized'
+      ? { kind: 'hospitalized', until: parseInstant(citizen.state.until) }
+      : { kind: 'active' },
+    homeBusinessId: citizen.homeBusinessId,
+    jobBusinessId: citizen.jobBusinessId,
+    insuranceBusinessId: citizen.insuranceBusinessId,
+    insurancePaidUntil: parseOptionalInstant(citizen.insurancePaidUntil),
+  }
+}
+
+function realityDebtToWorldDebt(debt: RealityAreaDebt): WorldDebt {
+  return {
+    ...debt,
+    issuedAt: parseInstant(debt.issuedAt),
+  }
+}
+
+function realityBusinessToWorldBusiness(business: RealityAreaBusiness): WorldBusiness {
+  return {
+    id: business.id,
+    name: business.name,
+    kind: business.kind,
+    ownerId: business.ownerId,
+    cash: business.cash,
+    staffCitizenIds: [...business.staffCitizenIds],
+    price: business.price,
+    wagePerHour: business.wagePerHour,
+    quality: business.quality,
+    createdBy: business.createdBy,
+  }
+}
+
+function realityTransactionToWorldTransaction(transaction: RealityAreaTransaction): WorldTransaction {
+  return {
+    ...transaction,
+    at: parseInstant(transaction.at),
+  }
+}
+
+function parseInstant(value: string): number {
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function parseOptionalInstant(value: string | undefined): number | undefined {
+  if (!value) return undefined
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 function isClaimSource(value: unknown): value is RealityAreaClaimSource {

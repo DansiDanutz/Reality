@@ -6,8 +6,10 @@ import {
   createFounderAreaSession,
   createMemoryFounderAreaClient,
   founderAreaProfileFromCitizen,
+  readFounderArea,
 } from './founderAreaSession'
 import { FOUNDER_STARTING_BALANCE, WORLD_SIM_HOUR_MS } from './worldSim'
+import type { WorldArea } from './worldSim'
 import { createMemoryWorldAreaRepository } from './worldSimRepository'
 
 const HOUR = WORLD_SIM_HOUR_MS
@@ -98,5 +100,55 @@ describe('Founder Area session', () => {
     expect(advanced.ok).toBe(true)
     if (!advanced.ok) throw new Error(`expected advance to succeed: ${advanced.error}`)
     expect(advanced.area.now).toBe(built.area.now + 2 * HOUR)
+  })
+
+  test('reads a restored server-seeded founder area without claiming it again', async () => {
+    const profile = founderAreaProfileFromCitizen({ citizenId: 'founder-1', name: 'Founder' })
+    const restored: WorldArea = {
+      id: profile.areaId,
+      name: profile.areaLabel,
+      now: HOUR,
+      claim: {
+        founderCitizenId: profile.founderId,
+        label: profile.areaLabel,
+        centerLat: profile.centerLat,
+        centerLng: profile.centerLng,
+        radiusKm: profile.radiusKm,
+        claimedAt: HOUR,
+        source: profile.claimSource,
+      },
+      citizens: [{
+        id: profile.founderId,
+        name: profile.founderName,
+        kind: 'real',
+        money: FOUNDER_STARTING_BALANCE - 8_000,
+        debt: 0,
+        needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
+        health: 100,
+        state: { kind: 'active' },
+      }],
+      businesses: [{
+        id: 'water-1',
+        name: 'Founder Water',
+        kind: 'water',
+        ownerId: profile.founderId,
+        cash: 25,
+        staffCitizenIds: [],
+        price: 2,
+        wagePerHour: 14,
+        quality: 1,
+        createdBy: profile.founderId,
+      }],
+      transactions: [],
+    }
+    const session = createFounderAreaSession(profile, createMemoryWorldAreaRepository([restored]))
+
+    const result = await readFounderArea(session, restored.now)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected restored read to succeed: ${result.error}`)
+    expect(result.area.businesses).toMatchObject([{ id: 'water-1', kind: 'water', ownerId: profile.founderId }])
+    expect(result.dashboard.founderCovenant.activityReview.building).toBe(true)
+    expect(result.transactions).toEqual([])
   })
 })
