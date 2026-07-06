@@ -422,6 +422,11 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      reviewQueue: { nextStep: 'main_founder_approval' },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       reviewChecklist: [],
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
@@ -3317,6 +3322,11 @@ function baseFounderCovenant(checkedAt: string) {
       probation: true,
       replacement: false,
     }),
+    reviewQueue: covenantReviewQueue({
+      warning: true,
+      probation: true,
+      replacement: false,
+    }, 1),
     approvalRequests: manualApprovalRequests({
       warning: true,
       probation: true,
@@ -3617,6 +3627,27 @@ function manualApprovalRequests(
       notificationDraftId: approvalNotificationDraftId(action.kind, checkedAt, notificationKind),
       blockers: approvalBlockers(action.kind),
     }))
+}
+
+function covenantReviewQueue(
+  input: { warning: boolean; probation: boolean; replacement: boolean },
+  pendingNotificationCount: number,
+) {
+  const manualActions = manualReviewActions(input)
+  const approvalActions = manualActions.filter((action) => action.kind !== 'record_review' && action.recommended)
+  const blockers = Array.from(new Set(approvalActions.flatMap((action) => approvalBlockers(action.kind))))
+  return {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: approvalActions.length > 0 ? 'main_founder_approval' : 'record_review',
+    recordReviewEnabled: true,
+    recommendedActionKinds: manualActions.filter((action) => action.recommended).map((action) => action.kind),
+    pendingApprovalCount: approvalActions.length,
+    pendingNotificationCount,
+    blockerCount: approvalActions.reduce((total, action) => total + approvalBlockers(action.kind).length, 0),
+    blockers,
+  }
 }
 
 type ApprovalBlocker =

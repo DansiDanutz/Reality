@@ -255,6 +255,33 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant review queue data that enables execution', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        reviewQueue: {
+          ...dashboard.founderCovenant.reviewQueue,
+          executionEnabled: true,
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores malformed covenant review schedule data', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -998,6 +1025,11 @@ function serverState(): RealityAreaState {
         probation: true,
         replacement: true,
       }),
+      reviewQueue: covenantReviewQueue({
+        warning: false,
+        probation: true,
+        replacement: true,
+      }, 1),
       approvalRequests: manualApprovalRequests({
         warning: false,
         probation: true,
@@ -1106,6 +1138,27 @@ function manualApprovalRequests(
       notificationDraftId: approvalNotificationDraftId(action.kind, checkedAt, notificationKind),
       blockers: approvalBlockers(action.kind),
     }))
+}
+
+function covenantReviewQueue(
+  input: { warning: boolean; probation: boolean; replacement: boolean },
+  pendingNotificationCount: number,
+): RealityAreaDashboard['founderCovenant']['reviewQueue'] {
+  const manualActions = manualReviewActions(input)
+  const approvalActions = manualActions.filter(isRecommendedApprovalAction)
+  const blockers = Array.from(new Set(approvalActions.flatMap((action) => approvalBlockers(action.kind))))
+  return {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: approvalActions.length > 0 ? 'main_founder_approval' : 'record_review',
+    recordReviewEnabled: true,
+    recommendedActionKinds: manualActions.filter((action) => action.recommended).map((action) => action.kind),
+    pendingApprovalCount: approvalActions.length,
+    pendingNotificationCount,
+    blockerCount: approvalActions.reduce((total, action) => total + approvalBlockers(action.kind).length, 0),
+    blockers,
+  }
 }
 
 function approvalBlockers(
@@ -1481,6 +1534,11 @@ function serverDashboard(): RealityAreaDashboard {
         probation: false,
         replacement: false,
       }),
+      reviewQueue: covenantReviewQueue({
+        warning: true,
+        probation: false,
+        replacement: false,
+      }, 1),
       approvalRequests: manualApprovalRequests({
         warning: true,
         probation: false,

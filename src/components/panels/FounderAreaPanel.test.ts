@@ -14,6 +14,8 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
+  founderCovenantReviewQueueStatusLabel,
+  founderCovenantReviewQueueSummary,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
   founderCovenantReviewSnapshotSummary,
@@ -250,6 +252,24 @@ describe('FounderAreaPanel covenant presenters', () => {
         manualReviewRequired: true,
       },
     })).toBe('Manual review / Manual review')
+  })
+
+  test('summarizes the current manual covenant review queue', () => {
+    const queue = {
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      nextStep: 'main_founder_approval',
+      recordReviewEnabled: true,
+      recommendedActionKinds: ['record_review', 'send_warning'],
+      pendingApprovalCount: 1,
+      pendingNotificationCount: 1,
+      blockerCount: 2,
+      blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
+    } as const
+
+    expect(founderCovenantReviewQueueSummary(queue)).toBe('Main founder approval · 1 approval · 1 draft')
+    expect(founderCovenantReviewQueueStatusLabel(queue)).toBe('Evidence only')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

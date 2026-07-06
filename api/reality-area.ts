@@ -112,6 +112,7 @@ type FounderAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
 type FounderAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
 type FounderAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
 type FounderAreaCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
+type FounderAreaCovenantReviewQueueNextStep = 'record_review' | 'main_founder_approval' | 'monitor'
 type FounderAreaCovenantManualActionKind =
   | 'record_review'
   | 'send_warning'
@@ -151,6 +152,19 @@ interface FounderAreaCovenantReviewChecklistItem {
   label: string
   status: FounderAreaCovenantReviewChecklistStatus
   evidence: string
+}
+
+interface FounderAreaCovenantReviewQueue {
+  evidenceOnly: true
+  automationEnabled: false
+  executionEnabled: false
+  nextStep: FounderAreaCovenantReviewQueueNextStep
+  recordReviewEnabled: boolean
+  recommendedActionKinds: readonly FounderAreaCovenantManualActionKind[]
+  pendingApprovalCount: number
+  pendingNotificationCount: number
+  blockerCount: number
+  blockers: readonly FounderAreaCovenantApprovalBlocker[]
 }
 
 interface FounderAreaCovenantManualActionClientPayload {
@@ -282,6 +296,7 @@ interface FounderAreaCovenantReview {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
+  reviewQueue: FounderAreaCovenantReviewQueue
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -815,6 +830,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'nextAction',
   'manualReviewRequired',
   'activityReview',
+  'reviewQueue',
   'reviewChecklist',
   'manualActions',
   'approvalRequests',
@@ -1326,6 +1342,11 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     manualActions,
     notificationDrafts,
   })
+  const reviewQueue = founderCovenantReviewQueue({
+    manualActions,
+    approvalRequests,
+    notificationDrafts,
+  })
 
   return {
     founderCitizenId: state.founderCitizenId,
@@ -1336,6 +1357,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview,
+    reviewQueue,
     reviewChecklist,
     manualActions,
     approvalRequests,
@@ -1542,6 +1564,36 @@ function founderCovenantApprovalBlockers(
   if (action.kind === 'send_warning') return ['approval_workflow_disabled', 'telegram_delivery_disabled']
   if (action.kind === 'start_probation') return ['approval_workflow_disabled', 'probation_execution_disabled']
   return ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled']
+}
+
+function founderCovenantReviewQueue(input: {
+  manualActions: FounderAreaCovenantManualAction[]
+  approvalRequests: FounderAreaCovenantApprovalRequest[]
+  notificationDrafts: FounderAreaCovenantNotificationDraft[]
+}): FounderAreaCovenantReviewQueue {
+  const recordReviewEnabled = input.manualActions.some((action) =>
+    action.kind === 'record_review' && action.clientPayload !== null
+  )
+  const recommendedActionKinds = input.manualActions
+    .filter((action) => action.recommended)
+    .map((action) => action.kind)
+  const blockers = Array.from(new Set(input.approvalRequests.flatMap((request) => request.blockers)))
+  return {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: input.approvalRequests.length > 0
+      ? 'main_founder_approval'
+      : recordReviewEnabled
+        ? 'record_review'
+        : 'monitor',
+    recordReviewEnabled,
+    recommendedActionKinds,
+    pendingApprovalCount: input.approvalRequests.length,
+    pendingNotificationCount: input.notificationDrafts.length,
+    blockerCount: input.approvalRequests.reduce((total, request) => total + request.blockers.length, 0),
+    blockers,
+  }
 }
 
 function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview, note: string | undefined): string {

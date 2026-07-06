@@ -8,6 +8,7 @@ import type {
   FounderCovenantManualAction,
   FounderCovenantNotificationDraft,
   FounderCovenantReviewHistoryItem,
+  FounderCovenantReviewQueue,
   FounderCovenantReviewChecklistItem,
   FounderCovenantReviewSchedule,
   FounderCovenantSignal,
@@ -179,6 +180,14 @@ export function founderCovenantReviewItems(review: FounderCovenantActivityReview
   ]
 }
 
+export function founderCovenantReviewQueueSummary(queue: FounderCovenantReviewQueue): string {
+  return `${founderCovenantReviewQueueNextStepLabel(queue.nextStep)} · ${queue.pendingApprovalCount} approval${queue.pendingApprovalCount === 1 ? '' : 's'} · ${queue.pendingNotificationCount} draft${queue.pendingNotificationCount === 1 ? '' : 's'}`
+}
+
+export function founderCovenantReviewQueueStatusLabel(queue: FounderCovenantReviewQueue): string {
+  return queue.executionEnabled ? 'Executable' : 'Evidence only'
+}
+
 function founderCovenantNextActionLabel(
   nextAction: NonNullable<FounderCovenantReviewHistoryItem['decision']>['nextAction'],
 ): string {
@@ -191,6 +200,17 @@ function founderCovenantNextActionLabel(
       return 'Warn founder'
     case 'manual_review':
       return 'Manual review'
+  }
+}
+
+function founderCovenantReviewQueueNextStepLabel(nextStep: FounderCovenantReviewQueue['nextStep']): string {
+  switch (nextStep) {
+    case 'record_review':
+      return 'Record review'
+    case 'main_founder_approval':
+      return 'Main founder approval'
+    case 'monitor':
+      return 'Monitor'
   }
 }
 

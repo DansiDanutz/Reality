@@ -370,6 +370,7 @@ export type FounderCovenantStatus = 'unclaimed' | 'active' | 'watch' | 'manual_r
 export type FounderCovenantNextAction = 'claim_area' | 'none' | 'warn_founder' | 'manual_review'
 export type FounderCovenantSignalSeverity = 'info' | 'warning' | 'critical'
 export type FounderCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
+export type FounderCovenantReviewQueueNextStep = 'record_review' | 'main_founder_approval' | 'monitor'
 export type FounderCovenantManualActionKind =
   | 'record_review'
   | 'send_warning'
@@ -409,6 +410,19 @@ export interface FounderCovenantReviewChecklistItem {
   label: string
   status: FounderCovenantReviewChecklistStatus
   evidence: string
+}
+
+export interface FounderCovenantReviewQueue {
+  evidenceOnly: true
+  automationEnabled: false
+  executionEnabled: false
+  nextStep: FounderCovenantReviewQueueNextStep
+  recordReviewEnabled: boolean
+  recommendedActionKinds: readonly FounderCovenantManualActionKind[]
+  pendingApprovalCount: number
+  pendingNotificationCount: number
+  blockerCount: number
+  blockers: readonly FounderCovenantApprovalBlocker[]
 }
 
 export interface FounderCovenantManualActionClientPayload {
@@ -540,6 +554,7 @@ export interface AreaFounderCovenantDashboard {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderCovenantActivityReview
+  reviewQueue: FounderCovenantReviewQueue
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
   approvalRequests: FounderCovenantApprovalRequest[]
@@ -1191,6 +1206,24 @@ function founderCovenantDashboard(
   },
 ): AreaFounderCovenantDashboard {
   if (!area.claim) {
+    const activityReview: FounderCovenantActivityReview = {
+      checkedAt: area.now,
+      active: false,
+      useful: false,
+      building: false,
+      staffed: false,
+      indebted: false,
+      hospitalized: false,
+      atRisk: false,
+      score: 0,
+    }
+    const manualActions = founderCovenantManualActions({
+      status: 'unclaimed',
+      nextAction: 'claim_area',
+      activityReview,
+    })
+    const approvalRequests: FounderCovenantApprovalRequest[] = []
+    const notificationDrafts: FounderCovenantNotificationDraft[] = []
     return {
       founderCitizenId: null,
       status: 'unclaimed',
@@ -1199,43 +1232,20 @@ function founderCovenantDashboard(
       manualReviewRequired: false,
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
-      activityReview: {
-        checkedAt: area.now,
-        active: false,
-        useful: false,
-        building: false,
-        staffed: false,
-        indebted: false,
-        hospitalized: false,
-        atRisk: false,
-        score: 0,
-      },
+      activityReview,
+      reviewQueue: founderCovenantReviewQueue({ manualActions, approvalRequests, notificationDrafts }),
       reviewChecklist: [{
         key: 'claim_area',
         label: 'Claim area',
         status: 'manual_review',
         evidence: 'No founder has claimed this area yet.',
       }],
-      manualActions: founderCovenantManualActions({
-        status: 'unclaimed',
-        nextAction: 'claim_area',
-        activityReview: {
-          checkedAt: area.now,
-          active: false,
-          useful: false,
-          building: false,
-          staffed: false,
-          indebted: false,
-          hospitalized: false,
-          atRisk: false,
-          score: 0,
-        },
-      }),
-      approvalRequests: [],
+      manualActions,
+      approvalRequests,
       reviewSchedule: null,
       latestReview: founderCovenantLatestReview(area),
       reviewHistory: founderCovenantReviewHistory(area),
-      notificationDrafts: [],
+      notificationDrafts,
       signals: [],
     }
   }
@@ -1360,6 +1370,11 @@ function founderCovenantDashboard(
     manualActions,
     notificationDrafts,
   })
+  const reviewQueue = founderCovenantReviewQueue({
+    manualActions,
+    approvalRequests,
+    notificationDrafts,
+  })
 
   return {
     founderCitizenId,
@@ -1370,6 +1385,7 @@ function founderCovenantDashboard(
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview,
+    reviewQueue,
     reviewChecklist,
     manualActions,
     approvalRequests,
@@ -1581,6 +1597,36 @@ function founderCovenantApprovalBlockers(
   if (action.kind === 'send_warning') return ['approval_workflow_disabled', 'telegram_delivery_disabled']
   if (action.kind === 'start_probation') return ['approval_workflow_disabled', 'probation_execution_disabled']
   return ['approval_workflow_disabled', 'replacement_disabled', 'waitlist_handoff_disabled']
+}
+
+function founderCovenantReviewQueue(input: {
+  manualActions: FounderCovenantManualAction[]
+  approvalRequests: FounderCovenantApprovalRequest[]
+  notificationDrafts: FounderCovenantNotificationDraft[]
+}): FounderCovenantReviewQueue {
+  const recordReviewEnabled = input.manualActions.some((action) =>
+    action.kind === 'record_review' && action.clientPayload !== null
+  )
+  const recommendedActionKinds = input.manualActions
+    .filter((action) => action.recommended)
+    .map((action) => action.kind)
+  const blockers = Array.from(new Set(input.approvalRequests.flatMap((request) => request.blockers)))
+  return {
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    nextStep: input.approvalRequests.length > 0
+      ? 'main_founder_approval'
+      : recordReviewEnabled
+        ? 'record_review'
+        : 'monitor',
+    recordReviewEnabled,
+    recommendedActionKinds,
+    pendingApprovalCount: input.approvalRequests.length,
+    pendingNotificationCount: input.notificationDrafts.length,
+    blockerCount: input.approvalRequests.reduce((total, request) => total + request.blockers.length, 0),
+    blockers,
+  }
 }
 
 function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHistoryItem[] {
