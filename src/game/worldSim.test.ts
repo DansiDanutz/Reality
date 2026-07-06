@@ -1577,6 +1577,15 @@ describe('advanceWorldArea — local real-time economy', () => {
           },
         }),
       ]),
+      reviewSchedule: {
+        lastReviewAt: null,
+        nextWeeklyReviewAt: 7 * 24 * HOUR + 1,
+        nextMonthlyReviewAt: 30 * 24 * HOUR + 1,
+        weeklyReviewDue: false,
+        monthlyReviewDue: false,
+        overdue: false,
+        automationEnabled: false,
+      },
       reviewHistory: [],
       notificationDrafts: [{
         id: 'area-1:0:covenant-notification:manual_review_required:founder',
@@ -1766,9 +1775,44 @@ describe('advanceWorldArea — local real-time economy', () => {
         reason: 'Replacement is not suggested and waitlist handoff is disabled.',
         clientPayload: null,
       }],
+      reviewSchedule: {
+        lastReviewAt: null,
+        nextWeeklyReviewAt: 7 * 24 * HOUR + 1,
+        nextMonthlyReviewAt: 30 * 24 * HOUR + 1,
+        weeklyReviewDue: false,
+        monthlyReviewDue: false,
+        overdue: false,
+        automationEnabled: false,
+      },
       reviewHistory: [],
       notificationDrafts: [],
       signals: [],
+    })
+  })
+
+  test('dashboard computes founder covenant review schedule from latest manual review', () => {
+    const lastReviewAt = 2 * 24 * HOUR
+    const start = claimedArea({
+      now: 10 * 24 * HOUR,
+      founderReviewHistory: [{
+        id: 'review-1',
+        at: lastReviewAt,
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        summary: 'Weekly review recorded.',
+      }],
+    })
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant.reviewSchedule).toEqual({
+      lastReviewAt,
+      nextWeeklyReviewAt: lastReviewAt + 7 * 24 * HOUR,
+      nextMonthlyReviewAt: lastReviewAt + 30 * 24 * HOUR,
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
     })
   })
 

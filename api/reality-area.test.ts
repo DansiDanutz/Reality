@@ -2524,6 +2524,11 @@ describe('reality area authority API', () => {
         authorityGate: mainFounderApprovalGate(),
       }),
     ]))
+    expect(body.state.founderCovenant.reviewSchedule).toEqual(covenantReviewSchedule({
+      anchorAt: '2026-07-06T03:00:00.000Z',
+      checkedAt: '2026-07-06T08:00:00.000Z',
+      lastReviewAt: '2026-07-06T08:00:00.000Z',
+    }))
     expect(body.state.founderCovenant.notificationDrafts).toEqual([{
       id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:covenant-notification:founder_warning:${CITIZEN_ID}`,
       at: '2026-07-06T08:00:00.000Z',
@@ -3062,6 +3067,11 @@ function baseFounderCovenant(checkedAt: string) {
       probation: true,
       replacement: false,
     }),
+    reviewSchedule: covenantReviewSchedule({
+      anchorAt: '2026-07-06T03:00:00.000Z',
+      checkedAt,
+      lastReviewAt: null,
+    }),
     reviewHistory: [],
     notificationDrafts: [{
       id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-notification:founder_warning:${CITIZEN_ID}`,
@@ -3327,6 +3337,28 @@ function mainFounderApprovalGate() {
     approvedById: null,
     approvedAt: null,
     executionEnabled: false,
+  } as const
+}
+
+function covenantReviewSchedule(input: {
+  anchorAt: string
+  checkedAt: string
+  lastReviewAt: string | null
+}) {
+  const anchorMs = Date.parse(input.lastReviewAt ?? input.anchorAt)
+  const checkedMs = Date.parse(input.checkedAt)
+  const nextWeeklyMs = anchorMs + 7 * 24 * 60 * 60 * 1000
+  const nextMonthlyMs = anchorMs + 30 * 24 * 60 * 60 * 1000
+  const weeklyReviewDue = checkedMs >= nextWeeklyMs
+  const monthlyReviewDue = checkedMs >= nextMonthlyMs
+  return {
+    lastReviewAt: input.lastReviewAt,
+    nextWeeklyReviewAt: new Date(nextWeeklyMs).toISOString(),
+    nextMonthlyReviewAt: new Date(nextMonthlyMs).toISOString(),
+    weeklyReviewDue,
+    monthlyReviewDue,
+    overdue: weeklyReviewDue || monthlyReviewDue,
+    automationEnabled: false,
   } as const
 }
 

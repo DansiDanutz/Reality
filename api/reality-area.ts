@@ -13,6 +13,8 @@ const BUILDER_RECEIVER_ID = 'system:builders'
 const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
 const AREA_STATE_VERSION = 1
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
+const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
+const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * 60 * 60 * 1000
 const INSURANCE_COVERAGE = 0.6
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
 const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
@@ -186,6 +188,16 @@ interface FounderAreaCovenantReviewHistoryItem {
   summary: string
 }
 
+interface FounderAreaCovenantReviewSchedule {
+  lastReviewAt: string | null
+  nextWeeklyReviewAt: string
+  nextMonthlyReviewAt: string
+  weeklyReviewDue: boolean
+  monthlyReviewDue: boolean
+  overdue: boolean
+  automationEnabled: false
+}
+
 type FounderAreaCovenantNotificationDraftKind = 'founder_warning' | 'manual_review_required'
 type FounderAreaCovenantNotificationChannel = 'telegram'
 
@@ -213,6 +225,7 @@ interface FounderAreaCovenantReview {
   activityReview: FounderAreaCovenantActivityReview
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
+  reviewSchedule: FounderAreaCovenantReviewSchedule
   reviewHistory: FounderAreaCovenantReviewHistoryItem[]
   notificationDrafts: FounderAreaCovenantNotificationDraft[]
   signals: FounderAreaCovenantSignal[]
@@ -1212,6 +1225,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const notificationDrafts = founderCovenantNotificationDrafts(state, {
     nextAction,
   })
+  const reviewSchedule = founderCovenantReviewSchedule(state)
 
   return {
     founderCitizenId: state.founderCitizenId,
@@ -1224,6 +1238,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     activityReview,
     reviewChecklist,
     manualActions,
+    reviewSchedule,
     reviewHistory: founderCovenantReviewHistory(state),
     notificationDrafts,
     signals,
@@ -1390,6 +1405,40 @@ function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderArea
     .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
     .slice(0, 5)
     .map((entry) => ({ ...entry }))
+}
+
+function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAreaCovenantReviewSchedule {
+  const lastReviewMs = latestFounderReviewMs(state)
+  const claimMs = safeDateMs(state.claim.claimedAt, state.updatedAt)
+  const scheduleAnchor = lastReviewMs ?? claimMs
+  const nextWeeklyReviewMs = scheduleAnchor + FOUNDER_COVENANT_WEEKLY_REVIEW_MS
+  const nextMonthlyReviewMs = scheduleAnchor + FOUNDER_COVENANT_MONTHLY_REVIEW_MS
+  const updatedMs = safeDateMs(state.updatedAt, state.claim.claimedAt)
+  const weeklyReviewDue = updatedMs >= nextWeeklyReviewMs
+  const monthlyReviewDue = updatedMs >= nextMonthlyReviewMs
+  return {
+    lastReviewAt: lastReviewMs === null ? null : new Date(lastReviewMs).toISOString(),
+    nextWeeklyReviewAt: new Date(nextWeeklyReviewMs).toISOString(),
+    nextMonthlyReviewAt: new Date(nextMonthlyReviewMs).toISOString(),
+    weeklyReviewDue,
+    monthlyReviewDue,
+    overdue: weeklyReviewDue || monthlyReviewDue,
+    automationEnabled: false,
+  }
+}
+
+function latestFounderReviewMs(state: FounderAreaStateInput): number | null {
+  const reviewedAt = (state.founderReviewHistory ?? [])
+    .map((entry) => Date.parse(entry.at))
+    .filter(Number.isFinite)
+  return reviewedAt.length > 0 ? Math.max(...reviewedAt) : null
+}
+
+function safeDateMs(value: string, fallback: string): number {
+  const ms = Date.parse(value)
+  if (Number.isFinite(ms)) return ms
+  const fallbackMs = Date.parse(fallback)
+  return Number.isFinite(fallbackMs) ? fallbackMs : 0
 }
 
 function founderCovenantNotificationDrafts(

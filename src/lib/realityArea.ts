@@ -158,6 +158,16 @@ export interface RealityAreaCovenantReviewHistoryItem {
   summary: string
 }
 
+export interface RealityAreaCovenantReviewSchedule {
+  lastReviewAt: string | null
+  nextWeeklyReviewAt: string
+  nextMonthlyReviewAt: string
+  weeklyReviewDue: boolean
+  monthlyReviewDue: boolean
+  overdue: boolean
+  automationEnabled: false
+}
+
 export type RealityAreaCovenantNotificationDraftKind = 'founder_warning' | 'manual_review_required'
 export type RealityAreaCovenantNotificationChannel = 'telegram'
 
@@ -195,6 +205,7 @@ export interface RealityAreaCovenantReview {
   }
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
+  reviewSchedule: RealityAreaCovenantReviewSchedule
   reviewHistory: RealityAreaCovenantReviewHistoryItem[]
   notificationDrafts: RealityAreaCovenantNotificationDraft[]
   signals: RealityAreaCovenantSignal[]
@@ -692,6 +703,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       authorityGate: { ...action.authorityGate },
       clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
+    reviewSchedule: mergeRealityAreaCovenantReviewSchedule(review.reviewSchedule),
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
       ...draft,
@@ -703,6 +715,17 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
       businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
     })),
+  }
+}
+
+function mergeRealityAreaCovenantReviewSchedule(
+  schedule: RealityAreaCovenantReviewSchedule,
+): AreaFounderCovenantDashboard['reviewSchedule'] {
+  return {
+    ...schedule,
+    lastReviewAt: schedule.lastReviewAt === null ? null : parseInstant(schedule.lastReviewAt),
+    nextWeeklyReviewAt: parseInstant(schedule.nextWeeklyReviewAt),
+    nextMonthlyReviewAt: parseInstant(schedule.nextMonthlyReviewAt),
   }
 }
 
@@ -980,6 +1003,7 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
     value.manualActions.every(isRealityAreaCovenantManualAction) &&
+    isRealityAreaCovenantReviewSchedule(value.reviewSchedule) &&
     Array.isArray(value.reviewHistory) &&
     value.reviewHistory.every(isRealityAreaCovenantReviewHistoryItem) &&
     Array.isArray(value.notificationDrafts) &&
@@ -1060,6 +1084,18 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     typeof value.reviewerId === 'string' &&
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string'
+}
+
+function isRealityAreaCovenantReviewSchedule(value: unknown): value is RealityAreaCovenantReviewSchedule {
+  return isRecord(value) &&
+    (typeof value.lastReviewAt === 'string' || value.lastReviewAt === null) &&
+    typeof value.nextWeeklyReviewAt === 'string' &&
+    typeof value.nextMonthlyReviewAt === 'string' &&
+    typeof value.weeklyReviewDue === 'boolean' &&
+    typeof value.monthlyReviewDue === 'boolean' &&
+    typeof value.overdue === 'boolean' &&
+    value.overdue === (value.weeklyReviewDue || value.monthlyReviewDue) &&
+    value.automationEnabled === false
 }
 
 function isRealityAreaCovenantNotificationDraft(value: unknown): value is RealityAreaCovenantNotificationDraft {

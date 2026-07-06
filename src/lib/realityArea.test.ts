@@ -200,6 +200,35 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores malformed covenant review schedule data', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        reviewSchedule: {
+          ...dashboard.founderCovenant.reviewSchedule,
+          overdue: true,
+          weeklyReviewDue: false,
+          monthlyReviewDue: false,
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('does not contact the server without a registered founder identity', async () => {
     const fetchImpl = vi.fn()
 
@@ -621,6 +650,15 @@ describe('Reality area client', () => {
         atRisk: true,
         score: 75,
       },
+      reviewSchedule: {
+        lastReviewAt: null,
+        nextWeeklyReviewAt: Date.parse('2026-07-13T03:30:00.000Z'),
+        nextMonthlyReviewAt: Date.parse('2026-08-05T03:30:00.000Z'),
+        weeklyReviewDue: false,
+        monthlyReviewDue: false,
+        overdue: false,
+        automationEnabled: false,
+      },
       signals: [{
         kind: 'understaffed_businesses',
         severity: 'warning',
@@ -848,6 +886,11 @@ function serverState(): RealityAreaState {
         probation: true,
         replacement: true,
       }),
+      reviewSchedule: covenantReviewSchedule({
+        anchorAt: '2026-07-06T03:30:00.000Z',
+        checkedAt: '2026-07-06T03:30:00.000Z',
+        lastReviewAt: null,
+      }),
       reviewHistory: [],
       notificationDrafts: [{
         id: 'founder-area-0012:1783308600000:covenant-notification:manual_review_required:citizen-1',
@@ -939,6 +982,28 @@ function mainFounderApprovalGate() {
     approvedById: null,
     approvedAt: null,
     executionEnabled: false,
+  } as const
+}
+
+function covenantReviewSchedule(input: {
+  anchorAt: string
+  checkedAt: string
+  lastReviewAt: string | null
+}) {
+  const anchorMs = Date.parse(input.lastReviewAt ?? input.anchorAt)
+  const checkedMs = Date.parse(input.checkedAt)
+  const nextWeeklyMs = anchorMs + 7 * 24 * 60 * 60 * 1000
+  const nextMonthlyMs = anchorMs + 30 * 24 * 60 * 60 * 1000
+  const weeklyReviewDue = checkedMs >= nextWeeklyMs
+  const monthlyReviewDue = checkedMs >= nextMonthlyMs
+  return {
+    lastReviewAt: input.lastReviewAt,
+    nextWeeklyReviewAt: new Date(nextWeeklyMs).toISOString(),
+    nextMonthlyReviewAt: new Date(nextMonthlyMs).toISOString(),
+    weeklyReviewDue,
+    monthlyReviewDue,
+    overdue: weeklyReviewDue || monthlyReviewDue,
+    automationEnabled: false,
   } as const
 }
 
@@ -1245,6 +1310,11 @@ function serverDashboard(): RealityAreaDashboard {
         warning: true,
         probation: false,
         replacement: false,
+      }),
+      reviewSchedule: covenantReviewSchedule({
+        anchorAt: '2026-07-06T03:30:00.000Z',
+        checkedAt: '2026-07-06T04:00:00.000Z',
+        lastReviewAt: null,
       }),
       reviewHistory: [],
       notificationDrafts: [{

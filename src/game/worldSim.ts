@@ -446,6 +446,16 @@ export interface FounderCovenantReviewHistoryItem {
   summary: string
 }
 
+export interface FounderCovenantReviewSchedule {
+  lastReviewAt: number | null
+  nextWeeklyReviewAt: number
+  nextMonthlyReviewAt: number
+  weeklyReviewDue: boolean
+  monthlyReviewDue: boolean
+  overdue: boolean
+  automationEnabled: false
+}
+
 export type FounderCovenantNotificationDraftKind = 'founder_warning' | 'manual_review_required'
 export type FounderCovenantNotificationChannel = 'telegram'
 
@@ -473,6 +483,7 @@ export interface AreaFounderCovenantDashboard {
   activityReview: FounderCovenantActivityReview
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
+  reviewSchedule: FounderCovenantReviewSchedule | null
   reviewHistory: FounderCovenantReviewHistoryItem[]
   notificationDrafts: FounderCovenantNotificationDraft[]
   signals: FounderCovenantSignal[]
@@ -607,6 +618,8 @@ interface ServiceEffect extends Partial<Needs> {
 }
 
 export const WORLD_SIM_HOUR_MS = 3_600_000
+export const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * WORLD_SIM_HOUR_MS
+export const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * WORLD_SIM_HOUR_MS
 export const HOSPITALIZATION_HOURS = 8
 export const INSURED_HOSPITALIZATION_HOURS = 5
 export const COLLAPSE_HEALTH = 20
@@ -1157,6 +1170,7 @@ function founderCovenantDashboard(
           score: 0,
         },
       }),
+      reviewSchedule: null,
       reviewHistory: founderCovenantReviewHistory(area),
       notificationDrafts: [],
       signals: [],
@@ -1267,6 +1281,7 @@ function founderCovenantDashboard(
     founderCitizenId,
     nextAction,
   })
+  const reviewSchedule = founderCovenantReviewSchedule(area)
 
   return {
     founderCitizenId,
@@ -1279,6 +1294,7 @@ function founderCovenantDashboard(
     activityReview,
     reviewChecklist,
     manualActions,
+    reviewSchedule,
     reviewHistory: founderCovenantReviewHistory(area),
     notificationDrafts,
     signals,
@@ -1440,6 +1456,32 @@ function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHis
     .sort((left, right) => right.at - left.at)
     .slice(0, 5)
     .map((entry) => ({ ...entry }))
+}
+
+function founderCovenantReviewSchedule(area: WorldArea): FounderCovenantReviewSchedule | null {
+  if (!area.claim) return null
+  const lastReviewAt = latestFounderReviewAt(area)
+  const scheduleAnchor = lastReviewAt ?? area.claim.claimedAt
+  const nextWeeklyReviewAt = scheduleAnchor + FOUNDER_COVENANT_WEEKLY_REVIEW_MS
+  const nextMonthlyReviewAt = scheduleAnchor + FOUNDER_COVENANT_MONTHLY_REVIEW_MS
+  const weeklyReviewDue = area.now >= nextWeeklyReviewAt
+  const monthlyReviewDue = area.now >= nextMonthlyReviewAt
+  return {
+    lastReviewAt,
+    nextWeeklyReviewAt,
+    nextMonthlyReviewAt,
+    weeklyReviewDue,
+    monthlyReviewDue,
+    overdue: weeklyReviewDue || monthlyReviewDue,
+    automationEnabled: false,
+  }
+}
+
+function latestFounderReviewAt(area: WorldArea): number | null {
+  const reviewedAt = (area.founderReviewHistory ?? [])
+    .map((entry) => entry.at)
+    .filter((at) => Number.isFinite(at))
+  return reviewedAt.length > 0 ? Math.max(...reviewedAt) : null
 }
 
 function founderCovenantNotificationDrafts(
