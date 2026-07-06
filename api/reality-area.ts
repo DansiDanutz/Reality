@@ -395,6 +395,15 @@ const DISABLED_SETTLEMENT_INTENT_TYPES = [
 ] as const
 type DisabledSettlementIntentType = typeof DISABLED_SETTLEMENT_INTENT_TYPES[number]
 
+const DISABLED_ESTATE_PROTECTION_INTENT_TYPES = [
+  'nameHeir',
+  'setHeir',
+  'clearHeir',
+  'acceptEstateTransfer',
+  'claimEstateFromWaitlist',
+] as const
+type DisabledEstateProtectionIntentType = typeof DISABLED_ESTATE_PROTECTION_INTENT_TYPES[number]
+
 interface FounderAreaCovenantNotificationDraft {
   id: string
   at: string
@@ -558,6 +567,12 @@ type FounderAreaInsuranceActionBlocker =
   | 'already_insured'
   | 'service_unavailable'
   | 'insufficient_funds'
+type FounderAreaEstateProtectionBlocker =
+  | 'death_disabled'
+  | 'heir_naming_disabled'
+  | 'estate_transfer_disabled'
+  | 'waitlist_handoff_disabled'
+  | 'manual_review_required'
 
 interface FounderAreaCitizenDebtDashboard {
   id: string
@@ -587,10 +602,15 @@ interface FounderAreaInsuranceActionDashboard {
 
 interface FounderAreaEstateProtectionDashboard {
   enabled: false
+  namingEnabled: false
+  transferEnabled: false
+  waitlistFallbackEnabled: false
+  manualReviewRequired: true
   namedHeirCitizenId: string | null
   namedHeirName: string | null
   protectedByInsurance: boolean
   status: 'disabled_until_death_enabled'
+  blockers: FounderAreaEstateProtectionBlocker[]
 }
 
 interface FounderAreaCitizenDashboard {
@@ -3594,10 +3614,21 @@ function estateProtectionDashboard(
     : undefined
   return {
     enabled: false,
+    namingEnabled: false,
+    transferEnabled: false,
+    waitlistFallbackEnabled: false,
+    manualReviewRequired: true,
     namedHeirCitizenId: heir?.id ?? null,
     namedHeirName: heir?.name ?? null,
     protectedByInsurance: hasActiveInsurance(citizen, now),
     status: 'disabled_until_death_enabled',
+    blockers: [
+      'death_disabled',
+      'heir_naming_disabled',
+      'estate_transfer_disabled',
+      'waitlist_handoff_disabled',
+      'manual_review_required',
+    ],
   }
 }
 
@@ -4206,6 +4237,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ok: false,
         error: disabledSettlementMessage(),
         code: 'settlement_disabled',
+        ...areaPayload(existing),
+      })
+      return
+    }
+
+    if (isDisabledEstateProtectionIntentType(intentType)) {
+      res.status(disabledEstateProtectionStatus()).json({
+        ok: false,
+        error: disabledEstateProtectionMessage(),
+        code: 'estate_protection_disabled',
         ...areaPayload(existing),
       })
       return
@@ -5458,6 +5499,14 @@ function disabledSettlementMessage(): string {
   return 'TON wallet connection, deposits, withdrawals, land reservations, and leases are disabled until server authority and compliance review are ready.'
 }
 
+function disabledEstateProtectionStatus(): number {
+  return 403
+}
+
+function disabledEstateProtectionMessage(): string {
+  return 'Estate protection, heir naming, estate transfer, and waitlist fallback are disabled until death and manual approval workflows are ready.'
+}
+
 function advanceHourStatus(error: ApplyAdvanceHourError): number {
   if (error === 'server_clock_unauthorized') return 403
   if (error === 'area_not_claimed' || error === 'clock_not_ready') return 409
@@ -5602,6 +5651,11 @@ function isServicePurchaseIntentType(value: unknown): value is ServicePurchaseIn
 function isDisabledSettlementIntentType(value: unknown): value is DisabledSettlementIntentType {
   return typeof value === 'string' &&
     DISABLED_SETTLEMENT_INTENT_TYPES.includes(value as DisabledSettlementIntentType)
+}
+
+function isDisabledEstateProtectionIntentType(value: unknown): value is DisabledEstateProtectionIntentType {
+  return typeof value === 'string' &&
+    DISABLED_ESTATE_PROTECTION_INTENT_TYPES.includes(value as DisabledEstateProtectionIntentType)
 }
 
 function isFounderAreaCovenantManualActionKind(value: string): value is FounderAreaCovenantManualActionKind {

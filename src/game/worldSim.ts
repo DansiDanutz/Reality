@@ -312,6 +312,13 @@ export type AreaInsuranceActionBlocker =
   | 'service_unavailable'
   | 'insufficient_funds'
 
+export type AreaEstateProtectionBlocker =
+  | 'death_disabled'
+  | 'heir_naming_disabled'
+  | 'estate_transfer_disabled'
+  | 'waitlist_handoff_disabled'
+  | 'manual_review_required'
+
 export interface AreaInsuranceActionDashboard {
   intent: 'buyInsurance'
   clientPayload: Extract<WorldClientIntentPayload, { type: 'buyInsurance' }> | null
@@ -325,10 +332,15 @@ export interface AreaInsuranceActionDashboard {
 
 export interface AreaEstateProtectionDashboard {
   enabled: false
+  namingEnabled: false
+  transferEnabled: false
+  waitlistFallbackEnabled: false
+  manualReviewRequired: true
   namedHeirCitizenId: string | null
   namedHeirName: string | null
   protectedByInsurance: boolean
   status: 'disabled_until_death_enabled'
+  blockers: AreaEstateProtectionBlocker[]
 }
 
 export interface AreaCitizenDashboard {
@@ -1219,10 +1231,21 @@ function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: n
     : undefined
   return {
     enabled: false,
+    namingEnabled: false,
+    transferEnabled: false,
+    waitlistFallbackEnabled: false,
+    manualReviewRequired: true,
     namedHeirCitizenId: heir?.id ?? null,
     namedHeirName: heir?.name ?? null,
     protectedByInsurance: hasActiveInsurance(citizen, at),
     status: 'disabled_until_death_enabled',
+    blockers: [
+      'death_disabled',
+      'heir_naming_disabled',
+      'estate_transfer_disabled',
+      'waitlist_handoff_disabled',
+      'manual_review_required',
+    ],
   }
 }
 

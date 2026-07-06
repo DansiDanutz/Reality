@@ -188,10 +188,15 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     }
     estateProtection: {
       enabled: false
+      namingEnabled: false
+      transferEnabled: false
+      waitlistFallbackEnabled: false
+      manualReviewRequired: true
       namedHeirCitizenId: string | null
       namedHeirName: string | null
       protectedByInsurance: boolean
       status: string
+      blockers: string[]
     }
   }[]
   survival: {
@@ -846,10 +851,21 @@ describe('reality area authority API', () => {
       },
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: null,
         namedHeirName: null,
         protectedByInsurance: false,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     })
     expect(dashboard.citizens.find((resident) => resident.id === 'founder-area-0012:sim-water')).toMatchObject({
@@ -1591,6 +1607,58 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('rejects estate protection intents without naming heirs or transferring assets', async () => {
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://estate-protection-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'nameHeir',
+          heirCitizenId: 'citizen-heir',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'estate_protection_disabled',
+      error: 'Estate protection, heir naming, estate transfer, and waitlist fallback are disabled until death and manual approval workflows are ready.',
+      state: existing,
+    })
+    const body = res.body as { state: ReturnType<typeof existingState>; dashboard: DashboardWithBuildGuidance }
+    expect(body.state.citizens[0].heirCitizenId).toBeUndefined()
+    expect(body.dashboard.citizens.find((citizen) => citizen.id === CITIZEN_ID)).toMatchObject({
+      estateProtection: {
+        enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: false,
+        status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('does not overwrite an already claimed area', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
@@ -1912,10 +1980,21 @@ describe('reality area authority API', () => {
       },
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: null,
         namedHeirName: null,
         protectedByInsurance: false,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     })
     expect(put).not.toHaveBeenCalled()
@@ -1963,10 +2042,21 @@ describe('reality area authority API', () => {
       heirCitizenId: heirId,
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: heirId,
         namedHeirName: 'Ada Heir',
         protectedByInsurance: true,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     })
     expect(put).not.toHaveBeenCalled()
@@ -4672,10 +4762,21 @@ describe('reality area authority API', () => {
       },
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: null,
         namedHeirName: null,
         protectedByInsurance: true,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     })
     expect(body.state.businesses[0].cash).toBe(50)

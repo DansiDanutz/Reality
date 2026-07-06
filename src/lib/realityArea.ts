@@ -6,6 +6,7 @@ import type {
   AreaBusinessStatus,
   AreaCitizenDashboard,
   AreaDebtRepaymentBlocker,
+  AreaEstateProtectionBlocker,
   AreaFounderCovenantDashboard,
   AreaInsuranceActionBlocker,
   AreaLedgerDashboard,
@@ -640,12 +641,19 @@ export interface RealityAreaInsuranceActionDashboard {
   blockers: AreaInsuranceActionBlocker[]
 }
 
+export type RealityAreaEstateProtectionBlocker = AreaEstateProtectionBlocker
+
 export interface RealityAreaEstateProtectionDashboard {
   enabled: false
+  namingEnabled: false
+  transferEnabled: false
+  waitlistFallbackEnabled: false
+  manualReviewRequired: true
   namedHeirCitizenId: string | null
   namedHeirName: string | null
   protectedByInsurance: boolean
   status: 'disabled_until_death_enabled'
+  blockers: RealityAreaEstateProtectionBlocker[]
 }
 
 export interface RealityAreaCitizenDashboard {
@@ -2192,10 +2200,24 @@ function isRealityAreaInsuranceAction(value: unknown): value is RealityAreaInsur
 function isRealityAreaEstateProtection(value: unknown): value is RealityAreaEstateProtectionDashboard {
   return isRecord(value) &&
     value.enabled === false &&
+    value.namingEnabled === false &&
+    value.transferEnabled === false &&
+    value.waitlistFallbackEnabled === false &&
+    value.manualReviewRequired === true &&
     (typeof value.namedHeirCitizenId === 'string' || value.namedHeirCitizenId === null) &&
     (typeof value.namedHeirName === 'string' || value.namedHeirName === null) &&
     typeof value.protectedByInsurance === 'boolean' &&
-    value.status === 'disabled_until_death_enabled'
+    value.status === 'disabled_until_death_enabled' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaEstateProtectionBlocker)
+}
+
+function isRealityAreaEstateProtectionBlocker(value: unknown): value is RealityAreaEstateProtectionBlocker {
+  return value === 'death_disabled' ||
+    value === 'heir_naming_disabled' ||
+    value === 'estate_transfer_disabled' ||
+    value === 'waitlist_handoff_disabled' ||
+    value === 'manual_review_required'
 }
 
 function isRealityAreaCitizenDebtDashboard(value: unknown): value is RealityAreaCitizenDebtDashboard {

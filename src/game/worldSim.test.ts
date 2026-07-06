@@ -2473,10 +2473,21 @@ describe('advanceWorldArea — local real-time economy', () => {
         },
         estateProtection: {
           enabled: false,
+          namingEnabled: false,
+          transferEnabled: false,
+          waitlistFallbackEnabled: false,
+          manualReviewRequired: true,
           namedHeirCitizenId: 'real-patient',
           namedHeirName: 'Sim real-patient',
           protectedByInsurance: true,
           status: 'disabled_until_death_enabled',
+          blockers: [
+            'death_disabled',
+            'heir_naming_disabled',
+            'estate_transfer_disabled',
+            'waitlist_handoff_disabled',
+            'manual_review_required',
+          ],
         },
       },
       {
@@ -2515,10 +2526,21 @@ describe('advanceWorldArea — local real-time economy', () => {
         },
         estateProtection: {
           enabled: false,
+          namingEnabled: false,
+          transferEnabled: false,
+          waitlistFallbackEnabled: false,
+          manualReviewRequired: true,
           namedHeirCitizenId: null,
           namedHeirName: null,
           protectedByInsurance: false,
           status: 'disabled_until_death_enabled',
+          blockers: [
+            'death_disabled',
+            'heir_naming_disabled',
+            'estate_transfer_disabled',
+            'waitlist_handoff_disabled',
+            'manual_review_required',
+          ],
         },
       },
     ])

@@ -344,6 +344,37 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores citizen estate protection dashboards that enable heir naming', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      citizens: dashboard.citizens.map((citizen, index) =>
+        index === 0
+          ? {
+            ...citizen,
+            estateProtection: {
+              ...citizen.estateProtection,
+              namingEnabled: true,
+            },
+          }
+          : citizen
+      ),
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores land rights dashboards that enable lease execution', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -1104,10 +1135,21 @@ describe('Reality area client', () => {
     })
     expect(founder?.estateProtection).toEqual({
       enabled: false,
+      namingEnabled: false,
+      transferEnabled: false,
+      waitlistFallbackEnabled: false,
+      manualReviewRequired: true,
       namedHeirCitizenId: null,
       namedHeirName: null,
       protectedByInsurance: false,
       status: 'disabled_until_death_enabled',
+      blockers: [
+        'death_disabled',
+        'heir_naming_disabled',
+        'estate_transfer_disabled',
+        'waitlist_handoff_disabled',
+        'manual_review_required',
+      ],
     })
     expect(merged.founderCovenant).toMatchObject({
       founderCitizenId: 'citizen-1',
@@ -1275,10 +1317,21 @@ describe('Reality area client', () => {
             insuranceActive: true,
             estateProtection: {
               enabled: false,
+              namingEnabled: false,
+              transferEnabled: false,
+              waitlistFallbackEnabled: false,
+              manualReviewRequired: true,
               namedHeirCitizenId: 'heir-1',
               namedHeirName: 'Ada Heir',
               protectedByInsurance: true,
               status: 'disabled_until_death_enabled',
+              blockers: [
+                'death_disabled',
+                'heir_naming_disabled',
+                'estate_transfer_disabled',
+                'waitlist_handoff_disabled',
+                'manual_review_required',
+              ],
             },
           }
           : citizen
@@ -1288,10 +1341,21 @@ describe('Reality area client', () => {
     expect(world.citizens.find((citizen) => citizen.id === 'citizen-1')?.heirCitizenId).toBe('heir-1')
     expect(localDashboard.citizens.find((citizen) => citizen.id === 'citizen-1')?.estateProtection).toEqual({
       enabled: false,
+      namingEnabled: false,
+      transferEnabled: false,
+      waitlistFallbackEnabled: false,
+      manualReviewRequired: true,
       namedHeirCitizenId: 'heir-1',
       namedHeirName: 'Ada Heir',
       protectedByInsurance: true,
       status: 'disabled_until_death_enabled',
+      blockers: [
+        'death_disabled',
+        'heir_naming_disabled',
+        'estate_transfer_disabled',
+        'waitlist_handoff_disabled',
+        'manual_review_required',
+      ],
     })
 
     const merged = mergeRealityAreaDashboardIntoWorldDashboard(localDashboard, serverDashboardWithHeir)
@@ -1299,10 +1363,21 @@ describe('Reality area client', () => {
       heirCitizenId: 'heir-1',
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: 'heir-1',
         namedHeirName: 'Ada Heir',
         protectedByInsurance: true,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     })
   })
@@ -2134,10 +2209,21 @@ function serverDashboard(): RealityAreaDashboard {
       },
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: null,
         namedHeirName: null,
         protectedByInsurance: false,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     }, {
       id: 'sim-water',
@@ -2168,10 +2254,21 @@ function serverDashboard(): RealityAreaDashboard {
       },
       estateProtection: {
         enabled: false,
+        namingEnabled: false,
+        transferEnabled: false,
+        waitlistFallbackEnabled: false,
+        manualReviewRequired: true,
         namedHeirCitizenId: null,
         namedHeirName: null,
         protectedByInsurance: true,
         status: 'disabled_until_death_enabled',
+        blockers: [
+          'death_disabled',
+          'heir_naming_disabled',
+          'estate_transfer_disabled',
+          'waitlist_handoff_disabled',
+          'manual_review_required',
+        ],
       },
     }],
     survival: {
