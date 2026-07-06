@@ -591,6 +591,25 @@ type ApplyRepayDebtError =
   | 'debt_not_found'
   | 'insufficient_funds'
 
+type RecordCovenantReviewIntent =
+  | {
+    ok: true
+    actionKind: FounderAreaCovenantManualActionKind
+    summary: string
+  }
+  | { ok: false; error: RecordCovenantReviewIntentError }
+
+type RecordCovenantReviewIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_review_action'
+  | 'invalid_review_summary'
+
+type ApplyRecordCovenantReviewError =
+  | RecordCovenantReviewIntentError
+  | 'area_not_claimed'
+  | 'review_action_disabled'
+
 const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
   buyWater: 'water',
   buyFood: 'food',
@@ -656,6 +675,29 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
   'creditorId',
   'debt',
   'debts',
+  'businesses',
+  'transactions',
+  'citizens',
+])
+
+const FORBIDDEN_REVIEW_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'ownerId',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'amount',
+  'price',
+  'wagePerHour',
+  'reviewerId',
+  'founderCitizenId',
+  'replacementEnabled',
+  'waitlistHandoffEnabled',
+  'automationEnabled',
   'businesses',
   'transactions',
   'citizens',
@@ -912,6 +954,23 @@ export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'invalid_debt_payment' }
 
   return { ok: true, debtId, amount }
+}
+
+export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCovenantReviewIntent {
+  if (!isRecord(input) || input.type !== 'recordCovenantReview') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_REVIEW_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const actionKind = text(input.actionKind)
+  if (!isFounderAreaCovenantManualActionKind(actionKind)) return { ok: false, error: 'invalid_review_action' }
+
+  const summary = text(input.summary)
+  if (!summary || summary.length > 280 || hasControlCharacter(summary)) {
+    return { ok: false, error: 'invalid_review_summary' }
+  }
+
+  return { ok: true, actionKind, summary }
 }
 
 export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
@@ -2201,6 +2260,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (intentType === 'recordCovenantReview') {
+      const result = applyRecordCovenantReviewIntent(existing, rawIntent, new Date(), citizen.citizenId)
+      if (!result.ok) {
+        res.status(recordCovenantReviewStatus(result.error)).json({
+          ok: false,
+          error: recordCovenantReviewMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      res.status(200).json({ ok: true, ...areaPayload(state) })
+      return
+    }
+
     res.status(400).json({ ok: false, error: 'Unsupported area intent.', code: 'unsupported_intent' })
   } catch {
     res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
@@ -2555,6 +2631,36 @@ function applyRepayDebtIntent(
       businesses,
       citizens,
       transactions: [...state.transactions, transaction],
+      updatedAt: at,
+    },
+  }
+}
+
+function applyRecordCovenantReviewIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+  reviewerId: string,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyRecordCovenantReviewError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeRecordCovenantReviewIntent(input)
+  if (!intent.ok) return intent
+  if (intent.actionKind !== 'record_review') return { ok: false, error: 'review_action_disabled' }
+
+  const at = now.toISOString()
+  const entry: FounderAreaCovenantReviewHistoryItem = {
+    id: `${state.areaId}:${now.getTime()}:founder-review:${reviewerId}`,
+    at,
+    reviewerId,
+    actionKind: intent.actionKind,
+    summary: intent.summary,
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      founderReviewHistory: [...(state.founderReviewHistory ?? []), entry],
       updatedAt: at,
     },
   }
@@ -3064,6 +3170,22 @@ function repayDebtMessage(error: ApplyRepayDebtError): string {
   }
 }
 
+function recordCovenantReviewStatus(error: ApplyRecordCovenantReviewError): number {
+  if (error === 'area_not_claimed' || error === 'review_action_disabled') return 409
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function recordCovenantReviewMessage(error: ApplyRecordCovenantReviewError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before recording founder review evidence.'
+    case 'review_action_disabled':
+      return 'Founder warning, probation, and replacement actions are disabled until manual approval workflow is ready.'
+    default:
+      return 'Invalid founder covenant review intent.'
+  }
+}
+
 function readAuth(req: VercelRequest): { citizenId: string; token: string } | null {
   const source = req.method === 'GET' ? req.query : req.body
   const citizenId = field(source, 'citizenId')
@@ -3092,6 +3214,13 @@ function isBusinessKind(value: string): value is FounderAreaBusinessKind {
 
 function isServicePurchaseIntentType(value: unknown): value is ServicePurchaseIntentType {
   return typeof value === 'string' && value in SERVICE_PURCHASE_INTENTS
+}
+
+function isFounderAreaCovenantManualActionKind(value: string): value is FounderAreaCovenantManualActionKind {
+  return value === 'record_review' ||
+    value === 'send_warning' ||
+    value === 'start_probation' ||
+    value === 'recommend_replacement'
 }
 
 function isClientId(value: string): boolean {

@@ -7,6 +7,7 @@ import {
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
+  recordRealityFounderCovenantReview,
   realityAreaStateToWorldArea,
   type RealityAreaCovenantManualAction,
   type RealityAreaDashboard,
@@ -264,6 +265,39 @@ describe('Reality area client', () => {
         citizenId: 'citizen-1',
         token: 'token-1',
         intent: { type: 'advanceHour' },
+      }),
+    })
+  })
+
+  test('sends founder covenant review evidence through the server area authority', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantReview({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      summary: 'Weekly review: founder needs staffing follow-up.',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          summary: 'Weekly review: founder needs staffing follow-up.',
+        },
       }),
     })
   })

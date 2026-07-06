@@ -415,11 +415,17 @@ export interface RealityAreaAdvanceHourPayload {
   type: 'advanceHour'
 }
 
+export interface RealityAreaCovenantReviewPayload {
+  type: 'recordCovenantReview'
+  actionKind: RealityAreaCovenantManualActionKind
+  summary: string
+}
+
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
-type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaAdvanceHourPayload
+type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaAdvanceHourPayload | RealityAreaCovenantReviewPayload
 
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
   if (citizen.telegramAccountId) return 'telegram'
@@ -484,6 +490,14 @@ export async function advanceRealityFounderArea(
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
   return applyRealityAreaPayload(citizen, { type: 'advanceHour' }, fetchImpl)
+}
+
+export async function recordRealityFounderCovenantReview(
+  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  payload: RealityAreaCovenantReviewPayload,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityAreaApplyResult> {
+  return applyRealityAreaPayload(citizen, payload, fetchImpl)
 }
 
 async function applyRealityAreaPayload(

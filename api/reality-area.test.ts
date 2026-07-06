@@ -8,6 +8,7 @@ import handler, {
   normalizeBuyInsuranceIntent,
   normalizeClaimAreaIntent,
   normalizeHireWorkerIntent,
+  normalizeRecordCovenantReviewIntent,
   normalizeRepayDebtIntent,
   normalizeServicePurchaseIntent,
   verifyCitizen,
@@ -374,6 +375,34 @@ describe('reality area authority API', () => {
       debtId: 'founder-medical-1',
       amount: 0,
     })).toEqual({ ok: false, error: 'invalid_debt_payment' })
+  })
+
+  test('normalizes covenant review evidence without accepting client-controlled authority fields', () => {
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      summary: '  Weekly review: founder built water and needs staff.  ',
+    })).toEqual({
+      ok: true,
+      actionKind: 'record_review',
+      summary: 'Weekly review: founder built water and needs staff.',
+    })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      summary: 'Looks good.',
+      reviewerId: 'spoofed-reviewer',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'remove_founder',
+      summary: 'Remove immediately.',
+    })).toEqual({ ok: false, error: 'invalid_review_action' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      summary: '',
+    })).toEqual({ ok: false, error: 'invalid_review_summary' })
   })
 
   test('requires a registered citizen before reading area state', async () => {
@@ -2427,6 +2456,89 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('recordCovenantReview appends manual evidence without touching money or ledger transactions', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          summary: 'Weekly review: founder needs staffing follow-up.',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as {
+      ok: true
+      state: ReturnType<typeof existingState> & {
+        founderReviewHistory: { id: string; at: string; reviewerId: string; actionKind: string; summary: string }[]
+      }
+    }
+    expect(body.state.balance).toBe(existing.balance)
+    expect(body.state.transactions).toEqual(existing.transactions)
+    expect(body.state.founderReviewHistory).toEqual([{
+      id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}`,
+      at: '2026-07-06T08:00:00.000Z',
+      reviewerId: CITIZEN_ID,
+      actionKind: 'record_review',
+      summary: 'Weekly review: founder needs staffing follow-up.',
+    }])
+    expect(body.state.founderCovenant.reviewHistory).toEqual(body.state.founderReviewHistory)
+    expect(body.state.founderCovenant.manualActions.every((action) =>
+      action.requiresApproval === true && action.automationEnabled === false
+    )).toBe(true)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('recordCovenantReview rejects warning probation and replacement actions until workflow approval', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'recommend_replacement',
+          summary: 'Try to replace founder early.',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'review_action_disabled',
+      error: 'Founder warning, probation, and replacement actions are disabled until manual approval workflow is ready.',
+      state: existing,
+    })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('buyInsurance pays the insurer and records founder policy time', async () => {
