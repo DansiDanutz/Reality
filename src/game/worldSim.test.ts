@@ -755,6 +755,20 @@ describe('advanceWorldArea — local real-time economy', () => {
       kind: 'food',
       activeStaff: 1,
       hourlyCapacity: 24,
+      ledger: {
+        transactionCount: 3,
+        revenue: 14,
+        expenses: 20,
+        netCashFlow: -6,
+        wagesPaid: 20,
+        receivablesIssued: 0,
+      },
+    })
+    expect(dashboard.existingBusinesses.find((business) => business.id === 'water1')!.ledger).toMatchObject({
+      transactionCount: 1,
+      revenue: 2,
+      expenses: 0,
+      netCashFlow: 2,
     })
     expect(dashboard.jobs).toMatchObject({
       employedCitizens: 1,
@@ -1463,6 +1477,59 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: false,
       },
     ])
+  })
+
+  test('business dashboard ledger separates cash revenue, expenses, wages, and medical receivables', () => {
+    const transactions: WorldTransaction[] = [
+      { id: 'tx1', at: 1, kind: 'customer_purchase', fromId: 'resident', toId: 'food1', amount: 14, memo: 'food sale' },
+      { id: 'tx2', at: 2, kind: 'worker_wage', fromId: 'food1', toId: 'worker', amount: 10, memo: 'wage' },
+      { id: 'tx3', at: 3, kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45, memo: 'premium' },
+      { id: 'tx4', at: 4, kind: 'insurance_payout', fromId: 'ins1', toId: 'clinic1', amount: 100, memo: 'coverage' },
+      { id: 'tx5', at: 5, kind: 'hospital_bill', fromId: 'resident', toId: 'clinic1', amount: 90, memo: 'hospital bill' },
+      { id: 'tx6', at: 6, kind: 'medical_debt', fromId: 'resident', toId: 'clinic1', amount: 25, memo: 'receivable' },
+      { id: 'tx7', at: 7, kind: 'debt_repayment', fromId: 'resident', toId: 'clinic1', amount: 5, memo: 'repayment' },
+    ]
+    const dash = areaNeedsDashboard(area({
+      transactions,
+      businesses: [
+        business('food', 'food1'),
+        business('insurance', 'ins1'),
+        business('clinic', 'clinic1'),
+      ],
+    }))
+    dash.existingBusinesses.find((candidate) => candidate.id === 'clinic1')!.ledger.recentTransactions[0].amount = 999
+
+    expect(transactions[6].amount).toBe(5)
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'food1')!.ledger).toMatchObject({
+      transactionCount: 2,
+      revenue: 14,
+      expenses: 10,
+      netCashFlow: 4,
+      wagesPaid: 10,
+      receivablesIssued: 0,
+    })
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'ins1')!.ledger).toMatchObject({
+      transactionCount: 2,
+      revenue: 45,
+      expenses: 100,
+      netCashFlow: -55,
+      wagesPaid: 0,
+      receivablesIssued: 0,
+    })
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'clinic1')!.ledger).toMatchObject({
+      transactionCount: 4,
+      revenue: 195,
+      expenses: 0,
+      netCashFlow: 195,
+      wagesPaid: 0,
+      receivablesIssued: 25,
+      recentTransactions: [
+        { id: 'tx7', kind: 'debt_repayment' },
+        { id: 'tx6', kind: 'medical_debt' },
+        { id: 'tx5', kind: 'hospital_bill' },
+        { id: 'tx4', kind: 'insurance_payout' },
+      ],
+    })
   })
 
   test('dashboard ledger summarizes cash flow and returns a latest-first transaction feed', () => {

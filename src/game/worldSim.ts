@@ -163,6 +163,17 @@ export interface AreaBusinessDashboard {
   targetStaff: number
   openPositions: number
   hourlyCapacity: number
+  ledger: AreaBusinessLedgerDashboard
+}
+
+export interface AreaBusinessLedgerDashboard {
+  transactionCount: number
+  revenue: number
+  expenses: number
+  netCashFlow: number
+  wagesPaid: number
+  receivablesIssued: number
+  recentTransactions: AreaTransactionDashboard[]
 }
 
 export interface AreaCitizenDashboard {
@@ -674,7 +685,51 @@ function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusine
     targetStaff,
     openPositions: Math.max(0, targetStaff - activeStaff),
     hourlyCapacity: serviceCapacity(area, business, 1),
+    ledger: businessLedgerDashboard(area, business),
   }
+}
+
+function businessLedgerDashboard(area: WorldArea, business: WorldBusiness): AreaBusinessLedgerDashboard {
+  const relatedTransactions = area.transactions.filter((transaction) =>
+    transaction.fromId === business.id || transaction.toId === business.id,
+  )
+  let revenue = 0
+  let expenses = 0
+  let wagesPaid = 0
+  let receivablesIssued = 0
+
+  for (const transaction of relatedTransactions) {
+    if (transaction.toId === business.id) {
+      if (isCashRevenue(transaction.kind)) revenue = roundMoney(revenue + transaction.amount)
+      if (transaction.kind === 'medical_debt') receivablesIssued = roundMoney(receivablesIssued + transaction.amount)
+    }
+    if (transaction.fromId === business.id) {
+      if (transaction.kind === 'worker_wage') wagesPaid = roundMoney(wagesPaid + transaction.amount)
+      if (isCashExpense(transaction.kind)) expenses = roundMoney(expenses + transaction.amount)
+    }
+  }
+
+  return {
+    transactionCount: relatedTransactions.length,
+    revenue,
+    expenses,
+    netCashFlow: roundMoney(revenue - expenses),
+    wagesPaid,
+    receivablesIssued,
+    recentTransactions: relatedTransactions.slice(-5).reverse().map(transactionDashboard),
+  }
+}
+
+function isCashRevenue(kind: WorldTransactionKind): boolean {
+  return kind === 'customer_purchase' ||
+    kind === 'insurance_premium' ||
+    kind === 'hospital_bill' ||
+    kind === 'insurance_payout' ||
+    kind === 'debt_repayment'
+}
+
+function isCashExpense(kind: WorldTransactionKind): boolean {
+  return kind === 'worker_wage' || kind === 'insurance_payout'
 }
 
 function survivalDashboard(area: WorldArea): AreaSurvivalDashboard {
