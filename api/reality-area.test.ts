@@ -5,6 +5,7 @@ import handler, {
   areaStatePath,
   normalizeAdvanceHourIntent,
   normalizeBuildBusinessIntent,
+  normalizeBuyInsuranceIntent,
   normalizeClaimAreaIntent,
   normalizeHireWorkerIntent,
   normalizeRepayDebtIntent,
@@ -107,6 +108,30 @@ describe('reality area authority API', () => {
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeServicePurchaseIntent({ type: 'buyInsurance' }))
       .toEqual({ ok: false, error: 'unsupported_intent' })
+  })
+
+  test('normalizes buyInsurance without accepting client-controlled policy or price fields', () => {
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
+      insuranceBusinessId: 'insurance-1',
+    })).toEqual({
+      ok: true,
+      insuranceBusinessId: 'insurance-1',
+    })
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2099-01-01T00:00:00.000Z',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
+      insuranceBusinessId: 'insurance-1',
+      price: 0,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
+      insuranceBusinessId: '../insurance',
+    })).toEqual({ ok: false, error: 'invalid_business_id' })
   })
 
   test('normalizes hireWorker without accepting client-controlled staffing or wage fields', () => {
@@ -977,6 +1002,180 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('buyInsurance pays the insurer and records founder policy time', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = withBusiness(existingState(), {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(body.state.balance).toBe(199_955)
+    expect(founder?.money).toBe(199_955)
+    expect(founder?.insuranceBusinessId).toBe('insurance-1')
+    expect(founder?.insurancePaidUntil).toBe('2026-08-05T08:00:00.000Z')
+    expect(body.state.businesses[0].cash).toBe(50)
+    expect(body.state.transactions.at(-1)).toEqual({
+      id: 'founder-area-0012:1783324800000:insurance-premium:11111111-1111-4111-8111-111111111111:insurance-1',
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'insurance_premium',
+      fromId: CITIZEN_ID,
+      toId: 'insurance-1',
+      amount: 45,
+      memo: 'Founder #0012 bought insurance from Founder Insurance.',
+    })
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('buyInsurance requires an active founder, an insurance business, no active policy, and funds', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://missing-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    const missing = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, missing as never)
+
+    expect(missing.statusCode).toBe(409)
+    expect(missing.body).toMatchObject({ ok: false, code: 'business_not_found' })
+
+    const wrongKindState = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Water Point',
+      kind: 'water',
+      price: 2,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://wrong-kind-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(wrongKindState), { status: 200 })))
+    const wrongKind = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'water-1' },
+      },
+    } as never, wrongKind as never)
+
+    expect(wrongKind.statusCode).toBe(409)
+    expect(wrongKind.body).toMatchObject({ ok: false, code: 'not_insurance_business' })
+
+    const hospitalizedState = withBusiness(withCitizen(existingState(), CITIZEN_ID, {
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+    }), {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(hospitalizedState), { status: 200 })))
+    const unavailable = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, unavailable as never)
+
+    expect(unavailable.statusCode).toBe(409)
+    expect(unavailable.body).toMatchObject({ ok: false, code: 'actor_unavailable' })
+
+    const insuredState = withBusiness(withCitizen(existingState(), CITIZEN_ID, {
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2099-01-01T00:00:00.000Z',
+    }), {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://already-insured-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(insuredState), { status: 200 })))
+    const alreadyInsured = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, alreadyInsured as never)
+
+    expect(alreadyInsured.statusCode).toBe(409)
+    expect(alreadyInsured.body).toMatchObject({ ok: false, code: 'already_insured' })
+
+    const brokeState = withBusiness({ ...existingState(), balance: 20 }, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://broke-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(brokeState), { status: 200 })))
+    const broke = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, broke as never)
+
+    expect(broke.statusCode).toBe(402)
+    expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('repayDebt requires a server debt, active founder, and funds', async () => {

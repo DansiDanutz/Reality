@@ -12,6 +12,7 @@ const SIM_CREDIT_ACCOUNT_ID = 'system:sim-credit'
 const BUILDER_RECEIVER_ID = 'system:builders'
 const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
 const AREA_STATE_VERSION = 1
+const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
 const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
 
@@ -44,6 +45,7 @@ interface FounderAreaTransaction {
     | 'customer_purchase'
     | 'worker_wage'
     | 'hospital_bill'
+    | 'insurance_premium'
     | 'medical_debt'
     | 'debt_repayment'
   fromId: string
@@ -71,6 +73,8 @@ interface FounderAreaCitizen {
   health: number
   state: { kind: 'active' } | { kind: 'hospitalized'; until: string }
   jobBusinessId?: string
+  insuranceBusinessId?: string
+  insurancePaidUntil?: string
 }
 
 interface FounderAreaDebt {
@@ -166,6 +170,27 @@ type ApplyServicePurchaseError =
   | ServicePurchaseIntentError
   | 'area_not_claimed'
   | 'service_not_available'
+  | 'insufficient_funds'
+
+type BuyInsuranceIntent =
+  | {
+    ok: true
+    insuranceBusinessId: string
+  }
+  | { ok: false; error: BuyInsuranceIntentError }
+
+type BuyInsuranceIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_business_id'
+
+type ApplyBuyInsuranceError =
+  | BuyInsuranceIntentError
+  | 'area_not_claimed'
+  | 'actor_unavailable'
+  | 'business_not_found'
+  | 'not_insurance_business'
+  | 'already_insured'
   | 'insufficient_funds'
 
 type HireWorkerIntent =
@@ -313,6 +338,28 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
   'citizens',
 ])
 
+const FORBIDDEN_INSURANCE_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'businessId',
+  'businessKind',
+  'serviceKind',
+  'ownerId',
+  'now',
+  'balance',
+  'money',
+  'cash',
+  'amount',
+  'price',
+  'wagePerHour',
+  'insurancePaidUntil',
+  'businesses',
+  'transactions',
+  'citizens',
+])
+
 const FORBIDDEN_BUILD_FIELDS = new Set([
   'actorCitizenId',
   'authenticatedCitizenId',
@@ -453,6 +500,18 @@ export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseI
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true, type: input.type, serviceKind: SERVICE_PURCHASE_INTENTS[input.type] }
+}
+
+export function normalizeBuyInsuranceIntent(input: unknown): BuyInsuranceIntent {
+  if (!isRecord(input) || input.type !== 'buyInsurance') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_INSURANCE_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const insuranceBusinessId = text(input.insuranceBusinessId)
+  if (!isClientId(insuranceBusinessId)) return { ok: false, error: 'invalid_business_id' }
+
+  return { ok: true, insuranceBusinessId }
 }
 
 export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
@@ -750,6 +809,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (intentType === 'buyInsurance') {
+      const result = applyBuyInsuranceIntent(existing, rawIntent, new Date())
+      if (!result.ok) {
+        res.status(buyInsuranceStatus(result.error)).json({
+          ok: false,
+          error: buyInsuranceMessage(result.error),
+          code: result.error,
+          state: existing,
+        })
+        return
+      }
+
+      await put(areaStatePath(citizen.citizenId), JSON.stringify(result.state), {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+      res.status(200).json({ ok: true, state: result.state })
+      return
+    }
+
     if (intentType === 'hireWorker') {
       const result = applyHireWorkerIntent(existing, rawIntent, new Date())
       if (!result.ok) {
@@ -1005,6 +1086,64 @@ function applyServicePurchaseIntent(
           : candidate
       ),
       citizens: setFounderCitizenMoney(state, roundMoney(state.balance - business.price)),
+      transactions: [...state.transactions, transaction],
+      updatedAt: at,
+    },
+  }
+}
+
+function applyBuyInsuranceIntent(
+  state: FounderAreaState | null,
+  input: unknown,
+  now: Date,
+): { ok: true; state: FounderAreaState } | { ok: false; error: ApplyBuyInsuranceError } {
+  if (!state) return { ok: false, error: 'area_not_claimed' }
+  const intent = normalizeBuyInsuranceIntent(input)
+  if (!intent.ok) return intent
+
+  const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
+
+  const insurer = state.businesses.find((business) => business.id === intent.insuranceBusinessId)
+  if (!insurer) return { ok: false, error: 'business_not_found' }
+  if (insurer.kind !== 'insurance') return { ok: false, error: 'not_insurance_business' }
+
+  const existingPolicyUntil = actor.insurancePaidUntil ? Date.parse(actor.insurancePaidUntil) : Number.NaN
+  if (Number.isFinite(existingPolicyUntil) && existingPolicyUntil > now.getTime()) {
+    return { ok: false, error: 'already_insured' }
+  }
+  if (state.balance < insurer.price) return { ok: false, error: 'insufficient_funds' }
+
+  const at = now.toISOString()
+  const paidUntil = new Date(now.getTime() + INSURANCE_POLICY_PERIOD_MS).toISOString()
+  const transaction: FounderAreaTransaction = {
+    id: `${state.areaId}:${now.getTime()}:insurance-premium:${actor.id}:${insurer.id}`,
+    at,
+    kind: 'insurance_premium',
+    fromId: actor.id,
+    toId: insurer.id,
+    amount: insurer.price,
+    memo: `${actor.name} bought insurance from ${insurer.name}.`,
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      balance: roundMoney(state.balance - insurer.price),
+      businesses: state.businesses.map((business) =>
+        business.id === insurer.id ? { ...business, cash: roundMoney(business.cash + insurer.price) } : business
+      ),
+      citizens: state.citizens.map((citizen) =>
+        citizen.id === actor.id
+          ? {
+            ...citizen,
+            money: roundMoney(citizen.money - insurer.price),
+            insuranceBusinessId: insurer.id,
+            insurancePaidUntil: paidUntil,
+          }
+          : citizen
+      ),
       transactions: [...state.transactions, transaction],
       updatedAt: at,
     },
@@ -1284,6 +1423,39 @@ function servicePurchaseMessage(error: ApplyServicePurchaseError): string {
       return 'Founder balance is too low for this purchase.'
     default:
       return 'Invalid service purchase intent.'
+  }
+}
+
+function buyInsuranceStatus(error: ApplyBuyInsuranceError): number {
+  if (
+    error === 'area_not_claimed' ||
+    error === 'actor_unavailable' ||
+    error === 'business_not_found' ||
+    error === 'not_insurance_business' ||
+    error === 'already_insured'
+  ) {
+    return 409
+  }
+  if (error === 'insufficient_funds') return 402
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function buyInsuranceMessage(error: ApplyBuyInsuranceError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before buying insurance.'
+    case 'actor_unavailable':
+      return 'Founder must be active before buying insurance.'
+    case 'business_not_found':
+      return 'Insurance business must exist before buying a policy.'
+    case 'not_insurance_business':
+      return 'Selected business is not an insurance provider.'
+    case 'already_insured':
+      return 'Founder already has active insurance.'
+    case 'insufficient_funds':
+      return 'Founder balance is too low for this insurance premium.'
+    default:
+      return 'Invalid buyInsurance intent.'
   }
 }
 

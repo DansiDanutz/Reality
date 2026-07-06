@@ -46,6 +46,7 @@ export type RealityAreaServerIntentType =
   | 'visitClinic'
   | 'hireWorker'
   | 'repayDebt'
+  | 'buyInsurance'
 export type RealityAreaServerPayload = Extract<WorldClientIntentPayload, { type: RealityAreaServerIntentType }>
 
 export interface RealityAreaAdvanceHourPayload {
@@ -161,7 +162,8 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'buyHousing' ||
     payload.type === 'visitClinic' ||
     payload.type === 'hireWorker' ||
-    payload.type === 'repayDebt'
+    payload.type === 'repayDebt' ||
+    payload.type === 'buyInsurance'
 }
 
 export function founderAreaProfileWithServerClaim(
