@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
@@ -45,6 +46,19 @@ export interface VerifyTelegramMiniAppInitDataOptions {
   maxAgeSeconds?: number
 }
 
+export interface TelegramRealityAccountRecord {
+  realityAccountId: string
+  telegramUserId: string
+  firstName: string
+  lastName?: string
+  username?: string
+  languageCode?: string
+  photoUrl?: string
+  authDate: number
+  lastVerifiedAt: string
+  provider: 'telegram-mini-app'
+}
+
 export function verifyTelegramMiniAppInitData(
   initData: string,
   botToken: string | undefined,
@@ -82,6 +96,28 @@ export function verifyTelegramMiniAppInitData(
 
 export function realityTelegramAccountId(user: Pick<TelegramMiniAppUser, 'id'>): string {
   return `telegram:${user.id}`
+}
+
+export function telegramRealityAccountPath(user: Pick<TelegramMiniAppUser, 'id'>): string {
+  return `telegram-users/${user.id}.json`
+}
+
+export function telegramRealityAccountRecord(
+  verified: Extract<VerifyTelegramMiniAppInitDataResult, { ok: true }>,
+  lastVerifiedAt: Date,
+): TelegramRealityAccountRecord {
+  return {
+    realityAccountId: verified.realityAccountId,
+    telegramUserId: verified.user.id,
+    firstName: verified.user.firstName,
+    lastName: verified.user.lastName,
+    username: verified.user.username,
+    languageCode: verified.user.languageCode,
+    photoUrl: verified.user.photoUrl,
+    authDate: verified.authDate,
+    lastVerifiedAt: lastVerifiedAt.toISOString(),
+    provider: 'telegram-mini-app',
+  }
 }
 
 function parseInitData(initData: string): { ok: true; fields: Map<string, string>; hash: string; dataCheckString: string } | { ok: false; error: VerifyTelegramMiniAppInitDataError } {
@@ -175,7 +211,7 @@ function readInitData(req: VercelRequest): string | null {
   return typeof body?.initData === 'string' ? body.initData : null
 }
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store')
 
   if (req.method !== 'POST') {
@@ -202,10 +238,23 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const accountRecord = telegramRealityAccountRecord(verified, new Date())
+  try {
+    await put(
+      telegramRealityAccountPath(verified.user),
+      JSON.stringify(accountRecord),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  } catch {
+    res.status(500).json({ ok: false, error: 'Telegram identity is briefly unavailable.' })
+    return
+  }
+
   res.status(200).json({
     ok: true,
     telegramUser: verified.user,
     realityAccountId: verified.realityAccountId,
+    account: accountRecord,
     authDate: verified.authDate,
     queryId: verified.queryId,
     startParam: verified.startParam,

@@ -1,12 +1,24 @@
 import { createHmac } from 'node:crypto'
-import { describe, expect, test } from 'vitest'
+import { put } from '@vercel/blob'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import handler, {
   realityTelegramAccountId,
+  telegramRealityAccountPath,
+  telegramRealityAccountRecord,
   verifyTelegramMiniAppInitData,
 } from './telegram-auth'
 
+vi.mock('@vercel/blob', () => ({
+  put: vi.fn(async () => ({ url: 'blob://telegram-users/42424242.json' })),
+}))
+
 const BOT_TOKEN = '123456:REALITY_TEST_BOT_TOKEN'
 const NOW_SECONDS = 1_800_000_000
+
+afterEach(() => {
+  vi.mocked(put).mockClear()
+  delete process.env.TELEGRAM_BOT_TOKEN
+})
 
 describe('telegram Mini App auth', () => {
   test('verifies Telegram Mini App initData and maps it to a Reality account id', () => {
@@ -117,10 +129,62 @@ describe('telegram Mini App auth', () => {
       error: 'Telegram auth is not configured.',
       code: 'missing_bot_token',
     })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('server handler persists a verified Telegram identity record', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T02:00:00.000Z'))
+    try {
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
+      })
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toMatchObject({
+        ok: true,
+        realityAccountId: 'telegram:42424242',
+        telegramUser: { id: '42424242', firstName: 'David', username: 'davidreality' },
+        account: {
+          realityAccountId: 'telegram:42424242',
+          telegramUserId: '42424242',
+          firstName: 'David',
+          username: 'davidreality',
+          lastVerifiedAt: '2026-07-06T02:00:00.000Z',
+          provider: 'telegram-mini-app',
+        },
+      })
+      expect(put).toHaveBeenCalledWith(
+        'telegram-users/42424242.json',
+        JSON.stringify((res.body as { account: unknown }).account),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('builds deterministic Telegram Reality account ids', () => {
     expect(realityTelegramAccountId({ id: '42424242' })).toBe('telegram:42424242')
+    expect(telegramRealityAccountPath({ id: '42424242' })).toBe('telegram-users/42424242.json')
+    expect(telegramRealityAccountRecord({
+      ok: true,
+      authDate: NOW_SECONDS,
+      realityAccountId: 'telegram:42424242',
+      user: { id: '42424242', firstName: 'David' },
+    }, new Date('2026-07-06T00:00:00.000Z'))).toEqual({
+      realityAccountId: 'telegram:42424242',
+      telegramUserId: '42424242',
+      firstName: 'David',
+      authDate: NOW_SECONDS,
+      lastVerifiedAt: '2026-07-06T00:00:00.000Z',
+      provider: 'telegram-mini-app',
+    })
   })
 })
 
