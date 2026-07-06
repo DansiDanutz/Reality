@@ -113,13 +113,21 @@ export type FirstBuildPriority = 'critical' | 'high' | 'medium' | 'low'
 
 export interface FirstBuildRecommendation {
   kind: WorldBusinessKind
+  name: string
   priority: FirstBuildPriority
   score: number
+  buildCost: number
+  currentDemand: number
+  currentSupply: number
+  licenseSlots: number
+  licensesRemaining: number
+  founderCanAfford: boolean
   licensed: boolean
   saturated: boolean
   estimatedHourlyRevenue: number
   estimatedHourlyWageCost: number
   estimatedHourlyProfit: number
+  estimatedPaybackHours: number | null
   reason: string
 }
 
@@ -525,6 +533,7 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
 
 export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const activeCitizens = area.citizens.filter((c) => c.state.kind === 'active')
+  const founderMoney = founderMoneyForArea(area)
   const supply = zeroKindRecord()
   const capacity = zeroKindRecord()
   for (const business of area.businesses) {
@@ -568,14 +577,19 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens),
     survival: survivalDashboard(area),
-    firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation }),
+    firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation, founderMoney }),
   }
 }
 
-export function firstBuildGuidance(input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'>): FirstBuildRecommendation[] {
+export function firstBuildGuidance(input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & { founderMoney?: number }): FirstBuildRecommendation[] {
   return BUSINESS_KINDS
     .map((kind) => buildRecommendation(kind, input))
     .sort((a, b) => b.score - a.score || BUSINESS_KINDS.indexOf(a.kind) - BUSINESS_KINDS.indexOf(b.kind))
+}
+
+function founderMoneyForArea(area: WorldArea): number | undefined {
+  if (!area.claim) return undefined
+  return area.citizens.find((citizen) => citizen.id === area.claim?.founderCitizenId)?.money
 }
 
 export function licenseSlotsForPopulation(population: number, kind: WorldBusinessKind): number {
@@ -592,11 +606,14 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
 
 function buildRecommendation(
   kind: WorldBusinessKind,
-  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'>,
+  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & { founderMoney?: number },
 ): FirstBuildRecommendation {
+  const blueprint = DEFAULT_BUSINESS_BLUEPRINTS[kind]
   const demand = input.demand[kind]
   const supply = input.supply[kind]
-  const licensed = supply < input.licenseSlots[kind]
+  const licenseSlots = input.licenseSlots[kind]
+  const licensesRemaining = Math.max(0, licenseSlots - supply)
+  const licensed = licensesRemaining > 0
   const saturated = input.saturation[kind] >= 1
   const essential = kind === 'water' || kind === 'food' || kind === 'housing'
   let score = demand * 10
@@ -604,15 +621,26 @@ function buildRecommendation(
   if (licensed) score += 12
   if (saturated) score -= 30
   const estimate = estimateFirstBuildEconomics(kind, demand, supply, licensed)
+  const founderCanAfford = input.founderMoney !== undefined && input.founderMoney >= blueprint.buildCost
 
   const priority = priorityOf({ demand, supply, essential, licensed, saturated })
   return {
     kind,
+    name: blueprint.name,
     priority,
     score: roundMoney(score),
+    buildCost: blueprint.buildCost,
+    currentDemand: demand,
+    currentSupply: supply,
+    licenseSlots,
+    licensesRemaining,
+    founderCanAfford,
     licensed,
     saturated,
     ...estimate,
+    estimatedPaybackHours: estimate.estimatedHourlyProfit > 0
+      ? roundMoney(blueprint.buildCost / estimate.estimatedHourlyProfit)
+      : null,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
   }
 }

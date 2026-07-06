@@ -1660,6 +1660,47 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(licenseSlotsForPopulation(80, 'clinic')).toBe(1)
   })
 
+  test('first-build guidance includes canonical shop costs, license room, affordability, and payback', () => {
+    const start = claimedArea({
+      citizens: Array.from({ length: 12 }, (_, i) => sim(`hungry-${i}`, {
+        needs: fullNeeds({ hunger: 45 }),
+      })),
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.money = 20_000
+
+    const dash = areaNeedsDashboard(start)
+    const food = dash.firstBuild.find((rec) => rec.kind === 'food')!
+    const insurance = dash.firstBuild.find((rec) => rec.kind === 'insurance')!
+
+    expect(food).toMatchObject({
+      kind: 'food',
+      name: DEFAULT_BUSINESS_BLUEPRINTS.food.name,
+      buildCost: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost,
+      currentDemand: 12,
+      currentSupply: 0,
+      licenseSlots: 1,
+      licensesRemaining: 1,
+      founderCanAfford: true,
+      licensed: true,
+      saturated: false,
+      estimatedHourlyRevenue: 168,
+      estimatedHourlyWageCost: 30,
+      estimatedHourlyProfit: 138,
+      estimatedPaybackHours: 86.96,
+    })
+    expect(insurance).toMatchObject({
+      kind: 'insurance',
+      buildCost: DEFAULT_BUSINESS_BLUEPRINTS.insurance.buildCost,
+      licenseSlots: 0,
+      licensesRemaining: 0,
+      founderCanAfford: false,
+      licensed: false,
+      estimatedHourlyRevenue: 0,
+      estimatedHourlyProfit: 0,
+      estimatedPaybackHours: null,
+    })
+  })
+
   test('first-build guidance recommends missing essentials and demotes saturated services', () => {
     const thirstyHungryCitizens = Array.from({ length: 4 }, (_, i) => sim(`c${i}`, {
       needs: fullNeeds({ hydration: 45, hunger: 45 }),
