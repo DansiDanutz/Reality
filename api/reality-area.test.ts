@@ -785,6 +785,110 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('advanceHour hospitalizes collapsed Sim Citizens and creates medical debt', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const collapsed = withCitizen(existingState(), 'founder-area-0012:sim-food', {
+      money: 50,
+      health: 15,
+    })
+    const existing = withBusiness(collapsed, {
+      id: 'clinic-1',
+      name: 'Founder Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 10,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://clinic-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const patient = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-food')
+    expect(patient?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' })
+    expect(patient?.money).toBe(0)
+    expect(patient?.debt).toBe(300)
+    expect(patient?.debts).toMatchObject([{
+      kind: 'medical',
+      creditorId: 'clinic-1',
+      amount: 300,
+      issuedAt: '2026-07-06T07:00:00.000Z',
+      memo: 'Demo Food Resident owes medical debt to clinic-1.',
+    }])
+    expect(body.state.businesses[0].cash).toBe(60)
+    expect(body.state.transactions.slice(-2)).toEqual([{
+      id: 'founder-area-0012:1783321200000:hospital-bill:founder-area-0012:sim-food',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: 'founder-area-0012:sim-food',
+      toId: 'clinic-1',
+      amount: 50,
+      memo: 'Demo Food Resident paid a hospital bill.',
+    }, {
+      id: 'founder-area-0012:1783321200000:medical-debt:founder-area-0012:sim-food',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'medical_debt',
+      fromId: 'founder-area-0012:sim-food',
+      toId: 'clinic-1',
+      amount: 300,
+      memo: 'Demo Food Resident left the hospital bill as medical debt.',
+    }])
+  })
+
+  test('advanceHour recovers hospitalized Sim Citizens without letting them act during that hour', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const recovering = withCitizen(existingState(), 'founder-area-0012:sim-water', {
+      money: 100,
+      health: 30,
+      needs: { hunger: 5, hydration: 5, energy: 5, hygiene: 90, fun: 90 },
+      state: { kind: 'hospitalized', until: '2026-07-06T07:00:00.000Z' },
+    })
+    const existing = withBusiness(recovering, {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recovery-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const recovered = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(recovered?.state).toEqual({ kind: 'active' })
+    expect(recovered?.health).toBe(55)
+    expect(recovered?.needs).toMatchObject({ hunger: 45, hydration: 45, energy: 35 })
+    expect(recovered?.money).toBe(100)
+    expect(body.state.businesses[0].cash).toBe(5)
+    expect(body.state.transactions).toHaveLength(existing.transactions.length)
+  })
+
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
@@ -943,6 +1047,28 @@ function defaultTestCitizens() {
   }] as const
 }
 
+function withCitizen(
+  state: ReturnType<typeof existingState>,
+  citizenId: string,
+  overrides: Record<string, unknown>,
+) {
+  return {
+    ...state,
+    citizens: state.citizens.map((citizen) =>
+      citizen.id === citizenId
+        ? {
+          ...citizen,
+          ...overrides,
+          needs: {
+            ...citizen.needs,
+            ...(isRecord(overrides.needs) ? overrides.needs : {}),
+          },
+        }
+        : citizen
+    ),
+  }
+}
+
 function withBusiness(
   state: ReturnType<typeof existingState>,
   business: {
@@ -1010,4 +1136,8 @@ function responseRecorder(): {
     },
   }
   return recorder
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

@@ -10,6 +10,7 @@ const MAX_FOUNDER_AREA_RADIUS_KM = 5
 const PLATFORM_BANK_ID = 'reality-founder-bank'
 const SIM_CREDIT_ACCOUNT_ID = 'system:sim-credit'
 const BUILDER_RECEIVER_ID = 'system:builders'
+const SYSTEM_HOSPITAL_ACCOUNT_ID = 'system:hospital'
 const AREA_STATE_VERSION = 1
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
 const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
@@ -36,7 +37,14 @@ interface FounderAreaClaim {
 interface FounderAreaTransaction {
   id: string
   at: string
-  kind: 'founder_credit' | 'sim_citizen_credit' | 'business_build' | 'customer_purchase' | 'worker_wage'
+  kind:
+    | 'founder_credit'
+    | 'sim_citizen_credit'
+    | 'business_build'
+    | 'customer_purchase'
+    | 'worker_wage'
+    | 'hospital_bill'
+    | 'medical_debt'
   fromId: string
   toId: string
   amount: number
@@ -57,10 +65,20 @@ interface FounderAreaCitizen {
   kind: 'real' | 'sim'
   money: number
   debt: number
+  debts?: FounderAreaDebt[]
   needs: FounderAreaNeeds
   health: number
   state: { kind: 'active' } | { kind: 'hospitalized'; until: string }
   jobBusinessId?: string
+}
+
+interface FounderAreaDebt {
+  id: string
+  kind: 'medical'
+  creditorId: string
+  amount: number
+  issuedAt: string
+  memo: string
 }
 
 interface FounderAreaBusiness {
@@ -321,6 +339,10 @@ const NEED_DECAY_PER_HOUR: FounderAreaNeeds = {
 
 const NEED_PURCHASE_THRESHOLD = 65
 const HEALTH_PURCHASE_THRESHOLD = 75
+const COLLAPSE_HEALTH = 20
+const HOSPITAL_BILL = 350
+const HOSPITALIZATION_HOURS = 8
+const RECOVERY_HEALTH = 55
 const SERVICE_EFFECTS: Record<Exclude<FounderAreaBusinessKind, 'insurance'>, Partial<FounderAreaNeeds> & { health?: number }> = {
   water: { hydration: 35 },
   food: { hunger: 35 },
@@ -920,7 +942,11 @@ function applySimCitizenHour(
 ): void {
   let purchaseSequence = 0
   for (const citizen of citizens) {
-    if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') continue
+    if (citizen.kind !== 'sim') continue
+    if (citizen.state.kind === 'hospitalized') {
+      recoverIfReady(citizen, now)
+      continue
+    }
     decayNeeds(citizen)
     for (const serviceKind of serviceNeedsForCitizen(citizen)) {
       const business = chooseServiceBusinessFromBusinesses(businesses, serviceKind)
@@ -939,12 +965,17 @@ function applySimCitizenHour(
         memo: `${citizen.name} bought ${serviceKind} from ${business.name}.`,
       })
     }
+    applyUnmetNeedHealthPenalty(citizen)
+    if (shouldHospitalize(citizen)) {
+      hospitalizeCitizen(areaId, citizen, businesses, now, at, transactions)
+    }
   }
 }
 
 function cloneCitizen(citizen: FounderAreaCitizen): FounderAreaCitizen {
   return {
     ...citizen,
+    debts: citizen.debts?.map((debt) => ({ ...debt })),
     needs: { ...citizen.needs },
     state: { ...citizen.state },
   }
@@ -958,6 +989,97 @@ function decayNeeds(citizen: FounderAreaCitizen): void {
     hygiene: clampNeed(citizen.needs.hygiene - NEED_DECAY_PER_HOUR.hygiene),
     fun: clampNeed(citizen.needs.fun - NEED_DECAY_PER_HOUR.fun),
   }
+}
+
+function applyUnmetNeedHealthPenalty(citizen: FounderAreaCitizen): void {
+  const criticalNeeds = [
+    citizen.needs.hydration <= 0,
+    citizen.needs.hunger <= 0,
+    citizen.needs.energy <= 0,
+  ].filter(Boolean).length
+  if (criticalNeeds === 0) return
+  citizen.health = clampNeed(citizen.health - criticalNeeds * 15)
+}
+
+function shouldHospitalize(citizen: FounderAreaCitizen): boolean {
+  return citizen.health <= COLLAPSE_HEALTH || citizen.needs.hydration <= 0 || citizen.needs.hunger <= 0
+}
+
+function recoverIfReady(citizen: FounderAreaCitizen, now: Date): boolean {
+  if (citizen.state.kind !== 'hospitalized') return false
+  const untilMs = Date.parse(citizen.state.until)
+  if (Number.isFinite(untilMs) && untilMs > now.getTime()) return false
+  citizen.state = { kind: 'active' }
+  citizen.health = Math.max(citizen.health, RECOVERY_HEALTH)
+  citizen.needs = {
+    ...citizen.needs,
+    hunger: Math.max(citizen.needs.hunger, 45),
+    hydration: Math.max(citizen.needs.hydration, 45),
+    energy: Math.max(citizen.needs.energy, 35),
+  }
+  return true
+}
+
+function hospitalizeCitizen(
+  areaId: string,
+  citizen: FounderAreaCitizen,
+  businesses: FounderAreaBusiness[],
+  now: Date,
+  at: string,
+  transactions: FounderAreaTransaction[],
+): void {
+  const until = new Date(now.getTime() + HOSPITALIZATION_HOURS * 3_600_000).toISOString()
+  citizen.health = Math.max(citizen.health, 30)
+  citizen.state = { kind: 'hospitalized', until }
+  settleHospitalBill(areaId, citizen, businesses, now, at, transactions)
+}
+
+function settleHospitalBill(
+  areaId: string,
+  citizen: FounderAreaCitizen,
+  businesses: FounderAreaBusiness[],
+  now: Date,
+  at: string,
+  transactions: FounderAreaTransaction[],
+): void {
+  const clinic = chooseServiceBusinessFromBusinesses(businesses, 'clinic')
+  const receiverId = clinic?.id ?? SYSTEM_HOSPITAL_ACCOUNT_ID
+  const paid = roundMoney(Math.min(HOSPITAL_BILL, citizen.money))
+  if (paid > 0) {
+    citizen.money = roundMoney(citizen.money - paid)
+    if (clinic) clinic.cash = roundMoney(clinic.cash + paid)
+    transactions.push({
+      id: `${areaId}:${now.getTime()}:hospital-bill:${citizen.id}`,
+      at,
+      kind: 'hospital_bill',
+      fromId: citizen.id,
+      toId: receiverId,
+      amount: paid,
+      memo: `${citizen.name} paid a hospital bill.`,
+    })
+  }
+
+  const unpaid = roundMoney(HOSPITAL_BILL - paid)
+  if (unpaid <= 0) return
+  citizen.debt = roundMoney(citizen.debt + unpaid)
+  const debt: FounderAreaDebt = {
+    id: `${citizen.id}:${now.getTime()}:${(citizen.debts?.length ?? 0) + 1}:medical`,
+    kind: 'medical',
+    creditorId: receiverId,
+    amount: unpaid,
+    issuedAt: at,
+    memo: `${citizen.name} owes medical debt to ${receiverId}.`,
+  }
+  citizen.debts = [...(citizen.debts ?? []), debt]
+  transactions.push({
+    id: `${areaId}:${now.getTime()}:medical-debt:${citizen.id}`,
+    at,
+    kind: 'medical_debt',
+    fromId: citizen.id,
+    toId: receiverId,
+    amount: unpaid,
+    memo: `${citizen.name} left the hospital bill as medical debt.`,
+  })
 }
 
 function serviceNeedsForCitizen(citizen: FounderAreaCitizen): Exclude<FounderAreaBusinessKind, 'insurance'>[] {
