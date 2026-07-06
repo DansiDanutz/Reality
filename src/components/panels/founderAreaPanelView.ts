@@ -13,6 +13,7 @@ import type {
   FounderCovenantReviewChecklistItem,
   FounderCovenantReviewSchedule,
   FounderCovenantSignal,
+  FounderCovenantStage,
   WorldTransactionKind,
 } from '../../game/worldSim'
 
@@ -97,6 +98,22 @@ export function founderCovenantReviewInputStatusClass(
   }
 }
 
+export function founderCovenantStageStatusLabel(status: FounderCovenantStage['status']): string {
+  switch (status) {
+    case 'current':
+      return 'Current'
+    case 'recommended':
+      return 'Suggested'
+    case 'locked':
+      return 'Locked'
+  }
+}
+
+export function founderCovenantStageTone(status: FounderCovenantStage['status']): FounderCovenantReviewTone {
+  if (status === 'recommended') return 'warning'
+  return 'stable'
+}
+
 export function founderCovenantManualActionStatusLabel(action: Pick<FounderCovenantManualAction, 'recommended'>): string {
   return action.recommended ? 'Suggested' : 'Manual'
 }
@@ -167,6 +184,18 @@ export function founderCovenantReviewInputSummary(
   const manual = review.reviewInputs.filter((input) => input.status === 'manual_needed').length
   const watch = review.reviewInputs.filter((input) => input.status === 'watch').length
   return `Inputs snapshot · ${captured} captured · ${manual} manual · ${watch} watch`
+}
+
+export function founderCovenantStageSnapshotSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'stages'>,
+): string {
+  if (review.stages.length === 0) return 'No stage snapshot'
+  const current = review.stages.find((stage) => stage.status === 'current')
+  const recommended = review.stages.filter((stage) => stage.status === 'recommended')
+  if (recommended.length > 0) {
+    return `Stage snapshot · ${recommended.map((stage) => stage.label).join(', ')} suggested`
+  }
+  return `Stage snapshot · ${current?.label ?? 'No active stage'}`
 }
 
 export function founderCovenantReviewCadenceSummary(

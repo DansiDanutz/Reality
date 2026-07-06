@@ -104,6 +104,8 @@ export type RealityAreaCovenantReviewInputKind =
   | 'ideas_feedback'
   | 'review_consistency'
 export type RealityAreaCovenantReviewInputStatus = 'captured' | 'watch' | 'manual_needed'
+export type RealityAreaCovenantStageKind = 'active' | 'warning' | 'probation' | 'removed' | 'waitlist_replacement'
+export type RealityAreaCovenantStageStatus = 'current' | 'recommended' | 'locked'
 export type RealityAreaCovenantManualActionKind =
   | 'record_review'
   | 'send_warning'
@@ -139,6 +141,17 @@ export interface RealityAreaCovenantReviewInput {
   status: RealityAreaCovenantReviewInputStatus
   evidence: string
   manualEvidenceRequired: boolean
+}
+
+export interface RealityAreaCovenantStage {
+  kind: RealityAreaCovenantStageKind
+  label: string
+  status: RealityAreaCovenantStageStatus
+  reason: string
+  requiresMainFounderApproval: boolean
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
 }
 
 export interface RealityAreaCovenantReviewQueue {
@@ -222,6 +235,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewQueue: RealityAreaCovenantReviewQueue
   reviewInputs: RealityAreaCovenantReviewInput[]
+  stages: RealityAreaCovenantStage[]
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   approvalRequests: RealityAreaCovenantApprovalRequest[]
@@ -246,6 +260,7 @@ export interface RealityAreaCovenantLatestReview {
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewQueue: RealityAreaCovenantReviewQueue
   reviewInputs: RealityAreaCovenantReviewInput[]
+  stages: RealityAreaCovenantStage[]
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   approvalRequests: RealityAreaCovenantApprovalRequest[]
@@ -301,6 +316,7 @@ export interface RealityAreaCovenantReview {
   }
   reviewQueue: RealityAreaCovenantReviewQueue
   reviewInputs: RealityAreaCovenantReviewInput[]
+  stages: RealityAreaCovenantStage[]
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   approvalRequests: RealityAreaCovenantApprovalRequest[]
@@ -805,6 +821,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       blockers: [...review.reviewQueue.blockers],
     },
     reviewInputs: review.reviewInputs.map((item) => ({ ...item })),
+    stages: review.stages.map((stage) => ({ ...stage })),
     reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
     manualActions: review.manualActions.map((action) => ({
       ...action,
@@ -828,6 +845,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
         reviewQueue: realityCovenantReviewQueueToWorldQueue(review.latestReview.reviewQueue),
         reviewInputs: review.latestReview.reviewInputs.map((item) => ({ ...item })),
+        stages: review.latestReview.stages.map((stage) => ({ ...stage })),
         reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
         manualActions: review.latestReview.manualActions.map(realityCovenantManualActionToWorldAction),
         approvalRequests: review.latestReview.approvalRequests.map(realityCovenantApprovalRequestToWorldRequest),
@@ -872,6 +890,7 @@ function realityReviewHistoryToWorldReviewHistory(
     activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
     reviewQueue: realityCovenantReviewQueueToWorldQueue(entry.reviewQueue),
     reviewInputs: entry.reviewInputs.map((item) => ({ ...item })),
+    stages: entry.stages.map((stage) => ({ ...stage })),
     reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
     manualActions: entry.manualActions.map(realityCovenantManualActionToWorldAction),
     approvalRequests: entry.approvalRequests.map(realityCovenantApprovalRequestToWorldRequest),
@@ -925,8 +944,8 @@ function mergeRealityAreaCovenantActivityReview(
 function realityCovenantSignalToWorldSignal(signal: RealityAreaCovenantSignal): FounderCovenantSignal {
   return {
     ...signal,
-    businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
-    businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
+    ...(signal.businessIds ? { businessIds: [...signal.businessIds] } : {}),
+    ...(signal.businessKinds ? { businessKinds: [...signal.businessKinds] } : {}),
   }
 }
 
@@ -1194,6 +1213,8 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     Array.isArray(value.reviewInputs) &&
     value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
+    Array.isArray(value.stages) &&
+    value.stages.every(isRealityAreaCovenantStage) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
@@ -1238,6 +1259,18 @@ function isRealityAreaCovenantReviewInput(value: unknown): value is RealityAreaC
     isRealityAreaCovenantReviewInputStatus(value.status) &&
     typeof value.evidence === 'string' &&
     typeof value.manualEvidenceRequired === 'boolean'
+}
+
+function isRealityAreaCovenantStage(value: unknown): value is RealityAreaCovenantStage {
+  return isRecord(value) &&
+    isRealityAreaCovenantStageKind(value.kind) &&
+    typeof value.label === 'string' &&
+    isRealityAreaCovenantStageStatus(value.status) &&
+    typeof value.reason === 'string' &&
+    typeof value.requiresMainFounderApproval === 'boolean' &&
+    value.manualOnly === true &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false
 }
 
 function isRealityAreaCovenantReviewQueue(value: unknown): value is RealityAreaCovenantReviewQueue {
@@ -1319,6 +1352,8 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     Array.isArray(value.reviewInputs) &&
     value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
+    Array.isArray(value.stages) &&
+    value.stages.every(isRealityAreaCovenantStage) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
@@ -1343,6 +1378,8 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     Array.isArray(value.reviewInputs) &&
     value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
+    Array.isArray(value.stages) &&
+    value.stages.every(isRealityAreaCovenantStage) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
@@ -1467,6 +1504,18 @@ function isRealityAreaCovenantReviewInputKind(value: unknown): value is RealityA
 
 function isRealityAreaCovenantReviewInputStatus(value: unknown): value is RealityAreaCovenantReviewInputStatus {
   return value === 'captured' || value === 'watch' || value === 'manual_needed'
+}
+
+function isRealityAreaCovenantStageKind(value: unknown): value is RealityAreaCovenantStageKind {
+  return value === 'active' ||
+    value === 'warning' ||
+    value === 'probation' ||
+    value === 'removed' ||
+    value === 'waitlist_replacement'
+}
+
+function isRealityAreaCovenantStageStatus(value: unknown): value is RealityAreaCovenantStageStatus {
+  return value === 'current' || value === 'recommended' || value === 'locked'
 }
 
 function isRealityAreaCovenantReviewQueueNextStep(value: unknown): value is RealityAreaCovenantReviewQueueNextStep {

@@ -341,6 +341,37 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant stages that enable execution', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        stages: dashboard.founderCovenant.stages.map((stage) =>
+          stage.kind === 'probation'
+            ? {
+              ...stage,
+              executionEnabled: true,
+            }
+            : stage
+        ),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores malformed covenant review schedule data', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -405,6 +436,11 @@ describe('Reality area client', () => {
             areaHealth: 'captured',
             populationGrowth: 'manual_needed',
             reviewConsistency: 'captured',
+          }),
+          stages: covenantStages({
+            warning: false,
+            probation: false,
+            replacement: false,
           }),
           reviewChecklist: [],
           manualActions: [],
@@ -1065,6 +1101,11 @@ function serverState(): RealityAreaState {
         reviewConsistency: 'captured',
         simPopulation: 1,
       }),
+      stages: covenantStages({
+        warning: false,
+        probation: true,
+        replacement: true,
+      }),
       reviewChecklist: [{
         key: 'active',
         label: 'Active',
@@ -1198,6 +1239,68 @@ function manualReviewActions(
       ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
       : 'Replacement is not suggested and waitlist handoff is disabled.',
     clientPayload: null,
+  }]
+}
+
+function covenantStages(input: { warning: boolean; probation: boolean; replacement: boolean }): RealityAreaDashboard['founderCovenant']['stages'] {
+  const hasSignals = input.warning || input.probation || input.replacement
+  return [{
+    kind: 'active',
+    label: 'Active',
+    status: hasSignals ? 'locked' : 'current',
+    reason: hasSignals
+      ? 'Founder has covenant signals requiring reviewer attention.'
+      : 'Founder currently has no covenant warnings.',
+    requiresMainFounderApproval: false,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'warning',
+    label: 'Warning',
+    status: input.warning ? 'recommended' : 'locked',
+    reason: input.warning
+      ? 'Covenant signals suggest a manual founder warning.'
+      : input.probation || input.replacement
+        ? 'Manual review supersedes warning while critical signals are unresolved.'
+        : 'No manual warning is currently suggested.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'probation',
+    label: 'Probation',
+    status: input.probation ? 'recommended' : 'locked',
+    reason: input.probation
+      ? 'Reviewer may open probation, but execution remains disabled.'
+      : 'Founder score and signals do not suggest probation.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'removed',
+    label: 'Removed',
+    status: input.replacement ? 'recommended' : 'locked',
+    reason: input.replacement
+      ? 'Founder is unavailable; removal remains a manually approved later workflow.'
+      : 'Removal is not suggested by current covenant signals.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'waitlist_replacement',
+    label: 'Waitlist replacement',
+    status: 'locked',
+    reason: input.replacement
+      ? 'Waitlist handoff is still disabled even when replacement is recommended.'
+      : 'Waitlist handoff is disabled until the manual replacement workflow is approved.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
   }]
 }
 
@@ -1643,6 +1746,11 @@ function serverDashboard(): RealityAreaDashboard {
         populationGrowth: 'manual_needed',
         reviewConsistency: 'captured',
         simPopulation: 1,
+      }),
+      stages: covenantStages({
+        warning: true,
+        probation: false,
+        replacement: false,
       }),
       reviewChecklist: [{
         key: 'active',

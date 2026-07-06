@@ -49,6 +49,9 @@ import {
   founderCovenantReviewSignalSummary,
   founderCovenantReviewSnapshotSummary,
   founderCovenantSignalText,
+  founderCovenantStageSnapshotSummary,
+  founderCovenantStageStatusLabel,
+  founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
   founderLedgerSummaryItems,
@@ -226,6 +229,18 @@ export default function FounderAreaPanel() {
                 </span>
               ))}
             </div>
+            <div className="founder-covenant-review" aria-label="Founder covenant stages">
+              {dashboard.founderCovenant.stages.map((stage) => (
+                <span
+                  className={`founder-covenant-review-item ${founderCovenantStageTone(stage.status)}`}
+                  key={stage.kind}
+                  title={stage.reason}
+                >
+                  <span>{stage.label}</span>
+                  <strong>{founderCovenantStageStatusLabel(stage.status)}</strong>
+                </span>
+              ))}
+            </div>
             <ul className="item-list founder-covenant-inputs" aria-label="Founder review inputs">
               {dashboard.founderCovenant.reviewInputs.map((item) => {
                 const statusClass = founderCovenantReviewInputStatusClass(item.status)
@@ -302,6 +317,9 @@ export default function FounderAreaPanel() {
                   </span>
                   <span className="item-desc">
                     {founderCovenantReviewInputSummary(dashboard.founderCovenant.latestReview)}
+                  </span>
+                  <span className="item-desc">
+                    {founderCovenantStageSnapshotSummary(dashboard.founderCovenant.latestReview)}
                   </span>
                   <span className="item-desc">
                     {founderCovenantReviewQueueSnapshotSummary(dashboard.founderCovenant.latestReview)}
@@ -388,6 +406,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">{founderCovenantReviewDecisionSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSnapshotSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewInputSummary(entry)}</span>
+                      <span className="item-desc">{founderCovenantStageSnapshotSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewQueueSnapshotSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewCadenceSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewActionSummary(entry)}</span>

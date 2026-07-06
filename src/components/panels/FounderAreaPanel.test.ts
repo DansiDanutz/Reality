@@ -25,6 +25,9 @@ import {
   founderCovenantReviewSignalSummary,
   founderCovenantReviewSnapshotSummary,
   founderCovenantSignalText,
+  founderCovenantStageSnapshotSummary,
+  founderCovenantStageStatusLabel,
+  founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
   founderLedgerSummaryItems,
@@ -54,6 +57,15 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantReviewInputStatusClass('captured')).toBe('met')
     expect(founderCovenantReviewInputStatusClass('watch')).toBe('watch')
     expect(founderCovenantReviewInputStatusClass('manual_needed')).toBe('manual_review')
+  })
+
+  test('labels evidence-only covenant stages without implying execution', () => {
+    expect(founderCovenantStageStatusLabel('current')).toBe('Current')
+    expect(founderCovenantStageStatusLabel('recommended')).toBe('Suggested')
+    expect(founderCovenantStageStatusLabel('locked')).toBe('Locked')
+    expect(founderCovenantStageTone('current')).toBe('stable')
+    expect(founderCovenantStageTone('recommended')).toBe('warning')
+    expect(founderCovenantStageTone('locked')).toBe('stable')
   })
 
   test('labels manual covenant actions without enabling automation', () => {
@@ -244,6 +256,43 @@ describe('FounderAreaPanel covenant presenters', () => {
         manualEvidenceRequired: false,
       }],
     })).toBe('Inputs snapshot · 1 captured · 1 manual · 1 watch')
+  })
+
+  test('summarizes captured covenant stage snapshots', () => {
+    expect(founderCovenantStageSnapshotSummary({ stages: [] })).toBe('No stage snapshot')
+    expect(founderCovenantStageSnapshotSummary({
+      stages: [{
+        kind: 'active',
+        label: 'Active',
+        status: 'current',
+        reason: 'Founder currently has no covenant warnings.',
+        requiresMainFounderApproval: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }],
+    })).toBe('Stage snapshot · Active')
+    expect(founderCovenantStageSnapshotSummary({
+      stages: [{
+        kind: 'probation',
+        label: 'Probation',
+        status: 'recommended',
+        reason: 'Reviewer may open probation, but execution remains disabled.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        kind: 'removed',
+        label: 'Removed',
+        status: 'recommended',
+        reason: 'Founder is unavailable; removal remains a manually approved later workflow.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }],
+    })).toBe('Stage snapshot · Probation, Removed suggested')
   })
 
   test('summarizes captured covenant review cadence', () => {

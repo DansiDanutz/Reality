@@ -477,6 +477,11 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      stages: [],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       decision: { status: 'active' },
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
@@ -2671,6 +2676,7 @@ describe('reality area authority API', () => {
           signals: unknown[]
           activityReview: unknown
           reviewInputs: unknown[]
+          stages: unknown[]
           reviewChecklist: unknown[]
           manualActions: unknown[]
           approvalRequests: unknown[]
@@ -2696,13 +2702,10 @@ describe('reality area authority API', () => {
         kind: 'no_business_built',
         severity: 'warning',
         message: 'Founder has not built a local business yet.',
-        businessIds: undefined,
-        businessKinds: undefined,
       }, {
         kind: 'essential_shortage',
         severity: 'warning',
         message: 'The area has unserved water, food, or housing demand.',
-        businessIds: undefined,
         businessKinds: ['water', 'food', 'housing'],
         amount: 3,
       }],
@@ -2727,6 +2730,11 @@ describe('reality area authority API', () => {
         areaHealth: 'watch',
         populationGrowth: 'manual_needed',
         reviewConsistency: 'captured',
+      }),
+      stages: covenantStages({
+        warning: true,
+        probation: true,
+        replacement: false,
       }),
       reviewChecklist: expect.arrayContaining([{
         key: 'building',
@@ -2768,6 +2776,7 @@ describe('reality area authority API', () => {
       activityReview: body.state.founderReviewHistory[0].activityReview,
       reviewQueue: body.state.founderReviewHistory[0].reviewQueue,
       reviewInputs: body.state.founderReviewHistory[0].reviewInputs,
+      stages: body.state.founderReviewHistory[0].stages,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
       manualActions: body.state.founderReviewHistory[0].manualActions,
       approvalRequests: body.state.founderReviewHistory[0].approvalRequests,
@@ -3304,6 +3313,11 @@ function baseFounderCovenant(checkedAt: string) {
       populationGrowth: 'manual_needed',
       reviewConsistency: 'captured',
     }),
+    stages: covenantStages({
+      warning: true,
+      probation: true,
+      replacement: false,
+    }),
     reviewChecklist: [{
       key: 'active',
       label: 'Active',
@@ -3677,6 +3691,67 @@ function manualReviewActionSnapshots(input: { warning: boolean; probation: boole
     authorityGate: { ...action.authorityGate, executionEnabled: false },
     clientPayload: null,
   }))
+}
+
+function covenantStages(input: { warning: boolean; probation: boolean; replacement: boolean }) {
+  return [{
+    kind: 'active',
+    label: 'Active',
+    status: input.warning || input.probation || input.replacement ? 'locked' : 'current',
+    reason: input.warning || input.probation || input.replacement
+      ? 'Founder has covenant signals requiring reviewer attention.'
+      : 'Founder currently has no covenant warnings.',
+    requiresMainFounderApproval: false,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'warning',
+    label: 'Warning',
+    status: input.warning ? 'recommended' : 'locked',
+    reason: input.warning
+      ? 'Covenant signals suggest a manual founder warning.'
+      : input.probation || input.replacement
+        ? 'Manual review supersedes warning while critical signals are unresolved.'
+        : 'No manual warning is currently suggested.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'probation',
+    label: 'Probation',
+    status: input.probation ? 'recommended' : 'locked',
+    reason: input.probation
+      ? 'Reviewer may open probation, but execution remains disabled.'
+      : 'Founder score and signals do not suggest probation.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'removed',
+    label: 'Removed',
+    status: input.replacement ? 'recommended' : 'locked',
+    reason: input.replacement
+      ? 'Founder is unavailable; removal remains a manually approved later workflow.'
+      : 'Removal is not suggested by current covenant signals.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }, {
+    kind: 'waitlist_replacement',
+    label: 'Waitlist replacement',
+    status: 'locked',
+    reason: input.replacement
+      ? 'Waitlist handoff is still disabled even when replacement is recommended.'
+      : 'Waitlist handoff is disabled until the manual replacement workflow is approved.',
+    requiresMainFounderApproval: true,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }] as const
 }
 
 function approvalRequestSnapshot(request: ReturnType<typeof manualApprovalRequests>[number]) {

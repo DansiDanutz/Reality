@@ -121,6 +121,8 @@ type FounderAreaCovenantReviewInputKind =
   | 'ideas_feedback'
   | 'review_consistency'
 type FounderAreaCovenantReviewInputStatus = 'captured' | 'watch' | 'manual_needed'
+type FounderAreaCovenantStageKind = 'active' | 'warning' | 'probation' | 'removed' | 'waitlist_replacement'
+type FounderAreaCovenantStageStatus = 'current' | 'recommended' | 'locked'
 type FounderAreaCovenantManualActionKind =
   | 'record_review'
   | 'send_warning'
@@ -168,6 +170,17 @@ interface FounderAreaCovenantReviewInput {
   status: FounderAreaCovenantReviewInputStatus
   evidence: string
   manualEvidenceRequired: boolean
+}
+
+interface FounderAreaCovenantStage {
+  kind: FounderAreaCovenantStageKind
+  label: string
+  status: FounderAreaCovenantStageStatus
+  reason: string
+  requiresMainFounderApproval: boolean
+  manualOnly: true
+  automationEnabled: false
+  executionEnabled: false
 }
 
 interface FounderAreaCovenantReviewQueue {
@@ -251,6 +264,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   activityReview: FounderAreaCovenantActivityReview | null
   reviewQueue: FounderAreaCovenantReviewQueue
   reviewInputs: FounderAreaCovenantReviewInput[]
+  stages: FounderAreaCovenantStage[]
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -275,6 +289,7 @@ interface FounderAreaCovenantLatestReview {
   activityReview: FounderAreaCovenantActivityReview | null
   reviewQueue: FounderAreaCovenantReviewQueue
   reviewInputs: FounderAreaCovenantReviewInput[]
+  stages: FounderAreaCovenantStage[]
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -320,6 +335,7 @@ interface FounderAreaCovenantReview {
   activityReview: FounderAreaCovenantActivityReview
   reviewQueue: FounderAreaCovenantReviewQueue
   reviewInputs: FounderAreaCovenantReviewInput[]
+  stages: FounderAreaCovenantStage[]
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -855,6 +871,10 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'activityReview',
   'reviewQueue',
   'reviewInputs',
+  'stages',
+  'stage',
+  'requiresMainFounderApproval',
+  'manualOnly',
   'reviewChecklist',
   'manualActions',
   'approvalRequests',
@@ -1378,6 +1398,11 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     realPopulation: state.citizens.filter((citizen) => citizen.kind === 'real').length,
     simPopulation: state.citizens.filter((citizen) => citizen.kind === 'sim').length,
   })
+  const stages = founderCovenantStages({
+    status,
+    nextAction,
+    manualActions,
+  })
 
   return {
     founderCitizenId: state.founderCitizenId,
@@ -1390,6 +1415,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     activityReview,
     reviewQueue,
     reviewInputs,
+    stages,
     reviewChecklist,
     manualActions,
     approvalRequests,
@@ -1464,6 +1490,82 @@ function founderCovenantReviewInputs(input: {
       manualEvidenceRequired: false,
     },
   ]
+}
+
+function founderCovenantStages(input: {
+  status: FounderAreaCovenantStatus
+  nextAction: FounderAreaCovenantNextAction
+  manualActions: FounderAreaCovenantManualAction[]
+}): FounderAreaCovenantStage[] {
+  const warningRecommended = input.manualActions.some((action) => action.kind === 'send_warning' && action.recommended)
+  const probationRecommended = input.manualActions.some((action) => action.kind === 'start_probation' && action.recommended)
+  const replacementRecommended = input.manualActions.some((action) =>
+    action.kind === 'recommend_replacement' && action.recommended
+  )
+  return [
+    founderCovenantStage({
+      kind: 'active',
+      label: 'Active',
+      status: input.status === 'active' ? 'current' : 'locked',
+      reason: input.status === 'active'
+        ? 'Founder currently has no covenant warnings.'
+        : 'Founder has covenant signals requiring reviewer attention.',
+      requiresMainFounderApproval: false,
+    }),
+    founderCovenantStage({
+      kind: 'warning',
+      label: 'Warning',
+      status: warningRecommended ? 'recommended' : 'locked',
+      reason: warningRecommended
+        ? 'Covenant signals suggest a manual founder warning.'
+        : input.nextAction === 'manual_review'
+          ? 'Manual review supersedes warning while critical signals are unresolved.'
+          : 'No manual warning is currently suggested.',
+      requiresMainFounderApproval: true,
+    }),
+    founderCovenantStage({
+      kind: 'probation',
+      label: 'Probation',
+      status: probationRecommended ? 'recommended' : 'locked',
+      reason: probationRecommended
+        ? 'Reviewer may open probation, but execution remains disabled.'
+        : 'Founder score and signals do not suggest probation.',
+      requiresMainFounderApproval: true,
+    }),
+    founderCovenantStage({
+      kind: 'removed',
+      label: 'Removed',
+      status: replacementRecommended ? 'recommended' : 'locked',
+      reason: replacementRecommended
+        ? 'Founder is unavailable; removal remains a manually approved later workflow.'
+        : 'Removal is not suggested by current covenant signals.',
+      requiresMainFounderApproval: true,
+    }),
+    founderCovenantStage({
+      kind: 'waitlist_replacement',
+      label: 'Waitlist replacement',
+      status: 'locked',
+      reason: replacementRecommended
+        ? 'Waitlist handoff is still disabled even when replacement is recommended.'
+        : 'Waitlist handoff is disabled until the manual replacement workflow is approved.',
+      requiresMainFounderApproval: true,
+    }),
+  ]
+}
+
+function founderCovenantStage(input: {
+  kind: FounderAreaCovenantStageKind
+  label: string
+  status: FounderAreaCovenantStageStatus
+  reason: string
+  requiresMainFounderApproval: boolean
+}): FounderAreaCovenantStage {
+  return {
+    ...input,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }
 }
 
 function founderCovenantReviewChecklist(input: {
@@ -1728,6 +1830,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewQueue: founderCovenantReviewQueueSnapshot(latest.reviewQueue),
     reviewInputs: latest.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    stages: latest.stages.map(founderCovenantStageSnapshot),
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: latest.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
@@ -1756,6 +1859,9 @@ function founderCovenantReviewHistoryItem(
   const reviewInputs = Array.isArray(legacyEntry.reviewInputs)
     ? legacyEntry.reviewInputs.map(founderCovenantReviewInputSnapshot)
     : []
+  const stages = Array.isArray(legacyEntry.stages)
+    ? legacyEntry.stages.map(founderCovenantStageSnapshot)
+    : []
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
@@ -1768,6 +1874,7 @@ function founderCovenantReviewHistoryItem(
       ? founderCovenantReviewQueueSnapshot(legacyEntry.reviewQueue)
       : founderCovenantReviewQueueFromSnapshot({ manualActions, approvalRequests }),
     reviewInputs,
+    stages,
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
@@ -1790,8 +1897,8 @@ function founderCovenantReviewEvidenceAuthority(): FounderAreaCovenantAuthorityG
 function founderCovenantSignalSnapshot(signal: FounderAreaCovenantSignal): FounderAreaCovenantSignal {
   return {
     ...signal,
-    businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
-    businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
+    ...(signal.businessIds ? { businessIds: [...signal.businessIds] } : {}),
+    ...(signal.businessKinds ? { businessKinds: [...signal.businessKinds] } : {}),
   }
 }
 
@@ -1803,6 +1910,15 @@ function founderCovenantReviewChecklistSnapshot(
 
 function founderCovenantReviewInputSnapshot(input: FounderAreaCovenantReviewInput): FounderAreaCovenantReviewInput {
   return { ...input }
+}
+
+function founderCovenantStageSnapshot(stage: FounderAreaCovenantStage): FounderAreaCovenantStage {
+  return {
+    ...stage,
+    manualOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+  }
 }
 
 function founderCovenantManualActionSnapshot(action: FounderAreaCovenantManualAction): FounderAreaCovenantManualAction {
@@ -3310,6 +3426,7 @@ function applyRecordCovenantReviewIntent(
     activityReview: { ...review.activityReview },
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    stages: review.stages.map(founderCovenantStageSnapshot),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
