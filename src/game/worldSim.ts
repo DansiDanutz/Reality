@@ -455,6 +455,7 @@ export type FounderCovenantManualActionKind =
   | 'recommend_replacement'
 export type FounderCovenantSignalKind =
   | 'founder_unavailable'
+  | 'founder_inactive'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -823,6 +824,7 @@ interface ServiceEffect extends Partial<Needs> {
 export const WORLD_SIM_HOUR_MS = 3_600_000
 export const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * WORLD_SIM_HOUR_MS
 export const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * WORLD_SIM_HOUR_MS
+export const FOUNDER_COVENANT_ACTIVITY_STALE_MS = FOUNDER_COVENANT_WEEKLY_REVIEW_MS
 export const HOSPITALIZATION_HOURS = 8
 export const INSURED_HOSPITALIZATION_HOURS = 5
 export const COLLAPSE_HEALTH = 20
@@ -1513,6 +1515,12 @@ function founderCovenantDashboard(
     activeStaffCount(area, business) < TARGET_STAFF_BY_KIND[business.kind],
   )
   const reviewSchedule = founderCovenantReviewSchedule(area)
+  const activityAnchor = reviewSchedule?.lastReviewAt ?? area.claim.claimedAt
+  const lastFounderActivityAt = latestFounderActivityAt(area, founderCitizenId, founderBusinesses)
+  const staleFounderActivity = founderActive &&
+    (reviewSchedule?.overdue ?? false) &&
+    area.now - activityAnchor >= FOUNDER_COVENANT_ACTIVITY_STALE_MS &&
+    (lastFounderActivityAt === null || lastFounderActivityAt <= activityAnchor)
   const unreviewedSimDepartures = unreviewedSimDepartureEvents(area, reviewSchedule?.lastReviewAt ?? null)
   const staffed = building && understaffedBusinesses.length === 0
   const essentialShortages = (['water', 'food', 'housing'] as const)
@@ -1530,6 +1538,15 @@ function founderCovenantDashboard(
       kind: 'founder_unavailable',
       severity: 'critical',
       message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+
+  if (staleFounderActivity) {
+    signals.push({
+      kind: 'founder_inactive',
+      severity: 'warning',
+      message: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+      amount: roundMoney((area.now - activityAnchor) / (24 * WORLD_SIM_HOUR_MS)),
     })
   }
 
@@ -1606,6 +1623,7 @@ function founderCovenantDashboard(
         building,
         staffed,
         indebted: founderDebt > 0,
+        staleActivity: staleFounderActivity,
       })
       : 0,
   }
@@ -1619,6 +1637,7 @@ function founderCovenantDashboard(
   const reviewChecklist = founderCovenantReviewChecklist({
     activityReview,
     manualReviewRequired,
+    staleFounderActivity,
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
   })
@@ -1645,6 +1664,7 @@ function founderCovenantDashboard(
   const reviewInputs = founderCovenantReviewInputs({
     activityReview,
     signals,
+    staleFounderActivity,
     reviewSchedule,
     realPopulation: area.citizens.filter((citizen) => citizen.kind === 'real').length,
     simPopulation: area.citizens.filter((citizen) => citizen.kind === 'sim').length,
@@ -1723,6 +1743,7 @@ function founderCovenantUnclaimedReviewInputs(): FounderCovenantReviewInput[] {
 function founderCovenantReviewInputs(input: {
   activityReview: FounderCovenantActivityReview
   signals: FounderCovenantSignal[]
+  staleFounderActivity: boolean
   reviewSchedule: FounderCovenantReviewSchedule | null
   realPopulation: number
   simPopulation: number
@@ -1735,8 +1756,10 @@ function founderCovenantReviewInputs(input: {
     {
       kind: 'in_game_activity',
       label: 'In-game activity',
-      status: activityCaptured ? 'captured' : 'watch',
-      evidence: activityCaptured
+      status: input.staleFounderActivity ? 'watch' : activityCaptured ? 'captured' : 'watch',
+      evidence: input.staleFounderActivity
+        ? 'Founder has no trusted in-game activity since the last covenant review or area claim.'
+        : activityCaptured
         ? 'Founder activity is captured from local businesses, staffing, and purchases.'
         : 'Founder needs more visible in-game building or demand-serving activity.',
       manualEvidenceRequired: false,
@@ -1879,6 +1902,7 @@ function founderCovenantStage(input: {
 function founderCovenantReviewChecklist(input: {
   activityReview: FounderCovenantActivityReview
   manualReviewRequired: boolean
+  staleFounderActivity: boolean
   replacementEnabled: false
   waitlistHandoffEnabled: false
 }): FounderCovenantReviewChecklistItem[] {
@@ -1925,6 +1949,14 @@ function founderCovenantReviewChecklist(input: {
       label: 'At risk',
       status: input.manualReviewRequired ? 'manual_review' : review.atRisk ? 'watch' : 'met',
       evidence: review.atRisk ? 'Covenant signals need weekly/monthly review.' : 'No risk signals currently require review.',
+    },
+    {
+      key: 'recent_activity',
+      label: 'Recent activity',
+      status: input.staleFounderActivity ? 'watch' : 'met',
+      evidence: input.staleFounderActivity
+        ? 'Founder has no trusted in-game activity since the last covenant review or area claim.'
+        : 'Recent activity has no stale covenant signal.',
     },
     {
       key: 'manual_authority',
@@ -2411,12 +2443,32 @@ function founderActivityScore(input: {
   building: boolean
   staffed: boolean
   indebted: boolean
+  staleActivity?: boolean
 }): number {
-  return (input.active ? 30 : 0) +
+  const base = (input.active ? 30 : 0) +
     (input.useful ? 25 : 0) +
     (input.building ? 20 : 0) +
     (input.staffed ? 15 : 0) +
     (!input.indebted ? 10 : 0)
+  return Math.max(0, base - (input.staleActivity ? 20 : 0))
+}
+
+function latestFounderActivityAt(
+  area: WorldArea,
+  founderCitizenId: string,
+  founderBusinesses: readonly WorldBusiness[],
+): number | null {
+  const founderBusinessIds = new Set(founderBusinesses.map((business) => business.id))
+  let latest: number | null = null
+  for (const transaction of area.transactions) {
+    if (!Number.isFinite(transaction.at)) continue
+    const touchesFounder = transaction.fromId === founderCitizenId || transaction.toId === founderCitizenId
+    const touchesFounderBusiness =
+      founderBusinessIds.has(transaction.fromId) || founderBusinessIds.has(transaction.toId)
+    if (!touchesFounder && !touchesFounderBusiness) continue
+    latest = latest === null ? transaction.at : Math.max(latest, transaction.at)
+  }
+  return latest
 }
 
 function citizenPresentation(citizen: WorldCitizen): {

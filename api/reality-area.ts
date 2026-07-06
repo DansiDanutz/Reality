@@ -34,6 +34,7 @@ const FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH = SERVER_CLOCK_CURSOR_MAX_
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * 60 * 60 * 1000
+const FOUNDER_COVENANT_ACTIVITY_STALE_MS = FOUNDER_COVENANT_WEEKLY_REVIEW_MS
 const INSURANCE_COVERAGE = 0.6
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
 const BUSINESS_KINDS = ['water', 'food', 'housing', 'clinic', 'insurance'] as const
@@ -182,6 +183,7 @@ type FounderAreaCovenantManualActionKind =
   | 'recommend_replacement'
 type FounderAreaCovenantSignalKind =
   | 'founder_unavailable'
+  | 'founder_inactive'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -2179,6 +2181,15 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const founderDebt = founder ? totalCitizenDebt(founder) : 0
   const signals: FounderAreaCovenantSignal[] = []
   const reviewSchedule = founderCovenantReviewSchedule(state)
+  const activityAnchorMs = Date.parse(reviewSchedule.lastReviewAt ?? state.claim.claimedAt)
+  const updatedAtMs = Date.parse(state.updatedAt)
+  const lastFounderActivityMs = latestFounderActivityMs(state, founderBusinessIds)
+  const staleFounderActivity = founderActive &&
+    reviewSchedule.overdue &&
+    Number.isFinite(updatedAtMs) &&
+    Number.isFinite(activityAnchorMs) &&
+    updatedAtMs - activityAnchorMs >= FOUNDER_COVENANT_ACTIVITY_STALE_MS &&
+    (lastFounderActivityMs === null || lastFounderActivityMs <= activityAnchorMs)
   const unreviewedSimDepartures = unreviewedSimDepartureEvents(state, reviewSchedule.lastReviewAt)
   const demand = areaServiceDemand(state.citizens)
   const capacity = areaServiceCapacity(state.citizens, state.businesses)
@@ -2201,6 +2212,14 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
       kind: 'founder_unavailable',
       severity: 'critical',
       message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+  if (staleFounderActivity) {
+    signals.push({
+      kind: 'founder_inactive',
+      severity: 'warning',
+      message: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+      amount: roundMoney((updatedAtMs - activityAnchorMs) / (24 * 60 * 60 * 1000)),
     })
   }
   if (!building) {
@@ -2266,7 +2285,14 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     hospitalized: founderHospitalized,
     atRisk: status !== 'active',
     score: founder
-      ? founderActivityScore({ active: founderActive, useful, building, staffed, indebted: founderDebt > 0 })
+      ? founderActivityScore({
+        active: founderActive,
+        useful,
+        building,
+        staffed,
+        indebted: founderDebt > 0,
+        staleActivity: staleFounderActivity,
+      })
       : 0,
   }
   const nextAction: FounderAreaCovenantNextAction = manualReviewRequired
@@ -2279,6 +2305,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const reviewChecklist = founderCovenantReviewChecklist({
     activityReview,
     manualReviewRequired,
+    staleFounderActivity,
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
   })
@@ -2298,6 +2325,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const reviewInputs = founderCovenantReviewInputs({
     activityReview,
     signals,
+    staleFounderActivity,
     reviewSchedule,
     realPopulation: state.citizens.filter((citizen) => citizen.kind === 'real').length,
     simPopulation: state.citizens.filter((citizen) => citizen.kind === 'sim').length,
@@ -2334,6 +2362,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
 function founderCovenantReviewInputs(input: {
   activityReview: FounderAreaCovenantActivityReview
   signals: FounderAreaCovenantSignal[]
+  staleFounderActivity: boolean
   reviewSchedule: FounderAreaCovenantReviewSchedule
   realPopulation: number
   simPopulation: number
@@ -2346,8 +2375,10 @@ function founderCovenantReviewInputs(input: {
     {
       kind: 'in_game_activity',
       label: 'In-game activity',
-      status: activityCaptured ? 'captured' : 'watch',
-      evidence: activityCaptured
+      status: input.staleFounderActivity ? 'watch' : activityCaptured ? 'captured' : 'watch',
+      evidence: input.staleFounderActivity
+        ? 'Founder has no trusted in-game activity since the last covenant review or area claim.'
+        : activityCaptured
         ? 'Founder activity is captured from local businesses, staffing, and purchases.'
         : 'Founder needs more visible in-game building or demand-serving activity.',
       manualEvidenceRequired: false,
@@ -2475,6 +2506,7 @@ function founderCovenantStage(input: {
 function founderCovenantReviewChecklist(input: {
   activityReview: FounderAreaCovenantActivityReview
   manualReviewRequired: boolean
+  staleFounderActivity: boolean
   replacementEnabled: false
   waitlistHandoffEnabled: false
 }): FounderAreaCovenantReviewChecklistItem[] {
@@ -2521,6 +2553,14 @@ function founderCovenantReviewChecklist(input: {
       label: 'At risk',
       status: input.manualReviewRequired ? 'manual_review' : review.atRisk ? 'watch' : 'met',
       evidence: review.atRisk ? 'Covenant signals need weekly/monthly review.' : 'No risk signals currently require review.',
+    },
+    {
+      key: 'recent_activity',
+      label: 'Recent activity',
+      status: input.staleFounderActivity ? 'watch' : 'met',
+      evidence: input.staleFounderActivity
+        ? 'Founder has no trusted in-game activity since the last covenant review or area claim.'
+        : 'Recent activity has no stale covenant signal.',
     },
     {
       key: 'manual_authority',
@@ -3210,12 +3250,38 @@ function founderActivityScore(input: {
   building: boolean
   staffed: boolean
   indebted: boolean
+  staleActivity?: boolean
 }): number {
-  return (input.active ? 30 : 0) +
+  const base = (input.active ? 30 : 0) +
     (input.useful ? 25 : 0) +
     (input.building ? 20 : 0) +
     (input.staffed ? 15 : 0) +
     (!input.indebted ? 10 : 0)
+  return Math.max(0, base - (input.staleActivity ? 20 : 0))
+}
+
+function latestFounderActivityMs(
+  state: FounderAreaStateInput,
+  founderBusinessIds: ReadonlySet<string>,
+): number | null {
+  let latest: number | null = null
+  for (const business of state.businesses) {
+    if (business.ownerId !== state.founderCitizenId && business.createdBy !== state.founderCitizenId) continue
+    const createdAtMs = Date.parse(business.createdAt)
+    if (!Number.isFinite(createdAtMs)) continue
+    latest = latest === null ? createdAtMs : Math.max(latest, createdAtMs)
+  }
+  for (const transaction of state.transactions) {
+    const transactionAtMs = Date.parse(transaction.at)
+    if (!Number.isFinite(transactionAtMs)) continue
+    const touchesFounder =
+      transaction.fromId === state.founderCitizenId || transaction.toId === state.founderCitizenId
+    const touchesFounderBusiness =
+      founderBusinessIds.has(transaction.fromId) || founderBusinessIds.has(transaction.toId)
+    if (!touchesFounder && !touchesFounderBusiness) continue
+    latest = latest === null ? transactionAtMs : Math.max(latest, transactionAtMs)
+  }
+  return latest
 }
 
 function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {

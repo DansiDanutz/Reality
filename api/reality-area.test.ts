@@ -5246,6 +5246,78 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('recordCovenantReview captures stale founder activity as evidence without enabling replacement', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
+    const existing = {
+      ...existingState(),
+      updatedAt: '2026-07-14T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-14T08:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-covenant-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          note: 'Weekly review: no trusted founder activity since claim.',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState> }
+    const review = body.state.founderReviewHistory?.[0]
+    expect(review?.activityReview).toMatchObject({
+      active: true,
+      useful: false,
+      building: false,
+      staffed: false,
+      hospitalized: false,
+      atRisk: true,
+      score: 20,
+    })
+    expect(review?.signals).toEqual(expect.arrayContaining([
+      {
+        kind: 'founder_inactive',
+        severity: 'warning',
+        message: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+        amount: 8.21,
+      },
+      {
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+      },
+    ]))
+    expect(review?.reviewInputs).toEqual(expect.arrayContaining([{
+      kind: 'in_game_activity',
+      label: 'In-game activity',
+      status: 'watch',
+      evidence: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+      manualEvidenceRequired: false,
+    }]))
+    expect(review?.reviewChecklist).toEqual(expect.arrayContaining([{
+      key: 'recent_activity',
+      label: 'Recent activity',
+      status: 'watch',
+      evidence: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+    }]))
+    expect(body.state.founderCovenant.replacementEnabled).toBe(false)
+    expect(body.state.founderCovenant.waitlistHandoffEnabled).toBe(false)
+    expect(body.state.founderCovenant.manualActions.every((action) =>
+      action.kind === 'record_review' || action.clientPayload === null
+    )).toBe(true)
+  })
+
   test('recordCovenantReview captures and clears reviewed Sim departure signals', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
@@ -6008,6 +6080,11 @@ function baseFounderCovenant(checkedAt: string) {
       label: 'At risk',
       status: 'watch',
       evidence: 'Covenant signals need weekly/monthly review.',
+    }, {
+      key: 'recent_activity',
+      label: 'Recent activity',
+      status: 'met',
+      evidence: 'Recent activity has no stale covenant signal.',
     }, {
       key: 'manual_authority',
       label: 'Manual authority',

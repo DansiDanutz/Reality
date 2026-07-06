@@ -2139,6 +2139,11 @@ describe('advanceWorldArea — local real-time economy', () => {
         status: 'met',
         evidence: 'No risk signals currently require review.',
       }, {
+        key: 'recent_activity',
+        label: 'Recent activity',
+        status: 'met',
+        evidence: 'Recent activity has no stale covenant signal.',
+      }, {
         key: 'manual_authority',
         label: 'Manual authority',
         status: 'met',
@@ -2335,7 +2340,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(new Set(second.area.founderReviewHistory?.map((entry) => entry.id)).size).toBe(2)
   })
 
-  test('dashboard turns overdue covenant review into a manual-review signal only', () => {
+  test('dashboard turns overdue covenant review without trusted activity into manual review evidence', () => {
     const lastReviewAt = 2 * 24 * HOUR
     const start = claimedArea({
       now: 10 * 24 * HOUR,
@@ -2400,7 +2405,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         indebted: false,
         hospitalized: false,
         atRisk: true,
-        score: 100,
+        score: 80,
       },
       reviewQueue: {
         evidenceOnly: true,
@@ -2416,13 +2421,22 @@ describe('advanceWorldArea — local real-time economy', () => {
         blockerCount: 0,
         blockers: [],
       },
-      reviewInputs: expect.arrayContaining([{
-        kind: 'review_consistency',
-        label: 'Review consistency',
-        status: 'watch',
-        evidence: 'Weekly/monthly review cadence is due or overdue.',
-        manualEvidenceRequired: false,
-      }]),
+      reviewInputs: expect.arrayContaining([
+        {
+          kind: 'in_game_activity',
+          label: 'In-game activity',
+          status: 'watch',
+          evidence: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+          manualEvidenceRequired: false,
+        },
+        {
+          kind: 'review_consistency',
+          label: 'Review consistency',
+          status: 'watch',
+          evidence: 'Weekly/monthly review cadence is due or overdue.',
+          manualEvidenceRequired: false,
+        },
+      ]),
       notificationDrafts: [expect.objectContaining({
         kind: 'manual_review_required',
         sendEnabled: false,
@@ -2433,11 +2447,19 @@ describe('advanceWorldArea — local real-time economy', () => {
       })],
       approvalRequests: [],
     })
-    expect(dash.founderCovenant.signals).toEqual([{
-      kind: 'review_due',
-      severity: 'warning',
-      message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
-    }])
+    expect(dash.founderCovenant.signals).toEqual([
+      {
+        kind: 'founder_inactive',
+        severity: 'warning',
+        message: 'Founder has no trusted in-game activity since the last covenant review or area claim.',
+        amount: 8,
+      },
+      {
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+      },
+    ])
     expect(dash.founderCovenant.manualActions).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'start_probation',
@@ -2452,6 +2474,73 @@ describe('advanceWorldArea — local real-time economy', () => {
         authorityGate: expect.objectContaining({ executionEnabled: false }),
       }),
     ]))
+  })
+
+  test('dashboard does not mark an overdue founder inactive after trusted local activity', () => {
+    const lastReviewAt = 2 * 24 * HOUR
+    const activityAt = lastReviewAt + HOUR
+    const start = claimedArea({
+      now: 10 * 24 * HOUR,
+      citizens: [
+        sim('water-worker', { jobBusinessId: 'water1', homeBusinessId: 'home1' }),
+        sim('food-worker-1', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('food-worker-2', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('home-worker', { jobBusinessId: 'home1', homeBusinessId: 'home1' }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'founder', staffCitizenIds: ['water-worker'] }),
+        business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['food-worker-1', 'food-worker-2'] }),
+        business('housing', 'home1', { ownerId: 'founder', staffCitizenIds: ['home-worker'] }),
+      ],
+      transactions: [{
+        id: 'trusted-founder-business-sale',
+        at: activityAt,
+        kind: 'customer_purchase',
+        payoutEligibility: 'game_only',
+        fromId: 'sim-customer',
+        toId: 'water1',
+        amount: 2,
+        memo: 'Trusted local purchase after the last covenant review.',
+      }],
+      founderReviewHistory: [{
+        id: 'review-1',
+        at: lastReviewAt,
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        summary: 'Weekly review recorded.',
+        authorityGate: areaReviewerEvidenceGate(),
+        decision: null,
+        signals: [],
+        activityReview: null,
+        reviewQueue: covenantReviewQueueSnapshot(),
+        reviewInputs: [],
+        stages: [],
+        reviewChecklist: [],
+        manualActions: [],
+        approvalRequests: [],
+        reviewSchedule: null,
+      }],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant.activityReview.score).toBe(100)
+    expect(dash.founderCovenant.reviewInputs.find((input) => input.kind === 'in_game_activity')).toMatchObject({
+      status: 'captured',
+      evidence: 'Founder activity is captured from local businesses, staffing, and purchases.',
+    })
+    expect(dash.founderCovenant.reviewChecklist.find((item) => item.key === 'recent_activity')).toEqual({
+      key: 'recent_activity',
+      label: 'Recent activity',
+      status: 'met',
+      evidence: 'Recent activity has no stale covenant signal.',
+    })
+    expect(dash.founderCovenant.signals).toEqual([{
+      kind: 'review_due',
+      severity: 'warning',
+      message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+    }])
   })
 
   test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {

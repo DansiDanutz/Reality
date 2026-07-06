@@ -140,6 +140,7 @@ export type RealityAreaCovenantManualEvidenceKind =
   | 'ideas_feedback'
 export type RealityAreaCovenantSignalKind =
   | 'founder_unavailable'
+  | 'founder_inactive'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -2684,6 +2685,7 @@ function isRealityAreaCovenantAuthorityStatus(value: unknown): value is RealityA
 
 function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {
   return value === 'founder_unavailable' ||
+    value === 'founder_inactive' ||
     value === 'no_business_built' ||
     value === 'understaffed_businesses' ||
     value === 'essential_shortage' ||
