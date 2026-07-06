@@ -10,6 +10,9 @@ import {
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
+  founderCovenantOperatorQueuePriorityReasons,
+  founderCovenantOperatorQueuePriorityScore,
+  founderCovenantOperatorQueueReviewRows,
 } from './founderAreaPanelView'
 
 describe('FounderCovenantQueuePanel', () => {
@@ -27,6 +30,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
     expect(html).toContain('manual only')
     expect(html).not.toContain('Approve')
@@ -67,6 +71,76 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
     )
+  })
+
+  test('orders founder covenant review rows by manual triage priority', () => {
+    const manual = founderQueueItem()
+    const tracked = founderQueueItem({
+      areaId: 'founder-area-0011',
+      areaLabel: 'Iasi Founder Block',
+      founderCitizenId: 'founder-11',
+      founderNumber: 11,
+      covenantStatus: 'active',
+      manualReviewRequired: false,
+      overdue: false,
+      activityReview: {
+        ...manual.activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        score: 95,
+      },
+      economicExposure: {
+        ...manual.economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      blockerCount: 0,
+    })
+    const watch = founderQueueItem({
+      areaId: 'founder-area-0013',
+      areaLabel: 'Cluj Founder Block',
+      founderCitizenId: 'founder-13',
+      founderNumber: 13,
+      covenantStatus: 'watch',
+      manualReviewRequired: false,
+      overdue: true,
+      activityReview: {
+        ...manual.activityReview,
+        active: true,
+        useful: true,
+        building: true,
+        staffed: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 64,
+      },
+      economicExposure: {
+        ...manual.economicExposure,
+        outstandingDebt: 50,
+        debtCount: 1,
+        unstaffedBusinessCount: 1,
+        hospitalized: false,
+      },
+      signalCounts: { total: 1, info: 0, warning: 1, critical: 0 },
+      signalKinds: ['review_due'],
+      blockerCount: 1,
+    })
+    const rows = founderCovenantOperatorQueueReviewRows({
+      items: [tracked, watch, manual],
+    })
+
+    expect(rows.map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-13', 'founder-11'])
+    expect(founderCovenantOperatorQueuePriorityScore(manual)).toBeGreaterThan(
+      founderCovenantOperatorQueuePriorityScore(watch),
+    )
+    expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
   })
 
   test('renders an empty page as evidence-only review state', () => {

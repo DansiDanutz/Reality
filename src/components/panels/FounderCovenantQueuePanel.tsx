@@ -1,12 +1,7 @@
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import {
-  founderCovenantOperatorQueueItemDateSummary,
-  founderCovenantOperatorQueueItemSummary,
-  founderCovenantOperatorQueueItemStatusClass,
-  founderCovenantOperatorQueueItemStatusLabel,
-  founderCovenantOperatorQueueItemTitle,
-  founderCovenantOperatorQueueSignalText,
   founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueSummary,
 } from './founderAreaPanelView'
 
@@ -15,6 +10,8 @@ export interface FounderCovenantQueuePanelProps {
 }
 
 export function FounderCovenantQueuePanel({ queue }: FounderCovenantQueuePanelProps) {
+  const reviewRows = founderCovenantOperatorQueueReviewRows(queue)
+
   return (
     <section className="founder-section founder-covenant-operator-queue" aria-label="Founder covenant operator queue">
       <div className="founder-section-head">
@@ -51,29 +48,27 @@ export function FounderCovenantQueuePanel({ queue }: FounderCovenantQueuePanelPr
           value={queue.totals.blockers}
         />
       </div>
-      {queue.items.length === 0 ? (
+      {reviewRows.length === 0 ? (
         <p className="panel-sub">No founders in this review page.</p>
       ) : (
         <ul className="item-list founder-covenant-operator-items" aria-label="Founder covenant operator rows">
-          {queue.items.map((item) => {
-            const statusClass = founderCovenantOperatorQueueItemStatusClass(item)
-            return (
-              <li className={`item founder-covenant-checklist-item ${statusClass}`} key={`${item.areaId}:${item.founderCitizenId}`}>
-                <div className="item-info">
-                  <span className="item-name">{founderCovenantOperatorQueueItemTitle(item)}</span>
-                  <span className="item-desc">{item.founderCitizenId} · {founderCovenantOperatorQueueItemSummary(item)}</span>
-                  <span className="item-desc">{founderCovenantOperatorQueueItemDateSummary(item)}</span>
-                  <span className="item-desc">Signals: {founderCovenantOperatorQueueSignalText(item)}</span>
-                </div>
-                <div className="item-buy">
-                  <span className={`founder-covenant-checklist-status mono ${statusClass}`}>
-                    {founderCovenantOperatorQueueItemStatusLabel(item)}
-                  </span>
-                  <span className="item-locked mono">manual only</span>
-                </div>
-              </li>
-            )
-          })}
+          {reviewRows.map((row) => (
+            <li className={`item founder-covenant-checklist-item ${row.statusClass}`} key={row.key}>
+              <div className="item-info">
+                <span className="item-name">{row.title}</span>
+                <span className="item-desc">{row.founderCitizenId} · {row.summary}</span>
+                <span className="item-desc">{row.dateSummary}</span>
+                <span className="item-desc">Priority: {row.priorityReasons.join(', ')}</span>
+                <span className="item-desc">Signals: {row.signalText}</span>
+              </div>
+              <div className="item-buy">
+                <span className={`founder-covenant-checklist-status mono ${row.statusClass}`}>
+                  {row.statusLabel}
+                </span>
+                <span className="item-locked mono">manual only</span>
+              </div>
+            </li>
+          ))}
         </ul>
       )}
     </section>

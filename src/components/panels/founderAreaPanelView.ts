@@ -110,6 +110,19 @@ export interface FounderCovenantScheduleItem {
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
 
+export interface FounderCovenantOperatorQueueReviewRow {
+  key: string
+  title: string
+  founderCitizenId: string
+  statusClass: FounderCovenantOperatorQueueStatusClass
+  statusLabel: string
+  summary: string
+  dateSummary: string
+  signalText: string
+  priorityScore: number
+  priorityReasons: string[]
+}
+
 export function founderIdentitySeatLabel(
   identity: Pick<RealityAreaDashboard['founderIdentity'], 'founderNumber'>,
 ): string {
@@ -765,6 +778,95 @@ export function founderCovenantOperatorQueueSignalText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'signalKinds'>,
 ): string {
   return item.signalKinds.length > 0 ? item.signalKinds.join(', ') : 'none'
+}
+
+export function founderCovenantOperatorQueueReviewRows(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): FounderCovenantOperatorQueueReviewRow[] {
+  return queue.items
+    .map((item) => ({
+      key: `${item.areaId}:${item.founderCitizenId}`,
+      title: founderCovenantOperatorQueueItemTitle(item),
+      founderCitizenId: item.founderCitizenId,
+      statusClass: founderCovenantOperatorQueueItemStatusClass(item),
+      statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
+      summary: founderCovenantOperatorQueueItemSummary(item),
+      dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
+      signalText: founderCovenantOperatorQueueSignalText(item),
+      priorityScore: founderCovenantOperatorQueuePriorityScore(item),
+      priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
+    }))
+    .sort((a, b) => b.priorityScore - a.priorityScore || a.title.localeCompare(b.title))
+}
+
+export function founderCovenantOperatorQueuePriorityScore(
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    | 'manualReviewRequired'
+    | 'covenantStatus'
+    | 'overdue'
+    | 'scanStatus'
+    | 'activityReview'
+    | 'economicExposure'
+    | 'signalCounts'
+    | 'blockerCount'
+  >,
+): number {
+  let score = 0
+  if (item.manualReviewRequired) score += 500
+  if (item.covenantStatus === 'manual_review') score += 250
+  if (item.covenantStatus === 'watch') score += 120
+  if (item.overdue) score += 90
+  if (item.activityReview.hospitalized) score += 180
+  if (item.activityReview.atRisk) score += 140
+  if (!item.activityReview.active) score += 60
+  if (!item.activityReview.useful) score += 50
+  if (!item.activityReview.building) score += 50
+  if (!item.activityReview.staffed) score += 40
+  if (item.economicExposure.outstandingDebt > 0) {
+    score += Math.min(140, Math.ceil(item.economicExposure.outstandingDebt / 50))
+  }
+  score += Math.min(120, item.economicExposure.unstaffedBusinessCount * 40)
+  score += item.signalCounts.critical * 70
+  score += item.signalCounts.warning * 25
+  score += Math.min(120, item.blockerCount * 15)
+  if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') score += 80
+  return score
+}
+
+export function founderCovenantOperatorQueuePriorityReasons(
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    | 'manualReviewRequired'
+    | 'covenantStatus'
+    | 'overdue'
+    | 'scanStatus'
+    | 'activityReview'
+    | 'economicExposure'
+    | 'signalCounts'
+    | 'blockerCount'
+  >,
+): string[] {
+  const reasons: string[] = []
+  if (item.manualReviewRequired || item.covenantStatus === 'manual_review') reasons.push('manual review')
+  if (item.overdue) reasons.push('overdue')
+  if (item.activityReview.hospitalized) reasons.push('hospitalized')
+  if (item.activityReview.atRisk) reasons.push('at risk')
+  if (!item.activityReview.active) reasons.push('inactive')
+  if (!item.activityReview.useful) reasons.push('usefulness missing')
+  if (!item.activityReview.building) reasons.push('no build evidence')
+  if (!item.activityReview.staffed) reasons.push('staffing gap')
+  if (item.economicExposure.outstandingDebt > 0) {
+    reasons.push(`${formatMoney(item.economicExposure.outstandingDebt)} debt`)
+  }
+  if (item.economicExposure.unstaffedBusinessCount > 0) {
+    reasons.push(`${item.economicExposure.unstaffedBusinessCount} unstaffed business${item.economicExposure.unstaffedBusinessCount === 1 ? '' : 'es'}`)
+  }
+  if (item.signalCounts.critical > 0) reasons.push(`${item.signalCounts.critical} critical signal${item.signalCounts.critical === 1 ? '' : 's'}`)
+  if (item.signalCounts.warning > 0) reasons.push(`${item.signalCounts.warning} warning signal${item.signalCounts.warning === 1 ? '' : 's'}`)
+  if (item.blockerCount > 0) reasons.push(`${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'}`)
+  if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') reasons.push(`scan ${item.scanStatus}`)
+  return reasons.length > 0 ? reasons : ['tracked']
 }
 
 function founderCovenantOperatorQueueScanStatusLabel(
