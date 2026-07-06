@@ -21,6 +21,7 @@ import {
   type WorldBusiness,
   type WorldBusinessKind,
   type WorldCitizen,
+  type WorldTransaction,
 } from './worldSim'
 import type { Needs } from './types'
 
@@ -764,6 +765,19 @@ describe('advanceWorldArea — local real-time economy', () => {
       food: 24,
       housing: 8,
     })
+    expect(dashboard.ledger).toMatchObject({
+      transactionCount: 5,
+      totalsByKind: {
+        worker_wage: 20,
+        customer_purchase: 44,
+      },
+    })
+    expect(dashboard.ledger.recentTransactions[0]).toMatchObject({
+      kind: 'worker_wage',
+      fromId: 'food1',
+      toId: 'worker',
+      amount: 10,
+    })
   })
 
   test('unpaid attempts do not consume scarce service capacity from paying citizens', () => {
@@ -1448,6 +1462,41 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceBusinessId: 'ins1',
         insuranceActive: false,
       },
+    ])
+  })
+
+  test('dashboard ledger summarizes cash flow and returns a latest-first transaction feed', () => {
+    const transactions: WorldTransaction[] = Array.from({ length: 12 }, (_, index) => ({
+      id: `tx${index + 1}`,
+      at: index + 1,
+      kind: index % 3 === 0 ? 'worker_wage' : index % 3 === 1 ? 'customer_purchase' : 'insurance_premium',
+      fromId: index % 3 === 0 ? 'food1' : 'resident',
+      toId: index % 3 === 0 ? 'worker' : index % 3 === 1 ? 'food1' : 'ins1',
+      amount: index + 1,
+      memo: `transaction ${index + 1}`,
+    }))
+
+    const dash = areaNeedsDashboard(area({ transactions }))
+    dash.ledger.recentTransactions[0].amount = 999
+
+    expect(transactions[11].amount).toBe(12)
+    expect(dash.ledger.transactionCount).toBe(12)
+    expect(dash.ledger.totalsByKind.worker_wage).toBe(22)
+    expect(dash.ledger.totalsByKind.customer_purchase).toBe(26)
+    expect(dash.ledger.totalsByKind.insurance_premium).toBe(30)
+    expect(dash.ledger.totalsByKind.medical_debt).toBe(0)
+    expect(dash.ledger.recentTransactions).toHaveLength(10)
+    expect(dash.ledger.recentTransactions.map((transaction) => transaction.id)).toEqual([
+      'tx12',
+      'tx11',
+      'tx10',
+      'tx9',
+      'tx8',
+      'tx7',
+      'tx6',
+      'tx5',
+      'tx4',
+      'tx3',
     ])
   })
 

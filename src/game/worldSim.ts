@@ -181,6 +181,22 @@ export interface AreaCitizenDashboard {
   insuranceActive: boolean
 }
 
+export interface AreaTransactionDashboard {
+  id: string
+  at: number
+  kind: WorldTransactionKind
+  fromId: string
+  toId: string
+  amount: number
+  memo: string
+}
+
+export interface AreaLedgerDashboard {
+  transactionCount: number
+  totalsByKind: Record<WorldTransactionKind, number>
+  recentTransactions: AreaTransactionDashboard[]
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -195,6 +211,7 @@ export interface AreaNeedsDashboard {
   saturation: Record<WorldBusinessKind, number>
   citizens: AreaCitizenDashboard[]
   existingBusinesses: AreaBusinessDashboard[]
+  ledger: AreaLedgerDashboard
   jobs: AreaJobsDashboard
   survival: AreaSurvivalDashboard
   firstBuild: FirstBuildRecommendation[]
@@ -521,6 +538,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     saturation,
     citizens: area.citizens.map((citizen) => citizenDashboard(citizen, area.now)),
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
+    ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens),
     survival: survivalDashboard(area),
     firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation }),
@@ -570,6 +588,23 @@ function buildRecommendation(
     ...estimate,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
   }
+}
+
+function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
+  const totalsByKind = zeroTransactionKindRecord()
+  for (const transaction of area.transactions) {
+    totalsByKind[transaction.kind] = roundMoney(totalsByKind[transaction.kind] + transaction.amount)
+  }
+
+  return {
+    transactionCount: area.transactions.length,
+    totalsByKind,
+    recentTransactions: area.transactions.slice(-10).reverse().map(transactionDashboard),
+  }
+}
+
+function transactionDashboard(transaction: WorldTransaction): AreaTransactionDashboard {
+  return { ...transaction }
 }
 
 function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboard {
@@ -1339,6 +1374,21 @@ function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
 
 function zeroKindRecord(): Record<WorldBusinessKind, number> {
   return { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 }
+}
+
+function zeroTransactionKindRecord(): Record<WorldTransactionKind, number> {
+  return {
+    founder_credit: 0,
+    sim_citizen_credit: 0,
+    customer_purchase: 0,
+    business_build: 0,
+    worker_wage: 0,
+    hospital_bill: 0,
+    insurance_premium: 0,
+    insurance_payout: 0,
+    medical_debt: 0,
+    debt_repayment: 0,
+  }
 }
 
 function emptyWorldAreaSummary(): WorldAreaSummary {
