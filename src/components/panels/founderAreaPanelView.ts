@@ -1,8 +1,18 @@
 import { formatMoney } from '../../game/engine'
 import type {
   AreaFounderCovenantDashboard,
+  FounderCovenantActivityReview,
   FounderCovenantSignal,
 } from '../../game/worldSim'
+
+export type FounderCovenantReviewTone = 'stable' | 'warning' | 'critical'
+
+export interface FounderCovenantReviewItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
 
 export function founderCovenantStatusLabel(status: AreaFounderCovenantDashboard['status']): string {
   switch (status) {
@@ -23,6 +33,18 @@ export function founderCovenantTone(status: AreaFounderCovenantDashboard['status
   return 'stable'
 }
 
+export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
+  return [
+    positiveFlag('active', 'Active', review.active),
+    positiveFlag('useful', 'Useful', review.useful),
+    positiveFlag('building', 'Building', review.building),
+    positiveFlag('staffed', 'Staffed', review.staffed),
+    riskFlag('indebted', 'Debt', review.indebted),
+    riskFlag('hospitalized', 'Hospital', review.hospitalized),
+    riskFlag('atRisk', 'At risk', review.atRisk),
+  ]
+}
+
 export function founderCovenantSignalText(signal: FounderCovenantSignal): string {
   switch (signal.kind) {
     case 'founder_unavailable':
@@ -35,5 +57,23 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
       return `Shortage: ${signal.businessKinds?.join(', ') ?? 'essential services'}`
     case 'founder_debt':
       return `Founder debt: ${formatMoney(signal.amount ?? 0)}`
+  }
+}
+
+function positiveFlag(key: string, label: string, on: boolean): FounderCovenantReviewItem {
+  return {
+    key,
+    label,
+    value: on ? 'yes' : 'no',
+    tone: on ? 'stable' : 'warning',
+  }
+}
+
+function riskFlag(key: string, label: string, on: boolean): FounderCovenantReviewItem {
+  return {
+    key,
+    label,
+    value: on ? 'yes' : 'no',
+    tone: on ? 'critical' : 'stable',
   }
 }

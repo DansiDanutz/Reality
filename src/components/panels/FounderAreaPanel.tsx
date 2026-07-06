@@ -16,6 +16,7 @@ import {
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
+  founderCovenantReviewItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
@@ -151,6 +152,15 @@ export default function FounderAreaPanel() {
               <span>weekly/monthly review</span>
               <span>replacement disabled</span>
               <span>waitlist disabled</span>
+            </div>
+            <div className="founder-covenant-review" aria-label="Founder activity review">
+              <span className="founder-covenant-score mono">score {dashboard.founderCovenant.activityReview.score}/100</span>
+              {founderCovenantReviewItems(dashboard.founderCovenant.activityReview).map((item) => (
+                <span className={`founder-covenant-review-item ${item.tone}`} key={item.key}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </span>
+              ))}
             </div>
             {dashboard.founderCovenant.signals.length === 0 ? (
               <p className="panel-sub">No covenant signals.</p>

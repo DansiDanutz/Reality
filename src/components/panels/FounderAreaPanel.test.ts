@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  founderCovenantReviewItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
@@ -36,5 +37,27 @@ describe('FounderAreaPanel covenant presenters', () => {
       message: 'Founder has unpaid debt that should be reviewed before profit or succession decisions.',
       amount: 120,
     })).toBe('Founder debt: $120')
+  })
+
+  test('formats manual activity review flags for founder covenant badges', () => {
+    expect(founderCovenantReviewItems({
+      checkedAt: 1_000,
+      active: false,
+      useful: true,
+      building: true,
+      staffed: false,
+      indebted: true,
+      hospitalized: true,
+      atRisk: true,
+      score: 45,
+    })).toEqual([
+      { key: 'active', label: 'Active', value: 'no', tone: 'warning' },
+      { key: 'useful', label: 'Useful', value: 'yes', tone: 'stable' },
+      { key: 'building', label: 'Building', value: 'yes', tone: 'stable' },
+      { key: 'staffed', label: 'Staffed', value: 'no', tone: 'warning' },
+      { key: 'indebted', label: 'Debt', value: 'yes', tone: 'critical' },
+      { key: 'hospitalized', label: 'Hospital', value: 'yes', tone: 'critical' },
+      { key: 'atRisk', label: 'At risk', value: 'yes', tone: 'critical' },
+    ])
   })
 })

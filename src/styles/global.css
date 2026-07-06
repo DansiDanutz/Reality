@@ -985,6 +985,37 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   padding: 3px 7px;
   background: rgba(120, 150, 205, 0.06);
 }
+.founder-covenant-review {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.founder-covenant-score,
+.founder-covenant-review-item {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(120, 150, 205, 0.06);
+  font-size: 11px;
+  color: var(--muted);
+}
+.founder-covenant-score { color: var(--text); }
+.founder-covenant-review-item strong {
+  color: var(--text);
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.founder-covenant-review-item.stable { border-color: rgba(64, 200, 136, 0.35); }
+.founder-covenant-review-item.warning { border-color: rgba(240, 180, 41, 0.45); }
+.founder-covenant-review-item.critical { border-color: rgba(229, 72, 77, 0.45); }
+.founder-covenant-review-item.stable strong { color: var(--ok); }
+.founder-covenant-review-item.warning strong { color: var(--warn); }
+.founder-covenant-review-item.critical strong { color: #e5484d; }
 .founder-covenant-signal.warning { border-color: rgba(240, 180, 41, 0.45); }
 .founder-covenant-signal.critical { border-color: rgba(229, 72, 77, 0.45); }
 .founder-covenant-severity {
