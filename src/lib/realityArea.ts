@@ -785,6 +785,108 @@ export interface RealityAreaDashboard {
   founderCovenant: RealityAreaCovenantReview
 }
 
+export type RealityFounderCovenantReviewQueueScanStatus = 'caught_up' | 'current' | 'invalid' | 'unavailable'
+
+export interface RealityFounderCovenantReviewQueueSignalCounts {
+  total: number
+  info: number
+  warning: number
+  critical: number
+}
+
+export interface RealityFounderCovenantReviewQueueEconomicExposure {
+  founderCash: number
+  outstandingDebt: number
+  debtCount: number
+  businessCash: number
+  businessCount: number
+  unstaffedBusinessCount: number
+  insured: boolean
+  hospitalized: boolean
+  gameCreditsOnly: true
+  payoutEligibleCredits: 0
+  manualPayoutReviewRequired: true
+}
+
+export interface RealityFounderCovenantReviewQueueItem {
+  areaId: string
+  areaLabel: string
+  founderCitizenId: string
+  founderNumber: number
+  updatedAt: string
+  checkedAt: string
+  lastReviewAt: string | null
+  nextWeeklyReviewAt: string
+  nextMonthlyReviewAt: string
+  overdue: boolean
+  covenantStatus: RealityAreaCovenantStatus
+  nextAction: RealityAreaCovenantNextAction
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  activityReview: RealityAreaCovenantReview['activityReview']
+  economicExposure: RealityFounderCovenantReviewQueueEconomicExposure
+  reviewQueue: RealityAreaCovenantReviewQueue
+  signalCounts: RealityFounderCovenantReviewQueueSignalCounts
+  signalKinds: RealityAreaCovenantSignalKind[]
+  recommendedActionKinds: readonly RealityAreaCovenantManualActionKind[]
+  pendingApprovalKinds: readonly RealityAreaCovenantApprovalRequestKind[]
+  pendingNotificationKinds: readonly RealityAreaCovenantNotificationDraftKind[]
+  blockerCount: number
+  scanStatus: RealityFounderCovenantReviewQueueScanStatus
+  transactionsAdded: number
+}
+
+export interface RealityFounderCovenantReviewQueueScanResult {
+  citizenId: string | null
+  areaId: string | null
+  status: RealityFounderCovenantReviewQueueScanStatus
+  updatedAt: string | null
+  transactionsAdded: number
+}
+
+export interface RealityFounderCovenantReviewQueueDashboard {
+  generatedAt: string
+  evidenceOnly: true
+  automationEnabled: false
+  executionEnabled: false
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  approvalWorkflowEnabled: false
+  limit: number
+  pages: number
+  pagesScanned: number
+  cursor: string | null
+  nextCursor: string | null
+  scanned: number
+  caughtUp: number
+  current: number
+  failed: number
+  hasMore: boolean
+  totals: {
+    founders: number
+    active: number
+    useful: number
+    building: number
+    staffed: number
+    indebted: number
+    hospitalized: number
+    atRisk: number
+    manualReviewRequired: number
+    overdue: number
+    totalFounderCash: number
+    totalOutstandingDebt: number
+    totalBusinessCash: number
+    unstaffedBusinesses: number
+    insuredFounders: number
+    pendingApprovals: number
+    pendingNotifications: number
+    blockers: number
+  }
+  items: RealityFounderCovenantReviewQueueItem[]
+  results: RealityFounderCovenantReviewQueueScanResult[]
+}
+
 export type MergedRealityAreaDashboard = AreaNeedsDashboard & Pick<
   RealityAreaDashboard,
   | 'founderIdentity'
@@ -846,6 +948,17 @@ export interface RealityAreaRefreshPayload {
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+
+export type RealityFounderCovenantReviewQueueResult =
+  | { ok: true; founderCovenantReviewQueue: RealityFounderCovenantReviewQueueDashboard }
+  | { ok: false; reason: 'missing_operator_token' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+
+export interface RealityFounderCovenantReviewQueueRequest {
+  serverClockToken?: string
+  limit?: number
+  pages?: number
+  cursor?: string
+}
 
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
 
@@ -932,6 +1045,46 @@ export async function recordRealityFounderCovenantReview(
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
   return applyRealityAreaPayload(citizen, payload, fetchImpl)
+}
+
+export async function readRealityFounderCovenantReviewQueue(
+  request: RealityFounderCovenantReviewQueueRequest,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityFounderCovenantReviewQueueResult> {
+  const token = request.serverClockToken?.trim()
+  if (!token) {
+    return {
+      ok: false,
+      reason: 'missing_operator_token',
+      error: 'Founder covenant review queue requires an operator token.',
+      code: 'server_clock_unauthorized',
+    }
+  }
+
+  const query = new URLSearchParams({ review: 'founderCovenantQueue' })
+  if (request.limit !== undefined) query.set('limit', String(request.limit))
+  if (request.pages !== undefined) query.set('pages', String(request.pages))
+  if (request.cursor !== undefined) query.set('cursor', request.cursor)
+
+  try {
+    const response = await fetchImpl(`/api/reality-area?${query.toString()}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await response.json() as Record<string, unknown>
+    const queue = isRealityFounderCovenantReviewQueueDashboard(data.founderCovenantReviewQueue)
+      ? data.founderCovenantReviewQueue
+      : null
+    if (response.ok && data.ok === true && queue) return { ok: true, founderCovenantReviewQueue: queue }
+    return {
+      ok: false,
+      reason: 'server_rejected',
+      error: typeof data.error === 'string' ? data.error : 'Founder covenant review queue was rejected.',
+      code: typeof data.code === 'string' ? data.code : undefined,
+    }
+  } catch {
+    return { ok: false, reason: 'request_failed', error: 'Reality area server is unreachable.' }
+  }
 }
 
 async function applyRealityAreaPayload(
@@ -1898,6 +2051,138 @@ function isRealityAreaCovenantReviewQueue(value: unknown): value is RealityAreaC
     value.blockers.every(isRealityAreaCovenantApprovalBlocker)
 }
 
+function isRealityFounderCovenantReviewQueueDashboard(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueDashboard {
+  return isRecord(value) &&
+    typeof value.generatedAt === 'string' &&
+    value.evidenceOnly === true &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false &&
+    value.replacementEnabled === false &&
+    value.waitlistHandoffEnabled === false &&
+    value.approvalWorkflowEnabled === false &&
+    typeof value.limit === 'number' &&
+    typeof value.pages === 'number' &&
+    typeof value.pagesScanned === 'number' &&
+    isNullableString(value.cursor) &&
+    isNullableString(value.nextCursor) &&
+    typeof value.scanned === 'number' &&
+    typeof value.caughtUp === 'number' &&
+    typeof value.current === 'number' &&
+    typeof value.failed === 'number' &&
+    typeof value.hasMore === 'boolean' &&
+    isRealityFounderCovenantReviewQueueTotals(value.totals) &&
+    Array.isArray(value.items) &&
+    value.items.every(isRealityFounderCovenantReviewQueueItem) &&
+    Array.isArray(value.results) &&
+    value.results.every(isRealityFounderCovenantReviewQueueScanResult)
+}
+
+function isRealityFounderCovenantReviewQueueTotals(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueDashboard['totals'] {
+  return isRecord(value) &&
+    typeof value.founders === 'number' &&
+    typeof value.active === 'number' &&
+    typeof value.useful === 'number' &&
+    typeof value.building === 'number' &&
+    typeof value.staffed === 'number' &&
+    typeof value.indebted === 'number' &&
+    typeof value.hospitalized === 'number' &&
+    typeof value.atRisk === 'number' &&
+    typeof value.manualReviewRequired === 'number' &&
+    typeof value.overdue === 'number' &&
+    typeof value.totalFounderCash === 'number' &&
+    typeof value.totalOutstandingDebt === 'number' &&
+    typeof value.totalBusinessCash === 'number' &&
+    typeof value.unstaffedBusinesses === 'number' &&
+    typeof value.insuredFounders === 'number' &&
+    typeof value.pendingApprovals === 'number' &&
+    typeof value.pendingNotifications === 'number' &&
+    typeof value.blockers === 'number'
+}
+
+function isRealityFounderCovenantReviewQueueItem(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueItem {
+  return isRecord(value) &&
+    typeof value.areaId === 'string' &&
+    typeof value.areaLabel === 'string' &&
+    typeof value.founderCitizenId === 'string' &&
+    typeof value.founderNumber === 'number' &&
+    typeof value.updatedAt === 'string' &&
+    typeof value.checkedAt === 'string' &&
+    isNullableString(value.lastReviewAt) &&
+    typeof value.nextWeeklyReviewAt === 'string' &&
+    typeof value.nextMonthlyReviewAt === 'string' &&
+    typeof value.overdue === 'boolean' &&
+    isRealityAreaCovenantStatus(value.covenantStatus) &&
+    isRealityAreaCovenantNextAction(value.nextAction) &&
+    typeof value.manualReviewRequired === 'boolean' &&
+    value.replacementEnabled === false &&
+    value.waitlistHandoffEnabled === false &&
+    isRealityAreaCovenantActivityReview(value.activityReview) &&
+    isRealityFounderCovenantReviewQueueEconomicExposure(value.economicExposure) &&
+    isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
+    isRealityFounderCovenantReviewQueueSignalCounts(value.signalCounts) &&
+    Array.isArray(value.signalKinds) &&
+    value.signalKinds.every(isRealityAreaCovenantSignalKind) &&
+    Array.isArray(value.recommendedActionKinds) &&
+    value.recommendedActionKinds.every(isRealityAreaCovenantManualActionKind) &&
+    Array.isArray(value.pendingApprovalKinds) &&
+    value.pendingApprovalKinds.every(isRealityAreaCovenantApprovalRequestKind) &&
+    Array.isArray(value.pendingNotificationKinds) &&
+    value.pendingNotificationKinds.every(isRealityAreaCovenantNotificationDraftKind) &&
+    typeof value.blockerCount === 'number' &&
+    isRealityFounderCovenantReviewQueueScanStatus(value.scanStatus) &&
+    typeof value.transactionsAdded === 'number'
+}
+
+function isRealityFounderCovenantReviewQueueEconomicExposure(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueEconomicExposure {
+  return isRecord(value) &&
+    typeof value.founderCash === 'number' &&
+    typeof value.outstandingDebt === 'number' &&
+    typeof value.debtCount === 'number' &&
+    typeof value.businessCash === 'number' &&
+    typeof value.businessCount === 'number' &&
+    typeof value.unstaffedBusinessCount === 'number' &&
+    typeof value.insured === 'boolean' &&
+    typeof value.hospitalized === 'boolean' &&
+    value.gameCreditsOnly === true &&
+    value.payoutEligibleCredits === 0 &&
+    value.manualPayoutReviewRequired === true
+}
+
+function isRealityFounderCovenantReviewQueueSignalCounts(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueSignalCounts {
+  return isRecord(value) &&
+    typeof value.total === 'number' &&
+    typeof value.info === 'number' &&
+    typeof value.warning === 'number' &&
+    typeof value.critical === 'number'
+}
+
+function isRealityFounderCovenantReviewQueueScanResult(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueScanResult {
+  return isRecord(value) &&
+    isNullableString(value.citizenId) &&
+    isNullableString(value.areaId) &&
+    isRealityFounderCovenantReviewQueueScanStatus(value.status) &&
+    isNullableString(value.updatedAt) &&
+    typeof value.transactionsAdded === 'number'
+}
+
+function isRealityFounderCovenantReviewQueueScanStatus(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueScanStatus {
+  return value === 'caught_up' || value === 'current' || value === 'invalid' || value === 'unavailable'
+}
+
 function isRealityAreaCovenantManualAction(value: unknown): value is RealityAreaCovenantManualAction {
   return isRecord(value) &&
     isRealityAreaCovenantManualActionKind(value.kind) &&
@@ -2633,4 +2918,8 @@ function readyFounderCredentials(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
 }

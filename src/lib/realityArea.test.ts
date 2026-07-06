@@ -8,12 +8,14 @@ import {
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
   recordRealityFounderCovenantReview,
+  readRealityFounderCovenantReviewQueue,
   realityAreaStateToWorldArea,
   refreshRealityFounderArea,
   type RealityAreaCovenantApprovalRequest,
   type RealityAreaCovenantManualAction,
   type RealityAreaDashboard,
   type RealityAreaState,
+  type RealityFounderCovenantReviewQueueDashboard,
 } from './realityArea'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
 import { areaNeedsDashboard } from '../game/worldSim'
@@ -880,6 +882,60 @@ describe('Reality area client', () => {
           evidenceKinds: ['external_contribution', 'ideas_feedback'],
         },
       }),
+    })
+  })
+
+  test('requires an operator token before reading the founder covenant review queue', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(readRealityFounderCovenantReviewQueue({}, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'missing_operator_token',
+      error: 'Founder covenant review queue requires an operator token.',
+      code: 'server_clock_unauthorized',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('reads and validates the operator founder covenant review queue', async () => {
+    const queue = serverFounderCovenantReviewQueue()
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+      limit: 2,
+      pages: 3,
+      cursor: 'review-cursor-1',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      founderCovenantReviewQueue: queue,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area?review=founderCovenantQueue&limit=2&pages=3&cursor=review-cursor-1', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer operator-token' },
+    })
+  })
+
+  test('rejects malformed founder covenant review queue responses', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        replacementEnabled: true,
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
     })
   })
 
@@ -2580,6 +2636,102 @@ function serverDashboard(): RealityAreaDashboard {
       estimatedPaybackHours: null,
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
+    }],
+  }
+}
+
+function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
+  const dashboard = serverDashboard()
+  const review = dashboard.founderCovenant
+  return {
+    generatedAt: '2026-07-06T04:00:00.000Z',
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    approvalWorkflowEnabled: false,
+    limit: 2,
+    pages: 1,
+    pagesScanned: 1,
+    cursor: 'review-cursor-1',
+    nextCursor: 'review-cursor-2',
+    scanned: 1,
+    caughtUp: 1,
+    current: 0,
+    failed: 0,
+    hasMore: true,
+    totals: {
+      founders: 1,
+      active: 1,
+      useful: 1,
+      building: 1,
+      staffed: 0,
+      indebted: 1,
+      hospitalized: 0,
+      atRisk: 1,
+      manualReviewRequired: 0,
+      overdue: 0,
+      totalFounderCash: 199_650,
+      totalOutstandingDebt: 300,
+      totalBusinessCash: 7,
+      unstaffedBusinesses: 1,
+      insuredFounders: 0,
+      pendingApprovals: review.reviewQueue.pendingApprovalCount,
+      pendingNotifications: review.reviewQueue.pendingNotificationCount,
+      blockers: review.reviewQueue.blockerCount,
+    },
+    items: [{
+      areaId: dashboard.areaId,
+      areaLabel: dashboard.landRights.areaLabel,
+      founderCitizenId: review.founderCitizenId,
+      founderNumber: dashboard.founderIdentity.founderNumber,
+      updatedAt: dashboard.updatedAt,
+      checkedAt: review.activityReview.checkedAt,
+      lastReviewAt: review.reviewSchedule.lastReviewAt,
+      nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
+      nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
+      overdue: review.reviewSchedule.overdue,
+      covenantStatus: review.status,
+      nextAction: review.nextAction,
+      manualReviewRequired: review.manualReviewRequired,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: review.activityReview,
+      economicExposure: {
+        founderCash: 199_650,
+        outstandingDebt: 300,
+        debtCount: 1,
+        businessCash: 7,
+        businessCount: 1,
+        unstaffedBusinessCount: 1,
+        insured: false,
+        hospitalized: false,
+        gameCreditsOnly: true,
+        payoutEligibleCredits: 0,
+        manualPayoutReviewRequired: true,
+      },
+      reviewQueue: review.reviewQueue,
+      signalCounts: {
+        total: review.signals.length,
+        info: review.signals.filter((signal) => signal.severity === 'info').length,
+        warning: review.signals.filter((signal) => signal.severity === 'warning').length,
+        critical: review.signals.filter((signal) => signal.severity === 'critical').length,
+      },
+      signalKinds: review.signals.map((signal) => signal.kind),
+      recommendedActionKinds: review.reviewQueue.recommendedActionKinds,
+      pendingApprovalKinds: review.reviewQueue.pendingApprovalKinds,
+      pendingNotificationKinds: review.reviewQueue.pendingNotificationKinds,
+      blockerCount: review.reviewQueue.blockerCount,
+      scanStatus: 'caught_up',
+      transactionsAdded: 1,
+    }],
+    results: [{
+      citizenId: dashboard.founderIdentity.citizenId,
+      areaId: dashboard.areaId,
+      status: 'caught_up',
+      updatedAt: dashboard.updatedAt,
+      transactionsAdded: 1,
     }],
   }
 }
