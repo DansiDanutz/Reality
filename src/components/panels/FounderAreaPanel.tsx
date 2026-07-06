@@ -24,6 +24,8 @@ import {
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
+  founderCovenantApprovalRequestStatusLabel,
+  founderCovenantApprovalRequestText,
   founderCovenantChecklistStatusLabel,
   founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
@@ -228,6 +230,22 @@ export default function FounderAreaPanel() {
                     </div>
                     <span className="founder-covenant-notification-status mono">
                       {founderCovenantNotificationDraftStatusLabel(draft)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {dashboard.founderCovenant.approvalRequests.length > 0 && (
+              <ul className="item-list founder-covenant-approvals" aria-label="Founder approval requests">
+                {dashboard.founderCovenant.approvalRequests.map((request) => (
+                  <li className="item founder-covenant-approval" key={request.id}>
+                    <div className="item-info">
+                      <span className="item-name">{request.label}</span>
+                      <span className="item-desc">{request.reason}</span>
+                      <span className="item-desc">{founderCovenantApprovalRequestText(request)}</span>
+                    </div>
+                    <span className="founder-covenant-approval-status mono">
+                      {founderCovenantApprovalRequestStatusLabel(request)}
                     </span>
                   </li>
                 ))}

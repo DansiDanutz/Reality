@@ -1627,6 +1627,24 @@ describe('advanceWorldArea — local real-time economy', () => {
           },
         }),
       ]),
+      approvalRequests: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'start_probation',
+          status: 'pending_manual_approval',
+          approvalEnabled: false,
+          automationEnabled: false,
+          executionEnabled: false,
+          notificationDraftId: 'area-1:0:covenant-notification:manual_review_required:founder',
+        }),
+        expect.objectContaining({
+          kind: 'recommend_replacement',
+          status: 'pending_manual_approval',
+          approvalEnabled: false,
+          automationEnabled: false,
+          executionEnabled: false,
+          notificationDraftId: 'area-1:0:covenant-notification:manual_review_required:founder',
+        }),
+      ]),
       reviewSchedule: {
         lastReviewAt: null,
         nextWeeklyReviewAt: 7 * 24 * HOUR + 1,
@@ -1826,6 +1844,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         reason: 'Replacement is not suggested and waitlist handoff is disabled.',
         clientPayload: null,
       }],
+      approvalRequests: [],
       reviewSchedule: {
         lastReviewAt: null,
         nextWeeklyReviewAt: 7 * 24 * HOUR + 1,
@@ -1973,6 +1992,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           executionEnabled: false,
         }),
       })],
+      approvalRequests: [],
     })
     expect(dash.founderCovenant.signals).toEqual([{
       kind: 'review_due',

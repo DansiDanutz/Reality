@@ -725,6 +725,16 @@ describe('reality area authority API', () => {
         authorityGate: mainFounderApprovalGate(),
       }),
     ]))
+    expect(dashboard.founderCovenant.approvalRequests).toEqual([
+      expect.objectContaining({
+        kind: 'start_probation',
+        status: 'pending_manual_approval',
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        notificationDraftId: `founder-area-0012:${Date.parse('2026-07-14T04:00:00.000Z')}:covenant-notification:manual_review_required:${CITIZEN_ID}`,
+      }),
+    ])
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -2072,6 +2082,24 @@ describe('reality area authority API', () => {
           automationEnabled: false,
         }),
       ]),
+      approvalRequests: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'start_probation',
+          status: 'pending_manual_approval',
+          approvalEnabled: false,
+          automationEnabled: false,
+          executionEnabled: false,
+          notificationDraftId: `founder-area-0012:${Date.parse('2026-07-06T07:00:00.000Z')}:covenant-notification:manual_review_required:${CITIZEN_ID}`,
+        }),
+        expect.objectContaining({
+          kind: 'recommend_replacement',
+          status: 'pending_manual_approval',
+          approvalEnabled: false,
+          automationEnabled: false,
+          executionEnabled: false,
+          notificationDraftId: `founder-area-0012:${Date.parse('2026-07-06T07:00:00.000Z')}:covenant-notification:manual_review_required:${CITIZEN_ID}`,
+        }),
+      ]),
       latestReview: null,
       reviewHistory: [],
       signals: expect.arrayContaining([
@@ -2711,6 +2739,11 @@ describe('reality area authority API', () => {
         authorityGate: mainFounderApprovalGate(),
       }),
     ]))
+    expect(body.state.founderCovenant.approvalRequests).toEqual(manualApprovalRequests({
+      warning: true,
+      probation: true,
+      replacement: false,
+    }, '2026-07-06T08:00:00.000Z', 'founder_warning'))
     expect(body.state.founderCovenant.reviewSchedule).toEqual(covenantReviewSchedule({
       anchorAt: '2026-07-06T03:00:00.000Z',
       checkedAt: '2026-07-06T08:00:00.000Z',
@@ -3254,6 +3287,11 @@ function baseFounderCovenant(checkedAt: string) {
       probation: true,
       replacement: false,
     }),
+    approvalRequests: manualApprovalRequests({
+      warning: true,
+      probation: true,
+      replacement: false,
+    }, checkedAt, 'founder_warning'),
     reviewSchedule: covenantReviewSchedule({
       anchorAt: '2026-07-06T03:00:00.000Z',
       checkedAt,
@@ -3514,6 +3552,42 @@ function manualReviewActionSnapshots(input: { warning: boolean; probation: boole
     authorityGate: { ...action.authorityGate, executionEnabled: false },
     clientPayload: null,
   }))
+}
+
+function manualApprovalRequests(
+  input: { warning: boolean; probation: boolean; replacement: boolean },
+  checkedAt: string,
+  notificationKind: 'founder_warning' | 'manual_review_required' | null,
+) {
+  return manualReviewActions(input)
+    .filter((action) => action.kind !== 'record_review' && action.recommended)
+    .map((action) => ({
+      id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-approval:${action.kind}:${CITIZEN_ID}`,
+      at: checkedAt,
+      kind: action.kind,
+      label: action.label,
+      reason: action.reason,
+      status: 'pending_manual_approval',
+      recommended: true,
+      requiresApproval: true,
+      approvalEnabled: false,
+      automationEnabled: false,
+      executionEnabled: false,
+      authorityGate: mainFounderApprovalGate(),
+      notificationDraftId: approvalNotificationDraftId(action.kind, checkedAt, notificationKind),
+    }))
+}
+
+function approvalNotificationDraftId(
+  actionKind: 'send_warning' | 'start_probation' | 'recommend_replacement',
+  checkedAt: string,
+  notificationKind: 'founder_warning' | 'manual_review_required' | null,
+) {
+  const matchesWarning = actionKind === 'send_warning' && notificationKind === 'founder_warning'
+  const matchesManualReview = actionKind !== 'send_warning' && notificationKind === 'manual_review_required'
+  return matchesWarning || matchesManualReview
+    ? `founder-area-0012:${Date.parse(checkedAt)}:covenant-notification:${notificationKind}:${CITIZEN_ID}`
+    : null
 }
 
 function areaReviewerEvidenceGate(executionEnabled: boolean) {

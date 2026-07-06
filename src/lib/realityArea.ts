@@ -152,6 +152,25 @@ export interface RealityAreaCovenantManualAction {
   clientPayload: RealityAreaCovenantReviewPayload | null
 }
 
+export type RealityAreaCovenantApprovalRequestKind = Exclude<RealityAreaCovenantManualActionKind, 'record_review'>
+export type RealityAreaCovenantApprovalRequestStatus = 'pending_manual_approval'
+
+export interface RealityAreaCovenantApprovalRequest {
+  id: string
+  at: string
+  kind: RealityAreaCovenantApprovalRequestKind
+  label: string
+  reason: string
+  status: RealityAreaCovenantApprovalRequestStatus
+  recommended: true
+  requiresApproval: true
+  approvalEnabled: false
+  automationEnabled: false
+  executionEnabled: false
+  authorityGate: RealityAreaCovenantAuthorityGate
+  notificationDraftId: string | null
+}
+
 export interface RealityAreaCovenantReviewHistoryItem {
   id: string
   at: string
@@ -237,6 +256,7 @@ export interface RealityAreaCovenantReview {
   }
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
+  approvalRequests: RealityAreaCovenantApprovalRequest[]
   reviewSchedule: RealityAreaCovenantReviewSchedule
   latestReview: RealityAreaCovenantLatestReview | null
   reviewHistory: RealityAreaCovenantReviewHistoryItem[]
@@ -736,6 +756,11 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       authorityGate: { ...action.authorityGate },
       clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
+    approvalRequests: review.approvalRequests.map((request) => ({
+      ...request,
+      at: parseInstant(request.at),
+      authorityGate: { ...request.authorityGate },
+    })),
     reviewSchedule: mergeRealityAreaCovenantReviewSchedule(review.reviewSchedule),
     latestReview: review.latestReview === null
       ? null
@@ -1087,6 +1112,8 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
     value.manualActions.every(isRealityAreaCovenantManualAction) &&
+    Array.isArray(value.approvalRequests) &&
+    value.approvalRequests.every(isRealityAreaCovenantApprovalRequest) &&
     isRealityAreaCovenantReviewSchedule(value.reviewSchedule) &&
     (value.latestReview === null || isRealityAreaCovenantLatestReview(value.latestReview)) &&
     Array.isArray(value.reviewHistory) &&
@@ -1239,6 +1266,23 @@ function isRealityAreaCovenantReviewActionSnapshot(value: unknown): value is Rea
     value.authorityGate.executionEnabled === false
 }
 
+function isRealityAreaCovenantApprovalRequest(value: unknown): value is RealityAreaCovenantApprovalRequest {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.at === 'string' &&
+    isRealityAreaCovenantApprovalRequestKind(value.kind) &&
+    typeof value.label === 'string' &&
+    typeof value.reason === 'string' &&
+    value.status === 'pending_manual_approval' &&
+    value.recommended === true &&
+    value.requiresApproval === true &&
+    value.approvalEnabled === false &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false &&
+    isRealityAreaCovenantAuthorityGate(value.authorityGate, value.kind) &&
+    (typeof value.notificationDraftId === 'string' || value.notificationDraftId === null)
+}
+
 function isRealityAreaCovenantNotificationDraft(value: unknown): value is RealityAreaCovenantNotificationDraft {
   return isRecord(value) &&
     typeof value.id === 'string' &&
@@ -1278,6 +1322,12 @@ function isRealityAreaCovenantReviewChecklistStatus(value: unknown): value is Re
 function isRealityAreaCovenantManualActionKind(value: unknown): value is RealityAreaCovenantManualActionKind {
   return value === 'record_review' ||
     value === 'send_warning' ||
+    value === 'start_probation' ||
+    value === 'recommend_replacement'
+}
+
+function isRealityAreaCovenantApprovalRequestKind(value: unknown): value is RealityAreaCovenantApprovalRequestKind {
+  return value === 'send_warning' ||
     value === 'start_probation' ||
     value === 'recommend_replacement'
 }

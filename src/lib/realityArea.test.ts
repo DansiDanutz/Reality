@@ -9,6 +9,7 @@ import {
   mergeRealityAreaDashboardIntoWorldDashboard,
   recordRealityFounderCovenantReview,
   realityAreaStateToWorldArea,
+  type RealityAreaCovenantApprovalRequest,
   type RealityAreaCovenantManualAction,
   type RealityAreaDashboard,
   type RealityAreaState,
@@ -183,6 +184,33 @@ describe('Reality area client', () => {
             }
             : action
         ),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
+  test('ignores covenant approval requests that enable workflow execution', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        approvalRequests: dashboard.founderCovenant.approvalRequests.map((request) => ({
+          ...request,
+          executionEnabled: true,
+        })),
       },
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -717,6 +745,21 @@ describe('Reality area client', () => {
         sendEnabled: false,
         authorityGate: mainFounderApprovalGate(),
       }],
+      approvalRequests: [{
+        id: 'founder-area-0012:1783310400000:covenant-approval:send_warning:citizen-1',
+        at: Date.parse('2026-07-06T04:00:00.000Z'),
+        kind: 'send_warning',
+        label: 'Send warning',
+        reason: 'Covenant signals suggest a manual founder warning.',
+        status: 'pending_manual_approval',
+        recommended: true,
+        requiresApproval: true,
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        authorityGate: mainFounderApprovalGate(),
+        notificationDraftId: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:citizen-1',
+      }],
     })
     expect(simWater).toMatchObject({
       displayName: 'Demo Water Resident (Sim)',
@@ -926,6 +969,11 @@ function serverState(): RealityAreaState {
         probation: true,
         replacement: true,
       }),
+      approvalRequests: manualApprovalRequests({
+        warning: false,
+        probation: true,
+        replacement: true,
+      }, '2026-07-06T03:30:00.000Z', 'manual_review_required'),
       reviewSchedule: covenantReviewSchedule({
         anchorAt: '2026-07-06T03:30:00.000Z',
         checkedAt: '2026-07-06T03:30:00.000Z',
@@ -1004,6 +1052,49 @@ function manualReviewActions(
       : 'Replacement is not suggested and waitlist handoff is disabled.',
     clientPayload: null,
   }]
+}
+
+function manualApprovalRequests(
+  input: { warning: boolean; probation: boolean; replacement: boolean },
+  checkedAt: string,
+  notificationKind: 'founder_warning' | 'manual_review_required' | null,
+): RealityAreaCovenantApprovalRequest[] {
+  return manualReviewActions(input)
+    .filter(isRecommendedApprovalAction)
+    .map((action) => ({
+      id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-approval:${action.kind}:citizen-1`,
+      at: checkedAt,
+      kind: action.kind,
+      label: action.label,
+      reason: action.reason,
+      status: 'pending_manual_approval',
+      recommended: true,
+      requiresApproval: true,
+      approvalEnabled: false,
+      automationEnabled: false,
+      executionEnabled: false,
+      authorityGate: mainFounderApprovalGate(),
+      notificationDraftId: approvalNotificationDraftId(action.kind, checkedAt, notificationKind),
+    }))
+}
+
+function isRecommendedApprovalAction(
+  action: RealityAreaCovenantManualAction,
+): action is RealityAreaCovenantManualAction & { kind: RealityAreaCovenantApprovalRequest['kind']; recommended: true } {
+  return action.kind !== 'record_review' && action.recommended
+}
+
+function approvalNotificationDraftId(
+  actionKind: 'send_warning' | 'start_probation' | 'recommend_replacement',
+  checkedAt: string,
+  notificationKind: 'founder_warning' | 'manual_review_required' | null,
+) {
+  if (notificationKind === null) return null
+  const matchesWarning = actionKind === 'send_warning' && notificationKind === 'founder_warning'
+  const matchesManualReview = actionKind !== 'send_warning' && notificationKind === 'manual_review_required'
+  return matchesWarning || matchesManualReview
+    ? `founder-area-0012:${Date.parse(checkedAt)}:covenant-notification:${notificationKind}:citizen-1`
+    : null
 }
 
 function areaReviewerEvidenceGate(executionEnabled: boolean) {
@@ -1352,6 +1443,11 @@ function serverDashboard(): RealityAreaDashboard {
         probation: false,
         replacement: false,
       }),
+      approvalRequests: manualApprovalRequests({
+        warning: true,
+        probation: false,
+        replacement: false,
+      }, '2026-07-06T04:00:00.000Z', 'founder_warning'),
       reviewSchedule: covenantReviewSchedule({
         anchorAt: '2026-07-06T03:30:00.000Z',
         checkedAt: '2026-07-06T04:00:00.000Z',

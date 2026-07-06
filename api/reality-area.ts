@@ -181,6 +181,25 @@ interface FounderAreaCovenantManualAction {
   clientPayload: FounderAreaCovenantManualActionClientPayload | null
 }
 
+type FounderAreaCovenantApprovalRequestKind = Exclude<FounderAreaCovenantManualActionKind, 'record_review'>
+type FounderAreaCovenantApprovalRequestStatus = 'pending_manual_approval'
+
+interface FounderAreaCovenantApprovalRequest {
+  id: string
+  at: string
+  kind: FounderAreaCovenantApprovalRequestKind
+  label: string
+  reason: string
+  status: FounderAreaCovenantApprovalRequestStatus
+  recommended: true
+  requiresApproval: true
+  approvalEnabled: false
+  automationEnabled: false
+  executionEnabled: false
+  authorityGate: FounderAreaCovenantAuthorityGate
+  notificationDraftId: string | null
+}
+
 interface FounderAreaCovenantReviewHistoryItem {
   id: string
   at: string
@@ -256,6 +275,7 @@ interface FounderAreaCovenantReview {
   activityReview: FounderAreaCovenantActivityReview
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
+  approvalRequests: FounderAreaCovenantApprovalRequest[]
   reviewSchedule: FounderAreaCovenantReviewSchedule
   latestReview: FounderAreaCovenantLatestReview | null
   reviewHistory: FounderAreaCovenantReviewHistoryItem[]
@@ -1288,6 +1308,10 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
   const notificationDrafts = founderCovenantNotificationDrafts(state, {
     nextAction,
   })
+  const approvalRequests = founderCovenantApprovalRequests(state, {
+    manualActions,
+    notificationDrafts,
+  })
 
   return {
     founderCitizenId: state.founderCitizenId,
@@ -1300,6 +1324,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     activityReview,
     reviewChecklist,
     manualActions,
+    approvalRequests,
     reviewSchedule,
     latestReview: founderCovenantLatestReview(state),
     reviewHistory: founderCovenantReviewHistory(state),
@@ -1452,6 +1477,48 @@ function founderCovenantManualActionAuthority(
     approvedAt: null,
     executionEnabled: false,
   }
+}
+
+function founderCovenantApprovalRequests(
+  state: FounderAreaStateInput,
+  input: {
+    manualActions: FounderAreaCovenantManualAction[]
+    notificationDrafts: FounderAreaCovenantNotificationDraft[]
+  },
+): FounderAreaCovenantApprovalRequest[] {
+  return input.manualActions
+    .filter(isRecommendedFounderCovenantApprovalAction)
+    .map((action) => ({
+      id: `${state.areaId}:${Date.parse(state.updatedAt)}:covenant-approval:${action.kind}:${state.founderCitizenId}`,
+      at: state.updatedAt,
+      kind: action.kind,
+      label: action.label,
+      reason: action.reason,
+      status: 'pending_manual_approval',
+      recommended: true,
+      requiresApproval: true,
+      approvalEnabled: false,
+      automationEnabled: false,
+      executionEnabled: false,
+      authorityGate: { ...action.authorityGate, executionEnabled: false },
+      notificationDraftId: founderCovenantApprovalNotificationDraftId(action, input.notificationDrafts),
+    }))
+}
+
+function isRecommendedFounderCovenantApprovalAction(
+  action: FounderAreaCovenantManualAction,
+): action is FounderAreaCovenantManualAction & { kind: FounderAreaCovenantApprovalRequestKind; recommended: true } {
+  return action.kind !== 'record_review' && action.recommended
+}
+
+function founderCovenantApprovalNotificationDraftId(
+  action: FounderAreaCovenantManualAction & { kind: FounderAreaCovenantApprovalRequestKind },
+  drafts: FounderAreaCovenantNotificationDraft[],
+): string | null {
+  const matchingKind: FounderAreaCovenantNotificationDraftKind = action.kind === 'send_warning'
+    ? 'founder_warning'
+    : 'manual_review_required'
+  return drafts.find((draft) => draft.kind === matchingKind)?.id ?? null
 }
 
 function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview, note: string | undefined): string {

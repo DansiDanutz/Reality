@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
+  founderCovenantApprovalRequestStatusLabel,
+  founderCovenantApprovalRequestText,
   founderCovenantChecklistStatusLabel,
   founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
@@ -41,6 +43,33 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantManualActionStatusLabel({ recommended: false })).toBe('Manual')
     expect(founderCovenantManualActionKindLabel('record_review')).toBe('Record review')
     expect(founderCovenantManualActionKindLabel('recommend_replacement')).toBe('Recommend replacement')
+  })
+
+  test('labels pending covenant approval requests without enabling execution', () => {
+    const request = {
+      id: 'approval-1',
+      at: 1_000,
+      kind: 'send_warning',
+      label: 'Send warning',
+      reason: 'Covenant signals suggest a manual founder warning.',
+      status: 'pending_manual_approval',
+      recommended: true,
+      requiresApproval: true,
+      approvalEnabled: false,
+      automationEnabled: false,
+      executionEnabled: false,
+      authorityGate: {
+        requiredRole: 'main_founder',
+        status: 'approval_required',
+        approvedById: null,
+        approvedAt: null,
+        executionEnabled: false,
+      },
+      notificationDraftId: 'draft-1',
+    } as const
+
+    expect(founderCovenantApprovalRequestText(request)).toBe('Main founder approval · execution disabled')
+    expect(founderCovenantApprovalRequestStatusLabel(request)).toBe('Locked')
   })
 
   test('summarizes captured covenant review action snapshots', () => {

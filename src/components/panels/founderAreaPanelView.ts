@@ -4,6 +4,7 @@ import type {
   AreaLedgerDashboard,
   AreaTransactionDashboard,
   FounderCovenantActivityReview,
+  FounderCovenantApprovalRequest,
   FounderCovenantManualAction,
   FounderCovenantNotificationDraft,
   FounderCovenantReviewHistoryItem,
@@ -83,6 +84,16 @@ export function founderCovenantManualActionKindLabel(kind: FounderCovenantManual
     case 'recommend_replacement':
       return 'Recommend replacement'
   }
+}
+
+export function founderCovenantApprovalRequestText(request: FounderCovenantApprovalRequest): string {
+  return `${founderCovenantAuthorityRoleLabel(request.authorityGate.requiredRole)} approval · execution disabled`
+}
+
+export function founderCovenantApprovalRequestStatusLabel(
+  request: Pick<FounderCovenantApprovalRequest, 'approvalEnabled' | 'executionEnabled'>,
+): string {
+  return request.approvalEnabled || request.executionEnabled ? 'Ready' : 'Locked'
 }
 
 export function founderCovenantLatestReviewStatusLabel(
@@ -232,7 +243,7 @@ function channelLabel(channel: FounderCovenantNotificationDraft['channel']): str
 }
 
 function founderCovenantAuthorityRoleLabel(
-  role: FounderCovenantNotificationDraft['authorityGate']['requiredRole'],
+  role: FounderCovenantManualAction['authorityGate']['requiredRole'],
 ): string {
   switch (role) {
     case 'area_reviewer':
