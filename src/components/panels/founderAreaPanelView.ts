@@ -18,6 +18,8 @@ import type {
 } from '../../game/worldSim'
 import type {
   RealityAreaDashboard,
+  RealityAreaEventDashboard,
+  RealityAreaEventsDashboard,
   RealityAreaGrowthBlocker,
   RealityAreaGrowthDashboard,
   RealityAreaHandoffBlocker,
@@ -42,6 +44,13 @@ export interface FounderCovenantReviewItem {
 }
 
 export interface FounderLedgerSummaryItem {
+  key: string
+  label: string
+  value: string
+  tone: FounderCovenantReviewTone
+}
+
+export interface FounderAreaEventSummaryItem {
   key: string
   label: string
   value: string
@@ -857,6 +866,57 @@ export function founderLedgerSummaryItems(ledger: AreaLedgerDashboard): FounderL
     value: formatMoney(ledger.payoutClassification.payoutEligibleAmount),
     tone: ledger.payoutClassification.payoutEligibleAmount > 0 ? 'critical' : 'stable',
   }]
+}
+
+export function founderAreaEventSummaryItems(events: RealityAreaEventsDashboard): FounderAreaEventSummaryItem[] {
+  return [{
+    key: 'events',
+    label: 'Events',
+    value: String(events.eventCount),
+    tone: events.eventCount > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'departures',
+    label: 'Sim departures',
+    value: String(events.simDepartures),
+    tone: events.simDepartures > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'warnings',
+    label: 'Warnings',
+    value: String(events.warningEvents),
+    tone: events.warningEvents > 0 ? 'warning' : 'stable',
+  }, {
+    key: 'critical',
+    label: 'Critical',
+    value: String(events.criticalEvents),
+    tone: events.criticalEvents > 0 ? 'critical' : 'stable',
+  }]
+}
+
+export function founderAreaEventTitle(event: Pick<RealityAreaEventDashboard, 'kind' | 'displayName'>): string {
+  switch (event.kind) {
+    case 'sim_citizen_departure':
+      return `${event.displayName} left`
+  }
+}
+
+export function founderAreaEventDetail(
+  event: Pick<RealityAreaEventDashboard, 'kind' | 'reason' | 'serviceKind'>,
+): string {
+  switch (event.kind) {
+    case 'sim_citizen_departure':
+      return `${founderAreaDepartureReasonLabel(event.reason)} · ${event.serviceKind} unserved`
+  }
+}
+
+function founderAreaDepartureReasonLabel(reason: RealityAreaEventDashboard['reason']): string {
+  switch (reason) {
+    case 'water_unserved':
+      return 'Water shortage'
+    case 'food_unserved':
+      return 'Food shortage'
+    case 'housing_unserved':
+      return 'Housing shortage'
+  }
 }
 
 export function founderLedgerTransactionTitle(transaction: Pick<AreaTransactionDashboard, 'kind'>): string {

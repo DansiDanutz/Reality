@@ -30,6 +30,9 @@ import {
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
+  founderAreaEventDetail,
+  founderAreaEventSummaryItems,
+  founderAreaEventTitle,
   founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
   founderCovenantApprovalRequestText,
@@ -145,6 +148,7 @@ export default function FounderAreaPanel() {
   const result = panelState.status === 'ready' ? panelState.result : null
   const dashboard = result?.dashboard
   const founderIdentityDashboard = dashboard ? getFounderIdentityDashboard(dashboard) : null
+  const areaEventsDashboard = dashboard ? getFounderAreaEventsDashboard(dashboard) : null
   const growthDashboard = dashboard ? getFounderGrowthDashboard(dashboard) : null
   const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
   const payoutReadinessDashboard = dashboard ? getFounderPayoutReadinessDashboard(dashboard) : null
@@ -634,6 +638,41 @@ export default function FounderAreaPanel() {
             </div>
           </section>
 
+          {areaEventsDashboard && (
+            <section className="founder-section" aria-label="Area Events">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Area Events</h3>
+                <span className="item-desc">{areaEventsDashboard.eventCount} events</span>
+              </div>
+              <div className="founder-ledger-summary" aria-label="Area event summary">
+                {founderAreaEventSummaryItems(areaEventsDashboard).map((item) => (
+                  <span className={`founder-ledger-chip ${item.tone}`} key={item.key}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </span>
+                ))}
+              </div>
+              {areaEventsDashboard.recentEvents.length === 0 ? (
+                <p className="panel-sub">No area events yet.</p>
+              ) : (
+                <ul className="item-list founder-area-events">
+                  {areaEventsDashboard.recentEvents.slice(0, 4).map((event) => (
+                    <li className={`item founder-area-event ${event.visualTone} ${event.severity}`} key={event.id}>
+                      <div className="item-info">
+                        <span className="item-name">{founderAreaEventTitle(event)}</span>
+                        <span className="item-desc">{founderAreaEventDetail(event)}</span>
+                        <span className="item-yield mono">health {event.health}</span>
+                      </div>
+                      <span className={`founder-covenant-severity ${event.severity}`}>
+                        {event.severity}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
           <section className="founder-section" aria-label="Area Ledger">
             <div className="founder-section-head">
               <h3 className="founder-section-title">Area Ledger</h3>
@@ -978,6 +1017,12 @@ function getFounderIdentityDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): RealityAreaDashboard['founderIdentity'] | null {
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'founderIdentity'>>).founderIdentity ?? null
+}
+
+function getFounderAreaEventsDashboard(
+  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
+): RealityAreaDashboard['areaEvents'] | null {
+  return (dashboard as Partial<Pick<RealityAreaDashboard, 'areaEvents'>>).areaEvents ?? null
 }
 
 function getFounderGrowthDashboard(

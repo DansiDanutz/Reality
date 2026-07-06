@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import {
+  founderAreaEventDetail,
+  founderAreaEventSummaryItems,
+  founderAreaEventTitle,
   founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
   founderCovenantApprovalRequestText,
@@ -699,6 +702,46 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderLedgerTransactionTitle({ kind: 'customer_purchase' })).toBe('Customer purchase')
     expect(founderLedgerTransactionTitle({ kind: 'medical_debt' })).toBe('Medical debt')
     expect(founderLedgerTransactionTitle({ kind: 'debt_repayment' })).toBe('Debt repayment')
+  })
+
+  test('summarizes non-cash area events for the founder panel', () => {
+    expect(founderAreaEventSummaryItems({
+      eventCount: 2,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 1,
+      recentEvents: [],
+    })).toEqual([
+      { key: 'events', label: 'Events', value: '2', tone: 'warning' },
+      { key: 'departures', label: 'Sim departures', value: '1', tone: 'warning' },
+      { key: 'warnings', label: 'Warnings', value: '1', tone: 'warning' },
+      { key: 'critical', label: 'Critical', value: '1', tone: 'critical' },
+    ])
+
+    expect(founderAreaEventSummaryItems({
+      eventCount: 0,
+      simDepartures: 0,
+      warningEvents: 0,
+      criticalEvents: 0,
+      recentEvents: [],
+    })).toEqual([
+      { key: 'events', label: 'Events', value: '0', tone: 'stable' },
+      { key: 'departures', label: 'Sim departures', value: '0', tone: 'stable' },
+      { key: 'warnings', label: 'Warnings', value: '0', tone: 'stable' },
+      { key: 'critical', label: 'Critical', value: '0', tone: 'stable' },
+    ])
+  })
+
+  test('labels recent Sim Citizen departure events without implying money movement', () => {
+    const event = {
+      kind: 'sim_citizen_departure',
+      displayName: 'Demo Food Resident (Sim)',
+      reason: 'food_unserved',
+      serviceKind: 'food',
+    } as const
+
+    expect(founderAreaEventTitle(event)).toBe('Demo Food Resident (Sim) left')
+    expect(founderAreaEventDetail(event)).toBe('Food shortage · food unserved')
   })
 
   test('summarizes disabled TON settlement without enabling value movement', () => {

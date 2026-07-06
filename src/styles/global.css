@@ -1132,6 +1132,9 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .founder-ledger-chip.warning strong { color: var(--warn); }
 .founder-ledger-chip.critical strong { color: #e5484d; }
 .founder-ledger-event .item-price { color: var(--text); }
+.founder-area-event.warning { border-color: rgba(240, 180, 41, 0.45); }
+.founder-area-event.critical { border-color: rgba(229, 72, 77, 0.45); }
+.founder-area-event.simulated .item-name { color: var(--sky); }
 .founder-choice .item-yield { color: var(--ok); }
 .founder-citizen.simulated .item-name { color: var(--sky); }
 .founder-business.warning { border-color: rgba(240, 180, 41, 0.45); }
