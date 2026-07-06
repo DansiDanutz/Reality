@@ -1,6 +1,9 @@
 import type { Citizen } from '../game/types'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
 import type {
+  AreaBusinessAlert,
+  AreaBusinessDashboard,
+  AreaBusinessStatus,
   AreaJobsDashboard,
   AreaNeedsDashboard,
   AreaWorkerCandidateAction,
@@ -163,6 +166,23 @@ export interface RealityAreaJobsDashboard {
   candidates: RealityAreaWorkerCandidateDashboard[]
 }
 
+export interface RealityAreaBusinessDashboard {
+  id: string
+  name: string
+  kind: WorldBusinessKind
+  ownerId: string
+  cash: number
+  price: number
+  wagePerHour: number
+  quality: number
+  activeStaff: number
+  targetStaff: number
+  openPositions: number
+  hourlyCapacity: number
+  status: AreaBusinessStatus
+  alerts: AreaBusinessAlert[]
+}
+
 export interface RealityAreaDashboard {
   areaId: string
   updatedAt: string
@@ -180,6 +200,7 @@ export interface RealityAreaDashboard {
   licenses: Record<WorldBusinessKind, RealityAreaLicenseDashboard>
   jobs: RealityAreaJobsDashboard
   firstBuild: RealityAreaFirstBuildRecommendation[]
+  existingBusinesses: RealityAreaBusinessDashboard[]
 }
 
 export interface RealityAreaState {
@@ -414,6 +435,9 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     firstBuild: serverDashboard.firstBuild.map((recommendation) =>
       mergeFirstBuildRecommendation(recommendation, dashboard.firstBuild.find((candidate) => candidate.kind === recommendation.kind), serverDashboard)
     ),
+    existingBusinesses: serverDashboard.existingBusinesses.map((business) =>
+      mergeRealityAreaBusinessDashboard(business, dashboard.existingBusinesses.find((candidate) => candidate.id === business.id))
+    ),
   }
 }
 
@@ -430,6 +454,38 @@ function mergeRealityAreaJobsDashboard(
     openPositions: serverJobs.openPositions,
     understaffedBusinesses: serverJobs.understaffedBusinesses,
     candidates: serverJobs.candidates.map((candidate) => ({ ...candidate })),
+  }
+}
+
+function mergeRealityAreaBusinessDashboard(
+  business: RealityAreaBusinessDashboard,
+  fallback: AreaBusinessDashboard | undefined,
+): AreaBusinessDashboard {
+  return {
+    ...fallback,
+    id: business.id,
+    name: business.name,
+    kind: business.kind,
+    ownerId: business.ownerId,
+    cash: business.cash,
+    price: business.price,
+    wagePerHour: business.wagePerHour,
+    quality: business.quality,
+    activeStaff: business.activeStaff,
+    targetStaff: business.targetStaff,
+    openPositions: business.openPositions,
+    hourlyCapacity: business.hourlyCapacity,
+    status: business.status,
+    alerts: business.alerts.map((alert) => ({ ...alert })),
+    ledger: fallback?.ledger ?? {
+      transactionCount: 0,
+      revenue: 0,
+      expenses: 0,
+      netCashFlow: 0,
+      wagesPaid: 0,
+      receivablesIssued: 0,
+      recentTransactions: [],
+    },
   }
 }
 
@@ -534,7 +590,9 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isLicenseDashboardRecord(value.licenses) &&
     isRealityAreaJobsDashboard(value.jobs) &&
     Array.isArray(value.firstBuild) &&
-    value.firstBuild.every(isRealityAreaFirstBuildRecommendation)
+    value.firstBuild.every(isRealityAreaFirstBuildRecommendation) &&
+    Array.isArray(value.existingBusinesses) &&
+    value.existingBusinesses.every(isRealityAreaBusinessDashboard)
 }
 
 function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {
@@ -563,6 +621,31 @@ function isRealityAreaJobsDashboard(value: unknown): value is RealityAreaJobsDas
     typeof value.understaffedBusinesses === 'number' &&
     Array.isArray(value.candidates) &&
     value.candidates.every(isRealityAreaWorkerCandidateDashboard)
+}
+
+function isRealityAreaBusinessDashboard(value: unknown): value is RealityAreaBusinessDashboard {
+  if (!isRecord(value)) return false
+  return typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    isBusinessKind(value.kind) &&
+    typeof value.ownerId === 'string' &&
+    typeof value.cash === 'number' &&
+    typeof value.price === 'number' &&
+    typeof value.wagePerHour === 'number' &&
+    typeof value.quality === 'number' &&
+    typeof value.activeStaff === 'number' &&
+    typeof value.targetStaff === 'number' &&
+    typeof value.openPositions === 'number' &&
+    typeof value.hourlyCapacity === 'number' &&
+    isBusinessStatus(value.status) &&
+    Array.isArray(value.alerts) &&
+    value.alerts.every(isBusinessAlert)
+}
+
+function isBusinessAlert(value: unknown): value is AreaBusinessAlert {
+  return isRecord(value) &&
+    isBusinessAlertKind(value.kind) &&
+    (value.severity === 'warning' || value.severity === 'critical')
 }
 
 function isRealityAreaWorkerCandidateDashboard(value: unknown): value is RealityAreaWorkerCandidateDashboard {
@@ -617,6 +700,18 @@ function isWorkerCandidateAction(value: unknown): value is AreaWorkerCandidateAc
     value === 'requires_acceptance' ||
     value === 'waiting_for_position' ||
     value === 'founder_unavailable'
+}
+
+function isBusinessStatus(value: unknown): value is AreaBusinessStatus {
+  return value === 'stable' || value === 'warning' || value === 'critical'
+}
+
+function isBusinessAlertKind(value: unknown): value is AreaBusinessAlert['kind'] {
+  return value === 'understaffed' ||
+    value === 'cash_risk' ||
+    value === 'owner_unavailable' ||
+    value === 'quality_degraded' ||
+    value === 'negative_cash_flow'
 }
 
 function isBusinessKind(value: unknown): value is WorldBusinessKind {

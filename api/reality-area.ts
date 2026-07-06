@@ -207,6 +207,37 @@ interface FounderAreaFirstBuildRecommendation {
   reason: string
 }
 
+type FounderAreaBusinessStatus = 'stable' | 'warning' | 'critical'
+type FounderAreaBusinessAlertSeverity = 'warning' | 'critical'
+type FounderAreaBusinessAlertKind =
+  | 'understaffed'
+  | 'cash_risk'
+  | 'owner_unavailable'
+  | 'quality_degraded'
+  | 'negative_cash_flow'
+
+interface FounderAreaBusinessAlert {
+  kind: FounderAreaBusinessAlertKind
+  severity: FounderAreaBusinessAlertSeverity
+}
+
+interface FounderAreaBusinessDashboard {
+  id: string
+  name: string
+  kind: FounderAreaBusinessKind
+  ownerId: string
+  cash: number
+  price: number
+  wagePerHour: number
+  quality: number
+  activeStaff: number
+  targetStaff: number
+  openPositions: number
+  hourlyCapacity: number
+  status: FounderAreaBusinessStatus
+  alerts: FounderAreaBusinessAlert[]
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -224,6 +255,7 @@ interface FounderAreaDashboard {
   saturation: Record<FounderAreaBusinessKind, number>
   licenses: Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
   firstBuild: FounderAreaFirstBuildRecommendation[]
+  existingBusinesses: FounderAreaBusinessDashboard[]
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -987,6 +1019,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     saturation,
     licenses,
     firstBuild: firstBuildRecommendations(state, { demand, supply, licenses }),
+    existingBusinesses: state.businesses.map((business) => businessDashboard(state, business)),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -1167,6 +1200,68 @@ function workerCandidateAction(
   if (!founderCanManage && recommendedBusiness) return 'founder_unavailable'
   if (recommendedBusiness) return 'hire_now'
   return 'waiting_for_position'
+}
+
+function businessDashboard(state: FounderAreaState, business: FounderAreaBusiness): FounderAreaBusinessDashboard {
+  const activeStaff = activeStaffCount(state.citizens, business)
+  const targetStaff = TARGET_STAFF_BY_KIND[business.kind]
+  const quality = effectiveBusinessQuality(state.citizens, business)
+  const alerts = businessAlerts(state, business, { activeStaff, targetStaff, quality })
+  return {
+    id: business.id,
+    name: business.name,
+    kind: business.kind,
+    ownerId: business.ownerId,
+    cash: business.cash,
+    price: business.price,
+    wagePerHour: business.wagePerHour,
+    quality,
+    activeStaff,
+    targetStaff,
+    openPositions: Math.max(0, targetStaff - activeStaff),
+    hourlyCapacity: hourlyServiceCapacity(state.citizens, business),
+    status: businessStatus(alerts),
+    alerts,
+  }
+}
+
+function businessAlerts(
+  state: FounderAreaState,
+  business: FounderAreaBusiness,
+  input: {
+    activeStaff: number
+    targetStaff: number
+    quality: number
+  },
+): FounderAreaBusinessAlert[] {
+  const alerts: FounderAreaBusinessAlert[] = []
+  const owner = state.citizens.find((citizen) => citizen.id === business.ownerId)
+  if (input.activeStaff < input.targetStaff) {
+    alerts.push({
+      kind: 'understaffed',
+      severity: input.activeStaff === 0 && input.targetStaff > 0 ? 'critical' : 'warning',
+    })
+  }
+  const nextHourWageDue = business.wagePerHour * input.activeStaff
+  if (input.activeStaff > 0 && business.cash < nextHourWageDue) {
+    alerts.push({ kind: 'cash_risk', severity: 'critical' })
+  }
+  if (owner?.state.kind === 'hospitalized' && input.activeStaff === 0) {
+    alerts.push({ kind: 'owner_unavailable', severity: 'critical' })
+  }
+  if (input.quality <= MIN_BUSINESS_QUALITY || input.quality < 0.6) {
+    alerts.push({
+      kind: 'quality_degraded',
+      severity: input.quality <= MIN_BUSINESS_QUALITY ? 'critical' : 'warning',
+    })
+  }
+  return alerts
+}
+
+function businessStatus(alerts: FounderAreaBusinessAlert[]): FounderAreaBusinessStatus {
+  if (alerts.some((alert) => alert.severity === 'critical')) return 'critical'
+  if (alerts.length > 0) return 'warning'
+  return 'stable'
 }
 
 function areaPayload(state: FounderAreaState | null): {

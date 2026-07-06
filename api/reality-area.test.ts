@@ -68,6 +68,22 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     } | null
     reason: string
   }[]
+  existingBusinesses: {
+    id: string
+    name: string
+    kind: string
+    ownerId: string
+    cash: number
+    price: number
+    wagePerHour: number
+    quality: number
+    activeStaff: number
+    targetStaff: number
+    openPositions: number
+    hourlyCapacity: number
+    status: string
+    alerts: { kind: string; severity: string }[]
+  }[]
 }
 
 afterEach(() => {
@@ -678,6 +694,22 @@ describe('reality area authority API', () => {
         workerCitizenId: 'founder-area-0012:sim-water',
       },
     })
+    expect(dashboard.existingBusinesses).toEqual([{
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      ownerId: CITIZEN_ID,
+      cash: 0,
+      price: 2,
+      wagePerHour: 14,
+      quality: 1,
+      activeStaff: 0,
+      targetStaff: 1,
+      openPositions: 1,
+      hourlyCapacity: 24,
+      status: 'critical',
+      alerts: [{ kind: 'understaffed', severity: 'critical' }],
+    }])
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
@@ -1067,7 +1099,7 @@ describe('reality area authority API', () => {
         score: 100,
       },
     })
-    expect((accepted.body as { dashboard: ReturnType<typeof serverDashboard> }).dashboard).toMatchObject({
+    expect((accepted.body as { dashboard: DashboardWithBuildGuidance }).dashboard).toMatchObject({
       demand: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 4 },
       supply: { water: 1, food: 0, housing: 0, clinic: 0, insurance: 0 },
       capacity: { water: 42, food: 0, housing: 0, clinic: 0, insurance: 0 },
@@ -1082,6 +1114,17 @@ describe('reality area authority API', () => {
       founderCovenant: expect.objectContaining({
         activityReview: expect.objectContaining({ building: true, staffed: true }),
       }),
+      existingBusinesses: [{
+        id: 'water-1',
+        cash: 50,
+        quality: 1,
+        activeStaff: 1,
+        targetStaff: 1,
+        openPositions: 0,
+        hourlyCapacity: 42,
+        status: 'stable',
+        alerts: [],
+      }],
     })
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),

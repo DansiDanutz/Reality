@@ -361,6 +361,7 @@ describe('Reality area client', () => {
     const water = merged.firstBuild.find((recommendation) => recommendation.kind === 'water')
     const food = merged.firstBuild.find((recommendation) => recommendation.kind === 'food')
     const worker = merged.jobs.candidates[0]
+    const business = merged.existingBusinesses.find((candidate) => candidate.id === 'water-1')
 
     expect(merged.licenses.water).toMatchObject({ slots: 1, used: 1, remaining: 0, saturation: 1 })
     expect(merged.jobs).toMatchObject({
@@ -378,6 +379,16 @@ describe('Reality area client', () => {
         businessId: 'water-1',
         workerCitizenId: 'sim-food',
       },
+    })
+    expect(business).toMatchObject({
+      id: 'water-1',
+      cash: 7,
+      activeStaff: 0,
+      targetStaff: 1,
+      openPositions: 1,
+      hourlyCapacity: 24,
+      status: 'critical',
+      alerts: [{ kind: 'understaffed', severity: 'critical' }],
     })
     expect(water).toMatchObject({
       currentSupply: 1,
@@ -557,6 +568,22 @@ function serverDashboard(): RealityAreaDashboard {
         },
       }],
     },
+    existingBusinesses: [{
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      ownerId: 'citizen-1',
+      cash: 7,
+      price: 2,
+      wagePerHour: 14,
+      quality: 1,
+      activeStaff: 0,
+      targetStaff: 1,
+      openPositions: 1,
+      hourlyCapacity: 24,
+      status: 'critical',
+      alerts: [{ kind: 'understaffed', severity: 'critical' }],
+    }],
     firstBuild: [{
       kind: 'food',
       name: 'Food Shop',
