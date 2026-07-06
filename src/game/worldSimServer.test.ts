@@ -174,8 +174,11 @@ describe('runWorldServerCommand', () => {
     expect(result.dashboard.jobs).toEqual({
       employedCitizens: 0,
       unemployedCitizens: 1,
+      hireableSimWorkers: 0,
+      realWorkersRequiringAcceptance: 0,
       openPositions: 0,
       understaffedBusinesses: 0,
+      candidates: [],
     })
     expect(result.dashboard.survival).toMatchObject({
       stableCitizens: 1,

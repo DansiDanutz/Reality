@@ -144,8 +144,24 @@ export interface FirstBuildRecommendation {
 export interface AreaJobsDashboard {
   employedCitizens: number
   unemployedCitizens: number
+  hireableSimWorkers: number
+  realWorkersRequiringAcceptance: number
   openPositions: number
   understaffedBusinesses: number
+  candidates: AreaWorkerCandidateDashboard[]
+}
+
+export type AreaWorkerCandidateAction = 'hire_now' | 'requires_acceptance'
+
+export interface AreaWorkerCandidateDashboard {
+  citizenId: string
+  name: string
+  displayName: string
+  kind: WorldCitizenKind
+  simulated: boolean
+  participantLabel: WorldParticipantLabel
+  visualTone: WorldParticipantVisualTone
+  action: AreaWorkerCandidateAction
 }
 
 export interface AreaLicenseDashboard {
@@ -802,11 +818,31 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[]): AreaJob
   }
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
+  const candidates = activeCitizens
+    .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
+    .map(workerCandidateDashboard)
   return {
     employedCitizens,
     unemployedCitizens: activeCitizens.length - employedCitizens,
+    hireableSimWorkers: candidates.filter((candidate) => candidate.action === 'hire_now').length,
+    realWorkersRequiringAcceptance: candidates.filter((candidate) => candidate.action === 'requires_acceptance').length,
     openPositions,
     understaffedBusinesses,
+    candidates,
+  }
+}
+
+function workerCandidateDashboard(citizen: WorldCitizen): AreaWorkerCandidateDashboard {
+  const presentation = citizenPresentation(citizen)
+  return {
+    citizenId: citizen.id,
+    name: citizen.name,
+    displayName: presentation.displayName,
+    kind: citizen.kind,
+    simulated: presentation.simulated,
+    participantLabel: presentation.participantLabel,
+    visualTone: presentation.visualTone,
+    action: citizen.kind === 'sim' ? 'hire_now' : 'requires_acceptance',
   }
 }
 

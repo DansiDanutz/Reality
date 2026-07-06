@@ -783,7 +783,10 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dashboard.jobs).toMatchObject({
       employedCitizens: 1,
       unemployedCitizens: 3,
+      hireableSimWorkers: 3,
+      realWorkersRequiringAcceptance: 0,
     })
+    expect(dashboard.jobs.candidates.map((candidate) => candidate.citizenId)).toEqual(['thirsty', 'hungry', 'tired'])
     expect(dashboard.capacity).toMatchObject({
       water: 24,
       food: 24,
@@ -897,6 +900,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dashboard.jobs).toMatchObject({
       employedCitizens: 0,
       unemployedCitizens: 1,
+      hireableSimWorkers: 0,
+      candidates: [],
     })
     expect(out.citizens[0].needs.hunger).toBeCloseTo(90 - 3.8)
     expect(out.citizens[0].needs.hydration).toBeCloseTo(90 - 4.8)
@@ -1383,12 +1388,25 @@ describe('advanceWorldArea — local real-time economy', () => {
       openPositions: 1,
       hourlyCapacity: 24,
     })
-    expect(dash.jobs).toEqual({
+    expect(dash.jobs).toMatchObject({
       employedCitizens: 1,
       unemployedCitizens: 1,
+      hireableSimWorkers: 0,
+      realWorkersRequiringAcceptance: 1,
       openPositions: 3,
       understaffedBusinesses: 3,
     })
+    expect(dash.jobs.candidates).toMatchObject([
+      {
+        citizenId: 'real1',
+        displayName: 'Sim real1',
+        kind: 'real',
+        simulated: false,
+        participantLabel: 'Real Citizen',
+        visualTone: 'real',
+        action: 'requires_acceptance',
+      },
+    ])
     expect(dash.firstBuild[0]).toMatchObject({
       kind: 'housing',
       priority: 'critical',
