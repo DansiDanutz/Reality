@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { netWorthOf, reachOf } from '../../game/engine'
+import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
@@ -67,14 +68,38 @@ function beaconElement(kind: string, name: string, own: boolean, pendingIncome =
   return el
 }
 
+function resourceElement(kind: string, name: string, source: string): HTMLButtonElement {
+  const el = document.createElement('button')
+  el.type = 'button'
+  el.className = `map-resource map-resource-${kind}`
+  el.title = `${name} — gather ${kind}${source === 'fallback' ? ' (local fallback)' : ''}`
+  el.textContent = kind.charAt(0).toUpperCase()
+  return el
+}
+
+function constructionElement(name: string): HTMLButtonElement {
+  const el = document.createElement('button')
+  el.type = 'button'
+  el.className = 'map-construction'
+  el.title = `${name} construction site`
+  el.textContent = '⌂'
+  return el
+}
+
 export default function WorldMap() {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
+  const resourceMarkersRef = useRef<maplibregl.Marker[]>([])
+  const constructionMarkersRef = useRef<maplibregl.Marker[]>([])
   const [styleReady, setStyleReady] = useState(false)
 
   const assets = useGame((s) => s.assets)
   const placing = useGame((s) => s.placing)
+  const placingConstruction = useGame((s) => s.placingConstruction)
+  const resourceNodes = useGame((s) => s.resourceNodes)
+  const constructionProjects = useGame((s) => s.constructionProjects)
+  const hasCitizen = useGame((s) => Boolean(s.citizen))
   const citizenId = useGame((s) => s.citizen?.citizenId)
   const spawnLat = useGame((s) => s.citizen?.spawnLat)
   const spawnLng = useGame((s) => s.citizen?.spawnLng)
@@ -174,6 +199,7 @@ export default function WorldMap() {
     const onClick = (e: maplibregl.MapMouseEvent) => {
       const s = useGame.getState()
       if (s.placing) s.placeAt(e.lngLat.lat, e.lngLat.lng)
+      else if (s.placingConstruction) s.placeConstructionAt(e.lngLat.lat, e.lngLat.lng)
     }
     map.on('click', onClick)
     return () => {
@@ -190,6 +216,34 @@ export default function WorldMap() {
       new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true, a.pendingIncome) }).setLngLat([a.lng, a.lat]).addTo(map),
     )
   }, [assets])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    resourceMarkersRef.current.forEach((m) => m.remove())
+    resourceMarkersRef.current = resourceNodes.map((node) => {
+      const el = resourceElement(node.kind, node.label, node.source)
+      el.addEventListener('click', (event) => {
+        event.stopPropagation()
+        useGame.getState().startGatherResource(node.id)
+      })
+      return new maplibregl.Marker({ element: el }).setLngLat([node.lng, node.lat]).addTo(map)
+    })
+  }, [resourceNodes])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    constructionMarkersRef.current.forEach((m) => m.remove())
+    constructionMarkersRef.current = constructionProjects.map((project) => {
+      const el = constructionElement(project.name)
+      el.addEventListener('click', (event) => {
+        event.stopPropagation()
+        useGame.getState().setPanel('construction')
+      })
+      return new maplibregl.Marker({ element: el }).setLngLat([project.lng, project.lat]).addTo(map)
+    })
+  }, [constructionProjects])
 
   // Other citizens' properties: a clustered GeoJSON source (issue #33). When
   // the world has many properties, individual DOM markers overlap into mush at
@@ -270,13 +324,13 @@ export default function WorldMap() {
     const map = mapRef.current
     if (!map || !styleReady || introDone.current) return
     const home = assets.find((a) => a.kind === 'home')
-    const target = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : null)
+    const target = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : hasCitizen ? DEFAULT_MAP_ANCHOR : null)
     if (!target) return
     introDone.current = true
     ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
     if (prefersReducedMotion()) map.jumpTo({ center: [target.lng, target.lat], zoom: 13.5 })
     else map.flyTo({ center: [target.lng, target.lat], zoom: 13.5, duration: 6000, essential: false })
-  }, [styleReady, assets, spawnLat, spawnLng])
+  }, [styleReady, assets, spawnLat, spawnLng, hasCitizen])
 
   // Citizen One on the streets — parked until player avatars drive the
   // character (David's call: not yet). Flip to true to bring him back;
@@ -307,7 +361,7 @@ export default function WorldMap() {
     const center =
       spawnLat !== undefined && spawnLng !== undefined
         ? { lat: spawnLat, lng: spawnLng }
-        : assets[0] ?? null
+        : assets[0] ?? (hasCitizen ? DEFAULT_MAP_ANCHOR : null)
     const reach = center
       ? reachOf(level, assets.filter((a) => a.kind === 'business').length, assets.some((a) => a.kind === 'home'), netWorthOf(money, inventory, assets))
       : null
@@ -366,7 +420,7 @@ export default function WorldMap() {
         },
       })
     }
-  }, [styleReady, spawnLat, spawnLng, assets, level, money, inventory])
+  }, [styleReady, spawnLat, spawnLng, assets, level, money, inventory, hasCitizen])
 
   // "Fly to my holdings" (issue #33): frame every placed asset at once. With
   // a single asset this is just a center+zoom; with 2+ it fits them all with
@@ -421,7 +475,7 @@ export default function WorldMap() {
 
   return (
     <>
-      <div ref={containerRef} className={`map-stage${placing ? ' is-placing' : ''}`} aria-hidden />
+      <div ref={containerRef} className={`map-stage${placing || placingConstruction ? ' is-placing' : ''}`} aria-hidden />
       {assets.length >= 2 && (
         <button
           className="map-fly-btn"

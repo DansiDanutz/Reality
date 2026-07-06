@@ -209,6 +209,33 @@ describe('liveRealtime — the single simulation path', () => {
     expect(cooking.needs.energy).toBeCloseTo(awake.needs.energy, 3)
   })
 
+  test('gathering and construction drain like work and clear when the timer ends', () => {
+    const gather: Activity = {
+      kind: 'gather',
+      startedAt: 0,
+      endsAt: 5 * 60_000,
+      resourceKind: 'wood',
+      resourceAmount: 25,
+      title: 'Gather Wood',
+    }
+    const gatherOut = liveRealtime(base({ activity: gather }), 0, 6 * 60_000)
+    expect(gatherOut.activity).toBeNull()
+    const awake = liveRealtime(base(), 0, 5 * 60_000)
+    expect(gatherOut.needs.energy).toBeLessThan(awake.needs.energy)
+
+    const build: Activity = {
+      kind: 'construction',
+      startedAt: 0,
+      endsAt: 60 * 60_000,
+      projectId: 'starter-house-1',
+      laborMinutes: 60,
+      title: 'Build Starter House',
+    }
+    const buildOut = liveRealtime(base({ activity: build }), 0, 61 * 60_000)
+    expect(buildOut.activity).toBeNull()
+    expect(buildOut.needs.hunger).toBeLessThan(awake.needs.hunger)
+  })
+
   test('the dignity floor: a broke, parched citizen gets the fountain once a day', () => {
     const broke = base({ money: 0, needs: { hunger: 60, hydration: 5, energy: 60, hygiene: 60, fun: 60 } })
     const out = liveRealtime(broke, 0, 6 * HOUR)
