@@ -241,6 +241,82 @@ describe('runWorldServerCommand', () => {
     expect(saved?.transactions.filter((transaction) => transaction.kind === 'sim_citizen_credit')).toHaveLength(3)
   })
 
+  test('creates a claimed area from a server-decoded client claim payload', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClientClaimedArea',
+      areaId: ' area-1 ',
+      now: 1_000,
+      authenticatedFounderId: ' founder ',
+      authenticatedFounderName: ' Founder ',
+      claimSource: 'geolocation',
+      payload: {
+        label: ' Founder District ',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected client claimed area creation to succeed')
+    expect(result.area.name).toBe('Founder District')
+    expect(result.area.claim).toEqual({
+      founderCitizenId: 'founder',
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: 2,
+      claimedAt: 1_000,
+      source: 'geolocation',
+    })
+    expect(result.area.citizens[0]).toMatchObject({
+      id: 'founder',
+      name: 'Founder',
+      kind: 'real',
+      money: FOUNDER_STARTING_BALANCE,
+      debt: 0,
+      state: { kind: 'active' },
+    })
+    expect(result.dashboard).toMatchObject({
+      population: 4,
+      realPopulation: 1,
+      simPopulation: 3,
+    })
+    expect(result.area.transactions.map((transaction) => transaction.kind)).toEqual([
+      'founder_credit',
+      'sim_citizen_credit',
+      'sim_citizen_credit',
+      'sim_citizen_credit',
+    ])
+    expect(saved?.claim?.founderCitizenId).toBe('founder')
+    expect(repo.saves).toBe(1)
+  })
+
+  test('rejects client claim payloads that try to control server fields before loading', async () => {
+    const repo = new MemoryWorldRepo()
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClientClaimedArea',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      authenticatedFounderName: 'Founder',
+      claimSource: 'manual',
+      payload: {
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        founderCitizenId: 'other',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
   test('rejects claimed-area creation when storage reports a write race', async () => {
     const repo = new MemoryWorldRepo()
     repo.conflictNextSave()

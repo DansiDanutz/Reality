@@ -1,6 +1,87 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_BUSINESS_BLUEPRINTS } from './worldSim'
-import { decodeClientWorldIntentPayload } from './worldSimIntentCodec'
+import {
+  decodeClientWorldAreaClaimPayload,
+  decodeClientWorldIntentPayload,
+} from './worldSimIntentCodec'
+
+describe('decodeClientWorldAreaClaimPayload', () => {
+  test('decodes an area claim with server founder identity, time, and source', () => {
+    const result = decodeClientWorldAreaClaimPayload({
+      label: ' Founder District ',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: 2,
+    }, ' founder ', 1_000, 'geolocation')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected claim decode to succeed')
+    expect(result.areaName).toBe('Founder District')
+    expect(result.claim).toEqual({
+      founderCitizenId: 'founder',
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: 2,
+      claimedAt: 1_000,
+      source: 'geolocation',
+    })
+  })
+
+  test('rejects client-controlled claim server fields', () => {
+    for (const field of ['founderCitizenId', 'authenticatedFounderId', 'claimedAt', 'source', 'now', 'founder', 'simCitizens', 'money', 'transactions']) {
+      expect(decodeClientWorldAreaClaimPayload({
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        [field]: field === 'claimedAt' || field === 'now' ? 1_000 : 'client-value',
+      }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    }
+  })
+
+  test('rejects invalid claim payload shape, founder identity, time, and source', () => {
+    expect(decodeClientWorldAreaClaimPayload(null, 'founder', 1_000, 'manual')).toEqual({
+      ok: false,
+      error: 'invalid_payload',
+    })
+    expect(decodeClientWorldAreaClaimPayload({ label: 'District', centerLat: 44, centerLng: 26, radiusKm: 2 }, 'bad id', 1_000, 'manual')).toEqual({
+      ok: false,
+      error: 'invalid_actor_identity',
+    })
+    expect(decodeClientWorldAreaClaimPayload({ label: 'District', centerLat: 44, centerLng: 26, radiusKm: 2 }, 'founder', -1, 'manual')).toEqual({
+      ok: false,
+      error: 'invalid_claim_time',
+    })
+    expect(decodeClientWorldAreaClaimPayload({ label: 'District', centerLat: 44, centerLng: 26, radiusKm: 2 }, 'founder', 1_000, 'browser' as never)).toEqual({
+      ok: false,
+      error: 'invalid_claim_source',
+    })
+  })
+
+  test('rejects invalid claim label, location, and radius', () => {
+    expect(decodeClientWorldAreaClaimPayload({
+      label: '   ',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: 2,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_claim_label' })
+
+    expect(decodeClientWorldAreaClaimPayload({
+      label: 'Founder District',
+      centerLat: 144.45,
+      centerLng: 26.08,
+      radiusKm: 2,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_location' })
+
+    expect(decodeClientWorldAreaClaimPayload({
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: 0,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
+  })
+})
 
 describe('decodeClientWorldIntentPayload', () => {
   test('decodes build intents with server actor identity and canonical shop economics', () => {

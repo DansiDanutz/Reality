@@ -1,6 +1,8 @@
 import {
   DEFAULT_BUSINESS_BLUEPRINTS,
+  type AreaClaimSource,
   type WorldBusinessKind,
+  type WorldAreaClaim,
   type WorldIntent,
 } from './worldSim'
 
@@ -20,6 +22,20 @@ export type DecodeClientWorldIntentError =
 export type DecodeClientWorldIntentResult =
   | { ok: true; intent: WorldIntent }
   | { ok: false; error: DecodeClientWorldIntentError }
+
+export type DecodeClientWorldAreaClaimError =
+  | 'invalid_payload'
+  | 'invalid_actor_identity'
+  | 'client_controlled_server_field'
+  | 'invalid_claim_label'
+  | 'invalid_claim_source'
+  | 'invalid_claim_time'
+  | 'invalid_location'
+  | 'invalid_area_radius'
+
+export type DecodeClientWorldAreaClaimResult =
+  | { ok: true; claim: WorldAreaClaim; areaName: string }
+  | { ok: false; error: DecodeClientWorldAreaClaimError }
 
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
 const CLIENT_INTENT_TYPES = [
@@ -50,9 +66,65 @@ const FORBIDDEN_CLIENT_FIELDS = new Set([
   'transactions',
 ])
 
+const CLAIM_FORBIDDEN_CLIENT_FIELDS = new Set([
+  'founderCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'claimedAt',
+  'source',
+  'now',
+  'founder',
+  'simCitizens',
+  'claim',
+  'money',
+  'cash',
+  'citizens',
+  'businesses',
+  'transactions',
+])
+
 const MAX_CLIENT_ID_LENGTH = 96
 const MAX_BUSINESS_NAME_LENGTH = 80
+const MAX_AREA_LABEL_LENGTH = 96
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9:_-]+$/
+const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
+
+export function decodeClientWorldAreaClaimPayload(
+  payload: unknown,
+  authenticatedFounderId: string,
+  claimedAt: number,
+  source: AreaClaimSource,
+): DecodeClientWorldAreaClaimResult {
+  const founderCitizenId = readClientId(authenticatedFounderId)
+  if (!founderCitizenId) return { ok: false, error: 'invalid_actor_identity' }
+  if (!isFiniteNonNegativeNumber(claimedAt)) return { ok: false, error: 'invalid_claim_time' }
+  if (!isOneOf(source, CLAIM_SOURCES)) return { ok: false, error: 'invalid_claim_source' }
+  if (!isRecord(payload)) return { ok: false, error: 'invalid_payload' }
+  if (hasForbiddenClientField(payload, CLAIM_FORBIDDEN_CLIENT_FIELDS)) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const label = readAreaLabel(payload.label)
+  if (!label) return { ok: false, error: 'invalid_claim_label' }
+  if (!isLatitude(payload.centerLat) || !isLongitude(payload.centerLng)) {
+    return { ok: false, error: 'invalid_location' }
+  }
+  if (!isPositiveNumber(payload.radiusKm)) return { ok: false, error: 'invalid_area_radius' }
+
+  return {
+    ok: true,
+    areaName: label,
+    claim: {
+      founderCitizenId,
+      label,
+      centerLat: payload.centerLat,
+      centerLng: payload.centerLng,
+      radiusKm: payload.radiusKm,
+      claimedAt,
+      source,
+    },
+  }
+}
 
 export function decodeClientWorldIntentPayload(
   payload: unknown,
@@ -61,7 +133,9 @@ export function decodeClientWorldIntentPayload(
   const actorCitizenId = readClientId(authenticatedCitizenId)
   if (!actorCitizenId) return { ok: false, error: 'invalid_actor_identity' }
   if (!isRecord(payload)) return { ok: false, error: 'invalid_payload' }
-  if (hasForbiddenClientField(payload)) return { ok: false, error: 'client_controlled_server_field' }
+  if (hasForbiddenClientField(payload, FORBIDDEN_CLIENT_FIELDS)) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
 
   const { type } = payload
   if (!isOneOf(type, CLIENT_INTENT_TYPES)) return { ok: false, error: 'invalid_intent_type' }
@@ -144,8 +218,8 @@ function decodeRepayDebtIntent(
   return { ok: true, intent: { type: 'repayDebt', actorCitizenId, debtId, amount: roundMoney(payload.amount) } }
 }
 
-function hasForbiddenClientField(payload: Record<string, unknown>): boolean {
-  return Object.keys(payload).some((key) => FORBIDDEN_CLIENT_FIELDS.has(key))
+function hasForbiddenClientField(payload: Record<string, unknown>, forbiddenFields: Set<string>): boolean {
+  return Object.keys(payload).some((key) => forbiddenFields.has(key))
 }
 
 function readClientId(value: unknown): string | null {
@@ -162,6 +236,14 @@ function readOptionalBusinessName(value: unknown): string | null | false {
   const trimmed = value.trim()
   if (!trimmed || trimmed.length > MAX_BUSINESS_NAME_LENGTH) return false
   if (hasControlCharacter(trimmed)) return false
+  return trimmed
+}
+
+function readAreaLabel(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.length > MAX_AREA_LABEL_LENGTH) return null
+  if (hasControlCharacter(trimmed)) return null
   return trimmed
 }
 
@@ -183,6 +265,22 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
 
 function isPositiveMoney(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function isFiniteNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+function isPositiveNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function isLatitude(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90
+}
+
+function isLongitude(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180
 }
 
 function roundMoney(value: number): number {

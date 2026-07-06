@@ -7,6 +7,7 @@ import {
   SIM_CITIZEN_STARTING_BALANCE,
   type AdvanceWorldAreaResult,
   type AreaNeedsDashboard,
+  type AreaClaimSource,
   type ClaimWorldAreaError,
   type WorldArea,
   type WorldAreaClaim,
@@ -16,7 +17,9 @@ import {
   type WorldTransaction,
 } from './worldSim'
 import {
+  decodeClientWorldAreaClaimPayload,
   decodeClientWorldIntentPayload,
+  type DecodeClientWorldAreaClaimError,
   type DecodeClientWorldIntentError,
 } from './worldSimIntentCodec'
 import type { Needs } from './types'
@@ -52,6 +55,16 @@ export type WorldServerCommand =
     founder: WorldCitizen
     simCitizens?: WorldCitizen[]
     claim: WorldAreaClaim
+  }
+  | {
+    type: 'createClientClaimedArea'
+    areaId: string
+    now: number
+    authenticatedFounderId: string
+    authenticatedFounderName: string
+    claimSource: AreaClaimSource
+    payload: unknown
+    simCitizens?: WorldCitizen[]
   }
   | {
     type: 'advance'
@@ -95,6 +108,7 @@ export type WorldServerCommandError =
   | 'actor_mismatch'
   | 'time_moved_backward'
   | 'write_conflict'
+  | DecodeClientWorldAreaClaimError
   | DecodeClientWorldIntentError
   | ClaimWorldAreaError
   | WorldIntentError
@@ -121,6 +135,8 @@ export async function runWorldServerCommand(
   switch (command.type) {
     case 'createClaimedArea':
       return createClaimedArea(repo, command)
+    case 'createClientClaimedArea':
+      return createClientClaimedArea(repo, command)
     case 'advance':
       return advanceStoredArea(repo, command.areaId, command.now)
     case 'readFounderArea':
@@ -192,6 +208,30 @@ async function createClaimedArea(
   })
   if (!saved.ok) return { ok: false, error: saved.error }
   return { ok: true, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
+}
+
+async function createClientClaimedArea(
+  repo: WorldAreaRepository,
+  command: Extract<WorldServerCommand, { type: 'createClientClaimedArea' }>,
+): Promise<WorldServerCommandResult> {
+  const decoded = decodeClientWorldAreaClaimPayload(
+    command.payload,
+    command.authenticatedFounderId,
+    command.now,
+    command.claimSource,
+  )
+  if (!decoded.ok) return { ok: false, error: decoded.error }
+
+  return createClaimedArea(repo, {
+    type: 'createClaimedArea',
+    areaId: command.areaId,
+    name: decoded.areaName,
+    now: command.now,
+    authenticatedFounderId: decoded.claim.founderCitizenId,
+    founder: newAuthenticatedFounderProfile(decoded.claim.founderCitizenId, command.authenticatedFounderName),
+    simCitizens: command.simCitizens,
+    claim: decoded.claim,
+  })
 }
 
 async function advanceStoredArea(
@@ -330,6 +370,25 @@ function isValidNeeds(needs: Needs): boolean {
 
 function isPercentage(value: number): boolean {
   return Number.isFinite(value) && value >= 0 && value <= 100
+}
+
+function newAuthenticatedFounderProfile(founderCitizenId: string, name: string): WorldCitizen {
+  return {
+    id: founderCitizenId,
+    name: name.trim(),
+    kind: 'real',
+    money: 0,
+    debt: 0,
+    needs: {
+      hunger: 90,
+      hydration: 90,
+      energy: 90,
+      hygiene: 90,
+      fun: 90,
+    },
+    health: 100,
+    state: { kind: 'active' },
+  }
 }
 
 function founderCreditTransaction(areaId: string, at: number, founder: WorldCitizen): WorldTransaction {
