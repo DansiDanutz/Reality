@@ -1295,6 +1295,26 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.shortage.water).toBe(0)
     expect(dash.licenseSlots.water).toBe(1)
     expect(dash.saturation.water).toBe(2)
+    expect(dash.citizens).toHaveLength(2)
+    expect(dash.citizens).toMatchObject([
+      {
+        id: 'sim1',
+        name: 'Sim sim1',
+        kind: 'sim',
+        simulated: true,
+        state: 'active',
+        jobBusinessId: 'food1',
+        insuranceActive: false,
+      },
+      {
+        id: 'real1',
+        name: 'Sim real1',
+        kind: 'real',
+        simulated: false,
+        state: 'active',
+        insuranceActive: false,
+      },
+    ])
     expect(dash.existingBusinesses).toHaveLength(3)
     expect(dash.existingBusinesses.find((business) => business.id === 'food1')).toMatchObject({
       kind: 'food',
@@ -1371,6 +1391,64 @@ describe('advanceWorldArea — local real-time economy', () => {
       warnings: ['health'],
       hospitalizedUntil: 3 * HOUR,
     })
+  })
+
+  test('dashboard citizen roster snapshots needs, balances, jobs, homes, and active insurance', () => {
+    const start = area({
+      now: 2 * HOUR,
+      citizens: [
+        sim('sim-worker', {
+          money: 75,
+          debt: 25,
+          needs: fullNeeds({ hydration: 44 }),
+          homeBusinessId: 'home1',
+          jobBusinessId: 'food1',
+          insuranceBusinessId: 'ins1',
+          insurancePaidUntil: 3 * HOUR,
+        }),
+        sim('real-patient', {
+          kind: 'real',
+          health: 40,
+          state: { kind: 'hospitalized', until: 4 * HOUR },
+          insuranceBusinessId: 'ins1',
+          insurancePaidUntil: HOUR,
+        }),
+      ],
+      businesses: [
+        business('housing', 'home1'),
+        business('food', 'food1', { staffCitizenIds: ['sim-worker'] }),
+        business('insurance', 'ins1'),
+      ],
+    })
+
+    const dash = areaNeedsDashboard(start)
+    dash.citizens[0].needs.hydration = 100
+
+    expect(start.citizens[0].needs.hydration).toBe(44)
+    expect(dash.citizens).toMatchObject([
+      {
+        id: 'sim-worker',
+        kind: 'sim',
+        simulated: true,
+        state: 'active',
+        health: 100,
+        money: 75,
+        debt: 25,
+        homeBusinessId: 'home1',
+        jobBusinessId: 'food1',
+        insuranceBusinessId: 'ins1',
+        insuranceActive: true,
+      },
+      {
+        id: 'real-patient',
+        kind: 'real',
+        simulated: false,
+        state: 'hospitalized',
+        health: 40,
+        insuranceBusinessId: 'ins1',
+        insuranceActive: false,
+      },
+    ])
   })
 
   test('dashboard treats expired insurance as current insurance demand', () => {

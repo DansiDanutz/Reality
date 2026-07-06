@@ -165,6 +165,22 @@ export interface AreaBusinessDashboard {
   hourlyCapacity: number
 }
 
+export interface AreaCitizenDashboard {
+  id: string
+  name: string
+  kind: WorldCitizenKind
+  simulated: boolean
+  state: WorldCitizenState['kind']
+  health: number
+  needs: Needs
+  money: number
+  debt: number
+  homeBusinessId?: string
+  jobBusinessId?: string
+  insuranceBusinessId?: string
+  insuranceActive: boolean
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -177,6 +193,7 @@ export interface AreaNeedsDashboard {
   shortage: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
   saturation: Record<WorldBusinessKind, number>
+  citizens: AreaCitizenDashboard[]
   existingBusinesses: AreaBusinessDashboard[]
   jobs: AreaJobsDashboard
   survival: AreaSurvivalDashboard
@@ -502,6 +519,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     shortage,
     licenseSlots,
     saturation,
+    citizens: area.citizens.map((citizen) => citizenDashboard(citizen, area.now)),
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
     jobs: jobsDashboard(area, activeCitizens),
     survival: survivalDashboard(area),
@@ -551,6 +569,24 @@ function buildRecommendation(
     saturated,
     ...estimate,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
+  }
+}
+
+function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboard {
+  return {
+    id: citizen.id,
+    name: citizen.name,
+    kind: citizen.kind,
+    simulated: citizen.kind === 'sim',
+    state: citizen.state.kind,
+    health: citizen.health,
+    needs: { ...citizen.needs },
+    money: citizen.money,
+    debt: citizen.debt,
+    homeBusinessId: citizen.homeBusinessId,
+    jobBusinessId: citizen.jobBusinessId,
+    insuranceBusinessId: citizen.insuranceBusinessId,
+    insuranceActive: hasActiveInsurance(citizen, at),
   }
 }
 
