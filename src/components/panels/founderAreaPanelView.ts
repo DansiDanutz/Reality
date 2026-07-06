@@ -159,6 +159,16 @@ export function founderCovenantReviewSnapshotSummary(
   return `Snapshot score ${review.activityReview.score}/100 · ${manualItems} manual · ${watchItems} watch`
 }
 
+export function founderCovenantReviewInputSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'reviewInputs'>,
+): string {
+  if (review.reviewInputs.length === 0) return 'No input snapshot'
+  const captured = review.reviewInputs.filter((input) => input.status === 'captured').length
+  const manual = review.reviewInputs.filter((input) => input.status === 'manual_needed').length
+  const watch = review.reviewInputs.filter((input) => input.status === 'watch').length
+  return `Inputs snapshot · ${captured} captured · ${manual} manual · ${watch} watch`
+}
+
 export function founderCovenantReviewCadenceSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'reviewSchedule'>,
 ): string {

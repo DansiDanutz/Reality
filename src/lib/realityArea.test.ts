@@ -400,6 +400,12 @@ describe('Reality area client', () => {
             blockerCount: 0,
             blockers: [],
           },
+          reviewInputs: covenantReviewInputs({
+            inGameActivity: 'captured',
+            areaHealth: 'captured',
+            populationGrowth: 'manual_needed',
+            reviewConsistency: 'captured',
+          }),
           reviewChecklist: [],
           manualActions: [],
           approvalRequests: [],

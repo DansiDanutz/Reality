@@ -2670,6 +2670,7 @@ describe('reality area authority API', () => {
           decision: unknown
           signals: unknown[]
           activityReview: unknown
+          reviewInputs: unknown[]
           reviewChecklist: unknown[]
           manualActions: unknown[]
           approvalRequests: unknown[]
@@ -2721,6 +2722,12 @@ describe('reality area authority API', () => {
         probation: true,
         replacement: false,
       }, 1),
+      reviewInputs: covenantReviewInputs({
+        inGameActivity: 'watch',
+        areaHealth: 'watch',
+        populationGrowth: 'manual_needed',
+        reviewConsistency: 'captured',
+      }),
       reviewChecklist: expect.arrayContaining([{
         key: 'building',
         label: 'Building',
@@ -2760,6 +2767,7 @@ describe('reality area authority API', () => {
       signals: body.state.founderReviewHistory[0].signals,
       activityReview: body.state.founderReviewHistory[0].activityReview,
       reviewQueue: body.state.founderReviewHistory[0].reviewQueue,
+      reviewInputs: body.state.founderReviewHistory[0].reviewInputs,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
       manualActions: body.state.founderReviewHistory[0].manualActions,
       approvalRequests: body.state.founderReviewHistory[0].approvalRequests,

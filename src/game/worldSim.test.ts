@@ -88,6 +88,20 @@ const covenantChecklistSnapshot = () => [{
   evidence: 'Founder businesses need staff before review can clear.',
 }]
 
+const covenantReviewInputSnapshot = () => [{
+  kind: 'in_game_activity' as const,
+  label: 'In-game activity',
+  status: 'captured' as const,
+  evidence: 'Founder activity is captured from local businesses, staffing, and purchases.',
+  manualEvidenceRequired: false,
+}, {
+  kind: 'external_contribution' as const,
+  label: 'External contribution',
+  status: 'manual_needed' as const,
+  evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+  manualEvidenceRequired: true,
+}]
+
 const covenantDecisionSnapshot = () => ({
   status: 'watch' as const,
   nextAction: 'manual_review' as const,
@@ -2013,6 +2027,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         }],
         activityReview: covenantActivitySnapshot(),
         reviewQueue: covenantReviewQueueSnapshot(),
+        reviewInputs: covenantReviewInputSnapshot(),
         reviewChecklist: covenantChecklistSnapshot(),
         manualActions: covenantManualActionSnapshot(),
         approvalRequests: covenantApprovalRequestSnapshot(),
@@ -2054,6 +2069,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       }],
       activityReview: covenantActivitySnapshot(),
       reviewQueue: covenantReviewQueueSnapshot(),
+      reviewInputs: covenantReviewInputSnapshot(),
       reviewChecklist: covenantChecklistSnapshot(),
       manualActions: covenantManualActionSnapshot(),
       approvalRequests: covenantApprovalRequestSnapshot(),
@@ -2110,6 +2126,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           blockerCount: 0,
           blockers: [],
         },
+        reviewInputs: [],
         reviewChecklist: [],
         manualActions: [],
         approvalRequests: [],

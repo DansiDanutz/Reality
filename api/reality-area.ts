@@ -250,6 +250,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewQueue: FounderAreaCovenantReviewQueue
+  reviewInputs: FounderAreaCovenantReviewInput[]
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -273,6 +274,7 @@ interface FounderAreaCovenantLatestReview {
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewQueue: FounderAreaCovenantReviewQueue
+  reviewInputs: FounderAreaCovenantReviewInput[]
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   manualActions: FounderAreaCovenantManualAction[]
   approvalRequests: FounderAreaCovenantApprovalRequest[]
@@ -1725,6 +1727,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewQueue: founderCovenantReviewQueueSnapshot(latest.reviewQueue),
+    reviewInputs: latest.reviewInputs.map(founderCovenantReviewInputSnapshot),
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: latest.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: latest.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
@@ -1750,6 +1753,9 @@ function founderCovenantReviewHistoryItem(
   const approvalRequests = Array.isArray(legacyEntry.approvalRequests)
     ? legacyEntry.approvalRequests.map(founderCovenantApprovalRequestSnapshot)
     : []
+  const reviewInputs = Array.isArray(legacyEntry.reviewInputs)
+    ? legacyEntry.reviewInputs.map(founderCovenantReviewInputSnapshot)
+    : []
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
@@ -1761,6 +1767,7 @@ function founderCovenantReviewHistoryItem(
     reviewQueue: legacyEntry.reviewQueue
       ? founderCovenantReviewQueueSnapshot(legacyEntry.reviewQueue)
       : founderCovenantReviewQueueFromSnapshot({ manualActions, approvalRequests }),
+    reviewInputs,
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
@@ -1792,6 +1799,10 @@ function founderCovenantReviewChecklistSnapshot(
   item: FounderAreaCovenantReviewChecklistItem,
 ): FounderAreaCovenantReviewChecklistItem {
   return { ...item }
+}
+
+function founderCovenantReviewInputSnapshot(input: FounderAreaCovenantReviewInput): FounderAreaCovenantReviewInput {
+  return { ...input }
 }
 
 function founderCovenantManualActionSnapshot(action: FounderAreaCovenantManualAction): FounderAreaCovenantManualAction {
@@ -3298,6 +3309,7 @@ function applyRecordCovenantReviewIntent(
     signals: review.signals.map(founderCovenantSignalSnapshot),
     activityReview: { ...review.activityReview },
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
+    reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     approvalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
