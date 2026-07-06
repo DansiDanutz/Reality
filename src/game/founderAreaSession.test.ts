@@ -7,6 +7,7 @@ import {
   createMemoryFounderAreaClient,
   founderAreaProfileFromCitizen,
   readFounderArea,
+  recordFounderCovenantReview,
 } from './founderAreaSession'
 import { FOUNDER_STARTING_BALANCE, WORLD_SIM_HOUR_MS } from './worldSim'
 import type { WorldArea } from './worldSim'
@@ -100,6 +101,58 @@ describe('Founder Area session', () => {
     expect(advanced.ok).toBe(true)
     if (!advanced.ok) throw new Error(`expected advance to succeed: ${advanced.error}`)
     expect(advanced.area.now).toBe(built.area.now + 2 * HOUR)
+  })
+
+  test('routes founder covenant review evidence through the command client', async () => {
+    const repo = createMemoryWorldAreaRepository()
+    const client = createMemoryFounderAreaClient(founderAreaProfileFromCitizen({ name: 'Founder' }), repo)
+    const claimed = await client.claim(HOUR)
+    expect(claimed.ok).toBe(true)
+    if (!claimed.ok) throw new Error(`expected claim to succeed: ${claimed.error}`)
+    const recordReview = claimed.dashboard.founderCovenant.manualActions.find((action) =>
+      action.kind === 'record_review'
+    )
+    if (!recordReview?.clientPayload) throw new Error('expected record review payload')
+
+    const reviewed = await client.review(claimed.area.now, {
+      ...recordReview.clientPayload,
+      note: 'Weekly review: founder is setting up the first area.',
+      evidenceKinds: ['ideas_feedback'],
+    })
+    const direct = await recordFounderCovenantReview(client.session, (reviewed.ok ? reviewed.area.now : claimed.area.now) + 1, {
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Second manual note.',
+    })
+
+    expect(reviewed.ok).toBe(true)
+    if (!reviewed.ok) throw new Error(`expected review to succeed: ${reviewed.error}`)
+    expect(reviewed.transactions).toEqual([])
+    expect(reviewed.area.founderReviewHistory).toHaveLength(1)
+    expect(reviewed.area.founderReviewHistory?.[0]).toMatchObject({
+      reviewerId: client.profile.founderId,
+      summary: 'Weekly review: founder is setting up the first area.',
+      authorityGate: {
+        requiredRole: 'area_reviewer',
+        status: 'evidence_only',
+        executionEnabled: false,
+      },
+    })
+    expect(reviewed.area.founderReviewHistory?.[0].reviewInputs.find((input) =>
+      input.kind === 'ideas_feedback'
+    )).toMatchObject({
+      status: 'captured',
+      manualEvidenceRequired: false,
+    })
+    expect(reviewed.dashboard.founderCovenant.latestReview).toMatchObject({
+      reviewerId: client.profile.founderId,
+      summary: 'Weekly review: founder is setting up the first area.',
+      evidenceOnly: true,
+      automationEnabled: false,
+    })
+    expect(direct.ok).toBe(true)
+    if (!direct.ok) throw new Error(`expected direct review helper to succeed: ${direct.error}`)
+    expect(direct.area.founderReviewHistory).toHaveLength(2)
   })
 
   test('reads a restored server-seeded founder area without claiming it again', async () => {

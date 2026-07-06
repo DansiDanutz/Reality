@@ -1,6 +1,11 @@
 import type { Citizen } from './types'
 import { type MemoryWorldAreaRepository, createMemoryWorldAreaRepository } from './worldSimRepository'
-import { WORLD_SIM_HOUR_MS, type AreaClaimSource, type WorldClientIntentPayload } from './worldSim'
+import {
+  WORLD_SIM_HOUR_MS,
+  type AreaClaimSource,
+  type FounderCovenantManualActionClientPayload,
+  type WorldClientIntentPayload,
+} from './worldSim'
 import { runWorldServerCommand, type WorldServerCommandResult } from './worldSimServer'
 
 export interface FounderAreaProfile {
@@ -24,6 +29,7 @@ export interface FounderAreaCommandClient {
   claim: (now: number) => Promise<WorldServerCommandResult>
   read: (now: number) => Promise<WorldServerCommandResult>
   apply: (now: number, payload: WorldClientIntentPayload) => Promise<WorldServerCommandResult>
+  review: (now: number, payload: FounderCovenantManualActionClientPayload) => Promise<WorldServerCommandResult>
   advance: (now: number, hours?: number) => Promise<WorldServerCommandResult>
 }
 
@@ -78,6 +84,8 @@ export function createMemoryFounderAreaClient(
     claim: (now: number) => claimFounderArea(session, now),
     read: (now: number) => readFounderArea(session, now),
     apply: (now: number, payload: WorldClientIntentPayload) => applyFounderAreaPayload(session, now, payload),
+    review: (now: number, payload: FounderCovenantManualActionClientPayload) =>
+      recordFounderCovenantReview(session, now, payload),
     advance: (now: number, hours = 1) => advanceFounderArea(session, now, hours),
   }
 }
@@ -109,6 +117,20 @@ export async function applyFounderAreaPayload(
     type: 'applyClientFounderIntent',
     authenticatedFounderId: session.profile.founderId,
     now,
+    payload,
+  })
+}
+
+export async function recordFounderCovenantReview(
+  session: FounderAreaSession,
+  now: number,
+  payload: FounderCovenantManualActionClientPayload,
+): Promise<WorldServerCommandResult> {
+  return runWorldServerCommand(session.repo, {
+    type: 'recordClientFounderCovenantReview',
+    areaId: session.profile.areaId,
+    now,
+    authenticatedReviewerId: session.profile.founderId,
     payload,
   })
 }

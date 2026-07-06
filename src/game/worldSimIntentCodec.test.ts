@@ -9,6 +9,7 @@ import {
   type WorldCitizen,
 } from './worldSim'
 import {
+  decodeClientFounderCovenantReviewPayload,
   decodeClientWorldAreaClaimPayload,
   decodeClientWorldIntentPayload,
 } from './worldSimIntentCodec'
@@ -353,5 +354,66 @@ describe('decodeClientWorldIntentPayload', () => {
       debtId: '../debt',
       amount: 10,
     }, 'founder')).toEqual({ ok: false, error: 'invalid_debt_id' })
+  })
+})
+
+describe('decodeClientFounderCovenantReviewPayload', () => {
+  test('decodes manual founder covenant review evidence without server state', () => {
+    expect(decodeClientFounderCovenantReviewPayload({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: ' Weekly review: useful shop work. ',
+      evidenceKinds: ['external_contribution', 'ideas_feedback', 'external_contribution'],
+    })).toEqual({
+      ok: true,
+      review: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        note: 'Weekly review: useful shop work.',
+        evidenceKinds: ['external_contribution', 'ideas_feedback'],
+      },
+    })
+  })
+
+  test('decodes disabled covenant actions for server-side rejection', () => {
+    expect(decodeClientFounderCovenantReviewPayload({
+      type: 'recordCovenantReview',
+      actionKind: 'send_warning',
+    })).toEqual({
+      ok: true,
+      review: {
+        type: 'recordCovenantReview',
+        actionKind: 'send_warning',
+      },
+    })
+  })
+
+  test('rejects client-controlled review state', () => {
+    for (const field of ['reviewerId', 'now', 'status', 'signals', 'reviewQueue', 'manualActions', 'transactions']) {
+      expect(decodeClientFounderCovenantReviewPayload({
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        [field]: field === 'now' ? 1_000 : 'client-value',
+      })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    }
+  })
+
+  test('rejects malformed covenant review payloads', () => {
+    expect(decodeClientFounderCovenantReviewPayload(null)).toEqual({ ok: false, error: 'invalid_payload' })
+    expect(decodeClientFounderCovenantReviewPayload({ type: 'buyWater' })).toEqual({ ok: false, error: 'invalid_payload' })
+    expect(decodeClientFounderCovenantReviewPayload({
+      type: 'recordCovenantReview',
+      actionKind: 'remove_founder',
+    })).toEqual({ ok: false, error: 'invalid_review_action' })
+    expect(decodeClientFounderCovenantReviewPayload({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: `bad\nnote`,
+    })).toEqual({ ok: false, error: 'invalid_review_note' })
+    expect(decodeClientFounderCovenantReviewPayload({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      evidenceKinds: ['external_contribution', 'invalid_evidence'],
+    })).toEqual({ ok: false, error: 'invalid_review_evidence' })
   })
 })

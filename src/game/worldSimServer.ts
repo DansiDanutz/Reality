@@ -21,8 +21,10 @@ import {
   type WorldTransaction,
 } from './worldSim'
 import {
+  decodeClientFounderCovenantReviewPayload,
   decodeClientWorldAreaClaimPayload,
   decodeClientWorldIntentPayload,
+  type DecodeClientFounderCovenantReviewError,
   type DecodeClientWorldAreaClaimError,
   type DecodeClientWorldIntentError,
 } from './worldSimIntentCodec'
@@ -108,6 +110,13 @@ export type WorldServerCommand =
     note?: string
     evidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
   }
+  | {
+    type: 'recordClientFounderCovenantReview'
+    areaId: string
+    now: number
+    authenticatedReviewerId: string
+    payload: unknown
+  }
 
 export type WorldServerCommandError =
   | 'area_exists'
@@ -123,6 +132,7 @@ export type WorldServerCommandError =
   | 'write_conflict'
   | DecodeClientWorldAreaClaimError
   | DecodeClientWorldIntentError
+  | DecodeClientFounderCovenantReviewError
   | ClaimWorldAreaError
   | WorldIntentError
   | RecordFounderCovenantReviewError
@@ -165,6 +175,8 @@ export async function runWorldServerCommand(
       return applyClientFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.payload)
     case 'recordFounderCovenantReview':
       return recordFounderCovenantReviewForStoredArea(repo, command)
+    case 'recordClientFounderCovenantReview':
+      return recordClientFounderCovenantReviewForStoredArea(repo, command)
   }
 }
 
@@ -609,4 +621,21 @@ async function recordFounderCovenantReviewForStoredArea(
     transactions: transactionDelta(recorded.area, startingTransactionCount),
     summary: advanced?.summary,
   }
+}
+
+async function recordClientFounderCovenantReviewForStoredArea(
+  repo: WorldAreaRepository,
+  command: Extract<WorldServerCommand, { type: 'recordClientFounderCovenantReview' }>,
+): Promise<WorldServerCommandResult> {
+  const decoded = decodeClientFounderCovenantReviewPayload(command.payload)
+  if (!decoded.ok) return { ok: false, error: decoded.error }
+  return recordFounderCovenantReviewForStoredArea(repo, {
+    type: 'recordFounderCovenantReview',
+    areaId: command.areaId,
+    now: command.now,
+    reviewerId: command.authenticatedReviewerId,
+    actionKind: decoded.review.actionKind,
+    note: decoded.review.note,
+    evidenceKinds: decoded.review.evidenceKinds,
+  })
 }

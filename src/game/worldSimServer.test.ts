@@ -1098,6 +1098,69 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(saves)
   })
 
+  test('records decoded client founder covenant review payloads', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'recordClientFounderCovenantReview',
+      areaId: ' area-1 ',
+      now: 1_000,
+      authenticatedReviewerId: ' reviewer-1 ',
+      payload: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        note: ' Manual review from client payload. ',
+        evidenceKinds: ['population_growth', 'population_growth'],
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected client review payload to record')
+    expect(result.area.founderReviewHistory?.[0]).toMatchObject({
+      reviewerId: 'reviewer-1',
+      summary: 'Manual review from client payload.',
+      authorityGate: {
+        requiredRole: 'area_reviewer',
+        status: 'evidence_only',
+        executionEnabled: false,
+      },
+    })
+    expect(result.area.founderReviewHistory?.[0].reviewInputs.find((input) =>
+      input.kind === 'population_growth'
+    )).toMatchObject({
+      status: 'captured',
+      evidence: 'Population growth evidence was attached by the reviewer.',
+      manualEvidenceRequired: false,
+    })
+    expect(result.transactions).toEqual([])
+    expect(saved?.founderReviewHistory).toEqual(result.area.founderReviewHistory)
+  })
+
+  test('rejects client-controlled founder covenant review payload state before loading', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    const loads = repo.loads
+    const saves = repo.saves
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'recordClientFounderCovenantReview',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedReviewerId: 'reviewer-1',
+      payload: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        signals: [],
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(repo.loads).toBe(loads)
+    expect(repo.saves).toBe(saves)
+  })
+
   test('reads a founder area by authenticated founder and advances server time', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))

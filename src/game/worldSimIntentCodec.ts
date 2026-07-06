@@ -1,6 +1,8 @@
 import {
   DEFAULT_BUSINESS_BLUEPRINTS,
   type AreaClaimSource,
+  type FounderCovenantManualActionKind,
+  type FounderCovenantManualEvidenceKind,
   type WorldBusinessKind,
   type WorldAreaClaim,
   type WorldIntent,
@@ -37,6 +39,24 @@ export type DecodeClientWorldAreaClaimResult =
   | { ok: true; claim: WorldAreaClaim; areaName: string }
   | { ok: false; error: DecodeClientWorldAreaClaimError }
 
+export type DecodeClientFounderCovenantReviewError =
+  | 'invalid_payload'
+  | 'client_controlled_server_field'
+  | 'invalid_review_action'
+  | 'invalid_review_note'
+  | 'invalid_review_evidence'
+
+export interface DecodedClientFounderCovenantReviewPayload {
+  type: 'recordCovenantReview'
+  actionKind: FounderCovenantManualActionKind
+  note?: string
+  evidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
+}
+
+export type DecodeClientFounderCovenantReviewResult =
+  | { ok: true; review: DecodedClientFounderCovenantReviewPayload }
+  | { ok: false; error: DecodeClientFounderCovenantReviewError }
+
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
 const CLIENT_INTENT_TYPES = [
   'buildBusiness',
@@ -48,6 +68,17 @@ const CLIENT_INTENT_TYPES = [
   'buyInsurance',
   'repayDebt',
 ] as const
+const COVENANT_REVIEW_ACTION_KINDS: FounderCovenantManualActionKind[] = [
+  'record_review',
+  'send_warning',
+  'start_probation',
+  'recommend_replacement',
+]
+const COVENANT_MANUAL_EVIDENCE_KINDS: readonly FounderCovenantManualEvidenceKind[] = [
+  'population_growth',
+  'external_contribution',
+  'ideas_feedback',
+]
 
 const FORBIDDEN_CLIENT_FIELDS = new Set([
   'actorCitizenId',
@@ -83,9 +114,62 @@ const CLAIM_FORBIDDEN_CLIENT_FIELDS = new Set([
   'transactions',
 ])
 
+const REVIEW_FORBIDDEN_CLIENT_FIELDS = new Set([
+  'actorCitizenId',
+  'authenticatedCitizenId',
+  'authenticatedFounderId',
+  'areaId',
+  'now',
+  'founder',
+  'simCitizens',
+  'claim',
+  'reviewerId',
+  'authorityGate',
+  'reviewedAt',
+  'evidenceOnly',
+  'approvedById',
+  'approvedAt',
+  'founderCitizenId',
+  'decision',
+  'status',
+  'nextAction',
+  'manualReviewRequired',
+  'activityReview',
+  'reviewQueue',
+  'reviewInputs',
+  'stages',
+  'stage',
+  'requiresMainFounderApproval',
+  'manualOnly',
+  'reviewChecklist',
+  'manualActions',
+  'approvalRequests',
+  'approvalEnabled',
+  'executionEnabled',
+  'notificationDraftId',
+  'blockers',
+  'clientPayload',
+  'reviewSchedule',
+  'checkedAt',
+  'score',
+  'replacementEnabled',
+  'waitlistHandoffEnabled',
+  'automationEnabled',
+  'signals',
+  'summary',
+  'money',
+  'cash',
+  'citizens',
+  'businesses',
+  'transactions',
+  'areaEvents',
+  'founderReviewHistory',
+])
+
 const MAX_CLIENT_ID_LENGTH = 96
 const MAX_BUSINESS_NAME_LENGTH = 80
 const MAX_AREA_LABEL_LENGTH = 96
+const MAX_REVIEW_NOTE_LENGTH = 280
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9:_-]+$/
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
 
@@ -160,6 +244,35 @@ export function decodeClientWorldIntentPayload(
   }
 }
 
+export function decodeClientFounderCovenantReviewPayload(
+  payload: unknown,
+): DecodeClientFounderCovenantReviewResult {
+  if (!isRecord(payload)) return { ok: false, error: 'invalid_payload' }
+  if (payload.type !== 'recordCovenantReview') return { ok: false, error: 'invalid_payload' }
+  if (hasForbiddenClientField(payload, REVIEW_FORBIDDEN_CLIENT_FIELDS)) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const actionKind = readReviewActionKind(payload.actionKind)
+  if (!actionKind) return { ok: false, error: 'invalid_review_action' }
+
+  const note = readOptionalReviewNote(payload.note)
+  if (note === false) return { ok: false, error: 'invalid_review_note' }
+
+  const evidenceKinds = readManualEvidenceKinds(payload.evidenceKinds)
+  if (evidenceKinds === false) return { ok: false, error: 'invalid_review_evidence' }
+
+  return {
+    ok: true,
+    review: {
+      type: 'recordCovenantReview',
+      actionKind,
+      ...(note ? { note } : {}),
+      ...(evidenceKinds.length > 0 ? { evidenceKinds } : {}),
+    },
+  }
+}
+
 function decodeBuildBusinessIntent(
   payload: Record<string, unknown>,
   actorCitizenId: string,
@@ -216,6 +329,29 @@ function decodeRepayDebtIntent(
   if (!debtId) return { ok: false, error: 'invalid_debt_id' }
   if (!isPositiveMoney(payload.amount)) return { ok: false, error: 'invalid_amount' }
   return { ok: true, intent: { type: 'repayDebt', actorCitizenId, debtId, amount: roundMoney(payload.amount) } }
+}
+
+function readReviewActionKind(value: unknown): FounderCovenantManualActionKind | null {
+  return isOneOf(value, COVENANT_REVIEW_ACTION_KINDS) ? value : null
+}
+
+function readOptionalReviewNote(value: unknown): string | null | false {
+  if (value === undefined) return null
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  if (trimmed.length > MAX_REVIEW_NOTE_LENGTH || hasControlCharacter(trimmed)) return false
+  return trimmed || null
+}
+
+function readManualEvidenceKinds(value: unknown): FounderCovenantManualEvidenceKind[] | false {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > COVENANT_MANUAL_EVIDENCE_KINDS.length) return false
+  const evidenceKinds: FounderCovenantManualEvidenceKind[] = []
+  for (const item of value) {
+    if (!isOneOf(item, COVENANT_MANUAL_EVIDENCE_KINDS)) return false
+    if (!evidenceKinds.includes(item)) evidenceKinds.push(item)
+  }
+  return evidenceKinds
 }
 
 function hasForbiddenClientField(payload: Record<string, unknown>, forbiddenFields: Set<string>): boolean {
