@@ -14,6 +14,7 @@ import {
   type FounderCovenantManualActionKind,
   type FounderCovenantManualEvidenceKind,
   type FounderCovenantNextAction,
+  type FounderCovenantNotificationDraft,
   type FounderCovenantReviewQueue,
   type FounderCovenantSignalKind,
   type FounderCovenantStatus,
@@ -220,6 +221,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   recommendedActionKinds: readonly FounderCovenantManualActionKind[]
   pendingApprovalRequests: readonly FounderCovenantApprovalRequest[]
   pendingApprovalKinds: AreaNeedsDashboard['founderCovenant']['reviewQueue']['pendingApprovalKinds']
+  pendingNotificationDrafts: readonly FounderCovenantNotificationDraft[]
   pendingNotificationKinds: AreaNeedsDashboard['founderCovenant']['reviewQueue']['pendingNotificationKinds']
   blockerCount: number
   scanStatus: WorldFounderCovenantReviewQueueScanStatus
@@ -649,6 +651,7 @@ function founderCovenantReviewQueueItem(
     recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
     pendingApprovalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
+    pendingNotificationDrafts: review.notificationDrafts.map(founderCovenantNotificationDraftSnapshot),
     pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
     blockerCount: review.reviewQueue.blockerCount,
     scanStatus,
@@ -747,6 +750,16 @@ function founderCovenantApprovalRequestSnapshot(
     executionEnabled: false,
     authorityGate: { ...request.authorityGate, executionEnabled: false },
     blockers: [...request.blockers],
+  }
+}
+
+function founderCovenantNotificationDraftSnapshot(
+  draft: FounderCovenantNotificationDraft,
+): FounderCovenantNotificationDraft {
+  return {
+    ...draft,
+    sendEnabled: false,
+    authorityGate: { ...draft.authorityGate, executionEnabled: false },
   }
 }
 

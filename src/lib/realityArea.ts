@@ -842,6 +842,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   recommendedActionKinds: readonly RealityAreaCovenantManualActionKind[]
   pendingApprovalRequests: readonly RealityAreaCovenantApprovalRequest[]
   pendingApprovalKinds: readonly RealityAreaCovenantApprovalRequestKind[]
+  pendingNotificationDrafts: readonly RealityAreaCovenantNotificationDraft[]
   pendingNotificationKinds: readonly RealityAreaCovenantNotificationDraftKind[]
   blockerCount: number
   scanStatus: RealityFounderCovenantReviewQueueScanStatus
@@ -2224,6 +2225,8 @@ function isRealityFounderCovenantReviewQueueItem(
     value.pendingApprovalRequests.every(isRealityAreaCovenantReviewApprovalRequestSnapshot) &&
     Array.isArray(value.pendingApprovalKinds) &&
     value.pendingApprovalKinds.every(isRealityAreaCovenantApprovalRequestKind) &&
+    Array.isArray(value.pendingNotificationDrafts) &&
+    value.pendingNotificationDrafts.every(isRealityAreaCovenantNotificationDraft) &&
     Array.isArray(value.pendingNotificationKinds) &&
     value.pendingNotificationKinds.every(isRealityAreaCovenantNotificationDraftKind) &&
     typeof value.blockerCount === 'number' &&

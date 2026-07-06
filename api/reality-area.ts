@@ -1154,6 +1154,7 @@ interface FounderCovenantReviewQueueItem {
   recommendedActionKinds: readonly FounderAreaCovenantManualActionKind[]
   pendingApprovalRequests: readonly FounderAreaCovenantApprovalRequest[]
   pendingApprovalKinds: readonly FounderAreaCovenantApprovalRequestKind[]
+  pendingNotificationDrafts: readonly FounderAreaCovenantNotificationDraft[]
   pendingNotificationKinds: readonly FounderAreaCovenantNotificationDraftKind[]
   blockerCount: number
   scanStatus: ServerClockAreaTickStatus
@@ -2834,6 +2835,16 @@ function founderCovenantApprovalRequestSnapshot(
   }
 }
 
+function founderCovenantNotificationDraftSnapshot(
+  draft: FounderAreaCovenantNotificationDraft,
+): FounderAreaCovenantNotificationDraft {
+  return {
+    ...draft,
+    sendEnabled: false,
+    authorityGate: { ...draft.authorityGate, executionEnabled: false },
+  }
+}
+
 function founderCovenantReviewQueueSnapshot(queue: FounderAreaCovenantReviewQueue): FounderAreaCovenantReviewQueue {
   return {
     ...queue,
@@ -4340,6 +4351,7 @@ function founderCovenantReviewQueueItem(
     recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
     pendingApprovalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
+    pendingNotificationDrafts: review.notificationDrafts.map(founderCovenantNotificationDraftSnapshot),
     pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
     blockerCount: review.reviewQueue.blockerCount,
     scanStatus,

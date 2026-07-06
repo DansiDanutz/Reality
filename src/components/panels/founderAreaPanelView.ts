@@ -122,6 +122,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   dateSummary: string
   latestReviewText: string | null
   approvalRequestText: string
+  notificationDraftText: string
   signalText: string
   priorityScore: number
   priorityReasons: string[]
@@ -800,6 +801,7 @@ export function founderCovenantOperatorQueueReviewRows(
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
+      notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
@@ -825,6 +827,15 @@ export function founderCovenantOperatorQueueApprovalRequestText(
         : `${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
       return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
     })
+    .join(', ')
+}
+
+export function founderCovenantOperatorQueueNotificationDraftText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
+): string {
+  if (item.pendingNotificationDrafts.length === 0) return 'none'
+  return item.pendingNotificationDrafts
+    .map((draft) => `${founderCovenantNotificationKindLabel(draft.kind)} locked (${founderCovenantNotificationChannelLabel(draft.channel)})`)
     .join(', ')
 }
 
@@ -949,6 +960,13 @@ function founderCovenantNotificationKindLabel(kind: FounderCovenantReviewQueue['
       return 'Founder warning'
     case 'manual_review_required':
       return 'Manual review'
+  }
+}
+
+function founderCovenantNotificationChannelLabel(channel: 'telegram'): string {
+  switch (channel) {
+    case 'telegram':
+      return 'Telegram'
   }
 }
 

@@ -11,6 +11,7 @@ import {
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
   founderCovenantOperatorQueueApprovalRequestText,
+  founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueueReviewRows,
@@ -32,6 +33,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
+    expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
     expect(html).toContain('manual only')
@@ -109,6 +111,7 @@ describe('FounderCovenantQueuePanel', () => {
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
     )
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
+    expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
   })
 
   test('orders founder covenant review rows by manual triage priority', () => {
@@ -356,11 +359,33 @@ function founderQueueItem(
     recommendedActionKinds: ['send_warning'],
     pendingApprovalRequests: [founderApprovalRequest()],
     pendingApprovalKinds: ['send_warning'],
+    pendingNotificationDrafts: [founderNotificationDraft()],
     pendingNotificationKinds: ['manual_review_required'],
     blockerCount: 3,
     scanStatus: 'caught_up',
     transactionsAdded: 1,
     ...overrides,
+  }
+}
+
+function founderNotificationDraft(): RealityFounderCovenantReviewQueueItem['pendingNotificationDrafts'][number] {
+  return {
+    id: 'founder-area-0012:1783310400000:covenant-notification:manual_review_required:founder-12',
+    at: '2026-07-06T04:00:00.000Z',
+    kind: 'manual_review_required',
+    channel: 'telegram',
+    recipientCitizenId: 'founder-12',
+    title: 'Founder covenant manual review required',
+    body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
+    requiresApproval: true,
+    sendEnabled: false,
+    authorityGate: {
+      requiredRole: 'main_founder',
+      status: 'approval_required',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled: false,
+    },
   }
 }
 

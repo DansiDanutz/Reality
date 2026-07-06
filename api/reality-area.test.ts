@@ -3428,6 +3428,14 @@ describe('reality area authority API', () => {
             executionEnabled: boolean
             authorityGate: { executionEnabled: boolean }
           }[]
+          pendingNotificationKinds: string[]
+          pendingNotificationDrafts: {
+            kind: string
+            channel: string
+            requiresApproval: boolean
+            sendEnabled: boolean
+            authorityGate: { executionEnabled: boolean }
+          }[]
         }[]
       }
     }).founderCovenantReviewQueue
@@ -3543,6 +3551,15 @@ describe('reality area authority API', () => {
       request.automationEnabled === false &&
       request.executionEnabled === false &&
       request.authorityGate.executionEnabled === false
+    )).toBe(true)
+    expect(queue.items[0].pendingNotificationDrafts.map((draft) => draft.kind)).toEqual(
+      queue.items[0].pendingNotificationKinds,
+    )
+    expect(queue.items[0].pendingNotificationDrafts.every((draft) =>
+      draft.channel === 'telegram' &&
+      draft.requiresApproval === true &&
+      draft.sendEnabled === false &&
+      draft.authorityGate.executionEnabled === false
     )).toBe(true)
     expect(queue.items[0].reviewQueue.automationEnabled).toBe(false)
     expect(queue.items[0].reviewQueue.executionEnabled).toBe(false)

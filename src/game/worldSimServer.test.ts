@@ -1375,6 +1375,15 @@ describe('runWorldServerCommand', () => {
       request.executionEnabled === false &&
       request.authorityGate.executionEnabled === false
     )).toBe(true)
+    expect(queue.items[0].pendingNotificationDrafts.map((draft) => draft.kind)).toEqual(
+      queue.items[0].pendingNotificationKinds,
+    )
+    expect(queue.items[0].pendingNotificationDrafts.every((draft) =>
+      draft.channel === 'telegram' &&
+      draft.requiresApproval === true &&
+      draft.sendEnabled === false &&
+      draft.authorityGate.executionEnabled === false
+    )).toBe(true)
     expect(queue.totals).toMatchObject({
       founders: 2,
       active: 1,
