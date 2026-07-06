@@ -1811,6 +1811,11 @@ describe('advanceWorldArea — local real-time economy', () => {
         actionKind: 'record_review',
         summary: 'Weekly review recorded.',
         authorityGate: areaReviewerEvidenceGate(),
+        signals: [{
+          kind: 'review_due',
+          severity: 'warning',
+          message: 'Previous weekly review was due.',
+        }],
       }],
     })
 
@@ -1832,6 +1837,11 @@ describe('advanceWorldArea — local real-time economy', () => {
       actionKind: 'record_review',
       summary: 'Weekly review recorded.',
       authorityGate: areaReviewerEvidenceGate(),
+      signals: [{
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Previous weekly review was due.',
+      }],
       evidenceOnly: true,
       automationEnabled: false,
     })
@@ -1859,6 +1869,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         actionKind: 'record_review',
         summary: 'Weekly review recorded.',
         authorityGate: areaReviewerEvidenceGate(),
+        signals: [],
       }],
     })
     start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'

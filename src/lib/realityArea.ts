@@ -17,6 +17,7 @@ import type {
   FirstBuildBlocker,
   FirstBuildRecommendation,
   FounderCovenantReviewHistoryItem,
+  FounderCovenantSignal,
   WorldArea,
   WorldBusiness,
   WorldBusinessKind,
@@ -158,6 +159,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   actionKind: RealityAreaCovenantManualActionKind
   summary: string
   authorityGate: RealityAreaCovenantAuthorityGate
+  signals: RealityAreaCovenantSignal[]
 }
 
 export interface RealityAreaCovenantLatestReview {
@@ -167,6 +169,7 @@ export interface RealityAreaCovenantLatestReview {
   actionKind: RealityAreaCovenantManualActionKind
   summary: string
   authorityGate: RealityAreaCovenantAuthorityGate
+  signals: RealityAreaCovenantSignal[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -724,6 +727,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         ...review.latestReview,
         reviewedAt: parseInstant(review.latestReview.reviewedAt),
         authorityGate: { ...review.latestReview.authorityGate },
+        signals: review.latestReview.signals.map(realityCovenantSignalToWorldSignal),
       },
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
@@ -757,6 +761,15 @@ function realityReviewHistoryToWorldReviewHistory(
     ...entry,
     at: parseInstant(entry.at),
     authorityGate: { ...entry.authorityGate },
+    signals: entry.signals.map(realityCovenantSignalToWorldSignal),
+  }
+}
+
+function realityCovenantSignalToWorldSignal(signal: RealityAreaCovenantSignal): FounderCovenantSignal {
+  return {
+    ...signal,
+    businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
+    businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
   }
 }
 
@@ -1107,7 +1120,9 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     typeof value.reviewerId === 'string' &&
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string' &&
-    isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate)
+    isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
+    Array.isArray(value.signals) &&
+    value.signals.every(isRealityAreaCovenantSignal)
 }
 
 function isRealityAreaCovenantLatestReview(value: unknown): value is RealityAreaCovenantLatestReview {
@@ -1118,6 +1133,8 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string' &&
     isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
+    Array.isArray(value.signals) &&
+    value.signals.every(isRealityAreaCovenantSignal) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
 }

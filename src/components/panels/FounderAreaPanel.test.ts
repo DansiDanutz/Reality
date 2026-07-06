@@ -8,6 +8,7 @@ import {
   founderCovenantNotificationDraftText,
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
+  founderCovenantReviewSignalSummary,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
@@ -46,6 +47,29 @@ describe('FounderAreaPanel covenant presenters', () => {
         requiredRole: 'area_reviewer',
       },
     })).toBe('Area reviewer / Evidence only')
+  })
+
+  test('summarizes captured covenant review signals', () => {
+    expect(founderCovenantReviewSignalSummary({ signals: [] })).toBe('No signals captured')
+    expect(founderCovenantReviewSignalSummary({
+      signals: [{
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Weekly review was due.',
+      }],
+    })).toBe('1 signal captured')
+    expect(founderCovenantReviewSignalSummary({
+      signals: [{
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Weekly review was due.',
+      }, {
+        kind: 'founder_debt',
+        severity: 'info',
+        message: 'Founder has debt.',
+        amount: 120,
+      }],
+    })).toBe('2 signals captured')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

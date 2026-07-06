@@ -446,6 +446,7 @@ export interface FounderCovenantReviewHistoryItem {
   actionKind: FounderCovenantManualActionKind
   summary: string
   authorityGate: FounderCovenantAuthorityGate
+  signals: FounderCovenantSignal[]
 }
 
 export interface FounderCovenantLatestReview {
@@ -455,6 +456,7 @@ export interface FounderCovenantLatestReview {
   actionKind: FounderCovenantManualActionKind
   summary: string
   authorityGate: FounderCovenantAuthorityGate
+  signals: FounderCovenantSignal[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -1494,6 +1496,7 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     actionKind: latest.actionKind,
     summary: latest.summary,
     authorityGate: { ...latest.authorityGate },
+    signals: latest.signals.map(founderCovenantSignalSnapshot),
     evidenceOnly: true,
     automationEnabled: false,
   }
@@ -1503,6 +1506,7 @@ function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryIte
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
+    signals: (entry.signals ?? []).map(founderCovenantSignalSnapshot),
   }
 }
 
@@ -1513,6 +1517,14 @@ function founderCovenantReviewEvidenceAuthority(): FounderCovenantAuthorityGate 
     approvedById: null,
     approvedAt: null,
     executionEnabled: false,
+  }
+}
+
+function founderCovenantSignalSnapshot(signal: FounderCovenantSignal): FounderCovenantSignal {
+  return {
+    ...signal,
+    businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
+    businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
   }
 }
 

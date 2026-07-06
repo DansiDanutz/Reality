@@ -188,6 +188,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   actionKind: FounderAreaCovenantManualActionKind
   summary: string
   authorityGate: FounderAreaCovenantAuthorityGate
+  signals: FounderAreaCovenantSignal[]
 }
 
 interface FounderAreaCovenantLatestReview {
@@ -197,6 +198,7 @@ interface FounderAreaCovenantLatestReview {
   actionKind: FounderAreaCovenantManualActionKind
   summary: string
   authorityGate: FounderAreaCovenantAuthorityGate
+  signals: FounderAreaCovenantSignal[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -766,6 +768,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'replacementEnabled',
   'waitlistHandoffEnabled',
   'automationEnabled',
+  'signals',
   'summary',
   'businesses',
   'transactions',
@@ -1450,6 +1453,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     actionKind: latest.actionKind,
     summary: latest.summary,
     authorityGate: { ...latest.authorityGate },
+    signals: latest.signals.map(founderCovenantSignalSnapshot),
     evidenceOnly: true,
     automationEnabled: false,
   }
@@ -1467,6 +1471,9 @@ function founderCovenantReviewHistoryItem(
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
+    signals: Array.isArray(entry.signals)
+      ? entry.signals.map(founderCovenantSignalSnapshot)
+      : [],
   }
 }
 
@@ -1477,6 +1484,14 @@ function founderCovenantReviewEvidenceAuthority(): FounderAreaCovenantAuthorityG
     approvedById: null,
     approvedAt: null,
     executionEnabled: false,
+  }
+}
+
+function founderCovenantSignalSnapshot(signal: FounderAreaCovenantSignal): FounderAreaCovenantSignal {
+  return {
+    ...signal,
+    businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
+    businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
   }
 }
 
@@ -2898,6 +2913,7 @@ function applyRecordCovenantReviewIntent(
     actionKind: intent.actionKind,
     summary: founderCovenantReviewSummary(review.activityReview, intent.note),
     authorityGate: founderCovenantReviewEvidenceAuthority(),
+    signals: review.signals.map(founderCovenantSignalSnapshot),
   }
 
   return {

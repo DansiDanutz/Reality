@@ -412,6 +412,11 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      signals: [],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       note: `${'x'.repeat(281)}`,
     })).toEqual({ ok: false, error: 'invalid_review_note' })
   })
@@ -2561,6 +2566,7 @@ describe('reality area authority API', () => {
           actionKind: string
           summary: string
           authorityGate: ReturnType<typeof areaReviewerEvidenceGate>
+          signals: unknown[]
         }[]
       }
     }
@@ -2573,6 +2579,17 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
       authorityGate: areaReviewerEvidenceGate(false),
+      signals: [{
+        kind: 'no_business_built',
+        severity: 'warning',
+        message: 'Founder has not built a local business yet.',
+      }, {
+        kind: 'essential_shortage',
+        severity: 'warning',
+        message: 'The area has unserved water, food, or housing demand.',
+        businessKinds: ['water', 'food', 'housing'],
+        amount: 3,
+      }],
     }])
     expect(body.state.founderCovenant.reviewHistory).toEqual(body.state.founderReviewHistory)
     expect(body.state.founderCovenant.latestReview).toEqual({
@@ -2582,6 +2599,7 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
       authorityGate: areaReviewerEvidenceGate(false),
+      signals: body.state.founderReviewHistory[0].signals,
       evidenceOnly: true,
       automationEnabled: false,
     })

@@ -6,6 +6,7 @@ import type {
   FounderCovenantActivityReview,
   FounderCovenantManualAction,
   FounderCovenantNotificationDraft,
+  FounderCovenantReviewHistoryItem,
   FounderCovenantReviewChecklistItem,
   FounderCovenantReviewSchedule,
   FounderCovenantSignal,
@@ -93,6 +94,14 @@ export function founderCovenantLatestReviewStatusLabel(
 ): string {
   const role = founderCovenantAuthorityRoleLabel(review.authorityGate.requiredRole)
   return review.evidenceOnly && !review.automationEnabled ? `${role} / Evidence only` : role
+}
+
+export function founderCovenantReviewSignalSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'signals'>,
+): string {
+  const count = review.signals.length
+  if (count === 0) return 'No signals captured'
+  return `${count} signal${count === 1 ? '' : 's'} captured`
 }
 
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
