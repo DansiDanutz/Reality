@@ -436,6 +436,8 @@ const HOSPITAL_BILL = 350
 const HOSPITALIZATION_HOURS = 8
 const INSURED_HOSPITALIZATION_HOURS = 5
 const RECOVERY_HEALTH = 55
+const MIN_BUSINESS_QUALITY = 0.35
+const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
 const SERVICE_EFFECTS: Record<Exclude<FounderAreaBusinessKind, 'insurance'>, Partial<FounderAreaNeeds> & { health?: number }> = {
   water: { hydration: 35 },
   food: { hunger: 35 },
@@ -1020,6 +1022,7 @@ function applyAdvanceHourIntent(
   const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
 
   applyFounderHour(state.areaId, state.founderCitizenId, citizens, businesses, now, at, transactions)
+  degradeUnmanagedBusinesses(citizens, businesses)
   applySimCitizenHour(state.areaId, citizens, businesses, now, at, transactions)
   for (const business of businesses) {
     let cash = business.cash
@@ -1251,6 +1254,24 @@ function applyFounderHour(
   if (shouldHospitalize(founder)) {
     hospitalizeCitizen(areaId, founder, businesses, now, at, transactions)
   }
+}
+
+function degradeUnmanagedBusinesses(citizens: FounderAreaCitizen[], businesses: FounderAreaBusiness[]): void {
+  for (const business of businesses) {
+    const owner = citizens.find((citizen) => citizen.id === business.ownerId)
+    if (owner?.state.kind !== 'hospitalized' || activeStaffCount(citizens, business) > 0) continue
+    business.quality = roundMoney(Math.max(
+      MIN_BUSINESS_QUALITY,
+      (business.quality ?? 1) - UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR,
+    ))
+  }
+}
+
+function activeStaffCount(citizens: FounderAreaCitizen[], business: FounderAreaBusiness): number {
+  return (business.staffCitizenIds ?? [])
+    .map((workerId) => citizens.find((citizen) => citizen.id === workerId))
+    .filter((worker): worker is FounderAreaCitizen => worker?.state.kind === 'active' && worker.jobBusinessId === business.id)
+    .length
 }
 
 function applySimCitizenHour(

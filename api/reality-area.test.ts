@@ -1001,6 +1001,59 @@ describe('reality area authority API', () => {
     expect(body.state.transactions).toHaveLength(recovering.transactions.length)
   })
 
+  test('advanceHour degrades unstaffed businesses while their owner is hospitalized', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const hospitalized = withCitizen(existingState(), CITIZEN_ID, {
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+    })
+    const existing = withBusinesses(hospitalized, [{
+      id: 'clinic-unstaffed',
+      name: 'Unstaffed Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 10,
+      quality: 1,
+    }, {
+      id: 'clinic-staffed',
+      name: 'Staffed Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 50,
+      quality: 1,
+      staffCitizenIds: ['founder-area-0012:sim-water'],
+    }, {
+      id: 'clinic-floor',
+      name: 'Floor Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 0,
+      quality: 0.35,
+    }])
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://business-degrade-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusinesses> }
+    expect(body.state.businesses.find((business) => business.id === 'clinic-unstaffed')?.quality).toBe(0.96)
+    expect(body.state.businesses.find((business) => business.id === 'clinic-staffed')?.quality).toBe(1)
+    expect(body.state.businesses.find((business) => business.id === 'clinic-floor')?.quality).toBe(0.35)
+    expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.jobBusinessId)
+      .toBe('clinic-staffed')
+  })
+
   test('advanceHour hospitalizes collapsed Sim Citizens and creates medical debt', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
@@ -1741,6 +1794,7 @@ function withBusiness(
     kind: 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
     price: number
     cash: number
+    quality?: number
     staffCitizenIds?: string[]
   },
 ) {
@@ -1755,6 +1809,7 @@ function withBusinesses(
     kind: 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
     price: number
     cash: number
+    quality?: number
     staffCitizenIds?: string[]
   }[],
 ) {
@@ -1773,7 +1828,7 @@ function withBusinesses(
       cash: business.cash,
       price: business.price,
       wagePerHour: 14,
-      quality: 1,
+      quality: business.quality ?? 1,
       staffCitizenIds: staffByBusiness.get(business.id) ?? [],
       createdAt: '2026-07-06T04:00:00.000Z',
       createdBy: CITIZEN_ID,
