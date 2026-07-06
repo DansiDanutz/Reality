@@ -16,6 +16,7 @@ import handler, {
   normalizeServicePurchaseIntent,
   verifyCitizen,
 } from './reality-area'
+import { realityOperatorQueueTokenClaims, signRealityOperatorQueueToken } from './reality-operator-token'
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
@@ -29,7 +30,9 @@ const FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
 const NON_FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__0.json`
 const SERVER_CLOCK_TOKEN = 'test-server-clock-token'
 const SERVER_CLOCK_HEADERS = { 'x-reality-server-clock-token': SERVER_CLOCK_TOKEN }
+const OPERATOR_AUTH_SECRET = 'operator-auth-secret'
 const ORIGINAL_SERVER_CLOCK_TOKEN = process.env.REALITY_SERVER_CLOCK_TOKEN
+const ORIGINAL_OPERATOR_AUTH_SECRET = process.env.REALITY_OPERATOR_AUTH_SECRET
 
 type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
   jobs: ReturnType<typeof serverDashboard>['jobs'] & {
@@ -242,6 +245,11 @@ afterEach(() => {
     delete process.env.REALITY_SERVER_CLOCK_TOKEN
   } else {
     process.env.REALITY_SERVER_CLOCK_TOKEN = ORIGINAL_SERVER_CLOCK_TOKEN
+  }
+  if (ORIGINAL_OPERATOR_AUTH_SECRET === undefined) {
+    delete process.env.REALITY_OPERATOR_AUTH_SECRET
+  } else {
+    process.env.REALITY_OPERATOR_AUTH_SECRET = ORIGINAL_OPERATOR_AUTH_SECRET
   }
 })
 
@@ -3111,6 +3119,60 @@ describe('reality area authority API', () => {
 
     await handler({
       method: 'GET',
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'server_clock_unauthorized',
+      error: 'Founder covenant review queue is reserved for server operators.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('founder covenant review queue accepts short-lived Telegram operator queue tokens', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([], 'blob://review-queue-area'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(res.body).toMatchObject({
+      ok: true,
+      founderCovenantReviewQueue: {
+        evidenceOnly: true,
+        executionEnabled: false,
+        replacementEnabled: false,
+        waitlistHandoffEnabled: false,
+        scanned: 0,
+      },
+    })
+  })
+
+  test('founder covenant review queue rejects expired Telegram operator queue tokens', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now() - 30 * 60 * 1000, 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${operatorToken}` },
       query: { review: 'founderCovenantQueue', limit: '1' },
     } as never, res as never)
 

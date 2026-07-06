@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { verifyRealityOperatorQueueToken } from './reality-operator-token'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const FOUNDER_STARTER_CREDIT = 200_000
@@ -19,6 +20,7 @@ const LAND_LEASE_TEMPLATE_TERM_DAYS = 30
 const AREA_STATE_VERSION = 1
 const SERVER_CLOCK_TOKEN_ENV = 'REALITY_SERVER_CLOCK_TOKEN'
 const SERVER_CLOCK_TOKEN_HEADER = 'x-reality-server-clock-token'
+const OPERATOR_AUTH_SECRET_ENV = 'REALITY_OPERATOR_AUTH_SECRET'
 const SERVER_CLOCK_DEFAULT_AREA_LIMIT = 25
 const SERVER_CLOCK_MAX_AREA_LIMIT = 100
 const SERVER_CLOCK_DEFAULT_AREA_PAGES = 1
@@ -3975,7 +3977,7 @@ async function handleFounderCovenantReviewQueue(
   res: VercelResponse,
   rawIntent: unknown,
 ): Promise<void> {
-  if (!hasServerClockAuthority(req)) {
+  if (!hasFounderCovenantReviewQueueAuthority(req)) {
     res.status(founderCovenantReviewQueueStatus('server_clock_unauthorized')).json({
       ok: false,
       error: founderCovenantReviewQueueMessage('server_clock_unauthorized'),
@@ -5866,6 +5868,13 @@ function hasServerClockAuthority(req: VercelRequest): boolean {
   if (!provided) return false
 
   return tokenMatches(provided, expected)
+}
+
+function hasFounderCovenantReviewQueueAuthority(req: VercelRequest): boolean {
+  if (hasServerClockAuthority(req)) return true
+  const token = bearerToken(req)
+  if (!token) return false
+  return verifyRealityOperatorQueueToken(token, process.env[OPERATOR_AUTH_SECRET_ENV]).ok
 }
 
 function bearerToken(req: VercelRequest): string | null {
