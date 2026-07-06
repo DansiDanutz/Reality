@@ -1365,6 +1365,16 @@ describe('runWorldServerCommand', () => {
       },
       signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
     })
+    expect(queue.items[0].pendingApprovalRequests.map((request) => request.kind)).toEqual(
+      queue.items[0].pendingApprovalKinds,
+    )
+    expect(queue.items[0].pendingApprovalRequests.every((request) =>
+      request.status === 'pending_manual_approval' &&
+      request.approvalEnabled === false &&
+      request.automationEnabled === false &&
+      request.executionEnabled === false &&
+      request.authorityGate.executionEnabled === false
+    )).toBe(true)
     expect(queue.totals).toMatchObject({
       founders: 2,
       active: 1,

@@ -28,6 +28,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Founder Review Queue')
     expect(html).toContain('Evidence only')
     expect(html).toContain('#0012 · Bucharest Founder Block')
+    expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
     expect(html).toContain('Record evidence')
     expect(html).toContain('Next page')
@@ -170,6 +171,28 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       signalCounts: { total: 2, info: 0, warning: 1, critical: 1 },
       signalKinds: ['founder_debt', 'review_due'],
       recommendedActionKinds: ['send_warning'],
+      pendingApprovalRequests: [{
+        id: 'founder-area-0012:1783310400000:covenant-approval:send_warning:founder-12',
+        at: '2026-07-06T04:00:00.000Z',
+        kind: 'send_warning',
+        label: 'Send warning',
+        reason: 'Founder covenant signals suggest a warning.',
+        status: 'pending_manual_approval',
+        recommended: true,
+        requiresApproval: true,
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        notificationDraftId: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:founder-12',
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
+      }],
       pendingApprovalKinds: ['send_warning'],
       pendingNotificationKinds: ['manual_review_required'],
       blockerCount: 3,

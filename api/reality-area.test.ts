@@ -3417,7 +3417,18 @@ describe('reality area authority API', () => {
     const queue = (res.body as {
       ok: true
       founderCovenantReviewQueue: {
-        items: { reviewQueue: { automationEnabled: boolean; executionEnabled: boolean } }[]
+        items: {
+          reviewQueue: { automationEnabled: boolean; executionEnabled: boolean }
+          pendingApprovalKinds: string[]
+          pendingApprovalRequests: {
+            kind: string
+            status: string
+            approvalEnabled: boolean
+            automationEnabled: boolean
+            executionEnabled: boolean
+            authorityGate: { executionEnabled: boolean }
+          }[]
+        }[]
       }
     }).founderCovenantReviewQueue
     expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
@@ -3523,6 +3534,16 @@ describe('reality area authority API', () => {
       scanStatus: 'caught_up',
       transactionsAdded: 1,
     })
+    expect(queue.items[0].pendingApprovalRequests.map((request) => request.kind)).toEqual(
+      queue.items[0].pendingApprovalKinds,
+    )
+    expect(queue.items[0].pendingApprovalRequests.every((request) =>
+      request.status === 'pending_manual_approval' &&
+      request.approvalEnabled === false &&
+      request.automationEnabled === false &&
+      request.executionEnabled === false &&
+      request.authorityGate.executionEnabled === false
+    )).toBe(true)
     expect(queue.items[0].reviewQueue.automationEnabled).toBe(false)
     expect(queue.items[0].reviewQueue.executionEnabled).toBe(false)
     expect(put).toHaveBeenCalledTimes(1)

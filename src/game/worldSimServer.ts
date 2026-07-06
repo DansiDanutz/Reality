@@ -10,6 +10,7 @@ import {
   type AreaNeedsDashboard,
   type AreaClaimSource,
   type ClaimWorldAreaError,
+  type FounderCovenantApprovalRequest,
   type FounderCovenantManualActionKind,
   type FounderCovenantManualEvidenceKind,
   type FounderCovenantNextAction,
@@ -217,6 +218,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   signalCounts: WorldFounderCovenantReviewQueueSignalCounts
   signalKinds: readonly FounderCovenantSignalKind[]
   recommendedActionKinds: readonly FounderCovenantManualActionKind[]
+  pendingApprovalRequests: readonly FounderCovenantApprovalRequest[]
   pendingApprovalKinds: AreaNeedsDashboard['founderCovenant']['reviewQueue']['pendingApprovalKinds']
   pendingNotificationKinds: AreaNeedsDashboard['founderCovenant']['reviewQueue']['pendingNotificationKinds']
   blockerCount: number
@@ -645,6 +647,7 @@ function founderCovenantReviewQueueItem(
     signalCounts: founderCovenantReviewSignalCounts(review.signals),
     signalKinds: review.signals.map((signal) => signal.kind),
     recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
+    pendingApprovalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
     pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
     blockerCount: review.reviewQueue.blockerCount,
@@ -731,6 +734,19 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+  }
+}
+
+function founderCovenantApprovalRequestSnapshot(
+  request: FounderCovenantApprovalRequest,
+): FounderCovenantApprovalRequest {
+  return {
+    ...request,
+    approvalEnabled: false,
+    automationEnabled: false,
+    executionEnabled: false,
+    authorityGate: { ...request.authorityGate, executionEnabled: false },
+    blockers: [...request.blockers],
   }
 }
 

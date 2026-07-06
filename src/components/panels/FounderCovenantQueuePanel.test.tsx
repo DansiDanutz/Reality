@@ -10,6 +10,7 @@ import {
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
+  founderCovenantOperatorQueueApprovalRequestText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueueReviewRows,
@@ -30,6 +31,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
     expect(html).toContain('manual only')
@@ -106,6 +108,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
     )
+    expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
   })
 
   test('orders founder covenant review rows by manual triage priority', () => {
@@ -351,11 +354,37 @@ function founderQueueItem(
     signalCounts: { total: 2, info: 0, warning: 1, critical: 1 },
     signalKinds: ['founder_debt', 'review_due'],
     recommendedActionKinds: ['send_warning'],
+    pendingApprovalRequests: [founderApprovalRequest()],
     pendingApprovalKinds: ['send_warning'],
     pendingNotificationKinds: ['manual_review_required'],
     blockerCount: 3,
     scanStatus: 'caught_up',
     transactionsAdded: 1,
     ...overrides,
+  }
+}
+
+function founderApprovalRequest(): RealityFounderCovenantReviewQueueItem['pendingApprovalRequests'][number] {
+  return {
+    id: 'founder-area-0012:1783310400000:covenant-approval:send_warning:founder-12',
+    at: '2026-07-06T04:00:00.000Z',
+    kind: 'send_warning',
+    label: 'Send warning',
+    reason: 'Founder covenant signals suggest a warning.',
+    status: 'pending_manual_approval',
+    recommended: true,
+    requiresApproval: true,
+    approvalEnabled: false,
+    automationEnabled: false,
+    executionEnabled: false,
+    authorityGate: {
+      requiredRole: 'main_founder',
+      status: 'approval_required',
+      approvedById: null,
+      approvedAt: null,
+      executionEnabled: false,
+    },
+    notificationDraftId: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:founder-12',
+    blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
   }
 }

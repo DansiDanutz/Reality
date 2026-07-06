@@ -1152,6 +1152,7 @@ interface FounderCovenantReviewQueueItem {
   signalCounts: FounderCovenantReviewQueueSignalCounts
   signalKinds: FounderAreaCovenantSignalKind[]
   recommendedActionKinds: readonly FounderAreaCovenantManualActionKind[]
+  pendingApprovalRequests: readonly FounderAreaCovenantApprovalRequest[]
   pendingApprovalKinds: readonly FounderAreaCovenantApprovalRequestKind[]
   pendingNotificationKinds: readonly FounderAreaCovenantNotificationDraftKind[]
   blockerCount: number
@@ -4337,6 +4338,7 @@ function founderCovenantReviewQueueItem(
     signalCounts: founderCovenantReviewSignalCounts(review.signals),
     signalKinds: review.signals.map((signal) => signal.kind),
     recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
+    pendingApprovalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
     pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
     pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
     blockerCount: review.reviewQueue.blockerCount,

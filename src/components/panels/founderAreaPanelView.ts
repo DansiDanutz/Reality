@@ -121,6 +121,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   summary: string
   dateSummary: string
   latestReviewText: string | null
+  approvalRequestText: string
   signalText: string
   priorityScore: number
   priorityReasons: string[]
@@ -798,6 +799,7 @@ export function founderCovenantOperatorQueueReviewRows(
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
+      approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
@@ -810,6 +812,20 @@ export function founderCovenantOperatorQueueLatestReviewText(
 ): string | null {
   if (!item.latestReview) return null
   return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+}
+
+export function founderCovenantOperatorQueueApprovalRequestText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => {
+      const blockerText = request.blockers.length === 0
+        ? 'no blockers'
+        : `${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
+      return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
+    })
+    .join(', ')
 }
 
 export function founderCovenantOperatorQueuePriorityScore(

@@ -1055,6 +1055,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with executable approval request metadata', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        pendingApprovalRequests: serverFounderCovenantReviewQueue().items[0].pendingApprovalRequests.map((request) => ({
+          ...request,
+          automationEnabled: true,
+        })),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable latest-review metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2865,6 +2889,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       },
       signalKinds: review.signals.map((signal) => signal.kind),
       recommendedActionKinds: review.reviewQueue.recommendedActionKinds,
+      pendingApprovalRequests: review.approvalRequests,
       pendingApprovalKinds: review.reviewQueue.pendingApprovalKinds,
       pendingNotificationKinds: review.reviewQueue.pendingNotificationKinds,
       blockerCount: review.reviewQueue.blockerCount,
