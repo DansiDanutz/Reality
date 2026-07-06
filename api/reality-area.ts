@@ -188,17 +188,35 @@ interface FounderAreaLicenseDashboard {
   saturation: number
 }
 
+type FounderAreaFirstBuildPriority = 'critical' | 'high' | 'medium' | 'low'
+type FounderAreaFirstBuildAction = 'claim_area' | 'build_now' | 'save_credits' | 'grow_demand' | 'wait_for_demand' | 'recover_first'
+type FounderAreaFirstBuildBlocker = 'area_unclaimed' | 'insufficient_funds' | 'license_unavailable' | 'actor_unavailable'
+
 interface FounderAreaFirstBuildRecommendation {
   kind: FounderAreaBusinessKind
   name: string
   proposedBusinessId: string | null
+  priority: FounderAreaFirstBuildPriority
+  action: FounderAreaFirstBuildAction
   buildCost: number
+  cashShortfall: number
   currentDemand: number
   currentSupply: number
+  licenseSlots: number
   licensesRemaining: number
+  nextLicensePopulation: number
+  citizensUntilNextLicense: number
   saturation: number
   founderCanAfford: boolean
   canBuildNow: boolean
+  blockers: FounderAreaFirstBuildBlocker[]
+  licensed: boolean
+  saturated: boolean
+  score: number
+  estimatedHourlyRevenue: number
+  estimatedHourlyWageCost: number
+  estimatedHourlyProfit: number
+  estimatedPaybackHours: number | null
   clientPayload: {
     type: 'buildBusiness'
     businessKind: FounderAreaBusinessKind
@@ -1171,24 +1189,65 @@ function firstBuildRecommendations(
 ): FounderAreaFirstBuildRecommendation[] {
   const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const founderActive = founder?.state.kind === 'active'
+  const population = state.citizens.length
 
   return BUSINESS_KINDS.map((kind) => {
     const blueprint = BUSINESS_BLUEPRINTS[kind]
     const license = input.licenses[kind]
     const proposedBusinessId = license.remaining > 0 ? `${state.areaId}:${kind}:${input.supply[kind] + 1}` : null
+    const licensed = license.remaining > 0
+    const saturated = license.saturation >= 1
+    const essential = kind === 'water' || kind === 'food' || kind === 'housing'
     const founderCanAfford = state.balance >= blueprint.buildCost
-    const canBuildNow = Boolean(founderActive && founderCanAfford && license.remaining > 0 && proposedBusinessId)
+    const cashShortfall = roundMoney(Math.max(0, blueprint.buildCost - state.balance))
+    const blockers = firstBuildBlockers({ founderActive, founderCanAfford, licensed })
+    const canBuildNow = Boolean(blockers.length === 0 && proposedBusinessId)
+    const estimate = firstBuildEconomics(kind, input.demand[kind], input.supply[kind], licensed)
+    const score = firstBuildScore({
+      demand: input.demand[kind],
+      supply: input.supply[kind],
+      essential,
+      licensed,
+      saturated,
+    })
+    const nextLicensePopulation = nextLicenseUnlockPopulation(population, kind)
     return {
       kind,
       name: blueprint.name,
       proposedBusinessId,
+      priority: firstBuildPriority({
+        demand: input.demand[kind],
+        supply: input.supply[kind],
+        essential,
+        licensed,
+        saturated,
+      }),
+      action: firstBuildAction({
+        canBuildNow,
+        demand: input.demand[kind],
+        licensed,
+        founderActive,
+        founderCanAfford,
+      }),
       buildCost: blueprint.buildCost,
+      cashShortfall,
       currentDemand: input.demand[kind],
       currentSupply: input.supply[kind],
+      licenseSlots: license.slots,
       licensesRemaining: license.remaining,
+      nextLicensePopulation,
+      citizensUntilNextLicense: Math.max(0, nextLicensePopulation - population),
       saturation: license.saturation,
       founderCanAfford,
       canBuildNow,
+      blockers,
+      licensed,
+      saturated,
+      score,
+      ...estimate,
+      estimatedPaybackHours: estimate.estimatedHourlyProfit > 0
+        ? roundMoney(blueprint.buildCost / estimate.estimatedHourlyProfit)
+        : null,
       clientPayload: canBuildNow
         ? {
           type: 'buildBusiness',
@@ -1213,6 +1272,87 @@ function firstBuildRecommendations(
     if (left.currentDemand !== right.currentDemand) return right.currentDemand - left.currentDemand
     return left.buildCost - right.buildCost
   })
+}
+
+function firstBuildBlockers(input: {
+  founderActive: boolean
+  founderCanAfford: boolean
+  licensed: boolean
+}): FounderAreaFirstBuildBlocker[] {
+  const blockers: FounderAreaFirstBuildBlocker[] = []
+  if (!input.founderActive) blockers.push('actor_unavailable')
+  if (!input.licensed) blockers.push('license_unavailable')
+  if (!input.founderCanAfford) blockers.push('insufficient_funds')
+  return blockers
+}
+
+function firstBuildAction(input: {
+  canBuildNow: boolean
+  demand: number
+  licensed: boolean
+  founderActive: boolean
+  founderCanAfford: boolean
+}): FounderAreaFirstBuildAction {
+  if (!input.founderActive) return 'recover_first'
+  if (!input.licensed) return 'grow_demand'
+  if (!input.founderCanAfford) return 'save_credits'
+  if (!input.canBuildNow) return 'save_credits'
+  if (input.demand <= 0) return 'wait_for_demand'
+  return 'build_now'
+}
+
+function firstBuildPriority(input: {
+  demand: number
+  supply: number
+  essential: boolean
+  licensed: boolean
+  saturated: boolean
+}): FounderAreaFirstBuildPriority {
+  if (input.essential && input.supply === 0 && input.demand > 0 && input.licensed) return 'critical'
+  if (input.demand >= 3 && input.licensed && !input.saturated) return 'high'
+  if (input.demand > 0 && input.licensed && !input.saturated) return 'medium'
+  return 'low'
+}
+
+function firstBuildScore(input: {
+  demand: number
+  supply: number
+  essential: boolean
+  licensed: boolean
+  saturated: boolean
+}): number {
+  let score = input.demand * 10
+  if (input.essential && input.supply === 0) score += 30
+  if (input.licensed) score += 12
+  if (input.saturated) score -= 30
+  return roundMoney(score)
+}
+
+function firstBuildEconomics(
+  kind: FounderAreaBusinessKind,
+  demand: number,
+  supply: number,
+  licensed: boolean,
+): Pick<
+  FounderAreaFirstBuildRecommendation,
+  'estimatedHourlyRevenue' | 'estimatedHourlyWageCost' | 'estimatedHourlyProfit'
+> {
+  const blueprint = BUSINESS_BLUEPRINTS[kind]
+  const demandShare = licensed ? demand / (supply + 1) : 0
+  const servedDemand = Math.min(demandShare, BASE_SERVICE_CAPACITY_PER_HOUR[kind])
+  const estimatedHourlyRevenue = roundMoney(servedDemand * blueprint.price)
+  const estimatedHourlyWageCost = licensed ? roundMoney(TARGET_STAFF_BY_KIND[kind] * blueprint.wagePerHour) : 0
+  return {
+    estimatedHourlyRevenue,
+    estimatedHourlyWageCost,
+    estimatedHourlyProfit: roundMoney(estimatedHourlyRevenue - estimatedHourlyWageCost),
+  }
+}
+
+function nextLicenseUnlockPopulation(population: number, kind: FounderAreaBusinessKind): number {
+  const starterSlots = STARTER_LICENSE_SLOTS[kind]
+  if (starterSlots > 0) return population
+  return kind === 'clinic' || kind === 'insurance' ? Math.max(population, 8) : population
 }
 
 function firstBuildReason(input: {

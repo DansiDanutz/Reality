@@ -13,7 +13,6 @@ import type {
   AreaSurvivalDashboard,
   AreaWorkerCandidateAction,
   CitizenSurvivalSignal,
-  FirstBuildAction,
   FirstBuildBlocker,
   FirstBuildRecommendation,
   WorldArea,
@@ -140,13 +139,27 @@ export interface RealityAreaFirstBuildRecommendation {
   kind: WorldBusinessKind
   name: string
   proposedBusinessId: string | null
+  priority: FirstBuildRecommendation['priority']
+  action: FirstBuildRecommendation['action']
   buildCost: number
+  cashShortfall: number
   currentDemand: number
   currentSupply: number
+  licenseSlots: number
   licensesRemaining: number
+  nextLicensePopulation: number
+  citizensUntilNextLicense: number
   saturation: number
   founderCanAfford: boolean
   canBuildNow: boolean
+  blockers: FirstBuildBlocker[]
+  licensed: boolean
+  saturated: boolean
+  score: number
+  estimatedHourlyRevenue: number
+  estimatedHourlyWageCost: number
+  estimatedHourlyProfit: number
+  estimatedPaybackHours: number | null
   clientPayload: Extract<WorldClientIntentPayload, { type: 'buildBusiness' }> | null
   reason: string
 }
@@ -535,7 +548,7 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     licenses,
     jobs: mergeRealityAreaJobsDashboard(dashboard.jobs, serverDashboard.jobs),
     firstBuild: serverDashboard.firstBuild.map((recommendation) =>
-      mergeFirstBuildRecommendation(recommendation, dashboard.firstBuild.find((candidate) => candidate.kind === recommendation.kind), serverDashboard)
+      mergeFirstBuildRecommendation(recommendation, dashboard.firstBuild.find((candidate) => candidate.kind === recommendation.kind))
     ),
     existingBusinesses: serverDashboard.existingBusinesses.map((business) =>
       mergeRealityAreaBusinessDashboard(business, dashboard.existingBusinesses.find((candidate) => candidate.id === business.id))
@@ -728,59 +741,35 @@ const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic
 function mergeFirstBuildRecommendation(
   recommendation: RealityAreaFirstBuildRecommendation,
   fallback: FirstBuildRecommendation | undefined,
-  serverDashboard: RealityAreaDashboard,
 ): FirstBuildRecommendation {
-  const license = serverDashboard.licenses[recommendation.kind]
-  const licensed = recommendation.licensesRemaining > 0
-  const saturated = license ? license.remaining <= 0 && license.slots > 0 : recommendation.saturation >= 1
-  const blockers = serverFirstBuildBlockers(recommendation)
   return {
     ...fallback,
     kind: recommendation.kind,
     name: recommendation.name,
     proposedBusinessId: recommendation.proposedBusinessId,
-    priority: fallback?.priority ?? 'low',
-    action: serverFirstBuildAction(recommendation, blockers),
+    priority: recommendation.priority,
+    action: recommendation.action,
     clientPayload: recommendation.clientPayload,
-    score: fallback?.score ?? 0,
+    score: recommendation.score,
     buildCost: recommendation.buildCost,
-    cashShortfall: recommendation.founderCanAfford ? 0 : (fallback?.cashShortfall ?? recommendation.buildCost),
+    cashShortfall: recommendation.cashShortfall,
     currentDemand: recommendation.currentDemand,
     currentSupply: recommendation.currentSupply,
-    licenseSlots: license?.slots ?? serverDashboard.licenseSlots[recommendation.kind] ?? fallback?.licenseSlots ?? 0,
+    licenseSlots: recommendation.licenseSlots,
     licensesRemaining: recommendation.licensesRemaining,
-    nextLicensePopulation: fallback?.nextLicensePopulation ?? 0,
-    citizensUntilNextLicense: fallback?.citizensUntilNextLicense ?? 0,
+    nextLicensePopulation: recommendation.nextLicensePopulation,
+    citizensUntilNextLicense: recommendation.citizensUntilNextLicense,
     founderCanAfford: recommendation.founderCanAfford,
     canBuildNow: recommendation.canBuildNow,
-    blockers,
-    licensed,
-    saturated,
-    estimatedHourlyRevenue: fallback?.estimatedHourlyRevenue ?? 0,
-    estimatedHourlyWageCost: fallback?.estimatedHourlyWageCost ?? 0,
-    estimatedHourlyProfit: fallback?.estimatedHourlyProfit ?? 0,
-    estimatedPaybackHours: fallback?.estimatedPaybackHours ?? null,
+    blockers: [...recommendation.blockers],
+    licensed: recommendation.licensed,
+    saturated: recommendation.saturated,
+    estimatedHourlyRevenue: recommendation.estimatedHourlyRevenue,
+    estimatedHourlyWageCost: recommendation.estimatedHourlyWageCost,
+    estimatedHourlyProfit: recommendation.estimatedHourlyProfit,
+    estimatedPaybackHours: recommendation.estimatedPaybackHours,
     reason: recommendation.reason,
   }
-}
-
-function serverFirstBuildBlockers(recommendation: RealityAreaFirstBuildRecommendation): FirstBuildBlocker[] {
-  const blockers: FirstBuildBlocker[] = []
-  if (recommendation.reason === 'Founder must recover before building.') blockers.push('actor_unavailable')
-  if (recommendation.licensesRemaining <= 0) blockers.push('license_unavailable')
-  if (!recommendation.founderCanAfford) blockers.push('insufficient_funds')
-  return blockers
-}
-
-function serverFirstBuildAction(
-  recommendation: RealityAreaFirstBuildRecommendation,
-  blockers: FirstBuildBlocker[],
-): FirstBuildAction {
-  if (recommendation.canBuildNow) return 'build_now'
-  if (blockers.includes('actor_unavailable')) return 'recover_first'
-  if (blockers.includes('insufficient_funds')) return 'save_credits'
-  if (blockers.includes('license_unavailable')) return 'grow_demand'
-  return recommendation.currentDemand > recommendation.currentSupply ? 'build_now' : 'wait_for_demand'
 }
 
 function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
@@ -1054,15 +1043,50 @@ function isRealityAreaFirstBuildRecommendation(value: unknown): value is Reality
   return isBusinessKind(value.kind) &&
     typeof value.name === 'string' &&
     (typeof value.proposedBusinessId === 'string' || value.proposedBusinessId === null) &&
+    isFirstBuildPriority(value.priority) &&
+    isFirstBuildAction(value.action) &&
     typeof value.buildCost === 'number' &&
+    typeof value.cashShortfall === 'number' &&
     typeof value.currentDemand === 'number' &&
     typeof value.currentSupply === 'number' &&
+    typeof value.licenseSlots === 'number' &&
     typeof value.licensesRemaining === 'number' &&
+    typeof value.nextLicensePopulation === 'number' &&
+    typeof value.citizensUntilNextLicense === 'number' &&
     typeof value.saturation === 'number' &&
     typeof value.founderCanAfford === 'boolean' &&
     typeof value.canBuildNow === 'boolean' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isFirstBuildBlocker) &&
+    typeof value.licensed === 'boolean' &&
+    typeof value.saturated === 'boolean' &&
+    typeof value.score === 'number' &&
+    typeof value.estimatedHourlyRevenue === 'number' &&
+    typeof value.estimatedHourlyWageCost === 'number' &&
+    typeof value.estimatedHourlyProfit === 'number' &&
+    (typeof value.estimatedPaybackHours === 'number' || value.estimatedPaybackHours === null) &&
     (isRealityAreaBuildPayload(value.clientPayload) || value.clientPayload === null) &&
     typeof value.reason === 'string'
+}
+
+function isFirstBuildPriority(value: unknown): value is FirstBuildRecommendation['priority'] {
+  return value === 'critical' || value === 'high' || value === 'medium' || value === 'low'
+}
+
+function isFirstBuildAction(value: unknown): value is FirstBuildRecommendation['action'] {
+  return value === 'claim_area' ||
+    value === 'build_now' ||
+    value === 'save_credits' ||
+    value === 'grow_demand' ||
+    value === 'wait_for_demand' ||
+    value === 'recover_first'
+}
+
+function isFirstBuildBlocker(value: unknown): value is FirstBuildBlocker {
+  return value === 'area_unclaimed' ||
+    value === 'insufficient_funds' ||
+    value === 'license_unavailable' ||
+    value === 'actor_unavailable'
 }
 
 function isRealityAreaBuildPayload(value: unknown): value is Extract<WorldClientIntentPayload, { type: 'buildBusiness' }> {

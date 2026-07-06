@@ -53,13 +53,27 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     kind: string
     name: string
     proposedBusinessId: string | null
+    priority: string
+    action: string
     buildCost: number
+    cashShortfall: number
     currentDemand: number
     currentSupply: number
+    licenseSlots: number
     licensesRemaining: number
+    nextLicensePopulation: number
+    citizensUntilNextLicense: number
     saturation: number
     founderCanAfford: boolean
     canBuildNow: boolean
+    blockers: string[]
+    licensed: boolean
+    saturated: boolean
+    score: number
+    estimatedHourlyRevenue: number
+    estimatedHourlyWageCost: number
+    estimatedHourlyProfit: number
+    estimatedPaybackHours: number | null
     clientPayload: {
       type: string
       businessKind: string
@@ -391,13 +405,27 @@ describe('reality area authority API', () => {
     expect(dashboard.firstBuild.find((recommendation) => recommendation.kind === 'water')).toMatchObject({
       name: 'Water Point',
       proposedBusinessId: 'founder-area-0012:water:1',
+      priority: 'critical',
+      action: 'build_now',
       buildCost: 8_000,
+      cashShortfall: 0,
       currentDemand: 1,
       currentSupply: 0,
+      licenseSlots: 1,
       licensesRemaining: 1,
+      nextLicensePopulation: 4,
+      citizensUntilNextLicense: 0,
       saturation: 0,
       founderCanAfford: true,
       canBuildNow: true,
+      blockers: [],
+      licensed: true,
+      saturated: false,
+      score: 52,
+      estimatedHourlyRevenue: 2,
+      estimatedHourlyWageCost: 14,
+      estimatedHourlyProfit: -12,
+      estimatedPaybackHours: null,
       clientPayload: {
         type: 'buildBusiness',
         businessKind: 'water',
@@ -407,8 +435,20 @@ describe('reality area authority API', () => {
       reason: 'Local demand is waiting for this service.',
     })
     expect(dashboard.firstBuild.find((recommendation) => recommendation.kind === 'clinic')).toMatchObject({
+      priority: 'low',
+      action: 'grow_demand',
+      licenseSlots: 0,
       licensesRemaining: 0,
+      nextLicensePopulation: 8,
+      citizensUntilNextLicense: 4,
       canBuildNow: false,
+      blockers: ['license_unavailable'],
+      licensed: false,
+      saturated: false,
+      estimatedHourlyRevenue: 0,
+      estimatedHourlyWageCost: 0,
+      estimatedHourlyProfit: 0,
+      estimatedPaybackHours: null,
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
     })
@@ -812,7 +852,14 @@ describe('reality area authority API', () => {
       currentSupply: 1,
       licensesRemaining: 0,
       saturation: 1,
+      action: 'grow_demand',
       canBuildNow: false,
+      blockers: ['license_unavailable'],
+      licensed: false,
+      saturated: true,
+      estimatedHourlyRevenue: 0,
+      estimatedHourlyWageCost: 0,
+      estimatedHourlyProfit: 0,
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
     })
