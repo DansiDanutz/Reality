@@ -24,6 +24,11 @@ const SERVER_CLOCK_MAX_AREA_LIMIT = 100
 const SERVER_CLOCK_DEFAULT_AREA_PAGES = 1
 const SERVER_CLOCK_MAX_AREA_PAGES = 5
 const SERVER_CLOCK_CURSOR_MAX_LENGTH = 1024
+const FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_AREA_LIMIT = SERVER_CLOCK_DEFAULT_AREA_LIMIT
+const FOUNDER_COVENANT_REVIEW_QUEUE_MAX_AREA_LIMIT = SERVER_CLOCK_MAX_AREA_LIMIT
+const FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_AREA_PAGES = SERVER_CLOCK_DEFAULT_AREA_PAGES
+const FOUNDER_COVENANT_REVIEW_QUEUE_MAX_AREA_PAGES = SERVER_CLOCK_MAX_AREA_PAGES
+const FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH = SERVER_CLOCK_CURSOR_MAX_LENGTH
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_MONTHLY_REVIEW_MS = 30 * 24 * 60 * 60 * 1000
@@ -1017,6 +1022,101 @@ interface ServerClockTickAreasSummary {
   results: ServerClockAreaTickResult[]
 }
 
+type FounderCovenantReviewQueueIntent =
+  | { ok: true; limit: number; pages: number; cursor?: string }
+  | { ok: false; error: FounderCovenantReviewQueueIntentError }
+
+type FounderCovenantReviewQueueIntentError =
+  | 'unsupported_intent'
+  | 'client_controlled_server_field'
+  | 'invalid_limit'
+  | 'invalid_pages'
+  | 'invalid_cursor'
+
+type FounderCovenantReviewQueueError =
+  | FounderCovenantReviewQueueIntentError
+  | 'server_clock_unauthorized'
+
+interface FounderCovenantReviewQueueSignalCounts {
+  total: number
+  info: number
+  warning: number
+  critical: number
+}
+
+interface FounderCovenantReviewQueueItem {
+  areaId: string
+  areaLabel: string
+  founderCitizenId: string
+  founderNumber: number
+  updatedAt: string
+  checkedAt: string
+  lastReviewAt: string | null
+  nextWeeklyReviewAt: string
+  nextMonthlyReviewAt: string
+  overdue: boolean
+  covenantStatus: FounderAreaCovenantStatus
+  nextAction: FounderAreaCovenantNextAction
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  activityReview: FounderAreaCovenantActivityReview
+  reviewQueue: FounderAreaCovenantReviewQueue
+  signalCounts: FounderCovenantReviewQueueSignalCounts
+  signalKinds: FounderAreaCovenantSignalKind[]
+  recommendedActionKinds: readonly FounderAreaCovenantManualActionKind[]
+  pendingApprovalKinds: readonly FounderAreaCovenantApprovalRequestKind[]
+  pendingNotificationKinds: readonly FounderAreaCovenantNotificationDraftKind[]
+  blockerCount: number
+  scanStatus: ServerClockAreaTickStatus
+  transactionsAdded: number
+}
+
+interface FounderCovenantReviewQueueScanResult {
+  citizenId: string | null
+  areaId: string | null
+  status: ServerClockAreaTickStatus
+  updatedAt: string | null
+  transactionsAdded: number
+}
+
+interface FounderCovenantReviewQueueDashboard {
+  generatedAt: string
+  evidenceOnly: true
+  automationEnabled: false
+  executionEnabled: false
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  approvalWorkflowEnabled: false
+  limit: number
+  pages: number
+  pagesScanned: number
+  cursor: string | null
+  nextCursor: string | null
+  scanned: number
+  caughtUp: number
+  current: number
+  failed: number
+  hasMore: boolean
+  totals: {
+    founders: number
+    active: number
+    useful: number
+    building: number
+    staffed: number
+    indebted: number
+    hospitalized: number
+    atRisk: number
+    manualReviewRequired: number
+    overdue: number
+    pendingApprovals: number
+    pendingNotifications: number
+    blockers: number
+  }
+  items: FounderCovenantReviewQueueItem[]
+  results: FounderCovenantReviewQueueScanResult[]
+}
+
 type RepayDebtIntent =
   | {
     ok: true
@@ -1586,6 +1686,33 @@ export function normalizeServerClockTickAreasIntent(input: unknown): ServerClock
 
   const cursor = input.cursor === undefined ? undefined : text(input.cursor)
   if (input.cursor !== undefined && (!cursor || cursor.length > SERVER_CLOCK_CURSOR_MAX_LENGTH || hasControlCharacter(cursor))) {
+    return { ok: false, error: 'invalid_cursor' }
+  }
+
+  return cursor ? { ok: true, limit, pages, cursor } : { ok: true, limit, pages }
+}
+
+export function normalizeFounderCovenantReviewQueueIntent(input: unknown): FounderCovenantReviewQueueIntent {
+  if (!isRecord(input) || input.type !== 'founderCovenantReviewQueue') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => key !== 'type' && key !== 'limit' && key !== 'pages' && key !== 'cursor')) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+
+  const limit = input.limit === undefined ? FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_AREA_LIMIT : Number(input.limit)
+  if (!Number.isInteger(limit) || limit < 1 || limit > FOUNDER_COVENANT_REVIEW_QUEUE_MAX_AREA_LIMIT) {
+    return { ok: false, error: 'invalid_limit' }
+  }
+
+  const pages = input.pages === undefined ? FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_AREA_PAGES : Number(input.pages)
+  if (!Number.isInteger(pages) || pages < 1 || pages > FOUNDER_COVENANT_REVIEW_QUEUE_MAX_AREA_PAGES) {
+    return { ok: false, error: 'invalid_pages' }
+  }
+
+  const cursor = input.cursor === undefined ? undefined : text(input.cursor)
+  if (
+    input.cursor !== undefined &&
+    (!cursor || cursor.length > FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH || hasControlCharacter(cursor))
+  ) {
     return { ok: false, error: 'invalid_cursor' }
   }
 
@@ -3618,6 +3745,39 @@ async function handleServerClockTickAreas(
   res.status(200).json({ ok: true, clock })
 }
 
+async function handleFounderCovenantReviewQueue(
+  req: VercelRequest,
+  res: VercelResponse,
+  rawIntent: unknown,
+): Promise<void> {
+  if (!hasServerClockAuthority(req)) {
+    res.status(founderCovenantReviewQueueStatus('server_clock_unauthorized')).json({
+      ok: false,
+      error: founderCovenantReviewQueueMessage('server_clock_unauthorized'),
+      code: 'server_clock_unauthorized',
+    })
+    return
+  }
+
+  const intent = normalizeFounderCovenantReviewQueueIntent(rawIntent)
+  if (!intent.ok) {
+    res.status(founderCovenantReviewQueueStatus(intent.error)).json({
+      ok: false,
+      error: founderCovenantReviewQueueMessage(intent.error),
+      code: intent.error,
+    })
+    return
+  }
+
+  const founderCovenantReviewQueue = await scanFounderCovenantReviewQueue(
+    new Date(),
+    intent.limit,
+    intent.pages,
+    intent.cursor,
+  )
+  res.status(200).json({ ok: true, founderCovenantReviewQueue })
+}
+
 async function tickServerClockAreas(
   now: Date,
   limit: number,
@@ -3661,6 +3821,212 @@ async function tickServerClockAreas(
     hasMore,
     results,
   }
+}
+
+async function scanFounderCovenantReviewQueue(
+  now: Date,
+  limit: number,
+  pages: number,
+  cursor?: string,
+): Promise<FounderCovenantReviewQueueDashboard> {
+  const items: FounderCovenantReviewQueueItem[] = []
+  const results: FounderCovenantReviewQueueScanResult[] = []
+  let pagesScanned = 0
+  let hasMore = false
+  let nextCursor: string | undefined = cursor
+
+  for (let page = 0; page < pages; page += 1) {
+    const batch = await list({
+      prefix: 'reality-areas/',
+      limit,
+      ...(nextCursor ? { cursor: nextCursor } : {}),
+    })
+    pagesScanned += 1
+    for (const blob of batch.blobs) {
+      const result = await founderCovenantReviewQueueAreaBlob(blob, now)
+      results.push({
+        citizenId: result.citizenId,
+        areaId: result.areaId,
+        status: result.status,
+        updatedAt: result.updatedAt,
+        transactionsAdded: result.transactionsAdded,
+      })
+      if (result.item) items.push(result.item)
+    }
+
+    hasMore = Boolean(batch.hasMore)
+    nextCursor = typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : undefined
+    if (!hasMore || !nextCursor) break
+  }
+
+  const caughtUp = results.filter((result) => result.status === 'caught_up').length
+  const current = results.filter((result) => result.status === 'current').length
+  const sortedItems = [...items].sort(compareFounderCovenantReviewQueueItems)
+  return {
+    generatedAt: now.toISOString(),
+    evidenceOnly: true,
+    automationEnabled: false,
+    executionEnabled: false,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    approvalWorkflowEnabled: false,
+    limit,
+    pages,
+    pagesScanned,
+    cursor: cursor ?? null,
+    nextCursor: nextCursor ?? null,
+    scanned: results.length,
+    caughtUp,
+    current,
+    failed: results.length - caughtUp - current,
+    hasMore,
+    totals: founderCovenantReviewQueueTotals(sortedItems),
+    items: sortedItems,
+    results,
+  }
+}
+
+async function founderCovenantReviewQueueAreaBlob(
+  blob: { pathname?: string; downloadUrl?: string },
+  now: Date,
+): Promise<FounderCovenantReviewQueueScanResult & { item: FounderCovenantReviewQueueItem | null }> {
+  const citizenId = citizenIdFromAreaStatePath(blob.pathname)
+  if (!citizenId || !blob.downloadUrl) {
+    return founderCovenantReviewQueueAreaResult(null, null, 'invalid', null, 0, null)
+  }
+
+  try {
+    const response = await fetch(blob.downloadUrl)
+    if (!response.ok) return founderCovenantReviewQueueAreaResult(citizenId, null, 'unavailable', null, 0, null)
+    const value = await response.json() as unknown
+    if (!isFounderAreaState(value, citizenId)) {
+      return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
+    }
+
+    const state = normalizeAreaCitizens(value)
+    const previousUpdatedAt = state.updatedAt
+    const previousTransactionCount = state.transactions.length
+    const next = await catchUpPersistedAreaState(citizenId, state, now)
+    const transactionsAdded = Math.max(0, next.transactions.length - previousTransactionCount)
+    const status: ServerClockAreaTickStatus = next.updatedAt === previousUpdatedAt && transactionsAdded === 0
+      ? 'current'
+      : 'caught_up'
+    return founderCovenantReviewQueueAreaResult(
+      citizenId,
+      next.areaId,
+      status,
+      next.updatedAt,
+      transactionsAdded,
+      founderCovenantReviewQueueItem(next, status, transactionsAdded),
+    )
+  } catch {
+    return founderCovenantReviewQueueAreaResult(citizenId, null, 'unavailable', null, 0, null)
+  }
+}
+
+function founderCovenantReviewQueueAreaResult(
+  citizenId: string | null,
+  areaId: string | null,
+  status: ServerClockAreaTickStatus,
+  updatedAt: string | null,
+  transactionsAdded: number,
+  item: FounderCovenantReviewQueueItem | null,
+): FounderCovenantReviewQueueScanResult & { item: FounderCovenantReviewQueueItem | null } {
+  return { citizenId, areaId, status, updatedAt, transactionsAdded, item }
+}
+
+function founderCovenantReviewQueueItem(
+  state: FounderAreaState,
+  scanStatus: ServerClockAreaTickStatus,
+  transactionsAdded: number,
+): FounderCovenantReviewQueueItem {
+  const review = state.founderCovenant
+  return {
+    areaId: state.areaId,
+    areaLabel: state.claim.label,
+    founderCitizenId: state.founderCitizenId,
+    founderNumber: state.founderNumber,
+    updatedAt: state.updatedAt,
+    checkedAt: review.activityReview.checkedAt,
+    lastReviewAt: review.reviewSchedule.lastReviewAt,
+    nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
+    nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
+    overdue: review.reviewSchedule.overdue,
+    covenantStatus: review.status,
+    nextAction: review.nextAction,
+    manualReviewRequired: review.manualReviewRequired,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    activityReview: { ...review.activityReview },
+    reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
+    signalCounts: founderCovenantReviewSignalCounts(review.signals),
+    signalKinds: review.signals.map((signal) => signal.kind),
+    recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
+    pendingApprovalKinds: [...review.reviewQueue.pendingApprovalKinds],
+    pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
+    blockerCount: review.reviewQueue.blockerCount,
+    scanStatus,
+    transactionsAdded,
+  }
+}
+
+function founderCovenantReviewSignalCounts(
+  signals: FounderAreaCovenantSignal[],
+): FounderCovenantReviewQueueSignalCounts {
+  return {
+    total: signals.length,
+    info: signals.filter((signal) => signal.severity === 'info').length,
+    warning: signals.filter((signal) => signal.severity === 'warning').length,
+    critical: signals.filter((signal) => signal.severity === 'critical').length,
+  }
+}
+
+function founderCovenantReviewQueueTotals(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueDashboard['totals'] {
+  return {
+    founders: items.length,
+    active: items.filter((item) => item.activityReview.active).length,
+    useful: items.filter((item) => item.activityReview.useful).length,
+    building: items.filter((item) => item.activityReview.building).length,
+    staffed: items.filter((item) => item.activityReview.staffed).length,
+    indebted: items.filter((item) => item.activityReview.indebted).length,
+    hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
+    atRisk: items.filter((item) => item.activityReview.atRisk).length,
+    manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
+    overdue: items.filter((item) => item.overdue).length,
+    pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
+    pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
+    blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+  }
+}
+
+function compareFounderCovenantReviewQueueItems(
+  left: FounderCovenantReviewQueueItem,
+  right: FounderCovenantReviewQueueItem,
+): number {
+  return founderCovenantReviewQueuePriority(right) - founderCovenantReviewQueuePriority(left) ||
+    left.activityReview.score - right.activityReview.score ||
+    left.founderNumber - right.founderNumber
+}
+
+function founderCovenantReviewQueuePriority(item: FounderCovenantReviewQueueItem): number {
+  let priority = 0
+  if (item.manualReviewRequired) priority += 120
+  if (item.overdue) priority += 100
+  if (item.activityReview.hospitalized) priority += 90
+  if (item.activityReview.atRisk) priority += 70
+  if (item.activityReview.indebted) priority += 50
+  if (!item.activityReview.active) priority += 40
+  if (!item.activityReview.useful) priority += 30
+  if (!item.activityReview.building) priority += 20
+  if (!item.activityReview.staffed) priority += 20
+  priority += item.signalCounts.critical * 20
+  priority += item.signalCounts.warning * 10
+  priority += item.reviewQueue.pendingApprovalCount * 15
+  priority += item.reviewQueue.pendingNotificationCount * 5
+  priority += item.blockerCount
+  return priority
 }
 
 async function tickServerClockAreaBlob(
@@ -3729,6 +4095,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET' && intentType === 'tickAreas') {
     try {
       await handleServerClockTickAreas(req, res, rawIntent)
+    } catch {
+      res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
+    }
+    return
+  }
+  if (intentType === 'founderCovenantReviewQueue') {
+    try {
+      await handleFounderCovenantReviewQueue(req, res, rawIntent)
     } catch {
       res.status(500).json({ ok: false, error: 'Reality area authority is briefly unavailable.' })
     }
@@ -4984,6 +5358,26 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
   }
 }
 
+function founderCovenantReviewQueueStatus(error: FounderCovenantReviewQueueError): number {
+  if (error === 'server_clock_unauthorized') return 403
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function founderCovenantReviewQueueMessage(error: FounderCovenantReviewQueueError): string {
+  switch (error) {
+    case 'server_clock_unauthorized':
+      return 'Founder covenant review queue is reserved for server operators.'
+    case 'invalid_limit':
+      return 'Founder covenant review queue limit must be between 1 and 100.'
+    case 'invalid_pages':
+      return 'Founder covenant review queue pages must be between 1 and 5.'
+    case 'invalid_cursor':
+      return 'Founder covenant review queue cursor is invalid.'
+    default:
+      return 'Invalid founder covenant review queue intent.'
+  }
+}
+
 function disabledSettlementStatus(): number {
   return 403
 }
@@ -5062,6 +5456,17 @@ function readServerClockOrBodyIntent(req: VercelRequest): unknown {
     const cursor = field(req.query, 'cursor')
     return {
       type: 'tickAreas',
+      ...(limit ? { limit: Number(limit) } : {}),
+      ...(pages ? { pages: Number(pages) } : {}),
+      ...(cursor ? { cursor } : {}),
+    }
+  }
+  if (req.method === 'GET' && field(req.query, 'review') === 'founderCovenantQueue') {
+    const limit = field(req.query, 'limit')
+    const pages = field(req.query, 'pages')
+    const cursor = field(req.query, 'cursor')
+    return {
+      type: 'founderCovenantReviewQueue',
       ...(limit ? { limit: Number(limit) } : {}),
       ...(pages ? { pages: Number(pages) } : {}),
       ...(cursor ? { cursor } : {}),

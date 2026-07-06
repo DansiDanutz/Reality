@@ -7,6 +7,7 @@ import handler, {
   normalizeBuildBusinessIntent,
   normalizeBuyInsuranceIntent,
   normalizeClaimAreaIntent,
+  normalizeFounderCovenantReviewQueueIntent,
   normalizeHireWorkerIntent,
   normalizeRecordCovenantReviewIntent,
   normalizeRefreshAreaIntent,
@@ -453,6 +454,35 @@ describe('reality area authority API', () => {
       .toEqual({ ok: false, error: 'invalid_cursor' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', citizenId: CITIZEN_ID }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
+  })
+
+  test('normalizes founder covenant review queue scans with bounded operator pagination', () => {
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue' }))
+      .toEqual({ ok: true, limit: 25, pages: 1 })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', limit: 2 }))
+      .toEqual({ ok: true, limit: 2, pages: 1 })
+    expect(normalizeFounderCovenantReviewQueueIntent({
+      type: 'founderCovenantReviewQueue',
+      limit: 2,
+      pages: 3,
+      cursor: 'page-cursor-2',
+    })).toEqual({ ok: true, limit: 2, pages: 3, cursor: 'page-cursor-2' })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', limit: 0 }))
+      .toEqual({ ok: false, error: 'invalid_limit' })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', limit: 101 }))
+      .toEqual({ ok: false, error: 'invalid_limit' })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', pages: 0 }))
+      .toEqual({ ok: false, error: 'invalid_pages' })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', pages: 6 }))
+      .toEqual({ ok: false, error: 'invalid_pages' })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', cursor: '' }))
+      .toEqual({ ok: false, error: 'invalid_cursor' })
+    expect(normalizeFounderCovenantReviewQueueIntent({ type: 'founderCovenantReviewQueue', cursor: `bad\ncursor` }))
+      .toEqual({ ok: false, error: 'invalid_cursor' })
+    expect(normalizeFounderCovenantReviewQueueIntent({
+      type: 'founderCovenantReviewQueue',
+      citizenId: CITIZEN_ID,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes repayDebt without accepting client-controlled debt or creditor fields', () => {
@@ -2918,6 +2948,193 @@ describe('reality area authority API', () => {
       error: 'Invalid tickAreas intent.',
     })
     expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('founder covenant review queue rejects requests without operator authority before scanning areas', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'server_clock_unauthorized',
+      error: 'Founder covenant review queue is reserved for server operators.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('founder covenant review queue summarizes manual review signals without enabling enforcement', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = {
+      ...fragileFounder,
+      updatedAt: '2026-07-14T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-14T07:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-queue-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const queue = (res.body as {
+      ok: true
+      founderCovenantReviewQueue: {
+        items: { reviewQueue: { automationEnabled: boolean; executionEnabled: boolean } }[]
+      }
+    }).founderCovenantReviewQueue
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(queue).toMatchObject({
+      generatedAt: '2026-07-14T08:00:00.000Z',
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      approvalWorkflowEnabled: false,
+      scanned: 1,
+      caughtUp: 1,
+      current: 0,
+      failed: 0,
+      totals: {
+        founders: 1,
+        active: 0,
+        useful: 0,
+        building: 0,
+        staffed: 0,
+        indebted: 0,
+        hospitalized: 1,
+        atRisk: 1,
+        manualReviewRequired: 1,
+        overdue: 1,
+        pendingApprovals: 2,
+        pendingNotifications: 1,
+        blockers: 5,
+      },
+      results: [{
+        citizenId: CITIZEN_ID,
+        areaId: 'founder-area-0012',
+        status: 'caught_up',
+        updatedAt: '2026-07-14T08:00:00.000Z',
+        transactionsAdded: 1,
+      }],
+    })
+    expect(queue.items).toHaveLength(1)
+    expect(queue.items[0]).toMatchObject({
+      areaId: 'founder-area-0012',
+      areaLabel: 'Bucharest Founder Block',
+      founderCitizenId: CITIZEN_ID,
+      founderNumber: 12,
+      updatedAt: '2026-07-14T08:00:00.000Z',
+      checkedAt: '2026-07-14T08:00:00.000Z',
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-13T03:00:00.000Z',
+      overdue: true,
+      covenantStatus: 'manual_review',
+      nextAction: 'manual_review',
+      manualReviewRequired: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        active: false,
+        useful: false,
+        building: false,
+        staffed: false,
+        indebted: false,
+        hospitalized: true,
+        atRisk: true,
+        score: 10,
+      },
+      reviewQueue: {
+        evidenceOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+        nextStep: 'main_founder_approval',
+        pendingApprovalCount: 2,
+        pendingNotificationCount: 1,
+        blockerCount: 5,
+      },
+      signalCounts: {
+        total: 4,
+        warning: 3,
+        critical: 1,
+      },
+      signalKinds: ['founder_unavailable', 'no_business_built', 'essential_shortage', 'review_due'],
+      recommendedActionKinds: ['record_review', 'start_probation', 'recommend_replacement'],
+      pendingApprovalKinds: ['start_probation', 'recommend_replacement'],
+      pendingNotificationKinds: ['manual_review_required'],
+      blockerCount: 5,
+      scanStatus: 'caught_up',
+      transactionsAdded: 1,
+    })
+    expect(queue.items[0].reviewQueue.automationEnabled).toBe(false)
+    expect(queue.items[0].reviewQueue.executionEnabled).toBe(false)
+    expect(put).toHaveBeenCalledTimes(1)
+    const persisted = JSON.parse(vi.mocked(put).mock.calls[0][1] as string) as ReturnType<typeof withCitizen>
+    expect(persisted.founderCovenant.replacementEnabled).toBe(false)
+    expect(persisted.founderCovenant.waitlistHandoffEnabled).toBe(false)
+  })
+
+  test('founder covenant review queue resumes paginated scans with an opaque cursor', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([], 'blob://download', {
+        hasMore: true,
+        cursor: 'next-review-cursor',
+      }))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1', cursor: 'current-review-cursor' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(list).toHaveBeenCalledWith({
+      prefix: 'reality-areas/',
+      limit: 1,
+      cursor: 'current-review-cursor',
+    })
+    expect(res.body).toMatchObject({
+      ok: true,
+      founderCovenantReviewQueue: {
+        limit: 1,
+        pages: 1,
+        pagesScanned: 1,
+        cursor: 'current-review-cursor',
+        nextCursor: 'next-review-cursor',
+        scanned: 0,
+        caughtUp: 0,
+        current: 0,
+        failed: 0,
+        hasMore: true,
+        totals: {
+          founders: 0,
+          manualReviewRequired: 0,
+          overdue: 0,
+          pendingApprovals: 0,
+          pendingNotifications: 0,
+          blockers: 0,
+        },
+        items: [],
+        results: [],
+      },
+    })
     expect(put).not.toHaveBeenCalled()
   })
 
