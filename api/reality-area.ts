@@ -725,6 +725,7 @@ type BuildBusinessIntentError =
 type ApplyBuildBusinessError =
   | BuildBusinessIntentError
   | 'area_not_claimed'
+  | 'actor_unavailable'
   | 'business_id_taken'
   | 'business_saturated'
   | 'insufficient_funds'
@@ -3170,13 +3171,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'buildBusiness') {
-      const result = applyBuildBusinessIntent(existing, rawIntent, new Date())
+      const intent = normalizeBuildBusinessIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(buildBusinessStatus(intent.error)).json({
+          ok: false,
+          error: buildBusinessMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+
+      const now = new Date()
+      const stateForBuild = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      const result = applyBuildBusinessIntent(stateForBuild, { type: 'buildBusiness', ...intent }, now)
       if (!result.ok) {
         res.status(buildBusinessStatus(result.error)).json({
           ok: false,
           error: buildBusinessMessage(result.error),
           code: result.error,
-          state: existing,
+          state: stateForBuild,
         })
         return
       }
@@ -3302,6 +3316,8 @@ function applyBuildBusinessIntent(
   if (!state) return { ok: false, error: 'area_not_claimed' }
   const intent = normalizeBuildBusinessIntent(input)
   if (!intent.ok) return intent
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  if (!founder || founder.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
   if (state.businesses.some((business) => business.id === intent.businessId)) {
     return { ok: false, error: 'business_id_taken' }
   }
@@ -4104,7 +4120,7 @@ function buyInsuranceMessage(error: ApplyBuyInsuranceError): string {
 }
 
 function buildBusinessStatus(error: ApplyBuildBusinessError): number {
-  if (error === 'area_not_claimed') return 409
+  if (error === 'area_not_claimed' || error === 'actor_unavailable') return 409
   if (error === 'business_id_taken' || error === 'business_saturated') return 409
   if (error === 'insufficient_funds') return 402
   return error === 'unsupported_intent' ? 400 : 422
@@ -4114,6 +4130,8 @@ function buildBusinessMessage(error: ApplyBuildBusinessError): string {
   switch (error) {
     case 'area_not_claimed':
       return 'Area must be claimed before building.'
+    case 'actor_unavailable':
+      return 'Founder must be active before building.'
     case 'business_id_taken':
       return 'Business id is already used in this area.'
     case 'business_saturated':
