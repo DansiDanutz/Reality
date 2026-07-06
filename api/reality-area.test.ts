@@ -957,6 +957,58 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('advanceHour limits Sim Citizen purchases to business hourly capacity', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const hungry = withCitizen(
+      withCitizen(existingState(), 'founder-area-0012:sim-water', { needs: { hunger: 40 } }),
+      'founder-area-0012:sim-housing',
+      { needs: { hunger: 40 } },
+    )
+    const existing = withBusiness(hungry, {
+      id: 'food-1',
+      name: 'Small Food Shop',
+      kind: 'food',
+      price: 14,
+      cash: 0,
+      quality: 0.15,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://capacity-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const simWater = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    const simFood = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-food')
+    const simHousing = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-housing')
+    const purchases = body.state.transactions.slice(existing.transactions.length)
+      .filter((transaction) => transaction.kind === 'customer_purchase' && transaction.toId === 'food-1')
+    expect(purchases).toHaveLength(2)
+    expect(purchases.map((transaction) => transaction.fromId)).toEqual([
+      'founder-area-0012:sim-water',
+      'founder-area-0012:sim-food',
+    ])
+    expect(body.state.businesses[0]).toMatchObject({ id: 'food-1', cash: 28, quality: 0.15 })
+    expect(simWater?.money).toBe(86)
+    expect(simWater?.needs.hunger).toBe(41.25)
+    expect(simFood?.money).toBe(86)
+    expect(simFood?.needs.hunger).toBe(45.25)
+    expect(simHousing?.money).toBe(100)
+    expect(simHousing?.needs.hunger).toBe(36)
+  })
+
   test('advanceHour decays founder needs on the server clock', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))

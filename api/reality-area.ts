@@ -444,6 +444,14 @@ const SERVICE_EFFECTS: Record<Exclude<FounderAreaBusinessKind, 'insurance'>, Par
   housing: { energy: 35 },
   clinic: { health: 30 },
 }
+const BASE_SERVICE_CAPACITY_PER_HOUR: Record<FounderAreaBusinessKind, number> = {
+  water: 24,
+  food: 14,
+  housing: 8,
+  clinic: 6,
+  insurance: 8,
+}
+const STAFF_CAPACITY_MULTIPLIER = 0.75
 
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
@@ -1290,6 +1298,7 @@ function applySimCitizenHour(
   transactions: FounderAreaTransaction[],
 ): void {
   let purchaseSequence = 0
+  const capacityUsed = new Map<string, number>()
   for (const citizen of citizens) {
     if (citizen.kind !== 'sim') continue
     if (citizen.state.kind === 'hospitalized') {
@@ -1298,11 +1307,12 @@ function applySimCitizenHour(
     }
     decayNeeds(citizen)
     for (const serviceKind of serviceNeedsForCitizen(citizen)) {
-      const business = chooseServiceBusinessFromBusinesses(businesses, serviceKind)
+      const business = chooseAvailableServiceBusiness(businesses, serviceKind, citizens, capacityUsed)
       if (!business || citizen.money < business.price) continue
       citizen.money = roundMoney(citizen.money - business.price)
       business.cash = roundMoney(business.cash + business.price)
       applyServiceEffect(citizen, serviceKind, effectiveBusinessQuality(citizens, business))
+      reserveServiceCapacity(capacityUsed, business)
       purchaseSequence += 1
       transactions.push({
         id: `${areaId}:${now.getTime()}:sim-purchase:${citizen.id}:${serviceKind}:${business.id}:${purchaseSequence}`,
@@ -1319,6 +1329,29 @@ function applySimCitizenHour(
       hospitalizeCitizen(areaId, citizen, businesses, now, at, transactions)
     }
   }
+}
+
+function chooseAvailableServiceBusiness(
+  businesses: FounderAreaBusiness[],
+  kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
+  citizens: FounderAreaCitizen[],
+  capacityUsed: Map<string, number>,
+): FounderAreaBusiness | null {
+  const candidates = businesses
+    .filter((business) => business.kind === kind)
+    .filter((business) => hourlyServiceCapacity(citizens, business) > (capacityUsed.get(business.id) ?? 0))
+    .sort((a, b) => a.price - b.price || a.createdAt.localeCompare(b.createdAt))
+  return candidates[0] ?? null
+}
+
+function reserveServiceCapacity(capacityUsed: Map<string, number>, business: FounderAreaBusiness): void {
+  capacityUsed.set(business.id, (capacityUsed.get(business.id) ?? 0) + 1)
+}
+
+function hourlyServiceCapacity(citizens: FounderAreaCitizen[], business: FounderAreaBusiness): number {
+  const activeStaff = activeStaffCount(citizens, business)
+  const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * STAFF_CAPACITY_MULTIPLIER
+  return Math.floor(BASE_SERVICE_CAPACITY_PER_HOUR[business.kind] * staffMultiplier * effectiveBusinessQuality(citizens, business))
 }
 
 function cloneCitizen(citizen: FounderAreaCitizen): FounderAreaCitizen {
