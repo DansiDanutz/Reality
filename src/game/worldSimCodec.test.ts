@@ -34,6 +34,16 @@ const area = (): WorldArea => ({
     state: { kind: 'active' },
     insuranceBusinessId: 'ins1',
     insurancePaidUntil: 30_000,
+    heirCitizenId: 'heir1',
+  }, {
+    id: 'heir1',
+    name: 'Heir',
+    kind: 'real',
+    money: 1_000,
+    debt: 0,
+    needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    health: 100,
+    state: { kind: 'active' },
   }, {
     id: 'sim1',
     name: 'Demo Citizen',
@@ -168,8 +178,20 @@ describe('worldSim snapshot codec', () => {
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badInsurance }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const markerOnlyInsurance = area()
-    markerOnlyInsurance.citizens[1].insuranceBusinessId = 'ins1'
+    markerOnlyInsurance.citizens[2].insuranceBusinessId = 'ins1'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: markerOnlyInsurance }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const missingHeir = area()
+    missingHeir.citizens[0].heirCitizenId = 'missing'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: missingHeir }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const simHeir = area()
+    simHeir.citizens[0].heirCitizenId = 'sim1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: simHeir }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const selfHeir = area()
+    selfHeir.citizens[0].heirCitizenId = 'founder'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: selfHeir }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('accepts clinic and system hospital accounts as medical creditors', () => {

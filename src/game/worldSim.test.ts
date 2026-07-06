@@ -1619,6 +1619,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           jobBusinessId: 'food1',
           insuranceBusinessId: 'ins1',
           insurancePaidUntil: 3 * HOUR,
+          heirCitizenId: 'real-patient',
         }),
         sim('real-patient', {
           kind: 'real',
@@ -1689,6 +1690,13 @@ describe('advanceWorldArea — local real-time economy', () => {
           canBuyNow: false,
           blockers: ['already_insured'],
         },
+        estateProtection: {
+          enabled: false,
+          namedHeirCitizenId: 'real-patient',
+          namedHeirName: 'Sim real-patient',
+          protectedByInsurance: true,
+          status: 'disabled_until_death_enabled',
+        },
       },
       {
         id: 'real-patient',
@@ -1723,6 +1731,13 @@ describe('advanceWorldArea — local real-time economy', () => {
           canAfford: true,
           canBuyNow: false,
           blockers: ['actor_unavailable'],
+        },
+        estateProtection: {
+          enabled: false,
+          namedHeirCitizenId: null,
+          namedHeirName: null,
+          protectedByInsurance: false,
+          status: 'disabled_until_death_enabled',
         },
       },
     ])

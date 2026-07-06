@@ -119,6 +119,7 @@ function isWorldCitizen(value: unknown): value is WorldCitizen {
   if (value.jobBusinessId !== undefined && !isNonEmptyString(value.jobBusinessId)) return false
   if (value.insuranceBusinessId !== undefined && !isNonEmptyString(value.insuranceBusinessId)) return false
   if (value.insurancePaidUntil !== undefined && !isFiniteNumber(value.insurancePaidUntil)) return false
+  if (value.heirCitizenId !== undefined && !isNonEmptyString(value.heirCitizenId)) return false
   return true
 }
 
@@ -196,6 +197,10 @@ function hasValidAreaReferences(area: WorldArea): boolean {
       businesses.get(citizen.insuranceBusinessId)?.kind !== 'insurance'
     ) {
       return false
+    }
+    if (citizen.heirCitizenId !== undefined) {
+      const heir = citizens.get(citizen.heirCitizenId)
+      if (!heir || heir.kind !== 'real' || heir.id === citizen.id) return false
     }
   }
 

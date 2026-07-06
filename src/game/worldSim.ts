@@ -34,6 +34,7 @@ export interface WorldCitizen {
   jobBusinessId?: string
   insuranceBusinessId?: string
   insurancePaidUntil?: number
+  heirCitizenId?: string
 }
 
 export interface WorldBusiness {
@@ -318,6 +319,14 @@ export interface AreaInsuranceActionDashboard {
   blockers: AreaInsuranceActionBlocker[]
 }
 
+export interface AreaEstateProtectionDashboard {
+  enabled: false
+  namedHeirCitizenId: string | null
+  namedHeirName: string | null
+  protectedByInsurance: boolean
+  status: 'disabled_until_death_enabled'
+}
+
 export interface AreaCitizenDashboard {
   id: string
   name: string
@@ -337,6 +346,7 @@ export interface AreaCitizenDashboard {
   insuranceBusinessId?: string
   insuranceActive: boolean
   insuranceAction: AreaInsuranceActionDashboard
+  estateProtection: AreaEstateProtectionDashboard
 }
 
 export interface AreaTransactionDashboard {
@@ -913,6 +923,20 @@ function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): A
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, at),
     insuranceAction: insuranceActionDashboard(area, citizen, at),
+    estateProtection: estateProtectionDashboard(area, citizen, at),
+  }
+}
+
+function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaEstateProtectionDashboard {
+  const heir = citizen.heirCitizenId
+    ? area.citizens.find((candidate) => candidate.id === citizen.heirCitizenId && candidate.kind === 'real')
+    : undefined
+  return {
+    enabled: false,
+    namedHeirCitizenId: heir?.id ?? null,
+    namedHeirName: heir?.name ?? null,
+    protectedByInsurance: hasActiveInsurance(citizen, at),
+    status: 'disabled_until_death_enabled',
   }
 }
 
