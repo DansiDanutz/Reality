@@ -7,6 +7,7 @@ import {
   founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
+  founderCovenantNotificationDraftGateText,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
   founderCovenantReviewActionSummary,
@@ -474,6 +475,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     } as const
 
     expect(founderCovenantNotificationDraftText(draft)).toBe('Telegram / Main founder approval')
+    expect(founderCovenantNotificationDraftGateText(draft)).toBe('Main founder approval required / Delivery disabled')
     expect(founderCovenantNotificationDraftStatusLabel(draft)).toBe('Disabled')
   })
 

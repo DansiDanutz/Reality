@@ -451,6 +451,14 @@ export function founderCovenantNotificationDraftText(draft: FounderCovenantNotif
   return `${channelLabel(draft.channel)} / ${founderCovenantAuthorityRoleLabel(draft.authorityGate.requiredRole)} approval`
 }
 
+export function founderCovenantNotificationDraftGateText(
+  draft: Pick<FounderCovenantNotificationDraft, 'authorityGate' | 'requiresApproval' | 'sendEnabled'>,
+): string {
+  const role = founderCovenantAuthorityRoleLabel(draft.authorityGate.requiredRole)
+  if (!draft.requiresApproval && draft.sendEnabled) return `${role} approval cleared / Delivery ready`
+  return `${role} approval required / Delivery disabled`
+}
+
 export function founderCovenantNotificationDraftStatusLabel(
   draft: Pick<FounderCovenantNotificationDraft, 'sendEnabled'>,
 ): string {

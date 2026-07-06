@@ -33,6 +33,7 @@ import {
   founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
+  founderCovenantNotificationDraftGateText,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
   founderCovenantReviewActionSummary,
@@ -290,6 +291,8 @@ export default function FounderAreaPanel() {
                     <div className="item-info">
                       <span className="item-name">{draft.title}</span>
                       <span className="item-desc">{founderCovenantNotificationDraftText(draft)}</span>
+                      <span className="item-desc">{draft.body}</span>
+                      <span className="item-desc">{founderCovenantNotificationDraftGateText(draft)}</span>
                     </div>
                     <span className="founder-covenant-notification-status mono">
                       {founderCovenantNotificationDraftStatusLabel(draft)}

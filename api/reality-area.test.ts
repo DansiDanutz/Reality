@@ -2142,7 +2142,9 @@ describe('reality area authority API', () => {
     expect(missing.statusCode).toBe(409)
     expect(missing.body).toMatchObject({ ok: false, code: 'business_not_found' })
 
-    const fullState = withBusiness(existingState(), {
+    const fullState = withBusiness(withCitizen(existingState(), 'founder-area-0012:sim-food', {
+      needs: { hunger: 90 },
+    }), {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
