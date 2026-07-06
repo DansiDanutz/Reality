@@ -37,6 +37,29 @@ import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
 import {
+  type ConstructionProject,
+  completeConstructionProject,
+  createConstructionProject,
+  depositResources,
+  payPermit,
+  addConstructionLabor,
+  totalResourceCount,
+} from '../game/construction'
+import {
+  type CourierPackage,
+  courierRequirementMet,
+  shouldCreateCourierPackage,
+} from '../game/courierPackages'
+import {
+  type ResourceInventory,
+  type ResourceNode,
+  RESOURCE_META,
+  addResources,
+  formatResourceList,
+  freshResources,
+} from '../game/resources'
+import { DEFAULT_MAP_ANCHOR } from '../game/mapAnchor'
+import {
   challengesForDay,
   challengeProgress,
   challengeSetSummary,
@@ -56,7 +79,7 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | null
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
@@ -74,7 +97,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 6
+export const SAVE_VERSION = 7
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -86,6 +109,7 @@ export const SAVE_VERSION = 6
  *   v2 → v3: pets array (default [])
  *   v3 → v4: illness + lastIllnessRollAt
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
+ *   v6 → v7: courier packages + resource inventory + construction projects
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -138,6 +162,14 @@ export function migrateSave(persisted: unknown): GameState {
         }
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
+        if (state && !state.resources) state.resources = freshResources()
+        if (state && !state.resourceNodes) state.resourceNodes = []
+        if (state && !state.constructionProjects) state.constructionProjects = []
+        if (state && state.placingConstruction === undefined) state.placingConstruction = null
+        if (state && state.activeCourierPackage === undefined) state.activeCourierPackage = null
+        if (state && state.courierLastDay === undefined) state.courierLastDay = 0
+        if (state && !state.courierOpenedDays) state.courierOpenedDays = []
+        if (state && !state.completedCourierDays) state.completedCourierDays = []
         return state
 }
 
@@ -254,12 +286,21 @@ interface GameState {
   lastSeenAt: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
+  /** Construction resources gathered from the map. */
+  resources: ResourceInventory
+  /** Resource nodes discovered around the citizen's anchor. */
+  resourceNodes: ResourceNode[]
+  setResourceNodes: (nodes: ResourceNode[]) => void
+  /** Active build projects placed on the map before they become assets. */
+  constructionProjects: ConstructionProject[]
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
   pets: Pet[]
   /** ms timestamp each grocery id was last restocked — the spoilage clock */
   groceryRestockedAt: Record<string, number>
   /** Item awaiting a map click for placement */
   placing: ShopItem | null
+  /** Construction recipe awaiting a map click for placement. */
+  placingConstruction: 'starter-house' | null
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
@@ -288,6 +329,14 @@ interface GameState {
   dailyClaimed: string[]
   /** True once today's all-3-complete bonus has been granted. */
   dailyBonusClaimed: boolean
+  /** Daily courier package campaign state — one package per local day. */
+  activeCourierPackage: CourierPackage | null
+  courierLastDay: number
+  courierOpenedDays: number[]
+  completedCourierDays: number[]
+  openCourierPackage: () => void
+  completeCourierPackage: () => void
+  dismissCourierPackage: () => void
   /** Territorial progression: highest reach tier celebrated so far */
   reachTier: number
   /** Daily streak length (days). 0 before the first claim. See src/game/streak.ts */
@@ -345,6 +394,14 @@ interface GameState {
   openMarket: (focus?: ShopCategory) => void
   /** Open the Market filtered to items that restore a specific vital */
   openMarketForNeed: (need: NeedKey) => void
+  startGatherResource: (nodeId: string) => void
+  startPlacingConstruction: () => void
+  placeConstructionAt: (lat: number, lng: number) => void
+  cancelPlacingConstruction: () => void
+  depositConstructionResources: (projectId: string) => void
+  payConstructionPermit: (projectId: string) => void
+  startConstructionWork: (projectId: string) => void
+  completeConstructionIfReady: (projectId: string) => void
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
@@ -423,9 +480,13 @@ const FRESH = {
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
+  resources: freshResources(),
+  resourceNodes: [] as ResourceNode[],
+  constructionProjects: [] as ConstructionProject[],
   pets: [] as Pet[],
   groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
+  placingConstruction: null as 'starter-house' | null,
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
@@ -442,6 +503,10 @@ const FRESH = {
   dailyCounters: { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 },
   dailyClaimed: [] as string[],
   dailyBonusClaimed: false,
+  activeCourierPackage: null as CourierPackage | null,
+  courierLastDay: 0,
+  courierOpenedDays: [] as number[],
+  completedCourierDays: [] as number[],
   reachTier: 1,
   streakLength: 0,
   streakLastClaimDay: 0,
@@ -529,6 +594,36 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
     hasAvatar: !!s.citizen?.avatarUrl,
     activity: s.activity,
     needs: s.needs,
+  }
+}
+
+function citizenCourierDay(citizen: Citizen, todayDay: number, anchorLat?: number, anchorLng?: number): number {
+  const createdDay = dayIndexOf(citizen.createdAt, anchorLat, anchorLng)
+  return Math.max(1, todayDay - createdDay + 1)
+}
+
+function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'assets'>) {
+  return {
+    timesEaten: s.timesEaten,
+    sawStreetMode: s.sawStreetMode,
+    resources: s.resources,
+    constructionProjects: s.constructionProjects,
+    hasHome: s.assets.some((asset) => asset.kind === 'home'),
+  }
+}
+
+function completeConstructionForState(
+  s: Pick<GameState, 'constructionProjects' | 'assets'>,
+  projectId: string,
+): { constructionProjects: ConstructionProject[]; assets: PlacedAsset[]; asset: PlacedAsset | null } {
+  const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+  if (!project) return { constructionProjects: s.constructionProjects, assets: s.assets, asset: null }
+  const completed = completeConstructionProject(project)
+  if (!completed.asset) return { constructionProjects: s.constructionProjects, assets: s.assets, asset: null }
+  return {
+    constructionProjects: s.constructionProjects.filter((candidate) => candidate.id !== projectId),
+    assets: [...s.assets, completed.asset],
+    asset: completed.asset,
   }
 }
 
@@ -762,6 +857,12 @@ export const useGame = create<GameState>()(
         }
 
         const wasAway = now - from > 15 * 60_000
+        const completedSpecialActivity =
+          s.activity &&
+          (s.activity.kind === 'gather' || s.activity.kind === 'construction') &&
+          now >= s.activity.endsAt
+            ? s.activity
+            : null
         const out = liveRealtime(
           {
             needs: s.needs,
@@ -936,6 +1037,35 @@ export const useGame = create<GameState>()(
         // A little chaos, only during live play
         let needs = out.needs
         let money = out.money + wageBonusEarned
+        let resources = s.resources
+        let constructionProjects = s.constructionProjects
+        if (completedSpecialActivity?.kind === 'gather' && completedSpecialActivity.resourceKind && completedSpecialActivity.resourceAmount) {
+          const kind = completedSpecialActivity.resourceKind
+          const amount = completedSpecialActivity.resourceAmount
+          resources = addResources(resources, kind, amount)
+          log = note(log, `Gathered ${amount} ${RESOURCE_META[kind].label.toLowerCase()}.`)
+          if (!wasAway) toasts = withToast(toasts, `+${amount} ${RESOURCE_META[kind].label}`, 'gold')
+        }
+        if (completedSpecialActivity?.kind === 'construction' && completedSpecialActivity.projectId) {
+          const projectId = completedSpecialActivity.projectId
+          const project = constructionProjects.find((candidate) => candidate.id === projectId)
+          if (project) {
+            const minutes = completedSpecialActivity.laborMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
+            const worked = addConstructionLabor(project, minutes)
+            const projects = constructionProjects.map((candidate) => candidate.id === projectId ? worked : candidate)
+            const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, projectId)
+            constructionProjects = completed.constructionProjects
+            out.assets = completed.assets
+            if (completed.asset) {
+              track('first_home_placed')
+              log = note(log, `${completed.asset.name} completed from local materials. You have a door of your own.`)
+              if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} complete!`, 'achieve')
+            } else {
+              log = note(log, `Construction labor complete: ${minutes} minutes on ${project.name}.`)
+              if (!wasAway) toasts = withToast(toasts, `Construction labor +${minutes}m`, 'gold')
+            }
+          }
+        }
         // "Earned today" accumulator for the daily challenges — WORK income
         // only (wages + business income), not windfalls. Streak cash, lucky
         // moments, achievement bounties, and challenge rewards used to feed
@@ -1080,6 +1210,24 @@ export const useGame = create<GameState>()(
         const anchorLat = home ? home.lat : s.citizen.spawnLat
         const anchorLng = home ? home.lng : s.citizen.spawnLng
         const todayDay = dayIndexOf(now, anchorLat, anchorLng)
+        let activeCourierPackage = s.activeCourierPackage
+        let courierLastDay = s.courierLastDay
+        const courierDay = citizenCourierDay(s.citizen, todayDay, anchorLat, anchorLng)
+        const nextPackage = shouldCreateCourierPackage({
+          citizenAgeDay: courierDay,
+          localDay: todayDay,
+          courierLastDay,
+          completedDays: s.completedCourierDays,
+        })
+        if (nextPackage) {
+          activeCourierPackage = nextPackage
+          courierLastDay = todayDay
+          toasts = withToast(toasts, `Courier package day ${nextPackage.day} arrived.`, 'gold')
+          log = note(log, `Courier package arrived: ${nextPackage.title}.`)
+        } else if (courierLastDay !== todayDay && courierDay <= 10) {
+          courierLastDay = todayDay
+          activeCourierPackage = null
+        }
         const streakPrev: StreakState = { length: s.streakLength, lastClaimDay: s.streakLastClaimDay }
         const streakOut = computeStreakClaim(streakPrev, todayDay)
         if (streakOut) {
@@ -1262,6 +1410,8 @@ export const useGame = create<GameState>()(
           lastIllnessRollAt: out.lastIllnessRollAt,
           pets: out.pets,
           inventory: out.inventory,
+          resources,
+          constructionProjects,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
           achievementsClaimed: achievementsClaimed,
@@ -1277,6 +1427,8 @@ export const useGame = create<GameState>()(
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
+          activeCourierPackage,
+          courierLastDay,
           awayReport,
           celebration: celebration,
           celebrationQueue: celebrationQueue,
@@ -1318,11 +1470,223 @@ export const useGame = create<GameState>()(
         set({ hudLayout: { ...get().hudLayout, [id]: { ...get().hudLayout[id], ...patch } } }),
       setDockOrder: (order) => set({ hudDockOrder: order }),
       resetHudLayout: () => set({ hudLayout: {} }),
+      setResourceNodes: (nodes) => set({ resourceNodes: nodes }),
 
       setSavingsGoal: (target) => set({ savingsGoal: Math.max(0, Math.floor(target)), savingsGoalReached: false }),
 
       openMarket: (focus) => set({ marketFocus: focus ?? null, marketNeed: null, panel: 'shop' }),
       openMarketForNeed: (need) => set({ marketNeed: need, marketFocus: null, panel: 'shop' }),
+
+      openCourierPackage: () => {
+        const s = get()
+        const pkg = s.activeCourierPackage
+        if (!pkg || s.courierOpenedDays.includes(pkg.day)) return
+        set({
+          courierOpenedDays: [...s.courierOpenedDays, pkg.day],
+          log: note(s.log, `Courier package day ${pkg.day}: ${pkg.objective}`),
+        })
+      },
+
+      dismissCourierPackage: () => {
+        const s = get()
+        const pkg = s.activeCourierPackage
+        if (!pkg || s.courierOpenedDays.includes(pkg.day)) return
+        set({ courierOpenedDays: [...s.courierOpenedDays, pkg.day] })
+      },
+
+      completeCourierPackage: () => {
+        const s = get()
+        const pkg = s.activeCourierPackage
+        if (!pkg || s.completedCourierDays.includes(pkg.day)) return
+        if (!courierRequirementMet(pkg, courierSnapshotOf(s))) {
+          set({ toasts: withToast(s.toasts, `Package day ${pkg.day} is not ready yet.`, 'blocked') })
+          return
+        }
+        const prog = applyXp(s.level, s.xp, pkg.rewardXp)
+        set({
+          activeCourierPackage: null,
+          completedCourierDays: [...s.completedCourierDays, pkg.day],
+          courierOpenedDays: s.courierOpenedDays.includes(pkg.day) ? s.courierOpenedDays : [...s.courierOpenedDays, pkg.day],
+          money: s.money + pkg.rewardCash,
+          level: prog.level,
+          xp: prog.xp,
+          toasts: withToast(s.toasts, `Courier day ${pkg.day} complete: +${formatMoney(pkg.rewardCash)}, +${pkg.rewardXp} XP`, 'achieve'),
+          log: note(s.log, `Courier package complete: ${pkg.title} (+${formatMoney(pkg.rewardCash)}, +${pkg.rewardXp} XP).`),
+        })
+      },
+
+      startGatherResource: (nodeId) => {
+        const s = get()
+        if (s.activity) return
+        const node = s.resourceNodes.find((candidate) => candidate.id === nodeId)
+        if (!node) return
+        if (s.needs.energy < node.energyCost + 5 || s.health < 20) {
+          set({ toasts: withToast(s.toasts, `Too worn down to gather ${RESOURCE_META[node.kind].label.toLowerCase()}. Rest first.`, 'blocked') })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'gather',
+            startedAt: now,
+            endsAt: now + node.gatherMinutes * 60_000,
+            title: `Gather ${RESOURCE_META[node.kind].label}`,
+            resourceKind: node.kind,
+            resourceAmount: node.yieldAmount,
+          },
+          needs: applyEffects(s.needs, { energy: -node.energyCost, hygiene: -2 }),
+          panel: null,
+          log: note(s.log, `Started gathering ${RESOURCE_META[node.kind].label.toLowerCase()} at ${node.label}.`),
+        })
+      },
+
+      startPlacingConstruction: () => {
+        const s = get()
+        if (s.activity) return
+        set({
+          placingConstruction: 'starter-house',
+          placing: null,
+          panel: null,
+          log: note(s.log, 'Choose a spot on the map for your Starter House foundation.'),
+        })
+      },
+
+      placeConstructionAt: (lat, lng) => {
+        const s = get()
+        if (!s.placingConstruction) return
+        const center =
+          s.citizen?.spawnLat !== undefined
+            ? { lat: s.citizen.spawnLat, lng: s.citizen.spawnLng! }
+            : s.assets[0] ?? (s.citizen ? DEFAULT_MAP_ANCHOR : null)
+        if (center) {
+          const reach = reachOf(
+            s.level,
+            s.assets.filter((a) => a.kind === 'business').length,
+            s.assets.some((a) => a.kind === 'home'),
+            netWorthOf(s.money, s.inventory, s.assets),
+          )
+          const d = distanceKm(center.lat, center.lng, lat, lng)
+          if (d > reach.km) {
+            set({
+              toasts: withToast(s.toasts, `Beyond your reach — build in ${reach.label} first`, 'sky'),
+              log: note(s.log, `That foundation spot is ${Math.round(d)} km away — your reach is ${reach.label} (${reach.km} km).`),
+            })
+            return
+          }
+        }
+        const project = createConstructionProject(s.placingConstruction, lat, lng)
+        set({
+          constructionProjects: [...s.constructionProjects, project],
+          placingConstruction: null,
+          panel: 'construction',
+          log: note(s.log, `${project.name} foundation placed at ${lat.toFixed(2)}°, ${lng.toFixed(2)}°.`),
+          toasts: withToast(s.toasts, `${project.name} foundation placed. Gather materials to build it.`, 'gold'),
+        })
+      },
+
+      cancelPlacingConstruction: () => {
+        if (!get().placingConstruction) return
+        set({ placingConstruction: null, log: note(get().log, 'Construction placement cancelled.') })
+      },
+
+      depositConstructionResources: (projectId) => {
+        const s = get()
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const out = depositResources(project, s.resources)
+        const moved = totalResourceCount(out.deposited)
+        if (moved <= 0) {
+          set({ toasts: withToast(s.toasts, 'No matching construction materials to deposit yet.', 'blocked') })
+          return
+        }
+        const completed = completeConstructionForState({
+          constructionProjects: s.constructionProjects.map((candidate) => candidate.id === projectId ? out.project : candidate),
+          assets: s.assets,
+        }, projectId)
+        set({
+          resources: out.inventory,
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          panel: completed.asset ? 'assets' : s.panel,
+          log: note(s.log, completed.asset
+            ? `${completed.asset.name} completed from local materials. You have a door of your own.`
+            : `Deposited ${formatResourceList(out.deposited)} into ${project.name}.`),
+          toasts: withToast(s.toasts, completed.asset ? `${completed.asset.name} complete!` : `Deposited ${formatResourceList(out.deposited)}.`, completed.asset ? 'achieve' : 'gold'),
+        })
+        if (completed.asset) track('first_home_placed')
+      },
+
+      payConstructionPermit: (projectId) => {
+        const s = get()
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const paid = payPermit(project, s.money)
+        if (!paid.paid) {
+          set({ toasts: withToast(s.toasts, `Permit needs ${formatMoney(project.permitFee)}.`, 'blocked') })
+          return
+        }
+        const projects = s.constructionProjects.map((candidate) => candidate.id === projectId ? paid.project : candidate)
+        const completed = completeConstructionForState({ constructionProjects: projects, assets: s.assets }, projectId)
+        set({
+          money: paid.money,
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          panel: completed.asset ? 'assets' : s.panel,
+          log: note(s.log, completed.asset
+            ? `${completed.asset.name} completed after the permit cleared.`
+            : `Permit paid for ${project.name} (${formatMoney(project.permitFee)}).`),
+          toasts: withToast(s.toasts, completed.asset ? `${completed.asset.name} complete!` : `Permit paid for ${project.name}.`, completed.asset ? 'achieve' : 'gold'),
+        })
+        if (completed.asset) track('first_home_placed')
+      },
+
+      startConstructionWork: (projectId) => {
+        const s = get()
+        if (s.activity) return
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        if (s.needs.energy < 20 || s.health < 20) {
+          set({ toasts: withToast(s.toasts, 'Too worn down for construction work. Rest first.', 'blocked') })
+          return
+        }
+        const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
+        if (remaining <= 0) {
+          set({ toasts: withToast(s.toasts, 'Labor is already complete. Finish the remaining requirements.', 'sky') })
+          return
+        }
+        const laborMinutes = Math.min(60, remaining)
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'construction',
+            startedAt: now,
+            endsAt: now + laborMinutes * 60_000,
+            title: `Build ${project.name}`,
+            projectId,
+            laborMinutes,
+          },
+          needs: applyEffects(s.needs, { energy: -10, hygiene: -4 }),
+          panel: null,
+          log: note(s.log, `Started ${laborMinutes} minutes of construction labor on ${project.name}.`),
+        })
+      },
+
+      completeConstructionIfReady: (projectId) => {
+        const s = get()
+        const completed = completeConstructionForState(s, projectId)
+        if (!completed.asset) {
+          set({ toasts: withToast(s.toasts, 'Construction still needs materials, labor, or the permit.', 'blocked') })
+          return
+        }
+        set({
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          panel: 'assets',
+          toasts: withToast(s.toasts, `${completed.asset.name} complete!`, 'achieve'),
+          log: note(s.log, `${completed.asset.name} completed from local materials. You have a door of your own.`),
+        })
+        track('first_home_placed')
+      },
 
       // One tap, one dollar, half the water bar — hydration without friction
       quickDrink: () => {
@@ -1526,6 +1890,14 @@ export const useGame = create<GameState>()(
           set({ activity: null, log: note(s.log, `Left the stove — ${a.title ?? 'the meal'} went to waste.`) })
           return
         }
+        if (a.kind === 'gather') {
+          set({ activity: null, log: note(s.log, 'Stopped gathering before anything useful was carried back.') })
+          return
+        }
+        if (a.kind === 'construction') {
+          set({ activity: null, log: note(s.log, 'Stopped construction before this work block counted.') })
+          return
+        }
         // Leaving a shift early: pro-rata pay, no XP
         const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
         const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)))
@@ -1629,7 +2001,7 @@ export const useGame = create<GameState>()(
         const center =
           s.citizen?.spawnLat !== undefined
             ? { lat: s.citizen.spawnLat, lng: s.citizen.spawnLng! }
-            : s.assets[0] ?? null
+            : s.assets[0] ?? (s.citizen ? DEFAULT_MAP_ANCHOR : null)
         if (center) {
           const reach = reachOf(
             s.level,
