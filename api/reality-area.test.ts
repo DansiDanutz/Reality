@@ -499,10 +499,13 @@ describe('reality area authority API', () => {
     })
   })
 
-  test('service purchases move server money from founder to the chosen business', async () => {
+  test('service purchases move server money and improve founder needs', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
-    const existing = withBusiness(existingState(), {
+    const thirsty = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 40 },
+    })
+    const existing = withBusiness(thirsty, {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
@@ -553,7 +556,10 @@ describe('reality area authority API', () => {
 
     expect(accepted.statusCode).toBe(200)
     const body = accepted.body as { ok: true; state: ReturnType<typeof existingState> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
     expect(body.state.balance).toBe(199_998)
+    expect(founder?.money).toBe(199_998)
+    expect(founder?.needs.hydration).toBe(75)
     expect(body.state.businesses[0]).toMatchObject({ id: 'water-1', cash: 7 })
     expect(body.state.transactions.at(-1)).toEqual({
       id: 'founder-area-0012:1783314000000:customer-purchase:buyWater:water-1',
@@ -631,6 +637,33 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const hospitalizedState = withBusiness(withCitizen(existingState(), CITIZEN_ID, {
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+    }), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-service-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(hospitalizedState), { status: 200 })))
+    const unavailableFounder = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyWater' },
+      },
+    } as never, unavailableFounder as never)
+
+    expect(unavailableFounder.statusCode).toBe(409)
+    expect(unavailableFounder.body).toMatchObject({ ok: false, code: 'actor_unavailable' })
   })
 
   test('hireWorker staffs a server-owned business without letting the client set wages', async () => {

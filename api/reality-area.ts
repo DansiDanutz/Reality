@@ -171,6 +171,7 @@ type ServicePurchaseIntentError = 'unsupported_intent' | 'client_controlled_serv
 type ApplyServicePurchaseError =
   | ServicePurchaseIntentError
   | 'area_not_claimed'
+  | 'actor_unavailable'
   | 'service_not_available'
   | 'insufficient_funds'
 
@@ -1063,11 +1064,15 @@ function applyServicePurchaseIntent(
   const intent = normalizeServicePurchaseIntent(input)
   if (!intent.ok) return intent
 
+  const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
+
   const business = chooseServiceBusiness(state, intent.serviceKind)
   if (!business) return { ok: false, error: 'service_not_available' }
   if (state.balance < business.price) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
+  const nextBalance = roundMoney(state.balance - business.price)
   const transaction: FounderAreaTransaction = {
     id: `${state.areaId}:${now.getTime()}:customer-purchase:${intent.type}:${business.id}`,
     at,
@@ -1082,13 +1087,23 @@ function applyServicePurchaseIntent(
     ok: true,
     state: {
       ...state,
-      balance: roundMoney(state.balance - business.price),
+      balance: nextBalance,
       businesses: state.businesses.map((candidate) =>
         candidate.id === business.id
           ? { ...candidate, cash: roundMoney(candidate.cash + business.price) }
           : candidate
       ),
-      citizens: setFounderCitizenMoney(state, roundMoney(state.balance - business.price)),
+      citizens: state.citizens.map((citizen) => {
+        if (citizen.id !== actor.id) return citizen
+        const nextCitizen = {
+          ...citizen,
+          money: nextBalance,
+          needs: { ...citizen.needs },
+          state: { ...citizen.state },
+        }
+        applyServiceEffect(nextCitizen, intent.serviceKind)
+        return nextCitizen
+      }),
       transactions: [...state.transactions, transaction],
       updatedAt: at,
     },
@@ -1449,7 +1464,7 @@ function setFounderCitizenMoney(state: FounderAreaState, money: number): Founder
 }
 
 function servicePurchaseStatus(error: ApplyServicePurchaseError): number {
-  if (error === 'area_not_claimed' || error === 'service_not_available') return 409
+  if (error === 'area_not_claimed' || error === 'actor_unavailable' || error === 'service_not_available') return 409
   if (error === 'insufficient_funds') return 402
   return error === 'unsupported_intent' ? 400 : 422
 }
@@ -1458,6 +1473,8 @@ function servicePurchaseMessage(error: ApplyServicePurchaseError): string {
   switch (error) {
     case 'area_not_claimed':
       return 'Area must be claimed before buying services.'
+    case 'actor_unavailable':
+      return 'Founder must be active before buying services.'
     case 'service_not_available':
       return 'No local business can serve that need yet.'
     case 'insufficient_funds':
