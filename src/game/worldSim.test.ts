@@ -1676,11 +1676,15 @@ describe('advanceWorldArea — local real-time economy', () => {
       kind: 'food',
       name: DEFAULT_BUSINESS_BLUEPRINTS.food.name,
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost,
+      cashShortfall: 0,
       currentDemand: 12,
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
       founderCanAfford: true,
+      canBuildNow: true,
+      action: 'build_now',
+      blockers: [],
       licensed: true,
       saturated: false,
       estimatedHourlyRevenue: 168,
@@ -1691,13 +1695,52 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(insurance).toMatchObject({
       kind: 'insurance',
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.insurance.buildCost,
+      cashShortfall: 40_000,
       licenseSlots: 0,
       licensesRemaining: 0,
       founderCanAfford: false,
+      canBuildNow: false,
+      action: 'grow_demand',
+      blockers: ['license_unavailable', 'insufficient_funds'],
       licensed: false,
       estimatedHourlyRevenue: 0,
       estimatedHourlyProfit: 0,
       estimatedPaybackHours: null,
+    })
+  })
+
+  test('first-build readiness explains claim, savings, and wait-for-demand states', () => {
+    const unclaimed = areaNeedsDashboard(area({
+      citizens: [sim('founder', { kind: 'real', money: 200_000 })],
+    }))
+    const unclaimedWater = unclaimed.firstBuild.find((rec) => rec.kind === 'water')!
+    expect(unclaimedWater).toMatchObject({
+      action: 'claim_area',
+      canBuildNow: false,
+      cashShortfall: DEFAULT_BUSINESS_BLUEPRINTS.water.buildCost,
+      blockers: ['area_unclaimed'],
+    })
+
+    const brokeFounder = claimedArea({
+      citizens: [sim('hungry', { needs: fullNeeds({ hunger: 45 }) })],
+    })
+    brokeFounder.citizens.find((citizen) => citizen.id === 'founder')!.money = 100
+    const brokeFood = areaNeedsDashboard(brokeFounder).firstBuild.find((rec) => rec.kind === 'food')!
+    expect(brokeFood).toMatchObject({
+      action: 'save_credits',
+      canBuildNow: false,
+      cashShortfall: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost - 100,
+      blockers: ['insufficient_funds'],
+    })
+
+    const quietArea = claimedArea()
+    const quietWater = areaNeedsDashboard(quietArea).firstBuild.find((rec) => rec.kind === 'water')!
+    expect(quietWater).toMatchObject({
+      action: 'wait_for_demand',
+      currentDemand: 0,
+      canBuildNow: true,
+      cashShortfall: 0,
+      blockers: [],
     })
   })
 

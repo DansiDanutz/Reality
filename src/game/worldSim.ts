@@ -110,18 +110,24 @@ export interface AdvanceWorldAreaResult {
 }
 
 export type FirstBuildPriority = 'critical' | 'high' | 'medium' | 'low'
+export type FirstBuildAction = 'claim_area' | 'build_now' | 'save_credits' | 'grow_demand' | 'wait_for_demand'
+export type FirstBuildBlocker = 'area_unclaimed' | 'insufficient_funds' | 'license_unavailable'
 
 export interface FirstBuildRecommendation {
   kind: WorldBusinessKind
   name: string
   priority: FirstBuildPriority
+  action: FirstBuildAction
   score: number
   buildCost: number
+  cashShortfall: number
   currentDemand: number
   currentSupply: number
   licenseSlots: number
   licensesRemaining: number
   founderCanAfford: boolean
+  canBuildNow: boolean
+  blockers: FirstBuildBlocker[]
   licensed: boolean
   saturated: boolean
   estimatedHourlyRevenue: number
@@ -622,19 +628,28 @@ function buildRecommendation(
   if (saturated) score -= 30
   const estimate = estimateFirstBuildEconomics(kind, demand, supply, licensed)
   const founderCanAfford = input.founderMoney !== undefined && input.founderMoney >= blueprint.buildCost
+  const cashShortfall = input.founderMoney === undefined
+    ? blueprint.buildCost
+    : roundMoney(Math.max(0, blueprint.buildCost - input.founderMoney))
+  const blockers = firstBuildBlockers({ licensed, founderMoney: input.founderMoney, founderCanAfford })
+  const canBuildNow = blockers.length === 0
 
   const priority = priorityOf({ demand, supply, essential, licensed, saturated })
   return {
     kind,
     name: blueprint.name,
     priority,
+    action: firstBuildAction({ canBuildNow, demand, licensed, founderMoney: input.founderMoney, founderCanAfford }),
     score: roundMoney(score),
     buildCost: blueprint.buildCost,
+    cashShortfall,
     currentDemand: demand,
     currentSupply: supply,
     licenseSlots,
     licensesRemaining,
     founderCanAfford,
+    canBuildNow,
+    blockers,
     licensed,
     saturated,
     ...estimate,
@@ -643,6 +658,14 @@ function buildRecommendation(
       : null,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
   }
+}
+
+function firstBuildBlockers(input: { licensed: boolean; founderMoney?: number; founderCanAfford: boolean }): FirstBuildBlocker[] {
+  const blockers: FirstBuildBlocker[] = []
+  if (input.founderMoney === undefined) blockers.push('area_unclaimed')
+  if (!input.licensed) blockers.push('license_unavailable')
+  if (input.founderMoney !== undefined && !input.founderCanAfford) blockers.push('insufficient_funds')
+  return blockers
 }
 
 function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
@@ -895,6 +918,21 @@ function priorityOf(input: { demand: number; supply: number; essential: boolean;
   if (input.demand >= 3 && input.licensed && !input.saturated) return 'high'
   if (input.demand > 0 && input.licensed && !input.saturated) return 'medium'
   return 'low'
+}
+
+function firstBuildAction(input: {
+  canBuildNow: boolean
+  demand: number
+  licensed: boolean
+  founderMoney?: number
+  founderCanAfford: boolean
+}): FirstBuildAction {
+  if (input.founderMoney === undefined) return 'claim_area'
+  if (!input.licensed) return 'grow_demand'
+  if (!input.founderCanAfford) return 'save_credits'
+  if (!input.canBuildNow) return 'save_credits'
+  if (input.demand <= 0) return 'wait_for_demand'
+  return 'build_now'
 }
 
 function recommendationReason(
