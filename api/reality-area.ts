@@ -1120,6 +1120,15 @@ interface FounderCovenantReviewQueueEconomicExposure {
   manualPayoutReviewRequired: true
 }
 
+interface FounderCovenantReviewQueueLatestReview {
+  reviewedAt: string
+  reviewerId: string
+  actionKind: 'record_review'
+  summary: string
+  evidenceOnly: true
+  automationEnabled: false
+}
+
 interface FounderCovenantReviewQueueItem {
   areaId: string
   areaLabel: string
@@ -1128,6 +1137,7 @@ interface FounderCovenantReviewQueueItem {
   updatedAt: string
   checkedAt: string
   lastReviewAt: string | null
+  latestReview: FounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -4312,6 +4322,7 @@ function founderCovenantReviewQueueItem(
     updatedAt: state.updatedAt,
     checkedAt: review.activityReview.checkedAt,
     lastReviewAt: review.reviewSchedule.lastReviewAt,
+    latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
     overdue: review.reviewSchedule.overdue,
@@ -4367,6 +4378,20 @@ function founderCovenantReviewSignalCounts(
     info: signals.filter((signal) => signal.severity === 'info').length,
     warning: signals.filter((signal) => signal.severity === 'warning').length,
     critical: signals.filter((signal) => signal.severity === 'critical').length,
+  }
+}
+
+function founderCovenantReviewQueueLatestReview(
+  review: FounderAreaCovenantLatestReview | null,
+): FounderCovenantReviewQueueLatestReview | null {
+  if (!review) return null
+  return {
+    reviewedAt: review.reviewedAt,
+    reviewerId: review.reviewerId,
+    actionKind: 'record_review',
+    summary: review.summary,
+    evidenceOnly: true,
+    automationEnabled: false,
   }
 }
 

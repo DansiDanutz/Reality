@@ -120,6 +120,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       updatedAt: '2026-07-06T04:00:00.000Z',
       checkedAt: '2026-07-06T04:00:00.000Z',
       lastReviewAt: null,
+      latestReview: null,
       nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
       nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
       overdue: true,

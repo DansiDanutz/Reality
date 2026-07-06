@@ -120,6 +120,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   statusLabel: string
   summary: string
   dateSummary: string
+  latestReviewText: string | null
   signalText: string
   priorityScore: number
   priorityReasons: string[]
@@ -796,11 +797,19 @@ export function founderCovenantOperatorQueueReviewRows(
       statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
+      latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
     }))
     .sort((a, b) => b.priorityScore - a.priorityScore || a.title.localeCompare(b.title))
+}
+
+export function founderCovenantOperatorQueueLatestReviewText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
+): string | null {
+  if (!item.latestReview) return null
+  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
 }
 
 export function founderCovenantOperatorQueuePriorityScore(

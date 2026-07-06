@@ -3531,6 +3531,83 @@ describe('reality area authority API', () => {
     expect(persisted.founderCovenant.waitlistHandoffEnabled).toBe(false)
   })
 
+  test('founder covenant review queue exposes latest evidence review context without execution authority', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const checkedAt = '2026-07-06T08:00:00.000Z'
+    const covenant = baseFounderCovenant(checkedAt)
+    const reviewed = {
+      ...existingState(),
+      updatedAt: checkedAt,
+      founderReviewHistory: [{
+        id: `founder-area-0012:${Date.parse(checkedAt)}:founder-review:telegram-operator:42424242`,
+        at: checkedAt,
+        reviewerId: 'telegram-operator:42424242',
+        actionKind: 'record_review',
+        summary: 'Reviewed contribution and ideas evidence.',
+        authorityGate: areaReviewerEvidenceGate(false),
+        decision: {
+          status: covenant.status,
+          nextAction: covenant.nextAction,
+          manualReviewRequired: covenant.manualReviewRequired,
+        },
+        signals: covenant.signals,
+        activityReview: covenant.activityReview,
+        reviewQueue: covenant.reviewQueue,
+        reviewInputs: covenant.reviewInputs,
+        stages: covenant.stages,
+        reviewChecklist: covenant.reviewChecklist,
+        manualActions: manualReviewActionSnapshots({ warning: true, probation: true, replacement: false }),
+        approvalRequests: covenant.approvalRequests.map(approvalRequestSnapshot),
+        reviewSchedule: covenant.reviewSchedule,
+      }],
+      founderCovenant: {
+        ...covenant,
+        latestReview: null,
+        reviewHistory: [],
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://reviewed-queue-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(reviewed), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const queue = (res.body as {
+      ok: true
+      founderCovenantReviewQueue: {
+        items: {
+          lastReviewAt: string
+          latestReview: {
+            reviewedAt: string
+            reviewerId: string
+            actionKind: string
+            summary: string
+            evidenceOnly: boolean
+            automationEnabled: boolean
+          } | null
+        }[]
+      }
+    }).founderCovenantReviewQueue
+    expect(queue.items[0]).toMatchObject({
+      lastReviewAt: checkedAt,
+      latestReview: {
+        reviewedAt: checkedAt,
+        reviewerId: 'telegram-operator:42424242',
+        actionKind: 'record_review',
+        summary: 'Reviewed contribution and ideas evidence.',
+        evidenceOnly: true,
+        automationEnabled: false,
+      },
+    })
+  })
+
   test('founder covenant review queue resumes paginated scans with an opaque cursor', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([], 'blob://download', {

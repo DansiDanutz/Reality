@@ -1382,6 +1382,43 @@ describe('runWorldServerCommand', () => {
     expect(savedRisk?.now).toBe(now)
   })
 
+  test('includes latest founder covenant review evidence in the review queue', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    const reviewAt = 1_000
+
+    const recorded = await runWorldServerCommand(repo, {
+      type: 'recordFounderCovenantReview',
+      areaId: 'area-1',
+      now: reviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      note: 'Reviewed contribution evidence before weekly approval.',
+      evidenceKinds: ['external_contribution'],
+    })
+    expect(recorded.ok).toBe(true)
+    if (!recorded.ok) throw new Error(`expected review to record: ${recorded.error}`)
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, reviewAt)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.items[0]).toMatchObject({
+      areaId: 'area-1',
+      lastReviewAt: reviewAt,
+      latestReview: {
+        reviewedAt: reviewAt,
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        evidenceOnly: true,
+        automationEnabled: false,
+      },
+    })
+    expect(result.founderCovenantReviewQueue.items[0].latestReview?.summary).toContain(
+      'Reviewed contribution evidence before weekly approval.',
+    )
+  })
+
   test('paginates the evidence-only founder covenant review queue with a stable cursor', async () => {
     const repo = new MemoryWorldRepo()
     const now = 1_000

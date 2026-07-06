@@ -37,6 +37,31 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).not.toContain('Replace')
   })
 
+  test('renders latest review evidence for previously reviewed founders', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantQueuePanel
+        queue={{
+          ...founderQueue(),
+          items: [founderQueueItem({
+            lastReviewAt: '2026-07-06T08:00:00.000Z',
+            latestReview: {
+              reviewedAt: '2026-07-06T08:00:00.000Z',
+              reviewerId: 'telegram-operator:42424242',
+              actionKind: 'record_review',
+              summary: 'Reviewed contribution and ideas evidence.',
+              evidenceOnly: true,
+              automationEnabled: false,
+            },
+          })],
+        }}
+      />,
+    )
+
+    expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).not.toContain('Approve')
+    expect(html).not.toContain('Replace')
+  })
+
   test('renders evidence recording controls only when an operator handler is provided', () => {
     const html = renderToStaticMarkup(
       <FounderCovenantQueuePanel canRecordReview onRecordReview={() => undefined} queue={founderQueue()} />,
@@ -276,6 +301,7 @@ function founderQueueItem(
     updatedAt: '2026-07-06T04:00:00.000Z',
     checkedAt: '2026-07-06T04:00:00.000Z',
     lastReviewAt: null,
+    latestReview: null,
     nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
     nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
     overdue: true,

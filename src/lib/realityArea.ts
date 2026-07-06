@@ -808,6 +808,15 @@ export interface RealityFounderCovenantReviewQueueEconomicExposure {
   manualPayoutReviewRequired: true
 }
 
+export interface RealityFounderCovenantReviewQueueLatestReview {
+  reviewedAt: string
+  reviewerId: string
+  actionKind: 'record_review'
+  summary: string
+  evidenceOnly: true
+  automationEnabled: false
+}
+
 export interface RealityFounderCovenantReviewQueueItem {
   areaId: string
   areaLabel: string
@@ -816,6 +825,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   updatedAt: string
   checkedAt: string
   lastReviewAt: string | null
+  latestReview: RealityFounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -2192,6 +2202,7 @@ function isRealityFounderCovenantReviewQueueItem(
     typeof value.updatedAt === 'string' &&
     typeof value.checkedAt === 'string' &&
     isNullableString(value.lastReviewAt) &&
+    (value.latestReview === null || isRealityFounderCovenantReviewQueueLatestReview(value.latestReview)) &&
     typeof value.nextWeeklyReviewAt === 'string' &&
     typeof value.nextMonthlyReviewAt === 'string' &&
     typeof value.overdue === 'boolean' &&
@@ -2215,6 +2226,18 @@ function isRealityFounderCovenantReviewQueueItem(
     typeof value.blockerCount === 'number' &&
     isRealityFounderCovenantReviewQueueScanStatus(value.scanStatus) &&
     typeof value.transactionsAdded === 'number'
+}
+
+function isRealityFounderCovenantReviewQueueLatestReview(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueLatestReview {
+  return isRecord(value) &&
+    typeof value.reviewedAt === 'string' &&
+    typeof value.reviewerId === 'string' &&
+    value.actionKind === 'record_review' &&
+    typeof value.summary === 'string' &&
+    value.evidenceOnly === true &&
+    value.automationEnabled === false
 }
 
 function isRealityFounderCovenantReviewQueueEconomicExposure(
