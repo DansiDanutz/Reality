@@ -1078,7 +1078,7 @@ export function recordFounderCovenantReview(
   const covenant = areaNeedsDashboard(area).founderCovenant
   const evidenceKinds = uniqueFounderCovenantManualEvidenceKinds(input.evidenceKinds ?? [])
   const entry: FounderCovenantReviewHistoryItem = {
-    id: `${area.id}:${input.reviewedAt}:founder-review:${reviewerId}`,
+    id: founderCovenantReviewId(area, input.reviewedAt, reviewerId),
     at: input.reviewedAt,
     reviewerId,
     actionKind: input.actionKind,
@@ -1108,6 +1108,16 @@ export function recordFounderCovenantReview(
     },
     entry,
   }
+}
+
+function founderCovenantReviewId(area: WorldArea, reviewedAt: number, reviewerId: string): string {
+  const baseId = `${area.id}:${reviewedAt}:founder-review:${reviewerId}`
+  const existingIds = new Set((area.founderReviewHistory ?? []).map((entry) => entry.id))
+  if (!existingIds.has(baseId)) return baseId
+
+  let sequence = 2
+  while (existingIds.has(`${baseId}:${sequence}`)) sequence += 1
+  return `${baseId}:${sequence}`
 }
 
 export function firstBuildGuidance(

@@ -1138,6 +1138,46 @@ describe('runWorldServerCommand', () => {
     expect(saved?.founderReviewHistory).toEqual(result.area.founderReviewHistory)
   })
 
+  test('persists repeated same-time covenant reviews with unique ids', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+
+    const first = await runWorldServerCommand(repo, {
+      type: 'recordClientFounderCovenantReview',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedReviewerId: 'reviewer-1',
+      payload: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        note: 'First review.',
+      },
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error(`expected first review to record: ${first.error}`)
+
+    const second = await runWorldServerCommand(repo, {
+      type: 'recordClientFounderCovenantReview',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedReviewerId: 'reviewer-1',
+      payload: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        note: 'Second review at the same server time.',
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(second.ok).toBe(true)
+    if (!second.ok) throw new Error(`expected second review to record: ${second.error}`)
+    expect(second.area.founderReviewHistory?.map((entry) => entry.id)).toEqual([
+      'area-1:1000:founder-review:reviewer-1',
+      'area-1:1000:founder-review:reviewer-1:2',
+    ])
+    expect(saved?.founderReviewHistory).toEqual(second.area.founderReviewHistory)
+  })
+
   test('rejects client-controlled founder covenant review payload state before loading', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)

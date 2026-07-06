@@ -20,6 +20,7 @@ import {
   effectiveBusinessQuality,
   licenseSlotsForPopulation,
   nextLicenseUnlockPopulation,
+  recordFounderCovenantReview,
   type WorldArea,
   type WorldBusiness,
   type WorldBusinessKind,
@@ -2303,6 +2304,35 @@ describe('advanceWorldArea — local real-time economy', () => {
       evidenceOnly: true,
       automationEnabled: false,
     })
+  })
+
+  test('records same-time founder covenant reviews with unique evidence ids', () => {
+    const reviewAt = 2 * HOUR
+    const start = claimedArea({ now: reviewAt })
+
+    const first = recordFounderCovenantReview(start, {
+      reviewedAt: reviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      note: 'First manual review.',
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error(`expected first review to record: ${first.error}`)
+
+    const second = recordFounderCovenantReview(first.area, {
+      reviewedAt: reviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      note: 'Second manual review at the same server time.',
+    })
+    expect(second.ok).toBe(true)
+    if (!second.ok) throw new Error(`expected second review to record: ${second.error}`)
+
+    expect(second.area.founderReviewHistory?.map((entry) => entry.id)).toEqual([
+      `area-1:${reviewAt}:founder-review:reviewer-1`,
+      `area-1:${reviewAt}:founder-review:reviewer-1:2`,
+    ])
+    expect(new Set(second.area.founderReviewHistory?.map((entry) => entry.id)).size).toBe(2)
   })
 
   test('dashboard turns overdue covenant review into a manual-review signal only', () => {
