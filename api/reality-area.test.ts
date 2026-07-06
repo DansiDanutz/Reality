@@ -3222,6 +3222,11 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     requiresApproval: true,
     automationEnabled: false,
     reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+    clientPayload: {
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes.',
+    },
   }, {
     kind: 'send_warning',
     label: 'Send warning',
@@ -3231,6 +3236,7 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     reason: input.warning
       ? 'Covenant signals suggest a manual founder warning.'
       : 'No manual warning is currently suggested by covenant signals.',
+    clientPayload: null,
   }, {
     kind: 'start_probation',
     label: 'Start probation',
@@ -3240,6 +3246,7 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     reason: input.probation
       ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
       : 'Founder score and signals do not suggest probation.',
+    clientPayload: null,
   }, {
     kind: 'recommend_replacement',
     label: 'Recommend replacement',
@@ -3249,6 +3256,7 @@ function manualReviewActions(input: { warning: boolean; probation: boolean; repl
     reason: input.replacement
       ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
       : 'Replacement is not suggested and waitlist handoff is disabled.',
+    clientPayload: null,
   }]
 }
 

@@ -16,7 +16,9 @@ import {
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
+  recordRealityFounderCovenantReview,
   realityAreaStateToWorldArea,
+  type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
   type RealityAreaState,
 } from '../../lib/realityArea'
@@ -126,6 +128,24 @@ export default function FounderAreaPanel() {
     }
   }
 
+  const recordCovenantReview = async (payload: RealityAreaCovenantReviewPayload | null) => {
+    const commandClient = commandClientRef.current
+    if (!payload || !commandClient || !area || !citizen) return
+    setBusy(true)
+    try {
+      const serverApplied = await recordRealityFounderCovenantReview(citizen, payload)
+      if (!serverApplied.ok) {
+        setLastEvent(serverApplied.error)
+        return
+      }
+      const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
+      setPanelState({ status: 'ready', result: next })
+      setLastEvent(next.ok ? 'Founder review evidence recorded.' : `Command failed: ${next.error}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <section className="panel founder-area" aria-label="Founder Area">
       <h2 className="panel-title">Founder Area</h2>
@@ -197,9 +217,20 @@ export default function FounderAreaPanel() {
                     <span className="item-name">{action.label}</span>
                     <span className="item-desc">{action.reason}</span>
                   </div>
-                  <span className={`founder-covenant-action-status mono ${action.recommended ? 'recommended' : 'manual'}`}>
-                    {founderCovenantManualActionStatusLabel(action)}
-                  </span>
+                  <div className="item-buy">
+                    <span className={`founder-covenant-action-status mono ${action.recommended ? 'recommended' : 'manual'}`}>
+                      {founderCovenantManualActionStatusLabel(action)}
+                    </span>
+                    {action.clientPayload && (
+                      <button
+                        className="btn small ghost"
+                        disabled={busy}
+                        onClick={() => void recordCovenantReview(action.clientPayload)}
+                      >
+                        Record
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

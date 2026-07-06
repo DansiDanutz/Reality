@@ -122,6 +122,12 @@ export interface RealityAreaCovenantReviewChecklistItem {
   evidence: string
 }
 
+export interface RealityAreaCovenantReviewPayload {
+  type: 'recordCovenantReview'
+  actionKind: 'record_review'
+  summary: string
+}
+
 export interface RealityAreaCovenantManualAction {
   kind: RealityAreaCovenantManualActionKind
   label: string
@@ -129,6 +135,7 @@ export interface RealityAreaCovenantManualAction {
   requiresApproval: true
   automationEnabled: false
   reason: string
+  clientPayload: RealityAreaCovenantReviewPayload | null
 }
 
 export interface RealityAreaCovenantReviewHistoryItem {
@@ -415,12 +422,6 @@ export interface RealityAreaAdvanceHourPayload {
   type: 'advanceHour'
 }
 
-export interface RealityAreaCovenantReviewPayload {
-  type: 'recordCovenantReview'
-  actionKind: RealityAreaCovenantManualActionKind
-  summary: string
-}
-
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
@@ -657,7 +658,10 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       checkedAt: parseInstant(review.activityReview.checkedAt),
     },
     reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
-    manualActions: review.manualActions.map((action) => ({ ...action })),
+    manualActions: review.manualActions.map((action) => ({
+      ...action,
+      clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
+    })),
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     signals: review.signals.map((signal) => ({
       ...signal,
@@ -975,7 +979,15 @@ function isRealityAreaCovenantManualAction(value: unknown): value is RealityArea
     typeof value.recommended === 'boolean' &&
     value.requiresApproval === true &&
     value.automationEnabled === false &&
-    typeof value.reason === 'string'
+    typeof value.reason === 'string' &&
+    (value.clientPayload === null || isRealityAreaCovenantReviewPayload(value.clientPayload))
+}
+
+function isRealityAreaCovenantReviewPayload(value: unknown): value is RealityAreaCovenantReviewPayload {
+  return isRecord(value) &&
+    value.type === 'recordCovenantReview' &&
+    value.actionKind === 'record_review' &&
+    typeof value.summary === 'string'
 }
 
 function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is RealityAreaCovenantReviewHistoryItem {

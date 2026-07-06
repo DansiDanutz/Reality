@@ -410,6 +410,12 @@ export interface FounderCovenantReviewChecklistItem {
   evidence: string
 }
 
+export interface FounderCovenantManualActionClientPayload {
+  type: 'recordCovenantReview'
+  actionKind: 'record_review'
+  summary: string
+}
+
 export interface FounderCovenantManualAction {
   kind: FounderCovenantManualActionKind
   label: string
@@ -417,6 +423,7 @@ export interface FounderCovenantManualAction {
   requiresApproval: true
   automationEnabled: false
   reason: string
+  clientPayload: FounderCovenantManualActionClientPayload | null
 }
 
 export interface FounderCovenantReviewHistoryItem {
@@ -1323,6 +1330,13 @@ function founderCovenantManualActions(input: {
       reason: input.status === 'unclaimed'
         ? 'Founder review starts after area claim.'
         : 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+      clientPayload: input.status === 'unclaimed'
+        ? null
+        : {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          summary: founderCovenantReviewSummary(review),
+        },
     },
     {
       kind: 'send_warning',
@@ -1333,6 +1347,7 @@ function founderCovenantManualActions(input: {
       reason: warningRecommended
         ? 'Covenant signals suggest a manual founder warning.'
         : 'No manual warning is currently suggested by covenant signals.',
+      clientPayload: null,
     },
     {
       kind: 'start_probation',
@@ -1343,6 +1358,7 @@ function founderCovenantManualActions(input: {
       reason: probationRecommended
         ? 'Reviewer may open probation, but the game will not remove the founder automatically.'
         : 'Founder score and signals do not suggest probation.',
+      clientPayload: null,
     },
     {
       kind: 'recommend_replacement',
@@ -1353,8 +1369,17 @@ function founderCovenantManualActions(input: {
       reason: replacementRecommended
         ? 'Founder is unavailable; replacement remains a manually approved later workflow.'
         : 'Replacement is not suggested and waitlist handoff is disabled.',
+      clientPayload: null,
     },
   ]
+}
+
+function founderCovenantReviewSummary(review: FounderCovenantActivityReview): string {
+  return `Covenant snapshot: score ${review.score}/100; active ${yesNo(review.active)}; useful ${yesNo(review.useful)}; building ${yesNo(review.building)}; staffed ${yesNo(review.staffed)}; debt ${yesNo(review.indebted)}; hospital ${yesNo(review.hospitalized)}; at risk ${yesNo(review.atRisk)}.`
+}
+
+function yesNo(value: boolean): 'yes' | 'no' {
+  return value ? 'yes' : 'no'
 }
 
 function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHistoryItem[] {

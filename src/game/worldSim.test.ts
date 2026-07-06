@@ -1677,6 +1677,11 @@ describe('advanceWorldArea — local real-time economy', () => {
         requiresApproval: true,
         automationEnabled: false,
         reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+        clientPayload: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          summary: 'Covenant snapshot: score 100/100; active yes; useful yes; building yes; staffed yes; debt no; hospital no; at risk no.',
+        },
       }, {
         kind: 'send_warning',
         label: 'Send warning',
@@ -1684,6 +1689,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         requiresApproval: true,
         automationEnabled: false,
         reason: 'No manual warning is currently suggested by covenant signals.',
+        clientPayload: null,
       }, {
         kind: 'start_probation',
         label: 'Start probation',
@@ -1691,6 +1697,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         requiresApproval: true,
         automationEnabled: false,
         reason: 'Founder score and signals do not suggest probation.',
+        clientPayload: null,
       }, {
         kind: 'recommend_replacement',
         label: 'Recommend replacement',
@@ -1698,6 +1705,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         requiresApproval: true,
         automationEnabled: false,
         reason: 'Replacement is not suggested and waitlist handoff is disabled.',
+        clientPayload: null,
       }],
       reviewHistory: [],
       signals: [],
