@@ -245,6 +245,7 @@ describe('Reality area client', () => {
           signals: [],
           activityReview: null,
           reviewChecklist: [],
+          reviewSchedule: null,
           evidenceOnly: true,
           automationEnabled: true,
         },

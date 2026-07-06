@@ -6,6 +6,7 @@ import {
   founderCovenantManualActionStatusLabel,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
+  founderCovenantReviewCadenceSummary,
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
@@ -102,6 +103,35 @@ describe('FounderAreaPanel covenant presenters', () => {
         evidence: 'Covenant signals need weekly/monthly review.',
       }],
     })).toBe('Snapshot score 50/100 · 1 manual · 1 watch')
+  })
+
+  test('summarizes captured covenant review cadence', () => {
+    const baseSchedule = {
+      lastReviewAt: null,
+      nextWeeklyReviewAt: 8 * 24 * 60 * 60 * 1000,
+      nextMonthlyReviewAt: 31 * 24 * 60 * 60 * 1000,
+      weeklyReviewDue: false,
+      monthlyReviewDue: false,
+      overdue: false,
+      automationEnabled: false,
+    } as const
+    expect(founderCovenantReviewCadenceSummary({ reviewSchedule: null })).toBe('Schedule unavailable')
+    expect(founderCovenantReviewCadenceSummary({ reviewSchedule: baseSchedule })).toBe('Ad hoc review captured')
+    expect(founderCovenantReviewCadenceSummary({
+      reviewSchedule: {
+        ...baseSchedule,
+        weeklyReviewDue: true,
+        overdue: true,
+      },
+    })).toBe('Weekly review captured')
+    expect(founderCovenantReviewCadenceSummary({
+      reviewSchedule: {
+        ...baseSchedule,
+        weeklyReviewDue: true,
+        monthlyReviewDue: true,
+        overdue: true,
+      },
+    })).toBe('Monthly review captured')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

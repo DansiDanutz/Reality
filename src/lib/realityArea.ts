@@ -162,6 +162,7 @@ export interface RealityAreaCovenantReviewHistoryItem {
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
+  reviewSchedule: RealityAreaCovenantReviewSchedule | null
 }
 
 export interface RealityAreaCovenantLatestReview {
@@ -174,6 +175,7 @@ export interface RealityAreaCovenantLatestReview {
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
+  reviewSchedule: RealityAreaCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
 }
@@ -734,6 +736,9 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         signals: review.latestReview.signals.map(realityCovenantSignalToWorldSignal),
         activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
         reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
+        reviewSchedule: review.latestReview.reviewSchedule === null
+          ? null
+          : mergeRealityAreaCovenantReviewSchedule(review.latestReview.reviewSchedule),
       },
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
@@ -770,6 +775,7 @@ function realityReviewHistoryToWorldReviewHistory(
     signals: entry.signals.map(realityCovenantSignalToWorldSignal),
     activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
     reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
+    reviewSchedule: entry.reviewSchedule === null ? null : mergeRealityAreaCovenantReviewSchedule(entry.reviewSchedule),
   }
 }
 
@@ -1144,7 +1150,8 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     value.signals.every(isRealityAreaCovenantSignal) &&
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
     Array.isArray(value.reviewChecklist) &&
-    value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem)
+    value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
+    (value.reviewSchedule === null || isRealityAreaCovenantReviewSchedule(value.reviewSchedule))
 }
 
 function isRealityAreaCovenantLatestReview(value: unknown): value is RealityAreaCovenantLatestReview {
@@ -1160,6 +1167,7 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
+    (value.reviewSchedule === null || isRealityAreaCovenantReviewSchedule(value.reviewSchedule)) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
 }

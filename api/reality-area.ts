@@ -191,6 +191,7 @@ interface FounderAreaCovenantReviewHistoryItem {
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
+  reviewSchedule: FounderAreaCovenantReviewSchedule | null
 }
 
 interface FounderAreaCovenantLatestReview {
@@ -203,6 +204,7 @@ interface FounderAreaCovenantLatestReview {
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
+  reviewSchedule: FounderAreaCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
 }
@@ -771,6 +773,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'founderCitizenId',
   'activityReview',
   'reviewChecklist',
+  'reviewSchedule',
   'checkedAt',
   'score',
   'replacementEnabled',
@@ -1464,6 +1467,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    reviewSchedule: latest.reviewSchedule ? { ...latest.reviewSchedule } : null,
     evidenceOnly: true,
     automationEnabled: false,
   }
@@ -1489,6 +1493,7 @@ function founderCovenantReviewHistoryItem(
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
+    reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
 }
 
@@ -2937,6 +2942,7 @@ function applyRecordCovenantReviewIntent(
     signals: review.signals.map(founderCovenantSignalSnapshot),
     activityReview: { ...review.activityReview },
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    reviewSchedule: { ...review.reviewSchedule },
   }
 
   return {

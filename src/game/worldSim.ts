@@ -449,6 +449,7 @@ export interface FounderCovenantReviewHistoryItem {
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
+  reviewSchedule: FounderCovenantReviewSchedule | null
 }
 
 export interface FounderCovenantLatestReview {
@@ -461,6 +462,7 @@ export interface FounderCovenantLatestReview {
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
+  reviewSchedule: FounderCovenantReviewSchedule | null
   evidenceOnly: true
   automationEnabled: false
 }
@@ -1503,6 +1505,7 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
+    reviewSchedule: latest.reviewSchedule ? { ...latest.reviewSchedule } : null,
     evidenceOnly: true,
     automationEnabled: false,
   }
@@ -1518,6 +1521,7 @@ function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryIte
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
       ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
+    reviewSchedule: legacyEntry.reviewSchedule ? { ...legacyEntry.reviewSchedule } : null,
   }
 }
 

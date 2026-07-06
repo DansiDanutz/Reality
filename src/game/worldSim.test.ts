@@ -1837,6 +1837,15 @@ describe('advanceWorldArea — local real-time economy', () => {
         }],
         activityReview: covenantActivitySnapshot(),
         reviewChecklist: covenantChecklistSnapshot(),
+        reviewSchedule: {
+          lastReviewAt,
+          nextWeeklyReviewAt: lastReviewAt + 7 * 24 * HOUR,
+          nextMonthlyReviewAt: lastReviewAt + 30 * 24 * HOUR,
+          weeklyReviewDue: true,
+          monthlyReviewDue: false,
+          overdue: true,
+          automationEnabled: false,
+        },
       }],
     })
 
@@ -1865,6 +1874,15 @@ describe('advanceWorldArea — local real-time economy', () => {
       }],
       activityReview: covenantActivitySnapshot(),
       reviewChecklist: covenantChecklistSnapshot(),
+      reviewSchedule: {
+        lastReviewAt,
+        nextWeeklyReviewAt: lastReviewAt + 7 * 24 * HOUR,
+        nextMonthlyReviewAt: lastReviewAt + 30 * 24 * HOUR,
+        weeklyReviewDue: true,
+        monthlyReviewDue: false,
+        overdue: true,
+        automationEnabled: false,
+      },
       evidenceOnly: true,
       automationEnabled: false,
     })
@@ -1895,6 +1913,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         signals: [],
         activityReview: null,
         reviewChecklist: [],
+        reviewSchedule: null,
       }],
     })
     start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'

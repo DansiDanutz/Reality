@@ -113,6 +113,16 @@ export function founderCovenantReviewSnapshotSummary(
   return `Snapshot score ${review.activityReview.score}/100 · ${manualItems} manual · ${watchItems} watch`
 }
 
+export function founderCovenantReviewCadenceSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'reviewSchedule'>,
+): string {
+  const schedule = review.reviewSchedule
+  if (!schedule) return 'Schedule unavailable'
+  if (schedule.monthlyReviewDue) return 'Monthly review captured'
+  if (schedule.weeklyReviewDue) return 'Weekly review captured'
+  return 'Ad hoc review captured'
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),

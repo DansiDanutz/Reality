@@ -427,6 +427,13 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      reviewSchedule: {
+        overdue: true,
+      },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       note: `${'x'.repeat(281)}`,
     })).toEqual({ ok: false, error: 'invalid_review_note' })
   })
@@ -2579,6 +2586,7 @@ describe('reality area authority API', () => {
           signals: unknown[]
           activityReview: unknown
           reviewChecklist: unknown[]
+          reviewSchedule: unknown
         }[]
       }
     }
@@ -2624,6 +2632,11 @@ describe('reality area authority API', () => {
         status: 'watch',
         evidence: 'Covenant signals need weekly/monthly review.',
       }]),
+      reviewSchedule: covenantReviewSchedule({
+        anchorAt: '2026-07-06T03:00:00.000Z',
+        checkedAt: '2026-07-06T08:00:00.000Z',
+        lastReviewAt: null,
+      }),
     }])
     expect(body.state.founderCovenant.reviewHistory).toEqual(body.state.founderReviewHistory)
     expect(body.state.founderCovenant.latestReview).toEqual({
@@ -2636,6 +2649,7 @@ describe('reality area authority API', () => {
       signals: body.state.founderReviewHistory[0].signals,
       activityReview: body.state.founderReviewHistory[0].activityReview,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
+      reviewSchedule: body.state.founderReviewHistory[0].reviewSchedule,
       evidenceOnly: true,
       automationEnabled: false,
     })
