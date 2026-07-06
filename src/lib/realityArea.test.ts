@@ -8,6 +8,7 @@ import {
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
   recordRealityFounderCovenantReview,
+  readRealityFounderCovenantOperatorQueue,
   readRealityFounderCovenantReviewQueue,
   realityAreaStateToWorldArea,
   refreshRealityFounderArea,
@@ -916,6 +917,41 @@ describe('Reality area client', () => {
       method: 'GET',
       headers: { Authorization: 'Bearer operator-token' },
     })
+  })
+
+  test('uses an operator-only request boundary for founder covenant review queues', async () => {
+    const queue = serverFounderCovenantReviewQueue()
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+
+    await expect(readRealityFounderCovenantOperatorQueue({
+      operatorToken: '  operator-token  ',
+      limit: 4,
+      pages: 2,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      founderCovenantReviewQueue: queue,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area?review=founderCovenantQueue&limit=4&pages=2', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer operator-token' },
+    })
+  })
+
+  test('keeps operator queue requests blocked without operator authority', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(readRealityFounderCovenantOperatorQueue({
+      operatorToken: '   ',
+      limit: 4,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'missing_operator_token',
+      error: 'Founder covenant review queue requires an operator token.',
+      code: 'server_clock_unauthorized',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   test('rejects malformed founder covenant review queue responses', async () => {

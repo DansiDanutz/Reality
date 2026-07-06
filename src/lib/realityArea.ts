@@ -960,6 +960,13 @@ export interface RealityFounderCovenantReviewQueueRequest {
   cursor?: string
 }
 
+export interface RealityFounderCovenantOperatorQueueRequest {
+  operatorToken?: string
+  limit?: number
+  pages?: number
+  cursor?: string
+}
+
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
 
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
@@ -1085,6 +1092,17 @@ export async function readRealityFounderCovenantReviewQueue(
   } catch {
     return { ok: false, reason: 'request_failed', error: 'Reality area server is unreachable.' }
   }
+}
+
+export async function readRealityFounderCovenantOperatorQueue(
+  request: RealityFounderCovenantOperatorQueueRequest,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityFounderCovenantReviewQueueResult> {
+  const { operatorToken, ...scan } = request
+  return readRealityFounderCovenantReviewQueue({
+    ...scan,
+    serverClockToken: operatorToken,
+  }, fetchImpl)
 }
 
 async function applyRealityAreaPayload(
