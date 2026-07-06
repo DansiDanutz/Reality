@@ -1365,6 +1365,23 @@ describe('runWorldServerCommand', () => {
       },
       signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
     })
+    expect(queue.items[0].reviewInputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'population_growth',
+        status: 'manual_needed',
+        manualEvidenceRequired: true,
+      }),
+      expect.objectContaining({
+        kind: 'external_contribution',
+        status: 'manual_needed',
+        manualEvidenceRequired: true,
+      }),
+    ]))
+    expect(queue.items[0].reviewChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'active', status: 'manual_review' }),
+      expect.objectContaining({ key: 'hospital', status: 'manual_review' }),
+      expect.objectContaining({ key: 'debt', status: 'watch' }),
+    ]))
     expect(queue.items[0].pendingApprovalRequests.map((request) => request.kind)).toEqual(
       queue.items[0].pendingApprovalKinds,
     )

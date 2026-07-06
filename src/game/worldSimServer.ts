@@ -15,6 +15,8 @@ import {
   type FounderCovenantManualEvidenceKind,
   type FounderCovenantNextAction,
   type FounderCovenantNotificationDraft,
+  type FounderCovenantReviewChecklistItem,
+  type FounderCovenantReviewInput,
   type FounderCovenantReviewQueue,
   type FounderCovenantSignalKind,
   type FounderCovenantStatus,
@@ -214,6 +216,8 @@ export interface WorldFounderCovenantReviewQueueItem {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: AreaNeedsDashboard['founderCovenant']['activityReview']
+  reviewInputs: readonly FounderCovenantReviewInput[]
+  reviewChecklist: readonly FounderCovenantReviewChecklistItem[]
   economicExposure: WorldFounderCovenantReviewQueueEconomicExposure
   reviewQueue: FounderCovenantReviewQueue
   signalCounts: WorldFounderCovenantReviewQueueSignalCounts
@@ -644,6 +648,8 @@ function founderCovenantReviewQueueItem(
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview: { ...review.activityReview },
+    reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(area, dashboard, founderCitizenId),
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
     signalCounts: founderCovenantReviewSignalCounts(review.signals),
@@ -738,6 +744,16 @@ function founderCovenantReviewQueueTotals(
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
   }
+}
+
+function founderCovenantReviewInputSnapshot(input: FounderCovenantReviewInput): FounderCovenantReviewInput {
+  return { ...input }
+}
+
+function founderCovenantReviewChecklistSnapshot(
+  item: FounderCovenantReviewChecklistItem,
+): FounderCovenantReviewChecklistItem {
+  return { ...item }
 }
 
 function founderCovenantApprovalRequestSnapshot(

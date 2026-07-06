@@ -28,6 +28,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Founder Review Queue')
     expect(html).toContain('Evidence only')
     expect(html).toContain('#0012 · Bucharest Founder Block')
+    expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
@@ -142,6 +143,31 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
         atRisk: true,
         score: 35,
       },
+      reviewInputs: [{
+        kind: 'population_growth',
+        label: 'Population growth',
+        status: 'manual_needed',
+        evidence: 'Invite quality and local population growth need manual proof until invite tracking exists.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'external_contribution',
+        label: 'External contribution',
+        status: 'manual_needed',
+        evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'ideas_feedback',
+        label: 'Ideas and feedback',
+        status: 'manual_needed',
+        evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }],
+      reviewChecklist: [{
+        key: 'active',
+        label: 'Active',
+        status: 'manual_review',
+        evidence: 'Founder is unavailable and needs manual review.',
+      }],
       economicExposure: {
         founderCash: 199_500,
         outstandingDebt: 350,

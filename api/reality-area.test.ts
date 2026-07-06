@@ -3419,6 +3419,8 @@ describe('reality area authority API', () => {
       founderCovenantReviewQueue: {
         items: {
           reviewQueue: { automationEnabled: boolean; executionEnabled: boolean }
+          reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
+          reviewChecklist: { key: string; status: string }[]
           pendingApprovalKinds: string[]
           pendingApprovalRequests: {
             kind: string
@@ -3542,6 +3544,23 @@ describe('reality area authority API', () => {
       scanStatus: 'caught_up',
       transactionsAdded: 1,
     })
+    expect(queue.items[0].reviewInputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'population_growth',
+        status: 'manual_needed',
+        manualEvidenceRequired: true,
+      }),
+      expect.objectContaining({
+        kind: 'external_contribution',
+        status: 'manual_needed',
+        manualEvidenceRequired: true,
+      }),
+    ]))
+    expect(queue.items[0].reviewChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'active', status: 'manual_review' }),
+      expect.objectContaining({ key: 'hospital', status: 'manual_review' }),
+      expect.objectContaining({ key: 'risk', status: 'manual_review' }),
+    ]))
     expect(queue.items[0].pendingApprovalRequests.map((request) => request.kind)).toEqual(
       queue.items[0].pendingApprovalKinds,
     )

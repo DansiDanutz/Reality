@@ -121,6 +121,8 @@ export interface FounderCovenantOperatorQueueReviewRow {
   summary: string
   dateSummary: string
   latestReviewText: string | null
+  checklistText: string
+  evidenceInputText: string
   approvalRequestText: string
   notificationDraftText: string
   signalText: string
@@ -800,6 +802,8 @@ export function founderCovenantOperatorQueueReviewRows(
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
+      checklistText: founderCovenantOperatorQueueChecklistText(item),
+      evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
@@ -814,6 +818,28 @@ export function founderCovenantOperatorQueueLatestReviewText(
 ): string | null {
   if (!item.latestReview) return null
   return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+}
+
+export function founderCovenantOperatorQueueChecklistText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewChecklist'>,
+): string {
+  if (item.reviewChecklist.length === 0) return 'none'
+  const manual = item.reviewChecklist.filter((entry) => entry.status === 'manual_review')
+  const watch = item.reviewChecklist.filter((entry) => entry.status === 'watch')
+  if (manual.length === 0 && watch.length === 0) return 'all met'
+  const parts: string[] = []
+  if (manual.length > 0) parts.push(`Manual: ${manual.map((entry) => entry.label).join(', ')}`)
+  if (watch.length > 0) parts.push(`Watch: ${watch.map((entry) => entry.label).join(', ')}`)
+  return parts.join(' · ')
+}
+
+export function founderCovenantOperatorQueueEvidenceInputText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewInputs'>,
+): string {
+  const manual = item.reviewInputs.filter((input) => input.manualEvidenceRequired || input.status === 'manual_needed')
+  if (manual.length > 0) return manual.map((input) => input.label).join(', ')
+  const watch = item.reviewInputs.filter((input) => input.status === 'watch')
+  return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'complete'
 }
 
 export function founderCovenantOperatorQueueApprovalRequestText(

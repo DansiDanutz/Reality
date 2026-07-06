@@ -1147,6 +1147,8 @@ interface FounderCovenantReviewQueueItem {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
+  reviewInputs: readonly FounderAreaCovenantReviewInput[]
+  reviewChecklist: readonly FounderAreaCovenantReviewChecklistItem[]
   economicExposure: FounderCovenantReviewQueueEconomicExposure
   reviewQueue: FounderAreaCovenantReviewQueue
   signalCounts: FounderCovenantReviewQueueSignalCounts
@@ -4344,6 +4346,8 @@ function founderCovenantReviewQueueItem(
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview: { ...review.activityReview },
+    reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(state),
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
     signalCounts: founderCovenantReviewSignalCounts(review.signals),

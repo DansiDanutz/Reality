@@ -1103,6 +1103,29 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with malformed review input evidence', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewInputs: serverFounderCovenantReviewQueue().items[0].reviewInputs.map((input, index) =>
+          index === 0 ? { ...input, kind: 'unknown_input' } : input
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable latest-review metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2891,6 +2914,8 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
       activityReview: review.activityReview,
+      reviewInputs: review.reviewInputs,
+      reviewChecklist: review.reviewChecklist,
       economicExposure: {
         founderCash: 199_650,
         outstandingDebt: 300,

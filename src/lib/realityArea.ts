@@ -835,6 +835,8 @@ export interface RealityFounderCovenantReviewQueueItem {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: RealityAreaCovenantReview['activityReview']
+  reviewInputs: readonly RealityAreaCovenantReviewInput[]
+  reviewChecklist: readonly RealityAreaCovenantReviewChecklistItem[]
   economicExposure: RealityFounderCovenantReviewQueueEconomicExposure
   reviewQueue: RealityAreaCovenantReviewQueue
   signalCounts: RealityFounderCovenantReviewQueueSignalCounts
@@ -2214,6 +2216,10 @@ function isRealityFounderCovenantReviewQueueItem(
     value.replacementEnabled === false &&
     value.waitlistHandoffEnabled === false &&
     isRealityAreaCovenantActivityReview(value.activityReview) &&
+    Array.isArray(value.reviewInputs) &&
+    value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
+    Array.isArray(value.reviewChecklist) &&
+    value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     isRealityFounderCovenantReviewQueueEconomicExposure(value.economicExposure) &&
     isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
     isRealityFounderCovenantReviewQueueSignalCounts(value.signalCounts) &&

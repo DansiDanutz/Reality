@@ -11,6 +11,8 @@ import {
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
   founderCovenantOperatorQueueApprovalRequestText,
+  founderCovenantOperatorQueueChecklistText,
+  founderCovenantOperatorQueueEvidenceInputText,
   founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
@@ -32,6 +34,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
+    expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
@@ -109,6 +113,12 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
+    )
+    expect(founderCovenantOperatorQueueChecklistText(manual)).toBe(
+      'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',
+    )
+    expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
+      'Population growth, External contribution, Ideas and feedback',
     )
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
@@ -327,6 +337,8 @@ function founderQueueItem(
       atRisk: true,
       score: 35,
     },
+    reviewInputs: founderReviewInputs(),
+    reviewChecklist: founderReviewChecklist(),
     economicExposure: {
       founderCash: 199_500,
       outstandingDebt: 350,
@@ -366,6 +378,90 @@ function founderQueueItem(
     transactionsAdded: 1,
     ...overrides,
   }
+}
+
+function founderReviewInputs(): RealityFounderCovenantReviewQueueItem['reviewInputs'] {
+  return [{
+    kind: 'in_game_activity',
+    label: 'In-game activity',
+    status: 'watch',
+    evidence: 'Founder needs more visible in-game building or demand-serving activity.',
+    manualEvidenceRequired: false,
+  }, {
+    kind: 'area_health',
+    label: 'Area health',
+    status: 'watch',
+    evidence: 'Area health has service or staffing issues to review.',
+    manualEvidenceRequired: false,
+  }, {
+    kind: 'population_growth',
+    label: 'Population growth',
+    status: 'manual_needed',
+    evidence: 'Invite quality and local population growth need manual proof until invite tracking exists.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'external_contribution',
+    label: 'External contribution',
+    status: 'manual_needed',
+    evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'ideas_feedback',
+    label: 'Ideas and feedback',
+    status: 'manual_needed',
+    evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'review_consistency',
+    label: 'Review consistency',
+    status: 'watch',
+    evidence: 'Weekly/monthly review cadence is due or overdue.',
+    manualEvidenceRequired: false,
+  }]
+}
+
+function founderReviewChecklist(): RealityFounderCovenantReviewQueueItem['reviewChecklist'] {
+  return [{
+    key: 'active',
+    label: 'Active',
+    status: 'manual_review',
+    evidence: 'Founder is unavailable and needs manual review.',
+  }, {
+    key: 'useful',
+    label: 'Useful',
+    status: 'watch',
+    evidence: 'Founder needs useful activity serving local demand.',
+  }, {
+    key: 'building',
+    label: 'Building',
+    status: 'met',
+    evidence: 'Founder owns at least one local business.',
+  }, {
+    key: 'staffed',
+    label: 'Staffed',
+    status: 'watch',
+    evidence: 'Founder businesses need staff before review can clear.',
+  }, {
+    key: 'debt',
+    label: 'Debt',
+    status: 'watch',
+    evidence: 'Founder has unpaid debt to review before profit or succession.',
+  }, {
+    key: 'hospital',
+    label: 'Hospital',
+    status: 'manual_review',
+    evidence: 'Founder is hospitalized; replacement remains manual.',
+  }, {
+    key: 'risk',
+    label: 'At risk',
+    status: 'manual_review',
+    evidence: 'Covenant signals need weekly/monthly review.',
+  }, {
+    key: 'manual_authority',
+    label: 'Manual authority',
+    status: 'met',
+    evidence: 'Automatic removal and waitlist handoff are disabled.',
+  }]
 }
 
 function founderNotificationDraft(): RealityFounderCovenantReviewQueueItem['pendingNotificationDrafts'][number] {
