@@ -6,6 +6,7 @@ import type {
   AreaBusinessStatus,
   AreaCitizenDashboard,
   AreaDebtRepaymentBlocker,
+  AreaFounderCovenantDashboard,
   AreaJobsDashboard,
   AreaNeedsDashboard,
   AreaSurvivalDashboard,
@@ -279,6 +280,7 @@ export interface RealityAreaDashboard {
   existingBusinesses: RealityAreaBusinessDashboard[]
   citizens: RealityAreaCitizenDashboard[]
   survival: RealityAreaSurvivalDashboard
+  founderCovenant: RealityAreaCovenantReview
 }
 
 export interface RealityAreaState {
@@ -520,6 +522,28 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
       mergeRealityAreaCitizenDashboard(citizen, dashboard.citizens.find((candidate) => candidate.id === citizen.id))
     ),
     survival: mergeRealityAreaSurvivalDashboard(serverDashboard.survival),
+    founderCovenant: mergeRealityAreaCovenantReview(serverDashboard.founderCovenant),
+  }
+}
+
+function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): AreaFounderCovenantDashboard {
+  return {
+    founderCitizenId: review.founderCitizenId,
+    status: review.status,
+    nextAction: review.nextAction,
+    reviewCadence: review.reviewCadence,
+    manualReviewRequired: review.manualReviewRequired,
+    replacementEnabled: review.replacementEnabled,
+    waitlistHandoffEnabled: review.waitlistHandoffEnabled,
+    activityReview: {
+      ...review.activityReview,
+      checkedAt: parseInstant(review.activityReview.checkedAt),
+    },
+    signals: review.signals.map((signal) => ({
+      ...signal,
+      businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
+      businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
+    })),
   }
 }
 
@@ -669,7 +693,7 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     !isRecord(value.claim) ||
     !Array.isArray(value.businesses) ||
     !Array.isArray(value.citizens) ||
-    !isRecord(value.founderCovenant) ||
+    !isRealityAreaCovenantReview(value.founderCovenant) ||
     !Array.isArray(value.transactions)
   ) {
     return false
@@ -765,7 +789,61 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     value.existingBusinesses.every(isRealityAreaBusinessDashboard) &&
     Array.isArray(value.citizens) &&
     value.citizens.every(isRealityAreaCitizenDashboard) &&
-    isRealityAreaSurvivalDashboard(value.survival)
+    isRealityAreaSurvivalDashboard(value.survival) &&
+    isRealityAreaCovenantReview(value.founderCovenant)
+}
+
+function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovenantReview {
+  return isRecord(value) &&
+    typeof value.founderCitizenId === 'string' &&
+    isRealityAreaCovenantStatus(value.status) &&
+    isRealityAreaCovenantNextAction(value.nextAction) &&
+    value.reviewCadence === 'weekly_monthly_manual' &&
+    typeof value.manualReviewRequired === 'boolean' &&
+    value.replacementEnabled === false &&
+    value.waitlistHandoffEnabled === false &&
+    isRealityAreaCovenantActivityReview(value.activityReview) &&
+    Array.isArray(value.signals) &&
+    value.signals.every(isRealityAreaCovenantSignal)
+}
+
+function isRealityAreaCovenantActivityReview(value: unknown): value is RealityAreaCovenantReview['activityReview'] {
+  return isRecord(value) &&
+    typeof value.checkedAt === 'string' &&
+    typeof value.active === 'boolean' &&
+    typeof value.useful === 'boolean' &&
+    typeof value.building === 'boolean' &&
+    typeof value.staffed === 'boolean' &&
+    typeof value.indebted === 'boolean' &&
+    typeof value.hospitalized === 'boolean' &&
+    typeof value.atRisk === 'boolean' &&
+    typeof value.score === 'number'
+}
+
+function isRealityAreaCovenantSignal(value: unknown): value is RealityAreaCovenantSignal {
+  return isRecord(value) &&
+    isRealityAreaCovenantSignalKind(value.kind) &&
+    (value.severity === 'info' || value.severity === 'warning' || value.severity === 'critical') &&
+    typeof value.message === 'string' &&
+    (Array.isArray(value.businessIds) ? value.businessIds.every((id) => typeof id === 'string') : value.businessIds === undefined) &&
+    (Array.isArray(value.businessKinds) ? value.businessKinds.every(isBusinessKind) : value.businessKinds === undefined) &&
+    (typeof value.amount === 'number' || value.amount === undefined)
+}
+
+function isRealityAreaCovenantStatus(value: unknown): value is RealityAreaCovenantStatus {
+  return value === 'active' || value === 'watch' || value === 'manual_review'
+}
+
+function isRealityAreaCovenantNextAction(value: unknown): value is RealityAreaCovenantNextAction {
+  return value === 'none' || value === 'warn_founder' || value === 'manual_review'
+}
+
+function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {
+  return value === 'founder_unavailable' ||
+    value === 'no_business_built' ||
+    value === 'understaffed_businesses' ||
+    value === 'essential_shortage' ||
+    value === 'founder_debt'
 }
 
 function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {

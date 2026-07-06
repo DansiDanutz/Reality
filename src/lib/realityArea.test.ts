@@ -117,6 +117,26 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores malformed server dashboard covenant data', async () => {
+    const malformedDashboard = {
+      ...serverDashboard(),
+      founderCovenant: { status: 'watch' },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('does not contact the server without a registered founder identity', async () => {
     const fetchImpl = vi.fn()
 
@@ -415,6 +435,32 @@ describe('Reality area client', () => {
       maxAffordablePayment: 300,
       canRepayNow: false,
       blockers: ['actor_unavailable'],
+    })
+    expect(merged.founderCovenant).toMatchObject({
+      founderCitizenId: 'citizen-1',
+      status: 'watch',
+      nextAction: 'warn_founder',
+      reviewCadence: 'weekly_monthly_manual',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: Date.parse('2026-07-06T04:00:00.000Z'),
+        active: true,
+        useful: true,
+        building: true,
+        staffed: false,
+        indebted: true,
+        hospitalized: false,
+        atRisk: true,
+        score: 75,
+      },
+      signals: [{
+        kind: 'understaffed_businesses',
+        severity: 'warning',
+        message: 'Server says founder-owned businesses need staffing.',
+        businessIds: ['water-1'],
+      }],
     })
     expect(simWater).toMatchObject({
       displayName: 'Demo Water Resident (Sim)',
@@ -723,6 +769,32 @@ function serverDashboard(): RealityAreaDashboard {
           canAfford: true,
           blockers: [],
         }],
+      }],
+    },
+    founderCovenant: {
+      founderCitizenId: 'citizen-1',
+      status: 'watch',
+      nextAction: 'warn_founder',
+      reviewCadence: 'weekly_monthly_manual',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      activityReview: {
+        checkedAt: '2026-07-06T04:00:00.000Z',
+        active: true,
+        useful: true,
+        building: true,
+        staffed: false,
+        indebted: true,
+        hospitalized: false,
+        atRisk: true,
+        score: 75,
+      },
+      signals: [{
+        kind: 'understaffed_businesses',
+        severity: 'warning',
+        message: 'Server says founder-owned businesses need staffing.',
+        businessIds: ['water-1'],
       }],
     },
     firstBuild: [{
