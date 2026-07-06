@@ -4,6 +4,7 @@ import type {
   AreaLedgerDashboard,
   AreaTransactionDashboard,
   FounderCovenantActivityReview,
+  FounderCovenantReviewChecklistItem,
   FounderCovenantSignal,
   WorldTransactionKind,
 } from '../../game/worldSim'
@@ -41,6 +42,19 @@ export function founderCovenantTone(status: AreaFounderCovenantDashboard['status
   if (status === 'manual_review') return 'critical'
   if (status === 'watch' || status === 'unclaimed') return 'warning'
   return 'stable'
+}
+
+export function founderCovenantChecklistStatusLabel(
+  status: FounderCovenantReviewChecklistItem['status'],
+): string {
+  switch (status) {
+    case 'met':
+      return 'Met'
+    case 'watch':
+      return 'Watch'
+    case 'manual_review':
+      return 'Manual'
+  }
 }
 
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {

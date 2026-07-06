@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  founderCovenantChecklistStatusLabel,
   founderCovenantReviewItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
@@ -16,6 +17,12 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantTone('active')).toBe('stable')
     expect(founderCovenantTone('watch')).toBe('warning')
     expect(founderCovenantTone('manual_review')).toBe('critical')
+  })
+
+  test('labels manual covenant checklist status for compact review rows', () => {
+    expect(founderCovenantChecklistStatusLabel('met')).toBe('Met')
+    expect(founderCovenantChecklistStatusLabel('watch')).toBe('Watch')
+    expect(founderCovenantChecklistStatusLabel('manual_review')).toBe('Manual')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {

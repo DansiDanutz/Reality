@@ -22,6 +22,7 @@ import {
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
+  founderCovenantChecklistStatusLabel,
   founderCovenantReviewItems,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
@@ -171,6 +172,19 @@ export default function FounderAreaPanel() {
                 </span>
               ))}
             </div>
+            <ul className="item-list founder-covenant-checklist" aria-label="Founder manual review checklist">
+              {dashboard.founderCovenant.reviewChecklist.map((item) => (
+                <li className={`item founder-covenant-checklist-item ${item.status}`} key={item.key}>
+                  <div className="item-info">
+                    <span className="item-name">{item.label}</span>
+                    <span className="item-desc">{item.evidence}</span>
+                  </div>
+                  <span className={`founder-covenant-checklist-status mono ${item.status}`}>
+                    {founderCovenantChecklistStatusLabel(item.status)}
+                  </span>
+                </li>
+              ))}
+            </ul>
             {dashboard.founderCovenant.signals.length === 0 ? (
               <p className="panel-sub">No covenant signals.</p>
             ) : (

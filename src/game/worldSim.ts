@@ -368,6 +368,7 @@ export interface AreaLedgerDashboard {
 export type FounderCovenantStatus = 'unclaimed' | 'active' | 'watch' | 'manual_review'
 export type FounderCovenantNextAction = 'claim_area' | 'none' | 'warn_founder' | 'manual_review'
 export type FounderCovenantSignalSeverity = 'info' | 'warning' | 'critical'
+export type FounderCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
 export type FounderCovenantSignalKind =
   | 'founder_unavailable'
   | 'no_business_built'
@@ -396,6 +397,13 @@ export interface FounderCovenantActivityReview {
   score: number
 }
 
+export interface FounderCovenantReviewChecklistItem {
+  key: string
+  label: string
+  status: FounderCovenantReviewChecklistStatus
+  evidence: string
+}
+
 export interface AreaFounderCovenantDashboard {
   founderCitizenId: string | null
   status: FounderCovenantStatus
@@ -405,6 +413,7 @@ export interface AreaFounderCovenantDashboard {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderCovenantActivityReview
+  reviewChecklist: FounderCovenantReviewChecklistItem[]
   signals: FounderCovenantSignal[]
 }
 
@@ -1066,6 +1075,12 @@ function founderCovenantDashboard(
         atRisk: false,
         score: 0,
       },
+      reviewChecklist: [{
+        key: 'claim_area',
+        label: 'Claim area',
+        status: 'manual_review',
+        evidence: 'No founder has claimed this area yet.',
+      }],
       signals: [],
     }
   }
@@ -1158,6 +1173,12 @@ function founderCovenantDashboard(
       })
       : 0,
   }
+  const reviewChecklist = founderCovenantReviewChecklist({
+    activityReview,
+    manualReviewRequired,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+  })
 
   return {
     founderCitizenId,
@@ -1172,8 +1193,70 @@ function founderCovenantDashboard(
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview,
+    reviewChecklist,
     signals,
   }
+}
+
+function founderCovenantReviewChecklist(input: {
+  activityReview: FounderCovenantActivityReview
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+}): FounderCovenantReviewChecklistItem[] {
+  const review = input.activityReview
+  return [
+    {
+      key: 'active',
+      label: 'Active',
+      status: review.active ? 'met' : 'manual_review',
+      evidence: review.active ? 'Founder can act in the area.' : 'Founder is unavailable and needs manual review.',
+    },
+    {
+      key: 'useful',
+      label: 'Useful',
+      status: review.useful ? 'met' : 'watch',
+      evidence: review.useful ? 'Founder activity is serving local demand.' : 'No useful demand-serving activity is visible yet.',
+    },
+    {
+      key: 'building',
+      label: 'Building',
+      status: review.building ? 'met' : 'watch',
+      evidence: review.building ? 'Founder owns at least one local business.' : 'Founder has not built a local business yet.',
+    },
+    {
+      key: 'staffed',
+      label: 'Staffed',
+      status: review.staffed ? 'met' : 'watch',
+      evidence: review.staffed ? 'Founder businesses have their required staff.' : 'Founder businesses need staff before review can clear.',
+    },
+    {
+      key: 'debt',
+      label: 'Debt',
+      status: review.indebted ? 'watch' : 'met',
+      evidence: review.indebted ? 'Founder has unpaid debt to review before profit or succession.' : 'No founder debt is currently recorded.',
+    },
+    {
+      key: 'hospital',
+      label: 'Hospital',
+      status: review.hospitalized ? 'manual_review' : 'met',
+      evidence: review.hospitalized ? 'Founder is hospitalized; replacement remains manual.' : 'Founder is not hospitalized.',
+    },
+    {
+      key: 'risk',
+      label: 'At risk',
+      status: input.manualReviewRequired ? 'manual_review' : review.atRisk ? 'watch' : 'met',
+      evidence: review.atRisk ? 'Covenant signals need weekly/monthly review.' : 'No risk signals currently require review.',
+    },
+    {
+      key: 'manual_authority',
+      label: 'Manual authority',
+      status: !input.replacementEnabled && !input.waitlistHandoffEnabled ? 'met' : 'manual_review',
+      evidence: !input.replacementEnabled && !input.waitlistHandoffEnabled
+        ? 'Automatic removal and waitlist handoff are disabled.'
+        : 'Removal controls must remain manually approved.',
+    },
+  ]
 }
 
 function founderActivityScore(input: {

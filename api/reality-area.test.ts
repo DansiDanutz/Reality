@@ -1902,6 +1902,20 @@ describe('reality area authority API', () => {
         atRisk: true,
         score: 45,
       },
+      reviewChecklist: expect.arrayContaining([
+        {
+          key: 'hospital',
+          label: 'Hospital',
+          status: 'manual_review',
+          evidence: 'Founder is hospitalized; replacement remains manual.',
+        },
+        {
+          key: 'manual_authority',
+          label: 'Manual authority',
+          status: 'met',
+          evidence: 'Automatic removal and waitlist handoff are disabled.',
+        },
+      ]),
       signals: expect.arrayContaining([
         expect.objectContaining({ kind: 'founder_unavailable', severity: 'critical' }),
         expect.objectContaining({ kind: 'founder_debt', severity: 'info', amount: 300 }),
@@ -2840,6 +2854,47 @@ function baseFounderCovenant(checkedAt: string) {
       atRisk: true,
       score: 40,
     },
+    reviewChecklist: [{
+      key: 'active',
+      label: 'Active',
+      status: 'met',
+      evidence: 'Founder can act in the area.',
+    }, {
+      key: 'useful',
+      label: 'Useful',
+      status: 'watch',
+      evidence: 'No useful demand-serving activity is visible yet.',
+    }, {
+      key: 'building',
+      label: 'Building',
+      status: 'watch',
+      evidence: 'Founder has not built a local business yet.',
+    }, {
+      key: 'staffed',
+      label: 'Staffed',
+      status: 'watch',
+      evidence: 'Founder businesses need staff before review can clear.',
+    }, {
+      key: 'debt',
+      label: 'Debt',
+      status: 'met',
+      evidence: 'No founder debt is currently recorded.',
+    }, {
+      key: 'hospital',
+      label: 'Hospital',
+      status: 'met',
+      evidence: 'Founder is not hospitalized.',
+    }, {
+      key: 'risk',
+      label: 'At risk',
+      status: 'watch',
+      evidence: 'Covenant signals need weekly/monthly review.',
+    }, {
+      key: 'manual_authority',
+      label: 'Manual authority',
+      status: 'met',
+      evidence: 'Automatic removal and waitlist handoff are disabled.',
+    }],
     signals: [{
       kind: 'no_business_built',
       severity: 'warning',

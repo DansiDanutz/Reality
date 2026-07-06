@@ -109,6 +109,7 @@ interface FounderAreaBusiness {
 type FounderAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
 type FounderAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
 type FounderAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
+type FounderAreaCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
 type FounderAreaCovenantSignalKind =
   | 'founder_unavailable'
   | 'no_business_built'
@@ -137,6 +138,13 @@ interface FounderAreaCovenantActivityReview {
   score: number
 }
 
+interface FounderAreaCovenantReviewChecklistItem {
+  key: string
+  label: string
+  status: FounderAreaCovenantReviewChecklistStatus
+  evidence: string
+}
+
 interface FounderAreaCovenantReview {
   founderCitizenId: string
   status: FounderAreaCovenantStatus
@@ -146,6 +154,7 @@ interface FounderAreaCovenantReview {
   replacementEnabled: false
   waitlistHandoffEnabled: false
   activityReview: FounderAreaCovenantActivityReview
+  reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   signals: FounderAreaCovenantSignal[]
 }
 
@@ -1066,6 +1075,12 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
       ? founderActivityScore({ active: founderActive, useful, building, staffed, indebted: founderDebt > 0 })
       : 0,
   }
+  const reviewChecklist = founderCovenantReviewChecklist({
+    activityReview,
+    manualReviewRequired,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+  })
 
   return {
     founderCitizenId: state.founderCitizenId,
@@ -1080,8 +1095,70 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     replacementEnabled: false,
     waitlistHandoffEnabled: false,
     activityReview,
+    reviewChecklist,
     signals,
   }
+}
+
+function founderCovenantReviewChecklist(input: {
+  activityReview: FounderAreaCovenantActivityReview
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+}): FounderAreaCovenantReviewChecklistItem[] {
+  const review = input.activityReview
+  return [
+    {
+      key: 'active',
+      label: 'Active',
+      status: review.active ? 'met' : 'manual_review',
+      evidence: review.active ? 'Founder can act in the area.' : 'Founder is unavailable and needs manual review.',
+    },
+    {
+      key: 'useful',
+      label: 'Useful',
+      status: review.useful ? 'met' : 'watch',
+      evidence: review.useful ? 'Founder activity is serving local demand.' : 'No useful demand-serving activity is visible yet.',
+    },
+    {
+      key: 'building',
+      label: 'Building',
+      status: review.building ? 'met' : 'watch',
+      evidence: review.building ? 'Founder owns at least one local business.' : 'Founder has not built a local business yet.',
+    },
+    {
+      key: 'staffed',
+      label: 'Staffed',
+      status: review.staffed ? 'met' : 'watch',
+      evidence: review.staffed ? 'Founder businesses have their required staff.' : 'Founder businesses need staff before review can clear.',
+    },
+    {
+      key: 'debt',
+      label: 'Debt',
+      status: review.indebted ? 'watch' : 'met',
+      evidence: review.indebted ? 'Founder has unpaid debt to review before profit or succession.' : 'No founder debt is currently recorded.',
+    },
+    {
+      key: 'hospital',
+      label: 'Hospital',
+      status: review.hospitalized ? 'manual_review' : 'met',
+      evidence: review.hospitalized ? 'Founder is hospitalized; replacement remains manual.' : 'Founder is not hospitalized.',
+    },
+    {
+      key: 'risk',
+      label: 'At risk',
+      status: input.manualReviewRequired ? 'manual_review' : review.atRisk ? 'watch' : 'met',
+      evidence: review.atRisk ? 'Covenant signals need weekly/monthly review.' : 'No risk signals currently require review.',
+    },
+    {
+      key: 'manual_authority',
+      label: 'Manual authority',
+      status: !input.replacementEnabled && !input.waitlistHandoffEnabled ? 'met' : 'manual_review',
+      evidence: !input.replacementEnabled && !input.waitlistHandoffEnabled
+        ? 'Automatic removal and waitlist handoff are disabled.'
+        : 'Removal controls must remain manually approved.',
+    },
+  ]
 }
 
 function areaServiceDemand(citizens: FounderAreaCitizen[]): Record<FounderAreaBusinessKind, number> {

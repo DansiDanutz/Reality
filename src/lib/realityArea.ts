@@ -92,6 +92,7 @@ export interface RealityAreaTransaction {
 export type RealityAreaCovenantStatus = 'active' | 'watch' | 'manual_review'
 export type RealityAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_review'
 export type RealityAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
+export type RealityAreaCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
 export type RealityAreaCovenantSignalKind =
   | 'founder_unavailable'
   | 'no_business_built'
@@ -106,6 +107,13 @@ export interface RealityAreaCovenantSignal {
   businessIds?: string[]
   businessKinds?: WorldBusinessKind[]
   amount?: number
+}
+
+export interface RealityAreaCovenantReviewChecklistItem {
+  key: string
+  label: string
+  status: RealityAreaCovenantReviewChecklistStatus
+  evidence: string
 }
 
 export interface RealityAreaCovenantReview {
@@ -127,6 +135,7 @@ export interface RealityAreaCovenantReview {
     atRisk: boolean
     score: number
   }
+  reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   signals: RealityAreaCovenantSignal[]
 }
 
@@ -606,6 +615,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       ...review.activityReview,
       checkedAt: parseInstant(review.activityReview.checkedAt),
     },
+    reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
     signals: review.signals.map((signal) => ({
       ...signal,
       businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
@@ -871,6 +881,8 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     value.replacementEnabled === false &&
     value.waitlistHandoffEnabled === false &&
     isRealityAreaCovenantActivityReview(value.activityReview) &&
+    Array.isArray(value.reviewChecklist) &&
+    value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal)
 }
@@ -886,6 +898,14 @@ function isRealityAreaCovenantActivityReview(value: unknown): value is RealityAr
     typeof value.hospitalized === 'boolean' &&
     typeof value.atRisk === 'boolean' &&
     typeof value.score === 'number'
+}
+
+function isRealityAreaCovenantReviewChecklistItem(value: unknown): value is RealityAreaCovenantReviewChecklistItem {
+  return isRecord(value) &&
+    typeof value.key === 'string' &&
+    typeof value.label === 'string' &&
+    isRealityAreaCovenantReviewChecklistStatus(value.status) &&
+    typeof value.evidence === 'string'
 }
 
 function isRealityAreaCovenantSignal(value: unknown): value is RealityAreaCovenantSignal {
@@ -904,6 +924,10 @@ function isRealityAreaCovenantStatus(value: unknown): value is RealityAreaCovena
 
 function isRealityAreaCovenantNextAction(value: unknown): value is RealityAreaCovenantNextAction {
   return value === 'none' || value === 'warn_founder' || value === 'manual_review'
+}
+
+function isRealityAreaCovenantReviewChecklistStatus(value: unknown): value is RealityAreaCovenantReviewChecklistStatus {
+  return value === 'met' || value === 'watch' || value === 'manual_review'
 }
 
 function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {

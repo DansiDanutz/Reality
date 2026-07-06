@@ -1523,6 +1523,32 @@ describe('advanceWorldArea — local real-time economy', () => {
         atRisk: true,
         score: 0,
       },
+      reviewChecklist: expect.arrayContaining([
+        {
+          key: 'active',
+          label: 'Active',
+          status: 'manual_review',
+          evidence: 'Founder is unavailable and needs manual review.',
+        },
+        {
+          key: 'debt',
+          label: 'Debt',
+          status: 'watch',
+          evidence: 'Founder has unpaid debt to review before profit or succession.',
+        },
+        {
+          key: 'hospital',
+          label: 'Hospital',
+          status: 'manual_review',
+          evidence: 'Founder is hospitalized; replacement remains manual.',
+        },
+        {
+          key: 'manual_authority',
+          label: 'Manual authority',
+          status: 'met',
+          evidence: 'Automatic removal and waitlist handoff are disabled.',
+        },
+      ]),
     })
     expect(dash.founderCovenant.signals).toEqual([
       {
@@ -1588,6 +1614,47 @@ describe('advanceWorldArea — local real-time economy', () => {
         atRisk: false,
         score: 100,
       },
+      reviewChecklist: [{
+        key: 'active',
+        label: 'Active',
+        status: 'met',
+        evidence: 'Founder can act in the area.',
+      }, {
+        key: 'useful',
+        label: 'Useful',
+        status: 'met',
+        evidence: 'Founder activity is serving local demand.',
+      }, {
+        key: 'building',
+        label: 'Building',
+        status: 'met',
+        evidence: 'Founder owns at least one local business.',
+      }, {
+        key: 'staffed',
+        label: 'Staffed',
+        status: 'met',
+        evidence: 'Founder businesses have their required staff.',
+      }, {
+        key: 'debt',
+        label: 'Debt',
+        status: 'met',
+        evidence: 'No founder debt is currently recorded.',
+      }, {
+        key: 'hospital',
+        label: 'Hospital',
+        status: 'met',
+        evidence: 'Founder is not hospitalized.',
+      }, {
+        key: 'risk',
+        label: 'At risk',
+        status: 'met',
+        evidence: 'No risk signals currently require review.',
+      }, {
+        key: 'manual_authority',
+        label: 'Manual authority',
+        status: 'met',
+        evidence: 'Automatic removal and waitlist handoff are disabled.',
+      }],
       signals: [],
     })
   })

@@ -694,6 +694,47 @@ function serverState(): RealityAreaState {
         atRisk: true,
         score: 60,
       },
+      reviewChecklist: [{
+        key: 'active',
+        label: 'Active',
+        status: 'manual_review',
+        evidence: 'Founder is unavailable and needs manual review.',
+      }, {
+        key: 'useful',
+        label: 'Useful',
+        status: 'met',
+        evidence: 'Founder activity is serving local demand.',
+      }, {
+        key: 'building',
+        label: 'Building',
+        status: 'met',
+        evidence: 'Founder owns at least one local business.',
+      }, {
+        key: 'staffed',
+        label: 'Staffed',
+        status: 'met',
+        evidence: 'Founder businesses have their required staff.',
+      }, {
+        key: 'debt',
+        label: 'Debt',
+        status: 'watch',
+        evidence: 'Founder has unpaid debt to review before profit or succession.',
+      }, {
+        key: 'hospital',
+        label: 'Hospital',
+        status: 'manual_review',
+        evidence: 'Founder is hospitalized; replacement remains manual.',
+      }, {
+        key: 'risk',
+        label: 'At risk',
+        status: 'manual_review',
+        evidence: 'Covenant signals need weekly/monthly review.',
+      }, {
+        key: 'manual_authority',
+        label: 'Manual authority',
+        status: 'met',
+        evidence: 'Automatic removal and waitlist handoff are disabled.',
+      }],
       signals: [{
         kind: 'founder_unavailable',
         severity: 'critical',
@@ -962,6 +1003,47 @@ function serverDashboard(): RealityAreaDashboard {
         atRisk: true,
         score: 75,
       },
+      reviewChecklist: [{
+        key: 'active',
+        label: 'Active',
+        status: 'met',
+        evidence: 'Founder can act in the area.',
+      }, {
+        key: 'useful',
+        label: 'Useful',
+        status: 'met',
+        evidence: 'Founder activity is serving local demand.',
+      }, {
+        key: 'building',
+        label: 'Building',
+        status: 'met',
+        evidence: 'Founder owns at least one local business.',
+      }, {
+        key: 'staffed',
+        label: 'Staffed',
+        status: 'watch',
+        evidence: 'Founder businesses need staff before review can clear.',
+      }, {
+        key: 'debt',
+        label: 'Debt',
+        status: 'watch',
+        evidence: 'Founder has unpaid debt to review before profit or succession.',
+      }, {
+        key: 'hospital',
+        label: 'Hospital',
+        status: 'met',
+        evidence: 'Founder is not hospitalized.',
+      }, {
+        key: 'risk',
+        label: 'At risk',
+        status: 'watch',
+        evidence: 'Covenant signals need weekly/monthly review.',
+      }, {
+        key: 'manual_authority',
+        label: 'Manual authority',
+        status: 'met',
+        evidence: 'Automatic removal and waitlist handoff are disabled.',
+      }],
       signals: [{
         kind: 'understaffed_businesses',
         severity: 'warning',
