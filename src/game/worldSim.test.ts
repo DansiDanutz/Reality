@@ -2,7 +2,9 @@ import { describe, expect, test } from 'vitest'
 import {
   COLLAPSE_HEALTH,
   HOSPITAL_BILL,
+  HOSPITALIZATION_HOURS,
   INSURANCE_COVERAGE,
+  INSURED_HOSPITALIZATION_HOURS,
   INSURANCE_POLICY_PERIOD_MS,
   MAX_FOUNDER_AREA_RADIUS_KM,
   MIN_BUSINESS_QUALITY,
@@ -1071,6 +1073,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     const insurer = out.businesses.find((b) => b.id === 'ins1')!
     const covered = HOSPITAL_BILL * INSURANCE_COVERAGE
 
+    expect(citizen.state).toEqual({ kind: 'hospitalized', until: HOUR + INSURED_HOSPITALIZATION_HOURS * HOUR })
     expect(insurer.cash).toBe(1000 - covered)
     expect(clinic.cash).toBe(covered + 50)
     expect(citizen.money).toBe(0)
@@ -1095,6 +1098,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     const clinic = out.businesses.find((b) => b.id === 'clinic1')!
     const insurer = out.businesses.find((b) => b.id === 'ins1')!
 
+    expect(citizen.state).toEqual({ kind: 'hospitalized', until: HOUR + HOSPITALIZATION_HOURS * HOUR })
     expect(insurer.cash).toBe(1000)
     expect(clinic.cash).toBe(10)
     expect(citizen.insuranceBusinessId).toBeUndefined()
@@ -1102,6 +1106,28 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(citizen.debts).toMatchObject([
       { kind: 'medical', creditorId: 'clinic1', amount: HOSPITAL_BILL - 10, issuedAt: HOUR },
     ])
+    expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
+  })
+
+  test('insurance only shortens recovery when the insurer can make a payout', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        health: COLLAPSE_HEALTH - 10,
+        money: 50,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: 2 * HOUR,
+      })],
+      businesses: [
+        business('clinic', 'clinic1'),
+        business('insurance', 'ins1', { cash: 0 }),
+      ],
+    })
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+    const citizen = out.citizens[0]
+
+    expect(citizen.state).toEqual({ kind: 'hospitalized', until: HOUR + HOSPITALIZATION_HOURS * HOUR })
+    expect(citizen.debt).toBe(HOSPITAL_BILL - 50)
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
   })
 

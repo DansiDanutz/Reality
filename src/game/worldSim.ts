@@ -484,6 +484,7 @@ interface ServiceEffect extends Partial<Needs> {
 
 export const WORLD_SIM_HOUR_MS = 3_600_000
 export const HOSPITALIZATION_HOURS = 8
+export const INSURED_HOSPITALIZATION_HOURS = 5
 export const COLLAPSE_HEALTH = 20
 export const HOSPITAL_BILL = 350
 export const INSURANCE_COVERAGE = 0.6
@@ -1825,16 +1826,18 @@ function shouldHospitalize(citizen: WorldCitizen): boolean {
 }
 
 function hospitalize(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
-  citizen.state = { kind: 'hospitalized', until: context.at + HOSPITALIZATION_HOURS * WORLD_SIM_HOUR_MS }
   citizen.health = Math.max(citizen.health, 30)
   context.summary.hospitalizations += 1
-  settleHospitalBill(area, citizen, context)
+  const insurancePaid = settleHospitalBill(area, citizen, context)
+  const recoveryHours = insurancePaid ? INSURED_HOSPITALIZATION_HOURS : HOSPITALIZATION_HOURS
+  citizen.state = { kind: 'hospitalized', until: context.at + recoveryHours * WORLD_SIM_HOUR_MS }
 }
 
-function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
+function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
   const clinic = area.businesses.find((business) => business.kind === 'clinic')
   const receiverId = clinic?.id ?? 'system:hospital'
   let remaining = HOSPITAL_BILL
+  let insurancePaid = false
 
   const insurer = hasActiveInsurance(citizen, context.at)
     ? area.businesses.find((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
@@ -1842,6 +1845,7 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
   if (insurer) {
     const coverage = Math.min(roundMoney(HOSPITAL_BILL * INSURANCE_COVERAGE), insurer.cash)
     if (coverage > 0) {
+      insurancePaid = true
       insurer.cash = roundMoney(insurer.cash - coverage)
       if (clinic) clinic.cash = roundMoney(clinic.cash + coverage)
       remaining = roundMoney(remaining - coverage)
@@ -1879,6 +1883,8 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
       memo: `${citizen.name} left the hospital bill as medical debt.`,
     })
   }
+
+  return insurancePaid
 }
 
 function issueMedicalDebt(citizen: WorldCitizen, creditorId: string, amount: number, context: StepContext): void {
