@@ -24,6 +24,7 @@ import {
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
 import {
+  founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
   founderCovenantApprovalRequestText,
   founderCovenantChecklistStatusLabel,
@@ -244,6 +245,7 @@ export default function FounderAreaPanel() {
                       <span className="item-name">{request.label}</span>
                       <span className="item-desc">{request.reason}</span>
                       <span className="item-desc">{founderCovenantApprovalRequestText(request)}</span>
+                      <span className="item-desc">{founderCovenantApprovalBlockerText(request)}</span>
                     </div>
                     <span className="founder-covenant-approval-status mono">
                       {founderCovenantApprovalRequestStatusLabel(request)}

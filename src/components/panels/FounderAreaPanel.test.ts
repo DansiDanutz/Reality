@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
   founderCovenantApprovalRequestText,
   founderCovenantChecklistStatusLabel,
@@ -71,6 +72,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     } as const
 
     expect(founderCovenantApprovalRequestText(request)).toBe('Main founder approval · 2 blockers')
+    expect(founderCovenantApprovalBlockerText(request)).toBe('Blocked by approval workflow, Telegram delivery')
     expect(founderCovenantApprovalRequestStatusLabel(request)).toBe('Locked')
   })
 
@@ -136,7 +138,7 @@ describe('FounderAreaPanel covenant presenters', () => {
         notificationDraftId: 'draft-1',
         blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       }],
-    })).toBe('1 approval captured · 0 executable')
+    })).toBe('1 approval captured · 0 executable · 2 blockers')
   })
 
   test('labels latest covenant review evidence without enabling automation', () => {

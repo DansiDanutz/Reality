@@ -90,6 +90,13 @@ export function founderCovenantApprovalRequestText(request: FounderCovenantAppro
   return `${founderCovenantAuthorityRoleLabel(request.authorityGate.requiredRole)} approval · ${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
 }
 
+export function founderCovenantApprovalBlockerText(
+  request: Pick<FounderCovenantApprovalRequest, 'blockers'>,
+): string {
+  if (request.blockers.length === 0) return 'No blockers'
+  return `Blocked by ${request.blockers.map(founderCovenantApprovalBlockerLabel).join(', ')}`
+}
+
 export function founderCovenantApprovalRequestStatusLabel(
   request: Pick<FounderCovenantApprovalRequest, 'approvalEnabled' | 'executionEnabled'>,
 ): string {
@@ -156,7 +163,8 @@ export function founderCovenantReviewApprovalSummary(
   const count = review.approvalRequests.length
   if (count === 0) return 'No approval snapshot'
   const executable = review.approvalRequests.filter((request) => request.executionEnabled).length
-  return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable`
+  const blockers = review.approvalRequests.reduce((total, request) => total + request.blockers.length, 0)
+  return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable · ${blockers} blocker${blockers === 1 ? '' : 's'}`
 }
 
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
@@ -259,6 +267,23 @@ function founderCovenantAuthorityRoleLabel(
       return 'Area reviewer'
     case 'main_founder':
       return 'Main founder'
+  }
+}
+
+function founderCovenantApprovalBlockerLabel(
+  blocker: FounderCovenantApprovalRequest['blockers'][number],
+): string {
+  switch (blocker) {
+    case 'approval_workflow_disabled':
+      return 'approval workflow'
+    case 'telegram_delivery_disabled':
+      return 'Telegram delivery'
+    case 'probation_execution_disabled':
+      return 'probation execution'
+    case 'replacement_disabled':
+      return 'replacement'
+    case 'waitlist_handoff_disabled':
+      return 'waitlist handoff'
   }
 }
 
