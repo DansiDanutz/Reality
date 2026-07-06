@@ -27,6 +27,8 @@ import {
   founderCovenantChecklistStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
+  founderCovenantNotificationDraftStatusLabel,
+  founderCovenantNotificationDraftText,
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
   founderCovenantSignalText,
@@ -209,6 +211,21 @@ export default function FounderAreaPanel() {
                   </span>
                 ))}
               </div>
+            )}
+            {dashboard.founderCovenant.notificationDrafts.length > 0 && (
+              <ul className="item-list founder-covenant-notifications" aria-label="Founder notification drafts">
+                {dashboard.founderCovenant.notificationDrafts.map((draft) => (
+                  <li className="item founder-covenant-notification" key={draft.id}>
+                    <div className="item-info">
+                      <span className="item-name">{draft.title}</span>
+                      <span className="item-desc">{founderCovenantNotificationDraftText(draft)}</span>
+                    </div>
+                    <span className="founder-covenant-notification-status mono">
+                      {founderCovenantNotificationDraftStatusLabel(draft)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
             <ul className="item-list founder-covenant-checklist" aria-label="Founder manual review checklist">
               {dashboard.founderCovenant.reviewChecklist.map((item) => (

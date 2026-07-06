@@ -5,6 +5,7 @@ import type {
   AreaTransactionDashboard,
   FounderCovenantActivityReview,
   FounderCovenantManualAction,
+  FounderCovenantNotificationDraft,
   FounderCovenantReviewChecklistItem,
   FounderCovenantReviewSchedule,
   FounderCovenantSignal,
@@ -118,6 +119,16 @@ export function founderCovenantReviewScheduleItems(
   }]
 }
 
+export function founderCovenantNotificationDraftText(draft: FounderCovenantNotificationDraft): string {
+  return `${channelLabel(draft.channel)} / ${authorityRoleLabel(draft.authorityGate.requiredRole)} approval`
+}
+
+export function founderCovenantNotificationDraftStatusLabel(
+  draft: Pick<FounderCovenantNotificationDraft, 'sendEnabled'>,
+): string {
+  return draft.sendEnabled ? 'Ready' : 'Disabled'
+}
+
 export function founderCovenantSignalText(signal: FounderCovenantSignal): string {
   switch (signal.kind) {
     case 'founder_unavailable':
@@ -141,6 +152,22 @@ function durationLabel(ms: number): string {
   if (hours <= 0) return 'now'
   if (hours < 24) return `${hours}h`
   return `${Math.ceil(hours / 24)}d`
+}
+
+function channelLabel(channel: FounderCovenantNotificationDraft['channel']): string {
+  switch (channel) {
+    case 'telegram':
+      return 'Telegram'
+  }
+}
+
+function authorityRoleLabel(role: FounderCovenantNotificationDraft['authorityGate']['requiredRole']): string {
+  switch (role) {
+    case 'area_reviewer':
+      return 'Area reviewer'
+    case 'main_founder':
+      return 'Main founder'
+  }
 }
 
 export function founderLedgerSummaryItems(ledger: AreaLedgerDashboard): FounderLedgerSummaryItem[] {

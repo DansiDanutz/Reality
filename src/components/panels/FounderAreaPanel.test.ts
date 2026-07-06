@@ -3,6 +3,8 @@ import {
   founderCovenantChecklistStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
+  founderCovenantNotificationDraftStatusLabel,
+  founderCovenantNotificationDraftText,
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
   founderCovenantSignalText,
@@ -114,6 +116,30 @@ describe('FounderAreaPanel covenant presenters', () => {
       { key: 'weekly', label: 'Weekly', value: 'due', tone: 'warning' },
       { key: 'monthly', label: 'Monthly', value: '22d', tone: 'stable' },
     ])
+  })
+
+  test('summarizes passive covenant notification drafts', () => {
+    const draft = {
+      id: 'draft-1',
+      at: 1_000,
+      kind: 'manual_review_required',
+      channel: 'telegram',
+      recipientCitizenId: 'founder-1',
+      title: 'Founder covenant manual review required',
+      body: 'Founder covenant signals require human review.',
+      requiresApproval: true,
+      sendEnabled: false,
+      authorityGate: {
+        requiredRole: 'main_founder',
+        status: 'approval_required',
+        approvedById: null,
+        approvedAt: null,
+        executionEnabled: false,
+      },
+    } as const
+
+    expect(founderCovenantNotificationDraftText(draft)).toBe('Telegram / Main founder approval')
+    expect(founderCovenantNotificationDraftStatusLabel(draft)).toBe('Disabled')
   })
 
   test('summarizes server-owned ledger totals for the founder panel', () => {
