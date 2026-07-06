@@ -252,6 +252,17 @@ export interface AreaBusinessLedgerDashboard {
   recentTransactions: AreaTransactionDashboard[]
 }
 
+export interface AreaDebtDashboard {
+  id: string
+  kind: WorldDebtKind
+  creditorId: string
+  amount: number
+  issuedAt: number
+  memo: string
+  maxAffordablePayment: number
+  canRepayNow: boolean
+}
+
 export interface AreaCitizenDashboard {
   id: string
   name: string
@@ -265,6 +276,7 @@ export interface AreaCitizenDashboard {
   needs: Needs
   money: number
   debt: number
+  debts: AreaDebtDashboard[]
   homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
@@ -784,11 +796,23 @@ function citizenDashboard(citizen: WorldCitizen, at: number): AreaCitizenDashboa
     needs: { ...citizen.needs },
     money: citizen.money,
     debt: citizen.debt,
+    debts: debtDashboard(citizen),
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, at),
   }
+}
+
+function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
+  return (citizen.debts ?? []).map((debt) => {
+    const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
+    return {
+      ...debt,
+      maxAffordablePayment,
+      canRepayNow: citizen.state.kind === 'active' && maxAffordablePayment > 0,
+    }
+  })
 }
 
 function citizenPresentation(citizen: WorldCitizen): {

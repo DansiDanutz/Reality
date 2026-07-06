@@ -1544,6 +1544,14 @@ describe('advanceWorldArea — local real-time economy', () => {
         sim('sim-worker', {
           money: 75,
           debt: 25,
+          debts: [{
+            id: 'debt-sim',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 25,
+            issuedAt: HOUR,
+            memo: 'Sim sim-worker owes medical debt to clinic1.',
+          }],
           needs: fullNeeds({ hydration: 44 }),
           homeBusinessId: 'home1',
           jobBusinessId: 'food1',
@@ -1552,6 +1560,16 @@ describe('advanceWorldArea — local real-time economy', () => {
         }),
         sim('real-patient', {
           kind: 'real',
+          money: 100,
+          debt: 40,
+          debts: [{
+            id: 'debt-real',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: 40,
+            issuedAt: HOUR,
+            memo: 'Sim real-patient owes medical debt to system:hospital.',
+          }],
           health: 40,
           state: { kind: 'hospitalized', until: 4 * HOUR },
           insuranceBusinessId: 'ins1',
@@ -1581,6 +1599,16 @@ describe('advanceWorldArea — local real-time economy', () => {
         health: 100,
         money: 75,
         debt: 25,
+        debts: [{
+          id: 'debt-sim',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 25,
+          issuedAt: HOUR,
+          memo: 'Sim sim-worker owes medical debt to clinic1.',
+          maxAffordablePayment: 25,
+          canRepayNow: true,
+        }],
         homeBusinessId: 'home1',
         jobBusinessId: 'food1',
         insuranceBusinessId: 'ins1',
@@ -1595,10 +1623,21 @@ describe('advanceWorldArea — local real-time economy', () => {
         visualTone: 'real',
         state: 'hospitalized',
         health: 40,
+        money: 100,
+        debt: 40,
+        debts: [{
+          id: 'debt-real',
+          amount: 40,
+          creditorId: 'system:hospital',
+          maxAffordablePayment: 40,
+          canRepayNow: false,
+        }],
         insuranceBusinessId: 'ins1',
         insuranceActive: false,
       },
     ])
+    dash.citizens[0].debts[0].amount = 999
+    expect(start.citizens[0].debts?.[0].amount).toBe(25)
   })
 
   test('business dashboard ledger separates cash revenue, expenses, wages, and medical receivables', () => {
