@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import {
+  telegramRealityAccountPath,
+  telegramRealityAccountRecord,
+  verifyTelegramMiniAppInitData,
+  type TelegramRealityAccountRecord,
+} from './telegram-auth'
 
 const FOUNDER_SLOTS = 2_000
 
@@ -28,18 +34,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { name } = (req.body ?? {}) as { name?: string }
+  const { name, telegramInitData } = (req.body ?? {}) as { name?: string; telegramInitData?: unknown }
   const clean = String(name ?? '').trim()
   if (clean.length < 2 || clean.length > 24) {
     res.status(400).json({ ok: false, error: 'Name must be 2–24 characters.' })
     return
   }
 
+  const verifiedTelegram = typeof telegramInitData === 'string' && telegramInitData.trim().length > 0
+    ? verifyTelegramMiniAppInitData(telegramInitData, process.env.TELEGRAM_BOT_TOKEN)
+    : null
+  if (verifiedTelegram && !verifiedTelegram.ok) {
+    const status = verifiedTelegram.error === 'missing_bot_token' ? 503 : 401
+    res.status(status).json({
+      ok: false,
+      error: verifiedTelegram.error === 'missing_bot_token'
+        ? 'Telegram auth is not configured.'
+        : 'Invalid Telegram session.',
+      code: verifiedTelegram.error,
+    })
+    return
+  }
+
   try {
+    const registeredAt = new Date()
+    const telegramAccountRecord = verifiedTelegram?.ok
+      ? telegramRealityAccountRecord(verifiedTelegram, registeredAt)
+      : null
+
     // Bot brake: a handful of citizens per IP per day is plenty for humans
     const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
-    const day = new Date().toISOString().slice(0, 10)
+    const day = registeredAt.toISOString().slice(0, 10)
     const recent = await list({ prefix: `regip/${ipHash}__${day}`, limit: 6 })
     if (recent.blobs.length >= 5) {
       res.status(429).json({ ok: false, error: 'Too many new citizens from this connection today. Try again tomorrow.' })
@@ -51,10 +77,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       allowOverwrite: true,
       contentType: 'application/json',
     })
+
+    if (telegramAccountRecord) {
+      await put(
+        telegramRealityAccountPath(verifiedTelegram.user),
+        JSON.stringify(telegramAccountRecord),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    }
     // Every citizen name in Reality is unique — a name is an identity claim
     const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     try {
-      await put(`names/${slug}.json`, JSON.stringify({ at: new Date().toISOString() }), {
+      await put(`names/${slug}.json`, JSON.stringify({ at: registeredAt.toISOString() }), {
         access: 'private',
         addRandomSuffix: false,
         allowOverwrite: false,
@@ -80,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let n = (await claimedSlots()) + 1
     for (let attempt = 0; attempt < 24 && n <= FOUNDER_SLOTS; attempt++) {
       try {
-        await put(`founders/${String(n).padStart(4, '0')}.json`, JSON.stringify({ citizenId, at: new Date().toISOString() }), {
+        await put(`founders/${String(n).padStart(4, '0')}.json`, JSON.stringify({ citizenId, at: registeredAt.toISOString() }), {
           access: 'private',
           addRandomSuffix: false,
           allowOverwrite: false,
@@ -103,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // can verify a token with a single prefix lookup.
     await put(
       `citizens/${citizenId}__${tokenHash}__${founderNumber ?? 0}.json`,
-      JSON.stringify({ name: clean, createdAt: new Date().toISOString() }),
+      JSON.stringify(citizenRecord(clean, registeredAt, telegramAccountRecord)),
       { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
     )
 
@@ -114,8 +148,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       founderNumber,
       slotsClaimed: founderNumber ?? FOUNDER_SLOTS,
       slotsTotal: FOUNDER_SLOTS,
+      ...(telegramAccountRecord ? {
+        telegramUserId: telegramAccountRecord.telegramUserId,
+        telegramAccountId: telegramAccountRecord.realityAccountId,
+        telegramUsername: telegramAccountRecord.username,
+        telegramName: telegramDisplayName(telegramAccountRecord),
+        telegramLinkedAt: registeredAt.getTime(),
+      } : {}),
     })
   } catch {
     res.status(500).json({ ok: false, error: 'Registration is briefly unavailable. Try again in a minute.' })
   }
+}
+
+function citizenRecord(name: string, createdAt: Date, telegram: TelegramRealityAccountRecord | null) {
+  return {
+    name,
+    createdAt: createdAt.toISOString(),
+    ...(telegram ? {
+      telegramUserId: telegram.telegramUserId,
+      telegramAccountId: telegram.realityAccountId,
+      telegramUsername: telegram.username,
+      telegramName: telegramDisplayName(telegram),
+      telegramLinkedAt: createdAt.toISOString(),
+    } : {}),
+  }
+}
+
+function telegramDisplayName(telegram: Pick<TelegramRealityAccountRecord, 'firstName' | 'lastName' | 'username'>): string {
+  const fullName = [telegram.firstName, telegram.lastName].filter(Boolean).join(' ').trim()
+  return fullName || (telegram.username ? `@${telegram.username}` : 'Telegram')
 }

@@ -225,6 +225,29 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('can read verified Telegram identity from the stored citizen record', async () => {
+    vi.mocked(list).mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      name: 'David',
+      createdAt: '2026-07-06T03:00:00.000Z',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:00:00.000Z',
+    }), { status: 200 })))
+
+    await expect(verifyCitizen(CITIZEN_ID, TOKEN, { includeRecord: true })).resolves.toEqual({
+      citizenId: CITIZEN_ID,
+      founderNumber: 12,
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:00:00.000Z',
+    })
+  })
+
   test('normalizes only real claimArea intents', () => {
     expect(normalizeClaimAreaIntent({
       type: 'claimArea',
@@ -249,6 +272,10 @@ describe('reality area authority API', () => {
       .toEqual({ ok: false, error: 'area_too_small' })
     expect(normalizeClaimAreaIntent({ type: 'claimArea', label: 'x', centerLat: 44, centerLng: 26, radiusKm: 1, source: 'card-payment' }))
       .toEqual({ ok: false, error: 'invalid_claim_source' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      telegramAccountId: 'telegram:42424242',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -980,6 +1007,47 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
     )
+  })
+
+  test('preserves server-verified Telegram identity on a new founder area claim', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
+      .mockResolvedValueOnce(blobList([]))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      name: 'David',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:10:00.000Z',
+    }), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: validClaimIntent(),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.state.claim).toMatchObject({
+      source: 'telegram',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+    })
+    expect(body.dashboard.founderIdentity).toEqual({
+      citizenId: CITIZEN_ID,
+      founderNumber: 12,
+      claimSource: 'telegram',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+    })
   })
 
   test('does not overwrite an already claimed area', async () => {
@@ -3295,6 +3363,8 @@ function existingState() {
       radiusKm: 0.8,
       claimedAt: '2026-07-06T03:00:00.000Z',
       source: 'telegram',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
     },
     businesses: [],
     citizens: defaultTestCitizens(),
@@ -3524,6 +3594,13 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
   return {
     areaId: state.areaId,
     updatedAt: state.updatedAt,
+    founderIdentity: {
+      citizenId: state.founderCitizenId,
+      founderNumber: state.founderNumber,
+      claimSource: state.claim.source,
+      telegramUserId: state.claim.telegramUserId ?? null,
+      telegramAccountId: state.claim.telegramAccountId ?? null,
+    },
     population: 4,
     simPopulation: 3,
     realPopulation: 1,

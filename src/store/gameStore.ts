@@ -53,6 +53,7 @@ import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
   telegramDisplayName,
+  telegramMiniAppInitData,
 } from '../lib/telegram'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
@@ -606,7 +607,11 @@ export const useGame = create<GameState>()(
       registerOnline: async () => {
         const s = get()
         if (!s.citizen || s.citizen.token) return
-        let d = await tryPost('/api/register', { name: s.citizen.name })
+        const telegramInitData = telegramMiniAppInitData()
+        const registrationPayload = telegramInitData
+          ? { name: s.citizen.name, telegramInitData }
+          : { name: s.citizen.name }
+        let d = await tryPost('/api/register', registrationPayload)
         const cur = get()
         if (!cur.citizen || cur.citizen.token) return
 
@@ -614,11 +619,14 @@ export const useGame = create<GameState>()(
           // Unique names: on collision, take a numbered variant and retry once
           if (d?.code === 'name_taken') {
             const variant = `${cur.citizen.name.slice(0, 19)}-${Math.floor(100 + Math.random() * 900)}`
+            const retryPayload = telegramInitData
+              ? { name: variant, telegramInitData }
+              : { name: variant }
             set({
               citizen: { ...cur.citizen, name: variant },
               log: note(cur.log, `"${cur.citizen.name}" was already a citizen — you are ${variant}.`),
             })
-            const retry = await tryPost('/api/register', { name: variant })
+            const retry = await tryPost('/api/register', retryPayload)
             if (retry?.ok) {
               d = retry
             } else {
@@ -642,6 +650,11 @@ export const useGame = create<GameState>()(
             token: d.token as string,
             founderNumber,
             online: true,
+            telegramUserId: typeof d.telegramUserId === 'string' ? d.telegramUserId : latest.citizen.telegramUserId,
+            telegramAccountId: typeof d.telegramAccountId === 'string' ? d.telegramAccountId : latest.citizen.telegramAccountId,
+            telegramUsername: typeof d.telegramUsername === 'string' ? d.telegramUsername : latest.citizen.telegramUsername,
+            telegramName: typeof d.telegramName === 'string' ? d.telegramName : latest.citizen.telegramName,
+            telegramLinkedAt: typeof d.telegramLinkedAt === 'number' ? d.telegramLinkedAt : latest.citizen.telegramLinkedAt,
           },
           money: isFounder ? latest.money : Math.min(latest.money, CITIZEN_BALANCE),
           log: note(

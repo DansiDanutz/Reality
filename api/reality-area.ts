@@ -38,6 +38,11 @@ type FounderAreaTransactionKind = typeof TRANSACTION_KINDS[number]
 interface CitizenAuthRecord {
   citizenId: string
   founderNumber: number
+  telegramUserId?: string
+  telegramAccountId?: string
+  telegramUsername?: string
+  telegramName?: string
+  telegramLinkedAt?: string
 }
 
 interface FounderAreaClaim {
@@ -49,6 +54,8 @@ interface FounderAreaClaim {
   radiusKm: number
   claimedAt: string
   source: AreaClaimSource
+  telegramUserId?: string
+  telegramAccountId?: string
 }
 
 interface FounderAreaTransaction {
@@ -580,6 +587,7 @@ interface FounderAreaLedgerDashboard {
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
+  founderIdentity: FounderAreaIdentityDashboard
   population: number
   simPopulation: number
   realPopulation: number
@@ -599,6 +607,14 @@ interface FounderAreaDashboard {
   survival: FounderAreaSurvivalDashboard
   ledger: FounderAreaLedgerDashboard
   founderCovenant: FounderAreaCovenantReview
+}
+
+interface FounderAreaIdentityDashboard {
+  citizenId: string
+  founderNumber: number
+  claimSource: AreaClaimSource
+  telegramUserId: string | null
+  telegramAccountId: string | null
 }
 
 interface FounderAreaState {
@@ -633,6 +649,7 @@ type ClaimAreaIntent =
 
 type ClaimAreaIntentError =
   | 'unsupported_intent'
+  | 'client_controlled_server_field'
   | 'invalid_area_label'
   | 'invalid_location'
   | 'area_too_small'
@@ -783,7 +800,20 @@ const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<Founde
   visitClinic: 'clinic',
 }
 
+const SERVER_OWNED_IDENTITY_FIELDS = [
+  'telegramUserId',
+  'telegramAccountId',
+  'telegramUsername',
+  'telegramName',
+  'telegramLinkedAt',
+] as const
+
+const FORBIDDEN_CLAIM_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
+])
+
 const FORBIDDEN_HIRE_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -804,6 +834,7 @@ const FORBIDDEN_HIRE_FIELDS = new Set([
 ])
 
 const FORBIDDEN_ADVANCE_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -829,6 +860,7 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
 ])
 
 const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -850,6 +882,7 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
 ])
 
 const FORBIDDEN_REVIEW_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -903,6 +936,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
 ])
 
 const FORBIDDEN_SERVICE_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -924,6 +958,7 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
 ])
 
 const FORBIDDEN_INSURANCE_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -947,6 +982,7 @@ const FORBIDDEN_INSURANCE_FIELDS = new Set([
 ])
 
 const FORBIDDEN_BUILD_FIELDS = new Set([
+  ...SERVER_OWNED_IDENTITY_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -1051,6 +1087,9 @@ export function areaStatePath(citizenId: string): string {
 
 export function normalizeClaimAreaIntent(input: unknown): ClaimAreaIntent {
   if (!isRecord(input) || input.type !== 'claimArea') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => FORBIDDEN_CLAIM_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
 
   const label = text(input.label).slice(0, 80)
   if (!label) return { ok: false, error: 'invalid_area_label' }
@@ -1175,15 +1214,42 @@ export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCoven
   return { ok: true, actionKind, note: note || undefined }
 }
 
-export async function verifyCitizen(citizenId: string, token: string): Promise<CitizenAuthRecord | null> {
+export async function verifyCitizen(
+  citizenId: string,
+  token: string,
+  options: { includeRecord?: boolean } = {},
+): Promise<CitizenAuthRecord | null> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return null
   const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
   const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
-  const pathname = batch.blobs[0]?.pathname
+  const blob = batch.blobs[0]
+  const pathname = blob?.pathname
   if (!pathname) return null
   const match = pathname.match(/^citizens\/[0-9a-f-]+__[a-f0-9]{24}__(\d+)\.json$/)
   if (!match) return null
-  return { citizenId, founderNumber: Number(match[1]) }
+  const stored = options.includeRecord ? await readCitizenRecord(blob.downloadUrl) : {}
+  return { citizenId, founderNumber: Number(match[1]), ...stored }
+}
+
+async function readCitizenRecord(downloadUrl: string | undefined): Promise<Partial<CitizenAuthRecord>> {
+  if (!downloadUrl) return {}
+  try {
+    const response = await fetch(downloadUrl)
+    if (!response.ok) return {}
+    const value = await response.json() as unknown
+    if (!isRecord(value)) return {}
+    const telegramAccountId = text(value.telegramAccountId)
+    const telegramUserId = text(value.telegramUserId)
+    return {
+      ...(telegramAccountId.startsWith('telegram:') ? { telegramAccountId } : {}),
+      ...(telegramUserId ? { telegramUserId } : {}),
+      ...(text(value.telegramUsername) ? { telegramUsername: text(value.telegramUsername) } : {}),
+      ...(text(value.telegramName) ? { telegramName: text(value.telegramName) } : {}),
+      ...(text(value.telegramLinkedAt) ? { telegramLinkedAt: text(value.telegramLinkedAt) } : {}),
+    }
+  } catch {
+    return {}
+  }
 }
 
 async function readAreaState(citizenId: string): Promise<FounderAreaState | null> {
@@ -1230,6 +1296,8 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
       radiusKm: intent.radiusKm,
       claimedAt: at,
       source: intent.source,
+      telegramUserId: citizen.telegramUserId,
+      telegramAccountId: citizen.telegramAccountId,
     },
     businesses: [],
     citizens: [founderCitizen, ...simCitizens],
@@ -2148,6 +2216,13 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
   return {
     areaId: state.areaId,
     updatedAt: state.updatedAt,
+    founderIdentity: {
+      citizenId: state.founderCitizenId,
+      founderNumber: state.founderNumber,
+      claimSource: state.claim.source,
+      telegramUserId: state.claim.telegramUserId ?? null,
+      telegramAccountId: state.claim.telegramAccountId ?? null,
+    },
     population: state.citizens.length,
     simPopulation: state.citizens.filter((citizen) => citizen.kind === 'sim').length,
     realPopulation: state.citizens.filter((citizen) => citizen.kind === 'real').length,
@@ -2886,7 +2961,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const citizen = await verifyCitizen(auth.citizenId, auth.token)
+    const rawIntent = (req.body as { intent?: unknown } | undefined)?.intent
+    const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
+    const citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
     if (!citizen) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
@@ -2904,8 +2981,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    const rawIntent = (req.body as { intent?: unknown } | undefined)?.intent
-    const intentType = isRecord(rawIntent) ? rawIntent.type : undefined
     if (intentType === 'claimArea') {
       if (existing) {
         const state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
@@ -4054,6 +4129,8 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     typeof value.founderNumber === 'number' &&
     typeof value.balance === 'number' &&
     isRecord(value.claim) &&
+    (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
+    (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
     Array.isArray(value.businesses) &&
     Array.isArray(value.transactions)
 }

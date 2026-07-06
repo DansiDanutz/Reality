@@ -1091,6 +1091,8 @@ function serverState(): RealityAreaState {
       radiusKm: 0.75,
       claimedAt: '2026-07-06T03:30:00.000Z',
       source: 'manual',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
     },
     businesses: [{
       id: 'water-1',
@@ -1555,6 +1557,13 @@ function serverDashboard(): RealityAreaDashboard {
   return {
     areaId: 'founder-area-0012',
     updatedAt: '2026-07-06T03:30:00.000Z',
+    founderIdentity: {
+      citizenId: 'citizen-1',
+      founderNumber: 12,
+      claimSource: 'telegram',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+    },
     population: 2,
     simPopulation: 1,
     realPopulation: 1,

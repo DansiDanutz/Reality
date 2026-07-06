@@ -516,6 +516,13 @@ export interface RealityAreaSurvivalDashboard {
 export interface RealityAreaDashboard {
   areaId: string
   updatedAt: string
+  founderIdentity: {
+    citizenId: string
+    founderNumber: number
+    claimSource: RealityAreaClaimSource
+    telegramUserId: string | null
+    telegramAccountId: string | null
+  }
   population: number
   simPopulation: number
   realPopulation: number
@@ -552,6 +559,8 @@ export interface RealityAreaState {
     radiusKm: number
     claimedAt: string
     source: RealityAreaClaimSource
+    telegramUserId?: string
+    telegramAccountId?: string
   }
   businesses: RealityAreaBusiness[]
   citizens: RealityAreaCitizen[]
@@ -1116,6 +1125,8 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     typeof value.claim.centerLng === 'number' &&
     typeof value.claim.radiusKm === 'number' &&
     typeof value.claim.claimedAt === 'string' &&
+    (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
+    (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
     isClaimSource(value.claim.source)
 }
 
@@ -1171,6 +1182,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
   if (!isRecord(value)) return false
   return typeof value.areaId === 'string' &&
     typeof value.updatedAt === 'string' &&
+    isRealityAreaFounderIdentity(value.founderIdentity) &&
     typeof value.population === 'number' &&
     typeof value.simPopulation === 'number' &&
     typeof value.realPopulation === 'number' &&
@@ -1193,6 +1205,15 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     isRealityAreaSurvivalDashboard(value.survival) &&
     isRealityAreaLedgerDashboard(value.ledger) &&
     isRealityAreaCovenantReview(value.founderCovenant)
+}
+
+function isRealityAreaFounderIdentity(value: unknown): value is RealityAreaDashboard['founderIdentity'] {
+  return isRecord(value) &&
+    typeof value.citizenId === 'string' &&
+    typeof value.founderNumber === 'number' &&
+    isClaimSource(value.claimSource) &&
+    (value.telegramUserId === null || typeof value.telegramUserId === 'string') &&
+    (value.telegramAccountId === null || typeof value.telegramAccountId === 'string')
 }
 
 function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedgerDashboard {
