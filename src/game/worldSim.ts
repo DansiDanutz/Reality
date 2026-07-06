@@ -365,6 +365,36 @@ export interface AreaLedgerDashboard {
   recentTransactions: AreaTransactionDashboard[]
 }
 
+export type FounderCovenantStatus = 'unclaimed' | 'active' | 'watch' | 'manual_review'
+export type FounderCovenantNextAction = 'claim_area' | 'none' | 'warn_founder' | 'manual_review'
+export type FounderCovenantSignalSeverity = 'info' | 'warning' | 'critical'
+export type FounderCovenantSignalKind =
+  | 'founder_unavailable'
+  | 'no_business_built'
+  | 'understaffed_businesses'
+  | 'essential_shortage'
+  | 'founder_debt'
+
+export interface FounderCovenantSignal {
+  kind: FounderCovenantSignalKind
+  severity: FounderCovenantSignalSeverity
+  message: string
+  businessIds?: string[]
+  businessKinds?: WorldBusinessKind[]
+  amount?: number
+}
+
+export interface AreaFounderCovenantDashboard {
+  founderCitizenId: string | null
+  status: FounderCovenantStatus
+  nextAction: FounderCovenantNextAction
+  reviewCadence: 'weekly_monthly_manual'
+  manualReviewRequired: boolean
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  signals: FounderCovenantSignal[]
+}
+
 export interface AreaNeedsDashboard {
   population: number
   simPopulation: number
@@ -383,6 +413,7 @@ export interface AreaNeedsDashboard {
   ledger: AreaLedgerDashboard
   jobs: AreaJobsDashboard
   survival: AreaSurvivalDashboard
+  founderCovenant: AreaFounderCovenantDashboard
   firstBuild: FirstBuildRecommendation[]
 }
 
@@ -718,6 +749,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens, founderCanAct !== false),
     survival: survivalDashboard(area),
+    founderCovenant: founderCovenantDashboard(area, { shortage }),
     firstBuild: firstBuildGuidance({
       areaId: area.claim ? area.id : undefined,
       demand,
@@ -960,6 +992,11 @@ function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
   })
 }
 
+function totalDebt(citizen: WorldCitizen): number {
+  const itemizedDebt = (citizen.debts ?? []).reduce((total, debt) => total + debt.amount, 0)
+  return roundMoney(Math.max(citizen.debt, itemizedDebt))
+}
+
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
   const insurers = area.businesses
     .filter((business) => business.kind === 'insurance')
@@ -986,6 +1023,95 @@ function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: nu
     canAfford,
     canBuyNow: blockers.length === 0,
     blockers,
+  }
+}
+
+function founderCovenantDashboard(
+  area: WorldArea,
+  input: { shortage: Record<WorldBusinessKind, number> },
+): AreaFounderCovenantDashboard {
+  if (!area.claim) {
+    return {
+      founderCitizenId: null,
+      status: 'unclaimed',
+      nextAction: 'claim_area',
+      reviewCadence: 'weekly_monthly_manual',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      signals: [],
+    }
+  }
+
+  const founderCitizenId = area.claim.founderCitizenId
+  const founder = area.citizens.find((citizen) => citizen.id === founderCitizenId)
+  const founderBusinesses = area.businesses.filter((business) => business.ownerId === founderCitizenId)
+  const signals: FounderCovenantSignal[] = []
+
+  if (!founder || founder.state.kind !== 'active') {
+    signals.push({
+      kind: 'founder_unavailable',
+      severity: 'critical',
+      message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+
+  if (founderBusinesses.length === 0) {
+    signals.push({
+      kind: 'no_business_built',
+      severity: 'warning',
+      message: 'Founder has not built a local business yet.',
+    })
+  }
+
+  const understaffedBusinesses = founderBusinesses.filter((business) =>
+    activeStaffCount(area, business) < TARGET_STAFF_BY_KIND[business.kind],
+  )
+  if (understaffedBusinesses.length > 0) {
+    signals.push({
+      kind: 'understaffed_businesses',
+      severity: 'warning',
+      message: 'Founder-owned businesses need workers before the area can run reliably.',
+      businessIds: understaffedBusinesses.map((business) => business.id),
+    })
+  }
+
+  const essentialShortages = (['water', 'food', 'housing'] as const)
+    .filter((kind) => input.shortage[kind] > 0)
+  if (essentialShortages.length > 0) {
+    signals.push({
+      kind: 'essential_shortage',
+      severity: 'warning',
+      message: 'The area has unserved water, food, or housing demand.',
+      businessKinds: essentialShortages,
+      amount: roundMoney(essentialShortages.reduce((total, kind) => total + input.shortage[kind], 0)),
+    })
+  }
+
+  const founderDebt = founder ? totalDebt(founder) : 0
+  if (founderDebt > 0) {
+    signals.push({
+      kind: 'founder_debt',
+      severity: 'info',
+      message: 'Founder has unpaid debt that should be reviewed before profit or succession decisions.',
+      amount: founderDebt,
+    })
+  }
+
+  const manualReviewRequired = signals.some((signal) => signal.severity === 'critical')
+  return {
+    founderCitizenId,
+    status: manualReviewRequired ? 'manual_review' : signals.length > 0 ? 'watch' : 'active',
+    nextAction: manualReviewRequired
+      ? 'manual_review'
+      : signals.some((signal) => signal.severity === 'warning')
+        ? 'warn_founder'
+        : 'none',
+    reviewCadence: 'weekly_monthly_manual',
+    manualReviewRequired,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    signals,
   }
 }
 

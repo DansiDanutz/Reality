@@ -1494,6 +1494,82 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('dashboard surfaces founder covenant review signals without enabling replacement', () => {
+    const start = claimedArea({
+      citizens: [sim('thirsty', { needs: fullNeeds({ hydration: 30 }) })],
+    })
+    const founder = start.citizens.find((citizen) => citizen.id === 'founder')!
+    founder.state = { kind: 'hospitalized', until: 5 * HOUR }
+    founder.debt = 120
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant).toMatchObject({
+      founderCitizenId: 'founder',
+      status: 'manual_review',
+      nextAction: 'manual_review',
+      reviewCadence: 'weekly_monthly_manual',
+      manualReviewRequired: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+    })
+    expect(dash.founderCovenant.signals).toEqual([
+      {
+        kind: 'founder_unavailable',
+        severity: 'critical',
+        message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+      },
+      {
+        kind: 'no_business_built',
+        severity: 'warning',
+        message: 'Founder has not built a local business yet.',
+      },
+      {
+        kind: 'essential_shortage',
+        severity: 'warning',
+        message: 'The area has unserved water, food, or housing demand.',
+        businessKinds: ['water', 'housing'],
+        amount: 2,
+      },
+      {
+        kind: 'founder_debt',
+        severity: 'info',
+        message: 'Founder has unpaid debt that should be reviewed before profit or succession decisions.',
+        amount: 120,
+      },
+    ])
+  })
+
+  test('dashboard marks a staffed founder area active for covenant review', () => {
+    const start = claimedArea({
+      citizens: [
+        sim('water-worker', { jobBusinessId: 'water1', homeBusinessId: 'home1' }),
+        sim('food-worker-1', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('food-worker-2', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('home-worker', { jobBusinessId: 'home1', homeBusinessId: 'home1' }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'founder', staffCitizenIds: ['water-worker'] }),
+        business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['food-worker-1', 'food-worker-2'] }),
+        business('housing', 'home1', { ownerId: 'founder', staffCitizenIds: ['home-worker'] }),
+      ],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant).toEqual({
+      founderCitizenId: 'founder',
+      status: 'active',
+      nextAction: 'none',
+      reviewCadence: 'weekly_monthly_manual',
+      manualReviewRequired: false,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+      signals: [],
+    })
+  })
+
   test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {
     const dash = areaNeedsDashboard(area({
       citizens: [
