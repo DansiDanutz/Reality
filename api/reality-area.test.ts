@@ -577,6 +577,48 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('service purchases scale founder recovery by business quality', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
+    const thirsty = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 40 },
+    })
+    const existing = withBusiness(thirsty, {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+      quality: 0.5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://low-quality-water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyWater' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(founder?.needs.hydration).toBe(57.5)
+    expect(body.state.businesses[0]).toMatchObject({ id: 'water-1', cash: 7, quality: 0.5 })
+    expect(body.state.transactions.at(-1)).toMatchObject({
+      kind: 'customer_purchase',
+      fromId: CITIZEN_ID,
+      toId: 'water-1',
+      amount: 2,
+    })
+  })
+
   test('service purchases require a claimed area, local service, and funds', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
@@ -870,6 +912,49 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('advanceHour scales Sim Citizen service effects by degraded business quality', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const hospitalized = withCitizen(existingState(), CITIZEN_ID, {
+      state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
+    })
+    const existing = withBusiness(hospitalized, {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+      quality: 1,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://degraded-water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const simWater = body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(simWater?.money).toBe(98)
+    expect(simWater?.needs.hydration).toBe(48.9)
+    expect(body.state.businesses[0]).toMatchObject({ id: 'water-1', cash: 7, quality: 0.96 })
+    expect(body.state.transactions.at(-1)).toMatchObject({
+      kind: 'customer_purchase',
+      fromId: 'founder-area-0012:sim-water',
+      toId: 'water-1',
+      amount: 2,
+    })
   })
 
   test('advanceHour decays founder needs on the server clock', async () => {

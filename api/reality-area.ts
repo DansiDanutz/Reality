@@ -1080,6 +1080,7 @@ function applyServicePurchaseIntent(
 
   const at = now.toISOString()
   const nextBalance = roundMoney(state.balance - business.price)
+  const serviceQuality = effectiveBusinessQuality(state.citizens, business)
   const transaction: FounderAreaTransaction = {
     id: `${state.areaId}:${now.getTime()}:customer-purchase:${intent.type}:${business.id}`,
     at,
@@ -1108,7 +1109,7 @@ function applyServicePurchaseIntent(
           needs: { ...citizen.needs },
           state: { ...citizen.state },
         }
-        applyServiceEffect(nextCitizen, intent.serviceKind)
+        applyServiceEffect(nextCitizen, intent.serviceKind, serviceQuality)
         return nextCitizen
       }),
       transactions: [...state.transactions, transaction],
@@ -1274,6 +1275,12 @@ function activeStaffCount(citizens: FounderAreaCitizen[], business: FounderAreaB
     .length
 }
 
+function effectiveBusinessQuality(citizens: FounderAreaCitizen[], business: FounderAreaBusiness): number {
+  const owner = citizens.find((citizen) => citizen.id === business.ownerId)
+  const unmanagedPenalty = owner?.state.kind === 'hospitalized' && activeStaffCount(citizens, business) === 0 ? 0.35 : 1
+  return clampQuality((business.quality ?? 1) * unmanagedPenalty)
+}
+
 function applySimCitizenHour(
   areaId: string,
   citizens: FounderAreaCitizen[],
@@ -1295,7 +1302,7 @@ function applySimCitizenHour(
       if (!business || citizen.money < business.price) continue
       citizen.money = roundMoney(citizen.money - business.price)
       business.cash = roundMoney(business.cash + business.price)
-      applyServiceEffect(citizen, serviceKind)
+      applyServiceEffect(citizen, serviceKind, effectiveBusinessQuality(citizens, business))
       purchaseSequence += 1
       transactions.push({
         id: `${areaId}:${now.getTime()}:sim-purchase:${citizen.id}:${serviceKind}:${business.id}:${purchaseSequence}`,
@@ -1474,17 +1481,18 @@ function serviceNeedsForCitizen(citizen: FounderAreaCitizen): Exclude<FounderAre
 function applyServiceEffect(
   citizen: FounderAreaCitizen,
   serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>,
+  quality: number,
 ): void {
   const effect = SERVICE_EFFECTS[serviceKind]
   citizen.needs = {
     ...citizen.needs,
-    hunger: effect.hunger === undefined ? citizen.needs.hunger : clampNeed(citizen.needs.hunger + effect.hunger),
-    hydration: effect.hydration === undefined ? citizen.needs.hydration : clampNeed(citizen.needs.hydration + effect.hydration),
-    energy: effect.energy === undefined ? citizen.needs.energy : clampNeed(citizen.needs.energy + effect.energy),
-    hygiene: effect.hygiene === undefined ? citizen.needs.hygiene : clampNeed(citizen.needs.hygiene + effect.hygiene),
-    fun: effect.fun === undefined ? citizen.needs.fun : clampNeed(citizen.needs.fun + effect.fun),
+    hunger: effect.hunger === undefined ? citizen.needs.hunger : clampNeed(citizen.needs.hunger + effect.hunger * quality),
+    hydration: effect.hydration === undefined ? citizen.needs.hydration : clampNeed(citizen.needs.hydration + effect.hydration * quality),
+    energy: effect.energy === undefined ? citizen.needs.energy : clampNeed(citizen.needs.energy + effect.energy * quality),
+    hygiene: effect.hygiene === undefined ? citizen.needs.hygiene : clampNeed(citizen.needs.hygiene + effect.hygiene * quality),
+    fun: effect.fun === undefined ? citizen.needs.fun : clampNeed(citizen.needs.fun + effect.fun * quality),
   }
-  if (effect.health !== undefined) citizen.health = clampNeed(citizen.health + effect.health)
+  if (effect.health !== undefined) citizen.health = clampNeed(citizen.health + effect.health * quality)
 }
 
 function chooseServiceBusiness(
@@ -1706,6 +1714,12 @@ function roundMoney(value: number): number {
 function clampNeed(value: number): number {
   if (value < 0) return 0
   if (value > 100) return 100
+  return Math.round(value * 100) / 100
+}
+
+function clampQuality(value: number): number {
+  if (value < 0.15) return 0.15
+  if (value > 1.5) return 1.5
   return Math.round(value * 100) / 100
 }
 
