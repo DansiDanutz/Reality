@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { put } from '@vercel/blob'
+import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import handler, {
   realityTelegramAccountId,
@@ -9,6 +9,7 @@ import handler, {
 } from './telegram-auth'
 
 vi.mock('@vercel/blob', () => ({
+  list: vi.fn(),
   put: vi.fn(async () => ({ url: 'blob://telegram-users/42424242.json' })),
 }))
 
@@ -16,6 +17,9 @@ const BOT_TOKEN = '123456:REALITY_TEST_BOT_TOKEN'
 const NOW_SECONDS = 1_800_000_000
 
 afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+  vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
   delete process.env.TELEGRAM_BOT_TOKEN
 })
@@ -142,6 +146,7 @@ describe('telegram Mini App auth', () => {
         user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
       })
       const res = responseRecorder()
+      vi.mocked(list).mockResolvedValueOnce(blobList([]))
 
       await handler({ method: 'POST', body: { initData } } as never, res as never)
 
@@ -157,6 +162,56 @@ describe('telegram Mini App auth', () => {
           username: 'davidreality',
           lastVerifiedAt: '2026-07-06T02:00:00.000Z',
           provider: 'telegram-mini-app',
+        },
+      })
+      expect(put).toHaveBeenCalledWith(
+        'telegram-users/42424242.json',
+        JSON.stringify((res.body as { account: unknown }).account),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler preserves the linked Reality citizen mapping on auth refresh', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T02:30:00.000Z'))
+    try {
+      const existingAccount = {
+        realityAccountId: 'telegram:42424242',
+        telegramUserId: '42424242',
+        citizenId: '11111111-1111-4111-8111-111111111111',
+        founderNumber: 12,
+        citizenLinkedAt: '2026-07-06T01:00:00.000Z',
+        firstName: 'David',
+        username: 'oldusername',
+        authDate: Math.floor(Date.now() / 1000) - 120,
+        lastVerifiedAt: '2026-07-06T01:00:00.000Z',
+        provider: 'telegram-mini-app',
+      }
+      vi.mocked(list).mockResolvedValueOnce(blobList(['telegram-users/42424242.json'], 'blob://existing-telegram'))
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingAccount), { status: 200 })))
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'newusername' }),
+      })
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toMatchObject({
+        ok: true,
+        account: {
+          realityAccountId: 'telegram:42424242',
+          telegramUserId: '42424242',
+          citizenId: '11111111-1111-4111-8111-111111111111',
+          founderNumber: 12,
+          citizenLinkedAt: '2026-07-06T01:00:00.000Z',
+          username: 'newusername',
+          lastVerifiedAt: '2026-07-06T02:30:00.000Z',
         },
       })
       expect(put).toHaveBeenCalledWith(
@@ -185,6 +240,20 @@ describe('telegram Mini App auth', () => {
       lastVerifiedAt: '2026-07-06T00:00:00.000Z',
       provider: 'telegram-mini-app',
     })
+    expect(telegramRealityAccountRecord({
+      ok: true,
+      authDate: NOW_SECONDS,
+      realityAccountId: 'telegram:42424242',
+      user: { id: '42424242', firstName: 'David' },
+    }, new Date('2026-07-06T00:00:00.000Z'), null, {
+      citizenId: '11111111-1111-4111-8111-111111111111',
+      founderNumber: 12,
+      citizenLinkedAt: '2026-07-06T00:00:00.000Z',
+    })).toMatchObject({
+      citizenId: '11111111-1111-4111-8111-111111111111',
+      founderNumber: 12,
+      citizenLinkedAt: '2026-07-06T00:00:00.000Z',
+    })
   })
 })
 
@@ -196,6 +265,16 @@ function signedInitData(fields: Record<string, string>, botToken = BOT_TOKEN): s
   const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest()
   const hash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex')
   return new URLSearchParams({ ...fields, hash }).toString()
+}
+
+function blobList(pathnames: string[], downloadUrl = 'blob://download'): {
+  blobs: { pathname: string; downloadUrl: string }[]
+  hasMore: boolean
+} {
+  return {
+    blobs: pathnames.map((pathname) => ({ pathname, downloadUrl })),
+    hasMore: false,
+  }
 }
 
 function responseRecorder(): {

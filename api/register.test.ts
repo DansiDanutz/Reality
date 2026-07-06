@@ -59,6 +59,15 @@ describe('register API Telegram identity bridge', () => {
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
     const body = res.body as { citizenId: string; token: string }
+    const telegramPut = vi.mocked(put).mock.calls.find(([pathname]) => pathname === 'telegram-users/42424242.json')
+    expect(JSON.parse(String(telegramPut?.[1]))).toMatchObject({
+      realityAccountId: 'telegram:42424242',
+      telegramUserId: '42424242',
+      citizenId: body.citizenId,
+      founderNumber: 1,
+      citizenLinkedAt: new Date(NOW_SECONDS * 1000).toISOString(),
+    })
+    expect(JSON.parse(String(telegramPut?.[1]))).not.toHaveProperty('token')
     const tokenHash = createHash('sha256').update(body.token).digest('hex').slice(0, 24)
     const citizenPut = vi.mocked(put).mock.calls.find(([pathname]) =>
       pathname === `citizens/${body.citizenId}__${tokenHash}__1.json`

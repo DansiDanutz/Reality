@@ -58,9 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const registeredAt = new Date()
-    const telegramAccountRecord = verifiedTelegram?.ok
-      ? telegramRealityAccountRecord(verifiedTelegram, registeredAt)
-      : null
+    const verifiedTelegramSession = verifiedTelegram?.ok ? verifiedTelegram : null
 
     // Bot brake: a handful of citizens per IP per day is plenty for humans
     const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
@@ -78,13 +76,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contentType: 'application/json',
     })
 
-    if (telegramAccountRecord) {
-      await put(
-        telegramRealityAccountPath(verifiedTelegram.user),
-        JSON.stringify(telegramAccountRecord),
-        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
-      )
-    }
     // Every citizen name in Reality is unique — a name is an identity claim
     const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     try {
@@ -133,6 +124,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    const telegramAccountRecord = verifiedTelegramSession
+      ? telegramRealityAccountRecord(verifiedTelegramSession, registeredAt, null, {
+        citizenId,
+        founderNumber,
+        citizenLinkedAt: registeredAt.toISOString(),
+      })
+      : null
+
     // Citizen record: identity + auth live in the pathname so later requests
     // can verify a token with a single prefix lookup.
     await put(
@@ -140,6 +139,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       JSON.stringify(citizenRecord(clean, registeredAt, telegramAccountRecord)),
       { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
     )
+
+    if (telegramAccountRecord && verifiedTelegramSession) {
+      await put(
+        telegramRealityAccountPath(verifiedTelegramSession.user),
+        JSON.stringify(telegramAccountRecord),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    }
 
     res.status(200).json({
       ok: true,

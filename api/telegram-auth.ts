@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { put } from '@vercel/blob'
+import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
@@ -49,6 +49,9 @@ export interface VerifyTelegramMiniAppInitDataOptions {
 export interface TelegramRealityAccountRecord {
   realityAccountId: string
   telegramUserId: string
+  citizenId?: string
+  founderNumber?: number | null
+  citizenLinkedAt?: string
   firstName: string
   lastName?: string
   username?: string
@@ -105,10 +108,18 @@ export function telegramRealityAccountPath(user: Pick<TelegramMiniAppUser, 'id'>
 export function telegramRealityAccountRecord(
   verified: Extract<VerifyTelegramMiniAppInitDataResult, { ok: true }>,
   lastVerifiedAt: Date,
+  existing: TelegramRealityAccountRecord | null = null,
+  citizenLink: { citizenId: string; founderNumber: number | null; citizenLinkedAt: string } | null = null,
 ): TelegramRealityAccountRecord {
+  const citizenId = citizenLink?.citizenId ?? existing?.citizenId
+  const founderNumber = citizenLink ? citizenLink.founderNumber : existing?.founderNumber
+  const citizenLinkedAt = citizenLink?.citizenLinkedAt ?? existing?.citizenLinkedAt
   return {
     realityAccountId: verified.realityAccountId,
     telegramUserId: verified.user.id,
+    ...(citizenId ? { citizenId } : {}),
+    ...(founderNumber !== undefined ? { founderNumber } : {}),
+    ...(citizenLinkedAt ? { citizenLinkedAt } : {}),
     firstName: verified.user.firstName,
     lastName: verified.user.lastName,
     username: verified.user.username,
@@ -118,6 +129,20 @@ export function telegramRealityAccountRecord(
     lastVerifiedAt: lastVerifiedAt.toISOString(),
     provider: 'telegram-mini-app',
   }
+}
+
+async function readTelegramRealityAccountRecord(
+  user: Pick<TelegramMiniAppUser, 'id'>,
+): Promise<TelegramRealityAccountRecord | null> {
+  const path = telegramRealityAccountPath(user)
+  const batch = await list({ prefix: path, limit: 1 })
+  const url = batch.blobs.find((blob) => blob.pathname === path)?.downloadUrl ?? batch.blobs[0]?.downloadUrl
+  if (!url) return null
+
+  const response = await fetch(url)
+  if (!response.ok) return null
+  const value = await response.json() as unknown
+  return isTelegramRealityAccountRecord(value, user) ? value : null
 }
 
 function parseInitData(initData: string): { ok: true; fields: Map<string, string>; hash: string; dataCheckString: string } | { ok: false; error: VerifyTelegramMiniAppInitDataError } {
@@ -206,6 +231,23 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
 
+function isTelegramRealityAccountRecord(
+  value: unknown,
+  user: Pick<TelegramMiniAppUser, 'id'>,
+): value is TelegramRealityAccountRecord {
+  if (!isRecord(value)) return false
+  if (value.realityAccountId !== realityTelegramAccountId(user)) return false
+  if (value.telegramUserId !== user.id) return false
+  if (value.provider !== 'telegram-mini-app') return false
+  if (typeof value.firstName !== 'string' || typeof value.authDate !== 'number' || typeof value.lastVerifiedAt !== 'string') {
+    return false
+  }
+  if (value.citizenId !== undefined && (typeof value.citizenId !== 'string' || !value.citizenId)) return false
+  if (value.founderNumber !== undefined && value.founderNumber !== null && typeof value.founderNumber !== 'number') return false
+  if (value.citizenLinkedAt !== undefined && typeof value.citizenLinkedAt !== 'string') return false
+  return true
+}
+
 function readInitData(req: VercelRequest): string | null {
   const body = req.body as { initData?: unknown } | undefined
   return typeof body?.initData === 'string' ? body.initData : null
@@ -238,8 +280,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const accountRecord = telegramRealityAccountRecord(verified, new Date())
+  let accountRecord: TelegramRealityAccountRecord
   try {
+    const existingRecord = await readTelegramRealityAccountRecord(verified.user)
+    accountRecord = telegramRealityAccountRecord(verified, new Date(), existingRecord)
     await put(
       telegramRealityAccountPath(verified.user),
       JSON.stringify(accountRecord),
