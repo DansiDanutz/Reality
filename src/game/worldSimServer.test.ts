@@ -982,6 +982,60 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 
+  test('applies a client founder intent through server-decoded payload', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyClientFounderIntent',
+      authenticatedFounderId: ' founder ',
+      now: 1_000 + HOUR,
+      payload: {
+        type: 'buildBusiness',
+        businessKind: 'water',
+        businessId: ' water-a ',
+        name: 'Founder Water',
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected client founder intent to succeed')
+    expect(result.area.id).toBe('area-1')
+    expect(result.area.now).toBe(1_000 + HOUR)
+    expect(result.area.businesses[0]).toMatchObject({
+      id: 'water-a',
+      name: 'Founder Water',
+      ownerId: 'founder',
+      price: DEFAULT_BUSINESS_BLUEPRINTS.water.price,
+      wagePerHour: DEFAULT_BUSINESS_BLUEPRINTS.water.wagePerHour,
+    })
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'founder_credit', fromId: 'system:founder-credit', toId: 'founder', amount: FOUNDER_STARTING_BALANCE },
+      { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
+    ])
+    expect(saved?.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
+    expect(repo.saves).toBe(2)
+  })
+
+  test('rejects client founder payloads that try to control server fields before loading', async () => {
+    const repo = new MemoryWorldRepo()
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyClientFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+      payload: {
+        type: 'buyWater',
+        actorCitizenId: 'other',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(repo.loads).toBe(0)
+    expect(repo.saves).toBe(0)
+  })
+
   test('rejects founder intents that do not match the authenticated founder before loading', async () => {
     const blankRepo = new MemoryWorldRepo()
     const blankFounder = await runWorldServerCommand(blankRepo, {

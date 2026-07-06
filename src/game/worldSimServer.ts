@@ -15,6 +15,10 @@ import {
   type WorldIntentError,
   type WorldTransaction,
 } from './worldSim'
+import {
+  decodeClientWorldIntentPayload,
+  type DecodeClientWorldIntentError,
+} from './worldSimIntentCodec'
 import type { Needs } from './types'
 
 export interface WorldAreaRepository {
@@ -72,6 +76,12 @@ export type WorldServerCommand =
     now: number
     intent: WorldIntent
   }
+  | {
+    type: 'applyClientFounderIntent'
+    authenticatedFounderId: string
+    now: number
+    payload: unknown
+  }
 
 export type WorldServerCommandError =
   | 'area_exists'
@@ -85,6 +95,7 @@ export type WorldServerCommandError =
   | 'actor_mismatch'
   | 'time_moved_backward'
   | 'write_conflict'
+  | DecodeClientWorldIntentError
   | ClaimWorldAreaError
   | WorldIntentError
 
@@ -118,6 +129,8 @@ export async function runWorldServerCommand(
       return applyIntentToStoredArea(repo, command.areaId, command.now, command.authenticatedCitizenId, command.intent)
     case 'applyFounderIntent':
       return applyFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.intent)
+    case 'applyClientFounderIntent':
+      return applyClientFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.payload)
   }
 }
 
@@ -408,6 +421,17 @@ async function applyFounderIntentToStoredArea(
   const loaded = await repo.loadAreaByFounder(founderId)
   if (!loaded) return { ok: false, error: 'area_not_found' }
   return applyIntentToAreaRecord(repo, loaded, now, intent)
+}
+
+async function applyClientFounderIntentToStoredArea(
+  repo: WorldAreaRepository,
+  authenticatedFounderId: string,
+  now: number,
+  payload: unknown,
+): Promise<WorldServerCommandResult> {
+  const decoded = decodeClientWorldIntentPayload(payload, authenticatedFounderId)
+  if (!decoded.ok) return { ok: false, error: decoded.error }
+  return applyFounderIntentToStoredArea(repo, authenticatedFounderId, now, decoded.intent)
 }
 
 async function applyIntentToAreaRecord(
