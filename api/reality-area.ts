@@ -153,6 +153,33 @@ interface FounderAreaJobsDashboard {
   understaffedBusinesses: number
 }
 
+interface FounderAreaLicenseDashboard {
+  slots: number
+  used: number
+  remaining: number
+  saturation: number
+}
+
+interface FounderAreaFirstBuildRecommendation {
+  kind: FounderAreaBusinessKind
+  name: string
+  proposedBusinessId: string | null
+  buildCost: number
+  currentDemand: number
+  currentSupply: number
+  licensesRemaining: number
+  saturation: number
+  founderCanAfford: boolean
+  canBuildNow: boolean
+  clientPayload: {
+    type: 'buildBusiness'
+    businessKind: FounderAreaBusinessKind
+    businessId: string
+    name: string
+  } | null
+  reason: string
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -166,6 +193,10 @@ interface FounderAreaDashboard {
   capacity: Record<FounderAreaBusinessKind, number>
   shortage: Record<FounderAreaBusinessKind, number>
   jobs: FounderAreaJobsDashboard
+  licenseSlots: Record<FounderAreaBusinessKind, number>
+  saturation: Record<FounderAreaBusinessKind, number>
+  licenses: Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
+  firstBuild: FounderAreaFirstBuildRecommendation[]
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -903,8 +934,13 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
   const realDemand = areaServiceDemand(state.citizens.filter((citizen) => citizen.kind === 'real'))
   const supply = areaServiceSupply(state.businesses)
   const capacity = areaServiceCapacity(state.citizens, state.businesses)
+  const licenses = areaLicenseDashboard(supply)
+  const licenseSlots = emptyBusinessKindRecord()
+  const saturation = emptyBusinessKindRecord()
   const shortage = emptyBusinessKindRecord()
   for (const kind of BUSINESS_KINDS) {
+    licenseSlots[kind] = licenses[kind].slots
+    saturation[kind] = licenses[kind].saturation
     shortage[kind] = Math.max(0, demand[kind] - capacity[kind])
   }
   return {
@@ -920,6 +956,10 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     capacity,
     shortage,
     jobs: areaJobsDashboard(state),
+    licenseSlots,
+    saturation,
+    licenses,
+    firstBuild: firstBuildRecommendations(state, { demand, supply, licenses }),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -930,6 +970,91 @@ function areaServiceSupply(businesses: FounderAreaBusiness[]): Record<FounderAre
     supply[business.kind] += 1
   }
   return supply
+}
+
+function areaLicenseDashboard(
+  supply: Record<FounderAreaBusinessKind, number>,
+): Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard> {
+  const licenses = {} as Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
+  for (const kind of BUSINESS_KINDS) {
+    const slots = STARTER_LICENSE_SLOTS[kind]
+    const used = supply[kind]
+    licenses[kind] = {
+      slots,
+      used,
+      remaining: Math.max(0, slots - used),
+      saturation: slots <= 0 ? (used > 0 ? 1 : 0) : Math.min(1, used / slots),
+    }
+  }
+  return licenses
+}
+
+function firstBuildRecommendations(
+  state: FounderAreaState,
+  input: {
+    demand: Record<FounderAreaBusinessKind, number>
+    supply: Record<FounderAreaBusinessKind, number>
+    licenses: Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
+  },
+): FounderAreaFirstBuildRecommendation[] {
+  const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
+  const founderActive = founder?.state.kind === 'active'
+
+  return BUSINESS_KINDS.map((kind) => {
+    const blueprint = BUSINESS_BLUEPRINTS[kind]
+    const license = input.licenses[kind]
+    const proposedBusinessId = license.remaining > 0 ? `${state.areaId}:${kind}:${input.supply[kind] + 1}` : null
+    const founderCanAfford = state.balance >= blueprint.buildCost
+    const canBuildNow = Boolean(founderActive && founderCanAfford && license.remaining > 0 && proposedBusinessId)
+    return {
+      kind,
+      name: blueprint.name,
+      proposedBusinessId,
+      buildCost: blueprint.buildCost,
+      currentDemand: input.demand[kind],
+      currentSupply: input.supply[kind],
+      licensesRemaining: license.remaining,
+      saturation: license.saturation,
+      founderCanAfford,
+      canBuildNow,
+      clientPayload: canBuildNow
+        ? {
+          type: 'buildBusiness',
+          businessKind: kind,
+          businessId: proposedBusinessId as string,
+          name: blueprint.name,
+        }
+        : null,
+      reason: firstBuildReason({
+        founderActive,
+        founderCanAfford,
+        licensesRemaining: license.remaining,
+        demand: input.demand[kind],
+        supply: input.supply[kind],
+      }),
+    }
+  }).sort((left, right) => {
+    if (left.canBuildNow !== right.canBuildNow) return left.canBuildNow ? -1 : 1
+    const leftShortage = Math.max(0, left.currentDemand - left.currentSupply)
+    const rightShortage = Math.max(0, right.currentDemand - right.currentSupply)
+    if (leftShortage !== rightShortage) return rightShortage - leftShortage
+    if (left.currentDemand !== right.currentDemand) return right.currentDemand - left.currentDemand
+    return left.buildCost - right.buildCost
+  })
+}
+
+function firstBuildReason(input: {
+  founderActive: boolean
+  founderCanAfford: boolean
+  licensesRemaining: number
+  demand: number
+  supply: number
+}): string {
+  if (!input.founderActive) return 'Founder must recover before building.'
+  if (input.licensesRemaining <= 0) return 'No starter license remains for this business kind.'
+  if (!input.founderCanAfford) return 'Founder balance is too low for this build.'
+  if (input.demand > input.supply) return 'Local demand is waiting for this service.'
+  return 'Low current demand; consider it after the area grows.'
 }
 
 function areaJobsDashboard(state: FounderAreaState): FounderAreaJobsDashboard {

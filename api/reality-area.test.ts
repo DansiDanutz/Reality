@@ -24,6 +24,31 @@ const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
 const FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
 const NON_FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__0.json`
 
+type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
+  licenseSlots: Record<string, number>
+  saturation: Record<string, number>
+  licenses: Record<string, { slots: number; used: number; remaining: number; saturation: number }>
+  firstBuild: {
+    kind: string
+    name: string
+    proposedBusinessId: string | null
+    buildCost: number
+    currentDemand: number
+    currentSupply: number
+    licensesRemaining: number
+    saturation: number
+    founderCanAfford: boolean
+    canBuildNow: boolean
+    clientPayload: {
+      type: string
+      businessKind: string
+      businessId: string
+      name: string
+    } | null
+    reason: string
+  }[]
+}
+
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
@@ -238,6 +263,41 @@ describe('reality area authority API', () => {
       },
     })
     expect(body.dashboard).toMatchObject(serverDashboard(existing))
+    const dashboard = body.dashboard as DashboardWithBuildGuidance
+    expect(dashboard.licenseSlots).toEqual({ water: 1, food: 1, housing: 1, clinic: 0, insurance: 0 })
+    expect(dashboard.saturation).toEqual({ water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 })
+    expect(dashboard.licenses.water).toEqual({ slots: 1, used: 0, remaining: 1, saturation: 0 })
+    expect(dashboard.firstBuild.map((recommendation) => recommendation.kind)).toEqual([
+      'water',
+      'food',
+      'housing',
+      'insurance',
+      'clinic',
+    ])
+    expect(dashboard.firstBuild.find((recommendation) => recommendation.kind === 'water')).toMatchObject({
+      name: 'Water Point',
+      proposedBusinessId: 'founder-area-0012:water:1',
+      buildCost: 8_000,
+      currentDemand: 1,
+      currentSupply: 0,
+      licensesRemaining: 1,
+      saturation: 0,
+      founderCanAfford: true,
+      canBuildNow: true,
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'water',
+        businessId: 'founder-area-0012:water:1',
+        name: 'Water Point',
+      },
+      reason: 'Local demand is waiting for this service.',
+    })
+    expect(dashboard.firstBuild.find((recommendation) => recommendation.kind === 'clinic')).toMatchObject({
+      licensesRemaining: 0,
+      canBuildNow: false,
+      clientPayload: null,
+      reason: 'No starter license remains for this business kind.',
+    })
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -562,6 +622,16 @@ describe('reality area authority API', () => {
       toId: 'system:builders',
       amount: 8_000,
       memo: 'Founder Water built as a water business.',
+    })
+    const dashboard = (res.body as { dashboard: DashboardWithBuildGuidance }).dashboard
+    expect(dashboard.licenses.water).toEqual({ slots: 1, used: 1, remaining: 0, saturation: 1 })
+    expect(dashboard.firstBuild.find((recommendation) => recommendation.kind === 'water')).toMatchObject({
+      currentSupply: 1,
+      licensesRemaining: 0,
+      saturation: 1,
+      canBuildNow: false,
+      clientPayload: null,
+      reason: 'No starter license remains for this business kind.',
     })
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
