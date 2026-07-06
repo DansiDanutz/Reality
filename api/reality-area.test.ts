@@ -3278,6 +3278,62 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('buyInsurance catches up stale area state and rejects a hospitalized founder', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = withBusiness({
+      ...fragileFounder,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    const body = res.body as { ok: false; code: string; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(body).toMatchObject({ ok: false, code: 'actor_unavailable' })
+    expect(founder?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T16:00:00.000Z' })
+    expect(founder?.insuranceBusinessId).toBeUndefined()
+    expect(founder?.insurancePaidUntil).toBeUndefined()
+    expect(body.state.businesses.find((business) => business.id === 'insurance-1')).toMatchObject({ cash: 5 })
+    expect(body.state.transactions.at(-1)).toMatchObject({
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: CITIZEN_ID,
+      toId: 'system:hospital',
+      amount: 350,
+    })
+    expect(body.state.transactions.some((transaction) => transaction.kind === 'insurance_premium')).toBe(false)
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
   test('buyInsurance requires an active founder, an insurance business, no active policy, and funds', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))

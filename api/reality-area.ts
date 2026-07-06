@@ -3231,13 +3231,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'buyInsurance') {
-      const result = applyBuyInsuranceIntent(existing, rawIntent, new Date())
+      const intent = normalizeBuyInsuranceIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(buyInsuranceStatus(intent.error)).json({
+          ok: false,
+          error: buyInsuranceMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+
+      const now = new Date()
+      const stateForInsurance = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      const result = applyBuyInsuranceIntent(
+        stateForInsurance,
+        { type: 'buyInsurance', insuranceBusinessId: intent.insuranceBusinessId },
+        now,
+      )
       if (!result.ok) {
         res.status(buyInsuranceStatus(result.error)).json({
           ok: false,
           error: buyInsuranceMessage(result.error),
           code: result.error,
-          state: existing,
+          state: stateForInsurance,
         })
         return
       }
