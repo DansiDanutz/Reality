@@ -229,6 +229,7 @@ type AdvanceHourIntentError = 'unsupported_intent' | 'client_controlled_server_f
 type ApplyAdvanceHourError =
   | AdvanceHourIntentError
   | 'area_not_claimed'
+  | 'clock_not_ready'
 
 type RepayDebtIntent =
   | {
@@ -452,6 +453,7 @@ const BASE_SERVICE_CAPACITY_PER_HOUR: Record<FounderAreaBusinessKind, number> = 
   insurance: 8,
 }
 const STAFF_CAPACITY_MULTIPLIER = 0.75
+const SERVER_AREA_TICK_MS = 3_600_000
 
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
@@ -1023,6 +1025,7 @@ function applyAdvanceHourIntent(
   if (!state) return { ok: false, error: 'area_not_claimed' }
   const intent = normalizeAdvanceHourIntent(input)
   if (!intent.ok) return intent
+  if (!canAdvanceAreaClock(state, now)) return { ok: false, error: 'clock_not_ready' }
 
   const at = now.toISOString()
   const transactions: FounderAreaTransaction[] = []
@@ -1069,6 +1072,12 @@ function applyAdvanceHourIntent(
       updatedAt: at,
     },
   }
+}
+
+function canAdvanceAreaClock(state: FounderAreaState, now: Date): boolean {
+  const updatedMs = Date.parse(state.updatedAt)
+  if (!Number.isFinite(updatedMs)) return true
+  return now.getTime() - updatedMs >= SERVER_AREA_TICK_MS
 }
 
 function applyServicePurchaseIntent(
@@ -1712,7 +1721,7 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
 }
 
 function advanceHourStatus(error: ApplyAdvanceHourError): number {
-  if (error === 'area_not_claimed') return 409
+  if (error === 'area_not_claimed' || error === 'clock_not_ready') return 409
   return error === 'unsupported_intent' ? 400 : 422
 }
 
@@ -1720,6 +1729,8 @@ function advanceHourMessage(error: ApplyAdvanceHourError): string {
   switch (error) {
     case 'area_not_claimed':
       return 'Area must be claimed before advancing the simulation.'
+    case 'clock_not_ready':
+      return 'Reality area can advance only after a real hour has elapsed.'
     default:
       return 'Invalid advanceHour intent.'
   }

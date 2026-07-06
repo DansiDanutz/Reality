@@ -914,6 +914,37 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('advanceHour rejects ticks before a real hour elapsed since the server update', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const recentlyUpdated = {
+      ...existingState(),
+      updatedAt: '2026-07-06T06:30:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recent-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(recentlyUpdated), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'clock_not_ready',
+      error: 'Reality area can advance only after a real hour has elapsed.',
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('advanceHour scales Sim Citizen service effects by degraded business quality', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
