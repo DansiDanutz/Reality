@@ -7,6 +7,7 @@ import type {
   AreaCitizenDashboard,
   AreaDebtRepaymentBlocker,
   AreaFounderCovenantDashboard,
+  AreaInsuranceActionBlocker,
   AreaJobsDashboard,
   AreaNeedsDashboard,
   AreaSurvivalDashboard,
@@ -207,6 +208,25 @@ export interface RealityAreaCitizenDebtDashboard {
   blockers: AreaDebtRepaymentBlocker[]
 }
 
+export interface RealityAreaInsuranceActionDashboard {
+  intent: 'buyInsurance'
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'buyInsurance' }> | null
+  insuranceBusinessId: string | null
+  premium: number | null
+  available: boolean
+  canAfford: boolean
+  canBuyNow: boolean
+  blockers: AreaInsuranceActionBlocker[]
+}
+
+export interface RealityAreaEstateProtectionDashboard {
+  enabled: false
+  namedHeirCitizenId: string | null
+  namedHeirName: string | null
+  protectedByInsurance: boolean
+  status: 'disabled_until_death_enabled'
+}
+
 export interface RealityAreaCitizenDashboard {
   id: string
   name: string
@@ -225,6 +245,8 @@ export interface RealityAreaCitizenDashboard {
   jobBusinessId?: string
   insuranceBusinessId?: string
   insuranceActive: boolean
+  insuranceAction: RealityAreaInsuranceActionDashboard
+  estateProtection: RealityAreaEstateProtectionDashboard
 }
 
 export interface RealityAreaSurvivalAction {
@@ -642,23 +664,18 @@ function mergeRealityAreaCitizenDashboard(
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: citizen.insuranceActive,
-    insuranceAction: fallback?.insuranceAction ?? {
-      intent: 'buyInsurance',
-      clientPayload: null,
-      insuranceBusinessId: null,
-      premium: null,
-      available: false,
-      canAfford: false,
-      canBuyNow: false,
-      blockers: ['service_unavailable'],
-    },
-    estateProtection: fallback?.estateProtection ?? {
-      enabled: false,
-      namedHeirCitizenId: null,
-      namedHeirName: null,
-      protectedByInsurance: citizen.insuranceActive,
-      status: 'disabled_until_death_enabled',
-    },
+    insuranceAction: mergeRealityAreaInsuranceAction(citizen.insuranceAction),
+    estateProtection: { ...citizen.estateProtection },
+  }
+}
+
+function mergeRealityAreaInsuranceAction(
+  action: RealityAreaInsuranceActionDashboard,
+): AreaCitizenDashboard['insuranceAction'] {
+  return {
+    ...action,
+    clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
+    blockers: [...action.blockers],
   }
 }
 
@@ -918,7 +935,31 @@ function isRealityAreaCitizenDashboard(value: unknown): value is RealityAreaCiti
     (typeof value.homeBusinessId === 'string' || value.homeBusinessId === undefined) &&
     (typeof value.jobBusinessId === 'string' || value.jobBusinessId === undefined) &&
     (typeof value.insuranceBusinessId === 'string' || value.insuranceBusinessId === undefined) &&
-    typeof value.insuranceActive === 'boolean'
+    typeof value.insuranceActive === 'boolean' &&
+    isRealityAreaInsuranceAction(value.insuranceAction) &&
+    isRealityAreaEstateProtection(value.estateProtection)
+}
+
+function isRealityAreaInsuranceAction(value: unknown): value is RealityAreaInsuranceActionDashboard {
+  return isRecord(value) &&
+    value.intent === 'buyInsurance' &&
+    (isRealityAreaBuyInsurancePayload(value.clientPayload) || value.clientPayload === null) &&
+    (typeof value.insuranceBusinessId === 'string' || value.insuranceBusinessId === null) &&
+    (typeof value.premium === 'number' || value.premium === null) &&
+    typeof value.available === 'boolean' &&
+    typeof value.canAfford === 'boolean' &&
+    typeof value.canBuyNow === 'boolean' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isInsuranceActionBlocker)
+}
+
+function isRealityAreaEstateProtection(value: unknown): value is RealityAreaEstateProtectionDashboard {
+  return isRecord(value) &&
+    value.enabled === false &&
+    (typeof value.namedHeirCitizenId === 'string' || value.namedHeirCitizenId === null) &&
+    (typeof value.namedHeirName === 'string' || value.namedHeirName === null) &&
+    typeof value.protectedByInsurance === 'boolean' &&
+    value.status === 'disabled_until_death_enabled'
 }
 
 function isRealityAreaCitizenDebtDashboard(value: unknown): value is RealityAreaCitizenDebtDashboard {
@@ -1046,8 +1087,21 @@ function isRealityAreaRepayDebtPayload(value: unknown): value is Extract<WorldCl
     typeof value.amount === 'number'
 }
 
+function isRealityAreaBuyInsurancePayload(value: unknown): value is Extract<WorldClientIntentPayload, { type: 'buyInsurance' }> {
+  return isRecord(value) &&
+    value.type === 'buyInsurance' &&
+    typeof value.insuranceBusinessId === 'string'
+}
+
 function isDebtRepaymentBlocker(value: unknown): value is AreaDebtRepaymentBlocker {
   return value === 'actor_unavailable' || value === 'insufficient_funds'
+}
+
+function isInsuranceActionBlocker(value: unknown): value is AreaInsuranceActionBlocker {
+  return value === 'actor_unavailable' ||
+    value === 'already_insured' ||
+    value === 'service_unavailable' ||
+    value === 'insufficient_funds'
 }
 
 function isWorkerCandidateAction(value: unknown): value is AreaWorkerCandidateAction {

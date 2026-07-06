@@ -240,6 +240,11 @@ interface FounderAreaBusinessDashboard {
 }
 
 type FounderAreaDebtRepaymentBlocker = 'actor_unavailable' | 'insufficient_funds'
+type FounderAreaInsuranceActionBlocker =
+  | 'actor_unavailable'
+  | 'already_insured'
+  | 'service_unavailable'
+  | 'insufficient_funds'
 
 interface FounderAreaCitizenDebtDashboard {
   id: string
@@ -254,6 +259,25 @@ interface FounderAreaCitizenDebtDashboard {
   maxAffordablePayment: number
   canRepayNow: boolean
   blockers: FounderAreaDebtRepaymentBlocker[]
+}
+
+interface FounderAreaInsuranceActionDashboard {
+  intent: 'buyInsurance'
+  clientPayload: { type: 'buyInsurance'; insuranceBusinessId: string } | null
+  insuranceBusinessId: string | null
+  premium: number | null
+  available: boolean
+  canAfford: boolean
+  canBuyNow: boolean
+  blockers: FounderAreaInsuranceActionBlocker[]
+}
+
+interface FounderAreaEstateProtectionDashboard {
+  enabled: false
+  namedHeirCitizenId: string | null
+  namedHeirName: string | null
+  protectedByInsurance: boolean
+  status: 'disabled_until_death_enabled'
 }
 
 interface FounderAreaCitizenDashboard {
@@ -274,6 +298,8 @@ interface FounderAreaCitizenDashboard {
   jobBusinessId?: string
   insuranceBusinessId?: string
   insuranceActive: boolean
+  insuranceAction: FounderAreaInsuranceActionDashboard
+  estateProtection: FounderAreaEstateProtectionDashboard
 }
 
 type FounderAreaSurvivalRiskLevel = 'stable' | 'warning' | 'danger' | 'hospitalized'
@@ -1371,6 +1397,8 @@ function citizenDashboard(state: FounderAreaState, citizen: FounderAreaCitizen):
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, now),
+    insuranceAction: insuranceActionDashboard(state, citizen, now),
+    estateProtection: estateProtectionDashboard(citizen, now),
   }
 }
 
@@ -1389,6 +1417,49 @@ function debtDashboard(citizen: FounderAreaCitizen, debt: FounderAreaDebt): Foun
     maxAffordablePayment,
     canRepayNow: blockers.length === 0,
     blockers,
+  }
+}
+
+function insuranceActionDashboard(
+  state: FounderAreaState,
+  citizen: FounderAreaCitizen,
+  now: Date,
+): FounderAreaInsuranceActionDashboard {
+  const insurer = [...state.businesses]
+    .filter((business) => business.kind === 'insurance')
+    .sort((a, b) => a.price - b.price || a.id.localeCompare(b.id))[0]
+  const premium = insurer?.price ?? null
+  const activeInsurance = hasActiveInsurance(citizen, now)
+  const canAfford = premium !== null && citizen.money >= premium
+  const blockers: FounderAreaInsuranceActionBlocker[] = []
+
+  if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
+  if (activeInsurance) blockers.push('already_insured')
+  if (!insurer) blockers.push('service_unavailable')
+  if (insurer && !canAfford) blockers.push('insufficient_funds')
+
+  return {
+    intent: 'buyInsurance',
+    clientPayload: insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
+    insuranceBusinessId: insurer?.id ?? null,
+    premium,
+    available: Boolean(insurer),
+    canAfford,
+    canBuyNow: blockers.length === 0,
+    blockers,
+  }
+}
+
+function estateProtectionDashboard(
+  citizen: FounderAreaCitizen,
+  now: Date,
+): FounderAreaEstateProtectionDashboard {
+  return {
+    enabled: false,
+    namedHeirCitizenId: null,
+    namedHeirName: null,
+    protectedByInsurance: hasActiveInsurance(citizen, now),
+    status: 'disabled_until_death_enabled',
   }
 }
 

@@ -436,6 +436,23 @@ describe('Reality area client', () => {
       canRepayNow: false,
       blockers: ['actor_unavailable'],
     })
+    expect(founder?.insuranceAction).toMatchObject({
+      intent: 'buyInsurance',
+      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      insuranceBusinessId: 'insurance-1',
+      premium: 45,
+      available: true,
+      canAfford: true,
+      canBuyNow: false,
+      blockers: ['actor_unavailable'],
+    })
+    expect(founder?.estateProtection).toEqual({
+      enabled: false,
+      namedHeirCitizenId: null,
+      namedHeirName: null,
+      protectedByInsurance: false,
+      status: 'disabled_until_death_enabled',
+    })
     expect(merged.founderCovenant).toMatchObject({
       founderCitizenId: 'citizen-1',
       status: 'watch',
@@ -715,6 +732,23 @@ function serverDashboard(): RealityAreaDashboard {
         blockers: ['actor_unavailable'],
       }],
       insuranceActive: false,
+      insuranceAction: {
+        intent: 'buyInsurance',
+        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        insuranceBusinessId: 'insurance-1',
+        premium: 45,
+        available: true,
+        canAfford: true,
+        canBuyNow: false,
+        blockers: ['actor_unavailable'],
+      },
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: false,
+        status: 'disabled_until_death_enabled',
+      },
     }, {
       id: 'sim-water',
       name: 'Demo Water Resident',
@@ -732,6 +766,23 @@ function serverDashboard(): RealityAreaDashboard {
       jobBusinessId: 'water-1',
       insuranceBusinessId: 'insurance-1',
       insuranceActive: true,
+      insuranceAction: {
+        intent: 'buyInsurance',
+        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        insuranceBusinessId: 'insurance-1',
+        premium: 45,
+        available: true,
+        canAfford: true,
+        canBuyNow: false,
+        blockers: ['already_insured'],
+      },
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: true,
+        status: 'disabled_until_death_enabled',
+      },
     }],
     survival: {
       stableCitizens: 1,

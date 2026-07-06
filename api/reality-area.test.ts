@@ -115,6 +115,23 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     jobBusinessId?: string
     insuranceBusinessId?: string
     insuranceActive: boolean
+    insuranceAction: {
+      intent: string
+      clientPayload: { type: string; insuranceBusinessId: string } | null
+      insuranceBusinessId: string | null
+      premium: number | null
+      available: boolean
+      canAfford: boolean
+      canBuyNow: boolean
+      blockers: string[]
+    }
+    estateProtection: {
+      enabled: false
+      namedHeirCitizenId: string | null
+      namedHeirName: string | null
+      protectedByInsurance: boolean
+      status: string
+    }
   }[]
   survival: {
     stableCitizens: number
@@ -409,6 +426,23 @@ describe('reality area authority API', () => {
       debt: 0,
       debts: [],
       insuranceActive: false,
+      insuranceAction: {
+        intent: 'buyInsurance',
+        clientPayload: null,
+        insuranceBusinessId: null,
+        premium: null,
+        available: false,
+        canAfford: false,
+        canBuyNow: false,
+        blockers: ['service_unavailable'],
+      },
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: false,
+        status: 'disabled_until_death_enabled',
+      },
     })
     expect(dashboard.citizens.find((resident) => resident.id === 'founder-area-0012:sim-water')).toMatchObject({
       id: 'founder-area-0012:sim-water',
@@ -919,6 +953,50 @@ describe('reality area authority API', () => {
       canRepayNow: false,
       blockers: ['actor_unavailable'],
     }])
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('dashboard serves insurance purchase hints from founder state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const existing = withBusiness(existingState(), {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 0,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://insurance-dashboard-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const dashboard = (res.body as { dashboard: DashboardWithBuildGuidance }).dashboard
+    const founder = dashboard.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(founder).toMatchObject({
+      insuranceActive: false,
+      insuranceAction: {
+        intent: 'buyInsurance',
+        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        insuranceBusinessId: 'insurance-1',
+        premium: 45,
+        available: true,
+        canAfford: true,
+        canBuyNow: true,
+        blockers: [],
+      },
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: false,
+        status: 'disabled_until_death_enabled',
+      },
+    })
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -2230,12 +2308,33 @@ describe('reality area authority API', () => {
     } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness>; dashboard: DashboardWithBuildGuidance }
     const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    const dashboardFounder = body.dashboard.citizens.find((citizen) => citizen.id === CITIZEN_ID)
     expect(body.state.balance).toBe(199_955)
     expect(founder?.money).toBe(199_955)
     expect(founder?.insuranceBusinessId).toBe('insurance-1')
     expect(founder?.insurancePaidUntil).toBe('2026-08-05T08:00:00.000Z')
+    expect(dashboardFounder).toMatchObject({
+      insuranceActive: true,
+      insuranceAction: {
+        intent: 'buyInsurance',
+        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        insuranceBusinessId: 'insurance-1',
+        premium: 45,
+        available: true,
+        canAfford: true,
+        canBuyNow: false,
+        blockers: ['already_insured'],
+      },
+      estateProtection: {
+        enabled: false,
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: true,
+        status: 'disabled_until_death_enabled',
+      },
+    })
     expect(body.state.businesses[0].cash).toBe(50)
     expect(body.state.transactions.at(-1)).toEqual({
       id: 'founder-area-0012:1783324800000:insurance-premium:11111111-1111-4111-8111-111111111111:insurance-1',
