@@ -1846,6 +1846,128 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('dashboard surfaces unreviewed Sim departures as founder covenant evidence', () => {
+    const departureAt = 2 * HOUR
+    const start = claimedArea({
+      now: 3 * HOUR,
+      citizens: [
+        sim('water-worker', { jobBusinessId: 'water1', homeBusinessId: 'home1' }),
+        sim('food-worker-1', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('food-worker-2', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('home-worker', { jobBusinessId: 'home1', homeBusinessId: 'home1' }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'founder', staffCitizenIds: ['water-worker'] }),
+        business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['food-worker-1', 'food-worker-2'] }),
+        business('housing', 'home1', { ownerId: 'founder', staffCitizenIds: ['home-worker'] }),
+      ],
+      areaEvents: [{
+        id: `area-1:${departureAt}:sim-departure:departed-water:water`,
+        at: departureAt,
+        kind: 'sim_citizen_departure',
+        severity: 'warning',
+        citizenId: 'departed-water',
+        citizenName: 'Departed Water Resident',
+        simulated: true,
+        reason: 'water_unserved',
+        serviceKind: 'water',
+        health: 20,
+        needs: fullNeeds({ hydration: 0 }),
+        message: 'Departed Water Resident left the area because water stayed unserved while health was low.',
+      }],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant).toMatchObject({
+      status: 'watch',
+      nextAction: 'warn_founder',
+      manualReviewRequired: false,
+      reviewInputs: expect.arrayContaining([{
+        kind: 'area_health',
+        label: 'Area health',
+        status: 'watch',
+        evidence: 'Area health has service or staffing issues to review.',
+        manualEvidenceRequired: false,
+      }]),
+    })
+    expect(dash.founderCovenant.signals).toEqual([{
+      kind: 'sim_departure',
+      severity: 'warning',
+      message: '1 Sim Citizen left after the latest review because essential services stayed unserved.',
+      businessKinds: ['water'],
+      amount: 1,
+    }])
+  })
+
+  test('dashboard clears reviewed Sim departure covenant evidence', () => {
+    const departureAt = 2 * HOUR
+    const reviewAt = 3 * HOUR
+    const start = claimedArea({
+      now: 4 * HOUR,
+      citizens: [
+        sim('water-worker', { jobBusinessId: 'water1', homeBusinessId: 'home1' }),
+        sim('food-worker-1', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('food-worker-2', { jobBusinessId: 'food1', homeBusinessId: 'home1' }),
+        sim('home-worker', { jobBusinessId: 'home1', homeBusinessId: 'home1' }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'founder', staffCitizenIds: ['water-worker'] }),
+        business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['food-worker-1', 'food-worker-2'] }),
+        business('housing', 'home1', { ownerId: 'founder', staffCitizenIds: ['home-worker'] }),
+      ],
+      areaEvents: [{
+        id: `area-1:${departureAt}:sim-departure:departed-water:water`,
+        at: departureAt,
+        kind: 'sim_citizen_departure',
+        severity: 'warning',
+        citizenId: 'departed-water',
+        citizenName: 'Departed Water Resident',
+        simulated: true,
+        reason: 'water_unserved',
+        serviceKind: 'water',
+        health: 20,
+        needs: fullNeeds({ hydration: 0 }),
+        message: 'Departed Water Resident left the area because water stayed unserved while health was low.',
+      }],
+      founderReviewHistory: [{
+        id: 'review-1',
+        at: reviewAt,
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        summary: 'Reviewed Sim departure.',
+        authorityGate: areaReviewerEvidenceGate(),
+        decision: covenantDecisionSnapshot(),
+        signals: [{
+          kind: 'sim_departure',
+          severity: 'warning',
+          message: 'Reviewed Sim departure.',
+          businessKinds: ['water'],
+          amount: 1,
+        }],
+        activityReview: covenantActivitySnapshot(),
+        reviewQueue: covenantReviewQueueSnapshot(),
+        reviewInputs: covenantReviewInputSnapshot(),
+        stages: covenantStageSnapshot(),
+        reviewChecklist: covenantChecklistSnapshot(),
+        manualActions: covenantManualActionSnapshot(),
+        approvalRequests: covenantApprovalRequestSnapshot(),
+        reviewSchedule: null,
+      }],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant.status).toBe('active')
+    expect(dash.founderCovenant.signals.some((signal) => signal.kind === 'sim_departure')).toBe(false)
+    expect(dash.founderCovenant.reviewInputs.find((input) => input.kind === 'area_health')).toMatchObject({
+      status: 'captured',
+    })
+    expect(dash.founderCovenant.latestReview?.signals).toEqual(start.founderReviewHistory?.[0].signals)
+  })
+
   test('dashboard marks a staffed founder area active for covenant review', () => {
     const start = claimedArea({
       citizens: [

@@ -1433,6 +1433,7 @@ function founderCovenantDashboard(
     activeStaffCount(area, business) < TARGET_STAFF_BY_KIND[business.kind],
   )
   const reviewSchedule = founderCovenantReviewSchedule(area)
+  const unreviewedSimDepartures = unreviewedSimDepartureEvents(area, reviewSchedule?.lastReviewAt ?? null)
   const staffed = building && understaffedBusinesses.length === 0
   const essentialShortages = (['water', 'food', 'housing'] as const)
     .filter((kind) => input.shortage[kind] > 0)
@@ -1476,6 +1477,17 @@ function founderCovenantDashboard(
       message: 'The area has unserved water, food, or housing demand.',
       businessKinds: essentialShortages,
       amount: roundMoney(essentialShortages.reduce((total, kind) => total + input.shortage[kind], 0)),
+    })
+  }
+
+  if (unreviewedSimDepartures.length > 0) {
+    const departedServiceKinds = uniqueDepartureServiceKinds(unreviewedSimDepartures.map((event) => event.serviceKind))
+    signals.push({
+      kind: 'sim_departure',
+      severity: 'warning',
+      message: `${unreviewedSimDepartures.length} Sim Citizen${unreviewedSimDepartures.length === 1 ? '' : 's'} left after the latest review because essential services stayed unserved.`,
+      businessKinds: departedServiceKinds,
+      amount: unreviewedSimDepartures.length,
     })
   }
 
@@ -1636,7 +1648,7 @@ function founderCovenantReviewInputs(input: {
   simPopulation: number
 }): FounderCovenantReviewInput[] {
   const serviceIssues = input.signals.some((signal) =>
-    signal.kind === 'essential_shortage' || signal.kind === 'understaffed_businesses'
+    signal.kind === 'essential_shortage' || signal.kind === 'understaffed_businesses' || signal.kind === 'sim_departure'
   )
   const activityCaptured = input.activityReview.active && (input.activityReview.building || input.activityReview.useful)
   return [
@@ -1691,6 +1703,18 @@ function founderCovenantReviewInputs(input: {
       manualEvidenceRequired: false,
     },
   ]
+}
+
+function unreviewedSimDepartureEvents(area: WorldArea, lastReviewAt: number | null): WorldAreaEvent[] {
+  return (area.areaEvents ?? []).filter((event) => {
+    if (event.kind !== 'sim_citizen_departure' || !event.simulated) return false
+    if (lastReviewAt === null || !Number.isFinite(lastReviewAt)) return true
+    return Number.isFinite(event.at) && event.at > lastReviewAt
+  })
+}
+
+function uniqueDepartureServiceKinds(kinds: readonly WorldDepartureServiceKind[]): WorldBusinessKind[] {
+  return (['water', 'food', 'housing'] as const).filter((kind) => kinds.includes(kind))
 }
 
 function founderCovenantStages(input: {
