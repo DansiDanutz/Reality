@@ -25,12 +25,43 @@ const OVERPASS_ENDPOINTS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
 
-/** Per-mirror fetch timeout — a hanging mirror must not stall the fallback chain */
-const ENDPOINT_TIMEOUT_MS = 15_000
+/** Per-mirror fetch timeout — Street Mode should fail over quickly after Walk. */
+const ENDPOINT_TIMEOUT_MS = 6_000
 
 const GREEN_TAGS = /^(park|garden|grass|meadow|village_green|recreation_ground|playground|pitch)$/
 
 export async function fetchNeighborhood(lat: number, lng: number): Promise<Neighborhood> {
+  const key = neighborhoodCacheKey(lat, lng)
+  const cached = neighborhoodCache.get(key)
+  if (cached) return cached
+  const promise = fetchNeighborhoodUncached(lat, lng)
+  neighborhoodCache.set(key, promise)
+  try {
+    return await promise
+  } catch (error) {
+    neighborhoodCache.delete(key)
+    throw error
+  }
+}
+
+export function preloadNeighborhood(lat: number, lng: number) {
+  void fetchNeighborhood(lat, lng).catch(() => {
+    // Street Mode keeps the real error path; preloading just warms the cache.
+  })
+}
+
+const neighborhoodCache = new Map<string, Promise<Neighborhood>>()
+
+export function clearNeighborhoodCacheForTest() {
+  if (!import.meta.env.DEV) return
+  neighborhoodCache.clear()
+}
+
+function neighborhoodCacheKey(lat: number, lng: number): string {
+  return `${lat.toFixed(4)},${lng.toFixed(4)},${STREET_RADIUS_M}`
+}
+
+async function fetchNeighborhoodUncached(lat: number, lng: number): Promise<Neighborhood> {
   const around = `(around:${STREET_RADIUS_M},${lat},${lng})`
   const query = `[out:json][timeout:25];(way["building"]${around};way["highway"]${around};way["leisure"~"park|garden|playground|pitch"]${around};way["landuse"~"grass|meadow|village_green|recreation_ground"]${around};node["natural"="tree"]${around};);out geom;`
   let lastError: unknown = null
