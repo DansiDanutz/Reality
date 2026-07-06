@@ -37,6 +37,8 @@ import {
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
+  founderCovenantReviewInputStatusClass,
+  founderCovenantReviewInputStatusLabel,
   founderCovenantReviewItems,
   founderCovenantReviewQueueDetailText,
   founderCovenantReviewQueueStatusLabel,
@@ -223,6 +225,22 @@ export default function FounderAreaPanel() {
                 </span>
               ))}
             </div>
+            <ul className="item-list founder-covenant-inputs" aria-label="Founder review inputs">
+              {dashboard.founderCovenant.reviewInputs.map((item) => {
+                const statusClass = founderCovenantReviewInputStatusClass(item.status)
+                return (
+                  <li className={`item founder-covenant-input ${statusClass}`} key={item.kind}>
+                    <div className="item-info">
+                      <span className="item-name">{item.label}</span>
+                      <span className="item-desc">{item.evidence}</span>
+                    </div>
+                    <span className={`founder-covenant-checklist-status mono ${statusClass}`}>
+                      {founderCovenantReviewInputStatusLabel(item.status)}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
             {dashboard.founderCovenant.reviewSchedule && (
               <div className="founder-covenant-schedule" aria-label="Founder review schedule">
                 {founderCovenantReviewScheduleItems(

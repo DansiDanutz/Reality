@@ -310,6 +310,37 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores covenant review inputs with unknown evidence fields', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      founderCovenant: {
+        ...dashboard.founderCovenant,
+        reviewInputs: dashboard.founderCovenant.reviewInputs.map((item) =>
+          item.kind === 'external_contribution'
+            ? {
+              ...item,
+              kind: 'private_wallet_history',
+            }
+            : item
+        ),
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores malformed covenant review schedule data', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -1021,6 +1052,13 @@ function serverState(): RealityAreaState {
         atRisk: true,
         score: 60,
       },
+      reviewInputs: covenantReviewInputs({
+        inGameActivity: 'watch',
+        areaHealth: 'captured',
+        populationGrowth: 'manual_needed',
+        reviewConsistency: 'captured',
+        simPopulation: 1,
+      }),
       reviewChecklist: [{
         key: 'active',
         label: 'Active',
@@ -1207,6 +1245,63 @@ function covenantReviewQueue(
     blockerCount: approvalActions.reduce((total, action) => total + approvalBlockers(action.kind).length, 0),
     blockers,
   }
+}
+
+function covenantReviewInputs(input: {
+  inGameActivity: 'captured' | 'watch'
+  areaHealth: 'captured' | 'watch'
+  populationGrowth: 'captured' | 'manual_needed'
+  reviewConsistency: 'captured' | 'watch'
+  realPopulation?: number
+  simPopulation?: number
+}): RealityAreaDashboard['founderCovenant']['reviewInputs'] {
+  const realPopulation = input.realPopulation ?? 1
+  const simPopulation = input.simPopulation ?? 1
+  return [{
+    kind: 'in_game_activity',
+    label: 'In-game activity',
+    status: input.inGameActivity,
+    evidence: input.inGameActivity === 'captured'
+      ? 'Founder activity is captured from local businesses, staffing, and purchases.'
+      : 'Founder needs more visible in-game building or demand-serving activity.',
+    manualEvidenceRequired: false,
+  }, {
+    kind: 'area_health',
+    label: 'Area health',
+    status: input.areaHealth,
+    evidence: input.areaHealth === 'captured'
+      ? 'Area health signals are captured from demand, shortages, and staffing.'
+      : 'Area health has service or staffing issues to review.',
+    manualEvidenceRequired: false,
+  }, {
+    kind: 'population_growth',
+    label: 'Population growth',
+    status: input.populationGrowth,
+    evidence: input.populationGrowth === 'captured'
+      ? `${realPopulation} real participant(s) and ${simPopulation} Sim Citizen(s) are visible in the area.`
+      : 'Invite quality and local population growth need manual proof until invite tracking exists.',
+    manualEvidenceRequired: input.populationGrowth === 'manual_needed',
+  }, {
+    kind: 'external_contribution',
+    label: 'External contribution',
+    status: 'manual_needed',
+    evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'ideas_feedback',
+    label: 'Ideas and feedback',
+    status: 'manual_needed',
+    evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'review_consistency',
+    label: 'Review consistency',
+    status: input.reviewConsistency,
+    evidence: input.reviewConsistency === 'watch'
+      ? 'Weekly/monthly review cadence is due or overdue.'
+      : 'Weekly/monthly review cadence is being tracked.',
+    manualEvidenceRequired: false,
+  }]
 }
 
 function approvalBlockers(
@@ -1536,6 +1631,13 @@ function serverDashboard(): RealityAreaDashboard {
         atRisk: true,
         score: 75,
       },
+      reviewInputs: covenantReviewInputs({
+        inGameActivity: 'captured',
+        areaHealth: 'watch',
+        populationGrowth: 'manual_needed',
+        reviewConsistency: 'captured',
+        simPopulation: 1,
+      }),
       reviewChecklist: [{
         key: 'active',
         label: 'Active',

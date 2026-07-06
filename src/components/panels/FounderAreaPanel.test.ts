@@ -13,6 +13,8 @@ import {
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
+  founderCovenantReviewInputStatusClass,
+  founderCovenantReviewInputStatusLabel,
   founderCovenantReviewItems,
   founderCovenantReviewQueueDetailText,
   founderCovenantReviewQueueStatusLabel,
@@ -42,6 +44,15 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantChecklistStatusLabel('met')).toBe('Met')
     expect(founderCovenantChecklistStatusLabel('watch')).toBe('Watch')
     expect(founderCovenantChecklistStatusLabel('manual_review')).toBe('Manual')
+  })
+
+  test('labels covenant review inputs with checklist-compatible status classes', () => {
+    expect(founderCovenantReviewInputStatusLabel('captured')).toBe('Captured')
+    expect(founderCovenantReviewInputStatusLabel('watch')).toBe('Watch')
+    expect(founderCovenantReviewInputStatusLabel('manual_needed')).toBe('Manual')
+    expect(founderCovenantReviewInputStatusClass('captured')).toBe('met')
+    expect(founderCovenantReviewInputStatusClass('watch')).toBe('watch')
+    expect(founderCovenantReviewInputStatusClass('manual_needed')).toBe('manual_review')
   })
 
   test('labels manual covenant actions without enabling automation', () => {

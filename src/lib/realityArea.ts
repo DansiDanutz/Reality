@@ -96,6 +96,14 @@ export type RealityAreaCovenantNextAction = 'none' | 'warn_founder' | 'manual_re
 export type RealityAreaCovenantSignalSeverity = 'info' | 'warning' | 'critical'
 export type RealityAreaCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
 export type RealityAreaCovenantReviewQueueNextStep = 'record_review' | 'main_founder_approval' | 'monitor'
+export type RealityAreaCovenantReviewInputKind =
+  | 'in_game_activity'
+  | 'area_health'
+  | 'population_growth'
+  | 'external_contribution'
+  | 'ideas_feedback'
+  | 'review_consistency'
+export type RealityAreaCovenantReviewInputStatus = 'captured' | 'watch' | 'manual_needed'
 export type RealityAreaCovenantManualActionKind =
   | 'record_review'
   | 'send_warning'
@@ -123,6 +131,14 @@ export interface RealityAreaCovenantReviewChecklistItem {
   label: string
   status: RealityAreaCovenantReviewChecklistStatus
   evidence: string
+}
+
+export interface RealityAreaCovenantReviewInput {
+  kind: RealityAreaCovenantReviewInputKind
+  label: string
+  status: RealityAreaCovenantReviewInputStatus
+  evidence: string
+  manualEvidenceRequired: boolean
 }
 
 export interface RealityAreaCovenantReviewQueue {
@@ -282,6 +298,7 @@ export interface RealityAreaCovenantReview {
     score: number
   }
   reviewQueue: RealityAreaCovenantReviewQueue
+  reviewInputs: RealityAreaCovenantReviewInput[]
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   manualActions: RealityAreaCovenantManualAction[]
   approvalRequests: RealityAreaCovenantApprovalRequest[]
@@ -785,6 +802,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
       pendingNotificationKinds: [...review.reviewQueue.pendingNotificationKinds],
       blockers: [...review.reviewQueue.blockers],
     },
+    reviewInputs: review.reviewInputs.map((item) => ({ ...item })),
     reviewChecklist: review.reviewChecklist.map((item) => ({ ...item })),
     manualActions: review.manualActions.map((action) => ({
       ...action,
@@ -1170,6 +1188,8 @@ function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovena
     value.waitlistHandoffEnabled === false &&
     isRealityAreaCovenantActivityReview(value.activityReview) &&
     isRealityAreaCovenantReviewQueue(value.reviewQueue) &&
+    Array.isArray(value.reviewInputs) &&
+    value.reviewInputs.every(isRealityAreaCovenantReviewInput) &&
     Array.isArray(value.reviewChecklist) &&
     value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     Array.isArray(value.manualActions) &&
@@ -1205,6 +1225,15 @@ function isRealityAreaCovenantReviewChecklistItem(value: unknown): value is Real
     typeof value.label === 'string' &&
     isRealityAreaCovenantReviewChecklistStatus(value.status) &&
     typeof value.evidence === 'string'
+}
+
+function isRealityAreaCovenantReviewInput(value: unknown): value is RealityAreaCovenantReviewInput {
+  return isRecord(value) &&
+    isRealityAreaCovenantReviewInputKind(value.kind) &&
+    typeof value.label === 'string' &&
+    isRealityAreaCovenantReviewInputStatus(value.status) &&
+    typeof value.evidence === 'string' &&
+    typeof value.manualEvidenceRequired === 'boolean'
 }
 
 function isRealityAreaCovenantReviewQueue(value: unknown): value is RealityAreaCovenantReviewQueue {
@@ -1417,6 +1446,19 @@ function isRealityAreaCovenantNextAction(value: unknown): value is RealityAreaCo
 
 function isRealityAreaCovenantReviewChecklistStatus(value: unknown): value is RealityAreaCovenantReviewChecklistStatus {
   return value === 'met' || value === 'watch' || value === 'manual_review'
+}
+
+function isRealityAreaCovenantReviewInputKind(value: unknown): value is RealityAreaCovenantReviewInputKind {
+  return value === 'in_game_activity' ||
+    value === 'area_health' ||
+    value === 'population_growth' ||
+    value === 'external_contribution' ||
+    value === 'ideas_feedback' ||
+    value === 'review_consistency'
+}
+
+function isRealityAreaCovenantReviewInputStatus(value: unknown): value is RealityAreaCovenantReviewInputStatus {
+  return value === 'captured' || value === 'watch' || value === 'manual_needed'
 }
 
 function isRealityAreaCovenantReviewQueueNextStep(value: unknown): value is RealityAreaCovenantReviewQueueNextStep {

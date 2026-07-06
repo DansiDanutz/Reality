@@ -1630,6 +1630,29 @@ describe('advanceWorldArea — local real-time economy', () => {
           'waitlist_handoff_disabled',
         ],
       },
+      reviewInputs: expect.arrayContaining([
+        {
+          kind: 'in_game_activity',
+          label: 'In-game activity',
+          status: 'watch',
+          evidence: 'Founder needs more visible in-game building or demand-serving activity.',
+          manualEvidenceRequired: false,
+        },
+        {
+          kind: 'area_health',
+          label: 'Area health',
+          status: 'watch',
+          evidence: 'Area health has service or staffing issues to review.',
+          manualEvidenceRequired: false,
+        },
+        {
+          kind: 'external_contribution',
+          label: 'External contribution',
+          status: 'manual_needed',
+          evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+          manualEvidenceRequired: true,
+        },
+      ]),
       reviewChecklist: expect.arrayContaining([
         {
           key: 'active',
@@ -1812,6 +1835,43 @@ describe('advanceWorldArea — local real-time economy', () => {
         blockerCount: 0,
         blockers: [],
       },
+      reviewInputs: [{
+        kind: 'in_game_activity',
+        label: 'In-game activity',
+        status: 'captured',
+        evidence: 'Founder activity is captured from local businesses, staffing, and purchases.',
+        manualEvidenceRequired: false,
+      }, {
+        kind: 'area_health',
+        label: 'Area health',
+        status: 'captured',
+        evidence: 'Area health signals are captured from demand, shortages, and staffing.',
+        manualEvidenceRequired: false,
+      }, {
+        kind: 'population_growth',
+        label: 'Population growth',
+        status: 'manual_needed',
+        evidence: 'Invite quality and local population growth need manual proof until invite tracking exists.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'external_contribution',
+        label: 'External contribution',
+        status: 'manual_needed',
+        evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'ideas_feedback',
+        label: 'Ideas and feedback',
+        status: 'manual_needed',
+        evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'review_consistency',
+        label: 'Review consistency',
+        status: 'captured',
+        evidence: 'Weekly/monthly review cadence is being tracked.',
+        manualEvidenceRequired: false,
+      }],
       reviewChecklist: [{
         key: 'active',
         label: 'Active',
@@ -2090,6 +2150,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         blockerCount: 0,
         blockers: [],
       },
+      reviewInputs: expect.arrayContaining([{
+        kind: 'review_consistency',
+        label: 'Review consistency',
+        status: 'watch',
+        evidence: 'Weekly/monthly review cadence is due or overdue.',
+        manualEvidenceRequired: false,
+      }]),
       notificationDrafts: [expect.objectContaining({
         kind: 'manual_review_required',
         sendEnabled: false,

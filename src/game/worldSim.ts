@@ -371,6 +371,14 @@ export type FounderCovenantNextAction = 'claim_area' | 'none' | 'warn_founder' |
 export type FounderCovenantSignalSeverity = 'info' | 'warning' | 'critical'
 export type FounderCovenantReviewChecklistStatus = 'met' | 'watch' | 'manual_review'
 export type FounderCovenantReviewQueueNextStep = 'record_review' | 'main_founder_approval' | 'monitor'
+export type FounderCovenantReviewInputKind =
+  | 'in_game_activity'
+  | 'area_health'
+  | 'population_growth'
+  | 'external_contribution'
+  | 'ideas_feedback'
+  | 'review_consistency'
+export type FounderCovenantReviewInputStatus = 'captured' | 'watch' | 'manual_needed'
 export type FounderCovenantManualActionKind =
   | 'record_review'
   | 'send_warning'
@@ -410,6 +418,14 @@ export interface FounderCovenantReviewChecklistItem {
   label: string
   status: FounderCovenantReviewChecklistStatus
   evidence: string
+}
+
+export interface FounderCovenantReviewInput {
+  kind: FounderCovenantReviewInputKind
+  label: string
+  status: FounderCovenantReviewInputStatus
+  evidence: string
+  manualEvidenceRequired: boolean
 }
 
 export interface FounderCovenantReviewQueue {
@@ -559,6 +575,7 @@ export interface AreaFounderCovenantDashboard {
   waitlistHandoffEnabled: false
   activityReview: FounderCovenantActivityReview
   reviewQueue: FounderCovenantReviewQueue
+  reviewInputs: FounderCovenantReviewInput[]
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   manualActions: FounderCovenantManualAction[]
   approvalRequests: FounderCovenantApprovalRequest[]
@@ -1238,6 +1255,7 @@ function founderCovenantDashboard(
       waitlistHandoffEnabled: false,
       activityReview,
       reviewQueue: founderCovenantReviewQueue({ manualActions, approvalRequests, notificationDrafts }),
+      reviewInputs: founderCovenantUnclaimedReviewInputs(),
       reviewChecklist: [{
         key: 'claim_area',
         label: 'Claim area',
@@ -1379,6 +1397,13 @@ function founderCovenantDashboard(
     approvalRequests,
     notificationDrafts,
   })
+  const reviewInputs = founderCovenantReviewInputs({
+    activityReview,
+    signals,
+    reviewSchedule,
+    realPopulation: area.citizens.filter((citizen) => citizen.kind === 'real').length,
+    simPopulation: area.citizens.filter((citizen) => citizen.kind === 'sim').length,
+  })
 
   return {
     founderCitizenId,
@@ -1390,6 +1415,7 @@ function founderCovenantDashboard(
     waitlistHandoffEnabled: false,
     activityReview,
     reviewQueue,
+    reviewInputs,
     reviewChecklist,
     manualActions,
     approvalRequests,
@@ -1399,6 +1425,118 @@ function founderCovenantDashboard(
     notificationDrafts,
     signals,
   }
+}
+
+function founderCovenantUnclaimedReviewInputs(): FounderCovenantReviewInput[] {
+  return [
+    {
+      kind: 'in_game_activity',
+      label: 'In-game activity',
+      status: 'manual_needed',
+      evidence: 'Founder must claim an area before activity can be reviewed.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'area_health',
+      label: 'Area health',
+      status: 'manual_needed',
+      evidence: 'Area health review starts after claim.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'population_growth',
+      label: 'Population growth',
+      status: 'manual_needed',
+      evidence: 'Invite and population review starts after claim.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'external_contribution',
+      label: 'External contribution',
+      status: 'manual_needed',
+      evidence: 'Code, design, docs, and testing evidence are reviewed manually.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'ideas_feedback',
+      label: 'Ideas and feedback',
+      status: 'manual_needed',
+      evidence: 'Ideas, bug reports, and economy feedback are reviewed manually.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'review_consistency',
+      label: 'Review consistency',
+      status: 'manual_needed',
+      evidence: 'Weekly/monthly cadence starts after claim.',
+      manualEvidenceRequired: true,
+    },
+  ]
+}
+
+function founderCovenantReviewInputs(input: {
+  activityReview: FounderCovenantActivityReview
+  signals: FounderCovenantSignal[]
+  reviewSchedule: FounderCovenantReviewSchedule | null
+  realPopulation: number
+  simPopulation: number
+}): FounderCovenantReviewInput[] {
+  const serviceIssues = input.signals.some((signal) =>
+    signal.kind === 'essential_shortage' || signal.kind === 'understaffed_businesses'
+  )
+  const activityCaptured = input.activityReview.active && (input.activityReview.building || input.activityReview.useful)
+  return [
+    {
+      kind: 'in_game_activity',
+      label: 'In-game activity',
+      status: activityCaptured ? 'captured' : 'watch',
+      evidence: activityCaptured
+        ? 'Founder activity is captured from local businesses, staffing, and purchases.'
+        : 'Founder needs more visible in-game building or demand-serving activity.',
+      manualEvidenceRequired: false,
+    },
+    {
+      kind: 'area_health',
+      label: 'Area health',
+      status: serviceIssues ? 'watch' : 'captured',
+      evidence: serviceIssues
+        ? 'Area health has service or staffing issues to review.'
+        : 'Area health signals are captured from demand, shortages, and staffing.',
+      manualEvidenceRequired: false,
+    },
+    {
+      kind: 'population_growth',
+      label: 'Population growth',
+      status: input.realPopulation > 1 ? 'captured' : 'manual_needed',
+      evidence: input.realPopulation > 1
+        ? `${input.realPopulation} real participant(s) and ${input.simPopulation} Sim Citizen(s) are visible in the area.`
+        : 'Invite quality and local population growth need manual proof until invite tracking exists.',
+      manualEvidenceRequired: input.realPopulation <= 1,
+    },
+    {
+      kind: 'external_contribution',
+      label: 'External contribution',
+      status: 'manual_needed',
+      evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'ideas_feedback',
+      label: 'Ideas and feedback',
+      status: 'manual_needed',
+      evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+      manualEvidenceRequired: true,
+    },
+    {
+      kind: 'review_consistency',
+      label: 'Review consistency',
+      status: input.reviewSchedule?.overdue ? 'watch' : 'captured',
+      evidence: input.reviewSchedule?.overdue
+        ? 'Weekly/monthly review cadence is due or overdue.'
+        : 'Weekly/monthly review cadence is being tracked.',
+      manualEvidenceRequired: false,
+    },
+  ]
 }
 
 function founderCovenantReviewChecklist(input: {

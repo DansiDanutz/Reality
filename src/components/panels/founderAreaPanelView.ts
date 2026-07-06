@@ -7,6 +7,7 @@ import type {
   FounderCovenantApprovalRequest,
   FounderCovenantManualAction,
   FounderCovenantNotificationDraft,
+  FounderCovenantReviewInput,
   FounderCovenantReviewHistoryItem,
   FounderCovenantReviewQueue,
   FounderCovenantReviewChecklistItem,
@@ -67,6 +68,32 @@ export function founderCovenantChecklistStatusLabel(
       return 'Watch'
     case 'manual_review':
       return 'Manual'
+  }
+}
+
+export function founderCovenantReviewInputStatusLabel(
+  status: FounderCovenantReviewInput['status'],
+): string {
+  switch (status) {
+    case 'captured':
+      return 'Captured'
+    case 'watch':
+      return 'Watch'
+    case 'manual_needed':
+      return 'Manual'
+  }
+}
+
+export function founderCovenantReviewInputStatusClass(
+  status: FounderCovenantReviewInput['status'],
+): FounderCovenantReviewChecklistItem['status'] {
+  switch (status) {
+    case 'captured':
+      return 'met'
+    case 'watch':
+      return 'watch'
+    case 'manual_needed':
+      return 'manual_review'
   }
 }
 

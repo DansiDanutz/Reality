@@ -472,6 +472,11 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      reviewInputs: [],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       decision: { status: 'active' },
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
@@ -3285,6 +3290,12 @@ function baseFounderCovenant(checkedAt: string) {
       atRisk: true,
       score: 40,
     },
+    reviewInputs: covenantReviewInputs({
+      inGameActivity: 'watch',
+      areaHealth: 'watch',
+      populationGrowth: 'manual_needed',
+      reviewConsistency: 'captured',
+    }),
     reviewChecklist: [{
       key: 'active',
       label: 'Active',
@@ -3372,6 +3383,63 @@ function baseFounderCovenant(checkedAt: string) {
       amount: 3,
     }],
   } as const
+}
+
+function covenantReviewInputs(input: {
+  inGameActivity: 'captured' | 'watch'
+  areaHealth: 'captured' | 'watch'
+  populationGrowth: 'captured' | 'manual_needed'
+  reviewConsistency: 'captured' | 'watch'
+  realPopulation?: number
+  simPopulation?: number
+}) {
+  const realPopulation = input.realPopulation ?? 1
+  const simPopulation = input.simPopulation ?? 3
+  return [{
+    kind: 'in_game_activity',
+    label: 'In-game activity',
+    status: input.inGameActivity,
+    evidence: input.inGameActivity === 'captured'
+      ? 'Founder activity is captured from local businesses, staffing, and purchases.'
+      : 'Founder needs more visible in-game building or demand-serving activity.',
+    manualEvidenceRequired: false,
+  }, {
+    kind: 'area_health',
+    label: 'Area health',
+    status: input.areaHealth,
+    evidence: input.areaHealth === 'captured'
+      ? 'Area health signals are captured from demand, shortages, and staffing.'
+      : 'Area health has service or staffing issues to review.',
+    manualEvidenceRequired: false,
+  }, {
+    kind: 'population_growth',
+    label: 'Population growth',
+    status: input.populationGrowth,
+    evidence: input.populationGrowth === 'captured'
+      ? `${realPopulation} real participant(s) and ${simPopulation} Sim Citizen(s) are visible in the area.`
+      : 'Invite quality and local population growth need manual proof until invite tracking exists.',
+    manualEvidenceRequired: input.populationGrowth === 'manual_needed',
+  }, {
+    kind: 'external_contribution',
+    label: 'External contribution',
+    status: 'manual_needed',
+    evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'ideas_feedback',
+    label: 'Ideas and feedback',
+    status: 'manual_needed',
+    evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+    manualEvidenceRequired: true,
+  }, {
+    kind: 'review_consistency',
+    label: 'Review consistency',
+    status: input.reviewConsistency,
+    evidence: input.reviewConsistency === 'watch'
+      ? 'Weekly/monthly review cadence is due or overdue.'
+      : 'Weekly/monthly review cadence is being tracked.',
+    manualEvidenceRequired: false,
+  }] as const
 }
 
 function serverDashboard(state: ReturnType<typeof existingState>) {
