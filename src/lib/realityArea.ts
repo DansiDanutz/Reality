@@ -7,7 +7,9 @@ import type {
   AreaCitizenDashboard,
   AreaJobsDashboard,
   AreaNeedsDashboard,
+  AreaSurvivalDashboard,
   AreaWorkerCandidateAction,
+  CitizenSurvivalSignal,
   FirstBuildAction,
   FirstBuildBlocker,
   FirstBuildRecommendation,
@@ -16,6 +18,10 @@ import type {
   WorldBusinessKind,
   WorldCitizen,
   WorldClientIntentPayload,
+  WorldSurvivalActionBlocker,
+  WorldSurvivalActionIntent,
+  WorldSurvivalRiskLevel,
+  WorldSurvivalWarningKind,
   WorldDebt,
   WorldTransaction,
 } from '../game/worldSim'
@@ -213,6 +219,39 @@ export interface RealityAreaCitizenDashboard {
   insuranceActive: boolean
 }
 
+export interface RealityAreaSurvivalAction {
+  warning: WorldSurvivalWarningKind
+  intent: WorldSurvivalActionIntent
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
+  serviceKind: Exclude<WorldBusinessKind, 'insurance'>
+  available: boolean
+  lowestPrice: number | null
+  canAfford: boolean
+  blockers: WorldSurvivalActionBlocker[]
+}
+
+export interface RealityAreaSurvivalSignal {
+  citizenId: string
+  name: string
+  displayName: string
+  kind: 'real' | 'sim'
+  simulated: boolean
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+  risk: WorldSurvivalRiskLevel
+  warnings: WorldSurvivalWarningKind[]
+  actions: RealityAreaSurvivalAction[]
+  hospitalizedUntil?: string
+}
+
+export interface RealityAreaSurvivalDashboard {
+  stableCitizens: number
+  warningCitizens: number
+  dangerCitizens: number
+  hospitalizedCitizens: number
+  signals: RealityAreaSurvivalSignal[]
+}
+
 export interface RealityAreaDashboard {
   areaId: string
   updatedAt: string
@@ -232,6 +271,7 @@ export interface RealityAreaDashboard {
   firstBuild: RealityAreaFirstBuildRecommendation[]
   existingBusinesses: RealityAreaBusinessDashboard[]
   citizens: RealityAreaCitizenDashboard[]
+  survival: RealityAreaSurvivalDashboard
 }
 
 export interface RealityAreaState {
@@ -472,6 +512,7 @@ export function mergeRealityAreaDashboardIntoWorldDashboard(
     citizens: serverDashboard.citizens.map((citizen) =>
       mergeRealityAreaCitizenDashboard(citizen, dashboard.citizens.find((candidate) => candidate.id === citizen.id))
     ),
+    survival: mergeRealityAreaSurvivalDashboard(serverDashboard.survival),
   }
 }
 
@@ -520,6 +561,29 @@ function mergeRealityAreaBusinessDashboard(
       receivablesIssued: 0,
       recentTransactions: [],
     },
+  }
+}
+
+function mergeRealityAreaSurvivalDashboard(survival: RealityAreaSurvivalDashboard): AreaSurvivalDashboard {
+  return {
+    stableCitizens: survival.stableCitizens,
+    warningCitizens: survival.warningCitizens,
+    dangerCitizens: survival.dangerCitizens,
+    hospitalizedCitizens: survival.hospitalizedCitizens,
+    signals: survival.signals.map(mergeRealityAreaSurvivalSignal),
+  }
+}
+
+function mergeRealityAreaSurvivalSignal(signal: RealityAreaSurvivalSignal): CitizenSurvivalSignal {
+  return {
+    ...signal,
+    actions: signal.actions.map((action) => ({
+      ...action,
+      blockers: [...action.blockers],
+      clientPayload: { ...action.clientPayload },
+    })),
+    warnings: [...signal.warnings],
+    hospitalizedUntil: signal.hospitalizedUntil ? parseInstant(signal.hospitalizedUntil) : undefined,
   }
 }
 
@@ -700,7 +764,8 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     Array.isArray(value.existingBusinesses) &&
     value.existingBusinesses.every(isRealityAreaBusinessDashboard) &&
     Array.isArray(value.citizens) &&
-    value.citizens.every(isRealityAreaCitizenDashboard)
+    value.citizens.every(isRealityAreaCitizenDashboard) &&
+    isRealityAreaSurvivalDashboard(value.survival)
 }
 
 function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {
@@ -788,6 +853,51 @@ function isRealityAreaCitizenDebtDashboard(value: unknown): value is RealityArea
     typeof value.memo === 'string'
 }
 
+function isRealityAreaSurvivalDashboard(value: unknown): value is RealityAreaSurvivalDashboard {
+  return isRecord(value) &&
+    typeof value.stableCitizens === 'number' &&
+    typeof value.warningCitizens === 'number' &&
+    typeof value.dangerCitizens === 'number' &&
+    typeof value.hospitalizedCitizens === 'number' &&
+    Array.isArray(value.signals) &&
+    value.signals.every(isRealityAreaSurvivalSignal)
+}
+
+function isRealityAreaSurvivalSignal(value: unknown): value is RealityAreaSurvivalSignal {
+  if (!isRecord(value)) return false
+  return typeof value.citizenId === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.displayName === 'string' &&
+    (value.kind === 'real' || value.kind === 'sim') &&
+    typeof value.simulated === 'boolean' &&
+    (value.participantLabel === 'Sim Citizen' || value.participantLabel === 'Real Citizen') &&
+    (value.visualTone === 'simulated' || value.visualTone === 'real') &&
+    isSurvivalRisk(value.risk) &&
+    Array.isArray(value.warnings) &&
+    value.warnings.every(isSurvivalWarning) &&
+    Array.isArray(value.actions) &&
+    value.actions.every(isRealityAreaSurvivalAction) &&
+    (typeof value.hospitalizedUntil === 'string' || value.hospitalizedUntil === undefined)
+}
+
+function isRealityAreaSurvivalAction(value: unknown): value is RealityAreaSurvivalAction {
+  return isRecord(value) &&
+    isSurvivalWarning(value.warning) &&
+    isSurvivalActionIntent(value.intent) &&
+    isRealityAreaSurvivalPayload(value.clientPayload) &&
+    isBusinessKind(value.serviceKind) &&
+    value.serviceKind !== 'insurance' &&
+    typeof value.available === 'boolean' &&
+    (typeof value.lowestPrice === 'number' || value.lowestPrice === null) &&
+    typeof value.canAfford === 'boolean' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isSurvivalActionBlocker)
+}
+
+function isRealityAreaSurvivalPayload(value: unknown): value is Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }> {
+  return isRecord(value) && isSurvivalActionIntent(value.type)
+}
+
 function isRealityAreaNeeds(value: unknown): value is RealityAreaNeeds {
   return isRecord(value) &&
     typeof value.hunger === 'number' &&
@@ -853,6 +963,22 @@ function isWorkerCandidateAction(value: unknown): value is AreaWorkerCandidateAc
 
 function isBusinessStatus(value: unknown): value is AreaBusinessStatus {
   return value === 'stable' || value === 'warning' || value === 'critical'
+}
+
+function isSurvivalRisk(value: unknown): value is WorldSurvivalRiskLevel {
+  return value === 'stable' || value === 'warning' || value === 'danger' || value === 'hospitalized'
+}
+
+function isSurvivalWarning(value: unknown): value is WorldSurvivalWarningKind {
+  return value === 'water' || value === 'food' || value === 'rest' || value === 'health'
+}
+
+function isSurvivalActionIntent(value: unknown): value is WorldSurvivalActionIntent {
+  return value === 'buyWater' || value === 'buyFood' || value === 'buyHousing' || value === 'visitClinic'
+}
+
+function isSurvivalActionBlocker(value: unknown): value is WorldSurvivalActionBlocker {
+  return value === 'service_unavailable' || value === 'insufficient_funds'
 }
 
 function isBusinessAlertKind(value: unknown): value is AreaBusinessAlert['kind'] {

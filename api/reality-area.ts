@@ -268,6 +268,44 @@ interface FounderAreaCitizenDashboard {
   insuranceActive: boolean
 }
 
+type FounderAreaSurvivalRiskLevel = 'stable' | 'warning' | 'danger' | 'hospitalized'
+type FounderAreaSurvivalWarningKind = 'water' | 'food' | 'rest' | 'health'
+type FounderAreaSurvivalActionIntent = 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
+type FounderAreaSurvivalActionBlocker = 'service_unavailable' | 'insufficient_funds'
+
+interface FounderAreaSurvivalAction {
+  warning: FounderAreaSurvivalWarningKind
+  intent: FounderAreaSurvivalActionIntent
+  clientPayload: { type: FounderAreaSurvivalActionIntent }
+  serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>
+  available: boolean
+  lowestPrice: number | null
+  canAfford: boolean
+  blockers: FounderAreaSurvivalActionBlocker[]
+}
+
+interface FounderAreaSurvivalSignal {
+  citizenId: string
+  name: string
+  displayName: string
+  kind: FounderAreaCitizen['kind']
+  simulated: boolean
+  participantLabel: 'Sim Citizen' | 'Real Citizen'
+  visualTone: 'simulated' | 'real'
+  risk: FounderAreaSurvivalRiskLevel
+  warnings: FounderAreaSurvivalWarningKind[]
+  actions: FounderAreaSurvivalAction[]
+  hospitalizedUntil?: string
+}
+
+interface FounderAreaSurvivalDashboard {
+  stableCitizens: number
+  warningCitizens: number
+  dangerCitizens: number
+  hospitalizedCitizens: number
+  signals: FounderAreaSurvivalSignal[]
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -287,6 +325,7 @@ interface FounderAreaDashboard {
   firstBuild: FounderAreaFirstBuildRecommendation[]
   existingBusinesses: FounderAreaBusinessDashboard[]
   citizens: FounderAreaCitizenDashboard[]
+  survival: FounderAreaSurvivalDashboard
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -632,6 +671,12 @@ const INSURED_HOSPITALIZATION_HOURS = 5
 const RECOVERY_HEALTH = 55
 const MIN_BUSINESS_QUALITY = 0.35
 const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+const SURVIVAL_WARNING_HYDRATION = 50
+const SURVIVAL_WARNING_HUNGER = 50
+const SURVIVAL_WARNING_ENERGY = 35
+const SURVIVAL_WARNING_HEALTH = 65
+const SURVIVAL_DANGER_NEED_LEVEL = 10
+const SURVIVAL_DANGER_HEALTH = COLLAPSE_HEALTH + 10
 const SERVICE_EFFECTS: Record<Exclude<FounderAreaBusinessKind, 'insurance'>, Partial<FounderAreaNeeds> & { health?: number }> = {
   water: { hydration: 35 },
   food: { hunger: 35 },
@@ -1052,6 +1097,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     firstBuild: firstBuildRecommendations(state, { demand, supply, licenses }),
     existingBusinesses: state.businesses.map((business) => businessDashboard(state, business)),
     citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
+    survival: survivalDashboard(state),
     founderCovenant: state.founderCovenant,
   }
 }
@@ -1317,6 +1363,101 @@ function citizenDashboard(state: FounderAreaState, citizen: FounderAreaCitizen):
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     insuranceActive: hasActiveInsurance(citizen, now),
+  }
+}
+
+function survivalDashboard(state: FounderAreaState): FounderAreaSurvivalDashboard {
+  const signals = state.citizens.map((citizen) => citizenSurvivalSignal(state, citizen))
+  return {
+    stableCitizens: signals.filter((signal) => signal.risk === 'stable').length,
+    warningCitizens: signals.filter((signal) => signal.risk === 'warning').length,
+    dangerCitizens: signals.filter((signal) => signal.risk === 'danger').length,
+    hospitalizedCitizens: signals.filter((signal) => signal.risk === 'hospitalized').length,
+    signals,
+  }
+}
+
+function citizenSurvivalSignal(state: FounderAreaState, citizen: FounderAreaCitizen): FounderAreaSurvivalSignal {
+  const simulated = citizen.kind === 'sim'
+  const base = {
+    citizenId: citizen.id,
+    name: citizen.name,
+    displayName: simulated ? `${citizen.name} (Sim)` : citizen.name,
+    kind: citizen.kind,
+    simulated,
+    participantLabel: simulated ? 'Sim Citizen' as const : 'Real Citizen' as const,
+    visualTone: simulated ? 'simulated' as const : 'real' as const,
+  }
+  if (citizen.state.kind === 'hospitalized') {
+    return {
+      ...base,
+      risk: 'hospitalized',
+      warnings: ['health'],
+      actions: [survivalActionForWarning(state, citizen, 'health')],
+      hospitalizedUntil: citizen.state.until,
+    }
+  }
+
+  const warnings: FounderAreaSurvivalWarningKind[] = []
+  if (citizen.needs.hydration <= SURVIVAL_WARNING_HYDRATION) warnings.push('water')
+  if (citizen.needs.hunger <= SURVIVAL_WARNING_HUNGER) warnings.push('food')
+  if (citizen.needs.energy <= SURVIVAL_WARNING_ENERGY) warnings.push('rest')
+  if (citizen.health <= SURVIVAL_WARNING_HEALTH) warnings.push('health')
+
+  const danger =
+    citizen.needs.hydration <= SURVIVAL_DANGER_NEED_LEVEL ||
+    citizen.needs.hunger <= SURVIVAL_DANGER_NEED_LEVEL ||
+    citizen.needs.energy <= SURVIVAL_DANGER_NEED_LEVEL ||
+    citizen.health <= SURVIVAL_DANGER_HEALTH
+
+  return {
+    ...base,
+    risk: danger ? 'danger' : warnings.length > 0 ? 'warning' : 'stable',
+    warnings,
+    actions: warnings.map((warning) => survivalActionForWarning(state, citizen, warning)),
+  }
+}
+
+function survivalActionForWarning(
+  state: FounderAreaState,
+  citizen: FounderAreaCitizen,
+  warning: FounderAreaSurvivalWarningKind,
+): FounderAreaSurvivalAction {
+  const { intent, serviceKind } = survivalActionTarget(warning)
+  const prices = state.businesses
+    .filter((business) => business.kind === serviceKind && hourlyServiceCapacity(state.citizens, business) > 0)
+    .map((business) => business.price)
+  const lowestPrice = prices.length > 0 ? Math.min(...prices) : null
+  const available = lowestPrice !== null
+  const canAfford = lowestPrice !== null && citizen.money >= lowestPrice
+  const blockers: FounderAreaSurvivalActionBlocker[] = []
+  if (!available) blockers.push('service_unavailable')
+  if (available && !canAfford) blockers.push('insufficient_funds')
+  return {
+    warning,
+    intent,
+    clientPayload: { type: intent },
+    serviceKind,
+    available,
+    lowestPrice,
+    canAfford,
+    blockers,
+  }
+}
+
+function survivalActionTarget(warning: FounderAreaSurvivalWarningKind): {
+  intent: FounderAreaSurvivalActionIntent
+  serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>
+} {
+  switch (warning) {
+    case 'water':
+      return { intent: 'buyWater', serviceKind: 'water' }
+    case 'food':
+      return { intent: 'buyFood', serviceKind: 'food' }
+    case 'rest':
+      return { intent: 'buyHousing', serviceKind: 'housing' }
+    case 'health':
+      return { intent: 'visitClinic', serviceKind: 'clinic' }
   }
 }
 

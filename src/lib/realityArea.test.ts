@@ -364,6 +364,7 @@ describe('Reality area client', () => {
     const business = merged.existingBusinesses.find((candidate) => candidate.id === 'water-1')
     const founder = merged.citizens.find((resident) => resident.id === 'citizen-1')
     const simWater = merged.citizens.find((resident) => resident.id === 'sim-water')
+    const survival = merged.survival.signals.find((signal) => signal.citizenId === 'sim-water')
 
     expect(merged.licenses.water).toMatchObject({ slots: 1, used: 1, remaining: 0, saturation: 1 })
     expect(merged.jobs).toMatchObject({
@@ -410,6 +411,27 @@ describe('Reality area client', () => {
       jobBusinessId: 'water-1',
       insuranceBusinessId: 'insurance-1',
       insuranceActive: true,
+    })
+    expect(merged.survival).toMatchObject({
+      stableCitizens: 1,
+      warningCitizens: 1,
+      dangerCitizens: 0,
+      hospitalizedCitizens: 0,
+    })
+    expect(survival).toMatchObject({
+      displayName: 'Demo Water Resident (Sim)',
+      risk: 'warning',
+      warnings: ['water'],
+      actions: [{
+        warning: 'water',
+        intent: 'buyWater',
+        serviceKind: 'water',
+        available: true,
+        lowestPrice: 2,
+        canAfford: true,
+        blockers: [],
+        clientPayload: { type: 'buyWater' },
+      }],
     })
     expect(water).toMatchObject({
       currentSupply: 1,
@@ -645,6 +667,44 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceBusinessId: 'insurance-1',
       insuranceActive: true,
     }],
+    survival: {
+      stableCitizens: 1,
+      warningCitizens: 1,
+      dangerCitizens: 0,
+      hospitalizedCitizens: 0,
+      signals: [{
+        citizenId: 'citizen-1',
+        name: 'David',
+        displayName: 'David',
+        kind: 'real',
+        simulated: false,
+        participantLabel: 'Real Citizen',
+        visualTone: 'real',
+        risk: 'stable',
+        warnings: [],
+        actions: [],
+      }, {
+        citizenId: 'sim-water',
+        name: 'Demo Water Resident',
+        displayName: 'Demo Water Resident (Sim)',
+        kind: 'sim',
+        simulated: true,
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
+        risk: 'warning',
+        warnings: ['water'],
+        actions: [{
+          warning: 'water',
+          intent: 'buyWater',
+          clientPayload: { type: 'buyWater' },
+          serviceKind: 'water',
+          available: true,
+          lowestPrice: 2,
+          canAfford: true,
+          blockers: [],
+        }],
+      }],
+    },
     firstBuild: [{
       kind: 'food',
       name: 'Food Shop',

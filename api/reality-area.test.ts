@@ -103,6 +103,34 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     insuranceBusinessId?: string
     insuranceActive: boolean
   }[]
+  survival: {
+    stableCitizens: number
+    warningCitizens: number
+    dangerCitizens: number
+    hospitalizedCitizens: number
+    signals: {
+      citizenId: string
+      name: string
+      displayName: string
+      kind: string
+      simulated: boolean
+      participantLabel: string
+      visualTone: string
+      risk: string
+      warnings: string[]
+      actions: {
+        warning: string
+        intent: string
+        clientPayload: { type: string }
+        serviceKind: string
+        available: boolean
+        lowestPrice: number | null
+        canAfford: boolean
+        blockers: string[]
+      }[]
+      hospitalizedUntil?: string
+    }[]
+  }
 }
 
 afterEach(() => {
@@ -384,6 +412,27 @@ describe('reality area authority API', () => {
       debt: 0,
       debts: [],
       insuranceActive: false,
+    })
+    expect(dashboard.survival).toMatchObject({
+      stableCitizens: 1,
+      warningCitizens: 3,
+      dangerCitizens: 0,
+      hospitalizedCitizens: 0,
+    })
+    expect(dashboard.survival.signals.find((signal) => signal.citizenId === 'founder-area-0012:sim-water')).toMatchObject({
+      displayName: 'Demo Water Resident (Sim)',
+      risk: 'warning',
+      warnings: ['water'],
+      actions: [{
+        warning: 'water',
+        intent: 'buyWater',
+        clientPayload: { type: 'buyWater' },
+        serviceKind: 'water',
+        available: false,
+        lowestPrice: null,
+        canAfford: false,
+        blockers: ['service_unavailable'],
+      }],
     })
     expect(put).not.toHaveBeenCalled()
   })
@@ -760,6 +809,19 @@ describe('reality area authority API', () => {
       status: 'critical',
       alerts: [{ kind: 'understaffed', severity: 'critical' }],
     }])
+    expect(dashboard.survival.signals.find((signal) => signal.citizenId === 'founder-area-0012:sim-water')).toMatchObject({
+      risk: 'warning',
+      warnings: ['water'],
+      actions: [{
+        warning: 'water',
+        intent: 'buyWater',
+        serviceKind: 'water',
+        available: true,
+        lowestPrice: 2,
+        canAfford: true,
+        blockers: [],
+      }],
+    })
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
