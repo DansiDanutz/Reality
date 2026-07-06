@@ -1160,6 +1160,40 @@ describe('reality area authority API', () => {
     )).toBe(false)
   })
 
+  test('rejects TON settlement intents without storing wallet or value movement data', async () => {
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://settlement-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'connectTonWallet',
+          tonWalletAddress: 'EQD_disabled_wallet_address',
+          tonConnectProof: 'disabled-proof',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'settlement_disabled',
+      error: 'TON wallet connection, deposits, withdrawals, land reservations, and leases are disabled until server authority and compliance review are ready.',
+      state: existing,
+      dashboard: {
+        settlement: settlementDashboard(200_000),
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('does not overwrite an already claimed area', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))

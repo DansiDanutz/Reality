@@ -343,6 +343,16 @@ type FounderAreaLegacyRoyaltyBlocker =
   | 'treasury_payout_disabled'
   | 'compliance_review_required'
 
+const DISABLED_SETTLEMENT_INTENT_TYPES = [
+  'connectTonWallet',
+  'disconnectTonWallet',
+  'depositCredits',
+  'withdrawCredits',
+  'reserveLand',
+  'createLandLease',
+] as const
+type DisabledSettlementIntentType = typeof DISABLED_SETTLEMENT_INTENT_TYPES[number]
+
 interface FounderAreaCovenantNotificationDraft {
   id: string
   at: string
@@ -3373,6 +3383,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (isDisabledSettlementIntentType(intentType)) {
+      res.status(disabledSettlementStatus()).json({
+        ok: false,
+        error: disabledSettlementMessage(),
+        code: 'settlement_disabled',
+        ...areaPayload(existing),
+      })
+      return
+    }
+
     if (intentType === 'claimArea') {
       if (existing) {
         const state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
@@ -4577,6 +4597,14 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
   }
 }
 
+function disabledSettlementStatus(): number {
+  return 403
+}
+
+function disabledSettlementMessage(): string {
+  return 'TON wallet connection, deposits, withdrawals, land reservations, and leases are disabled until server authority and compliance review are ready.'
+}
+
 function advanceHourStatus(error: ApplyAdvanceHourError): number {
   if (error === 'server_clock_unauthorized') return 403
   if (error === 'area_not_claimed' || error === 'clock_not_ready') return 409
@@ -4705,6 +4733,11 @@ function isBusinessKind(value: string): value is FounderAreaBusinessKind {
 
 function isServicePurchaseIntentType(value: unknown): value is ServicePurchaseIntentType {
   return typeof value === 'string' && value in SERVICE_PURCHASE_INTENTS
+}
+
+function isDisabledSettlementIntentType(value: unknown): value is DisabledSettlementIntentType {
+  return typeof value === 'string' &&
+    DISABLED_SETTLEMENT_INTENT_TYPES.includes(value as DisabledSettlementIntentType)
 }
 
 function isFounderAreaCovenantManualActionKind(value: string): value is FounderAreaCovenantManualActionKind {
