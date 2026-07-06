@@ -4,9 +4,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const FOUNDER_STARTER_CREDIT = 200_000
+const SIM_CITIZEN_STARTER_CREDIT = 100
 const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 const MAX_FOUNDER_AREA_RADIUS_KM = 5
 const PLATFORM_BANK_ID = 'reality-founder-bank'
+const SIM_CREDIT_ACCOUNT_ID = 'system:sim-credit'
 const BUILDER_RECEIVER_ID = 'system:builders'
 const AREA_STATE_VERSION = 1
 const CLAIM_SOURCES = ['manual', 'ip', 'geolocation', 'telegram'] as const
@@ -34,11 +36,31 @@ interface FounderAreaClaim {
 interface FounderAreaTransaction {
   id: string
   at: string
-  kind: 'founder_credit' | 'business_build' | 'customer_purchase' | 'worker_wage'
+  kind: 'founder_credit' | 'sim_citizen_credit' | 'business_build' | 'customer_purchase' | 'worker_wage'
   fromId: string
   toId: string
   amount: number
   memo: string
+}
+
+interface FounderAreaNeeds {
+  hunger: number
+  hydration: number
+  energy: number
+  hygiene: number
+  fun: number
+}
+
+interface FounderAreaCitizen {
+  id: string
+  name: string
+  kind: 'real' | 'sim'
+  money: number
+  debt: number
+  needs: FounderAreaNeeds
+  health: number
+  state: { kind: 'active' } | { kind: 'hospitalized'; until: string }
+  jobBusinessId?: string
 }
 
 interface FounderAreaBusiness {
@@ -63,7 +85,7 @@ interface FounderAreaState {
   balance: number
   claim: FounderAreaClaim
   businesses: FounderAreaBusiness[]
-  citizens: []
+  citizens: FounderAreaCitizen[]
   transactions: FounderAreaTransaction[]
   updatedAt: string
 }
@@ -147,6 +169,9 @@ type ApplyHireWorkerError =
   | 'business_not_found'
   | 'business_fully_staffed'
   | 'worker_already_hired'
+  | 'worker_not_found'
+  | 'worker_unavailable'
+  | 'real_worker_requires_acceptance'
 
 type AdvanceHourIntent =
   | { ok: true }
@@ -278,6 +303,14 @@ const TARGET_STAFF_BY_KIND: Record<FounderAreaBusinessKind, number> = {
   insurance: 1,
 }
 
+const FULL_NEEDS: FounderAreaNeeds = {
+  hunger: 90,
+  hydration: 90,
+  energy: 90,
+  hygiene: 90,
+  fun: 90,
+}
+
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
 }
@@ -382,13 +415,15 @@ async function readAreaState(citizenId: string): Promise<FounderAreaState | null
   const response = await fetch(url)
   if (!response.ok) return null
   const value = await response.json() as unknown
-  return isFounderAreaState(value, citizenId) ? value : null
+  return isFounderAreaState(value, citizenId) ? normalizeAreaCitizens(value) : null
 }
 
 function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<ClaimAreaIntent, { ok: true }>, now: Date): FounderAreaState {
   const at = now.toISOString()
   const paddedFounder = String(citizen.founderNumber).padStart(4, '0')
   const areaId = `founder-area-${paddedFounder}`
+  const founderCitizen = founderCitizenRecord(citizen, FOUNDER_STARTER_CREDIT)
+  const simCitizens = defaultSimCitizens(areaId)
   const transaction: FounderAreaTransaction = {
     id: `${areaId}:${now.getTime()}:founder-credit`,
     at,
@@ -398,6 +433,9 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     amount: FOUNDER_STARTER_CREDIT,
     memo: `Founder #${paddedFounder} starter operating credit.`,
   }
+  const simTransactions = simCitizens.map((simCitizen, index) =>
+    simCitizenCreditTransaction(areaId, at, now.getTime(), index + 1, simCitizen)
+  )
 
   return {
     version: AREA_STATE_VERSION,
@@ -416,9 +454,98 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
       source: intent.source,
     },
     businesses: [],
-    citizens: [],
-    transactions: [transaction],
+    citizens: [founderCitizen, ...simCitizens],
+    transactions: [transaction, ...simTransactions],
     updatedAt: at,
+  }
+}
+
+function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
+  const claimedAt = state.claim.claimedAt
+  const claimedMs = Date.parse(claimedAt)
+  const atMs = Number.isFinite(claimedMs) ? claimedMs : 0
+  const founder: CitizenAuthRecord = {
+    citizenId: state.founderCitizenId,
+    founderNumber: state.founderNumber,
+  }
+  const expectedCitizens = [
+    founderCitizenRecord(founder, state.balance),
+    ...defaultSimCitizens(state.areaId),
+  ]
+  let citizens = state.citizens.map((citizen) =>
+    citizen.id === state.founderCitizenId ? { ...citizen, money: state.balance } : citizen
+  )
+  const transactions = [...state.transactions]
+
+  for (const expected of expectedCitizens) {
+    if (citizens.some((citizen) => citizen.id === expected.id)) continue
+    citizens = [...citizens, expected]
+    if (expected.kind === 'sim' && !transactions.some((transaction) =>
+      transaction.kind === 'sim_citizen_credit' && transaction.toId === expected.id
+    )) {
+      transactions.push(simCitizenCreditTransaction(
+        state.areaId,
+        claimedAt,
+        atMs,
+        transactions.filter((transaction) => transaction.kind === 'sim_citizen_credit').length + 1,
+        expected,
+      ))
+    }
+  }
+
+  return { ...state, citizens, transactions }
+}
+
+function founderCitizenRecord(citizen: CitizenAuthRecord, money: number): FounderAreaCitizen {
+  const paddedFounder = String(citizen.founderNumber).padStart(4, '0')
+  return {
+    id: citizen.citizenId,
+    name: `Founder #${paddedFounder}`,
+    kind: 'real',
+    money,
+    debt: 0,
+    needs: { ...FULL_NEEDS },
+    health: 100,
+    state: { kind: 'active' },
+  }
+}
+
+function defaultSimCitizens(areaId: string): FounderAreaCitizen[] {
+  return [
+    simCitizen(`${areaId}:sim-water`, 'Demo Water Resident', { hydration: 42 }),
+    simCitizen(`${areaId}:sim-food`, 'Demo Food Resident', { hunger: 44 }),
+    simCitizen(`${areaId}:sim-housing`, 'Demo Housing Resident', { energy: 32 }),
+  ]
+}
+
+function simCitizen(id: string, name: string, needs: Partial<FounderAreaNeeds>): FounderAreaCitizen {
+  return {
+    id,
+    name,
+    kind: 'sim',
+    money: SIM_CITIZEN_STARTER_CREDIT,
+    debt: 0,
+    needs: { ...FULL_NEEDS, ...needs },
+    health: 100,
+    state: { kind: 'active' },
+  }
+}
+
+function simCitizenCreditTransaction(
+  areaId: string,
+  at: string,
+  atMs: number,
+  sequence: number,
+  citizen: FounderAreaCitizen,
+): FounderAreaTransaction {
+  return {
+    id: `${areaId}:${atMs}:sim-citizen-credit:${sequence}:${citizen.id}`,
+    at,
+    kind: 'sim_citizen_credit',
+    fromId: SIM_CREDIT_ACCOUNT_ID,
+    toId: citizen.id,
+    amount: SIM_CITIZEN_STARTER_CREDIT,
+    memo: `${citizen.name} received simulated resident game credit.`,
   }
 }
 
@@ -625,6 +752,7 @@ function applyBuildBusinessIntent(
       ...state,
       balance: roundMoney(state.balance - blueprint.buildCost),
       businesses: [...state.businesses, business],
+      citizens: setFounderCitizenMoney(state, roundMoney(state.balance - blueprint.buildCost)),
       transactions: [...state.transactions, transaction],
       updatedAt: at,
     },
@@ -642,6 +770,12 @@ function applyHireWorkerIntent(
 
   const business = state.businesses.find((candidate) => candidate.id === intent.businessId)
   if (!business) return { ok: false, error: 'business_not_found' }
+  const worker = state.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
+  if (!worker) return { ok: false, error: 'worker_not_found' }
+  if (worker.kind !== 'sim') return { ok: false, error: 'real_worker_requires_acceptance' }
+  if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
+    return { ok: false, error: 'worker_unavailable' }
+  }
   const staffCitizenIds = business.staffCitizenIds ?? []
   if (staffCitizenIds.includes(intent.workerCitizenId)) return { ok: false, error: 'worker_already_hired' }
   if (state.businesses.some((candidate) => (candidate.staffCitizenIds ?? []).includes(intent.workerCitizenId))) {
@@ -660,6 +794,9 @@ function applyHireWorkerIntent(
           ? { ...candidate, staffCitizenIds: [...staffCitizenIds, intent.workerCitizenId] }
           : candidate
       ),
+      citizens: state.citizens.map((candidate) =>
+        candidate.id === intent.workerCitizenId ? { ...candidate, jobBusinessId: intent.businessId } : candidate
+      ),
       updatedAt: now.toISOString(),
     },
   }
@@ -676,12 +813,16 @@ function applyAdvanceHourIntent(
 
   const at = now.toISOString()
   const transactions: FounderAreaTransaction[] = []
+  const citizens = state.citizens.map((citizen) => ({ ...citizen }))
   const businesses = state.businesses.map((business) => {
     let cash = business.cash
     const paidWorkerIds: string[] = []
     for (const workerId of business.staffCitizenIds ?? []) {
+      const worker = citizens.find((citizen) => citizen.id === workerId)
+      if (!worker || worker.state.kind !== 'active' || worker.jobBusinessId !== business.id) continue
       if (cash < business.wagePerHour) break
       cash = roundMoney(cash - business.wagePerHour)
+      worker.money = roundMoney(worker.money + business.wagePerHour)
       paidWorkerIds.push(workerId)
       transactions.push({
         id: `${state.areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`,
@@ -701,6 +842,7 @@ function applyAdvanceHourIntent(
     state: {
       ...state,
       businesses,
+      citizens,
       transactions: [...state.transactions, ...transactions],
       updatedAt: at,
     },
@@ -741,6 +883,7 @@ function applyServicePurchaseIntent(
           ? { ...candidate, cash: roundMoney(candidate.cash + business.price) }
           : candidate
       ),
+      citizens: setFounderCitizenMoney(state, roundMoney(state.balance - business.price)),
       transactions: [...state.transactions, transaction],
       updatedAt: at,
     },
@@ -755,6 +898,12 @@ function chooseServiceBusiness(
     .filter((business) => business.kind === kind)
     .sort((a, b) => a.price - b.price || a.createdAt.localeCompare(b.createdAt))
   return businesses[0] ?? null
+}
+
+function setFounderCitizenMoney(state: FounderAreaState, money: number): FounderAreaCitizen[] {
+  return state.citizens.map((citizen) =>
+    citizen.id === state.founderCitizenId ? { ...citizen, money } : citizen
+  )
 }
 
 function servicePurchaseStatus(error: ApplyServicePurchaseError): number {
@@ -803,7 +952,10 @@ function hireWorkerStatus(error: ApplyHireWorkerError): number {
     error === 'area_not_claimed' ||
     error === 'business_not_found' ||
     error === 'business_fully_staffed' ||
-    error === 'worker_already_hired'
+    error === 'worker_already_hired' ||
+    error === 'worker_not_found' ||
+    error === 'worker_unavailable' ||
+    error === 'real_worker_requires_acceptance'
   ) {
     return 409
   }
@@ -820,6 +972,12 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
       return 'Business already has its target staff.'
     case 'worker_already_hired':
       return 'Worker is already assigned to a local business.'
+    case 'worker_not_found':
+      return 'Worker must exist in the server-owned Sim Citizen roster.'
+    case 'worker_unavailable':
+      return 'Worker is not available for this job.'
+    case 'real_worker_requires_acceptance':
+      return 'Real workers must accept job offers themselves.'
     default:
       return 'Invalid hireWorker intent.'
   }

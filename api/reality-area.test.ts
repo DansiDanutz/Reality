@@ -165,6 +165,32 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('hydrates older empty-roster area states with server-owned Sim Citizens', async () => {
+    const legacy = {
+      ...existingState(),
+      citizens: [],
+      transactions: existingState().transactions.slice(0, 1),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://legacy-area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(legacy), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState> }
+    expect(body.state.citizens).toMatchObject([
+      { id: CITIZEN_ID, kind: 'real', money: 200_000 },
+      { id: 'founder-area-0012:sim-water', kind: 'sim', money: 100 },
+      { id: 'founder-area-0012:sim-food', kind: 'sim', money: 100 },
+      { id: 'founder-area-0012:sim-housing', kind: 'sim', money: 100 },
+    ])
+    expect(body.state.transactions.filter((transaction) => transaction.kind === 'sim_citizen_credit')).toHaveLength(3)
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('requires a founder seat before claiming an area', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([NON_FOUNDER_PATH]))
@@ -227,9 +253,14 @@ describe('reality area authority API', () => {
         source: 'telegram',
       },
       businesses: [],
-      citizens: [],
       updatedAt: '2026-07-06T03:30:00.000Z',
     })
+    expect(body.state.citizens).toMatchObject([
+      { id: CITIZEN_ID, name: 'Founder #0012', kind: 'real', money: 200_000 },
+      { id: 'founder-area-0012:sim-water', name: 'Demo Water Resident', kind: 'sim', money: 100 },
+      { id: 'founder-area-0012:sim-food', name: 'Demo Food Resident', kind: 'sim', money: 100 },
+      { id: 'founder-area-0012:sim-housing', name: 'Demo Housing Resident', kind: 'sim', money: 100 },
+    ])
     expect(body.state.transactions).toEqual([{
       id: 'founder-area-0012:1783308600000:founder-credit',
       at: '2026-07-06T03:30:00.000Z',
@@ -238,6 +269,30 @@ describe('reality area authority API', () => {
       toId: CITIZEN_ID,
       amount: 200_000,
       memo: 'Founder #0012 starter operating credit.',
+    }, {
+      id: 'founder-area-0012:1783308600000:sim-citizen-credit:1:founder-area-0012:sim-water',
+      at: '2026-07-06T03:30:00.000Z',
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'founder-area-0012:sim-water',
+      amount: 100,
+      memo: 'Demo Water Resident received simulated resident game credit.',
+    }, {
+      id: 'founder-area-0012:1783308600000:sim-citizen-credit:2:founder-area-0012:sim-food',
+      at: '2026-07-06T03:30:00.000Z',
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'founder-area-0012:sim-food',
+      amount: 100,
+      memo: 'Demo Food Resident received simulated resident game credit.',
+    }, {
+      id: 'founder-area-0012:1783308600000:sim-citizen-credit:3:founder-area-0012:sim-housing',
+      at: '2026-07-06T03:30:00.000Z',
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'founder-area-0012:sim-housing',
+      amount: 100,
+      memo: 'Demo Housing Resident received simulated resident game credit.',
     }])
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -548,7 +603,7 @@ describe('reality area authority API', () => {
         intent: {
           type: 'hireWorker',
           businessId: 'water-1',
-          workerCitizenId: 'sim-worker-1',
+          workerCitizenId: 'founder-area-0012:sim-water',
           wagePerHour: 999,
         },
       },
@@ -574,15 +629,16 @@ describe('reality area authority API', () => {
         intent: {
           type: 'hireWorker',
           businessId: 'water-1',
-          workerCitizenId: 'sim-worker-1',
+          workerCitizenId: 'founder-area-0012:sim-water',
         },
       },
     } as never, accepted as never)
 
     expect(accepted.statusCode).toBe(200)
     const body = accepted.body as { ok: true; state: ReturnType<typeof withBusiness> }
-    expect(body.state.businesses[0].staffCitizenIds).toEqual(['sim-worker-1'])
+    expect(body.state.businesses[0].staffCitizenIds).toEqual(['founder-area-0012:sim-water'])
     expect(body.state.businesses[0].wagePerHour).toBe(14)
+    expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.jobBusinessId).toBe('water-1')
     expect(body.state.transactions).toHaveLength(existing.transactions.length)
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -602,7 +658,7 @@ describe('reality area authority API', () => {
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
-        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-worker-1' },
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'founder-area-0012:sim-water' },
       },
     } as never, unclaimed as never)
 
@@ -620,7 +676,7 @@ describe('reality area authority API', () => {
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
-        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-worker-1' },
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'founder-area-0012:sim-water' },
       },
     } as never, missing as never)
 
@@ -633,7 +689,7 @@ describe('reality area authority API', () => {
       kind: 'water',
       price: 2,
       cash: 50,
-      staffCitizenIds: ['sim-worker-1'],
+      staffCitizenIds: ['founder-area-0012:sim-water'],
     })
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
@@ -646,12 +702,40 @@ describe('reality area authority API', () => {
       body: {
         citizenId: CITIZEN_ID,
         token: TOKEN,
-        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-worker-2' },
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'founder-area-0012:sim-food' },
       },
     } as never, full as never)
 
     expect(full.statusCode).toBe(409)
     expect(full.body).toMatchObject({ ok: false, code: 'business_fully_staffed' })
+  })
+
+  test('hireWorker rejects workers outside the server-owned Sim Citizen roster', async () => {
+    const existing = withBusiness(existingState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 50,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const missingWorker = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'fake-worker' },
+      },
+    } as never, missingWorker as never)
+
+    expect(missingWorker.statusCode).toBe(409)
+    expect(missingWorker.body).toMatchObject({ ok: false, code: 'worker_not_found' })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
@@ -663,7 +747,7 @@ describe('reality area authority API', () => {
       kind: 'water',
       price: 2,
       cash: 50,
-      staffCitizenIds: ['sim-worker-1'],
+      staffCitizenIds: ['founder-area-0012:sim-water'],
     })
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
@@ -683,14 +767,15 @@ describe('reality area authority API', () => {
     expect(res.statusCode).toBe(200)
     const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
     expect(body.state.businesses[0].cash).toBe(36)
+    expect(body.state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')?.money).toBe(114)
     expect(body.state.transactions.at(-1)).toEqual({
-      id: 'founder-area-0012:1783321200000:worker-wage:water-1:sim-worker-1:1',
+      id: 'founder-area-0012:1783321200000:worker-wage:water-1:founder-area-0012:sim-water:1',
       at: '2026-07-06T07:00:00.000Z',
       kind: 'worker_wage',
       fromId: 'water-1',
-      toId: 'sim-worker-1',
+      toId: 'founder-area-0012:sim-water',
       amount: 14,
-      memo: 'Founder Water paid sim-worker-1 for one hour of work.',
+      memo: 'Founder Water paid founder-area-0012:sim-water for one hour of work.',
     })
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -729,7 +814,7 @@ function existingState() {
       source: 'telegram',
     },
     businesses: [],
-    citizens: [],
+    citizens: defaultTestCitizens(),
     transactions: [{
       id: 'founder-area-0012:1783306800000:founder-credit',
       at: '2026-07-06T03:00:00.000Z',
@@ -738,9 +823,73 @@ function existingState() {
       toId: CITIZEN_ID,
       amount: 200_000,
       memo: 'Founder #0012 starter operating credit.',
+    }, {
+      id: 'founder-area-0012:1783306800000:sim-citizen-credit:1:founder-area-0012:sim-water',
+      at: '2026-07-06T03:00:00.000Z',
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'founder-area-0012:sim-water',
+      amount: 100,
+      memo: 'Demo Water Resident received simulated resident game credit.',
+    }, {
+      id: 'founder-area-0012:1783306800000:sim-citizen-credit:2:founder-area-0012:sim-food',
+      at: '2026-07-06T03:00:00.000Z',
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'founder-area-0012:sim-food',
+      amount: 100,
+      memo: 'Demo Food Resident received simulated resident game credit.',
+    }, {
+      id: 'founder-area-0012:1783306800000:sim-citizen-credit:3:founder-area-0012:sim-housing',
+      at: '2026-07-06T03:00:00.000Z',
+      kind: 'sim_citizen_credit',
+      fromId: 'system:sim-credit',
+      toId: 'founder-area-0012:sim-housing',
+      amount: 100,
+      memo: 'Demo Housing Resident received simulated resident game credit.',
     }],
     updatedAt: '2026-07-06T03:00:00.000Z',
   } as const
+}
+
+function defaultTestCitizens() {
+  return [{
+    id: CITIZEN_ID,
+    name: 'Founder #0012',
+    kind: 'real',
+    money: 200_000,
+    debt: 0,
+    needs: { hunger: 90, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
+    health: 100,
+    state: { kind: 'active' },
+  }, {
+    id: 'founder-area-0012:sim-water',
+    name: 'Demo Water Resident',
+    kind: 'sim',
+    money: 100,
+    debt: 0,
+    needs: { hunger: 90, hydration: 42, energy: 90, hygiene: 90, fun: 90 },
+    health: 100,
+    state: { kind: 'active' },
+  }, {
+    id: 'founder-area-0012:sim-food',
+    name: 'Demo Food Resident',
+    kind: 'sim',
+    money: 100,
+    debt: 0,
+    needs: { hunger: 44, hydration: 90, energy: 90, hygiene: 90, fun: 90 },
+    health: 100,
+    state: { kind: 'active' },
+  }, {
+    id: 'founder-area-0012:sim-housing',
+    name: 'Demo Housing Resident',
+    kind: 'sim',
+    money: 100,
+    debt: 0,
+    needs: { hunger: 90, hydration: 90, energy: 32, hygiene: 90, fun: 90 },
+    health: 100,
+    state: { kind: 'active' },
+  }] as const
 }
 
 function withBusiness(
@@ -754,8 +903,12 @@ function withBusiness(
     staffCitizenIds?: string[]
   },
 ) {
+  const staffCitizenIds = business.staffCitizenIds ?? []
   return {
     ...state,
+    citizens: state.citizens.map((citizen) =>
+      staffCitizenIds.includes(citizen.id) ? { ...citizen, jobBusinessId: business.id } : citizen
+    ),
     businesses: [{
       id: business.id,
       name: business.name,
@@ -765,7 +918,7 @@ function withBusiness(
       price: business.price,
       wagePerHour: 14,
       quality: 1,
-      staffCitizenIds: business.staffCitizenIds ?? [],
+      staffCitizenIds,
       createdAt: '2026-07-06T04:00:00.000Z',
       createdBy: CITIZEN_ID,
     }],
