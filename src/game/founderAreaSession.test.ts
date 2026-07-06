@@ -4,9 +4,11 @@ import {
   applyFounderAreaPayload,
   claimFounderArea,
   createFounderAreaSession,
+  createMemoryFounderAreaClient,
   founderAreaProfileFromCitizen,
 } from './founderAreaSession'
 import { FOUNDER_STARTING_BALANCE, WORLD_SIM_HOUR_MS } from './worldSim'
+import { createMemoryWorldAreaRepository } from './worldSimRepository'
 
 const HOUR = WORLD_SIM_HOUR_MS
 
@@ -73,5 +75,28 @@ describe('Founder Area session', () => {
     if (!advanced.ok) throw new Error(`expected advance to succeed: ${advanced.error}`)
     expect(advanced.area.now).toBe(built.area.now + HOUR)
     expect(advanced.dashboard.population).toBeGreaterThan(0)
+  })
+
+  test('routes UI commands through a replaceable founder area command client', async () => {
+    const repo = createMemoryWorldAreaRepository()
+    const client = createMemoryFounderAreaClient(founderAreaProfileFromCitizen({ name: 'Founder' }), repo)
+
+    const claimed = await client.claim(HOUR)
+    expect(claimed.ok).toBe(true)
+    if (!claimed.ok) throw new Error(`expected claim to succeed: ${claimed.error}`)
+    expect(repo.areaIds()).toEqual([client.profile.areaId])
+
+    const waterBuild = claimed.dashboard.firstBuild.find((recommendation) => recommendation.kind === 'water')
+    if (!waterBuild?.clientPayload) throw new Error('expected water build payload')
+
+    const built = await client.apply(claimed.area.now, waterBuild.clientPayload)
+    expect(built.ok).toBe(true)
+    if (!built.ok) throw new Error(`expected build to succeed: ${built.error}`)
+    expect(built.area.businesses).toHaveLength(1)
+
+    const advanced = await client.advance(built.area.now, 2)
+    expect(advanced.ok).toBe(true)
+    if (!advanced.ok) throw new Error(`expected advance to succeed: ${advanced.error}`)
+    expect(advanced.area.now).toBe(built.area.now + 2 * HOUR)
   })
 })

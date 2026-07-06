@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  advanceFounderArea,
-  applyFounderAreaPayload,
-  claimFounderArea,
-  createFounderAreaSession,
+  createMemoryFounderAreaClient,
   founderAreaProfileFromCitizen,
-  type FounderAreaSession,
+  type FounderAreaCommandClient,
 } from '../../game/founderAreaSession'
 import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
@@ -18,7 +15,7 @@ type PanelState =
 
 export default function FounderAreaPanel() {
   const citizen = useGame((s) => s.citizen)
-  const sessionRef = useRef<FounderAreaSession | null>(null)
+  const commandClientRef = useRef<FounderAreaCommandClient | null>(null)
   const [panelState, setPanelState] = useState<PanelState>({ status: 'loading' })
   const [busy, setBusy] = useState(false)
   const [lastEvent, setLastEvent] = useState('Area claimed.')
@@ -28,16 +25,17 @@ export default function FounderAreaPanel() {
   useEffect(() => {
     let alive = true
     if (!profile) return
-    const session = createFounderAreaSession(profile)
-    sessionRef.current = session
+    const commandClient = createMemoryFounderAreaClient(profile)
+    commandClientRef.current = commandClient
     setPanelState({ status: 'loading' })
-    void claimFounderArea(session, Date.now()).then((result) => {
+    void commandClient.claim(Date.now()).then((result) => {
       if (!alive) return
       setPanelState({ status: 'ready', result })
       setLastEvent(result.ok ? 'Area claimed.' : `Command failed: ${result.error}`)
     })
     return () => {
       alive = false
+      commandClientRef.current = null
     }
   }, [profile])
 
@@ -50,23 +48,29 @@ export default function FounderAreaPanel() {
   const transactions = result?.transactions ?? []
 
   const submitPayload = async (payload: WorldClientIntentPayload | null, label: string) => {
-    const session = sessionRef.current
-    if (!session || !payload || !area) return
+    const commandClient = commandClientRef.current
+    if (!commandClient || !payload || !area) return
     setBusy(true)
-    const next = await applyFounderAreaPayload(session, area.now, payload)
-    setPanelState({ status: 'ready', result: next })
-    setLastEvent(next.ok ? label : `Command failed: ${next.error}`)
-    setBusy(false)
+    try {
+      const next = await commandClient.apply(area.now, payload)
+      setPanelState({ status: 'ready', result: next })
+      setLastEvent(next.ok ? label : `Command failed: ${next.error}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const advance = async () => {
-    const session = sessionRef.current
-    if (!session || !area) return
+    const commandClient = commandClientRef.current
+    if (!commandClient || !area) return
     setBusy(true)
-    const next = await advanceFounderArea(session, area.now)
-    setPanelState({ status: 'ready', result: next })
-    setLastEvent(next.ok ? 'One real-time hour advanced.' : `Command failed: ${next.error}`)
-    setBusy(false)
+    try {
+      const next = await commandClient.advance(area.now)
+      setPanelState({ status: 'ready', result: next })
+      setLastEvent(next.ok ? 'One real-time hour advanced.' : `Command failed: ${next.error}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

@@ -19,6 +19,17 @@ export interface FounderAreaSession {
   repo: MemoryWorldAreaRepository
 }
 
+export interface FounderAreaCommandClient {
+  readonly profile: FounderAreaProfile
+  claim: (now: number) => Promise<WorldServerCommandResult>
+  apply: (now: number, payload: WorldClientIntentPayload) => Promise<WorldServerCommandResult>
+  advance: (now: number, hours?: number) => Promise<WorldServerCommandResult>
+}
+
+export interface MemoryFounderAreaCommandClient extends FounderAreaCommandClient {
+  readonly session: FounderAreaSession
+}
+
 const DEFAULT_CENTER = {
   lat: 44.45,
   lng: 26.08,
@@ -41,10 +52,27 @@ export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId'
   }
 }
 
-export function createFounderAreaSession(profile: FounderAreaProfile): FounderAreaSession {
+export function createFounderAreaSession(
+  profile: FounderAreaProfile,
+  repo: MemoryWorldAreaRepository = createMemoryWorldAreaRepository(),
+): FounderAreaSession {
   return {
     profile,
-    repo: createMemoryWorldAreaRepository(),
+    repo,
+  }
+}
+
+export function createMemoryFounderAreaClient(
+  profile: FounderAreaProfile,
+  repo?: MemoryWorldAreaRepository,
+): MemoryFounderAreaCommandClient {
+  const session = createFounderAreaSession(profile, repo)
+  return {
+    profile,
+    session,
+    claim: (now: number) => claimFounderArea(session, now),
+    apply: (now: number, payload: WorldClientIntentPayload) => applyFounderAreaPayload(session, now, payload),
+    advance: (now: number, hours = 1) => advanceFounderArea(session, now, hours),
   }
 }
 
