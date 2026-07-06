@@ -18,6 +18,8 @@ const SERVER_CLOCK_TOKEN_ENV = 'REALITY_SERVER_CLOCK_TOKEN'
 const SERVER_CLOCK_TOKEN_HEADER = 'x-reality-server-clock-token'
 const SERVER_CLOCK_DEFAULT_AREA_LIMIT = 25
 const SERVER_CLOCK_MAX_AREA_LIMIT = 100
+const SERVER_CLOCK_DEFAULT_AREA_PAGES = 1
+const SERVER_CLOCK_MAX_AREA_PAGES = 5
 const SERVER_CLOCK_CURSOR_MAX_LENGTH = 1024
 const INSURANCE_POLICY_PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
@@ -822,13 +824,14 @@ type ApplyRefreshAreaError =
   | 'area_not_claimed'
 
 type ServerClockTickAreasIntent =
-  | { ok: true; limit: number; cursor?: string }
+  | { ok: true; limit: number; pages: number; cursor?: string }
   | { ok: false; error: ServerClockTickAreasIntentError }
 
 type ServerClockTickAreasIntentError =
   | 'unsupported_intent'
   | 'client_controlled_server_field'
   | 'invalid_limit'
+  | 'invalid_pages'
   | 'invalid_cursor'
 
 type ServerClockTickAreasError =
@@ -848,6 +851,8 @@ interface ServerClockAreaTickResult {
 interface ServerClockTickAreasSummary {
   checkedAt: string
   limit: number
+  pages: number
+  pagesScanned: number
   cursor: string | null
   nextCursor: string | null
   scanned: number
@@ -1347,7 +1352,7 @@ export function normalizeRefreshAreaIntent(input: unknown): RefreshAreaIntent {
 
 export function normalizeServerClockTickAreasIntent(input: unknown): ServerClockTickAreasIntent {
   if (!isRecord(input) || input.type !== 'tickAreas') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => key !== 'type' && key !== 'limit' && key !== 'cursor')) {
+  if (Object.keys(input).some((key) => key !== 'type' && key !== 'limit' && key !== 'pages' && key !== 'cursor')) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1356,12 +1361,17 @@ export function normalizeServerClockTickAreasIntent(input: unknown): ServerClock
     return { ok: false, error: 'invalid_limit' }
   }
 
+  const pages = input.pages === undefined ? SERVER_CLOCK_DEFAULT_AREA_PAGES : Number(input.pages)
+  if (!Number.isInteger(pages) || pages < 1 || pages > SERVER_CLOCK_MAX_AREA_PAGES) {
+    return { ok: false, error: 'invalid_pages' }
+  }
+
   const cursor = input.cursor === undefined ? undefined : text(input.cursor)
   if (input.cursor !== undefined && (!cursor || cursor.length > SERVER_CLOCK_CURSOR_MAX_LENGTH || hasControlCharacter(cursor))) {
     return { ok: false, error: 'invalid_cursor' }
   }
 
-  return cursor ? { ok: true, limit, cursor } : { ok: true, limit }
+  return cursor ? { ok: true, limit, pages, cursor } : { ok: true, limit, pages }
 }
 
 export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
@@ -3217,23 +3227,35 @@ async function handleServerClockTickAreas(
     return
   }
 
-  const clock = await tickServerClockAreas(new Date(), intent.limit, intent.cursor)
+  const clock = await tickServerClockAreas(new Date(), intent.limit, intent.pages, intent.cursor)
   res.status(200).json({ ok: true, clock })
 }
 
 async function tickServerClockAreas(
   now: Date,
   limit: number,
+  pages: number,
   cursor?: string,
 ): Promise<ServerClockTickAreasSummary> {
-  const batch = await list({
-    prefix: 'reality-areas/',
-    limit,
-    ...(cursor ? { cursor } : {}),
-  })
   const results: ServerClockAreaTickResult[] = []
-  for (const blob of batch.blobs) {
-    results.push(await tickServerClockAreaBlob(blob, now))
+  let pagesScanned = 0
+  let hasMore = false
+  let nextCursor: string | undefined = cursor
+
+  for (let page = 0; page < pages; page += 1) {
+    const batch = await list({
+      prefix: 'reality-areas/',
+      limit,
+      ...(nextCursor ? { cursor: nextCursor } : {}),
+    })
+    pagesScanned += 1
+    for (const blob of batch.blobs) {
+      results.push(await tickServerClockAreaBlob(blob, now))
+    }
+
+    hasMore = Boolean(batch.hasMore)
+    nextCursor = typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : undefined
+    if (!hasMore || !nextCursor) break
   }
 
   const caughtUp = results.filter((result) => result.status === 'caught_up').length
@@ -3241,13 +3263,15 @@ async function tickServerClockAreas(
   return {
     checkedAt: now.toISOString(),
     limit,
+    pages,
+    pagesScanned,
     cursor: cursor ?? null,
-    nextCursor: typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : null,
+    nextCursor: nextCursor ?? null,
     scanned: results.length,
     caughtUp,
     current,
     failed: results.length - caughtUp - current,
-    hasMore: Boolean(batch.hasMore),
+    hasMore,
     results,
   }
 }
@@ -4544,6 +4568,8 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
       return 'tickAreas is reserved for the server clock.'
     case 'invalid_limit':
       return 'Server clock area limit must be between 1 and 100.'
+    case 'invalid_pages':
+      return 'Server clock pages must be between 1 and 5.'
     case 'invalid_cursor':
       return 'Server clock cursor is invalid.'
     default:
@@ -4617,10 +4643,12 @@ function readAuth(req: VercelRequest): { citizenId: string; token: string } | nu
 function readServerClockOrBodyIntent(req: VercelRequest): unknown {
   if (req.method === 'GET' && field(req.query, 'clock') === 'tickAreas') {
     const limit = field(req.query, 'limit')
+    const pages = field(req.query, 'pages')
     const cursor = field(req.query, 'cursor')
     return {
       type: 'tickAreas',
       ...(limit ? { limit: Number(limit) } : {}),
+      ...(pages ? { pages: Number(pages) } : {}),
       ...(cursor ? { cursor } : {}),
     }
   }

@@ -407,14 +407,20 @@ describe('reality area authority API', () => {
   })
 
   test('normalizes server-clock tickAreas with a bounded scan limit', () => {
-    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas' })).toEqual({ ok: true, limit: 25 })
-    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2 })).toEqual({ ok: true, limit: 2 })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas' })).toEqual({ ok: true, limit: 25, pages: 1 })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2 })).toEqual({ ok: true, limit: 2, pages: 1 })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2, cursor: 'page-cursor-2' }))
-      .toEqual({ ok: true, limit: 2, cursor: 'page-cursor-2' })
+      .toEqual({ ok: true, limit: 2, pages: 1, cursor: 'page-cursor-2' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 2, pages: 3 }))
+      .toEqual({ ok: true, limit: 2, pages: 3 })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 0 }))
       .toEqual({ ok: false, error: 'invalid_limit' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', limit: 101 }))
       .toEqual({ ok: false, error: 'invalid_limit' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', pages: 0 }))
+      .toEqual({ ok: false, error: 'invalid_pages' })
+    expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', pages: 6 }))
+      .toEqual({ ok: false, error: 'invalid_pages' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', cursor: '' }))
       .toEqual({ ok: false, error: 'invalid_cursor' })
     expect(normalizeServerClockTickAreasIntent({ type: 'tickAreas', cursor: `bad\ncursor` }))
@@ -2272,6 +2278,8 @@ describe('reality area authority API', () => {
     const body = res.body as { ok: true; clock: {
       checkedAt: string
       limit: number
+      pages: number
+      pagesScanned: number
       cursor: string | null
       nextCursor: string | null
       scanned: number
@@ -2291,6 +2299,8 @@ describe('reality area authority API', () => {
     expect(body.clock).toMatchObject({
       checkedAt: '2026-07-06T08:00:00.000Z',
       limit: 1,
+      pages: 1,
+      pagesScanned: 1,
       cursor: null,
       nextCursor: null,
       scanned: 1,
@@ -2344,6 +2354,8 @@ describe('reality area authority API', () => {
       clock: {
         checkedAt: '2026-07-06T08:00:00.000Z',
         limit: 1,
+        pages: 1,
+        pagesScanned: 1,
         scanned: 1,
         caughtUp: 0,
         current: 1,
@@ -2386,6 +2398,8 @@ describe('reality area authority API', () => {
       ok: true,
       clock: {
         limit: 1,
+        pages: 1,
+        pagesScanned: 1,
         cursor: 'current-page-cursor',
         nextCursor: 'next-page-cursor',
         scanned: 0,
@@ -2393,6 +2407,51 @@ describe('reality area authority API', () => {
         current: 0,
         failed: 0,
         hasMore: true,
+        results: [],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('tickAreas walks multiple bounded blob pages in one server-clock run', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([], 'blob://download', {
+        hasMore: true,
+        cursor: 'second-page-cursor',
+      }))
+      .mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '1', pages: '2', cursor: 'first-page-cursor' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(list).toHaveBeenNthCalledWith(1, {
+      prefix: 'reality-areas/',
+      limit: 1,
+      cursor: 'first-page-cursor',
+    })
+    expect(list).toHaveBeenNthCalledWith(2, {
+      prefix: 'reality-areas/',
+      limit: 1,
+      cursor: 'second-page-cursor',
+    })
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        limit: 1,
+        pages: 2,
+        pagesScanned: 2,
+        cursor: 'first-page-cursor',
+        nextCursor: null,
+        scanned: 0,
+        caughtUp: 0,
+        current: 0,
+        failed: 0,
+        hasMore: false,
         results: [],
       },
     })
@@ -2413,6 +2472,25 @@ describe('reality area authority API', () => {
       ok: false,
       code: 'invalid_limit',
       error: 'Server clock area limit must be between 1 and 100.',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('tickAreas GET rejects invalid pages before scanning areas', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', pages: '6' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'invalid_pages',
+      error: 'Server clock pages must be between 1 and 5.',
     })
     expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
