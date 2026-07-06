@@ -7,7 +7,7 @@ import {
 } from '../../game/founderAreaSession'
 import { createMemoryWorldAreaRepository } from '../../game/worldSimRepository'
 import { formatMoney } from '../../game/engine'
-import type { WorldClientIntentPayload } from '../../game/worldSim'
+import type { AreaEventsDashboard, WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
 import {
   applyRealityFounderAreaIntent,
@@ -1021,8 +1021,8 @@ function getFounderIdentityDashboard(
 
 function getFounderAreaEventsDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaDashboard['areaEvents'] | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'areaEvents'>>).areaEvents ?? null
+): AreaEventsDashboard | null {
+  return dashboard.areaEvents ?? null
 }
 
 function getFounderGrowthDashboard(

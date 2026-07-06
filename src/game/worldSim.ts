@@ -210,6 +210,21 @@ export type WorldSurvivalWarningKind = 'water' | 'food' | 'rest' | 'health'
 export type WorldSurvivalActionIntent = 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic'
 export type WorldSurvivalActionBlocker = 'service_unavailable' | 'insufficient_funds'
 
+export interface AreaEventDashboard extends Omit<WorldAreaEvent, 'at'> {
+  at: number | string
+  displayName: string
+  participantLabel: WorldParticipantLabel
+  visualTone: WorldParticipantVisualTone
+}
+
+export interface AreaEventsDashboard {
+  eventCount: number
+  simDepartures: number
+  warningEvents: number
+  criticalEvents: number
+  recentEvents: AreaEventDashboard[]
+}
+
 export type WorldClientIntentPayload =
   | {
     type: 'buildBusiness'
@@ -668,6 +683,7 @@ export interface AreaNeedsDashboard {
   saturation: Record<WorldBusinessKind, number>
   citizens: AreaCitizenDashboard[]
   existingBusinesses: AreaBusinessDashboard[]
+  areaEvents: AreaEventsDashboard
   ledger: AreaLedgerDashboard
   jobs: AreaJobsDashboard
   survival: AreaSurvivalDashboard
@@ -1006,6 +1022,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     saturation,
     citizens: area.citizens.map((citizen) => citizenDashboard(area, citizen, area.now)),
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
+    areaEvents: areaEventsDashboard(area),
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens, founderCanAct !== false),
     survival: survivalDashboard(area),
@@ -1034,6 +1051,26 @@ export function firstBuildGuidance(
   return BUSINESS_KINDS
     .map((kind) => buildRecommendation(kind, input))
     .sort((a, b) => b.score - a.score || BUSINESS_KINDS.indexOf(a.kind) - BUSINESS_KINDS.indexOf(b.kind))
+}
+
+function areaEventsDashboard(area: WorldArea): AreaEventsDashboard {
+  const events = area.areaEvents ?? []
+  return {
+    eventCount: events.length,
+    simDepartures: events.filter((event) => event.kind === 'sim_citizen_departure' && event.simulated).length,
+    warningEvents: events.filter((event) => event.severity === 'warning').length,
+    criticalEvents: events.filter((event) => event.severity === 'critical').length,
+    recentEvents: events.slice(-10).reverse().map((event) => {
+      const simulated = event.simulated
+      return {
+        ...event,
+        needs: { ...event.needs },
+        displayName: simulated ? `${event.citizenName} (Sim)` : event.citizenName,
+        participantLabel: simulated ? 'Sim Citizen' : 'Real Citizen',
+        visualTone: simulated ? 'simulated' : 'real',
+      }
+    }),
+  }
 }
 
 function founderMoneyForArea(area: WorldArea): number | undefined {

@@ -1,5 +1,7 @@
 import { formatMoney } from '../../game/engine'
 import type {
+  AreaEventDashboard,
+  AreaEventsDashboard,
   AreaFounderCovenantDashboard,
   AreaLedgerDashboard,
   AreaTransactionDashboard,
@@ -18,8 +20,6 @@ import type {
 } from '../../game/worldSim'
 import type {
   RealityAreaDashboard,
-  RealityAreaEventDashboard,
-  RealityAreaEventsDashboard,
   RealityAreaGrowthBlocker,
   RealityAreaGrowthDashboard,
   RealityAreaHandoffBlocker,
@@ -870,7 +870,7 @@ export function founderLedgerSummaryItems(ledger: AreaLedgerDashboard): FounderL
   }]
 }
 
-export function founderAreaEventSummaryItems(events: RealityAreaEventsDashboard): FounderAreaEventSummaryItem[] {
+export function founderAreaEventSummaryItems(events: AreaEventsDashboard): FounderAreaEventSummaryItem[] {
   return [{
     key: 'events',
     label: 'Events',
@@ -894,7 +894,7 @@ export function founderAreaEventSummaryItems(events: RealityAreaEventsDashboard)
   }]
 }
 
-export function founderAreaEventTitle(event: Pick<RealityAreaEventDashboard, 'kind' | 'displayName'>): string {
+export function founderAreaEventTitle(event: Pick<AreaEventDashboard, 'kind' | 'displayName'>): string {
   switch (event.kind) {
     case 'sim_citizen_departure':
       return `${event.displayName} left`
@@ -902,7 +902,7 @@ export function founderAreaEventTitle(event: Pick<RealityAreaEventDashboard, 'ki
 }
 
 export function founderAreaEventDetail(
-  event: Pick<RealityAreaEventDashboard, 'kind' | 'reason' | 'serviceKind'>,
+  event: Pick<AreaEventDashboard, 'kind' | 'reason' | 'serviceKind'>,
 ): string {
   switch (event.kind) {
     case 'sim_citizen_departure':
@@ -910,7 +910,7 @@ export function founderAreaEventDetail(
   }
 }
 
-function founderAreaDepartureReasonLabel(reason: RealityAreaEventDashboard['reason']): string {
+function founderAreaDepartureReasonLabel(reason: AreaEventDashboard['reason']): string {
   switch (reason) {
     case 'water_unserved':
       return 'Water shortage'

@@ -210,6 +210,9 @@ function departureReasonServiceKind(reason: WorldDepartureReason): WorldDepartur
 function hasValidAreaReferences(area: WorldArea): boolean {
   const citizens = new Map(area.citizens.map((citizen) => [citizen.id, citizen]))
   const businesses = new Map(area.businesses.map((business) => [business.id, business]))
+  const departedCitizens = new Map((area.areaEvents ?? [])
+    .filter((event) => event.kind === 'sim_citizen_departure')
+    .map((event) => [event.citizenId, event]))
 
   if (area.claim && citizens.get(area.claim.founderCitizenId)?.kind !== 'real') return false
 
@@ -249,7 +252,7 @@ function hasValidAreaReferences(area: WorldArea): boolean {
   }
 
   for (const transaction of area.transactions) {
-    if (!isValidTransactionReferences(transaction, area, citizens, businesses)) return false
+    if (!isValidTransactionReferences(transaction, area, citizens, businesses, departedCitizens)) return false
   }
 
   return true
@@ -260,9 +263,10 @@ function isValidTransactionReferences(
   area: WorldArea,
   citizens: Map<string, WorldCitizen>,
   businesses: Map<string, WorldBusiness>,
+  departedCitizens: Map<string, WorldAreaEvent>,
 ): boolean {
-  if (!isLedgerAccount(transaction.fromId, citizens, businesses)) return false
-  if (!isLedgerAccount(transaction.toId, citizens, businesses)) return false
+  if (!isLedgerAccount(transaction.fromId, citizens, businesses, departedCitizens)) return false
+  if (!isLedgerAccount(transaction.toId, citizens, businesses, departedCitizens)) return false
 
   switch (transaction.kind) {
     case 'founder_credit':
@@ -270,24 +274,29 @@ function isValidTransactionReferences(
         transaction.toId === area.claim?.founderCitizenId &&
         citizens.get(transaction.toId)?.kind === 'real'
     case 'sim_citizen_credit':
-      return transaction.fromId === 'system:sim-credit' && citizens.get(transaction.toId)?.kind === 'sim'
+      return transaction.fromId === 'system:sim-credit' &&
+        (citizens.get(transaction.toId)?.kind === 'sim' || departedCitizens.has(transaction.toId))
     case 'customer_purchase':
-      return citizens.has(transaction.fromId) && businesses.has(transaction.toId)
+      return isCitizenLedgerAccount(transaction.fromId, citizens, departedCitizens) && businesses.has(transaction.toId)
     case 'business_build':
       return transaction.fromId === area.claim?.founderCitizenId && transaction.toId === 'system:builders'
     case 'worker_wage':
-      return businesses.has(transaction.fromId) && citizens.has(transaction.toId)
+      return businesses.has(transaction.fromId) && isCitizenLedgerAccount(transaction.toId, citizens, departedCitizens)
     case 'hospital_bill':
-      return citizens.has(transaction.fromId) && isValidMedicalCreditor(transaction.toId, businesses)
+      return isCitizenLedgerAccount(transaction.fromId, citizens, departedCitizens) &&
+        isValidMedicalCreditor(transaction.toId, businesses)
     case 'insurance_premium':
-      return citizens.has(transaction.fromId) && businesses.get(transaction.toId)?.kind === 'insurance'
+      return isCitizenLedgerAccount(transaction.fromId, citizens, departedCitizens) &&
+        businesses.get(transaction.toId)?.kind === 'insurance'
     case 'insurance_payout':
       return businesses.get(transaction.fromId)?.kind === 'insurance' &&
         isValidMedicalCreditor(transaction.toId, businesses)
     case 'medical_debt':
-      return citizens.has(transaction.fromId) && isValidMedicalCreditor(transaction.toId, businesses)
+      return isCitizenLedgerAccount(transaction.fromId, citizens, departedCitizens) &&
+        isValidMedicalCreditor(transaction.toId, businesses)
     case 'debt_repayment':
-      return citizens.has(transaction.fromId) && isValidMedicalCreditor(transaction.toId, businesses)
+      return isCitizenLedgerAccount(transaction.fromId, citizens, departedCitizens) &&
+        isValidMedicalCreditor(transaction.toId, businesses)
   }
 }
 
@@ -295,8 +304,19 @@ function isLedgerAccount(
   accountId: string,
   citizens: Map<string, WorldCitizen>,
   businesses: Map<string, WorldBusiness>,
+  departedCitizens: Map<string, WorldAreaEvent>,
 ): boolean {
-  return citizens.has(accountId) || businesses.has(accountId) || SYSTEM_LEDGER_ACCOUNTS.has(accountId)
+  return isCitizenLedgerAccount(accountId, citizens, departedCitizens) ||
+    businesses.has(accountId) ||
+    SYSTEM_LEDGER_ACCOUNTS.has(accountId)
+}
+
+function isCitizenLedgerAccount(
+  accountId: string,
+  citizens: Map<string, WorldCitizen>,
+  departedCitizens: Map<string, WorldAreaEvent>,
+): boolean {
+  return citizens.has(accountId) || departedCitizens.has(accountId)
 }
 
 function isValidMedicalCreditor(accountId: string, businesses: Map<string, WorldBusiness>): boolean {

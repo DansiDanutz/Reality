@@ -160,6 +160,26 @@ describe('worldSim snapshot codec', () => {
     expect(decoded.area.areaEvents).toBeUndefined()
   })
 
+  test('accepts historical ledger entries for departed Sim Citizens with event evidence', () => {
+    const departed = area()
+    departed.areaEvents![0] = {
+      ...departed.areaEvents![0],
+      citizenId: 'sim1',
+      citizenName: 'Demo Citizen',
+    }
+    departed.citizens = departed.citizens.filter((citizen) => citizen.id !== 'sim1')
+
+    const decoded = decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: departed }))
+
+    expect(decoded.ok).toBe(true)
+    if (!decoded.ok) throw new Error('expected departed participant ledger history to decode')
+    expect(decoded.area.citizens.map((citizen) => citizen.id)).not.toContain('sim1')
+    expect(decoded.area.transactions.find((transaction) => transaction.toId === 'sim1')).toMatchObject({
+      kind: 'sim_citizen_credit',
+      payoutEligibility: 'game_only',
+    })
+  })
+
   test('rejects duplicate persisted identities', () => {
     const duplicateCitizen = area()
     duplicateCitizen.citizens[1].id = 'founder'

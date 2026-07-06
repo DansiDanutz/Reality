@@ -1417,6 +1417,20 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.areaEvents?.[0].needs.hydration).toBeLessThanOrEqual(SIM_LEAVES_NEED_LEVEL)
     expect(summary.citizensLeft).toBe(1)
     expect(summary.hospitalizations).toBe(0)
+
+    const dashboard = areaNeedsDashboard(out)
+    expect(dashboard.areaEvents).toMatchObject({
+      eventCount: 1,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 0,
+      recentEvents: [{
+        id: `area-1:${HOUR}:sim-departure:c1:water`,
+        displayName: 'Sim c1 (Sim)',
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
+      }],
+    })
   })
 
   test('real citizens and business owners do not silently leave the area', () => {

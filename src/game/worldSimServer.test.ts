@@ -3,6 +3,8 @@ import {
   DEFAULT_BUSINESS_BLUEPRINTS,
   FOUNDER_STARTING_BALANCE,
   SIM_CITIZEN_STARTING_BALANCE,
+  SIM_LEAVES_HEALTH,
+  SIM_LEAVES_NEED_LEVEL,
   WORLD_SIM_HOUR_MS,
   type WorldArea,
   type WorldBusiness,
@@ -941,6 +943,42 @@ describe('runWorldServerCommand', () => {
     ])
     advanced.transactions[0].amount = 999
     expect(advanced.area.transactions[2].amount).toBe(2)
+  })
+
+  test('advance returns non-cash area event dashboard evidence for Sim departures', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder'), [
+      citizen('thirsty', {
+        kind: 'sim',
+        money: 100,
+        health: SIM_LEAVES_HEALTH,
+        needs: needs({ hydration: SIM_LEAVES_NEED_LEVEL }),
+      }),
+    ])
+
+    const advanced = await runWorldServerCommand(repo, { type: 'advance', areaId: 'area-1', now: 1_000 + HOUR })
+    const saved = await repo.loadArea('area-1')
+
+    expect(advanced.ok).toBe(true)
+    if (!advanced.ok) throw new Error('expected advance with departure to succeed')
+    expect(advanced.transactions).toEqual([])
+    expect(advanced.summary).toMatchObject({ citizensLeft: 1 })
+    expect(advanced.area.areaEvents).toHaveLength(1)
+    expect(saved?.areaEvents).toEqual(advanced.area.areaEvents)
+    expect(advanced.dashboard.areaEvents).toMatchObject({
+      eventCount: 1,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 0,
+      recentEvents: [{
+        citizenId: 'thirsty',
+        displayName: 'thirsty (Sim)',
+        reason: 'water_unserved',
+        serviceKind: 'water',
+        participantLabel: 'Sim Citizen',
+        visualTone: 'simulated',
+      }],
+    })
   })
 
   test('reads a founder area by authenticated founder and advances server time', async () => {
