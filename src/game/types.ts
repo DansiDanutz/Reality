@@ -146,6 +146,12 @@ export interface Citizen {
   googleEmail?: string
   googleName?: string
   googlePicture?: string
+  /** Telegram Mini App identity, verified server-side before being stored */
+  telegramUserId?: string
+  telegramAccountId?: string
+  telegramUsername?: string
+  telegramName?: string
+  telegramLinkedAt?: number
 }
 
 export interface LifeEvent {

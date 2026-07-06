@@ -97,6 +97,30 @@ function GoogleLink() {
   )
 }
 
+function TelegramLinkStatus() {
+  const citizen = useGame((s) => s.citizen)
+  if (!citizen?.telegramUserId) {
+    return (
+      <p className="panel-sub">
+        Telegram Mini App sign-in will link automatically when Reality opens inside Telegram.
+      </p>
+    )
+  }
+
+  const label = citizen.telegramUsername ? `@${citizen.telegramUsername}` : citizen.telegramName ?? citizen.telegramUserId
+  return (
+    <div className="google-linked">
+      <div>
+        <p className="google-email">Telegram linked · {label}</p>
+        <p className="google-status">
+          Account {citizen.telegramAccountId}
+          {citizen.telegramLinkedAt ? ` · verified ${new Date(citizen.telegramLinkedAt).toLocaleTimeString()}` : ''}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function ProfilePanel() {
   const citizen = useGame((s) => s.citizen)
   const money = useGame((s) => s.money)
@@ -231,6 +255,7 @@ export default function ProfilePanel() {
       <ShortcutsSection />
 
       <h3 className="profile-section-title">Account</h3>
+      <TelegramLinkStatus />
       <GoogleLink />
       <NotificationsSection />
     </section>

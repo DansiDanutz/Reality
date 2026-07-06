@@ -14,6 +14,8 @@ import HudWindow from './components/hud/HudWindow'
 import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
 import { TUTORIAL_STEPS } from './game/tutorial'
+import FounderAreaPanel from './components/panels/FounderAreaPanel'
+import FounderCovenantOperatorPanel from './components/panels/FounderCovenantOperatorPanel'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
 import TutorialPanel from './components/hud/TutorialPanel'
@@ -38,6 +40,8 @@ import { useGame } from './store/gameStore'
 const PANEL_LABELS: Record<string, string> = {
   work: 'Work',
   assets: 'Your assets',
+  founder: 'Founder area',
+  operator: 'Founder operations',
   top: 'Leaderboard',
   profile: 'Profile',
   health: 'Health guide',
@@ -59,7 +63,7 @@ export default function App() {
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // Web notifications — fires system notifications when the tab is hidden
@@ -74,6 +78,7 @@ export default function App() {
     useGame.getState().tick()
     void useGame.getState().registerOnline()
     void useGame.getState().ensureSpawn()
+    void useGame.getState().linkTelegram()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
@@ -194,6 +199,8 @@ export default function App() {
           <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
           {panel === 'work' && <WorkPanel />}
           {panel === 'assets' && <AssetsPanel />}
+          {panel === 'founder' && <FounderAreaPanel />}
+          {panel === 'operator' && <FounderCovenantOperatorPanel />}
           {panel === 'top' && <LeaderboardPanel />}
           {panel === 'profile' && <ProfilePanel />}
           {panel === 'health' && <HealthGuide />}
