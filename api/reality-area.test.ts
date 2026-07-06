@@ -1386,6 +1386,96 @@ describe('reality area authority API', () => {
     ])
   })
 
+  test('advanceHour renews expired founder insurance with a real premium payment', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const expiring = withCitizen({ ...existingState(), balance: 100 }, CITIZEN_ID, {
+      money: 100,
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-07-06T07:00:00.000Z',
+    })
+    const existing = withBusiness(expiring, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-renewal-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(body.state.balance).toBe(55)
+    expect(founder?.money).toBe(55)
+    expect(founder?.insuranceBusinessId).toBe('insurance-1')
+    expect(founder?.insurancePaidUntil).toBe('2026-08-05T07:00:00.000Z')
+    expect(body.state.businesses[0].cash).toBe(50)
+    expect(body.state.transactions.at(-1)).toEqual({
+      id: 'founder-area-0012:1783321200000:insurance-renewal:11111111-1111-4111-8111-111111111111:insurance-1:1',
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'insurance_premium',
+      fromId: CITIZEN_ID,
+      toId: 'insurance-1',
+      amount: 45,
+      memo: 'Founder #0012 renewed insurance with Founder Insurance.',
+    })
+  })
+
+  test('advanceHour lapses expired insurance when the premium cannot be paid', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const expired = withCitizen({ ...existingState(), balance: 20 }, CITIZEN_ID, {
+      money: 20,
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-07-06T07:00:00.000Z',
+    })
+    const existing = withBusiness(expired, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-lapse-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(body.state.balance).toBe(20)
+    expect(founder?.money).toBe(20)
+    expect(founder?.insuranceBusinessId).toBeUndefined()
+    expect(founder?.insurancePaidUntil).toBeUndefined()
+    expect(body.state.businesses[0].cash).toBe(5)
+    expect(body.state.transactions).toHaveLength(existing.transactions.length)
+  })
+
   test('advanceHour recovers hospitalized Sim Citizens without letting them act during that hour', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))

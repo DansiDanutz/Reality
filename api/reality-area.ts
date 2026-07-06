@@ -1029,6 +1029,7 @@ function applyAdvanceHourIntent(
   const citizens = state.citizens.map(cloneCitizen)
   const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
 
+  renewInsurancePolicies(state.areaId, citizens, businesses, now, at, transactions)
   applyFounderHour(state.areaId, state.founderCitizenId, citizens, businesses, now, at, transactions)
   degradeUnmanagedBusinesses(citizens, businesses)
   applySimCitizenHour(state.areaId, citizens, businesses, now, at, transactions)
@@ -1263,6 +1264,53 @@ function applyFounderHour(
   if (shouldHospitalize(founder)) {
     hospitalizeCitizen(areaId, founder, businesses, now, at, transactions)
   }
+}
+
+function renewInsurancePolicies(
+  areaId: string,
+  citizens: FounderAreaCitizen[],
+  businesses: FounderAreaBusiness[],
+  now: Date,
+  at: string,
+  transactions: FounderAreaTransaction[],
+): void {
+  let renewalSequence = 0
+  for (const citizen of citizens) {
+    if (!citizen.insuranceBusinessId || hasActiveInsurance(citizen, now)) continue
+    const insurer = businesses.find((business) =>
+      business.id === citizen.insuranceBusinessId && business.kind === 'insurance'
+    )
+    if (!insurer || citizen.money < insurer.price) {
+      lapseInsurance(citizen)
+      continue
+    }
+
+    const paidUntil = new Date(now.getTime() + INSURANCE_POLICY_PERIOD_MS).toISOString()
+    citizen.money = roundMoney(citizen.money - insurer.price)
+    citizen.insurancePaidUntil = paidUntil
+    insurer.cash = roundMoney(insurer.cash + insurer.price)
+    renewalSequence += 1
+    transactions.push({
+      id: `${areaId}:${now.getTime()}:insurance-renewal:${citizen.id}:${insurer.id}:${renewalSequence}`,
+      at,
+      kind: 'insurance_premium',
+      fromId: citizen.id,
+      toId: insurer.id,
+      amount: insurer.price,
+      memo: `${citizen.name} renewed insurance with ${insurer.name}.`,
+    })
+  }
+}
+
+function hasActiveInsurance(citizen: FounderAreaCitizen, now: Date): boolean {
+  if (!citizen.insuranceBusinessId || !citizen.insurancePaidUntil) return false
+  const paidUntilMs = Date.parse(citizen.insurancePaidUntil)
+  return Number.isFinite(paidUntilMs) && paidUntilMs > now.getTime()
+}
+
+function lapseInsurance(citizen: FounderAreaCitizen): void {
+  delete citizen.insuranceBusinessId
+  delete citizen.insurancePaidUntil
 }
 
 function degradeUnmanagedBusinesses(citizens: FounderAreaCitizen[], businesses: FounderAreaBusiness[]): void {
