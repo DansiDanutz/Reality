@@ -167,6 +167,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores settlement dashboards that enable TON value movement', async () => {
+    const dashboard = serverDashboard()
+    const malformedDashboard = {
+      ...dashboard,
+      settlement: {
+        ...dashboard.settlement,
+        depositsEnabled: true,
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores covenant manual actions that enable enforcement execution', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {
@@ -1613,6 +1637,31 @@ function serverDashboard(): RealityAreaDashboard {
         amount: 2,
         memo: 'Demo Water Resident bought water from Founder Water.',
       }],
+    },
+    settlement: {
+      rail: 'ton',
+      mode: 'ledger_only',
+      gameplayLedgerSource: 'reality_server',
+      gameCredits: 200_000,
+      payoutEligibleCredits: 0,
+      walletConnectionRequired: false,
+      walletConnectionEnabled: false,
+      depositsEnabled: false,
+      withdrawalsEnabled: false,
+      landReservationsEnabled: false,
+      landLeasesEnabled: false,
+      highFrequencyOnChainTransactions: false,
+      manualReviewRequired: true,
+      complianceReviewRequired: true,
+      blockers: [
+        'ton_connect_disabled',
+        'deposits_disabled',
+        'withdrawals_disabled',
+        'land_reservations_disabled',
+        'leases_disabled',
+        'manual_payout_review_required',
+        'compliance_review_required',
+      ],
     },
     jobs: {
       employedCitizens: 1,

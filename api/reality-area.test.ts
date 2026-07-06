@@ -276,6 +276,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       telegramAccountId: 'telegram:42424242',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      payoutEligibleCredits: 10,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -1001,6 +1005,7 @@ describe('reality area authority API', () => {
         openPositions: 0,
         understaffedBusinesses: 0,
       },
+      settlement: settlementDashboard(200_000),
     })
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -3617,7 +3622,36 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
       openPositions: 0,
       understaffedBusinesses: 0,
     },
+    settlement: settlementDashboard(state.balance),
     founderCovenant: state.founderCovenant,
+  } as const
+}
+
+function settlementDashboard(gameCredits: number) {
+  return {
+    rail: 'ton',
+    mode: 'ledger_only',
+    gameplayLedgerSource: 'reality_server',
+    gameCredits,
+    payoutEligibleCredits: 0,
+    walletConnectionRequired: false,
+    walletConnectionEnabled: false,
+    depositsEnabled: false,
+    withdrawalsEnabled: false,
+    landReservationsEnabled: false,
+    landLeasesEnabled: false,
+    highFrequencyOnChainTransactions: false,
+    manualReviewRequired: true,
+    complianceReviewRequired: true,
+    blockers: [
+      'ton_connect_disabled',
+      'deposits_disabled',
+      'withdrawals_disabled',
+      'land_reservations_disabled',
+      'leases_disabled',
+      'manual_payout_review_required',
+      'compliance_review_required',
+    ],
   } as const
 }
 

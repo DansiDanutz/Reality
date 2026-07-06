@@ -318,6 +318,16 @@ interface FounderAreaCovenantReviewSchedule {
 
 type FounderAreaCovenantNotificationDraftKind = 'founder_warning' | 'manual_review_required'
 type FounderAreaCovenantNotificationChannel = 'telegram'
+type FounderAreaSettlementRail = 'ton'
+type FounderAreaSettlementMode = 'ledger_only'
+type FounderAreaSettlementBlocker =
+  | 'ton_connect_disabled'
+  | 'deposits_disabled'
+  | 'withdrawals_disabled'
+  | 'land_reservations_disabled'
+  | 'leases_disabled'
+  | 'manual_payout_review_required'
+  | 'compliance_review_required'
 
 interface FounderAreaCovenantNotificationDraft {
   id: string
@@ -584,6 +594,24 @@ interface FounderAreaLedgerDashboard {
   recentTransactions: FounderAreaTransaction[]
 }
 
+interface FounderAreaSettlementDashboard {
+  rail: FounderAreaSettlementRail
+  mode: FounderAreaSettlementMode
+  gameplayLedgerSource: 'reality_server'
+  gameCredits: number
+  payoutEligibleCredits: 0
+  walletConnectionRequired: false
+  walletConnectionEnabled: false
+  depositsEnabled: false
+  withdrawalsEnabled: false
+  landReservationsEnabled: false
+  landLeasesEnabled: false
+  highFrequencyOnChainTransactions: false
+  manualReviewRequired: true
+  complianceReviewRequired: true
+  blockers: readonly FounderAreaSettlementBlocker[]
+}
+
 interface FounderAreaDashboard {
   areaId: string
   updatedAt: string
@@ -606,6 +634,7 @@ interface FounderAreaDashboard {
   citizens: FounderAreaCitizenDashboard[]
   survival: FounderAreaSurvivalDashboard
   ledger: FounderAreaLedgerDashboard
+  settlement: FounderAreaSettlementDashboard
   founderCovenant: FounderAreaCovenantReview
 }
 
@@ -808,12 +837,27 @@ const SERVER_OWNED_IDENTITY_FIELDS = [
   'telegramLinkedAt',
 ] as const
 
+const SERVER_OWNED_SETTLEMENT_FIELDS = [
+  'settlement',
+  'tonWalletAddress',
+  'tonConnectProof',
+  'payoutEligibleCredits',
+  'walletConnectionEnabled',
+  'depositsEnabled',
+  'withdrawalsEnabled',
+  'landReservationsEnabled',
+  'landLeasesEnabled',
+  'highFrequencyOnChainTransactions',
+] as const
+
 const FORBIDDEN_CLAIM_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
 ])
 
 const FORBIDDEN_HIRE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -835,6 +879,7 @@ const FORBIDDEN_HIRE_FIELDS = new Set([
 
 const FORBIDDEN_ADVANCE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -861,6 +906,7 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
 
 const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -883,6 +929,7 @@ const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
 
 const FORBIDDEN_REVIEW_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -937,6 +984,7 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
 
 const FORBIDDEN_SERVICE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -959,6 +1007,7 @@ const FORBIDDEN_SERVICE_FIELDS = new Set([
 
 const FORBIDDEN_INSURANCE_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -983,6 +1032,7 @@ const FORBIDDEN_INSURANCE_FIELDS = new Set([
 
 const FORBIDDEN_BUILD_FIELDS = new Set([
   ...SERVER_OWNED_IDENTITY_FIELDS,
+  ...SERVER_OWNED_SETTLEMENT_FIELDS,
   'actorCitizenId',
   'authenticatedCitizenId',
   'authenticatedFounderId',
@@ -2241,7 +2291,36 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
     survival: survivalDashboard(state),
     ledger: areaLedgerDashboard(state),
+    settlement: areaSettlementDashboard(state),
     founderCovenant: state.founderCovenant,
+  }
+}
+
+function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlementDashboard {
+  return {
+    rail: 'ton',
+    mode: 'ledger_only',
+    gameplayLedgerSource: 'reality_server',
+    gameCredits: roundMoney(state.balance),
+    payoutEligibleCredits: 0,
+    walletConnectionRequired: false,
+    walletConnectionEnabled: false,
+    depositsEnabled: false,
+    withdrawalsEnabled: false,
+    landReservationsEnabled: false,
+    landLeasesEnabled: false,
+    highFrequencyOnChainTransactions: false,
+    manualReviewRequired: true,
+    complianceReviewRequired: true,
+    blockers: [
+      'ton_connect_disabled',
+      'deposits_disabled',
+      'withdrawals_disabled',
+      'land_reservations_disabled',
+      'leases_disabled',
+      'manual_payout_review_required',
+      'compliance_review_required',
+    ],
   }
 }
 

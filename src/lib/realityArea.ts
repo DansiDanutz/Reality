@@ -423,6 +423,33 @@ export interface RealityAreaLedgerDashboard {
   recentTransactions: RealityAreaTransaction[]
 }
 
+export type RealityAreaSettlementBlocker =
+  | 'ton_connect_disabled'
+  | 'deposits_disabled'
+  | 'withdrawals_disabled'
+  | 'land_reservations_disabled'
+  | 'leases_disabled'
+  | 'manual_payout_review_required'
+  | 'compliance_review_required'
+
+export interface RealityAreaSettlementDashboard {
+  rail: 'ton'
+  mode: 'ledger_only'
+  gameplayLedgerSource: 'reality_server'
+  gameCredits: number
+  payoutEligibleCredits: 0
+  walletConnectionRequired: false
+  walletConnectionEnabled: false
+  depositsEnabled: false
+  withdrawalsEnabled: false
+  landReservationsEnabled: false
+  landLeasesEnabled: false
+  highFrequencyOnChainTransactions: false
+  manualReviewRequired: true
+  complianceReviewRequired: true
+  blockers: RealityAreaSettlementBlocker[]
+}
+
 export interface RealityAreaCitizenDebtDashboard {
   id: string
   kind: 'medical'
@@ -541,6 +568,7 @@ export interface RealityAreaDashboard {
   citizens: RealityAreaCitizenDashboard[]
   survival: RealityAreaSurvivalDashboard
   ledger: RealityAreaLedgerDashboard
+  settlement: RealityAreaSettlementDashboard
   founderCovenant: RealityAreaCovenantReview
 }
 
@@ -1204,6 +1232,7 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
     value.citizens.every(isRealityAreaCitizenDashboard) &&
     isRealityAreaSurvivalDashboard(value.survival) &&
     isRealityAreaLedgerDashboard(value.ledger) &&
+    isRealityAreaSettlementDashboard(value.settlement) &&
     isRealityAreaCovenantReview(value.founderCovenant)
 }
 
@@ -1222,6 +1251,36 @@ function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedge
     isTransactionKindNumberRecord(value.totalsByKind) &&
     Array.isArray(value.recentTransactions) &&
     value.recentTransactions.every(isRealityAreaTransaction)
+}
+
+function isRealityAreaSettlementDashboard(value: unknown): value is RealityAreaSettlementDashboard {
+  return isRecord(value) &&
+    value.rail === 'ton' &&
+    value.mode === 'ledger_only' &&
+    value.gameplayLedgerSource === 'reality_server' &&
+    typeof value.gameCredits === 'number' &&
+    value.payoutEligibleCredits === 0 &&
+    value.walletConnectionRequired === false &&
+    value.walletConnectionEnabled === false &&
+    value.depositsEnabled === false &&
+    value.withdrawalsEnabled === false &&
+    value.landReservationsEnabled === false &&
+    value.landLeasesEnabled === false &&
+    value.highFrequencyOnChainTransactions === false &&
+    value.manualReviewRequired === true &&
+    value.complianceReviewRequired === true &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaSettlementBlocker)
+}
+
+function isRealityAreaSettlementBlocker(value: unknown): value is RealityAreaSettlementBlocker {
+  return value === 'ton_connect_disabled' ||
+    value === 'deposits_disabled' ||
+    value === 'withdrawals_disabled' ||
+    value === 'land_reservations_disabled' ||
+    value === 'leases_disabled' ||
+    value === 'manual_payout_review_required' ||
+    value === 'compliance_review_required'
 }
 
 function isRealityAreaCovenantReview(value: unknown): value is RealityAreaCovenantReview {
