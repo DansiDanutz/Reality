@@ -446,10 +446,17 @@ export interface FounderCovenantReviewHistoryItem {
   actionKind: FounderCovenantManualActionKind
   summary: string
   authorityGate: FounderCovenantAuthorityGate
+  decision: FounderCovenantReviewDecisionSnapshot | null
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
   reviewSchedule: FounderCovenantReviewSchedule | null
+}
+
+export interface FounderCovenantReviewDecisionSnapshot {
+  status: FounderCovenantStatus
+  nextAction: FounderCovenantNextAction
+  manualReviewRequired: boolean
 }
 
 export interface FounderCovenantLatestReview {
@@ -459,6 +466,7 @@ export interface FounderCovenantLatestReview {
   actionKind: FounderCovenantManualActionKind
   summary: string
   authorityGate: FounderCovenantAuthorityGate
+  decision: FounderCovenantReviewDecisionSnapshot | null
   signals: FounderCovenantSignal[]
   activityReview: FounderCovenantActivityReview | null
   reviewChecklist: FounderCovenantReviewChecklistItem[]
@@ -1502,6 +1510,7 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     actionKind: latest.actionKind,
     summary: latest.summary,
     authorityGate: { ...latest.authorityGate },
+    decision: latest.decision ? { ...latest.decision } : null,
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
@@ -1516,6 +1525,7 @@ function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryIte
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
+    decision: legacyEntry.decision ? { ...legacyEntry.decision } : null,
     signals: (entry.signals ?? []).map(founderCovenantSignalSnapshot),
     activityReview: legacyEntry.activityReview ? { ...legacyEntry.activityReview } : null,
     reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)

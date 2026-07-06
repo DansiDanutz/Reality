@@ -31,6 +31,7 @@ import {
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
   founderCovenantReviewCadenceSummary,
+  founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
@@ -239,6 +240,9 @@ export default function FounderAreaPanel() {
                   </span>
                   <span className="item-desc">{dashboard.founderCovenant.latestReview.summary}</span>
                   <span className="item-desc">
+                    {founderCovenantReviewDecisionSummary(dashboard.founderCovenant.latestReview)}
+                  </span>
+                  <span className="item-desc">
                     {founderCovenantReviewSnapshotSummary(dashboard.founderCovenant.latestReview)}
                   </span>
                   <span className="item-desc">
@@ -314,6 +318,7 @@ export default function FounderAreaPanel() {
                     <div className="item-info">
                       <span className="item-name">{founderCovenantManualActionKindLabel(entry.actionKind)}</span>
                       <span className="item-desc">{entry.summary}</span>
+                      <span className="item-desc">{founderCovenantReviewDecisionSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSnapshotSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewCadenceSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSignalSummary(entry)}</span>

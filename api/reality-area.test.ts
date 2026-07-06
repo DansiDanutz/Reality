@@ -434,6 +434,16 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      decision: { status: 'active' },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      nextAction: 'none',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       note: `${'x'.repeat(281)}`,
     })).toEqual({ ok: false, error: 'invalid_review_note' })
   })
@@ -2583,6 +2593,7 @@ describe('reality area authority API', () => {
           actionKind: string
           summary: string
           authorityGate: ReturnType<typeof areaReviewerEvidenceGate>
+          decision: unknown
           signals: unknown[]
           activityReview: unknown
           reviewChecklist: unknown[]
@@ -2599,6 +2610,11 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
       authorityGate: areaReviewerEvidenceGate(false),
+      decision: {
+        status: 'watch',
+        nextAction: 'warn_founder',
+        manualReviewRequired: false,
+      },
       signals: [{
         kind: 'no_business_built',
         severity: 'warning',
@@ -2646,6 +2662,7 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
       authorityGate: areaReviewerEvidenceGate(false),
+      decision: body.state.founderReviewHistory[0].decision,
       signals: body.state.founderReviewHistory[0].signals,
       activityReview: body.state.founderReviewHistory[0].activityReview,
       reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,

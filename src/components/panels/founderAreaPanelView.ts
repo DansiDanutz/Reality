@@ -123,6 +123,13 @@ export function founderCovenantReviewCadenceSummary(
   return 'Ad hoc review captured'
 }
 
+export function founderCovenantReviewDecisionSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'decision'>,
+): string {
+  if (!review.decision) return 'Decision unavailable'
+  return `${founderCovenantStatusLabel(review.decision.status)} / ${founderCovenantNextActionLabel(review.decision.nextAction)}`
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),
@@ -133,6 +140,21 @@ export function founderCovenantReviewItems(review: FounderCovenantActivityReview
     riskFlag('hospitalized', 'Hospital', review.hospitalized),
     riskFlag('atRisk', 'At risk', review.atRisk),
   ]
+}
+
+function founderCovenantNextActionLabel(
+  nextAction: NonNullable<FounderCovenantReviewHistoryItem['decision']>['nextAction'],
+): string {
+  switch (nextAction) {
+    case 'claim_area':
+      return 'Claim area'
+    case 'none':
+      return 'No action'
+    case 'warn_founder':
+      return 'Warn founder'
+    case 'manual_review':
+      return 'Manual review'
+  }
 }
 
 export function founderCovenantReviewScheduleItems(

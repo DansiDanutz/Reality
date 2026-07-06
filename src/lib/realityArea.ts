@@ -159,10 +159,17 @@ export interface RealityAreaCovenantReviewHistoryItem {
   actionKind: RealityAreaCovenantManualActionKind
   summary: string
   authorityGate: RealityAreaCovenantAuthorityGate
+  decision: RealityAreaCovenantReviewDecisionSnapshot | null
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   reviewSchedule: RealityAreaCovenantReviewSchedule | null
+}
+
+export interface RealityAreaCovenantReviewDecisionSnapshot {
+  status: RealityAreaCovenantStatus
+  nextAction: RealityAreaCovenantNextAction
+  manualReviewRequired: boolean
 }
 
 export interface RealityAreaCovenantLatestReview {
@@ -172,6 +179,7 @@ export interface RealityAreaCovenantLatestReview {
   actionKind: RealityAreaCovenantManualActionKind
   summary: string
   authorityGate: RealityAreaCovenantAuthorityGate
+  decision: RealityAreaCovenantReviewDecisionSnapshot | null
   signals: RealityAreaCovenantSignal[]
   activityReview: RealityAreaCovenantReview['activityReview'] | null
   reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
@@ -733,6 +741,7 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         ...review.latestReview,
         reviewedAt: parseInstant(review.latestReview.reviewedAt),
         authorityGate: { ...review.latestReview.authorityGate },
+        decision: review.latestReview.decision === null ? null : { ...review.latestReview.decision },
         signals: review.latestReview.signals.map(realityCovenantSignalToWorldSignal),
         activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
         reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
@@ -772,6 +781,7 @@ function realityReviewHistoryToWorldReviewHistory(
     ...entry,
     at: parseInstant(entry.at),
     authorityGate: { ...entry.authorityGate },
+    decision: entry.decision === null ? null : { ...entry.decision },
     signals: entry.signals.map(realityCovenantSignalToWorldSignal),
     activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
     reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
@@ -1146,6 +1156,7 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string' &&
     isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
+    (value.decision === null || isRealityAreaCovenantReviewDecisionSnapshot(value.decision)) &&
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal) &&
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
@@ -1162,6 +1173,7 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     isRealityAreaCovenantManualActionKind(value.actionKind) &&
     typeof value.summary === 'string' &&
     isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
+    (value.decision === null || isRealityAreaCovenantReviewDecisionSnapshot(value.decision)) &&
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal) &&
     (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
@@ -1179,6 +1191,15 @@ function isRealityAreaCovenantEvidenceAuthorityGate(value: unknown): value is Re
     value.approvedById === null &&
     value.approvedAt === null &&
     value.executionEnabled === false
+}
+
+function isRealityAreaCovenantReviewDecisionSnapshot(
+  value: unknown,
+): value is RealityAreaCovenantReviewDecisionSnapshot {
+  return isRecord(value) &&
+    isRealityAreaCovenantStatus(value.status) &&
+    isRealityAreaCovenantNextAction(value.nextAction) &&
+    typeof value.manualReviewRequired === 'boolean'
 }
 
 function isRealityAreaCovenantReviewSchedule(value: unknown): value is RealityAreaCovenantReviewSchedule {

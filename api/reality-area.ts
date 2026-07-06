@@ -188,10 +188,17 @@ interface FounderAreaCovenantReviewHistoryItem {
   actionKind: FounderAreaCovenantManualActionKind
   summary: string
   authorityGate: FounderAreaCovenantAuthorityGate
+  decision: FounderAreaCovenantReviewDecisionSnapshot | null
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   reviewSchedule: FounderAreaCovenantReviewSchedule | null
+}
+
+interface FounderAreaCovenantReviewDecisionSnapshot {
+  status: FounderAreaCovenantStatus
+  nextAction: FounderAreaCovenantNextAction
+  manualReviewRequired: boolean
 }
 
 interface FounderAreaCovenantLatestReview {
@@ -201,6 +208,7 @@ interface FounderAreaCovenantLatestReview {
   actionKind: FounderAreaCovenantManualActionKind
   summary: string
   authorityGate: FounderAreaCovenantAuthorityGate
+  decision: FounderAreaCovenantReviewDecisionSnapshot | null
   signals: FounderAreaCovenantSignal[]
   activityReview: FounderAreaCovenantActivityReview | null
   reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
@@ -771,6 +779,10 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'approvedById',
   'approvedAt',
   'founderCitizenId',
+  'decision',
+  'status',
+  'nextAction',
+  'manualReviewRequired',
   'activityReview',
   'reviewChecklist',
   'reviewSchedule',
@@ -1464,6 +1476,7 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     actionKind: latest.actionKind,
     summary: latest.summary,
     authorityGate: { ...latest.authorityGate },
+    decision: latest.decision ? { ...latest.decision } : null,
     signals: latest.signals.map(founderCovenantSignalSnapshot),
     activityReview: latest.activityReview ? { ...latest.activityReview } : null,
     reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
@@ -1486,6 +1499,7 @@ function founderCovenantReviewHistoryItem(
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
+    decision: legacyEntry.decision ? { ...legacyEntry.decision } : null,
     signals: Array.isArray(entry.signals)
       ? entry.signals.map(founderCovenantSignalSnapshot)
       : [],
@@ -2939,6 +2953,11 @@ function applyRecordCovenantReviewIntent(
     actionKind: intent.actionKind,
     summary: founderCovenantReviewSummary(review.activityReview, intent.note),
     authorityGate: founderCovenantReviewEvidenceAuthority(),
+    decision: {
+      status: review.status,
+      nextAction: review.nextAction,
+      manualReviewRequired: review.manualReviewRequired,
+    },
     signals: review.signals.map(founderCovenantSignalSnapshot),
     activityReview: { ...review.activityReview },
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),

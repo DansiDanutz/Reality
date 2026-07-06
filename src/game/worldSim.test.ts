@@ -88,6 +88,12 @@ const covenantChecklistSnapshot = () => [{
   evidence: 'Founder businesses need staff before review can clear.',
 }]
 
+const covenantDecisionSnapshot = () => ({
+  status: 'watch' as const,
+  nextAction: 'manual_review' as const,
+  manualReviewRequired: false,
+})
+
 const area = (over: Partial<WorldArea> = {}): WorldArea => ({
   id: 'area-1',
   name: 'Test Area',
@@ -1830,6 +1836,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         actionKind: 'record_review',
         summary: 'Weekly review recorded.',
         authorityGate: areaReviewerEvidenceGate(),
+        decision: covenantDecisionSnapshot(),
         signals: [{
           kind: 'review_due',
           severity: 'warning',
@@ -1867,6 +1874,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       actionKind: 'record_review',
       summary: 'Weekly review recorded.',
       authorityGate: areaReviewerEvidenceGate(),
+      decision: covenantDecisionSnapshot(),
       signals: [{
         kind: 'review_due',
         severity: 'warning',
@@ -1910,6 +1918,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         actionKind: 'record_review',
         summary: 'Weekly review recorded.',
         authorityGate: areaReviewerEvidenceGate(),
+        decision: null,
         signals: [],
         activityReview: null,
         reviewChecklist: [],

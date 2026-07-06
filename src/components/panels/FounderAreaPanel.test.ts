@@ -7,6 +7,7 @@ import {
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
   founderCovenantReviewCadenceSummary,
+  founderCovenantReviewDecisionSummary,
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
@@ -132,6 +133,24 @@ describe('FounderAreaPanel covenant presenters', () => {
         overdue: true,
       },
     })).toBe('Monthly review captured')
+  })
+
+  test('summarizes captured covenant review decisions', () => {
+    expect(founderCovenantReviewDecisionSummary({ decision: null })).toBe('Decision unavailable')
+    expect(founderCovenantReviewDecisionSummary({
+      decision: {
+        status: 'watch',
+        nextAction: 'warn_founder',
+        manualReviewRequired: false,
+      },
+    })).toBe('Watch / Warn founder')
+    expect(founderCovenantReviewDecisionSummary({
+      decision: {
+        status: 'manual_review',
+        nextAction: 'manual_review',
+        manualReviewRequired: true,
+      },
+    })).toBe('Manual review / Manual review')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {
