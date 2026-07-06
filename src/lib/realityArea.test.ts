@@ -6,10 +6,13 @@ import {
   founderAreaClaimSource,
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
+  mergeRealityAreaDashboardIntoWorldDashboard,
   realityAreaStateToWorldArea,
+  type RealityAreaDashboard,
   type RealityAreaState,
 } from './realityArea'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
+import { areaNeedsDashboard } from '../game/worldSim'
 
 const profile: FounderAreaProfile = {
   founderId: 'founder-1',
@@ -80,6 +83,37 @@ describe('Reality area client', () => {
       ok: true,
       state: serverState(),
       restoredExisting: true,
+    })
+  })
+
+  test('keeps server dashboard guidance from area authority responses', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: serverDashboard(),
+    })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'food',
+      businessId: 'founder-area-0012:food:1',
+      name: 'Food Shop',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
     })
   })
 
@@ -320,6 +354,36 @@ describe('Reality area client', () => {
       kind: 'founder_credit',
     })
   })
+
+  test('uses server first-build guidance over locally inferred build choices', () => {
+    const localDashboard = areaNeedsDashboard(realityAreaStateToWorldArea(serverState()))
+    const merged = mergeRealityAreaDashboardIntoWorldDashboard(localDashboard, serverDashboard())
+    const water = merged.firstBuild.find((recommendation) => recommendation.kind === 'water')
+    const food = merged.firstBuild.find((recommendation) => recommendation.kind === 'food')
+
+    expect(merged.licenses.water).toMatchObject({ slots: 1, used: 1, remaining: 0, saturation: 1 })
+    expect(water).toMatchObject({
+      currentSupply: 1,
+      licensesRemaining: 0,
+      canBuildNow: false,
+      clientPayload: null,
+      blockers: ['license_unavailable'],
+      reason: 'No starter license remains for this business kind.',
+    })
+    expect(food).toMatchObject({
+      proposedBusinessId: 'founder-area-0012:food:1',
+      currentDemand: 2,
+      licensesRemaining: 1,
+      canBuildNow: true,
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'food',
+        businessId: 'founder-area-0012:food:1',
+        name: 'Food Shop',
+      },
+      reason: 'Local demand is waiting for this service.',
+    })
+  })
 })
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -425,5 +489,106 @@ function serverState(): RealityAreaState {
       }],
     },
     updatedAt: '2026-07-06T03:30:00.000Z',
+  }
+}
+
+function serverDashboard(): RealityAreaDashboard {
+  return {
+    areaId: 'founder-area-0012',
+    updatedAt: '2026-07-06T03:30:00.000Z',
+    population: 2,
+    simPopulation: 1,
+    realPopulation: 1,
+    demand: { water: 1, food: 2, housing: 0, clinic: 0, insurance: 2 },
+    simDemand: { water: 1, food: 1, housing: 0, clinic: 0, insurance: 1 },
+    realDemand: { water: 0, food: 1, housing: 0, clinic: 0, insurance: 1 },
+    supply: { water: 1, food: 0, housing: 0, clinic: 0, insurance: 0 },
+    capacity: { water: 24, food: 0, housing: 0, clinic: 0, insurance: 0 },
+    shortage: { water: 0, food: 2, housing: 0, clinic: 0, insurance: 2 },
+    licenseSlots: { water: 1, food: 1, housing: 1, clinic: 0, insurance: 0 },
+    saturation: { water: 1, food: 0, housing: 0, clinic: 0, insurance: 0 },
+    licenses: {
+      water: { slots: 1, used: 1, remaining: 0, saturation: 1 },
+      food: { slots: 1, used: 0, remaining: 1, saturation: 0 },
+      housing: { slots: 1, used: 0, remaining: 1, saturation: 0 },
+      clinic: { slots: 0, used: 0, remaining: 0, saturation: 0 },
+      insurance: { slots: 0, used: 0, remaining: 0, saturation: 0 },
+    },
+    firstBuild: [{
+      kind: 'food',
+      name: 'Food Shop',
+      proposedBusinessId: 'founder-area-0012:food:1',
+      buildCost: 12_000,
+      currentDemand: 2,
+      currentSupply: 0,
+      licensesRemaining: 1,
+      saturation: 0,
+      founderCanAfford: true,
+      canBuildNow: true,
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'food',
+        businessId: 'founder-area-0012:food:1',
+        name: 'Food Shop',
+      },
+      reason: 'Local demand is waiting for this service.',
+    }, {
+      kind: 'water',
+      name: 'Water Point',
+      proposedBusinessId: null,
+      buildCost: 8_000,
+      currentDemand: 1,
+      currentSupply: 1,
+      licensesRemaining: 0,
+      saturation: 1,
+      founderCanAfford: true,
+      canBuildNow: false,
+      clientPayload: null,
+      reason: 'No starter license remains for this business kind.',
+    }, {
+      kind: 'housing',
+      name: 'Basic Housing',
+      proposedBusinessId: 'founder-area-0012:housing:1',
+      buildCost: 25_000,
+      currentDemand: 0,
+      currentSupply: 0,
+      licensesRemaining: 1,
+      saturation: 0,
+      founderCanAfford: true,
+      canBuildNow: true,
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'housing',
+        businessId: 'founder-area-0012:housing:1',
+        name: 'Basic Housing',
+      },
+      reason: 'Low current demand; consider it after the area grows.',
+    }, {
+      kind: 'insurance',
+      name: 'Insurance Office',
+      proposedBusinessId: null,
+      buildCost: 60_000,
+      currentDemand: 2,
+      currentSupply: 0,
+      licensesRemaining: 0,
+      saturation: 0,
+      founderCanAfford: true,
+      canBuildNow: false,
+      clientPayload: null,
+      reason: 'No starter license remains for this business kind.',
+    }, {
+      kind: 'clinic',
+      name: 'Clinic',
+      proposedBusinessId: null,
+      buildCost: 75_000,
+      currentDemand: 0,
+      currentSupply: 0,
+      licensesRemaining: 0,
+      saturation: 0,
+      founderCanAfford: true,
+      canBuildNow: false,
+      clientPayload: null,
+      reason: 'No starter license remains for this business kind.',
+    }],
   }
 }

@@ -15,7 +15,9 @@ import {
   claimRealityFounderArea,
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
+  mergeRealityAreaDashboardIntoWorldDashboard,
   realityAreaStateToWorldArea,
+  type RealityAreaDashboard,
   type RealityAreaState,
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
@@ -54,7 +56,7 @@ export default function FounderAreaPanel() {
         setLastEvent(message)
         return
       }
-      const result = await hydrateServerArea(profile, serverClaim.state, commandClientRef)
+      const result = await hydrateServerArea(profile, serverClaim.state, commandClientRef, serverClaim.dashboard)
       if (!alive) return
       setPanelState({ status: 'ready', result })
       setLastEvent(
@@ -88,7 +90,7 @@ export default function FounderAreaPanel() {
           setLastEvent(serverApplied.error)
           return
         }
-        const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef)
+        const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
         setPanelState({ status: 'ready', result: next })
         setLastEvent(next.ok ? label : `Command failed: ${next.error}`)
         return
@@ -111,7 +113,7 @@ export default function FounderAreaPanel() {
         setLastEvent(serverApplied.error)
         return
       }
-      const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef)
+      const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
       setPanelState({ status: 'ready', result: next })
       setLastEvent(next.ok ? 'Reality server caught up.' : `Command failed: ${next.error}`)
     } finally {
@@ -367,12 +369,18 @@ async function hydrateServerArea(
   profile: FounderAreaProfile,
   state: RealityAreaState,
   commandClientRef: MutableRefObject<FounderAreaCommandClient | null>,
+  serverDashboard?: RealityAreaDashboard,
 ): Promise<WorldServerCommandResult> {
   const serverProfile = founderAreaProfileWithServerClaim(profile, state)
   const serverArea = realityAreaStateToWorldArea(state)
   const commandClient = createMemoryFounderAreaClient(serverProfile, createMemoryWorldAreaRepository([serverArea]))
   commandClientRef.current = commandClient
-  return commandClient.read(serverArea.now)
+  const result = await commandClient.read(serverArea.now)
+  if (!result.dashboard) return result
+  return {
+    ...result,
+    dashboard: mergeRealityAreaDashboardIntoWorldDashboard(result.dashboard, serverDashboard),
+  }
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {

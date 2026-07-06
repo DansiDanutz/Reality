@@ -1,6 +1,10 @@
 import type { Citizen } from '../game/types'
 import type { FounderAreaProfile } from '../game/founderAreaSession'
 import type {
+  AreaNeedsDashboard,
+  FirstBuildAction,
+  FirstBuildBlocker,
+  FirstBuildRecommendation,
   WorldArea,
   WorldBusiness,
   WorldBusinessKind,
@@ -110,6 +114,46 @@ export interface RealityAreaCovenantReview {
   signals: RealityAreaCovenantSignal[]
 }
 
+export interface RealityAreaLicenseDashboard {
+  slots: number
+  used: number
+  remaining: number
+  saturation: number
+}
+
+export interface RealityAreaFirstBuildRecommendation {
+  kind: WorldBusinessKind
+  name: string
+  proposedBusinessId: string | null
+  buildCost: number
+  currentDemand: number
+  currentSupply: number
+  licensesRemaining: number
+  saturation: number
+  founderCanAfford: boolean
+  canBuildNow: boolean
+  clientPayload: Extract<WorldClientIntentPayload, { type: 'buildBusiness' }> | null
+  reason: string
+}
+
+export interface RealityAreaDashboard {
+  areaId: string
+  updatedAt: string
+  population: number
+  simPopulation: number
+  realPopulation: number
+  demand: Record<WorldBusinessKind, number>
+  simDemand: Record<WorldBusinessKind, number>
+  realDemand: Record<WorldBusinessKind, number>
+  supply: Record<WorldBusinessKind, number>
+  capacity: Record<WorldBusinessKind, number>
+  shortage: Record<WorldBusinessKind, number>
+  licenseSlots: Record<WorldBusinessKind, number>
+  saturation: Record<WorldBusinessKind, number>
+  licenses: Record<WorldBusinessKind, RealityAreaLicenseDashboard>
+  firstBuild: RealityAreaFirstBuildRecommendation[]
+}
+
 export interface RealityAreaState {
   version: 1
   areaId: string
@@ -134,7 +178,7 @@ export interface RealityAreaState {
 }
 
 export type RealityAreaClaimResult =
-  | { ok: true; state: RealityAreaState; restoredExisting: boolean }
+  | { ok: true; state: RealityAreaState; restoredExisting: boolean; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 export type RealityAreaServerIntentType =
@@ -153,7 +197,7 @@ export interface RealityAreaAdvanceHourPayload {
 }
 
 export type RealityAreaApplyResult =
-  | { ok: true; state: RealityAreaState }
+  | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaAdvanceHourPayload
@@ -190,11 +234,12 @@ export async function claimRealityFounderArea(
     })
     const data = await response.json() as Record<string, unknown>
     const state = isRealityAreaState(data.state) ? data.state : null
+    const dashboard = isRealityAreaDashboard(data.dashboard) ? data.dashboard : undefined
     if (response.ok && data.ok === true && state) {
-      return { ok: true, state, restoredExisting: false }
+      return { ok: true, state, restoredExisting: false, dashboard }
     }
     if (response.status === 409 && data.code === 'area_already_claimed' && state) {
-      return { ok: true, state, restoredExisting: true }
+      return { ok: true, state, restoredExisting: true, dashboard }
     }
     return {
       ok: false,
@@ -242,7 +287,8 @@ async function applyRealityAreaPayload(
     })
     const data = await response.json() as Record<string, unknown>
     const state = isRealityAreaState(data.state) ? data.state : null
-    if (response.ok && data.ok === true && state) return { ok: true, state }
+    const dashboard = isRealityAreaDashboard(data.dashboard) ? data.dashboard : undefined
+    if (response.ok && data.ok === true && state) return { ok: true, state, dashboard }
     return {
       ok: false,
       reason: 'server_rejected',
@@ -301,6 +347,47 @@ export function realityAreaStateToWorldArea(state: RealityAreaState): WorldArea 
   }
 }
 
+export function mergeRealityAreaDashboardIntoWorldDashboard(
+  dashboard: AreaNeedsDashboard,
+  serverDashboard: RealityAreaDashboard | undefined,
+): AreaNeedsDashboard {
+  if (!serverDashboard) return dashboard
+
+  const licenseSlots = { ...dashboard.licenseSlots, ...serverDashboard.licenseSlots }
+  const saturation = { ...dashboard.saturation, ...serverDashboard.saturation }
+  const licenses = { ...dashboard.licenses }
+  for (const kind of BUSINESS_KINDS) {
+    const serverLicense = serverDashboard.licenses[kind]
+    if (!serverLicense) continue
+    licenses[kind] = {
+      ...licenses[kind],
+      slots: serverLicense.slots,
+      used: serverLicense.used,
+      remaining: serverLicense.remaining,
+      saturation: serverLicense.saturation,
+    }
+  }
+
+  return {
+    ...dashboard,
+    population: serverDashboard.population,
+    simPopulation: serverDashboard.simPopulation,
+    realPopulation: serverDashboard.realPopulation,
+    demand: { ...serverDashboard.demand },
+    simDemand: { ...serverDashboard.simDemand },
+    realDemand: { ...serverDashboard.realDemand },
+    supply: { ...serverDashboard.supply },
+    capacity: { ...serverDashboard.capacity },
+    shortage: { ...serverDashboard.shortage },
+    licenseSlots,
+    saturation,
+    licenses,
+    firstBuild: serverDashboard.firstBuild.map((recommendation) =>
+      mergeFirstBuildRecommendation(recommendation, dashboard.firstBuild.find((candidate) => candidate.kind === recommendation.kind), serverDashboard)
+    ),
+  }
+}
+
 function isRealityAreaState(value: unknown): value is RealityAreaState {
   if (!isRecord(value) || value.version !== 1) return false
   if (
@@ -322,6 +409,130 @@ function isRealityAreaState(value: unknown): value is RealityAreaState {
     typeof value.claim.radiusKm === 'number' &&
     typeof value.claim.claimedAt === 'string' &&
     isClaimSource(value.claim.source)
+}
+
+const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
+
+function mergeFirstBuildRecommendation(
+  recommendation: RealityAreaFirstBuildRecommendation,
+  fallback: FirstBuildRecommendation | undefined,
+  serverDashboard: RealityAreaDashboard,
+): FirstBuildRecommendation {
+  const license = serverDashboard.licenses[recommendation.kind]
+  const licensed = recommendation.licensesRemaining > 0
+  const saturated = license ? license.remaining <= 0 && license.slots > 0 : recommendation.saturation >= 1
+  const blockers = serverFirstBuildBlockers(recommendation)
+  return {
+    ...fallback,
+    kind: recommendation.kind,
+    name: recommendation.name,
+    proposedBusinessId: recommendation.proposedBusinessId,
+    priority: fallback?.priority ?? 'low',
+    action: serverFirstBuildAction(recommendation, blockers),
+    clientPayload: recommendation.clientPayload,
+    score: fallback?.score ?? 0,
+    buildCost: recommendation.buildCost,
+    cashShortfall: recommendation.founderCanAfford ? 0 : (fallback?.cashShortfall ?? recommendation.buildCost),
+    currentDemand: recommendation.currentDemand,
+    currentSupply: recommendation.currentSupply,
+    licenseSlots: license?.slots ?? serverDashboard.licenseSlots[recommendation.kind] ?? fallback?.licenseSlots ?? 0,
+    licensesRemaining: recommendation.licensesRemaining,
+    nextLicensePopulation: fallback?.nextLicensePopulation ?? 0,
+    citizensUntilNextLicense: fallback?.citizensUntilNextLicense ?? 0,
+    founderCanAfford: recommendation.founderCanAfford,
+    canBuildNow: recommendation.canBuildNow,
+    blockers,
+    licensed,
+    saturated,
+    estimatedHourlyRevenue: fallback?.estimatedHourlyRevenue ?? 0,
+    estimatedHourlyWageCost: fallback?.estimatedHourlyWageCost ?? 0,
+    estimatedHourlyProfit: fallback?.estimatedHourlyProfit ?? 0,
+    estimatedPaybackHours: fallback?.estimatedPaybackHours ?? null,
+    reason: recommendation.reason,
+  }
+}
+
+function serverFirstBuildBlockers(recommendation: RealityAreaFirstBuildRecommendation): FirstBuildBlocker[] {
+  const blockers: FirstBuildBlocker[] = []
+  if (recommendation.reason === 'Founder must recover before building.') blockers.push('actor_unavailable')
+  if (recommendation.licensesRemaining <= 0) blockers.push('license_unavailable')
+  if (!recommendation.founderCanAfford) blockers.push('insufficient_funds')
+  return blockers
+}
+
+function serverFirstBuildAction(
+  recommendation: RealityAreaFirstBuildRecommendation,
+  blockers: FirstBuildBlocker[],
+): FirstBuildAction {
+  if (recommendation.canBuildNow) return 'build_now'
+  if (blockers.includes('actor_unavailable')) return 'recover_first'
+  if (blockers.includes('insufficient_funds')) return 'save_credits'
+  if (blockers.includes('license_unavailable')) return 'grow_demand'
+  return recommendation.currentDemand > recommendation.currentSupply ? 'build_now' : 'wait_for_demand'
+}
+
+function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
+  if (!isRecord(value)) return false
+  return typeof value.areaId === 'string' &&
+    typeof value.updatedAt === 'string' &&
+    typeof value.population === 'number' &&
+    typeof value.simPopulation === 'number' &&
+    typeof value.realPopulation === 'number' &&
+    isKindNumberRecord(value.demand) &&
+    isKindNumberRecord(value.simDemand) &&
+    isKindNumberRecord(value.realDemand) &&
+    isKindNumberRecord(value.supply) &&
+    isKindNumberRecord(value.capacity) &&
+    isKindNumberRecord(value.shortage) &&
+    isKindNumberRecord(value.licenseSlots) &&
+    isKindNumberRecord(value.saturation) &&
+    isLicenseDashboardRecord(value.licenses) &&
+    Array.isArray(value.firstBuild) &&
+    value.firstBuild.every(isRealityAreaFirstBuildRecommendation)
+}
+
+function isKindNumberRecord(value: unknown): value is Record<WorldBusinessKind, number> {
+  return isRecord(value) && BUSINESS_KINDS.every((kind) => typeof value[kind] === 'number')
+}
+
+function isLicenseDashboardRecord(value: unknown): value is Record<WorldBusinessKind, RealityAreaLicenseDashboard> {
+  return isRecord(value) && BUSINESS_KINDS.every((kind) => isRealityAreaLicenseDashboard(value[kind]))
+}
+
+function isRealityAreaLicenseDashboard(value: unknown): value is RealityAreaLicenseDashboard {
+  return isRecord(value) &&
+    typeof value.slots === 'number' &&
+    typeof value.used === 'number' &&
+    typeof value.remaining === 'number' &&
+    typeof value.saturation === 'number'
+}
+
+function isRealityAreaFirstBuildRecommendation(value: unknown): value is RealityAreaFirstBuildRecommendation {
+  if (!isRecord(value)) return false
+  return isBusinessKind(value.kind) &&
+    typeof value.name === 'string' &&
+    (typeof value.proposedBusinessId === 'string' || value.proposedBusinessId === null) &&
+    typeof value.buildCost === 'number' &&
+    typeof value.currentDemand === 'number' &&
+    typeof value.currentSupply === 'number' &&
+    typeof value.licensesRemaining === 'number' &&
+    typeof value.saturation === 'number' &&
+    typeof value.founderCanAfford === 'boolean' &&
+    typeof value.canBuildNow === 'boolean' &&
+    (isRealityAreaBuildPayload(value.clientPayload) || value.clientPayload === null) &&
+    typeof value.reason === 'string'
+}
+
+function isRealityAreaBuildPayload(value: unknown): value is Extract<WorldClientIntentPayload, { type: 'buildBusiness' }> {
+  return isRecord(value) &&
+    value.type === 'buildBusiness' &&
+    isBusinessKind(value.businessKind) &&
+    typeof value.businessId === 'string' &&
+    (typeof value.name === 'string' || value.name === undefined)
+}
+
+function isBusinessKind(value: unknown): value is WorldBusinessKind {
+  return BUSINESS_KINDS.includes(value as WorldBusinessKind)
 }
 
 function realityCitizenToWorldCitizen(citizen: RealityAreaCitizen): WorldCitizen {
