@@ -114,6 +114,31 @@ describe('telegram Mini App auth', () => {
       .toEqual({ ok: false, error: 'invalid_init_data' })
   })
 
+  test('rejects Telegram bot accounts before creating Reality identity records', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    const initData = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      user: JSON.stringify({ id: 10, first_name: 'Build Bot', is_bot: true }),
+    })
+
+    expect(verifyTelegramMiniAppInitData(initData, BOT_TOKEN, { nowSeconds: NOW_SECONDS }))
+      .toEqual({ ok: false, error: 'bot_user_not_allowed' })
+
+    const res = responseRecorder()
+    await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Invalid Telegram session.',
+      code: 'bot_user_not_allowed',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('server handler stays disabled until a bot token is configured', async () => {
     const res = responseRecorder()
     await handler({

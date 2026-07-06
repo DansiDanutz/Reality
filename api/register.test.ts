@@ -105,6 +105,31 @@ describe('register API Telegram identity bridge', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('rejects Telegram bot accounts before founder registration side effects', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        name: 'David',
+        telegramInitData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 42424242, first_name: 'Reality Bot', is_bot: true }),
+        }),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Invalid Telegram session.',
+      code: 'bot_user_not_allowed',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('keeps non-Telegram registration available', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([]))
