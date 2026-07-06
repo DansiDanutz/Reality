@@ -17,6 +17,7 @@ import {
   DEFAULT_BUSINESS_BLUEPRINTS,
   effectiveBusinessQuality,
   licenseSlotsForPopulation,
+  nextLicenseUnlockPopulation,
   type WorldArea,
   type WorldBusiness,
   type WorldBusinessKind,
@@ -1332,6 +1333,22 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.shortage.water).toBe(0)
     expect(dash.licenseSlots.water).toBe(1)
     expect(dash.saturation.water).toBe(2)
+    expect(dash.licenses.water).toEqual({
+      slots: 1,
+      used: 2,
+      remaining: 0,
+      saturation: 2,
+      nextUnlockPopulation: 70,
+      citizensUntilNextUnlock: 68,
+    })
+    expect(dash.licenses.food).toEqual({
+      slots: 1,
+      used: 1,
+      remaining: 0,
+      saturation: 1,
+      nextUnlockPopulation: 60,
+      citizensUntilNextUnlock: 58,
+    })
     expect(dash.citizens).toHaveLength(2)
     expect(dash.citizens).toMatchObject([
       {
@@ -1658,6 +1675,10 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(licenseSlotsForPopulation(60, 'food')).toBe(2)
     expect(licenseSlotsForPopulation(79, 'clinic')).toBe(0)
     expect(licenseSlotsForPopulation(80, 'clinic')).toBe(1)
+    expect(nextLicenseUnlockPopulation(2, 'food')).toBe(60)
+    expect(nextLicenseUnlockPopulation(60, 'food')).toBe(90)
+    expect(nextLicenseUnlockPopulation(79, 'clinic')).toBe(80)
+    expect(nextLicenseUnlockPopulation(80, 'clinic')).toBe(160)
   })
 
   test('first-build guidance includes canonical shop costs, license room, affordability, and payback', () => {
@@ -1681,6 +1702,8 @@ describe('advanceWorldArea — local real-time economy', () => {
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
+      nextLicensePopulation: 60,
+      citizensUntilNextLicense: 47,
       founderCanAfford: true,
       canBuildNow: true,
       action: 'build_now',
@@ -1698,6 +1721,8 @@ describe('advanceWorldArea — local real-time economy', () => {
       cashShortfall: 40_000,
       licenseSlots: 0,
       licensesRemaining: 0,
+      nextLicensePopulation: 90,
+      citizensUntilNextLicense: 77,
       founderCanAfford: false,
       canBuildNow: false,
       action: 'grow_demand',

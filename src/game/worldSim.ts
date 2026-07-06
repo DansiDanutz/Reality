@@ -125,6 +125,8 @@ export interface FirstBuildRecommendation {
   currentSupply: number
   licenseSlots: number
   licensesRemaining: number
+  nextLicensePopulation: number
+  citizensUntilNextLicense: number
   founderCanAfford: boolean
   canBuildNow: boolean
   blockers: FirstBuildBlocker[]
@@ -142,6 +144,15 @@ export interface AreaJobsDashboard {
   unemployedCitizens: number
   openPositions: number
   understaffedBusinesses: number
+}
+
+export interface AreaLicenseDashboard {
+  slots: number
+  used: number
+  remaining: number
+  saturation: number
+  nextUnlockPopulation: number
+  citizensUntilNextUnlock: number
 }
 
 export type WorldSurvivalRiskLevel = 'stable' | 'warning' | 'danger' | 'hospitalized'
@@ -249,6 +260,7 @@ export interface AreaNeedsDashboard {
   capacity: Record<WorldBusinessKind, number>
   shortage: Record<WorldBusinessKind, number>
   licenseSlots: Record<WorldBusinessKind, number>
+  licenses: Record<WorldBusinessKind, AreaLicenseDashboard>
   saturation: Record<WorldBusinessKind, number>
   citizens: AreaCitizenDashboard[]
   existingBusinesses: AreaBusinessDashboard[]
@@ -559,11 +571,15 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     shortage[kind] = Math.max(0, demand[kind] - capacity[kind])
   }
 
+  const population = activeCitizens.length
   const licenseSlots = zeroKindRecord()
+  const licenses = {} as Record<WorldBusinessKind, AreaLicenseDashboard>
   const saturation = zeroKindRecord()
   for (const kind of BUSINESS_KINDS) {
-    licenseSlots[kind] = licenseSlotsForPopulation(activeCitizens.length, kind)
-    saturation[kind] = supply[kind] / Math.max(1, licenseSlots[kind])
+    const license = licenseDashboardForKind(population, supply[kind], kind)
+    licenses[kind] = license
+    licenseSlots[kind] = license.slots
+    saturation[kind] = license.saturation
   }
 
   return {
@@ -577,17 +593,23 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     capacity,
     shortage,
     licenseSlots,
+    licenses,
     saturation,
     citizens: area.citizens.map((citizen) => citizenDashboard(citizen, area.now)),
     existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens),
     survival: survivalDashboard(area),
-    firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation, founderMoney }),
+    firstBuild: firstBuildGuidance({ demand, supply, licenseSlots, saturation, founderMoney, population }),
   }
 }
 
-export function firstBuildGuidance(input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & { founderMoney?: number }): FirstBuildRecommendation[] {
+export function firstBuildGuidance(
+  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
+    founderMoney?: number
+    population?: number
+  },
+): FirstBuildRecommendation[] {
   return BUSINESS_KINDS
     .map((kind) => buildRecommendation(kind, input))
     .sort((a, b) => b.score - a.score || BUSINESS_KINDS.indexOf(a.kind) - BUSINESS_KINDS.indexOf(b.kind))
@@ -602,6 +624,10 @@ export function licenseSlotsForPopulation(population: number, kind: WorldBusines
   return Math.max(MIN_LICENSES[kind], Math.floor(population / LICENSE_POPULATION_STEP[kind]))
 }
 
+export function nextLicenseUnlockPopulation(population: number, kind: WorldBusinessKind): number {
+  return (licenseSlotsForPopulation(population, kind) + 1) * LICENSE_POPULATION_STEP[kind]
+}
+
 export function effectiveBusinessQuality(business: WorldBusiness, area: WorldArea): number {
   const owner = area.citizens.find((c) => c.id === business.ownerId)
   const activeStaff = activeStaffCount(area, business)
@@ -612,7 +638,10 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
 
 function buildRecommendation(
   kind: WorldBusinessKind,
-  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & { founderMoney?: number },
+  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
+    founderMoney?: number
+    population?: number
+  },
 ): FirstBuildRecommendation {
   const blueprint = DEFAULT_BUSINESS_BLUEPRINTS[kind]
   const demand = input.demand[kind]
@@ -633,6 +662,8 @@ function buildRecommendation(
     : roundMoney(Math.max(0, blueprint.buildCost - input.founderMoney))
   const blockers = firstBuildBlockers({ licensed, founderMoney: input.founderMoney, founderCanAfford })
   const canBuildNow = blockers.length === 0
+  const population = input.population ?? 0
+  const nextLicensePopulation = nextLicenseUnlockPopulation(population, kind)
 
   const priority = priorityOf({ demand, supply, essential, licensed, saturated })
   return {
@@ -647,6 +678,8 @@ function buildRecommendation(
     currentSupply: supply,
     licenseSlots,
     licensesRemaining,
+    nextLicensePopulation,
+    citizensUntilNextLicense: Math.max(0, nextLicensePopulation - population),
     founderCanAfford,
     canBuildNow,
     blockers,
@@ -657,6 +690,19 @@ function buildRecommendation(
       ? roundMoney(blueprint.buildCost / estimate.estimatedHourlyProfit)
       : null,
     reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
+  }
+}
+
+function licenseDashboardForKind(population: number, used: number, kind: WorldBusinessKind): AreaLicenseDashboard {
+  const slots = licenseSlotsForPopulation(population, kind)
+  const nextUnlockPopulation = nextLicenseUnlockPopulation(population, kind)
+  return {
+    slots,
+    used,
+    remaining: Math.max(0, slots - used),
+    saturation: used / Math.max(1, slots),
+    nextUnlockPopulation,
+    citizensUntilNextUnlock: Math.max(0, nextUnlockPopulation - population),
   }
 }
 
