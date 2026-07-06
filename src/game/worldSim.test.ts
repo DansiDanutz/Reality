@@ -69,6 +69,25 @@ const areaReviewerEvidenceGate = () => ({
   executionEnabled: false,
 })
 
+const covenantActivitySnapshot = () => ({
+  checkedAt: 2 * 24 * HOUR,
+  active: true,
+  useful: false,
+  building: true,
+  staffed: false,
+  indebted: false,
+  hospitalized: false,
+  atRisk: true,
+  score: 50,
+})
+
+const covenantChecklistSnapshot = () => [{
+  key: 'staffed',
+  label: 'Staffed',
+  status: 'watch' as const,
+  evidence: 'Founder businesses need staff before review can clear.',
+}]
+
 const area = (over: Partial<WorldArea> = {}): WorldArea => ({
   id: 'area-1',
   name: 'Test Area',
@@ -1816,6 +1835,8 @@ describe('advanceWorldArea — local real-time economy', () => {
           severity: 'warning',
           message: 'Previous weekly review was due.',
         }],
+        activityReview: covenantActivitySnapshot(),
+        reviewChecklist: covenantChecklistSnapshot(),
       }],
     })
 
@@ -1842,6 +1863,8 @@ describe('advanceWorldArea — local real-time economy', () => {
         severity: 'warning',
         message: 'Previous weekly review was due.',
       }],
+      activityReview: covenantActivitySnapshot(),
+      reviewChecklist: covenantChecklistSnapshot(),
       evidenceOnly: true,
       automationEnabled: false,
     })
@@ -1870,6 +1893,8 @@ describe('advanceWorldArea — local real-time economy', () => {
         summary: 'Weekly review recorded.',
         authorityGate: areaReviewerEvidenceGate(),
         signals: [],
+        activityReview: null,
+        reviewChecklist: [],
       }],
     })
     start.citizens.find((citizen) => citizen.id === 'founder')!.homeBusinessId = 'home1'

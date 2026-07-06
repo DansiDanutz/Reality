@@ -189,6 +189,8 @@ interface FounderAreaCovenantReviewHistoryItem {
   summary: string
   authorityGate: FounderAreaCovenantAuthorityGate
   signals: FounderAreaCovenantSignal[]
+  activityReview: FounderAreaCovenantActivityReview | null
+  reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
 }
 
 interface FounderAreaCovenantLatestReview {
@@ -199,6 +201,8 @@ interface FounderAreaCovenantLatestReview {
   summary: string
   authorityGate: FounderAreaCovenantAuthorityGate
   signals: FounderAreaCovenantSignal[]
+  activityReview: FounderAreaCovenantActivityReview | null
+  reviewChecklist: FounderAreaCovenantReviewChecklistItem[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -765,6 +769,10 @@ const FORBIDDEN_REVIEW_FIELDS = new Set([
   'approvedById',
   'approvedAt',
   'founderCitizenId',
+  'activityReview',
+  'reviewChecklist',
+  'checkedAt',
+  'score',
   'replacementEnabled',
   'waitlistHandoffEnabled',
   'automationEnabled',
@@ -1454,6 +1462,8 @@ function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaC
     summary: latest.summary,
     authorityGate: { ...latest.authorityGate },
     signals: latest.signals.map(founderCovenantSignalSnapshot),
+    activityReview: latest.activityReview ? { ...latest.activityReview } : null,
+    reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     evidenceOnly: true,
     automationEnabled: false,
   }
@@ -1468,11 +1478,16 @@ function normalizeFounderCovenantReviewHistory(
 function founderCovenantReviewHistoryItem(
   entry: FounderAreaCovenantReviewHistoryItem,
 ): FounderAreaCovenantReviewHistoryItem {
+  const legacyEntry = entry as Partial<FounderAreaCovenantReviewHistoryItem>
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
     signals: Array.isArray(entry.signals)
       ? entry.signals.map(founderCovenantSignalSnapshot)
+      : [],
+    activityReview: legacyEntry.activityReview ? { ...legacyEntry.activityReview } : null,
+    reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
+      ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
       : [],
   }
 }
@@ -1493,6 +1508,12 @@ function founderCovenantSignalSnapshot(signal: FounderAreaCovenantSignal): Found
     businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
     businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
   }
+}
+
+function founderCovenantReviewChecklistSnapshot(
+  item: FounderAreaCovenantReviewChecklistItem,
+): FounderAreaCovenantReviewChecklistItem {
+  return { ...item }
 }
 
 function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAreaCovenantReviewSchedule {
@@ -2914,6 +2935,8 @@ function applyRecordCovenantReviewIntent(
     summary: founderCovenantReviewSummary(review.activityReview, intent.note),
     authorityGate: founderCovenantReviewEvidenceAuthority(),
     signals: review.signals.map(founderCovenantSignalSnapshot),
+    activityReview: { ...review.activityReview },
+    reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
   }
 
   return {

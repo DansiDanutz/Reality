@@ -104,6 +104,15 @@ export function founderCovenantReviewSignalSummary(
   return `${count} signal${count === 1 ? '' : 's'} captured`
 }
 
+export function founderCovenantReviewSnapshotSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'activityReview' | 'reviewChecklist'>,
+): string {
+  if (!review.activityReview) return 'Snapshot unavailable'
+  const manualItems = review.reviewChecklist.filter((item) => item.status === 'manual_review').length
+  const watchItems = review.reviewChecklist.filter((item) => item.status === 'watch').length
+  return `Snapshot score ${review.activityReview.score}/100 · ${manualItems} manual · ${watchItems} watch`
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),

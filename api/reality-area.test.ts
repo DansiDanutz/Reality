@@ -417,6 +417,16 @@ describe('reality area authority API', () => {
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
+      activityReview: { score: 100 },
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      reviewChecklist: [],
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
       note: `${'x'.repeat(281)}`,
     })).toEqual({ ok: false, error: 'invalid_review_note' })
   })
@@ -2567,6 +2577,8 @@ describe('reality area authority API', () => {
           summary: string
           authorityGate: ReturnType<typeof areaReviewerEvidenceGate>
           signals: unknown[]
+          activityReview: unknown
+          reviewChecklist: unknown[]
         }[]
       }
     }
@@ -2590,6 +2602,28 @@ describe('reality area authority API', () => {
         businessKinds: ['water', 'food', 'housing'],
         amount: 3,
       }],
+      activityReview: {
+        checkedAt: '2026-07-06T03:00:00.000Z',
+        active: true,
+        useful: false,
+        building: false,
+        staffed: false,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 40,
+      },
+      reviewChecklist: expect.arrayContaining([{
+        key: 'building',
+        label: 'Building',
+        status: 'watch',
+        evidence: 'Founder has not built a local business yet.',
+      }, {
+        key: 'risk',
+        label: 'At risk',
+        status: 'watch',
+        evidence: 'Covenant signals need weekly/monthly review.',
+      }]),
     }])
     expect(body.state.founderCovenant.reviewHistory).toEqual(body.state.founderReviewHistory)
     expect(body.state.founderCovenant.latestReview).toEqual({
@@ -2600,6 +2634,8 @@ describe('reality area authority API', () => {
       summary: 'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Note: Weekly review: founder needs staffing follow-up.',
       authorityGate: areaReviewerEvidenceGate(false),
       signals: body.state.founderReviewHistory[0].signals,
+      activityReview: body.state.founderReviewHistory[0].activityReview,
+      reviewChecklist: body.state.founderReviewHistory[0].reviewChecklist,
       evidenceOnly: true,
       automationEnabled: false,
     })

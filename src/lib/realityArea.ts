@@ -160,6 +160,8 @@ export interface RealityAreaCovenantReviewHistoryItem {
   summary: string
   authorityGate: RealityAreaCovenantAuthorityGate
   signals: RealityAreaCovenantSignal[]
+  activityReview: RealityAreaCovenantReview['activityReview'] | null
+  reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
 }
 
 export interface RealityAreaCovenantLatestReview {
@@ -170,6 +172,8 @@ export interface RealityAreaCovenantLatestReview {
   summary: string
   authorityGate: RealityAreaCovenantAuthorityGate
   signals: RealityAreaCovenantSignal[]
+  activityReview: RealityAreaCovenantReview['activityReview'] | null
+  reviewChecklist: RealityAreaCovenantReviewChecklistItem[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -728,6 +732,8 @@ function mergeRealityAreaCovenantReview(review: RealityAreaCovenantReview): Area
         reviewedAt: parseInstant(review.latestReview.reviewedAt),
         authorityGate: { ...review.latestReview.authorityGate },
         signals: review.latestReview.signals.map(realityCovenantSignalToWorldSignal),
+        activityReview: mergeRealityAreaCovenantActivityReview(review.latestReview.activityReview),
+        reviewChecklist: review.latestReview.reviewChecklist.map((item) => ({ ...item })),
       },
     reviewHistory: review.reviewHistory.map(realityReviewHistoryToWorldReviewHistory),
     notificationDrafts: review.notificationDrafts.map((draft) => ({
@@ -762,7 +768,20 @@ function realityReviewHistoryToWorldReviewHistory(
     at: parseInstant(entry.at),
     authorityGate: { ...entry.authorityGate },
     signals: entry.signals.map(realityCovenantSignalToWorldSignal),
+    activityReview: mergeRealityAreaCovenantActivityReview(entry.activityReview),
+    reviewChecklist: entry.reviewChecklist.map((item) => ({ ...item })),
   }
+}
+
+function mergeRealityAreaCovenantActivityReview(
+  review: RealityAreaCovenantReview['activityReview'] | null,
+): FounderCovenantReviewHistoryItem['activityReview'] {
+  return review === null
+    ? null
+    : {
+      ...review,
+      checkedAt: parseInstant(review.checkedAt),
+    }
 }
 
 function realityCovenantSignalToWorldSignal(signal: RealityAreaCovenantSignal): FounderCovenantSignal {
@@ -1122,7 +1141,10 @@ function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is Realit
     typeof value.summary === 'string' &&
     isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
     Array.isArray(value.signals) &&
-    value.signals.every(isRealityAreaCovenantSignal)
+    value.signals.every(isRealityAreaCovenantSignal) &&
+    (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
+    Array.isArray(value.reviewChecklist) &&
+    value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem)
 }
 
 function isRealityAreaCovenantLatestReview(value: unknown): value is RealityAreaCovenantLatestReview {
@@ -1135,6 +1157,9 @@ function isRealityAreaCovenantLatestReview(value: unknown): value is RealityArea
     isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
     Array.isArray(value.signals) &&
     value.signals.every(isRealityAreaCovenantSignal) &&
+    (value.activityReview === null || isRealityAreaCovenantActivityReview(value.activityReview)) &&
+    Array.isArray(value.reviewChecklist) &&
+    value.reviewChecklist.every(isRealityAreaCovenantReviewChecklistItem) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
 }

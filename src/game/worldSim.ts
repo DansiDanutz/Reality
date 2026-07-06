@@ -447,6 +447,8 @@ export interface FounderCovenantReviewHistoryItem {
   summary: string
   authorityGate: FounderCovenantAuthorityGate
   signals: FounderCovenantSignal[]
+  activityReview: FounderCovenantActivityReview | null
+  reviewChecklist: FounderCovenantReviewChecklistItem[]
 }
 
 export interface FounderCovenantLatestReview {
@@ -457,6 +459,8 @@ export interface FounderCovenantLatestReview {
   summary: string
   authorityGate: FounderCovenantAuthorityGate
   signals: FounderCovenantSignal[]
+  activityReview: FounderCovenantActivityReview | null
+  reviewChecklist: FounderCovenantReviewChecklistItem[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -1497,16 +1501,23 @@ function founderCovenantLatestReview(area: WorldArea): FounderCovenantLatestRevi
     summary: latest.summary,
     authorityGate: { ...latest.authorityGate },
     signals: latest.signals.map(founderCovenantSignalSnapshot),
+    activityReview: latest.activityReview ? { ...latest.activityReview } : null,
+    reviewChecklist: latest.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     evidenceOnly: true,
     automationEnabled: false,
   }
 }
 
 function founderCovenantReviewHistoryItem(entry: FounderCovenantReviewHistoryItem): FounderCovenantReviewHistoryItem {
+  const legacyEntry = entry as Partial<FounderCovenantReviewHistoryItem>
   return {
     ...entry,
     authorityGate: founderCovenantReviewEvidenceAuthority(),
     signals: (entry.signals ?? []).map(founderCovenantSignalSnapshot),
+    activityReview: legacyEntry.activityReview ? { ...legacyEntry.activityReview } : null,
+    reviewChecklist: Array.isArray(legacyEntry.reviewChecklist)
+      ? legacyEntry.reviewChecklist.map(founderCovenantReviewChecklistSnapshot)
+      : [],
   }
 }
 
@@ -1526,6 +1537,12 @@ function founderCovenantSignalSnapshot(signal: FounderCovenantSignal): FounderCo
     businessIds: signal.businessIds ? [...signal.businessIds] : undefined,
     businessKinds: signal.businessKinds ? [...signal.businessKinds] : undefined,
   }
+}
+
+function founderCovenantReviewChecklistSnapshot(
+  item: FounderCovenantReviewChecklistItem,
+): FounderCovenantReviewChecklistItem {
+  return { ...item }
 }
 
 function founderCovenantReviewSchedule(area: WorldArea): FounderCovenantReviewSchedule | null {

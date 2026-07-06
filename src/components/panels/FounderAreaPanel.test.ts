@@ -9,6 +9,7 @@ import {
   founderCovenantReviewItems,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
+  founderCovenantReviewSnapshotSummary,
   founderCovenantSignalText,
   founderCovenantStatusLabel,
   founderCovenantTone,
@@ -70,6 +71,37 @@ describe('FounderAreaPanel covenant presenters', () => {
         amount: 120,
       }],
     })).toBe('2 signals captured')
+  })
+
+  test('summarizes captured covenant activity snapshots', () => {
+    expect(founderCovenantReviewSnapshotSummary({
+      activityReview: null,
+      reviewChecklist: [],
+    })).toBe('Snapshot unavailable')
+    expect(founderCovenantReviewSnapshotSummary({
+      activityReview: {
+        checkedAt: 1_000,
+        active: true,
+        useful: false,
+        building: true,
+        staffed: false,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 50,
+      },
+      reviewChecklist: [{
+        key: 'staffed',
+        label: 'Staffed',
+        status: 'watch',
+        evidence: 'Founder businesses need staff before review can clear.',
+      }, {
+        key: 'risk',
+        label: 'At risk',
+        status: 'manual_review',
+        evidence: 'Covenant signals need weekly/monthly review.',
+      }],
+    })).toBe('Snapshot score 50/100 · 1 manual · 1 watch')
   })
 
   test('summarizes covenant review signals without replacement actions', () => {
