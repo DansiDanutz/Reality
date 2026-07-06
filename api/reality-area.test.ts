@@ -522,6 +522,18 @@ describe('reality area authority API', () => {
       ok: true,
       actionKind: 'record_review',
       note: 'Weekly review: founder built water and needs staff.',
+      evidenceKinds: [],
+    })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Manual evidence attached.',
+      evidenceKinds: ['external_contribution', 'ideas_feedback', 'external_contribution'],
+    })).toEqual({
+      ok: true,
+      actionKind: 'record_review',
+      note: 'Manual evidence attached.',
+      evidenceKinds: ['external_contribution', 'ideas_feedback'],
     })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
@@ -529,6 +541,16 @@ describe('reality area authority API', () => {
       note: 'Looks good.',
       reviewerId: 'spoofed-reviewer',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      evidenceKinds: ['in_game_activity'],
+    })).toEqual({ ok: false, error: 'invalid_review_evidence' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      evidenceKinds: 'external_contribution',
+    })).toEqual({ ok: false, error: 'invalid_review_evidence' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
       actionKind: 'record_review',
@@ -4388,6 +4410,77 @@ describe('reality area authority API', () => {
       sendEnabled: false,
       authorityGate: mainFounderApprovalGate(),
     }])
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('recordCovenantReview captures manual evidence tags in the review snapshot only', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = {
+      ...existingState(),
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-evidence-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          note: 'GitHub PR and economy bug report reviewed.',
+          evidenceKinds: ['external_contribution', 'ideas_feedback'],
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState> }
+    const review = body.state.founderReviewHistory?.[0]
+    expect(body.state.balance).toBe(existing.balance)
+    expect(body.state.transactions).toEqual(existing.transactions)
+    expect(review?.summary).toBe(
+      'Covenant snapshot: score 40/100; active yes; useful no; building no; staffed no; debt no; hospital no; at risk yes. Manual evidence: External contribution, Ideas and feedback. Note: GitHub PR and economy bug report reviewed.',
+    )
+    expect(review?.reviewInputs).toEqual(expect.arrayContaining([{
+      kind: 'external_contribution',
+      label: 'External contribution',
+      status: 'captured',
+      evidence: 'Manual reviewer attached external contribution evidence in this review.',
+      manualEvidenceRequired: false,
+    }, {
+      kind: 'ideas_feedback',
+      label: 'Ideas and feedback',
+      status: 'captured',
+      evidence: 'Manual reviewer attached ideas and feedback evidence in this review.',
+      manualEvidenceRequired: false,
+    }, {
+      kind: 'population_growth',
+      label: 'Population growth',
+      status: 'manual_needed',
+      evidence: 'Invite quality and local population growth need manual proof until invite tracking exists.',
+      manualEvidenceRequired: true,
+    }]))
+    expect(body.state.founderCovenant.latestReview?.reviewInputs).toEqual(review?.reviewInputs)
+    expect(body.state.founderCovenant.reviewInputs).toEqual(covenantReviewInputs({
+      inGameActivity: 'watch',
+      areaHealth: 'watch',
+      populationGrowth: 'manual_needed',
+      reviewConsistency: 'captured',
+    }))
+    expect(body.state.founderCovenant.replacementEnabled).toBe(false)
+    expect(body.state.founderCovenant.waitlistHandoffEnabled).toBe(false)
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),

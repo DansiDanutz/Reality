@@ -1061,6 +1061,23 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 .founder-covenant-action-status.recommended { color: var(--warn); }
 .founder-covenant-action-status.manual { color: var(--muted); }
+.founder-covenant-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.founder-covenant-evidence-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.founder-covenant-evidence-option input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
 .founder-covenant-note {
   width: 100%;
   min-height: 54px;

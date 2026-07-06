@@ -829,6 +829,7 @@ describe('Reality area client', () => {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
       note: 'Weekly review: founder needs staffing follow-up.',
+      evidenceKinds: ['external_contribution', 'ideas_feedback'],
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -845,6 +846,7 @@ describe('Reality area client', () => {
           type: 'recordCovenantReview',
           actionKind: 'record_review',
           note: 'Weekly review: founder needs staffing follow-up.',
+          evidenceKinds: ['external_contribution', 'ideas_feedback'],
         },
       }),
     })

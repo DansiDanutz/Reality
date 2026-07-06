@@ -18,6 +18,7 @@ import {
   recordRealityFounderCovenantReview,
   refreshRealityFounderArea,
   realityAreaStateToWorldArea,
+  type RealityAreaCovenantManualEvidenceKind,
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
   type RealityAreaHandoffDashboard,
@@ -93,6 +94,12 @@ type PanelState =
   | { status: 'ready'; result: WorldServerCommandResult }
   | { status: 'error'; message: string }
 
+const COVENANT_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; label: string }[] = [
+  { kind: 'population_growth', label: 'Population' },
+  { kind: 'external_contribution', label: 'External' },
+  { kind: 'ideas_feedback', label: 'Ideas' },
+]
+
 export default function FounderAreaPanel() {
   const citizen = useGame((s) => s.citizen)
   const commandClientRef = useRef<FounderAreaCommandClient | null>(null)
@@ -100,6 +107,7 @@ export default function FounderAreaPanel() {
   const [busy, setBusy] = useState(false)
   const [lastEvent, setLastEvent] = useState('Area claimed.')
   const [reviewNote, setReviewNote] = useState('')
+  const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
 
   const profile = useMemo(() => citizen ? founderAreaProfileFromCitizen(citizen) : null, [citizen])
 
@@ -205,10 +213,19 @@ export default function FounderAreaPanel() {
       const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
       setPanelState({ status: 'ready', result: next })
       setReviewNote('')
+      setReviewEvidenceKinds([])
       setLastEvent(next.ok ? 'Founder review evidence recorded.' : `Command failed: ${next.error}`)
     } finally {
       setBusy(false)
     }
+  }
+
+  const toggleReviewEvidenceKind = (kind: RealityAreaCovenantManualEvidenceKind) => {
+    setReviewEvidenceKinds((current) =>
+      current.includes(kind)
+        ? current.filter((item) => item !== kind)
+        : [...current, kind]
+    )
   }
 
   return (
@@ -430,6 +447,7 @@ export default function FounderAreaPanel() {
                         onClick={() => void recordCovenantReview({
                           ...action.clientPayload!,
                           note: reviewNote.trim() || undefined,
+                          evidenceKinds: reviewEvidenceKinds.length > 0 ? reviewEvidenceKinds : undefined,
                         })}
                       >
                         Record
@@ -440,15 +458,30 @@ export default function FounderAreaPanel() {
               ))}
             </ul>
             {dashboard.founderCovenant.manualActions.some((action) => action.clientPayload) && (
-              <textarea
-                aria-label="Founder review note"
-                className="founder-covenant-note"
-                disabled={busy}
-                maxLength={280}
-                onChange={(event) => setReviewNote(event.target.value)}
-                placeholder="Review note"
-                value={reviewNote}
-              />
+              <>
+                <div className="founder-covenant-evidence" aria-label="Founder review evidence tags">
+                  {COVENANT_EVIDENCE_OPTIONS.map((option) => (
+                    <label className="founder-covenant-evidence-option" key={option.kind}>
+                      <input
+                        checked={reviewEvidenceKinds.includes(option.kind)}
+                        disabled={busy}
+                        onChange={() => toggleReviewEvidenceKind(option.kind)}
+                        type="checkbox"
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <textarea
+                  aria-label="Founder review note"
+                  className="founder-covenant-note"
+                  disabled={busy}
+                  maxLength={280}
+                  onChange={(event) => setReviewNote(event.target.value)}
+                  placeholder="Review note"
+                  value={reviewNote}
+                />
+              </>
             )}
             {dashboard.founderCovenant.reviewHistory.length > 0 && (
               <ul className="item-list founder-covenant-history" aria-label="Founder manual review history">

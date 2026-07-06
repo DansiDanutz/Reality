@@ -147,6 +147,10 @@ type FounderAreaCovenantReviewInputKind =
   | 'external_contribution'
   | 'ideas_feedback'
   | 'review_consistency'
+type FounderAreaCovenantManualEvidenceKind = Extract<
+  FounderAreaCovenantReviewInputKind,
+  'population_growth' | 'external_contribution' | 'ideas_feedback'
+>
 type FounderAreaCovenantReviewInputStatus = 'captured' | 'watch' | 'manual_needed'
 type FounderAreaCovenantStageKind = 'active' | 'warning' | 'probation' | 'removed' | 'waitlist_replacement'
 type FounderAreaCovenantStageStatus = 'current' | 'recommended' | 'locked'
@@ -1143,6 +1147,7 @@ type RecordCovenantReviewIntent =
     ok: true
     actionKind: FounderAreaCovenantManualActionKind
     note?: string
+    evidenceKinds: FounderAreaCovenantManualEvidenceKind[]
   }
   | { ok: false; error: RecordCovenantReviewIntentError }
 
@@ -1151,6 +1156,7 @@ type RecordCovenantReviewIntentError =
   | 'client_controlled_server_field'
   | 'invalid_review_action'
   | 'invalid_review_note'
+  | 'invalid_review_evidence'
 
 type ApplyRecordCovenantReviewError =
   | RecordCovenantReviewIntentError
@@ -1510,6 +1516,11 @@ const TARGET_STAFF_BY_KIND: Record<FounderAreaBusinessKind, number> = {
   clinic: 3,
   insurance: 1,
 }
+const FOUNDER_COVENANT_MANUAL_EVIDENCE_KINDS: readonly FounderAreaCovenantManualEvidenceKind[] = [
+  'population_growth',
+  'external_contribution',
+  'ideas_feedback',
+]
 
 const FULL_NEEDS: FounderAreaNeeds = {
   hunger: 90,
@@ -1748,7 +1759,26 @@ export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCoven
     return { ok: false, error: 'invalid_review_note' }
   }
 
-  return { ok: true, actionKind, note: note || undefined }
+  const evidenceKinds = normalizeFounderCovenantManualEvidenceKinds(input.evidenceKinds)
+  if (!evidenceKinds.ok) return evidenceKinds
+
+  return { ok: true, actionKind, note: note || undefined, evidenceKinds: evidenceKinds.evidenceKinds }
+}
+
+function normalizeFounderCovenantManualEvidenceKinds(
+  input: unknown,
+): { ok: true; evidenceKinds: FounderAreaCovenantManualEvidenceKind[] } | { ok: false; error: 'invalid_review_evidence' } {
+  if (input === undefined) return { ok: true, evidenceKinds: [] }
+  if (!Array.isArray(input) || input.length > FOUNDER_COVENANT_MANUAL_EVIDENCE_KINDS.length) {
+    return { ok: false, error: 'invalid_review_evidence' }
+  }
+  const evidenceKinds: FounderAreaCovenantManualEvidenceKind[] = []
+  for (const item of input) {
+    const kind = text(item)
+    if (!isFounderAreaCovenantManualEvidenceKind(kind)) return { ok: false, error: 'invalid_review_evidence' }
+    if (!evidenceKinds.includes(kind)) evidenceKinds.push(kind)
+  }
+  return { ok: true, evidenceKinds }
 }
 
 export async function verifyCitizen(
@@ -2421,13 +2451,31 @@ function founderCovenantReviewQueue(input: {
   }
 }
 
-function founderCovenantReviewSummary(review: FounderAreaCovenantActivityReview, note: string | undefined): string {
+function founderCovenantReviewSummary(
+  review: FounderAreaCovenantActivityReview,
+  note: string | undefined,
+  evidenceKinds: FounderAreaCovenantManualEvidenceKind[],
+): string {
   const snapshot = `Covenant snapshot: score ${review.score}/100; active ${yesNo(review.active)}; useful ${yesNo(review.useful)}; building ${yesNo(review.building)}; staffed ${yesNo(review.staffed)}; debt ${yesNo(review.indebted)}; hospital ${yesNo(review.hospitalized)}; at risk ${yesNo(review.atRisk)}.`
-  return note ? `${snapshot} Note: ${note}` : snapshot
+  const evidence = evidenceKinds.length > 0
+    ? ` Manual evidence: ${evidenceKinds.map(founderCovenantReviewInputLabel).join(', ')}.`
+    : ''
+  return note ? `${snapshot}${evidence} Note: ${note}` : `${snapshot}${evidence}`
 }
 
 function yesNo(value: boolean): 'yes' | 'no' {
   return value ? 'yes' : 'no'
+}
+
+function founderCovenantReviewInputLabel(kind: FounderAreaCovenantManualEvidenceKind): string {
+  switch (kind) {
+    case 'population_growth':
+      return 'Population growth'
+    case 'external_contribution':
+      return 'External contribution'
+    case 'ideas_feedback':
+      return 'Ideas and feedback'
+  }
 }
 
 function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderAreaCovenantReviewHistoryItem[] {
@@ -2532,6 +2580,25 @@ function founderCovenantReviewChecklistSnapshot(
 
 function founderCovenantReviewInputSnapshot(input: FounderAreaCovenantReviewInput): FounderAreaCovenantReviewInput {
   return { ...input }
+}
+
+function founderCovenantReviewInputsWithManualEvidence(
+  inputs: FounderAreaCovenantReviewInput[],
+  evidenceKinds: FounderAreaCovenantManualEvidenceKind[],
+): FounderAreaCovenantReviewInput[] {
+  if (evidenceKinds.length === 0) return inputs.map(founderCovenantReviewInputSnapshot)
+  const evidence = new Set(evidenceKinds)
+  return inputs.map((input) => {
+    if (!isFounderAreaCovenantManualEvidenceKind(input.kind) || !evidence.has(input.kind)) {
+      return founderCovenantReviewInputSnapshot(input)
+    }
+    return {
+      ...input,
+      status: 'captured',
+      evidence: `Manual reviewer attached ${input.label.toLowerCase()} evidence in this review.`,
+      manualEvidenceRequired: false,
+    }
+  })
 }
 
 function founderCovenantStageSnapshot(stage: FounderAreaCovenantStage): FounderAreaCovenantStage {
@@ -4412,7 +4479,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const stateForReview = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
       const result = applyRecordCovenantReviewIntent(
         stateForReview,
-        { type: 'recordCovenantReview', actionKind: intent.actionKind, note: intent.note },
+        {
+          type: 'recordCovenantReview',
+          actionKind: intent.actionKind,
+          note: intent.note,
+          evidenceKinds: intent.evidenceKinds,
+        },
         now,
         citizen.citizenId,
       )
@@ -4819,7 +4891,7 @@ function applyRecordCovenantReviewIntent(
     at,
     reviewerId,
     actionKind: intent.actionKind,
-    summary: founderCovenantReviewSummary(review.activityReview, intent.note),
+    summary: founderCovenantReviewSummary(review.activityReview, intent.note, intent.evidenceKinds),
     authorityGate: founderCovenantReviewEvidenceAuthority(),
     decision: {
       status: review.status,
@@ -4829,7 +4901,7 @@ function applyRecordCovenantReviewIntent(
     signals: review.signals.map(founderCovenantSignalSnapshot),
     activityReview: { ...review.activityReview },
     reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
-    reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
+    reviewInputs: founderCovenantReviewInputsWithManualEvidence(review.reviewInputs, intent.evidenceKinds),
     stages: review.stages.map(founderCovenantStageSnapshot),
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
@@ -5537,6 +5609,10 @@ function isFounderAreaCovenantManualActionKind(value: string): value is FounderA
     value === 'send_warning' ||
     value === 'start_probation' ||
     value === 'recommend_replacement'
+}
+
+function isFounderAreaCovenantManualEvidenceKind(value: string): value is FounderAreaCovenantManualEvidenceKind {
+  return FOUNDER_COVENANT_MANUAL_EVIDENCE_KINDS.includes(value as FounderAreaCovenantManualEvidenceKind)
 }
 
 function isClientId(value: string): boolean {

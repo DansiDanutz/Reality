@@ -113,6 +113,10 @@ export type RealityAreaCovenantManualActionKind =
   | 'send_warning'
   | 'start_probation'
   | 'recommend_replacement'
+export type RealityAreaCovenantManualEvidenceKind =
+  | 'population_growth'
+  | 'external_contribution'
+  | 'ideas_feedback'
 export type RealityAreaCovenantSignalKind =
   | 'founder_unavailable'
   | 'no_business_built'
@@ -175,6 +179,7 @@ export interface RealityAreaCovenantReviewPayload {
   type: 'recordCovenantReview'
   actionKind: 'record_review'
   note?: string
+  evidenceKinds?: RealityAreaCovenantManualEvidenceKind[]
 }
 
 export type RealityAreaCovenantAuthorityRole = 'area_reviewer' | 'main_founder'
@@ -1817,7 +1822,14 @@ function isRealityAreaCovenantReviewPayload(value: unknown): value is RealityAre
     value.type === 'recordCovenantReview' &&
     value.actionKind === 'record_review' &&
     value.summary === undefined &&
-    (typeof value.note === 'string' || value.note === undefined)
+    (typeof value.note === 'string' || value.note === undefined) &&
+    (
+      value.evidenceKinds === undefined ||
+      (
+        Array.isArray(value.evidenceKinds) &&
+        value.evidenceKinds.every(isRealityAreaCovenantManualEvidenceKind)
+      )
+    )
 }
 
 function isRealityAreaCovenantReviewHistoryItem(value: unknown): value is RealityAreaCovenantReviewHistoryItem {
@@ -2010,6 +2022,12 @@ function isRealityAreaCovenantManualActionKind(value: unknown): value is Reality
     value === 'send_warning' ||
     value === 'start_probation' ||
     value === 'recommend_replacement'
+}
+
+function isRealityAreaCovenantManualEvidenceKind(value: unknown): value is RealityAreaCovenantManualEvidenceKind {
+  return value === 'population_growth' ||
+    value === 'external_contribution' ||
+    value === 'ideas_feedback'
 }
 
 function isRealityAreaCovenantApprovalRequestKind(value: unknown): value is RealityAreaCovenantApprovalRequestKind {
