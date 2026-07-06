@@ -10,13 +10,13 @@ import { formatMoney } from '../../game/engine'
 import type { WorldClientIntentPayload } from '../../game/worldSim'
 import type { WorldServerCommandResult } from '../../game/worldSimServer'
 import {
-  advanceRealityFounderArea,
   applyRealityFounderAreaIntent,
   claimRealityFounderArea,
   founderAreaProfileWithServerClaim,
   isRealityAreaServerPayload,
   mergeRealityAreaDashboardIntoWorldDashboard,
   recordRealityFounderCovenantReview,
+  refreshRealityFounderArea,
   realityAreaStateToWorldArea,
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
@@ -134,19 +134,19 @@ export default function FounderAreaPanel() {
     }
   }
 
-  const advance = async () => {
+  const refreshArea = async () => {
     const commandClient = commandClientRef.current
     if (!commandClient || !area || !citizen) return
     setBusy(true)
     try {
-      const serverApplied = await advanceRealityFounderArea(citizen)
+      const serverApplied = await refreshRealityFounderArea(citizen)
       if (!serverApplied.ok) {
         setLastEvent(serverApplied.error)
         return
       }
       const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
       setPanelState({ status: 'ready', result: next })
-      setLastEvent(next.ok ? 'Reality server caught up.' : `Command failed: ${next.error}`)
+      setLastEvent(next.ok ? 'Reality server refreshed.' : `Command failed: ${next.error}`)
     } finally {
       setBusy(false)
     }
@@ -560,8 +560,8 @@ export default function FounderAreaPanel() {
           <section className="founder-section" aria-label="Businesses">
             <div className="founder-section-head">
               <h3 className="founder-section-title">Businesses</h3>
-              <button className="btn small" disabled={busy} onClick={() => void advance()}>
-                Advance 1h
+              <button className="btn small" disabled={busy} onClick={() => void refreshArea()}>
+                Refresh
               </button>
             </div>
             {dashboard.existingBusinesses.length === 0 ? (

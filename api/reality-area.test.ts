@@ -9,6 +9,7 @@ import handler, {
   normalizeClaimAreaIntent,
   normalizeHireWorkerIntent,
   normalizeRecordCovenantReviewIntent,
+  normalizeRefreshAreaIntent,
   normalizeRepayDebtIntent,
   normalizeServicePurchaseIntent,
   verifyCitizen,
@@ -393,6 +394,14 @@ describe('reality area authority API', () => {
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', cash: 999 }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', hours: 24 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+  })
+
+  test('normalizes refreshArea without accepting client-controlled state fields', () => {
+    expect(normalizeRefreshAreaIntent({ type: 'refreshArea' })).toEqual({ ok: true })
+    expect(normalizeRefreshAreaIntent({ type: 'refreshArea', cash: 999 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRefreshAreaIntent({ type: 'refreshArea', note: 'please advance me' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
@@ -2195,6 +2204,79 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('refreshArea catches up stale area state through the authenticated server path', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = {
+      ...fragileFounder,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://refresh-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'refreshArea' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withCitizen>; dashboard: DashboardWithBuildGuidance }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(body.state.updatedAt).toBe('2026-07-06T08:00:00.000Z')
+    expect(body.dashboard.updatedAt).toBe('2026-07-06T08:00:00.000Z')
+    expect(body.state.balance).toBe(199_650)
+    expect(founder?.state).toEqual({ kind: 'hospitalized', until: '2026-07-06T16:00:00.000Z' })
+    expect(body.state.transactions.at(-1)).toMatchObject({
+      at: '2026-07-06T08:00:00.000Z',
+      kind: 'hospital_bill',
+      fromId: CITIZEN_ID,
+      toId: 'system:hospital',
+      amount: 350,
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
+  test('refreshArea rejects client-controlled state fields without mutating the area', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://bad-refresh-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'refreshArea', balance: 999_999 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'client_controlled_server_field',
+      error: 'Invalid refreshArea intent.',
+    })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('advanceHour rejects browser requests without server-clock authority', async () => {

@@ -633,11 +633,15 @@ export type RealityAreaServerIntentType =
   | 'buyInsurance'
 export type RealityAreaServerPayload = Extract<WorldClientIntentPayload, { type: RealityAreaServerIntentType }>
 
+export interface RealityAreaRefreshPayload {
+  type: 'refreshArea'
+}
+
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
-type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload
+type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
 
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
   if (citizen.telegramAccountId) return 'telegram'
@@ -707,6 +711,13 @@ export async function advanceRealityFounderArea(
     error: 'Reality area clock advances only from the server clock.',
     code: 'server_clock_unauthorized',
   }
+}
+
+export async function refreshRealityFounderArea(
+  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  fetchImpl: typeof fetch = fetch,
+): Promise<RealityAreaApplyResult> {
+  return applyRealityAreaPayload(citizen, { type: 'refreshArea' }, fetchImpl)
 }
 
 export async function recordRealityFounderCovenantReview(

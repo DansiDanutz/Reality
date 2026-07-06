@@ -808,6 +808,16 @@ type ApplyAdvanceHourError =
   | 'clock_not_ready'
   | 'server_clock_unauthorized'
 
+type RefreshAreaIntent =
+  | { ok: true }
+  | { ok: false; error: RefreshAreaIntentError }
+
+type RefreshAreaIntentError = 'unsupported_intent' | 'client_controlled_server_field'
+
+type ApplyRefreshAreaError =
+  | RefreshAreaIntentError
+  | 'area_not_claimed'
+
 type RepayDebtIntent =
   | {
     ok: true
@@ -940,6 +950,10 @@ const FORBIDDEN_ADVANCE_FIELDS = new Set([
   'transactions',
   'citizens',
   'summary',
+])
+
+const FORBIDDEN_REFRESH_FIELDS = new Set([
+  ...FORBIDDEN_ADVANCE_FIELDS,
 ])
 
 const FORBIDDEN_REPAY_DEBT_FIELDS = new Set([
@@ -1278,6 +1292,14 @@ export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
 export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
   if (!isRecord(input) || input.type !== 'advanceHour') return { ok: false, error: 'unsupported_intent' }
   if (Object.keys(input).some((key) => FORBIDDEN_ADVANCE_FIELDS.has(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+  return { ok: true }
+}
+
+export function normalizeRefreshAreaIntent(input: unknown): RefreshAreaIntent {
+  if (!isRecord(input) || input.type !== 'refreshArea') return { ok: false, error: 'unsupported_intent' }
+  if (Object.keys(input).some((key) => key !== 'type' || FORBIDDEN_REFRESH_FIELDS.has(key))) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
@@ -3302,6 +3324,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
+    if (intentType === 'refreshArea') {
+      const intent = normalizeRefreshAreaIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(refreshAreaStatus(intent.error)).json({
+          ok: false,
+          error: refreshAreaMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+
+      const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date()) : null
+      if (!state) {
+        res.status(refreshAreaStatus('area_not_claimed')).json({
+          ok: false,
+          error: refreshAreaMessage('area_not_claimed'),
+          code: 'area_not_claimed',
+          state,
+        })
+        return
+      }
+
+      res.status(200).json({ ok: true, ...areaPayload(state) })
+      return
+    }
+
     if (intentType === 'advanceHour') {
       if (!hasServerClockAuthority(req)) {
         res.status(advanceHourStatus('server_clock_unauthorized')).json({
@@ -4287,6 +4336,20 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
       return 'Real workers must accept job offers themselves.'
     default:
       return 'Invalid hireWorker intent.'
+  }
+}
+
+function refreshAreaStatus(error: ApplyRefreshAreaError): number {
+  if (error === 'area_not_claimed') return 409
+  return error === 'unsupported_intent' ? 400 : 422
+}
+
+function refreshAreaMessage(error: ApplyRefreshAreaError): string {
+  switch (error) {
+    case 'area_not_claimed':
+      return 'Area must be claimed before refreshing the server area.'
+    default:
+      return 'Invalid refreshArea intent.'
   }
 }
 
