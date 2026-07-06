@@ -3317,13 +3317,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'repayDebt') {
-      const result = applyRepayDebtIntent(existing, rawIntent, new Date())
+      const intent = normalizeRepayDebtIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(repayDebtStatus(intent.error)).json({
+          ok: false,
+          error: repayDebtMessage(intent.error),
+          code: intent.error,
+          state: existing,
+        })
+        return
+      }
+
+      const now = new Date()
+      const stateForRepayment = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      const result = applyRepayDebtIntent(
+        stateForRepayment,
+        { type: 'repayDebt', debtId: intent.debtId, amount: intent.amount },
+        now,
+      )
       if (!result.ok) {
         res.status(repayDebtStatus(result.error)).json({
           ok: false,
           error: repayDebtMessage(result.error),
           code: result.error,
-          state: existing,
+          state: stateForRepayment,
         })
         return
       }
