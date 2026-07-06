@@ -110,8 +110,8 @@ export interface AdvanceWorldAreaResult {
 }
 
 export type FirstBuildPriority = 'critical' | 'high' | 'medium' | 'low'
-export type FirstBuildAction = 'claim_area' | 'build_now' | 'save_credits' | 'grow_demand' | 'wait_for_demand'
-export type FirstBuildBlocker = 'area_unclaimed' | 'insufficient_funds' | 'license_unavailable'
+export type FirstBuildAction = 'claim_area' | 'build_now' | 'save_credits' | 'grow_demand' | 'wait_for_demand' | 'recover_first'
+export type FirstBuildBlocker = 'area_unclaimed' | 'insufficient_funds' | 'license_unavailable' | 'actor_unavailable'
 export type WorldParticipantLabel = 'Sim Citizen' | 'Real Citizen'
 export type WorldParticipantVisualTone = 'simulated' | 'real'
 
@@ -713,6 +713,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
       licenseSlots,
       saturation,
       founderMoney,
+      founderCanAct: founderCanActForArea(area),
       population,
     }),
   }
@@ -722,6 +723,7 @@ export function firstBuildGuidance(
   input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
     areaId?: string
     founderMoney?: number
+    founderCanAct?: boolean
     population?: number
   },
 ): FirstBuildRecommendation[] {
@@ -733,6 +735,11 @@ export function firstBuildGuidance(
 function founderMoneyForArea(area: WorldArea): number | undefined {
   if (!area.claim) return undefined
   return area.citizens.find((citizen) => citizen.id === area.claim?.founderCitizenId)?.money
+}
+
+function founderCanActForArea(area: WorldArea): boolean | undefined {
+  if (!area.claim) return undefined
+  return area.citizens.find((citizen) => citizen.id === area.claim?.founderCitizenId)?.state.kind === 'active'
 }
 
 export function licenseSlotsForPopulation(population: number, kind: WorldBusinessKind): number {
@@ -756,6 +763,7 @@ function buildRecommendation(
   input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
     areaId?: string
     founderMoney?: number
+    founderCanAct?: boolean
     population?: number
   },
 ): FirstBuildRecommendation {
@@ -776,7 +784,12 @@ function buildRecommendation(
   const cashShortfall = input.founderMoney === undefined
     ? blueprint.buildCost
     : roundMoney(Math.max(0, blueprint.buildCost - input.founderMoney))
-  const blockers = firstBuildBlockers({ licensed, founderMoney: input.founderMoney, founderCanAfford })
+  const blockers = firstBuildBlockers({
+    licensed,
+    founderMoney: input.founderMoney,
+    founderCanAfford,
+    founderCanAct: input.founderCanAct,
+  })
   const canBuildNow = blockers.length === 0
   const population = input.population ?? 0
   const nextLicensePopulation = nextLicenseUnlockPopulation(population, kind)
@@ -790,7 +803,14 @@ function buildRecommendation(
     name: blueprint.name,
     proposedBusinessId,
     priority,
-    action: firstBuildAction({ canBuildNow, demand, licensed, founderMoney: input.founderMoney, founderCanAfford }),
+    action: firstBuildAction({
+      canBuildNow,
+      demand,
+      licensed,
+      founderMoney: input.founderMoney,
+      founderCanAfford,
+      founderCanAct: input.founderCanAct,
+    }),
     clientPayload: proposedBusinessId
       ? {
         type: 'buildBusiness',
@@ -839,9 +859,15 @@ function licenseDashboardForKind(population: number, used: number, kind: WorldBu
   }
 }
 
-function firstBuildBlockers(input: { licensed: boolean; founderMoney?: number; founderCanAfford: boolean }): FirstBuildBlocker[] {
+function firstBuildBlockers(input: {
+  licensed: boolean
+  founderMoney?: number
+  founderCanAfford: boolean
+  founderCanAct?: boolean
+}): FirstBuildBlocker[] {
   const blockers: FirstBuildBlocker[] = []
   if (input.founderMoney === undefined) blockers.push('area_unclaimed')
+  if (input.founderMoney !== undefined && input.founderCanAct === false) blockers.push('actor_unavailable')
   if (!input.licensed) blockers.push('license_unavailable')
   if (input.founderMoney !== undefined && !input.founderCanAfford) blockers.push('insufficient_funds')
   return blockers
@@ -1258,8 +1284,10 @@ function firstBuildAction(input: {
   licensed: boolean
   founderMoney?: number
   founderCanAfford: boolean
+  founderCanAct?: boolean
 }): FirstBuildAction {
   if (input.founderMoney === undefined) return 'claim_area'
+  if (input.founderCanAct === false) return 'recover_first'
   if (!input.licensed) return 'grow_demand'
   if (!input.founderCanAfford) return 'save_credits'
   if (!input.canBuildNow) return 'save_credits'

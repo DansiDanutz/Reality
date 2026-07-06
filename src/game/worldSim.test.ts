@@ -2003,6 +2003,20 @@ describe('advanceWorldArea — local real-time economy', () => {
       blockers: ['insufficient_funds'],
     })
 
+    const hospitalizedFounder = claimedArea({
+      citizens: [sim('hungry', { needs: fullNeeds({ hunger: 45 }) })],
+    })
+    const hospitalized = hospitalizedFounder.citizens.find((citizen) => citizen.id === 'founder')!
+    hospitalized.money = 200_000
+    hospitalized.state = { kind: 'hospitalized', until: 5 * HOUR }
+    const unavailableFood = areaNeedsDashboard(hospitalizedFounder).firstBuild.find((rec) => rec.kind === 'food')!
+    expect(unavailableFood).toMatchObject({
+      action: 'recover_first',
+      canBuildNow: false,
+      cashShortfall: 0,
+      blockers: ['actor_unavailable'],
+    })
+
     const quietArea = claimedArea()
     const quietWater = areaNeedsDashboard(quietArea).firstBuild.find((rec) => rec.kind === 'water')!
     expect(quietWater).toMatchObject({
