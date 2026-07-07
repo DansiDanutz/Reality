@@ -819,6 +819,24 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('customer purchases recover non-finite persisted business cash', () => {
+    const start = area({
+      citizens: [sim('c1', { needs: fullNeeds({ hydration: 50 }) })],
+      businesses: [business('water', 'water1', { cash: Number.NaN, price: 2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const dashboard = areaNeedsDashboard(out)
+
+    expect(out.businesses[0].cash).toBe(2)
+    expect(dashboard.existingBusinesses[0].cash).toBe(2)
+    expect(Number.isFinite(out.businesses[0].cash)).toBe(true)
+    expect(summary.purchases).toBe(1)
+    expect(out.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'c1', toId: 'water1', amount: 2 },
+    ])
+  })
+
   test('a business does not mint passive income when nobody needs its service', () => {
     const start = area({
       citizens: [sim('c1', { needs: fullNeeds({ hydration: 100 }) })],
@@ -1001,6 +1019,30 @@ describe('advanceWorldArea — local real-time economy', () => {
       toId: 'worker',
       amount: 5,
     })
+  })
+
+  test('non-finite business cash cannot create non-finite wage payments', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', { cash: Number.NaN, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+    })
+
+    const initialDashboard = areaNeedsDashboard(start)
+    expect(initialDashboard.existingBusinesses[0]).toMatchObject({
+      cash: 0,
+      alerts: expect.arrayContaining([{ kind: 'cash_risk', severity: 'critical' }]),
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const dashboard = areaNeedsDashboard(out)
+
+    expect(out.citizens[0].money).toBe(100)
+    expect(Number.isFinite(out.citizens[0].money)).toBe(true)
+    expect(out.citizens[0].jobBusinessId).toBeUndefined()
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(dashboard.existingBusinesses[0].cash).toBe(0)
+    expect(summary.wagesPaid).toBe(0)
+    expect(out.transactions).toEqual([])
   })
 
   test('stale roster entries do not receive wages', () => {

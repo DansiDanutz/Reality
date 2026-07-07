@@ -2527,7 +2527,7 @@ function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusine
     name: business.name,
     kind: business.kind,
     ownerId: business.ownerId,
-    cash: business.cash,
+    cash: storedBusinessCash(business),
     price: business.price ?? DEFAULT_PRICES[business.kind],
     wagePerHour: business.wagePerHour ?? DEFAULT_WORKER_WAGE,
     quality,
@@ -2560,7 +2560,7 @@ function businessAlerts(
     })
   }
   const nextHourWageDue = (business.wagePerHour ?? DEFAULT_WORKER_WAGE) * input.activeStaff
-  if (input.activeStaff > 0 && business.cash < nextHourWageDue) {
+  if (input.activeStaff > 0 && storedBusinessCash(business) < nextHourWageDue) {
     alerts.push({ kind: 'cash_risk', severity: 'critical' })
   }
   if (owner?.state.kind === 'hospitalized' && input.activeStaff === 0) {
@@ -2869,7 +2869,7 @@ function buyInsuranceFromIntent(
   actor.money = roundMoney(actor.money - premium)
   actor.insuranceBusinessId = insurer.id
   actor.insurancePaidUntil = area.now + INSURANCE_POLICY_PERIOD_MS
-  insurer.cash = roundMoney(insurer.cash + premium)
+  insurer.cash = roundMoney(storedBusinessCash(insurer) + premium)
   recordTransaction(area, area.now, {
     kind: 'insurance_premium',
     fromId: actor.id,
@@ -2931,7 +2931,7 @@ function repayDebtFromIntent(
   if (debt.amount <= 0) actor.debts = actor.debts?.filter((candidate) => candidate.id !== debt.id)
 
   const creditor = area.businesses.find((business) => business.id === debt.creditorId)
-  if (creditor) creditor.cash = roundMoney(creditor.cash + payment)
+  if (creditor) creditor.cash = roundMoney(storedBusinessCash(creditor) + payment)
   recordTransaction(area, area.now, {
     kind: 'debt_repayment',
     fromId: actor.id,
@@ -3049,7 +3049,7 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
 
     citizen.money = roundMoney(citizen.money - premium)
     citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
-    insurer.cash = roundMoney(insurer.cash + premium)
+    insurer.cash = roundMoney(storedBusinessCash(insurer) + premium)
     context.summary.insurancePremiumsPaid = roundMoney(context.summary.insurancePremiumsPaid + premium)
     recordTransaction(area, context.at, {
       kind: 'insurance_premium',
@@ -3085,9 +3085,9 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
         continue
       }
       if (worker.jobBusinessId !== business.id) continue
-      const paid = Math.min(due, business.cash)
+      const paid = Math.min(due, storedBusinessCash(business))
       if (paid <= 0) continue
-      business.cash = roundMoney(business.cash - paid)
+      business.cash = roundMoney(storedBusinessCash(business) - paid)
       worker.money = roundMoney(worker.money + paid)
       context.summary.wagesPaid = roundMoney(context.summary.wagesPaid + paid)
       recordTransaction(area, context.at, {
@@ -3245,7 +3245,7 @@ function completeServicePurchase(
   const price = business.price ?? DEFAULT_PRICES[kind]
   reserveBusinessCapacity(context, business)
   citizen.money = roundMoney(citizen.money - price)
-  business.cash = roundMoney(business.cash + price)
+  business.cash = roundMoney(storedBusinessCash(business) + price)
   context.summary.purchases += 1
   context.summary.revenueByBusiness[business.id] = roundMoney((context.summary.revenueByBusiness[business.id] ?? 0) + price)
   recordTransaction(area, context.at, {
@@ -3274,7 +3274,7 @@ function purchaseInsurancePolicy(
   citizen.money = roundMoney(citizen.money - premium)
   citizen.insuranceBusinessId = insurer.id
   citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
-  insurer.cash = roundMoney(insurer.cash + premium)
+  insurer.cash = roundMoney(storedBusinessCash(insurer) + premium)
   context.summary.insurancePremiumsPaid = roundMoney(context.summary.insurancePremiumsPaid + premium)
   recordTransaction(area, context.at, {
     kind: 'insurance_premium',
@@ -3352,11 +3352,11 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
     ? area.businesses.find((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
     : undefined
   if (insurer) {
-    const coverage = Math.min(roundMoney(HOSPITAL_BILL * INSURANCE_COVERAGE), insurer.cash)
+    const coverage = Math.min(roundMoney(HOSPITAL_BILL * INSURANCE_COVERAGE), storedBusinessCash(insurer))
     if (coverage > 0) {
       insurancePaid = true
-      insurer.cash = roundMoney(insurer.cash - coverage)
-      if (clinic) clinic.cash = roundMoney(clinic.cash + coverage)
+      insurer.cash = roundMoney(storedBusinessCash(insurer) - coverage)
+      if (clinic) clinic.cash = roundMoney(storedBusinessCash(clinic) + coverage)
       remaining = roundMoney(remaining - coverage)
       recordTransaction(area, context.at, {
         kind: 'insurance_payout',
@@ -3371,7 +3371,7 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
   const citizenPaid = Math.min(remaining, citizen.money)
   if (citizenPaid > 0) {
     citizen.money = roundMoney(citizen.money - citizenPaid)
-    if (clinic) clinic.cash = roundMoney(clinic.cash + citizenPaid)
+    if (clinic) clinic.cash = roundMoney(storedBusinessCash(clinic) + citizenPaid)
     remaining = roundMoney(remaining - citizenPaid)
     recordTransaction(area, context.at, {
       kind: 'hospital_bill',
@@ -3486,6 +3486,10 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
     debtsIssued: 0,
     revenueByBusiness: {},
   }
+}
+
+function storedBusinessCash(business: WorldBusiness): number {
+  return Number.isFinite(business.cash) ? business.cash : 0
 }
 
 function roundMoney(value: number): number {
