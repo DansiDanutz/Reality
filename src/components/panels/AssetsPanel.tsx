@@ -5,26 +5,10 @@ import {
   businessDevelopmentProgress,
 } from '../../game/businessDevelopment'
 import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
-import { constructionLaborBreakdown, constructionProgress, constructionShortfall } from '../../game/construction'
-import { RESOURCE_KINDS, RESOURCE_META } from '../../game/resources'
 import ConfirmDialog from '../hud/ConfirmDialog'
 import type { MapTarget } from '../../store/gameStore'
 import { useGame } from '../../store/gameStore'
-import { businessInteriorAssetView } from './assetsPanelView'
-
-function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h <= 0) return `${m}m`
-  if (m <= 0) return `${h}h`
-  return `${h}h ${m}m`
-}
-
-function missingResourceText(missing: Record<string, number>): string {
-  return RESOURCE_KINDS.filter((kind) => missing[kind] > 0)
-    .map((kind) => `${missing[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`)
-    .join(', ')
-}
+import { businessInteriorAssetView, constructionAssetView } from './assetsPanelView'
 
 export default function AssetsPanel() {
   const assets = useGame((s) => s.assets)
@@ -77,10 +61,8 @@ export default function AssetsPanel() {
               </div>
               <ul className="item-list">
                 {projects.map((project) => {
-                  const progress = constructionProgress(project)
-                  const missing = constructionShortfall(project)
-                  const labor = constructionLaborBreakdown(project)
-                  const missingText = missingResourceText(missing)
+                  const view = constructionAssetView(project)
+                  const { progress } = view
                   return (
                     <li className="item asset-item build-asset-item" key={project.id}>
                       <div className="item-info">
@@ -90,11 +72,17 @@ export default function AssetsPanel() {
                           <div style={{ width: `${progress.percent}%` }} />
                         </div>
                         <span className="item-desc">
-                          {progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`} · {formatMinutes(labor.remainingMinutes)} labor left
+                          {[view.materialText, view.permitText, view.laborText, view.workerText].filter(Boolean).join(' · ')}
+                        </span>
+                        <span className="house-stage-list compact" aria-label={`${project.name} construction stages`}>
+                          <span className={progress.resourcesComplete ? 'chip ok' : 'chip'}>materials</span>
+                          <span className={progress.permitComplete ? 'chip ok' : 'chip'}>permit</span>
+                          <span className={progress.laborComplete ? 'chip ok' : 'chip'}>labor</span>
+                          <span className={progress.complete ? 'chip gold' : 'chip'}>{view.completionText}</span>
                         </span>
                       </div>
                       <div className="item-buy asset-actions">
-                        <span className="item-price mono">{progress.percent}% built</span>
+                        <span className="item-price mono">{view.percentText}</span>
                         <button className="btn small primary" onClick={() => { selectMapTarget({ kind: 'construction', id: project.id }); setPanel('construction') }}>
                           Build plan
                         </button>
