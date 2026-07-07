@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest'
 import {
   areaNeedsDashboard,
   DEFAULT_BUSINESS_BLUEPRINTS,
+  MAX_FOUNDER_AREA_RADIUS_KM,
+  MIN_FOUNDER_AREA_RADIUS_KM,
   WORLD_SIM_HOUR_MS,
   type WorldArea,
   type WorldBusiness,
@@ -132,6 +134,20 @@ describe('decodeClientWorldAreaClaimPayload', () => {
       centerLat: 44.45,
       centerLng: 26.08,
       radiusKm: 0,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
+
+    expect(decodeClientWorldAreaClaimPayload({
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: MIN_FOUNDER_AREA_RADIUS_KM - 0.01,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
+
+    expect(decodeClientWorldAreaClaimPayload({
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: MAX_FOUNDER_AREA_RADIUS_KM + 0.01,
     }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
   })
 })
