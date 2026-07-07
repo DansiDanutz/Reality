@@ -48,6 +48,15 @@ import {
   type EducationProgress,
 } from '../game/education'
 import {
+  communityActionById,
+  completeCommunityAction,
+  freshCommunityStats,
+  normalizeCommunityStats,
+  resetCommunityWeekIfNeeded,
+  type CommunityActionId,
+  type CommunityStats,
+} from '../game/community'
+import {
   type ConstructionProject,
   type ConstructionWorkerId,
   STARTER_HOUSE_RECIPE,
@@ -117,7 +126,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 10
+export const SAVE_VERSION = 11
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -133,6 +142,7 @@ export const SAVE_VERSION = 10
  *   v7 → v8: construction worker labor ledger
  *   v8 → v9: construction projects produce homes or businesses
  *   v9 → v10: education progress ledger for real study blocks
+ *   v10 → v11: community respect/friendship/trust progression
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -205,6 +215,8 @@ export function migrateSave(persisted: unknown): GameState {
             .map((progress) => normalizeEducationProgress(progress))
             .filter((progress): progress is EducationProgress => progress !== null)
         }
+        if (state && !state.community) state.community = freshCommunityStats()
+        if (state && state.community) state.community = normalizeCommunityStats(state.community)
         if (state && state.activeCourierPackage === undefined) state.activeCourierPackage = null
         if (state && state.courierLastDay === undefined) state.courierLastDay = 0
         if (state && !state.courierOpenedDays) state.courierOpenedDays = []
@@ -347,6 +359,8 @@ interface GameState {
   constructionProjects: ConstructionProject[]
   /** Real study progress. Buying education enrolls here; XP arrives after study time. */
   educationProgress: EducationProgress[]
+  /** Respect/friendship/community trust earned through real helpful actions. */
+  community: CommunityStats
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
   pets: Pet[]
   /** ms timestamp each grocery id was last restocked — the spoilage clock */
@@ -460,6 +474,7 @@ interface GameState {
   hireConstructionWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
   completeConstructionIfReady: (projectId: string) => void
   startStudy: (courseId: EducationCourseId) => void
+  startCommunityAction: (actionId: CommunityActionId) => void
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
@@ -543,6 +558,7 @@ const FRESH = {
   resourceNodes: [] as ResourceNode[],
   constructionProjects: [] as ConstructionProject[],
   educationProgress: [] as EducationProgress[],
+  community: freshCommunityStats(),
   pets: [] as Pet[],
   groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
@@ -932,7 +948,7 @@ export const useGame = create<GameState>()(
         const wasAway = now - from > 15 * 60_000
         const completedSpecialActivity =
           s.activity &&
-          (s.activity.kind === 'gather' || s.activity.kind === 'construction' || s.activity.kind === 'study') &&
+          (s.activity.kind === 'gather' || s.activity.kind === 'construction' || s.activity.kind === 'study' || s.activity.kind === 'community') &&
           now >= s.activity.endsAt
             ? s.activity
             : null
@@ -1114,6 +1130,7 @@ export const useGame = create<GameState>()(
         let resources = s.resources
         let constructionProjects = s.constructionProjects
         let educationProgress = s.educationProgress
+        let community = resetCommunityWeekIfNeeded(s.community, now)
         if (completedSpecialActivity?.kind === 'gather' && completedSpecialActivity.resourceKind && completedSpecialActivity.resourceAmount) {
           const kind = completedSpecialActivity.resourceKind
           const amount = completedSpecialActivity.resourceAmount
@@ -1161,6 +1178,17 @@ export const useGame = create<GameState>()(
               log = note(log, `Studied ${course.name} for ${minutes} minutes. ${remaining} minutes left.`)
               if (!wasAway) toasts = withToast(toasts, `Study block complete: ${course.name}`, 'sky')
             }
+          }
+        }
+        if (completedSpecialActivity?.kind === 'community' && completedSpecialActivity.communityActionId) {
+          const action = communityActionById(completedSpecialActivity.communityActionId)
+          if (action) {
+            community = completeCommunityAction(community, action, now)
+            const prog = applyXp(level, xp, action.rewards.xp)
+            level = prog.level
+            xp = prog.xp
+            log = note(log, `${action.title} complete: +${action.rewards.respect} respect, +${action.rewards.friendship} friendship, +${action.rewards.trust} trust.`)
+            if (!wasAway) toasts = withToast(toasts, `${action.title} complete +${action.rewards.xp} XP`, 'achieve')
           }
         }
         // "Earned today" accumulator for the daily challenges — WORK income
@@ -1510,6 +1538,7 @@ export const useGame = create<GameState>()(
           resources,
           constructionProjects,
           educationProgress,
+          community,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
           achievementsClaimed: achievementsClaimed,
@@ -1894,6 +1923,35 @@ export const useGame = create<GameState>()(
         })
       },
 
+      startCommunityAction: (actionId) => {
+        const s = get()
+        if (s.activity) return
+        const action = communityActionById(actionId)
+        if (!action) return
+        if (s.needs.energy < 15 || s.needs.hunger < 10 || s.needs.hydration < 10 || s.health < 20) {
+          set({
+            toasts: withToast(s.toasts, 'Too worn down to help well. Eat, drink, and rest first.', 'blocked'),
+            log: note(s.log, 'Community action blocked: your body needs food, water, or rest first.'),
+          })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'community',
+            startedAt: now,
+            endsAt: now + action.minutes * 60_000,
+            title: action.title,
+            communityActionId: action.id,
+            communityMinutes: action.minutes,
+          },
+          community: resetCommunityWeekIfNeeded(s.community, now),
+          needs: applyEffects(s.needs, action.effects),
+          panel: null,
+          log: note(s.log, `Started community work: ${action.title}.`),
+        })
+      },
+
       // One tap, one dollar, half the water bar — hydration without friction
       quickDrink: () => {
         const s = get()
@@ -2106,6 +2164,10 @@ export const useGame = create<GameState>()(
         }
         if (a.kind === 'study') {
           set({ activity: null, log: note(s.log, 'Stopped studying before this block counted.') })
+          return
+        }
+        if (a.kind === 'community') {
+          set({ activity: null, log: note(s.log, 'Stopped helping before this block counted.') })
           return
         }
         // Leaving a shift early: pro-rata pay, no XP
