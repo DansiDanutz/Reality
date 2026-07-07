@@ -344,7 +344,7 @@ function isFounderCovenantSignal(value: unknown): boolean {
     isNonEmptyString(value.message) &&
     (value.businessIds === undefined || (Array.isArray(value.businessIds) && value.businessIds.every(isNonEmptyString))) &&
     (value.businessKinds === undefined || (Array.isArray(value.businessKinds) && value.businessKinds.every((kind) => isOneOf(kind, BUSINESS_KINDS)))) &&
-    (value.amount === undefined || isFiniteNumber(value.amount))
+    (value.amount === undefined || (isFiniteNumber(value.amount) && value.amount >= 0))
 }
 
 function isFounderCovenantActivityReview(value: unknown): boolean {
