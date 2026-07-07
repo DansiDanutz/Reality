@@ -75,6 +75,56 @@ describe('construction placement guard', () => {
 })
 
 describe('construction worker contracts', () => {
+  test('player construction labor waits for materials and permit like hired workers do', () => {
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      constructionProjects: [project],
+      selectedMapTarget: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startConstructionWork(project.id)
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Deposit construction materials before work starts.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      activity: null,
+      constructionProjects: [{ ...project, deposited: freshResources(STARTER_HOUSE_RECIPE.required) }],
+      selectedMapTarget: null,
+      toasts: [],
+    })
+    useGame.getState().startConstructionWork(project.id)
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Pay the building permit before work starts.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      activity: null,
+      constructionProjects: [{
+        ...project,
+        deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+        permitFeePaid: true,
+      }],
+      toasts: [],
+    })
+    useGame.getState().startConstructionWork(project.id)
+    expect(useGame.getState().activity).toMatchObject({ kind: 'construction', projectId: project.id })
+  })
+
   test('hired workers advance construction over real time without occupying the player activity slot', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
