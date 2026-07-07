@@ -12,6 +12,19 @@ import {
 } from '../../game/construction'
 import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META } from '../../game/resources'
+import type { PlacedAsset } from '../../game/types'
+import type { MapTarget, PanelId } from '../../store/gameStore'
+
+export interface AssetMenuAction {
+  label: string
+  target: MapTarget
+  panel: PanelId
+}
+
+export interface AssetMenuNavigation {
+  primary: AssetMenuAction
+  map: AssetMenuAction
+}
 
 function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60)
@@ -52,6 +65,14 @@ export function constructionAssetView(project: ConstructionProject) {
   }
 }
 
+export function constructionAssetNavigation(project: Pick<ConstructionProject, 'id'>): AssetMenuNavigation {
+  const target: MapTarget = { kind: 'construction', id: project.id }
+  return {
+    primary: { label: 'Build plan', target, panel: 'construction' },
+    map: { label: 'Show map', target, panel: null },
+  }
+}
+
 export function businessInteriorAssetView(project: BusinessDevelopmentProject) {
   const progress = businessDevelopmentProgress(project)
   const missing = businessDevelopmentShortfall(project)
@@ -71,5 +92,21 @@ export function businessInteriorAssetView(project: BusinessDevelopmentProject) {
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
     workerText: activeWorkerText(activeWorkers.length),
     percentText: `${progress.percent}% ready`,
+  }
+}
+
+export function businessInteriorAssetNavigation(project: Pick<BusinessDevelopmentProject, 'businessId'>): AssetMenuNavigation {
+  const target: MapTarget = { kind: 'asset', id: project.businessId }
+  return {
+    primary: { label: 'Open plan', target, panel: 'business' },
+    map: { label: 'Show map', target, panel: null },
+  }
+}
+
+export function completedAssetNavigation(asset: Pick<PlacedAsset, 'id' | 'kind'>): AssetMenuNavigation {
+  const target: MapTarget = { kind: 'asset', id: asset.id }
+  return {
+    primary: { label: 'Enter', target, panel: asset.kind === 'home' ? 'home' : 'business' },
+    map: { label: 'Show map', target, panel: null },
   }
 }
