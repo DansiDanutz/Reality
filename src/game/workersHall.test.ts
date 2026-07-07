@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_MAP_ANCHOR } from './mapAnchor'
-import { workersHallFor } from './workersHall'
+import { workersHallFor, workersHallPanelFor } from './workersHall'
 import type { Citizen, PlacedAsset } from './types'
 
 const citizen: Citizen = {
@@ -50,5 +50,25 @@ describe('workersHallFor', () => {
 
     expect(Math.abs(hall.lat - DEFAULT_MAP_ANCHOR.lat)).toBeLessThan(0.01)
     expect(Math.abs(hall.lng - DEFAULT_MAP_ANCHOR.lng)).toBeLessThan(0.01)
+  })
+})
+
+describe('workersHallPanelFor', () => {
+  test('opens construction when no active interior project exists', () => {
+    expect(workersHallPanelFor({ constructionProjects: [], businessDevelopmentProjects: [] })).toBe('construction')
+  })
+
+  test('opens construction when a construction site is active', () => {
+    expect(workersHallPanelFor({
+      constructionProjects: [{ id: 'house-build' }],
+      businessDevelopmentProjects: [{ id: 'foodcart-interior' }],
+    })).toBe('construction')
+  })
+
+  test('opens business when the only active worker need is an interior project', () => {
+    expect(workersHallPanelFor({
+      constructionProjects: [],
+      businessDevelopmentProjects: [{ id: 'foodcart-interior' }],
+    })).toBe('business')
   })
 })
