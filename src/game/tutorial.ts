@@ -74,8 +74,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'business',
-    title: 'Open a business',
-    detail: 'Market → Businesses. Your first passive income.',
+    title: 'Build a business',
+    detail: 'Market → Businesses. Place a foundation, gather resources, and finish the build.',
     xp: 75,
     isDone: (s) => s.assets.some((a) => a.kind === 'business'),
   },
