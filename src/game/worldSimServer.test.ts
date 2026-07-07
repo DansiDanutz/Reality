@@ -1364,7 +1364,20 @@ describe('runWorldServerCommand', () => {
         critical: 1,
       },
       signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
+      priorityReasons: expect.arrayContaining([
+        'manual_review_required',
+        'founder_hospitalized',
+        'critical_signals',
+        'founder_at_risk',
+        'founder_indebted',
+        'founder_inactive',
+        'needs_usefulness_evidence',
+        'no_founder_business',
+        'pending_manual_approvals',
+      ]),
     })
+    expect(queue.items[0].priorityScore).toBeGreaterThan(queue.items[1].priorityScore)
+    expect(queue.items[0].priorityReasons).not.toContain('review_overdue')
     expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
       expect.objectContaining({ key: 'indebted', value: true, status: 'watch', executionEnabled: false }),

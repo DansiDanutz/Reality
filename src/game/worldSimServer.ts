@@ -244,6 +244,20 @@ export interface WorldFounderCovenantReviewReadiness {
   executionEnabled: false
 }
 
+export type WorldFounderCovenantReviewQueuePriorityReason =
+  | 'manual_review_required'
+  | 'review_overdue'
+  | 'founder_hospitalized'
+  | 'critical_signals'
+  | 'founder_at_risk'
+  | 'founder_indebted'
+  | 'founder_inactive'
+  | 'needs_usefulness_evidence'
+  | 'no_founder_business'
+  | 'understaffed_businesses'
+  | 'warning_signals'
+  | 'pending_manual_approvals'
+
 export interface WorldFounderCovenantReviewQueueItem {
   areaId: string
   areaName: string
@@ -264,6 +278,8 @@ export interface WorldFounderCovenantReviewQueueItem {
   reviewInputs: readonly FounderCovenantReviewInput[]
   stages: readonly FounderCovenantStage[]
   reviewReadiness: WorldFounderCovenantReviewReadiness
+  priorityScore: number
+  priorityReasons: readonly WorldFounderCovenantReviewQueuePriorityReason[]
   reviewChecklist: readonly FounderCovenantReviewChecklistItem[]
   manualActions: readonly FounderCovenantManualAction[]
   economicExposure: WorldFounderCovenantReviewQueueEconomicExposure
@@ -680,6 +696,15 @@ function founderCovenantReviewQueueItem(
 ): WorldFounderCovenantReviewQueueItem {
   const review = dashboard.founderCovenant
   const founderCitizenId = review.founderCitizenId ?? area.claim?.founderCitizenId ?? ''
+  const reviewQueue = founderCovenantReviewQueueSnapshot(review.reviewQueue)
+  const signalCounts = founderCovenantReviewSignalCounts(review.signals)
+  const priorityEvidence = founderCovenantReviewQueuePriorityEvidence({
+    manualReviewRequired: review.manualReviewRequired,
+    overdue: review.reviewSchedule?.overdue ?? false,
+    activityReview: review.activityReview,
+    reviewQueue,
+    signalCounts,
+  })
   return {
     areaId: area.id,
     areaName: area.name,
@@ -700,11 +725,13 @@ function founderCovenantReviewQueueItem(
     reviewInputs: review.reviewInputs.map(founderCovenantReviewInputSnapshot),
     stages: review.stages.map(founderCovenantStageSnapshot),
     reviewReadiness: founderCovenantReviewReadiness(review),
+    priorityScore: priorityEvidence.score,
+    priorityReasons: priorityEvidence.reasons,
     reviewChecklist: review.reviewChecklist.map(founderCovenantReviewChecklistSnapshot),
     manualActions: review.manualActions.map(founderCovenantManualActionSnapshot),
     economicExposure: founderCovenantReviewQueueEconomicExposure(area, dashboard, founderCitizenId),
-    reviewQueue: founderCovenantReviewQueueSnapshot(review.reviewQueue),
-    signalCounts: founderCovenantReviewSignalCounts(review.signals),
+    reviewQueue,
+    signalCounts,
     signalKinds: review.signals.map((signal) => signal.kind),
     recommendedActionKinds: [...review.reviewQueue.recommendedActionKinds],
     pendingApprovalRequests: review.approvalRequests.map(founderCovenantApprovalRequestSnapshot),
@@ -1013,26 +1040,41 @@ function compareFounderCovenantReviewQueueItems(
   left: WorldFounderCovenantReviewQueueItem,
   right: WorldFounderCovenantReviewQueueItem,
 ): number {
-  return founderCovenantReviewQueuePriority(right) - founderCovenantReviewQueuePriority(left) ||
+  return right.priorityScore - left.priorityScore ||
     left.activityReview.score - right.activityReview.score ||
     left.areaId.localeCompare(right.areaId)
 }
 
-function founderCovenantReviewQueuePriority(item: WorldFounderCovenantReviewQueueItem): number {
-  let priority = 0
-  if (item.manualReviewRequired) priority += 120
-  if (item.overdue) priority += 100
-  if (item.activityReview.hospitalized) priority += 90
-  if (item.signalCounts.critical > 0) priority += item.signalCounts.critical * 40
-  if (item.activityReview.atRisk) priority += 70
-  if (item.activityReview.indebted) priority += 50
-  if (!item.activityReview.active) priority += 40
-  if (!item.activityReview.useful) priority += 30
-  if (!item.activityReview.building) priority += 20
-  if (!item.activityReview.staffed) priority += 15
-  priority += item.signalCounts.warning * 10
-  priority += item.reviewQueue.pendingApprovalCount * 5
-  return priority
+function founderCovenantReviewQueuePriorityEvidence(input: {
+  manualReviewRequired: boolean
+  overdue: boolean
+  activityReview: AreaNeedsDashboard['founderCovenant']['activityReview']
+  signalCounts: WorldFounderCovenantReviewQueueSignalCounts
+  reviewQueue: FounderCovenantReviewQueue
+}): { score: number; reasons: WorldFounderCovenantReviewQueuePriorityReason[] } {
+  let score = 0
+  const reasons: WorldFounderCovenantReviewQueuePriorityReason[] = []
+  const add = (reason: WorldFounderCovenantReviewQueuePriorityReason, value: number): void => {
+    score += value
+    reasons.push(reason)
+  }
+
+  if (input.manualReviewRequired) add('manual_review_required', 120)
+  if (input.overdue) add('review_overdue', 100)
+  if (input.activityReview.hospitalized) add('founder_hospitalized', 90)
+  if (input.signalCounts.critical > 0) add('critical_signals', input.signalCounts.critical * 40)
+  if (input.activityReview.atRisk) add('founder_at_risk', 70)
+  if (input.activityReview.indebted) add('founder_indebted', 50)
+  if (!input.activityReview.active) add('founder_inactive', 40)
+  if (!input.activityReview.useful) add('needs_usefulness_evidence', 30)
+  if (!input.activityReview.building) add('no_founder_business', 20)
+  if (!input.activityReview.staffed) add('understaffed_businesses', 15)
+  if (input.signalCounts.warning > 0) add('warning_signals', input.signalCounts.warning * 10)
+  if (input.reviewQueue.pendingApprovalCount > 0) {
+    add('pending_manual_approvals', input.reviewQueue.pendingApprovalCount * 5)
+  }
+
+  return { score, reasons }
 }
 
 function roundServerMoney(value: number): number {
