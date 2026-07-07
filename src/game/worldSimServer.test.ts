@@ -896,6 +896,31 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('returns structured advance load failures before saving state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => {
+        throw new Error('storage load unavailable')
+      },
+      loadAreaRecord: async () => {
+        throw new Error('storage record unavailable')
+      },
+      loadAreaByFounder: async () => null,
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'advance',
+      areaId: 'area-1',
+      now: 1_000,
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
   test('rejects duplicate area creation', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)
