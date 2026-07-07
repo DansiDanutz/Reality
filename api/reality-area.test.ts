@@ -287,6 +287,24 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('ignores mismatched Telegram identity from the stored citizen record', async () => {
+    vi.mocked(list).mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      name: 'David',
+      createdAt: '2026-07-06T03:00:00.000Z',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:777',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:00:00.000Z',
+    }), { status: 200 })))
+
+    await expect(verifyCitizen(CITIZEN_ID, TOKEN, { includeRecord: true })).resolves.toEqual({
+      citizenId: CITIZEN_ID,
+      founderNumber: 12,
+    })
+  })
+
   test('normalizes only real claimArea intents', () => {
     expect(normalizeClaimAreaIntent({
       type: 'claimArea',
@@ -1275,6 +1293,47 @@ describe('reality area authority API', () => {
       claimSource: 'telegram',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
+    })
+  })
+
+  test('does not copy mismatched Telegram citizen linkage into a new area claim', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
+      .mockResolvedValueOnce(blobList([]))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      name: 'David',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:777',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:10:00.000Z',
+    }), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: validClaimIntent(),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.state.claim).toMatchObject({
+      source: 'telegram',
+      telegramUserId: undefined,
+      telegramAccountId: undefined,
+    })
+    expect(body.dashboard.founderIdentity).toEqual({
+      citizenId: CITIZEN_ID,
+      founderNumber: 12,
+      claimSource: 'telegram',
+      telegramUserId: null,
+      telegramAccountId: null,
     })
   })
 

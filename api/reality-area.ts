@@ -2010,17 +2010,23 @@ async function readCitizenRecord(downloadUrl: string | undefined): Promise<Parti
     if (!response.ok) return {}
     const value = await response.json() as unknown
     if (!isRecord(value)) return {}
-    const telegramAccountId = text(value.telegramAccountId)
-    const telegramUserId = text(value.telegramUserId)
-    return {
-      ...(telegramAccountId.startsWith('telegram:') ? { telegramAccountId } : {}),
-      ...(telegramUserId ? { telegramUserId } : {}),
-      ...(text(value.telegramUsername) ? { telegramUsername: text(value.telegramUsername) } : {}),
-      ...(text(value.telegramName) ? { telegramName: text(value.telegramName) } : {}),
-      ...(text(value.telegramLinkedAt) ? { telegramLinkedAt: text(value.telegramLinkedAt) } : {}),
-    }
+    return telegramCitizenAuthFields(value)
   } catch {
     return {}
+  }
+}
+
+function telegramCitizenAuthFields(value: Record<string, unknown>): Partial<CitizenAuthRecord> {
+  const telegramUserId = text(value.telegramUserId)
+  const telegramAccountId = text(value.telegramAccountId)
+  if (!telegramUserId || telegramAccountId !== `telegram:${telegramUserId}`) return {}
+
+  return {
+    telegramUserId,
+    telegramAccountId,
+    ...(text(value.telegramUsername) ? { telegramUsername: text(value.telegramUsername) } : {}),
+    ...(text(value.telegramName) ? { telegramName: text(value.telegramName) } : {}),
+    ...(text(value.telegramLinkedAt) ? { telegramLinkedAt: text(value.telegramLinkedAt) } : {}),
   }
 }
 
