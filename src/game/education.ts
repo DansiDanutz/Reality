@@ -1,0 +1,145 @@
+export type EducationCourseId =
+  | 'course'
+  | 'masterclass'
+  | 'certification'
+  | 'bootcamp'
+  | 'university'
+  | 'mba'
+
+export interface EducationCourse {
+  id: EducationCourseId
+  itemId: EducationCourseId
+  name: string
+  studyMinutesRequired: number
+  xpReward: number
+  description: string
+}
+
+export interface EducationProgress {
+  courseId: EducationCourseId
+  itemId: EducationCourseId
+  enrolledAt: number
+  studiedMinutes: number
+  completedAt: number | null
+}
+
+export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
+  course: {
+    id: 'course',
+    itemId: 'course',
+    name: 'Online Course',
+    studyMinutesRequired: 60,
+    xpReward: 40,
+    description: 'One focused evening that proves school is a habit, not a receipt.',
+  },
+  masterclass: {
+    id: 'masterclass',
+    itemId: 'masterclass',
+    name: 'Masterclass Series',
+    studyMinutesRequired: 90,
+    xpReward: 60,
+    description: 'A few serious sessions with people who already climbed.',
+  },
+  certification: {
+    id: 'certification',
+    itemId: 'certification',
+    name: 'Professional Certification',
+    studyMinutesRequired: 180,
+    xpReward: 150,
+    description: 'Proof of skill that takes real time and unlocks better work.',
+  },
+  bootcamp: {
+    id: 'bootcamp',
+    itemId: 'bootcamp',
+    name: 'Coding Bootcamp',
+    studyMinutesRequired: 12 * 60,
+    xpReward: 300,
+    description: 'A long focused climb into a better career lane.',
+  },
+  university: {
+    id: 'university',
+    itemId: 'university',
+    name: 'University Semester',
+    studyMinutesRequired: 24 * 60,
+    xpReward: 700,
+    description: 'The long game, played properly across many study blocks.',
+  },
+  mba: {
+    id: 'mba',
+    itemId: 'mba',
+    name: 'Executive MBA',
+    studyMinutesRequired: 40 * 60,
+    xpReward: 1_500,
+    description: 'Boardroom fluency earned through sustained study.',
+  },
+}
+
+export const STUDY_BLOCK_MINUTES = 60
+
+export function educationCourseById(courseId: string): EducationCourse | null {
+  return (EDUCATION_COURSES as Record<string, EducationCourse | undefined>)[courseId] ?? null
+}
+
+export function educationCourseForItem(itemId: string): EducationCourse | null {
+  return educationCourseById(itemId)
+}
+
+export function createEducationProgress(course: EducationCourse, now = Date.now()): EducationProgress {
+  return {
+    courseId: course.id,
+    itemId: course.itemId,
+    enrolledAt: now,
+    studiedMinutes: 0,
+    completedAt: null,
+  }
+}
+
+export function normalizeEducationProgress(progress: Partial<EducationProgress>): EducationProgress | null {
+  const course = progress.courseId ? educationCourseById(progress.courseId) : progress.itemId ? educationCourseForItem(progress.itemId) : null
+  if (!course) return null
+  return {
+    courseId: course.id,
+    itemId: course.itemId,
+    enrolledAt: Number.isFinite(progress.enrolledAt) ? Number(progress.enrolledAt) : Date.now(),
+    studiedMinutes: Math.max(0, Math.floor(progress.studiedMinutes ?? 0)),
+    completedAt: progress.completedAt ?? null,
+  }
+}
+
+export function educationRemainingMinutes(course: EducationCourse, progress: EducationProgress | null | undefined): number {
+  return Math.max(0, course.studyMinutesRequired - (progress?.studiedMinutes ?? 0))
+}
+
+export function nextStudyBlockMinutes(course: EducationCourse, progress: EducationProgress | null | undefined): number {
+  const remaining = educationRemainingMinutes(course, progress)
+  return Math.min(STUDY_BLOCK_MINUTES, remaining)
+}
+
+export function educationPercent(course: EducationCourse, progress: EducationProgress | null | undefined): number {
+  if (course.studyMinutesRequired <= 0) return 100
+  return Math.min(100, Math.round(((progress?.studiedMinutes ?? 0) / course.studyMinutesRequired) * 100))
+}
+
+export function addStudyMinutes(
+  course: EducationCourse,
+  progress: EducationProgress,
+  minutes: number,
+  now = Date.now(),
+): { progress: EducationProgress; completedNow: boolean; xpGained: number } {
+  if (progress.completedAt !== null) return { progress, completedNow: false, xpGained: 0 }
+  const studiedMinutes = Math.min(course.studyMinutesRequired, progress.studiedMinutes + Math.max(0, Math.floor(minutes)))
+  const completedNow = studiedMinutes >= course.studyMinutesRequired
+  return {
+    progress: {
+      ...progress,
+      studiedMinutes,
+      completedAt: completedNow ? now : null,
+    },
+    completedNow,
+    xpGained: completedNow ? course.xpReward : 0,
+  }
+}
+
+export function educationActionCount(progress: EducationProgress[]): number {
+  return progress.filter((item) => item.studiedMinutes > 0 || item.completedAt !== null).length
+}
