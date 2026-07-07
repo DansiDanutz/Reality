@@ -8,6 +8,7 @@ import {
   INSURANCE_POLICY_PERIOD_MS,
   MAX_FOUNDER_AREA_RADIUS_KM,
   MIN_BUSINESS_QUALITY,
+  PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER,
   SIM_LEAVES_HEALTH,
   SIM_LEAVES_NEED_LEVEL,
   UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR,
@@ -985,7 +986,12 @@ describe('advanceWorldArea — local real-time economy', () => {
   test('underfunded businesses pay what they can and lose active staff', () => {
     const start = area({
       citizens: [sim('worker', { jobBusinessId: 'food1' })],
-      businesses: [business('food', 'food1', { cash: 5, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+      businesses: [business('food', 'food1', {
+        cash: 5,
+        quality: 1,
+        staffCitizenIds: ['worker'],
+        wagePerHour: 15,
+      })],
     })
 
     const { area: out, summary } = advanceWorldArea(start, HOUR)
@@ -993,6 +999,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.citizens[0].money).toBe(105)
     expect(out.citizens[0].jobBusinessId).toBeUndefined()
     expect(out.businesses[0].cash).toBe(0)
+    expect(out.businesses[0].quality).toBe(1 - PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER)
     expect(out.businesses[0].staffCitizenIds).toEqual([])
     expect(summary.wagesPaid).toBe(5)
     expect(out.transactions[0]).toMatchObject({
@@ -1001,6 +1008,33 @@ describe('advanceWorldArea — local real-time economy', () => {
       toId: 'worker',
       amount: 5,
     })
+  })
+
+  test('payroll defaults cannot push business quality below the floor', () => {
+    const start = area({
+      citizens: [
+        sim('worker1', { jobBusinessId: 'food1' }),
+        sim('worker2', { jobBusinessId: 'food1' }),
+      ],
+      businesses: [business('food', 'food1', {
+        cash: 0,
+        quality: MIN_BUSINESS_QUALITY,
+        staffCitizenIds: ['worker1', 'worker2'],
+        wagePerHour: 15,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens.find((citizen) => citizen.id === 'worker1')!.money).toBe(100)
+    expect(out.citizens.find((citizen) => citizen.id === 'worker2')!.money).toBe(100)
+    expect(out.citizens.find((citizen) => citizen.id === 'worker1')!.jobBusinessId).toBeUndefined()
+    expect(out.citizens.find((citizen) => citizen.id === 'worker2')!.jobBusinessId).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(0)
+    expect(out.businesses[0].quality).toBe(MIN_BUSINESS_QUALITY)
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(summary.wagesPaid).toBe(0)
+    expect(out.transactions).toEqual([])
   })
 
   test('stale roster entries do not receive wages', () => {
