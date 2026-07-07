@@ -1505,6 +1505,35 @@ describe('runWorldServerCommand', () => {
     )
   })
 
+  test('returns a structured error when covenant review cannot load stored area state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => {
+        throw new Error('area load unavailable')
+      },
+      loadAreaRecord: async () => {
+        throw new Error('area record unavailable')
+      },
+      loadAreaByFounder: async () => null,
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'recordFounderCovenantReview',
+      areaId: 'area-1',
+      now: 1_000,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      note: 'Storage outage should not become recorded evidence.',
+      evidenceKinds: ['external_contribution'],
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
   test('paginates the evidence-only founder covenant review queue with a stable cursor', async () => {
     const repo = new MemoryWorldRepo()
     const now = 1_000

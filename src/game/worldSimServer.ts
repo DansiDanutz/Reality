@@ -144,6 +144,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'area_repository_unavailable'
   | 'founder_area_exists'
   | 'invalid_area_identity'
   | 'invalid_command_time'
@@ -1281,7 +1282,12 @@ async function recordFounderCovenantReviewForStoredArea(
   if (!reviewerId) return { ok: false, error: 'invalid_reviewer' }
   if (command.actionKind !== 'record_review') return { ok: false, error: 'review_action_disabled' }
 
-  const loaded = await loadStoredArea(repo, normalizedAreaId)
+  let loaded: WorldAreaRecord | null
+  try {
+    loaded = await loadStoredArea(repo, normalizedAreaId)
+  } catch {
+    return { ok: false, error: 'area_repository_unavailable' }
+  }
   if (!loaded) return { ok: false, error: 'area_not_found' }
   const { area } = loaded
   if (command.now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
