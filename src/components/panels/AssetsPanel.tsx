@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatMoney } from '../../game/engine'
-import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../../game/businessUpgrades'
+import { businessDevelopmentPlanFor, businessDevelopmentProgress } from '../../game/businessDevelopment'
+import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import { constructionLaborBreakdown, constructionProgress, constructionShortfall } from '../../game/construction'
 import { RESOURCE_KINDS, RESOURCE_META } from '../../game/resources'
 import ConfirmDialog from '../hud/ConfirmDialog'
@@ -10,7 +11,7 @@ import { useGame } from '../../store/gameStore'
 export default function AssetsPanel() {
   const assets = useGame((s) => s.assets)
   const projects = useGame((s) => s.constructionProjects)
-  const money = useGame((s) => s.money)
+  const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const collectIncome = useGame((s) => s.collectIncome)
   const upgradeBusiness = useGame((s) => s.upgradeBusiness)
   const selectMapTarget = useGame((s) => s.selectMapTarget)
@@ -103,10 +104,10 @@ export default function AssetsPanel() {
               const isBusiness = a.kind === 'business' && a.incomePerDay > 0
               // baseIncome derives from current income / level (incomePerDay
               // stores the level-adjusted value so the engine reads it directly).
-              const baseIncome = isBusiness ? a.incomePerDay / level : 0
-              const upgrade = isBusiness ? upgradeOutcome(baseIncome, level) : null
-              const canAfford = upgrade !== null && money >= upgrade.cost
-              const atCap = isBusiness && level >= MAX_BUSINESS_LEVEL
+              const plan = isBusiness ? businessDevelopmentPlanFor(a) : null
+              const development = isBusiness ? businessDevelopmentProjects.find((project) => project.businessId === a.id) ?? null : null
+              const developmentProgress = development ? businessDevelopmentProgress(development) : null
+              const atCap = isBusiness && (level >= MAX_BUSINESS_LEVEL || !plan)
               return (
                 <li className="item asset-item" key={a.id}>
                   <div className="item-info">
@@ -136,14 +137,13 @@ export default function AssetsPanel() {
                     <button className="btn small ghost" onClick={() => showOnMap({ kind: 'asset', id: a.id })}>
                       Show map
                     </button>
-                    {isBusiness && upgrade && (
+                    {isBusiness && plan && (
                       <button
-                        className={`btn small ${canAfford ? 'primary' : 'ghost'}`}
-                        disabled={!canAfford}
+                        className="btn small primary"
                         onClick={() => upgradeBusiness(a.id)}
-                        title={canAfford ? `Upgrade to L${upgrade.newLevel}: +${formatMoney(upgrade.incomeDelta)}/day` : `Need ${formatMoney(upgrade.cost)}`}
+                        title={development ? `Open active interior plan: ${developmentProgress?.percent ?? 0}% ready` : `Plan L${plan.outcome.newLevel}: +${formatMoney(plan.outcome.incomeDelta)}/day`}
                       >
-                        ⬆ L{upgrade.newLevel} · {formatMoney(upgrade.cost)}
+                        {development ? `Developing ${developmentProgress?.percent ?? 0}%` : `Plan L${plan.outcome.newLevel}`}
                       </button>
                     )}
                     {atCap && <span className="asset-maxed mono">MAX</span>}
