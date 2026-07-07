@@ -2,7 +2,7 @@
 
 Date: 2026-07-07
 Owner split: Zcode owns design with GLM 5.2. Codex owns engineering, tests, analytics, and server-readiness.
-Status: Planning artifact for the next execution loops.
+Status: Active 8-day autonomous execution horizon from 2026-07-07 through 2026-07-15.
 
 ## Requirements Summary
 
@@ -212,7 +212,7 @@ Day 14: Weekly review: net worth, respect, job reliability, house status, next c
 
 Goal for Zcode with GLM 5.2:
 
-Design the Reality Life Ladder so a player always knows today's one clear plan and understands how daily school, serious work, respect, friendship, and community compound from survival to millionaire status.
+Design the Reality Life Ladder across the 8-day autonomous horizon so a player always knows today's one clear plan and understands how daily school, serious work, respect, friendship, and community compound from survival to millionaire status.
 
 Zcode owns:
 
@@ -267,14 +267,14 @@ Use GLM 5.2. You own Reality design. Do not implement code.
 
 Goal: design the Life Ladder so every real day has one clear plan and shows how school, respect, serious work, friendship, and community compound from survival to millionaire status.
 
-Use the current repo as evidence. Preserve Rule #1: real time, real prices, real Earth, real commitments. Replace predatory retention with ethical daily discipline. Produce docs/plan/11-15 with exact first-14-day flows, day 15-60 curriculum, Today Plan UX, respect/friendship mechanics, and millionaire pacing targets. Loop and revise until stop criteria pass.
+Use the current repo as evidence. Preserve Rule #1: real time, real prices, real Earth, real commitments. Replace predatory retention with ethical daily discipline. Produce docs/plan/11-15 with exact first-14-day flows, day 15-60 curriculum, Today Plan UX, respect/friendship mechanics, and millionaire pacing targets. Loop autonomously through 2026-07-15 and revise until stop criteria pass.
 ```
 
 ## Codex Goal and Loop
 
 Goal for Codex:
 
-Implement the Zcode-approved Life Ladder in small, verified slices while preserving the pure simulation boundary, real-time economy invariants, accessibility, analytics, and server-authoritative future path.
+Implement the Zcode-approved Life Ladder in small, verified slices across the 8-day autonomous horizon while preserving the pure simulation boundary, real-time economy invariants, accessibility, analytics, and server-authoritative future path.
 
 Codex owns:
 
