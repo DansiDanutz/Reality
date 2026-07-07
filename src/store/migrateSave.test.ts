@@ -71,6 +71,8 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.constructionProjects).toEqual([])
     expect(out.placingConstruction).toBeNull()
     expect(out.selectedMapTarget).toBeNull()
+    // v10: education progress ledger
+    expect(out.educationProgress).toEqual([])
     expect(out.activeCourierPackage).toBeNull()
     expect(out.courierLastDay).toBe(0)
     expect(out.courierOpenedDays).toEqual([])
@@ -151,6 +153,36 @@ describe('migrateSave — backfills every field added after v1', () => {
     })
   })
 
+  test('old education progress is normalized by course id', () => {
+    const out = migrateSave({
+      ...v1Save,
+      educationProgress: [{
+        courseId: 'certification',
+        studiedMinutes: 90.8,
+      }],
+    })
+
+    expect(out.educationProgress[0]).toMatchObject({
+      courseId: 'certification',
+      itemId: 'certification',
+      studiedMinutes: 90,
+      completedAt: null,
+    })
+    expect(out.educationProgress[0].enrolledAt).toBeTypeOf('number')
+  })
+
+  test('unknown education progress entries are dropped', () => {
+    const out = migrateSave({
+      ...v1Save,
+      educationProgress: [{
+        courseId: 'mystery-degree',
+        studiedMinutes: 20,
+      }],
+    })
+
+    expect(out.educationProgress).toEqual([])
+  })
+
   test('a citizen with an active illness keeps it (not reset to null)', () => {
     const v4Save = {
       ...v1Save,
@@ -215,7 +247,7 @@ describe('migrateSave — completeness guard', () => {
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
       'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
-      'selectedMapTarget',
+      'selectedMapTarget', 'educationProgress',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
     for (const f of tickCriticalFields) {
@@ -238,6 +270,6 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(9)
+    expect(SAVE_VERSION).toBe(10)
   })
 })
