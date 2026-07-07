@@ -164,6 +164,7 @@ export type WorldFounderCovenantReviewQueueError =
   | 'invalid_command_time'
   | 'invalid_review_queue_limit'
   | 'invalid_review_queue_cursor'
+  | 'invalid_review_queue_page'
   | 'review_queue_unavailable'
 
 export type WorldFounderCovenantReviewQueueScanStatus =
@@ -398,15 +399,18 @@ export async function readWorldFounderCovenantReviewQueue(
   ) {
     return { ok: false, error: 'invalid_review_queue_limit' }
   }
-  const cursor = options.cursor?.trim()
+  const cursor = options.cursor?.trim() ?? null
   if (
     options.cursor !== undefined &&
-    (!cursor || cursor.length > WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH || /[\r\n]/.test(cursor))
+    !isValidReviewQueueCursor(cursor)
   ) {
     return { ok: false, error: 'invalid_review_queue_cursor' }
   }
 
   const page = await repo.listAreaRecords({ limit, ...(cursor ? { cursor } : {}) })
+  if (!isValidReviewQueuePage(page, cursor, limit)) {
+    return { ok: false, error: 'invalid_review_queue_page' }
+  }
   const items: WorldFounderCovenantReviewQueueItem[] = []
   const results: WorldFounderCovenantReviewQueueScanResult[] = []
 
@@ -442,6 +446,34 @@ export async function readWorldFounderCovenantReviewQueue(
       results,
     },
   }
+}
+
+function isValidReviewQueuePage(
+  page: WorldAreaRecordPage,
+  requestedCursor: string | null,
+  limit: number,
+): boolean {
+  if (!Array.isArray(page.records) || page.records.length > limit) return false
+  if (page.cursor !== requestedCursor) return false
+  if (typeof page.hasMore !== 'boolean') return false
+  if (!isValidNullableReviewQueueCursor(page.cursor)) return false
+  if (!isValidNullableReviewQueueCursor(page.nextCursor)) return false
+  if (page.hasMore) {
+    return page.records.length > 0 && page.nextCursor !== null && page.nextCursor !== page.cursor
+  }
+  return page.nextCursor === null
+}
+
+function isValidNullableReviewQueueCursor(value: string | null): boolean {
+  return value === null || isValidReviewQueueCursor(value)
+}
+
+function isValidReviewQueueCursor(value: string | null): value is string {
+  return typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH &&
+    value.trim() === value &&
+    !/[\r\n]/.test(value)
 }
 
 async function createClaimedArea(

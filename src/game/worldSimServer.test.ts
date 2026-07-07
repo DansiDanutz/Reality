@@ -1581,6 +1581,52 @@ describe('runWorldServerCommand', () => {
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_cursor' })
   })
 
+  test('rejects malformed founder covenant review queue page metadata before catch-up writes', async () => {
+    const malformedPages: Array<{
+      name: string
+      mutate: (page: WorldAreaRecordPage) => WorldAreaRecordPage
+    }> = [
+      {
+        name: 'echoed cursor changes',
+        mutate: (page) => ({ ...page, cursor: 'wrong-cursor' }),
+      },
+      {
+        name: 'next cursor has a newline',
+        mutate: (page) => ({ ...page, nextCursor: `area-1\narea-2`, hasMore: true }),
+      },
+      {
+        name: 'hasMore lacks a next cursor',
+        mutate: (page) => ({ ...page, nextCursor: null, hasMore: true }),
+      },
+      {
+        name: 'next cursor is present after the final page',
+        mutate: (page) => ({ ...page, nextCursor: 'area-1', hasMore: false }),
+      },
+      {
+        name: 'page exceeds the requested limit',
+        mutate: (page) => ({ ...page, records: [...page.records, ...page.records] }),
+      },
+    ]
+
+    for (const { name, mutate } of malformedPages) {
+      const repo = new MemoryWorldRepo()
+      await createArea(repo)
+      const listAreaRecords = repo.listAreaRecords.bind(repo)
+      const malformedRepo: WorldAreaRepository = {
+        loadArea: repo.loadArea.bind(repo),
+        loadAreaByFounder: repo.loadAreaByFounder.bind(repo),
+        saveArea: repo.saveArea.bind(repo),
+        listAreaRecords: async (options) => mutate(await listAreaRecords(options)),
+      }
+      const saveAttemptsBefore = repo.saveAttempts
+
+      const result = await readWorldFounderCovenantReviewQueue(malformedRepo, 1_000 + HOUR, { limit: 1 })
+
+      expect(result, name).toEqual({ ok: false, error: 'invalid_review_queue_page' })
+      expect(repo.saveAttempts, name).toBe(saveAttemptsBefore)
+    }
+  })
+
   test('reports unavailable founder covenant review queue repositories', async () => {
     const repo: WorldAreaRepository = {
       loadArea: async () => null,
