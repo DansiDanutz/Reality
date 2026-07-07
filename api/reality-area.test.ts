@@ -264,6 +264,29 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('returns structured storage failure when citizen verification is unavailable', async () => {
+    vi.mocked(list).mockRejectedValueOnce(new Error('citizen token store unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Citizen credentials are temporarily unavailable.',
+      code: 'citizen_verification_unavailable',
+    })
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledWith({ prefix: `citizens/${CITIZEN_ID}__${TOKEN_HASH}`, limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('can read verified Telegram identity from the stored citizen record', async () => {
     vi.mocked(list).mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
@@ -1516,6 +1539,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -2115,6 +2140,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2650,6 +2677,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
