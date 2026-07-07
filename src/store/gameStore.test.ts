@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { freshCommunityStats } from '../game/community'
 import { useGame } from './gameStore'
 import type { ShopItem } from '../game/types'
 
@@ -123,6 +124,75 @@ describe('education study loop', () => {
     const state = useGame.getState()
     expect(state.activity).toBeNull()
     expect(state.educationProgress[0].studiedMinutes).toBe(0)
+    expect(state.xp).toBe(0)
+  })
+})
+
+describe('community action loop', () => {
+  test('community work completes into respect friendship trust and XP once', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: Date.now(), citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: freshCommunityStats(Date.now()),
+      activity: null,
+      lastSeenAt: Date.now(),
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startCommunityAction('help-errand')
+
+    const activity = useGame.getState().activity
+    expect(activity).toMatchObject({ kind: 'community', communityActionId: 'help-errand', communityMinutes: 35 })
+
+    vi.setSystemTime(activity!.endsAt)
+    useGame.getState().tick()
+
+    const completed = useGame.getState()
+    expect(completed.activity).toBeNull()
+    expect(completed.community).toMatchObject({
+      respect: 2,
+      friendship: 2,
+      trust: 2,
+      actionsThisWeek: 1,
+    })
+    expect(completed.xp).toBe(30)
+
+    useGame.getState().tick()
+    expect(useGame.getState().community.actionsThisWeek).toBe(1)
+    expect(useGame.getState().xp).toBe(30)
+  })
+
+  test('leaving community work early gives no community progress', () => {
+    useGame.setState({
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: freshCommunityStats(Date.now()),
+      activity: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startCommunityAction('check-neighbor')
+    useGame.getState().leaveActivity()
+
+    const state = useGame.getState()
+    expect(state.activity).toBeNull()
+    expect(state.community).toMatchObject({
+      respect: 0,
+      friendship: 0,
+      trust: 0,
+      actionsThisWeek: 0,
+    })
     expect(state.xp).toBe(0)
   })
 })

@@ -68,7 +68,7 @@ export interface LifeLadderSnapshot {
   xp: number
   jobId: string | null
   shiftsWorked: number
-  activityKind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | null
+  activityKind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | null
   assets: { kind: AssetKind; incomePerDay: number }[]
   resources: ResourceInventory
   constructionProjects: ConstructionProject[]
@@ -178,6 +178,12 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   return task('build-first-business', 'Build the first business', 'Use stable home life to start an earning building, not instant magic income.', 'capital', { kind: 'market', focus: 'business' }, 45)
 }
 
+function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
+  if (snapshot.lifeDay < 2) return null
+  if (snapshot.communityActionsThisWeek > 0) return null
+  return task('help-local-person', 'Help one local person', 'Respect and friendship grow from showing up before anyone owes you.', 'community', { kind: 'panel', panel: 'achievements' }, 35)
+}
+
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
   const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }, 30)
@@ -253,6 +259,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const work = workPrimary(snapshot)
   const school = schoolPrimary(snapshot)
   const construction = constructionPrimary(snapshot)
+  const community = communityPrimary(snapshot)
   const business = businessPrimary(snapshot)
   const steady = task('steady-owner-day', 'Run a steady owner day', 'Collect, study, help someone, and reinvest the surplus.', 'capital', { kind: 'panel', panel: 'assets' }, 60)
   const primary =
@@ -261,6 +268,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     ?? work
     ?? school
     ?? construction
+    ?? community
     ?? business
     ?? steady
 
@@ -271,6 +279,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     work,
     school,
     construction,
+    community,
     business,
     ...support,
     steady,
