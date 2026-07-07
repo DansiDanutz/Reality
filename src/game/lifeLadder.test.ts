@@ -205,6 +205,34 @@ describe('planLifeDay', () => {
     })
   })
 
+  test('opens the leisure market for hygiene care', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hygiene: 45 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'leisure' },
+    })
+  })
+
+  test('opens the leisure market for fun care', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, fun: 45 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'leisure' },
+    })
+  })
+
   test('makes routine hunger care consume owned food before opening the market', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
