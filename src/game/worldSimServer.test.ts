@@ -1884,6 +1884,29 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('returns a structured error when founder intent cannot load claimed area state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => null,
+      loadAreaByFounder: async () => {
+        throw new Error('founder area load unavailable')
+      },
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
   test('rejects write conflicts before persisting founder intent mutations', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
