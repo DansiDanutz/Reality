@@ -3,6 +3,14 @@ import { educationActionCount } from '../../game/education'
 import { lifeDayFromCreatedAt, planLifeDay } from '../../game/lifeLadder'
 import { useGame } from '../../store/gameStore'
 
+function formatPlanMinutes(minutes: number): string {
+  if (minutes <= 0) return 'now'
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`
+}
+
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
  * onboarding completes. Shows the player's streak + daily-challenge progress
@@ -77,6 +85,20 @@ export default function GoalsCard() {
     }
     if (route.kind === 'panel') setPanel(route.panel)
   }
+  const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
+  const agenda = agendaPreview.length > 0
+    ? (
+        <span className="goals-card-agenda">
+          {agendaPreview.map((item, index) => (
+            <span className="goals-card-agenda-item" key={item.id}>
+              <span className="goals-card-agenda-index">{index + 2}</span>
+              <span>{item.title}</span>
+              <span className="goals-card-agenda-time">{formatPlanMinutes(item.minutes)}</span>
+            </span>
+          ))}
+        </span>
+      )
+    : null
 
   return (
     <button
@@ -102,12 +124,16 @@ export default function GoalsCard() {
             {allDone ? 'All done! 🎉' : oneLeft ? '1 to go!' : `${done}/${total} challenges`}
           </span>
           <span className="goals-card-primary">{lifePlan.primary.title}</span>
-          <span className="goals-card-detail">{lifePlan.primary.value} · day {lifePlan.lifeDay}</span>
+          <span className="goals-card-reason">{lifePlan.primary.detail}</span>
+          <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
+          {agenda}
         </>
       ) : (
         <>
           <span className="goals-card-primary">{lifePlan.primary.title}</span>
-          <span className="goals-card-detail">{lifePlan.primary.value} · day {lifePlan.lifeDay}</span>
+          <span className="goals-card-reason">{lifePlan.primary.detail}</span>
+          <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
+          {agenda}
         </>
       )}
     </button>
