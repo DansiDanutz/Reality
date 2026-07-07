@@ -133,6 +133,31 @@ describe('planLifeDay', () => {
     expect(plan.primary.route).toEqual({ kind: 'survival-action', action: 'sleep' })
   })
 
+  test('makes critical hunger consume owned food as the primary action', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 20 },
+      inventory: { noodles: 1, sandwich: 1 },
+    }))
+
+    expect(plan.primary.id).toBe('eat-food')
+    expect(plan.primary.route).toEqual({ kind: 'consume-action', itemId: 'sandwich' })
+  })
+
+  test('keeps critical hunger on the food market when no food is owned', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 20 },
+    }))
+
+    expect(plan.primary.id).toBe('eat-food')
+    expect(plan.primary.route).toEqual({ kind: 'market', focus: 'food' })
+  })
+
   test('makes routine hydration care a direct drink action when safe', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
