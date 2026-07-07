@@ -3684,6 +3684,29 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   gap: 10px;
   align-items: baseline;
 }
+.worker-hour-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.worker-hour-choice {
+  min-width: 42px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.worker-hour-choice.active {
+  border-color: rgba(240, 180, 41, 0.78);
+  background: rgba(240, 180, 41, 0.2);
+  color: var(--gold);
+}
 .resource-node-item { align-items: center; }
 .construction-project { align-items: stretch; }
 .construction-project-info { gap: 8px; }
