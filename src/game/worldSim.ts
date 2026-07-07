@@ -1176,7 +1176,12 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
   const activeStaff = activeStaffCount(area, business)
   const ownerUnavailable = owner?.state.kind === 'hospitalized'
   const unmanagedPenalty = ownerUnavailable && activeStaff === 0 ? 0.35 : 1
-  return clamp((business.quality ?? 1) * unmanagedPenalty, 0.15, 1.5)
+  return clamp(storedBusinessQuality(business) * unmanagedPenalty, 0.15, 1.5)
+}
+
+function storedBusinessQuality(business: WorldBusiness): number {
+  const quality = business.quality ?? 1
+  return Number.isFinite(quality) ? quality : 1
 }
 
 function buildRecommendation(
@@ -3025,7 +3030,7 @@ function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
   for (const business of area.businesses) {
     const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
     if (owner?.state.kind !== 'hospitalized' || activeStaffCount(area, business) > 0) continue
-    business.quality = roundMoney(Math.max(MIN_BUSINESS_QUALITY, (business.quality ?? 1) - loss))
+    business.quality = roundMoney(Math.max(MIN_BUSINESS_QUALITY, storedBusinessQuality(business) - loss))
   }
 }
 

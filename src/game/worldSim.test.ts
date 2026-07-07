@@ -819,6 +819,30 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('non-finite persisted business quality falls back to finite service capacity', () => {
+    const start = area({
+      citizens: [sim('c1', { needs: fullNeeds({ hydration: 50 }) })],
+      businesses: [business('water', 'water1', { quality: Number.NaN })],
+    })
+
+    expect(effectiveBusinessQuality(start.businesses[0], start)).toBe(1)
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const citizen = out.citizens[0]
+    const dashboard = areaNeedsDashboard(out)
+    const water = dashboard.existingBusinesses[0]
+
+    expect(summary.purchases).toBe(1)
+    expect(citizen.money).toBe(98)
+    expect(out.businesses[0].cash).toBe(2)
+    expect(water.quality).toBe(1)
+    expect(water.hourlyCapacity).toBe(24)
+    expect(Number.isFinite(water.hourlyCapacity)).toBe(true)
+    expect(out.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'c1', toId: 'water1', amount: 2 },
+    ])
+  })
+
   test('a business does not mint passive income when nobody needs its service', () => {
     const start = area({
       citizens: [sim('c1', { needs: fullNeeds({ hydration: 100 }) })],
