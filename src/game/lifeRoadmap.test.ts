@@ -126,7 +126,7 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days[0].primary.id).toBe('drink-water')
     expect(roadmap.days[1].primary.value).not.toBe('body')
     expect(roadmap.finalSnapshot.shiftsWorked).toBe(4)
-    expect(roadmap.finalSnapshot.money).toBeGreaterThan(499)
+    expect(roadmap.finalSnapshot.money).toBeGreaterThan(461)
     expect(roadmap.finalSnapshot.communityRespect).toBe(3)
     expect(roadmap.finalSnapshot.communityTrust).toBe(3)
   })
@@ -192,6 +192,22 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days[1].primary.id).toBe('find-job')
     expect(roadmap.finalSnapshot.needs.energy).toBeGreaterThan(30)
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
+  })
+
+  test('projects the first education course as a paid market action', () => {
+    const roadmap = planLifeRoadmap(snap({
+      money: 500,
+      jobId: 'barista',
+      shiftsWorked: 1,
+    }), 1)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'study-first-course',
+      route: { kind: 'market', focus: 'education' },
+    })
+    expect(roadmap.finalSnapshot.educationActions).toBe(1)
+    expect(roadmap.finalSnapshot.xp).toBe(40)
+    expect(roadmap.finalSnapshot.money).toBe(502)
   })
 
   test('keeps the first-month life loop clear from survival routine to house and business shell', () => {
@@ -473,6 +489,8 @@ describe('planLifeRoadmap', () => {
       id: 'build-first-business',
       route: { kind: 'market', focus: 'business' },
     })
+    expect(shell.finalSnapshot.money).toBeLessThan(16_000)
+    expect(shell.finalSnapshot.money).toBeGreaterThan(15_000)
     expect(shell.finalSnapshot.assets.filter((asset) => asset.kind === 'business')).toEqual([])
     expect(shell.finalSnapshot.businessDevelopmentProjects).toEqual([])
     expect(shell.finalSnapshot.constructionProjects).toHaveLength(1)
