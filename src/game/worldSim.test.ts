@@ -2993,6 +2993,8 @@ describe('advanceWorldArea — local real-time economy', () => {
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost,
       cashShortfall: 0,
       currentDemand: 12,
+      simDemand: 12,
+      realDemand: 0,
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
@@ -3032,6 +3034,31 @@ describe('advanceWorldArea — local real-time economy', () => {
       estimatedHourlyRevenue: 0,
       estimatedHourlyProfit: 0,
       estimatedPaybackHours: null,
+    })
+  })
+
+  test('first-build guidance keeps Sim and real demand visible for founder choices', () => {
+    const start = claimedArea({
+      citizens: [
+        sim('sim-hungry', { needs: fullNeeds({ hunger: 45 }) }),
+        sim('real-hungry', { kind: 'real', needs: fullNeeds({ hunger: 45 }) }),
+        sim('real-thirsty', { kind: 'real', needs: fullNeeds({ hydration: 45 }) }),
+      ],
+    })
+
+    const dash = areaNeedsDashboard(start)
+    const food = dash.firstBuild.find((rec) => rec.kind === 'food')!
+    const water = dash.firstBuild.find((rec) => rec.kind === 'water')!
+
+    expect(food).toMatchObject({
+      currentDemand: 2,
+      simDemand: 1,
+      realDemand: 1,
+    })
+    expect(water).toMatchObject({
+      currentDemand: 1,
+      simDemand: 0,
+      realDemand: 1,
     })
   })
 

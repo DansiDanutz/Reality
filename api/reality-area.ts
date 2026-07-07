@@ -516,6 +516,8 @@ interface FounderAreaFirstBuildRecommendation {
   buildCost: number
   cashShortfall: number
   currentDemand: number
+  simDemand: number
+  realDemand: number
   currentSupply: number
   licenseSlots: number
   licensesRemaining: number
@@ -3257,7 +3259,7 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
     licenseSlots,
     saturation,
     licenses,
-    firstBuild: firstBuildRecommendations(state, { demand, supply, licenses }),
+    firstBuild: firstBuildRecommendations(state, { demand, simDemand, realDemand, supply, licenses }),
     existingBusinesses: state.businesses.map((business) => businessDashboard(state, business)),
     citizens: state.citizens.map((citizen) => citizenDashboard(state, citizen)),
     survival: survivalDashboard(state),
@@ -3560,6 +3562,8 @@ function firstBuildRecommendations(
   state: FounderAreaState,
   input: {
     demand: Record<FounderAreaBusinessKind, number>
+    simDemand: Record<FounderAreaBusinessKind, number>
+    realDemand: Record<FounderAreaBusinessKind, number>
     supply: Record<FounderAreaBusinessKind, number>
     licenses: Record<FounderAreaBusinessKind, FounderAreaLicenseDashboard>
   },
@@ -3609,6 +3613,8 @@ function firstBuildRecommendations(
       buildCost: blueprint.buildCost,
       cashShortfall,
       currentDemand: input.demand[kind],
+      simDemand: input.simDemand[kind],
+      realDemand: input.realDemand[kind],
       currentSupply: input.supply[kind],
       licenseSlots: license.slots,
       licensesRemaining: license.remaining,
