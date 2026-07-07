@@ -2,7 +2,7 @@
 
 Date: 2026-07-07
 Companion PRD: `.omx/plans/prd-reality-daily-life-millionaire-roadmap-2026-07-07.md`
-Execution horizon: 8-day autonomous run from 2026-07-07 through 2026-07-15.
+Execution horizon: autonomous run reset on 2026-07-08 and ending 2026-07-16.
 
 ## Verification Objective
 
