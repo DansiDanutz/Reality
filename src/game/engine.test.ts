@@ -286,7 +286,16 @@ describe('real-time clock', () => {
 
   test('dayOfLife counts real days', () => {
     const created = Date.now() - 3.5 * 24 * HOUR
-    expect(dayOfLife(created)).toBe(4)
+    expect(dayOfLife(created, created + 3.5 * 24 * HOUR)).toBe(4)
+  })
+
+  test('dayOfLife uses caller-owned time and never shows a pre-life day', () => {
+    const created = 1_783_307_000_000
+
+    expect(dayOfLife(created, created)).toBe(1)
+    expect(dayOfLife(created, created - HOUR)).toBe(1)
+    expect(dayOfLife(created, created + 24 * HOUR)).toBe(2)
+    expect(dayOfLife(created, Number.NaN)).toBe(1)
   })
 })
 

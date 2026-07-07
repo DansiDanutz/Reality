@@ -17,9 +17,10 @@ import { useGame } from '../../store/gameStore'
 export default function JournalPanel() {
   const citizen = useGame((s) => s.citizen)
   const log = useGame((s) => s.log)
+  const now = useGame((s) => s.lastSeenAt)
 
   if (!citizen) return null
-  const day = dayOfLife(citizen.createdAt)
+  const day = dayOfLife(citizen.createdAt, now)
 
   return (
     <section className="panel" aria-label="Journal">

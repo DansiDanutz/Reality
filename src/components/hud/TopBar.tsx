@@ -16,7 +16,7 @@ export default function TopBar() {
   const achievementsClaimed = useGame((s) => s.achievementsClaimed)
   const streakLength = useGame((s) => s.streakLength)
   // Re-render every tick so the real clock stays live
-  useGame((s) => s.lastSeenAt)
+  const now = useGame((s) => s.lastSeenAt)
 
   // Gold badge on 🏆 when an achievement is earned but not yet claimed (the
   // 1-second window before tick auto-claims, or any edge case)
@@ -28,12 +28,12 @@ export default function TopBar() {
   // citizen lives — their owned home, else their real hometown.
   const home = assets.find((a) => a.kind === 'home')
   const anchor = home ?? (citizen.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
-  const clock = localClock(anchor ? zoneFor(anchor.lat, anchor.lng) : undefined)
+  const clock = localClock(anchor ? zoneFor(anchor.lat, anchor.lng) : undefined, new Date(now))
   // The zone-derived place is the IANA zone's capital (all of Romania →
   // "Bucharest"). When the citizen lives at their spawn, their real detected
   // hometown is the honest label; an owned home keeps the zone city.
   const placeName = home ? clock.place : (citizen.homeCity ?? clock.place)
-  const day = dayOfLife(citizen.createdAt)
+  const day = dayOfLife(citizen.createdAt, now)
 
   const toggle = (id: 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'achievements' | 'boxes') => setPanel(panel === id ? null : id)
 

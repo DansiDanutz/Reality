@@ -33,6 +33,8 @@ export function localClock(zone?: string, at: Date = new Date()): LocalClock {
   return { time, place }
 }
 
-/** Day N of a citizen's life, in real days */
-export const dayOfLife = (createdAt: number, now: number = Date.now()) =>
-  Math.floor((now - createdAt) / 86_400_000) + 1
+/** Day N of a citizen's life, in real days. The caller owns the clock. */
+export function dayOfLife(createdAt: number, now: number): number {
+  if (!Number.isFinite(createdAt) || !Number.isFinite(now)) return 1
+  return Math.max(1, Math.floor((now - createdAt) / 86_400_000) + 1)
+}

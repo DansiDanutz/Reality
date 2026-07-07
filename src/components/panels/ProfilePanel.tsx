@@ -135,12 +135,13 @@ export default function ProfilePanel() {
   const achievementsClaimed = useGame((s) => s.achievementsClaimed)
   const streakBest = useGame((s) => s.streakBest)
   const luckyMomentsSeen = useGame((s) => s.luckyMomentsSeen)
+  const now = useGame((s) => s.lastSeenAt)
 
   if (!citizen) return null
 
   const netWorth = netWorthOf(money, inventory, assets)
   const dailyYield = assets.reduce((sum, a) => sum + a.incomePerDay, 0)
-  const daysLived = dayOfLife(citizen.createdAt)
+  const daysLived = dayOfLife(citizen.createdAt, now)
   const businesses = assets.filter((a) => a.kind === 'business').length
   const homes = assets.filter((a) => a.kind === 'home').length
   const pets = useGame.getState().pets.length
