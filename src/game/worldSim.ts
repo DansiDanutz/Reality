@@ -2831,6 +2831,7 @@ function hireWorkerFromIntent(
   const business = area.businesses.find((candidate) => candidate.id === intent.businessId)
   if (!business) return { ok: false, area, error: 'business_not_found' }
   if (business.ownerId !== actor.id) return { ok: false, area, error: 'actor_not_business_owner' }
+  business.staffCitizenIds = assignedStaffRoster(area, business)
   if (business.staffCitizenIds.includes(intent.workerCitizenId)) {
     return { ok: false, area, error: 'worker_already_hired' }
   }
@@ -2848,6 +2849,13 @@ function hireWorkerFromIntent(
   worker.jobBusinessId = business.id
   business.staffCitizenIds.push(worker.id)
   return { ok: true, area }
+}
+
+function assignedStaffRoster(area: WorldArea, business: WorldBusiness): string[] {
+  return business.staffCitizenIds.filter((id) => {
+    const citizen = area.citizens.find((candidate) => candidate.id === id)
+    return citizen?.jobBusinessId === business.id
+  })
 }
 
 function buyInsuranceFromIntent(

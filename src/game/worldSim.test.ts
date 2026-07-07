@@ -483,7 +483,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'worker_unavailable' })
 
     const withExistingWorker = claimedArea({
-      citizens: [sim('existing')],
+      citizens: [sim('existing', { jobBusinessId: 'food1' })],
       businesses: [business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['existing'] })],
     })
     expect(applyWorldIntent(withExistingWorker, {
@@ -535,7 +535,29 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(hired.ok).toBe(true)
     if (!hired.ok) throw new Error('expected stale roster not to block hiring')
-    expect(hired.area.businesses.find((b) => b.id === 'water1')!.staffCitizenIds).toEqual(['stale-worker', 'worker'])
+    expect(hired.area.businesses.find((b) => b.id === 'water1')!.staffCitizenIds).toEqual(['worker'])
+    expect(hired.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('water1')
+  })
+
+  test('hire intents repair stale same-worker roster entries before assignment', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('water', 'water1', {
+        ownerId: 'founder',
+        staffCitizenIds: ['worker'],
+      })],
+    })
+
+    const hired = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'water1',
+      workerCitizenId: 'worker',
+    })
+
+    expect(hired.ok).toBe(true)
+    if (!hired.ok) throw new Error('expected stale same-worker roster to be repairable')
+    expect(hired.area.businesses.find((b) => b.id === 'water1')!.staffCitizenIds).toEqual(['worker'])
     expect(hired.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('water1')
   })
 
