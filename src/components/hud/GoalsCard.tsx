@@ -29,6 +29,7 @@ function routineShortLabel(block: { id: string; value: string; route: { kind: st
   }
   if (block.route.kind === 'panel' && block.route.panel === 'business') return 'Biz'
   if (block.route.kind === 'panel' && block.route.panel === 'construction') return 'Build'
+  if (block.route.kind === 'gather') return 'Gather'
   return 'Own'
 }
 
@@ -97,6 +98,7 @@ export default function GoalsCard() {
   const activity = useGame((s) => s.activity)
   const assets = useGame((s) => s.assets)
   const resources = useGame((s) => s.resources)
+  const resourceNodes = useGame((s) => s.resourceNodes)
   const constructionProjects = useGame((s) => s.constructionProjects)
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const educationProgress = useGame((s) => s.educationProgress)
@@ -105,6 +107,7 @@ export default function GoalsCard() {
   const dailyCounters = useGame((s) => s.dailyCounters)
   const setPanel = useGame((s) => s.setPanel)
   const openMarket = useGame((s) => s.openMarket)
+  const startGatherResource = useGame((s) => s.startGatherResource)
 
   if (!citizen) return null
 
@@ -148,6 +151,15 @@ export default function GoalsCard() {
   const openRoute = (route: typeof lifePlan.primary.route) => {
     if (route.kind === 'market') {
       openMarket(route.focus)
+      return
+    }
+    if (route.kind === 'gather') {
+      const node = resourceNodes.find((candidate) => candidate.kind === route.resourceKind)
+      if (node) {
+        startGatherResource(node.id)
+        return
+      }
+      setPanel('construction')
       return
     }
     if (route.kind === 'panel') setPanel(route.panel)
