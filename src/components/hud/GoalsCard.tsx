@@ -65,11 +65,19 @@ function buildEtaSummary(forecast: ConstructionDayForecast | null): string | nul
   if (forecast.upfrontCostRemaining > 0 && !forecast.upfrontAffordableToday) {
     return `Build ETA: ${parts.join(' · ')}`
   }
+  if (forecast.totalGatherMinutes > 0) {
+    parts.push(`${formatPlanMinutes(forecast.totalGatherMinutes)} gather`)
+    if (forecast.permitRemaining > 0) {
+      parts.push(`${formatMoney(forecast.permitRemaining)} permit`)
+      parts.push(forecast.permitAffordableToday ? 'permit ready' : `save ${formatMoney(forecast.permitCashNeeded)}`)
+    }
+    return `Build ETA: ${parts.join(' · ')}`
+  }
   if (forecast.permitRemaining > 0 && forecast.upfrontAffordableToday) {
     parts.push(`${formatMoney(forecast.permitRemaining)} permit`)
     parts.push(forecast.permitAffordableToday ? 'permit ready' : `save ${formatMoney(forecast.permitCashNeeded)}`)
+    if (!forecast.permitAffordableToday) return `Build ETA: ${parts.join(' · ')}`
   }
-  if (forecast.totalGatherMinutes > 0) parts.push(`${formatPlanMinutes(forecast.totalGatherMinutes)} gather`)
   if (forecast.remainingLaborMinutes > 0) {
     parts.push(`${forecast.playerOnlyDaysAtOneHour}d solo`)
     if (forecast.activeWorkerCount > 0) {
