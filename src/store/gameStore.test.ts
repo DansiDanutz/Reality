@@ -390,6 +390,50 @@ describe('resource gathering loop', () => {
   })
 })
 
+describe('courier Life Ladder wrapper', () => {
+  test('new daily package follows the current Life Ladder primary task', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      money: 500,
+      jobId: null,
+      shiftsWorked: 0,
+      activity: null,
+      lastSeenAt: now - 60_000,
+      activeCourierPackage: null,
+      courierLastDay: 0,
+      completedCourierDays: [],
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().tick()
+
+    const pkg = useGame.getState().activeCourierPackage
+    expect(pkg).toMatchObject({
+      day: 1,
+      title: 'Find honest work',
+      objective: 'Find honest work',
+      requirement: { kind: 'job' },
+    })
+
+    useGame.getState().completeCourierPackage()
+    expect(useGame.getState().completedCourierDays).toEqual([])
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({ tone: 'blocked' })
+
+    useGame.setState({ jobId: 'barista' })
+    useGame.getState().completeCourierPackage()
+
+    expect(useGame.getState().completedCourierDays).toEqual([1])
+    expect(useGame.getState().activeCourierPackage).toBeNull()
+  })
+})
+
 describe('education study loop', () => {
   test('buying education enrolls without granting XP', () => {
     useGame.setState({

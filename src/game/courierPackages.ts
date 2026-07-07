@@ -1,9 +1,14 @@
-import type { ResourceKind } from './resources'
+import { RESOURCE_META, type ResourceKind } from './resources'
 import type { ConstructionProject } from './construction'
+import type { LifePlanTask } from './lifeLadder'
 
 export type CourierRequirement =
   | { kind: 'none' }
   | { kind: 'food'; timesEaten: number }
+  | { kind: 'job' }
+  | { kind: 'shift'; shiftsWorked: number }
+  | { kind: 'education'; educationActions: number }
+  | { kind: 'community'; actionsThisWeek: number }
   | { kind: 'street-mode-seen' }
   | { kind: 'resource'; resource: ResourceKind; amount: number }
   | { kind: 'construction-site' }
@@ -28,6 +33,10 @@ export interface CourierSnapshot {
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
   hasHome: boolean
+  jobId?: string | null
+  shiftsWorked?: number
+  educationActions?: number
+  communityActionsThisWeek?: number
 }
 
 export const COURIER_MVP_DAYS = 10
@@ -140,6 +149,14 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return true
     case 'food':
       return snapshot.timesEaten >= requirement.timesEaten
+    case 'job':
+      return Boolean(snapshot.jobId)
+    case 'shift':
+      return (snapshot.shiftsWorked ?? 0) >= requirement.shiftsWorked
+    case 'education':
+      return (snapshot.educationActions ?? 0) >= requirement.educationActions
+    case 'community':
+      return (snapshot.communityActionsThisWeek ?? 0) >= requirement.actionsThisWeek
     case 'street-mode-seen':
       return snapshot.sawStreetMode
     case 'resource':
@@ -168,4 +185,51 @@ export function shouldCreateCourierPackage(args: {
   if (args.courierLastDay === args.localDay) return null
   if (args.completedDays.includes(args.citizenAgeDay)) return null
   return courierPackageForDay(args.citizenAgeDay)
+}
+
+export function courierPackageForLifePlan(citizenAgeDay: number, primary: LifePlanTask, snapshot: CourierSnapshot): CourierPackage | null {
+  const base = courierPackageForDay(citizenAgeDay)
+  if (!base) return null
+  const requirement = courierRequirementForLifePlan(primary, snapshot) ?? base.requirement
+  const targetResource = primary.route.kind === 'gather' ? primary.route.resourceKind : base.targetResource
+  return {
+    ...base,
+    title: primary.title,
+    story: `${base.story} Today's note points at the Life Ladder: ${primary.detail}`,
+    objective: primary.title,
+    requirement,
+    targetResource,
+  }
+}
+
+function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierSnapshot): CourierRequirement | null {
+  const route = primary.route
+  if (route.kind === 'panel' && route.panel === 'work') return { kind: 'job' }
+  if (route.kind === 'work-action') return { kind: 'shift', shiftsWorked: (snapshot.shiftsWorked ?? 0) + 1 }
+  if (route.kind === 'education-action' || (route.kind === 'market' && route.focus === 'education')) {
+    return { kind: 'education', educationActions: (snapshot.educationActions ?? 0) + 1 }
+  }
+  if (route.kind === 'community-action') return { kind: 'community', actionsThisWeek: (snapshot.communityActionsThisWeek ?? 0) + 1 }
+  if (route.kind === 'gather') {
+    return {
+      kind: 'resource',
+      resource: route.resourceKind,
+      amount: (snapshot.resources[route.resourceKind] ?? 0) + RESOURCE_META[route.resourceKind].yieldAmount,
+    }
+  }
+  if (route.kind === 'construction-action') {
+    const project = snapshot.constructionProjects.find((candidate) => candidate.id === route.projectId)
+    if (route.action === 'work' || route.action === 'hire-helper') {
+      return { kind: 'construction-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
+    }
+    if (route.action === 'complete') {
+      return { kind: 'home-built-or-progress', laborMinutes: project?.laborDoneMinutes ?? 0 }
+    }
+    return null
+  }
+  if (route.kind === 'panel' && route.panel === 'construction') return { kind: 'construction-site' }
+  if (route.kind === 'consume-action' || route.kind === 'cook-action' || (route.kind === 'market' && route.focus === 'food')) {
+    return { kind: 'food', timesEaten: snapshot.timesEaten + 1 }
+  }
+  return null
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   COURIER_PACKAGES,
+  courierPackageForLifePlan,
   courierPackageForDay,
   courierRequirementMet,
   shouldCreateCourierPackage,
@@ -74,5 +75,96 @@ describe('courierPackages', () => {
       constructionProjects: [project],
       hasHome: false,
     })).toBe(true)
+  })
+
+  test('checks Life Ladder job, shift, education, and community requirements', () => {
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'job' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      jobId: null,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'job' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      jobId: 'barista',
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'shift', shiftsWorked: 3 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      shiftsWorked: 2,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education', educationActions: 1 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationActions: 1,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'community', actionsThisWeek: 2 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      communityActionsThisWeek: 2,
+    })).toBe(true)
+  })
+
+  test('wraps the current Life Ladder primary task as the courier objective', () => {
+    const pkg = courierPackageForLifePlan(2, {
+      id: 'first-shift',
+      title: 'Work your first shift',
+      detail: 'A reliable first shift funds food, water, and the first build.',
+      value: 'work',
+      minutes: 480,
+      route: { kind: 'work-action', action: 'shift' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      shiftsWorked: 0,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 2,
+      title: 'Work your first shift',
+      objective: 'Work your first shift',
+      requirement: { kind: 'shift', shiftsWorked: 1 },
+    })
+    expect(pkg?.story).toContain('Life Ladder')
+  })
+
+  test('turns gather tasks into one concrete resource trip requirement', () => {
+    const pkg = courierPackageForLifePlan(4, {
+      id: 'gather-wood',
+      title: 'Gather wood',
+      detail: 'The starter house still needs wood.',
+      value: 'capital',
+      minutes: 20,
+      route: { kind: 'gather', resourceKind: 'wood' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources({ wood: 10 }),
+      constructionProjects: [],
+      hasHome: false,
+    })
+
+    expect(pkg).toMatchObject({
+      targetResource: 'wood',
+      requirement: { kind: 'resource', resource: 'wood', amount: 35 },
+    })
   })
 })

@@ -92,9 +92,11 @@ import {
 } from '../game/construction'
 import {
   type CourierPackage,
+  courierPackageForLifePlan,
   courierRequirementMet,
   shouldCreateCourierPackage,
 } from '../game/courierPackages'
+import { planLifeDay } from '../game/lifeLadder'
 import {
   type ResourceInventory,
   type ResourceNode,
@@ -847,13 +849,17 @@ function citizenCourierDay(citizen: Citizen, todayDay: number, anchorLat?: numbe
   return Math.max(1, todayDay - createdDay + 1)
 }
 
-function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'assets'>) {
+function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
   return {
     timesEaten: s.timesEaten,
     sawStreetMode: s.sawStreetMode,
     resources: s.resources,
     constructionProjects: s.constructionProjects,
     hasHome: s.assets.some((asset) => asset.kind === 'home'),
+    jobId: s.jobId,
+    shiftsWorked: s.shiftsWorked,
+    educationActions: educationActionCount(s.educationProgress),
+    communityActionsThisWeek: s.community.actionsThisWeek,
   }
 }
 
@@ -1630,12 +1636,48 @@ export const useGame = create<GameState>()(
         let activeCourierPackage = s.activeCourierPackage
         let courierLastDay = s.courierLastDay
         const courierDay = citizenCourierDay(s.citizen, todayDay, anchorLat, anchorLng)
-        const nextPackage = shouldCreateCourierPackage({
+        const baseCourierPackage = shouldCreateCourierPackage({
           citizenAgeDay: courierDay,
           localDay: todayDay,
           courierLastDay,
           completedDays: s.completedCourierDays,
         })
+        const courierSnapshot = {
+          timesEaten,
+          sawStreetMode: s.sawStreetMode,
+          resources,
+          constructionProjects,
+          hasHome: out.assets.some((asset) => asset.kind === 'home'),
+          jobId: s.jobId,
+          shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+          educationActions: educationActionCount(educationProgress),
+          communityActionsThisWeek: community.actionsThisWeek,
+        }
+        const nextPackage = baseCourierPackage
+          ? courierPackageForLifePlan(courierDay, planLifeDay({
+              lifeDay: courierDay,
+              money,
+              needs,
+              health: out.health,
+              level,
+              xp,
+              jobId: s.jobId,
+              shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+              activityKind: out.activity?.kind ?? null,
+              assets: out.assets,
+              inventory: out.inventory,
+              resources,
+              constructionProjects,
+              businessDevelopmentProjects,
+              educationActions: educationActionCount(educationProgress),
+              educationProgress,
+              communityActionsThisWeek: community.actionsThisWeek,
+              communityActionsToday: community.actionsToday,
+              communityRespect: community.respect,
+              communityFriendship: community.friendship,
+              communityTrust: community.trust,
+            }).primary, courierSnapshot) ?? baseCourierPackage
+          : null
         if (nextPackage) {
           activeCourierPackage = nextPackage
           courierLastDay = todayDay

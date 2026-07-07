@@ -1,4 +1,5 @@
 import { courierRequirementMet } from '../../game/courierPackages'
+import { educationActionCount } from '../../game/education'
 import { RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 
@@ -17,6 +18,10 @@ export default function CourierPackagePrompt() {
   const opened = useGame((s) => pkg ? s.courierOpenedDays.includes(pkg.day) : false)
   const timesEaten = useGame((s) => s.timesEaten)
   const sawStreetMode = useGame((s) => s.sawStreetMode)
+  const jobId = useGame((s) => s.jobId)
+  const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const educationProgress = useGame((s) => s.educationProgress)
+  const community = useGame((s) => s.community)
   const resources = useGame((s) => s.resources)
   const constructionProjects = useGame((s) => s.constructionProjects)
   const hasHome = useGame((s) => s.assets.some((asset) => asset.kind === 'home'))
@@ -33,7 +38,17 @@ export default function CourierPackagePrompt() {
 
   if (!pkg || panel || !targetsSeen) return null
 
-  const ready = courierRequirementMet(pkg, { timesEaten, sawStreetMode, resources, constructionProjects, hasHome })
+  const ready = courierRequirementMet(pkg, {
+    timesEaten,
+    sawStreetMode,
+    resources,
+    constructionProjects,
+    hasHome,
+    jobId,
+    shiftsWorked,
+    educationActions: educationActionCount(educationProgress),
+    communityActionsThisWeek: community.actionsThisWeek,
+  })
   const resourceKind = firstResourceFromRequirement(pkg.requirement)
   const resourceNode = resourceKind ? resourceNodes.find((node) => node.kind === resourceKind) : null
   const project = constructionProjects[0]
@@ -47,6 +62,16 @@ export default function CourierPackagePrompt() {
     switch (pkg.requirement.kind) {
       case 'food':
         openMarket('food')
+        return
+      case 'job':
+      case 'shift':
+        setPanel('work')
+        return
+      case 'education':
+        openMarket('education')
+        return
+      case 'community':
+        setPanel('achievements')
         return
       case 'street-mode-seen':
         setStreetMode(true)
@@ -75,6 +100,14 @@ export default function CourierPackagePrompt() {
     ? 'Claim reward'
     : pkg.requirement.kind === 'food'
       ? 'Find food'
+      : pkg.requirement.kind === 'job'
+        ? 'Find work'
+        : pkg.requirement.kind === 'shift'
+          ? 'Work shift'
+          : pkg.requirement.kind === 'education'
+            ? 'Study'
+            : pkg.requirement.kind === 'community'
+              ? 'Help'
       : pkg.requirement.kind === 'street-mode-seen'
         ? 'Walk'
         : pkg.requirement.kind === 'construction-site'
