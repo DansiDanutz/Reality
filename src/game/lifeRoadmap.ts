@@ -161,6 +161,18 @@ function applySleep(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
   return { ...snapshot, needs: rested.needs, health: rested.health }
 }
 
+function projectsWorkday(plan: LifePlan): boolean {
+  return plan.primary.value !== 'body'
+}
+
+function projectedDailyCashDelta(plan: LifePlan): number {
+  const cashflow = plan.millionairePath.cashflow
+  return cashflow.passivePerDay +
+    (projectsWorkday(plan) ? cashflow.wagesPerDay : 0) -
+    cashflow.livingCostPerDay -
+    cashflow.upkeepPerDay
+}
+
 function cloneSnapshot(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
   return {
     ...snapshot,
@@ -312,12 +324,13 @@ function applyBusinessCompletion(snapshot: LifeLadderSnapshot, projectId: string
 
 function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSnapshot {
   const route = plan.primary.route
+  const workday = projectsWorkday(plan)
   let next: LifeLadderSnapshot = {
     ...snapshot,
-    money: Math.max(0, Math.round(snapshot.money + plan.millionairePath.cashflow.netPerDay)),
+    money: Math.max(0, Math.round(snapshot.money + projectedDailyCashDelta(plan))),
   }
 
-  if (snapshot.jobId) {
+  if (snapshot.jobId && workday) {
     next = {
       ...next,
       shiftsWorked: next.shiftsWorked + 1,

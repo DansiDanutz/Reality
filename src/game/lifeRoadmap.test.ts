@@ -92,6 +92,45 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
   })
 
+  test('does not count a full workday while critical body care is the primary task', () => {
+    const roadmap = planLifeRoadmap(snap({
+      money: 500,
+      needs: { ...goodNeeds, hydration: 20 },
+      jobId: 'barista',
+      shiftsWorked: 3,
+      communityRespect: 2,
+      communityTrust: 2,
+    }), 1)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'drink-water',
+      value: 'body',
+      route: { kind: 'survival-action', action: 'drink-water' },
+    })
+    expect(roadmap.finalSnapshot.shiftsWorked).toBe(3)
+    expect(roadmap.finalSnapshot.money).toBe(461)
+    expect(roadmap.finalSnapshot.communityRespect).toBe(2)
+    expect(roadmap.finalSnapshot.communityTrust).toBe(2)
+  })
+
+  test('resumes projected work after a recovery day makes the body safe', () => {
+    const roadmap = planLifeRoadmap(snap({
+      money: 500,
+      needs: { ...goodNeeds, hydration: 20 },
+      jobId: 'barista',
+      shiftsWorked: 3,
+      communityRespect: 2,
+      communityTrust: 2,
+    }), 2)
+
+    expect(roadmap.days[0].primary.id).toBe('drink-water')
+    expect(roadmap.days[1].primary.value).not.toBe('body')
+    expect(roadmap.finalSnapshot.shiftsWorked).toBe(4)
+    expect(roadmap.finalSnapshot.money).toBeGreaterThan(499)
+    expect(roadmap.finalSnapshot.communityRespect).toBe(3)
+    expect(roadmap.finalSnapshot.communityTrust).toBe(3)
+  })
+
   test('projects owned food consumption before returning to work', () => {
     const roadmap = planLifeRoadmap(snap({
       needs: { ...goodNeeds, hunger: 20 },
