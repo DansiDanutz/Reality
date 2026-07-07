@@ -1370,6 +1370,20 @@ describe('reality area authority API', () => {
             amount: 125,
             issuedAt: '2026-07-06T02:30:00.000Z',
             memo: 'Founder owes hospital debt.',
+          }, {
+            id: 'settled-medical-debt',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: 0,
+            issuedAt: '2026-07-05T02:30:00.000Z',
+            memo: 'Settled founder hospital debt.',
+          }, {
+            id: 'void-medical-debt',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: -50,
+            issuedAt: '2026-07-05T03:30:00.000Z',
+            memo: 'Voided founder hospital debt.',
           }],
         },
         ...built.citizens.slice(1),
@@ -1516,6 +1530,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -2115,6 +2131,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2650,6 +2668,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -3395,6 +3415,20 @@ describe('reality area authority API', () => {
         amount: 120,
         issuedAt: '2026-07-13T08:00:00.000Z',
         memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }, {
+        id: 'founder-settled-review-debt',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 0,
+        issuedAt: '2026-07-12T08:00:00.000Z',
+        memo: 'Founder #0012 settled this medical debt.',
+      }, {
+        id: 'founder-void-review-debt',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: -25,
+        issuedAt: '2026-07-12T09:00:00.000Z',
+        memo: 'Founder #0012 voided this medical debt.',
       }],
     })
     const stale = {
