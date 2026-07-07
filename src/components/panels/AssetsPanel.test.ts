@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { createBusinessDevelopmentProject } from '../../game/businessDevelopment'
+import { createConstructionProject } from '../../game/construction'
 import { freshResources } from '../../game/resources'
 import type { PlacedAsset } from '../../game/types'
-import { businessInteriorAssetView } from './assetsPanelView'
+import { businessInteriorAssetView, constructionAssetView } from './assetsPanelView'
 
 const business = (): PlacedAsset => ({
   id: 'foodcart-1',
@@ -49,6 +50,51 @@ describe('businessInteriorAssetView', () => {
     expect(view.laborText).toBe('1h 15m labor left')
     expect(view.progress.resourcesComplete).toBe(true)
     expect(view.progress.budgetComplete).toBe(true)
+    expect(view.progress.laborComplete).toBe(false)
+  })
+})
+
+describe('constructionAssetView', () => {
+  test('summarizes an active construction project as owned asset work', () => {
+    const project = createConstructionProject('starter-house', 45, 21, 1_700_000_000_000)
+
+    const view = constructionAssetView(project)
+
+    expect(view.materialText).toContain('missing')
+    expect(view.permitText).toBe('$500 permit')
+    expect(view.laborText).toBe('8h labor left')
+    expect(view.percentText).toBe('0% built')
+    expect(view.completionText).toBe('home')
+  })
+
+  test('marks construction materials, permit, labor, and hired workers clearly', () => {
+    const project = createConstructionProject('starter-house', 45, 21, 1_700_000_000_000)
+
+    const view = constructionAssetView({
+      ...project,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 45,
+      workerContracts: [{
+        id: 'starter-house:helper:1',
+        workerId: 'helper',
+        workerName: 'Local helper',
+        hiredAt: 1_700_000_000_000,
+        paidUntil: 1_700_003_600_000,
+        paidMinutes: 60,
+        workedMinutes: 15,
+        laborMultiplier: 1,
+        ratePerHour: 16,
+        cost: 16,
+      }],
+    })
+
+    expect(view.materialText).toBe('materials ready')
+    expect(view.permitText).toBe('permit paid')
+    expect(view.laborText).toBe('45m labor left')
+    expect(view.workerText).toBe('1 worker active')
+    expect(view.progress.resourcesComplete).toBe(true)
+    expect(view.progress.permitComplete).toBe(true)
     expect(view.progress.laborComplete).toBe(false)
   })
 })

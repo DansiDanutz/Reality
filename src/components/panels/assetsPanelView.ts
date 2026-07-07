@@ -4,6 +4,12 @@ import {
   businessDevelopmentShortfall,
   type BusinessDevelopmentProject,
 } from '../../game/businessDevelopment'
+import {
+  constructionLaborBreakdown,
+  constructionProgress,
+  constructionShortfall,
+  type ConstructionProject,
+} from '../../game/construction'
 import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META } from '../../game/resources'
 
@@ -19,6 +25,31 @@ function missingResourceText(missing: Record<string, number>): string {
   return RESOURCE_KINDS.filter((kind) => missing[kind] > 0)
     .map((kind) => `${missing[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`)
     .join(', ')
+}
+
+function activeWorkerText(count: number): string | null {
+  if (count <= 0) return null
+  return `${count} worker${count === 1 ? '' : 's'} active`
+}
+
+export function constructionAssetView(project: ConstructionProject) {
+  const progress = constructionProgress(project)
+  const missing = constructionShortfall(project)
+  const labor = constructionLaborBreakdown(project)
+  const missingText = missingResourceText(missing)
+  const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
+  return {
+    progress,
+    missingText,
+    labor,
+    activeWorkerCount: activeWorkers.length,
+    materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
+    permitText: project.permitFeePaid ? 'permit paid' : `${formatMoney(project.permitFee)} permit`,
+    laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
+    workerText: activeWorkerText(activeWorkers.length),
+    percentText: `${progress.percent}% built`,
+    completionText: project.resultKind === 'business' ? 'open' : 'home',
+  }
 }
 
 export function businessInteriorAssetView(project: BusinessDevelopmentProject) {
@@ -38,7 +69,7 @@ export function businessInteriorAssetView(project: BusinessDevelopmentProject) {
     materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
     budgetText: project.budgetPaid ? 'budget paid' : `${formatMoney(project.budgetCost)} budget`,
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
-    workerText: activeWorkers.length > 0 ? `${activeWorkers.length} worker active` : null,
+    workerText: activeWorkerText(activeWorkers.length),
     percentText: `${progress.percent}% ready`,
   }
 }
