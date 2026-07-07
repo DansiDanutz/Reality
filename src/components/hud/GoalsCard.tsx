@@ -6,6 +6,7 @@ import {
   planLifeDay,
   type BusinessDevelopmentDayForecast,
   type ConstructionDayForecast,
+  type LifePlanRoute,
 } from '../../game/lifeLadder'
 import { useGame } from '../../store/gameStore'
 
@@ -17,7 +18,7 @@ function formatPlanMinutes(minutes: number): string {
   return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`
 }
 
-function routineShortLabel(block: { id: string; value: string; route: { kind: string; panel?: string } }): string {
+function routineShortLabel(block: { id: string; value: string; route: LifePlanRoute }): string {
   if (block.id === 'sleep-block') return 'Sleep'
   if (block.id === 'body-block') return 'Body'
   if (block.id === 'work-block') return 'Work'
@@ -30,6 +31,20 @@ function routineShortLabel(block: { id: string; value: string; route: { kind: st
   if (block.route.kind === 'panel' && block.route.panel === 'business') return 'Biz'
   if (block.route.kind === 'panel' && block.route.panel === 'construction') return 'Build'
   if (block.route.kind === 'gather') return 'Gather'
+  if (block.route.kind === 'construction-action') {
+    if (block.route.action === 'deposit') return 'Deposit'
+    if (block.route.action === 'permit') return 'Permit'
+    if (block.route.action === 'hire-helper') return 'Hire'
+    if (block.route.action === 'complete') return 'Finish'
+    return 'Build'
+  }
+  if (block.route.kind === 'business-development-action') {
+    if (block.route.action === 'deposit') return 'Deposit'
+    if (block.route.action === 'budget') return 'Budget'
+    if (block.route.action === 'hire-helper') return 'Hire'
+    if (block.route.action === 'complete') return 'Finish'
+    return 'Work'
+  }
   return 'Own'
 }
 
@@ -108,6 +123,16 @@ export default function GoalsCard() {
   const setPanel = useGame((s) => s.setPanel)
   const openMarket = useGame((s) => s.openMarket)
   const startGatherResource = useGame((s) => s.startGatherResource)
+  const depositConstructionResources = useGame((s) => s.depositConstructionResources)
+  const payConstructionPermit = useGame((s) => s.payConstructionPermit)
+  const startConstructionWork = useGame((s) => s.startConstructionWork)
+  const hireConstructionWorker = useGame((s) => s.hireConstructionWorker)
+  const completeConstructionIfReady = useGame((s) => s.completeConstructionIfReady)
+  const depositBusinessDevelopmentResources = useGame((s) => s.depositBusinessDevelopmentResources)
+  const payBusinessDevelopmentBudget = useGame((s) => s.payBusinessDevelopmentBudget)
+  const startBusinessDevelopmentWork = useGame((s) => s.startBusinessDevelopmentWork)
+  const hireBusinessDevelopmentWorker = useGame((s) => s.hireBusinessDevelopmentWorker)
+  const completeBusinessDevelopmentIfReady = useGame((s) => s.completeBusinessDevelopmentIfReady)
 
   if (!citizen) return null
 
@@ -160,6 +185,22 @@ export default function GoalsCard() {
         return
       }
       setPanel('construction')
+      return
+    }
+    if (route.kind === 'construction-action') {
+      if (route.action === 'deposit') depositConstructionResources(route.projectId)
+      else if (route.action === 'permit') payConstructionPermit(route.projectId)
+      else if (route.action === 'work') startConstructionWork(route.projectId)
+      else if (route.action === 'hire-helper') hireConstructionWorker(route.projectId, 'helper', 1)
+      else completeConstructionIfReady(route.projectId)
+      return
+    }
+    if (route.kind === 'business-development-action') {
+      if (route.action === 'deposit') depositBusinessDevelopmentResources(route.projectId)
+      else if (route.action === 'budget') payBusinessDevelopmentBudget(route.projectId)
+      else if (route.action === 'work') startBusinessDevelopmentWork(route.projectId)
+      else if (route.action === 'hire-helper') hireBusinessDevelopmentWorker(route.projectId, 'helper', 1)
+      else completeBusinessDevelopmentIfReady(route.projectId)
       return
     }
     if (route.kind === 'panel') setPanel(route.panel)

@@ -18,10 +18,15 @@ import type { AssetKind, Needs, ShopCategory } from './types'
 
 export type LifeValue = 'body' | 'school' | 'work' | 'respect' | 'friendship' | 'community' | 'capital'
 
+export type ConstructionPlanAction = 'deposit' | 'permit' | 'work' | 'hire-helper' | 'complete'
+export type BusinessDevelopmentPlanAction = 'deposit' | 'budget' | 'work' | 'hire-helper' | 'complete'
+
 export type LifePlanRoute =
   | { kind: 'panel'; panel: 'work' | 'construction' | 'assets' | 'home' | 'business' | 'achievements' }
   | { kind: 'market'; focus: ShopCategory }
   | { kind: 'gather'; resourceKind: ResourceKind }
+  | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction }
+  | { kind: 'business-development-action'; projectId: string; action: BusinessDevelopmentPlanAction }
   | { kind: 'none' }
 
 export interface LifePlanTask {
@@ -215,7 +220,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         isBusinessBuild ? `Deposit ${project.name} materials` : 'Deposit house materials',
         `Move gathered ingredients into the ${targetLabel} foundation so the build can advance.`,
         'capital',
-        { kind: 'panel', panel: 'construction' },
+        { kind: 'construction-action', projectId: project.id, action: 'deposit' },
         15,
       )
     }
@@ -236,7 +241,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         isBusinessBuild ? `Pay ${project.name} permit` : 'Pay the building permit',
         `Pay ${project.permitFee} and keep the ${target} build legal.`,
         'respect',
-        { kind: 'panel', panel: 'construction' },
+        { kind: 'construction-action', projectId: project.id, action: 'permit' },
         10,
       )
     }
@@ -257,7 +262,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         isBusinessBuild ? `Work beside the helper on ${project.name}` : 'Work beside the house helper',
         `A Workers Hall helper is already paid and active. Use your free hour to build alongside them instead of hiring again.`,
         'capital',
-        { kind: 'panel', panel: 'construction' },
+        { kind: 'construction-action', projectId: project.id, action: 'work' },
         60,
       )
     }
@@ -268,7 +273,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         isBusinessBuild ? `Hire 1h helper for ${project.name}` : 'Hire 1h helper for the house',
         `Workers Hall help costs $${helperEstimate.worker.ratePerHour}/hour and adds ${helperEstimate.laborMinutes}m of labor while your day stays balanced.`,
         'capital',
-        { kind: 'panel', panel: 'construction' },
+        { kind: 'construction-action', projectId: project.id, action: 'hire-helper' },
         5,
       )
     }
@@ -277,7 +282,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       isBusinessBuild ? `Work 60m on ${project.name}` : 'Work 60m on your house',
       `Use free time after work and body care to move the ${target} forward.`,
       'capital',
-      { kind: 'panel', panel: 'construction' },
+      { kind: 'construction-action', projectId: project.id, action: 'work' },
       60,
     )
   }
@@ -288,7 +293,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       ? 'Materials, permit, and labor are ready. Finish the building so the business can start earning.'
       : 'Materials, permit, and labor are ready. Finish it and enter your own place.',
     'capital',
-    { kind: 'panel', panel: 'construction' },
+    { kind: 'construction-action', projectId: project.id, action: 'complete' },
     10,
   )
 }
@@ -321,14 +326,14 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     if (!progress.resourcesComplete) {
       const kind = firstMissingBusinessResource(project, snapshot.resources)
       if (!kind) {
-        return task('deposit-business-materials', `Deposit ${project.businessName} materials`, 'Move gathered ingredients into the interior plan so the upgrade can advance.', 'capital', { kind: 'panel', panel: 'business' }, 15)
+        return task('deposit-business-materials', `Deposit ${project.businessName} materials`, 'Move gathered ingredients into the interior plan so the upgrade can advance.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'deposit' }, 15)
       }
       const meta = RESOURCE_META[kind]
       return task(`gather-business-${kind}`, `Gather ${meta.label.toLowerCase()} for ${project.businessName}`, `${project.businessName}'s interior still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`, 'capital', { kind: 'gather', resourceKind: kind }, meta.gatherMinutes)
     }
     if (!progress.budgetComplete) {
       if (snapshot.money >= project.budgetCost + CASH_SAFETY_FLOOR) {
-        return task('pay-business-budget', `Pay ${project.businessName} budget`, `Pay ${project.budgetCost} to unlock interior labor for level ${project.levelTo}.`, 'respect', { kind: 'panel', panel: 'business' }, 10)
+        return task('pay-business-budget', `Pay ${project.businessName} budget`, `Pay ${project.budgetCost} to unlock interior labor for level ${project.levelTo}.`, 'respect', { kind: 'business-development-action', projectId: project.id, action: 'budget' }, 10)
       }
       return task('work-for-business-budget', `Work for ${project.businessName}'s budget`, 'Earn before funding the upgrade so food and water stay safe.', 'work', { kind: 'panel', panel: 'work' }, STANDARD_DAY_BUDGET.workMinutes)
     }
@@ -336,15 +341,15 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       const labor = businessDevelopmentLaborBreakdown(project)
       const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
       if (activeWorkers.length > 0) {
-        return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'panel', panel: 'business' }, 60)
+        return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
       }
       const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
       if (helper && labor.remainingMinutes >= 120 && snapshot.money >= helper.ratePerHour + CASH_SAFETY_FLOOR) {
-        return task('hire-business-worker-hour', `Hire 1h worker for ${project.businessName}`, 'Keep the interior moving while your own day stays balanced.', 'capital', { kind: 'panel', panel: 'business' }, 5)
+        return task('hire-business-worker-hour', `Hire 1h worker for ${project.businessName}`, 'Keep the interior moving while your own day stays balanced.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'hire-helper' }, 5)
       }
-      return task('develop-business-hour', `Work 60m inside ${project.businessName}`, 'Use free time after work and body care to build the business from the inside.', 'capital', { kind: 'panel', panel: 'business' }, 60)
+      return task('develop-business-hour', `Work 60m inside ${project.businessName}`, 'Use free time after work and body care to build the business from the inside.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
     }
-    return task('finish-business-development', `Finish ${project.businessName} L${project.levelTo}`, 'Materials, budget, and labor are ready. Make the interior upgrade permanent.', 'capital', { kind: 'panel', panel: 'business' }, 10)
+    return task('finish-business-development', `Finish ${project.businessName} L${project.levelTo}`, 'Materials, budget, and labor are ready. Make the interior upgrade permanent.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'complete' }, 10)
   }
   const business = snapshot.assets.find((asset) => asset.kind === 'business') ?? null
   if (business) {
