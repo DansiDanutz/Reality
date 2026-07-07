@@ -23,7 +23,9 @@ import TutorialPanel from './components/hud/TutorialPanel'
 import Market from './components/market/Market'
 import AchievementsPanel from './components/panels/AchievementsPanel'
 import AssetsPanel from './components/panels/AssetsPanel'
+import BusinessPanel from './components/panels/BusinessPanel'
 import HealthGuide from './components/panels/HealthGuide'
+import HousePanel from './components/panels/HousePanel'
 import JournalPanel from './components/panels/JournalPanel'
 import KitchenPanel from './components/panels/KitchenPanel'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
@@ -49,6 +51,8 @@ import { fallbackResourceNodes } from './game/resources'
 const PANEL_LABELS: Record<string, string> = {
   work: 'Work',
   assets: 'Your assets',
+  home: 'House',
+  business: 'Business',
   founder: 'Founder area',
   operator: 'Founder operations',
   top: 'Leaderboard',
@@ -80,7 +84,7 @@ export default function App() {
   const mapAnchorLat = mapAnchor?.lat
   const mapAnchorLng = mapAnchor?.lng
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes' || panel === 'construction'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'home' || panel === 'business' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes' || panel === 'construction'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // Web notifications — fires system notifications when the tab is hidden
@@ -235,6 +239,8 @@ export default function App() {
           <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
           {panel === 'work' && <WorkPanel />}
           {panel === 'assets' && <AssetsPanel />}
+          {panel === 'home' && <HousePanel />}
+          {panel === 'business' && <BusinessPanel />}
           {panel === 'founder' && <FounderAreaPanel />}
           {panel === 'operator' && <FounderCovenantOperatorPanel />}
           {panel === 'top' && <LeaderboardPanel />}

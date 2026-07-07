@@ -93,6 +93,7 @@ body {
 }
 
 .map-beacon {
+  position: relative;
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -103,6 +104,82 @@ body {
 .map-beacon.biz { background: var(--gold); animation: beacon-pulse 2.2s ease-out infinite; }
 .map-beacon.home { background: var(--sky); animation: beacon-pulse-sky 2.2s ease-out infinite; }
 .map-beacon.other { width: 12px; height: 12px; background: #a78bfa; opacity: 0.85; }
+.map-house-marker {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px 10px 12px 12px;
+  display: grid;
+  place-items: center;
+  color: #061019;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+  background:
+    linear-gradient(135deg, #b8efff, #6fcaf0 46%, #2f7fa8);
+  border: 2px solid rgba(5, 7, 14, 0.9);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.42),
+    0 0 0 0 rgba(125, 216, 255, 0.62);
+}
+.map-house-marker::before {
+  content: "";
+  position: absolute;
+  inset: -8px 8px auto;
+  height: 14px;
+  background: linear-gradient(135deg, #f0b429, #f6d06f);
+  transform: rotate(45deg);
+  border: 2px solid rgba(5, 7, 14, 0.82);
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+.map-house-marker::after {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  width: 7px;
+  height: 12px;
+  border-radius: 4px 4px 2px 2px;
+  background: rgba(5, 7, 14, 0.74);
+}
+.map-business-marker {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #211704;
+  font-family: var(--font-display);
+  font-size: 19px;
+  background:
+    linear-gradient(to bottom, #f7d778 0 22%, #f0b429 23% 100%);
+  border: 2px solid rgba(5, 7, 14, 0.9);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.42),
+    0 0 0 0 rgba(240, 180, 41, 0.55);
+}
+.map-business-marker::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 8px;
+  height: 7px;
+  background: rgba(5, 7, 14, 0.28);
+  border-radius: 2px;
+  box-shadow:
+    0 12px 0 rgba(5, 7, 14, 0.24),
+    0 24px 0 rgba(5, 7, 14, 0.24);
+}
+.map-business-marker::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  width: 8px;
+  height: 13px;
+  border-radius: 2px 2px 0 0;
+  background: rgba(5, 7, 14, 0.78);
+}
 @keyframes beacon-pulse {
   0% { box-shadow: 0 0 0 0 rgba(240, 180, 41, 0.55); }
   100% { box-shadow: 0 0 0 16px rgba(240, 180, 41, 0); }
@@ -147,9 +224,35 @@ body {
 .map-resource-metal { background: #9cc8ff; }
 .map-resource-glass { background: #82f0e5; }
 .map-construction {
-  background: var(--gold);
+  background:
+    conic-gradient(var(--gold) var(--construction-progress, 0%), rgba(120, 150, 205, 0.18) 0),
+    radial-gradient(circle, #f7d778 0 46%, #805b12 47% 100%);
   color: #201603;
   animation: beacon-pulse 2.2s ease-out infinite;
+  position: relative;
+}
+.map-construction::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  height: 9px;
+  border: 2px solid #201603;
+  border-top: 0;
+  opacity: 0.72;
+}
+.map-construction::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 8px;
+  width: 13px;
+  height: 13px;
+  border-top: 2px solid #201603;
+  border-left: 2px solid #201603;
+  transform: rotate(45deg);
+  opacity: 0.72;
 }
 @keyframes beacon-pulse-ready {
   0% {
@@ -955,10 +1058,29 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 14px;
   background: var(--gold-dim);
   border: 1px solid rgba(240, 180, 41, 0.3);
   border-radius: var(--radius);
+}
+.asset-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.asset-build-meter {
+  width: min(220px, 100%);
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 150, 205, 0.16);
+}
+.asset-build-meter > div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gold), var(--ok));
+  transition: width 600ms var(--ease-out);
 }
 
 /* Founder Area — playable sim-spine drawer. */
@@ -3081,6 +3203,216 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   gap: 6px;
   margin: 10px 0;
 }
+.house-build-plan {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 14px;
+  border: 1px solid rgba(125, 216, 255, 0.22);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(125, 216, 255, 0.09), rgba(240, 180, 41, 0.05));
+}
+.house-build-visual {
+  position: relative;
+  min-height: 132px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(to bottom, rgba(42, 89, 132, 0.54), rgba(13, 24, 39, 0.92));
+}
+.house-build-visual::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--gold), var(--ok)) 0 / var(--build-progress, 0%) 100% no-repeat,
+    rgba(255, 255, 255, 0.12);
+}
+.house-build-sky,
+.house-build-ground {
+  position: absolute;
+  inset: 0;
+}
+.house-build-sky::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(240, 180, 41, 0.8);
+  box-shadow: 0 0 24px rgba(240, 180, 41, 0.55);
+}
+.house-build-ground {
+  top: auto;
+  height: 34px;
+  background: linear-gradient(to right, rgba(67, 217, 163, 0.28), rgba(110, 83, 38, 0.32));
+}
+.house-build-frame {
+  position: absolute;
+  left: 29px;
+  right: 29px;
+  bottom: 26px;
+  height: 72px;
+  opacity: 0.96;
+  transform: translateY(0);
+  transition: opacity 500ms var(--ease-out), transform 500ms var(--ease-out);
+}
+.house-build-wall {
+  position: absolute;
+  bottom: 0;
+  width: 30px;
+  height: 46px;
+  background: linear-gradient(#8edfff, #397ea7);
+  border: 2px solid rgba(5, 7, 14, 0.75);
+}
+.house-build-wall.left { left: 4px; }
+.house-build-wall.right { right: 4px; }
+.house-build-roof {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 0;
+  height: 42px;
+  background: linear-gradient(135deg, #f0b429, #b97612);
+  border: 2px solid rgba(5, 7, 14, 0.75);
+  transform: rotate(45deg);
+  border-radius: 4px;
+}
+.business-build-visual .house-build-wall {
+  width: 34px;
+  background: linear-gradient(#f7d778, #ad7512);
+}
+.business-build-visual .house-build-roof {
+  height: 26px;
+  top: 7px;
+  background: linear-gradient(135deg, #9cc8ff, #3b6f9e);
+  transform: none;
+}
+.business-build-visual .house-build-window {
+  background: rgba(5, 7, 14, 0.7);
+}
+.house-build-door,
+.house-build-window {
+  position: absolute;
+  bottom: 0;
+  z-index: 1;
+  background: rgba(5, 7, 14, 0.78);
+  border-radius: 5px 5px 2px 2px;
+}
+.house-build-door {
+  left: 50%;
+  width: 14px;
+  height: 24px;
+  transform: translateX(-50%);
+}
+.house-build-window {
+  width: 8px;
+  height: 8px;
+  bottom: 22px;
+  background: rgba(240, 180, 41, 0.9);
+}
+.house-build-window.one { left: 14px; }
+.house-build-window.two { right: 14px; }
+.house-build-crane {
+  position: absolute;
+  left: -18px;
+  top: -10px;
+  width: 54px;
+  height: 34px;
+  border-left: 2px solid var(--gold);
+  border-top: 2px solid var(--gold);
+  transform-origin: left bottom;
+  animation: crane-swing 3.2s ease-in-out infinite;
+}
+.house-build-crane::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 2px;
+  height: 24px;
+  border-left: 1px solid var(--gold);
+}
+@keyframes crane-swing {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(5deg); }
+}
+.house-build-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.house-stage-list,
+.construction-recipe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.construction-ingredient-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.construction-ingredient {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.06);
+}
+.construction-ingredient > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.workers-hall {
+  padding: 12px;
+  border: 1px solid rgba(240, 180, 41, 0.24);
+  border-radius: var(--radius);
+  background: rgba(240, 180, 41, 0.06);
+}
+.labor-ledger,
+.house-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.labor-ledger .stat,
+.house-summary-grid .stat {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(5, 7, 14, 0.22);
+}
+.worker-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.worker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(5, 7, 14, 0.24);
+}
+.worker-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
 .resource-node-item { align-items: center; }
 .construction-project { align-items: stretch; }
 .construction-project-info { gap: 8px; }
@@ -3108,6 +3440,182 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   border-radius: inherit;
   background: linear-gradient(90deg, var(--gold), var(--ok));
 }
+.house-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.house-interior-scene {
+  position: relative;
+  min-height: 190px;
+  display: grid;
+  grid-template-columns: 0.85fr 1.3fr 0.85fr;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(240, 180, 41, 0.26);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    linear-gradient(to bottom, rgba(240, 180, 41, 0.09), transparent 44%),
+    linear-gradient(135deg, rgba(14, 28, 44, 0.98), rgba(30, 43, 61, 0.95));
+}
+.house-interior-scene::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 18px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(240, 180, 41, 0.16), transparent 70%);
+}
+.house-room {
+  position: relative;
+  min-height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(to bottom, rgba(120, 150, 205, 0.1), rgba(5, 7, 14, 0.18)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 18px);
+  overflow: hidden;
+}
+.house-room.hall {
+  background:
+    linear-gradient(to bottom, rgba(240, 180, 41, 0.12), rgba(5, 7, 14, 0.22)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 22px);
+}
+.house-room::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(5, 7, 14, 0.25);
+}
+.house-room-label {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.house-hearth {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  width: 34px;
+  height: 42px;
+  transform: translateX(-50%);
+  border-radius: 16px 16px 5px 5px;
+  background: linear-gradient(to top, #6a321a, #f0b429);
+  box-shadow: 0 0 26px rgba(240, 180, 41, 0.42);
+}
+.house-room-list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.house-room-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.06);
+}
+.house-room-list span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.house-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.business-interior-scene {
+  position: relative;
+  min-height: 190px;
+  display: grid;
+  grid-template-columns: 0.95fr 1.25fr 0.95fr;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(240, 180, 41, 0.3);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    linear-gradient(to bottom, rgba(240, 180, 41, 0.1), transparent 50%),
+    linear-gradient(135deg, rgba(22, 26, 34, 0.98), rgba(46, 36, 22, 0.96));
+}
+.business-room {
+  position: relative;
+  min-height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(to bottom, rgba(240, 180, 41, 0.08), rgba(5, 7, 14, 0.22)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 18px);
+}
+.business-room.floor {
+  background:
+    linear-gradient(to bottom, rgba(125, 216, 255, 0.08), rgba(5, 7, 14, 0.22)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 20px);
+}
+.business-counter,
+.business-desk,
+.business-machinery {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  background: linear-gradient(to top, #ad7512, #f0b429);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+}
+.business-counter {
+  width: 54px;
+  height: 22px;
+  border-radius: 5px;
+}
+.business-desk {
+  width: 44px;
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(to top, #49657e, #9cc8ff);
+}
+.business-machinery {
+  width: 26px;
+  height: 42px;
+  border-radius: 8px 8px 4px 4px;
+  background: linear-gradient(to top, #30415b, #82f0e5);
+}
+.business-machinery.one { left: 38%; }
+.business-machinery.two { left: 62%; animation: machine-hum 1.8s ease-in-out infinite; }
+@keyframes machine-hum {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-2px); }
+}
+.business-development {
+  padding: 12px;
+  border: 1px solid rgba(240, 180, 41, 0.24);
+  border-radius: var(--radius);
+  background: rgba(240, 180, 41, 0.06);
+}
+.business-upgrade-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(5, 7, 14, 0.24);
+}
 
 @media (max-width: 720px) {
   .courier-package {
@@ -3117,6 +3625,16 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
     width: auto;
   }
   .resource-wallet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .house-build-plan { grid-template-columns: 1fr; }
+  .labor-ledger,
+  .house-summary-grid { grid-template-columns: 1fr; }
+  .construction-ingredient { grid-template-columns: 28px minmax(0, 1fr); }
+  .construction-ingredient > .mono { grid-column: 2; }
+  .house-interior-scene { grid-template-columns: 1fr; }
+  .business-interior-scene { grid-template-columns: 1fr; }
+  .house-room { min-height: 92px; }
+  .business-room { min-height: 92px; }
+  .business-upgrade-card { align-items: flex-start; flex-direction: column; }
   .construction-bar-row { grid-template-columns: 52px minmax(70px, 1fr) 56px; }
 }
 
