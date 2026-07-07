@@ -5297,7 +5297,7 @@ function applyServicePurchaseIntent(
   const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
 
-  const business = chooseServiceBusiness(state, intent.serviceKind)
+  const business = chooseAvailableServiceBusiness(state.businesses, intent.serviceKind, state.citizens, new Map())
   if (!business) return { ok: false, error: 'service_not_available' }
   if (state.balance < business.price) return { ok: false, error: 'insufficient_funds' }
 
@@ -5942,13 +5942,6 @@ function applyServiceEffect(
     fun: effect.fun === undefined ? citizen.needs.fun : clampNeed(citizen.needs.fun + effect.fun * quality),
   }
   if (effect.health !== undefined) citizen.health = clampNeed(citizen.health + effect.health * quality)
-}
-
-function chooseServiceBusiness(
-  state: FounderAreaState,
-  kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
-): FounderAreaBusiness | null {
-  return chooseServiceBusinessFromBusinesses(state.businesses, kind)
 }
 
 function chooseServiceBusinessFromBusinesses(
