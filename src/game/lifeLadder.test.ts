@@ -29,19 +29,25 @@ describe('planLifeDay', () => {
   test('returns exactly one primary action with life values attached', () => {
     const plan = planLifeDay(snap())
     expect(plan.primary).toBeTruthy()
+    expect(plan.agenda[0].id).toBe(plan.primary.id)
+    expect(plan.agenda.length).toBeLessThanOrEqual(3)
     expect(plan.support.length).toBeGreaterThan(0)
     expect(plan.valuesCovered).toEqual(expect.arrayContaining(['body', 'school', 'work', 'respect', 'friendship', 'community', 'capital']))
   })
 
-  test('puts body recovery before work and construction when needs are unsafe', () => {
+  test('puts body recovery before work and construction while preserving the next step', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
       constructionProjects: [createConstructionProject('starter-house', 1, 1, 1)],
       needs: { ...goodNeeds, hydration: 20 },
     }))
 
     expect(plan.primary.id).toBe('drink-water')
     expect(plan.primary.value).toBe('body')
+    expect(plan.agenda.map((item) => item.id)).toEqual(expect.arrayContaining(['drink-water']))
+    expect(plan.agenda.some((item) => item.id.startsWith('gather-') || item.id === 'deposit-house-materials')).toBe(true)
   })
 
   test('sends an unemployed citizen to find work before capital tasks', () => {
@@ -93,6 +99,8 @@ describe('planLifeDay', () => {
     }
     const laborPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [readyForLabor] }))
     expect(laborPlan.primary.id).toBe('build-house-hour')
+    expect(laborPlan.agenda[0].id).toBe('build-house-hour')
+    expect(laborPlan.agenda.map((item) => item.id)).toContain('support-body')
   })
 })
 
