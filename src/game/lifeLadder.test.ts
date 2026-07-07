@@ -630,6 +630,32 @@ describe('planLifeDay', () => {
       route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-house-with-worker-hour',
     })
+
+    const activeWorkerCanFinish = {
+      ...readyForLabor,
+      laborDoneMinutes: project.laborRequiredMinutes - 50,
+      hiredLaborMinutes: 0,
+      workerContracts: [{
+        id: 'worker-can-finish',
+        workerId: 'helper' as const,
+        workerName: 'Local helper',
+        hiredAt: 1,
+        paidUntil: 3_600_001,
+        paidMinutes: 60,
+        workedMinutes: 0,
+        laborMultiplier: 1,
+        ratePerHour: 16,
+        cost: 16,
+      }],
+    }
+    const workerFinishPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [activeWorkerCanFinish] }))
+    expect(workerFinishPlan.primary.id).toBe('monitor-house-worker-finish')
+    expect(workerFinishPlan.primary.detail).toContain('remaining 50m')
+    expect(workerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
+    expect(workerFinishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'construction' },
+      taskId: 'monitor-house-worker-finish',
+    })
   })
 
   test('routes active business building through materials, permit, labor, and opening after the house exists', () => {
@@ -766,6 +792,33 @@ describe('planLifeDay', () => {
     expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'business-development-action', projectId: withActiveWorker.id, action: 'work' },
       taskId: 'develop-business-with-worker-hour',
+    })
+
+    const activeInteriorWorkerCanFinish = businessProject({
+      deposited: freshResources(project.required),
+      budgetPaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 45,
+      hiredLaborMinutes: 0,
+      workerContracts: [{
+        id: 'business-worker-can-finish',
+        workerId: 'helper',
+        workerName: 'Local helper',
+        hiredAt: 1,
+        paidUntil: 3_600_001,
+        paidMinutes: 60,
+        workedMinutes: 0,
+        laborMultiplier: 1,
+        ratePerHour: 16,
+        cost: 16,
+      }],
+    })
+    const interiorWorkerFinishPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [activeInteriorWorkerCanFinish] }))
+    expect(interiorWorkerFinishPlan.primary.id).toBe('monitor-business-worker-finish')
+    expect(interiorWorkerFinishPlan.primary.detail).toContain('remaining 45m')
+    expect(interiorWorkerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
+    expect(interiorWorkerFinishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'business' },
+      taskId: 'monitor-business-worker-finish',
     })
 
     const selfWorkPlan = planLifeDay(snap({ ...base, money: 100, businessDevelopmentProjects: [laborReady] }))
