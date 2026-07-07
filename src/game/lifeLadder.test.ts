@@ -146,6 +146,20 @@ describe('planLifeDay', () => {
     expect(plan.primary.route).toEqual({ kind: 'consume-action', itemId: 'sandwich' })
   })
 
+  test('makes critical hunger cook a ready home meal before opening the market', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 20 },
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      inventory: { chicken: 1, veggies: 1, rice: 1 },
+    }))
+
+    expect(plan.primary.id).toBe('eat-food')
+    expect(plan.primary.route).toEqual({ kind: 'cook-action', recipeId: 'chickendinner' })
+  })
+
   test('keeps critical hunger on the food market when no food is owned', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
@@ -292,6 +306,37 @@ describe('planLifeDay', () => {
     expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
       taskId: 'support-body',
       route: { kind: 'consume-action', itemId: 'sandwich' },
+    })
+  })
+
+  test('makes routine hunger care cook a ready recipe before opening the market', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      inventory: { bread: 1, cheese: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'cook-action', recipeId: 'grilledcheese' },
+    })
+  })
+
+  test('does not treat raw groceries as owned ready food without a kitchen', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+      inventory: { bread: 1, cheese: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'food' },
     })
   })
 
