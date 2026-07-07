@@ -230,6 +230,38 @@ describe('worldSim snapshot codec', () => {
     }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects inconsistent founder covenant review queue counts', () => {
+    const cases: Array<(review: ReturnType<typeof founderReview>) => void> = [
+      (review) => {
+        review.reviewQueue.pendingApprovalKinds = ['send_warning']
+        review.reviewQueue.pendingApprovalCount = 0
+      },
+      (review) => {
+        review.reviewQueue.pendingNotificationKinds = ['founder_warning']
+        review.reviewQueue.pendingNotificationCount = 0
+      },
+      (review) => {
+        review.reviewQueue.blockers = ['approval_workflow_disabled']
+        review.reviewQueue.blockerCount = 0
+      },
+      (review) => {
+        review.reviewQueue.pendingApprovalCount = 0.5
+      },
+    ]
+
+    for (const mutateReview of cases) {
+      const reviewed = area()
+      const review = founderReview()
+      mutateReview(review)
+      reviewed.founderReviewHistory = [review]
+
+      expect(decodeWorldAreaSnapshot(JSON.stringify({
+        version: WORLD_AREA_SNAPSHOT_VERSION,
+        area: reviewed,
+      }))).toEqual({ ok: false, error: 'invalid_area' })
+    }
+  })
+
   test('accepts historical ledger entries for departed Sim Citizens with event evidence', () => {
     const departed = area()
     departed.areaEvents![0] = {

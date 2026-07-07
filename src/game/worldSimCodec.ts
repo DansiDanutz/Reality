@@ -371,12 +371,15 @@ function isFounderCovenantReviewQueue(value: unknown): boolean {
     value.recommendedActionKinds.every((kind) => isOneOf(kind, COVENANT_MANUAL_ACTION_KINDS)) &&
     Array.isArray(value.pendingApprovalKinds) &&
     value.pendingApprovalKinds.every((kind) => isOneOf(kind, COVENANT_APPROVAL_KINDS)) &&
-    isFiniteNumber(value.pendingApprovalCount) &&
+    isNonNegativeInteger(value.pendingApprovalCount) &&
+    value.pendingApprovalCount === value.pendingApprovalKinds.length &&
     Array.isArray(value.pendingNotificationKinds) &&
     value.pendingNotificationKinds.every((kind) => isOneOf(kind, COVENANT_NOTIFICATION_DRAFT_KINDS)) &&
-    isFiniteNumber(value.pendingNotificationCount) &&
-    isFiniteNumber(value.blockerCount) &&
+    isNonNegativeInteger(value.pendingNotificationCount) &&
+    value.pendingNotificationCount === value.pendingNotificationKinds.length &&
+    isNonNegativeInteger(value.blockerCount) &&
     Array.isArray(value.blockers) &&
+    value.blockerCount >= value.blockers.length &&
     value.blockers.every((blocker) => isOneOf(blocker, COVENANT_APPROVAL_BLOCKERS))
 }
 
@@ -610,6 +613,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
 function isMoney(value: unknown): value is number {
