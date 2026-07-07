@@ -164,3 +164,9 @@ export function completeReliableShift(stats: CommunityStats, now = Date.now()): 
     seriousWorkLastDay: day,
   }
 }
+
+export function missedSeriousWorkYesterday(stats: CommunityStats, now = Date.now()): boolean {
+  const day = communityDay(now)
+  if (stats.reliableShifts <= 0 || stats.seriousWorkLastDay <= 0) return false
+  return stats.seriousWorkLastDay < day - 1
+}

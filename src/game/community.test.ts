@@ -7,6 +7,7 @@ import {
   completeCommunityAction,
   completeReliableShift,
   freshCommunityStats,
+  missedSeriousWorkYesterday,
   normalizeCommunityStats,
   resetCommunityActionDayIfNeeded,
   resetCommunityWeekIfNeeded,
@@ -142,5 +143,14 @@ describe('community actions', () => {
     expect(afterGap.seriousWorkStreak).toBe(1)
     expect(afterGap.seriousWorkBest).toBe(2)
     expect(afterGap.seriousWorkLastDay).toBe(communityDay(today + 4 * 24 * 3_600_000))
+  })
+
+  test('detects a missed serious work day only after reliability exists', () => {
+    const today = Date.UTC(2026, 6, 7, 12)
+    const first = completeReliableShift(freshCommunityStats(today), today)
+
+    expect(missedSeriousWorkYesterday(freshCommunityStats(today), today + 3 * 24 * 3_600_000)).toBe(false)
+    expect(missedSeriousWorkYesterday(first, today + 24 * 3_600_000)).toBe(false)
+    expect(missedSeriousWorkYesterday(first, today + 2 * 24 * 3_600_000)).toBe(true)
   })
 })

@@ -137,6 +137,39 @@ describe('planLifeDay', () => {
     expect(plan.primary.route).toEqual({ kind: 'survival-action', action: 'sleep' })
   })
 
+  test('uses a missed-day repair task instead of shame copy once serious work exists', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 12,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      seriousWorkMissedYesterday: true,
+    }))
+
+    expect(plan.primary).toMatchObject({
+      id: 'repair-serious-work',
+      title: 'Restart serious work',
+      value: 'respect',
+      route: { kind: 'work-action', action: 'shift' },
+    })
+    expect(plan.primary.detail).toContain('rebuild rhythm and respect')
+    expect(plan.primary.detail).not.toMatch(/shame|failed|punish/i)
+  })
+
+  test('keeps body recovery ahead of missed-day repair', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 12,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      seriousWorkMissedYesterday: true,
+      needs: { ...goodNeeds, hydration: 20 },
+    }))
+
+    expect(plan.primary.id).toBe('drink-water')
+    expect(plan.agenda.map((item) => item.id)).toContain('repair-serious-work')
+  })
+
   test('makes critical hunger consume owned food as the primary action', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',

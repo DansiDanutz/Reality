@@ -161,6 +161,7 @@ export interface LifeLadderSnapshot {
   communityRespect: number
   communityFriendship: number
   communityTrust: number
+  seriousWorkMissedYesterday?: boolean
 }
 
 export const STANDARD_DAY_BUDGET: LifeTimeBudget = {
@@ -420,6 +421,18 @@ function workPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     return task('cash-floor-shift', 'Rebuild your cash floor', 'Work before spending. Keep food, water, and permits funded.', 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
   }
   return null
+}
+
+function seriousWorkRepairPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
+  if (!snapshot.jobId || !snapshot.seriousWorkMissedYesterday) return null
+  return task(
+    'repair-serious-work',
+    'Restart serious work',
+    'Yesterday was missed. Work one reliable shift today to rebuild rhythm and respect.',
+    'respect',
+    { kind: 'work-action', action: 'shift' },
+    STANDARD_DAY_BUDGET.workMinutes,
+  )
 }
 
 function activeEducationCourse(progress: EducationProgress[]): { course: EducationCourse; progress: EducationProgress } | null {
@@ -874,6 +887,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     ? task('finish-active-commitment', 'Finish the current commitment', 'Respect grows when you finish what you start.', 'respect', { kind: 'none' }, 0)
     : null
   const body = bodyRecoveryTask(snapshot)
+  const seriousWorkRepair = seriousWorkRepairPrimary(snapshot)
   const work = workPrimary(snapshot)
   const school = schoolPrimary(snapshot)
   const construction = constructionPrimary(snapshot)
@@ -893,6 +907,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const primary =
     active
     ?? body
+    ?? seriousWorkRepair
     ?? work
     ?? school
     ?? construction
@@ -906,6 +921,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const agenda = compactAgenda([
     primary,
     body,
+    seriousWorkRepair,
     work,
     school,
     construction,
