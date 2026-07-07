@@ -3652,17 +3652,31 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   background: rgba(240, 180, 41, 0.06);
 }
 .labor-ledger,
-.house-summary-grid {
+.house-summary-grid,
+.build-forecast-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 .labor-ledger .stat,
-.house-summary-grid .stat {
+.house-summary-grid .stat,
+.forecast-card {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(5, 7, 14, 0.22);
+}
+.forecast-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.forecast-card.ok {
+  border-color: rgba(76, 217, 155, 0.32);
+}
+.forecast-card.gold {
+  border-color: rgba(240, 180, 41, 0.4);
 }
 .worker-grid {
   display: grid;
@@ -3921,7 +3935,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .resource-wallet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .house-build-plan { grid-template-columns: 1fr; }
   .labor-ledger,
-  .house-summary-grid { grid-template-columns: 1fr; }
+  .house-summary-grid,
+  .build-forecast-grid { grid-template-columns: 1fr; }
   .construction-ingredient { grid-template-columns: 28px minmax(0, 1fr); }
   .construction-ingredient > .mono { grid-column: 2; }
   .house-interior-scene { grid-template-columns: 1fr; }
