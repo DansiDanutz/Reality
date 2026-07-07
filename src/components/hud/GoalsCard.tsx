@@ -48,6 +48,7 @@ function routineShortLabel(block: { id: string; value: string; route: LifePlanRo
   if (block.route.kind === 'work-action') return 'Work'
   if (block.route.kind === 'community-action') return block.route.actionId === 'check-neighbor' ? 'Friends' : 'Help'
   if (block.route.kind === 'education-action') return 'School'
+  if (block.route.kind === 'consume-action') return 'Eat'
   if (block.route.kind === 'survival-action') return block.route.action === 'sleep' ? 'Sleep' : 'Drink'
   return 'Own'
 }
@@ -116,6 +117,7 @@ export default function GoalsCard() {
   const shiftsWorked = useGame((s) => s.shiftsWorked)
   const activity = useGame((s) => s.activity)
   const assets = useGame((s) => s.assets)
+  const inventory = useGame((s) => s.inventory)
   const resources = useGame((s) => s.resources)
   const resourceNodes = useGame((s) => s.resourceNodes)
   const constructionProjects = useGame((s) => s.constructionProjects)
@@ -140,6 +142,7 @@ export default function GoalsCard() {
   const startShift = useGame((s) => s.startShift)
   const startCommunityAction = useGame((s) => s.startCommunityAction)
   const startStudy = useGame((s) => s.startStudy)
+  const consume = useGame((s) => s.consume)
   const quickDrink = useGame((s) => s.quickDrink)
   const startSleep = useGame((s) => s.startSleep)
 
@@ -175,6 +178,7 @@ export default function GoalsCard() {
     shiftsWorked,
     activityKind: activity?.kind ?? null,
     assets,
+    inventory,
     resources,
     constructionProjects,
     businessDevelopmentProjects,
@@ -223,6 +227,10 @@ export default function GoalsCard() {
     }
     if (route.kind === 'education-action') {
       startStudy(route.courseId)
+      return
+    }
+    if (route.kind === 'consume-action') {
+      consume(route.itemId)
       return
     }
     if (route.kind === 'survival-action') {
