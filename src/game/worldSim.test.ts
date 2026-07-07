@@ -2643,7 +2643,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: true,
         insuranceAction: {
           intent: 'buyInsurance',
-          clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
+          clientPayload: null,
           insuranceBusinessId: 'ins1',
           premium: 45,
           available: true,
@@ -2696,7 +2696,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: false,
         insuranceAction: {
           intent: 'buyInsurance',
-          clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
+          clientPayload: null,
           insuranceBusinessId: 'ins1',
           premium: 45,
           available: true,
@@ -2754,7 +2754,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       blockers: [],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'broke')!.insuranceAction).toMatchObject({
-      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins-low' },
+      clientPayload: null,
       insuranceBusinessId: 'ins-low',
       premium: 45,
       canAfford: false,
@@ -2762,10 +2762,16 @@ describe('advanceWorldArea — local real-time economy', () => {
       blockers: ['insufficient_funds'],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'covered')!.insuranceAction).toMatchObject({
+      clientPayload: null,
+      insuranceBusinessId: 'ins-low',
+      premium: 45,
       canBuyNow: false,
       blockers: ['already_insured'],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'patient')!.insuranceAction).toMatchObject({
+      clientPayload: null,
+      insuranceBusinessId: 'ins-low',
+      premium: 45,
       canBuyNow: false,
       blockers: ['actor_unavailable'],
     })
