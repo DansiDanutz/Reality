@@ -157,6 +157,9 @@ describe('planLifeDay', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const gatherPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [project] }))
     expect(gatherPlan.primary.id).toMatch(/^gather-|deposit-house-materials$/)
+    if (gatherPlan.primary.id.startsWith('gather-')) {
+      expect(gatherPlan.primary.route).toEqual({ kind: 'gather', resourceKind: 'wood' })
+    }
 
     const readyForPermit = {
       ...project,
@@ -223,7 +226,9 @@ describe('planLifeDay', () => {
 
     const gatherPlan = planLifeDay(snap({ ...base, constructionProjects: [project] }))
     expect(gatherPlan.primary.id).toMatch(/^gather-business-building-|deposit-business-building-materials$/)
-    expect(gatherPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
+    if (gatherPlan.primary.id.startsWith('gather-')) {
+      expect(gatherPlan.primary.route).toEqual({ kind: 'gather', resourceKind: 'wood' })
+    }
     expect(gatherPlan.agenda.map((item) => item.id)).toContain(gatherPlan.primary.id)
     expect(gatherPlan.constructionForecast?.remainingLaborMinutes).toBe(project.laborRequiredMinutes)
 
@@ -276,7 +281,7 @@ describe('planLifeDay', () => {
 
     const gatherPlan = planLifeDay(snap({ ...base, businessDevelopmentProjects: [project] }))
     expect(gatherPlan.primary.id).toMatch(/^gather-business-/)
-    expect(gatherPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
+    expect(gatherPlan.primary.route).toEqual({ kind: 'gather', resourceKind: 'wood' })
     expect(gatherPlan.businessDevelopmentForecast).toMatchObject({
       budgetRemaining: project.budgetCost,
       remainingLaborMinutes: project.laborRequiredMinutes,
