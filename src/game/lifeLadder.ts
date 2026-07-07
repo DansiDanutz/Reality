@@ -159,30 +159,87 @@ function firstMissingBusinessResource(project: BusinessDevelopmentProject, resou
     ?? null
 }
 
+function activeConstructionProject(snapshot: LifeLadderSnapshot): ConstructionProject | null {
+  const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
+  const homeProject = snapshot.constructionProjects.find((candidate) => candidate.resultKind === 'home') ?? null
+  if (!hasHome) return homeProject
+  return snapshot.constructionProjects[0] ?? null
+}
+
 function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
-  if (snapshot.assets.some((asset) => asset.kind === 'home')) return null
-  const project = snapshot.constructionProjects.find((candidate) => candidate.resultKind === 'home') ?? null
+  const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
+  const project = activeConstructionProject(snapshot)
   if (!project) {
+    if (hasHome) return null
     return task('place-home-foundation', 'Place your Starter House foundation', 'A serious life needs a door. Pick a reachable map spot near home.', 'capital', { kind: 'panel', panel: 'construction' }, 30)
   }
 
+  const isBusinessBuild = project.resultKind === 'business'
+  const target = isBusinessBuild ? 'business' : 'house'
+  const targetLabel = isBusinessBuild ? project.name : 'house'
   const progress = constructionProgress(project)
   if (!progress.resourcesComplete) {
     const kind = firstMissingResource(project, snapshot.resources)
-    if (!kind) return task('deposit-house-materials', 'Deposit house materials', 'Move gathered ingredients into the foundation so the build can advance.', 'capital', { kind: 'panel', panel: 'construction' }, 15)
+    if (!kind) {
+      return task(
+        isBusinessBuild ? 'deposit-business-building-materials' : 'deposit-house-materials',
+        isBusinessBuild ? `Deposit ${project.name} materials` : 'Deposit house materials',
+        `Move gathered ingredients into the ${targetLabel} foundation so the build can advance.`,
+        'capital',
+        { kind: 'panel', panel: 'construction' },
+        15,
+      )
+    }
     const meta = RESOURCE_META[kind]
-    return task(`gather-${kind}`, `Gather ${meta.label.toLowerCase()}`, `${project.name} still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`, 'capital', { kind: 'panel', panel: 'construction' }, meta.gatherMinutes)
+    return task(
+      isBusinessBuild ? `gather-business-building-${kind}` : `gather-${kind}`,
+      isBusinessBuild ? `Gather ${meta.label.toLowerCase()} for ${project.name}` : `Gather ${meta.label.toLowerCase()}`,
+      `${project.name} still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`,
+      'capital',
+      { kind: 'panel', panel: 'construction' },
+      meta.gatherMinutes,
+    )
   }
   if (!progress.permitComplete) {
     if (snapshot.money >= project.permitFee + CASH_SAFETY_FLOOR) {
-      return task('pay-house-permit', 'Pay the building permit', `Pay ${project.permitFee} and keep the build legal.`, 'respect', { kind: 'panel', panel: 'construction' }, 10)
+      return task(
+        isBusinessBuild ? 'pay-business-building-permit' : 'pay-house-permit',
+        isBusinessBuild ? `Pay ${project.name} permit` : 'Pay the building permit',
+        `Pay ${project.permitFee} and keep the ${target} build legal.`,
+        'respect',
+        { kind: 'panel', panel: 'construction' },
+        10,
+      )
     }
-    return task('work-for-permit', 'Work for permit money', 'Earn before paying the permit so food and water stay safe.', 'work', { kind: 'panel', panel: 'work' }, STANDARD_DAY_BUDGET.workMinutes)
+    return task(
+      isBusinessBuild ? 'work-for-business-building-permit' : 'work-for-permit',
+      isBusinessBuild ? `Work for ${project.name}'s permit` : 'Work for permit money',
+      'Earn before paying the permit so food and water stay safe.',
+      'work',
+      { kind: 'panel', panel: 'work' },
+      STANDARD_DAY_BUDGET.workMinutes,
+    )
   }
   if (!progress.laborComplete) {
-    return task('build-house-hour', 'Work 60m on your house', 'Use free time after work and body care to move the house forward.', 'capital', { kind: 'panel', panel: 'construction' }, 60)
+    return task(
+      isBusinessBuild ? 'build-business-building-hour' : 'build-house-hour',
+      isBusinessBuild ? `Work 60m on ${project.name}` : 'Work 60m on your house',
+      `Use free time after work and body care to move the ${target} forward.`,
+      'capital',
+      { kind: 'panel', panel: 'construction' },
+      60,
+    )
   }
-  return task('complete-house', 'Complete the house', 'Materials, permit, and labor are ready. Finish it and enter your own place.', 'capital', { kind: 'panel', panel: 'construction' }, 10)
+  return task(
+    isBusinessBuild ? 'complete-business-building' : 'complete-house',
+    isBusinessBuild ? `Open ${project.name}` : 'Complete the house',
+    isBusinessBuild
+      ? 'Materials, permit, and labor are ready. Finish the building so the business can start earning.'
+      : 'Materials, permit, and labor are ready. Finish it and enter your own place.',
+    'capital',
+    { kind: 'panel', panel: 'construction' },
+    10,
+  )
 }
 
 function workPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
@@ -421,7 +478,8 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     steady,
   ])
   const valuesCovered = Array.from(new Set([primary, ...support].map((item) => item.value)))
-  const homeProject = snapshot.constructionProjects.find((candidate) => candidate.resultKind === 'home') ?? null
+  const activeProject = activeConstructionProject(snapshot)
+  const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   return {
     lifeDay: snapshot.lifeDay,
     primary,
@@ -430,8 +488,8 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     routine: buildDailyRoutine(snapshot, primary, agenda, support),
     valuesCovered,
     timeBudget: STANDARD_DAY_BUDGET,
-    constructionForecast: homeProject || !snapshot.assets.some((asset) => asset.kind === 'home')
-      ? constructionDayForecast(homeProject ?? undefined, snapshot.resources)
+    constructionForecast: activeProject || !hasHome
+      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources)
       : null,
   }
 }

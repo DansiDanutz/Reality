@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { createBusinessDevelopmentProject, type BusinessDevelopmentProject } from './businessDevelopment'
-import { STARTER_HOUSE_RECIPE, createConstructionProject } from './construction'
+import {
+  STARTER_HOUSE_RECIPE,
+  businessConstructionRecipe,
+  createConstructionProject,
+  createConstructionProjectFromRecipe,
+} from './construction'
 import { constructionDayForecast, planLifeDay, type LifeLadderSnapshot } from './lifeLadder'
 import { freshResources } from './resources'
 import type { PlacedAsset } from './types'
@@ -45,6 +50,15 @@ function businessProject(overrides: Partial<BusinessDevelopmentProject> = {}): B
   const project = createBusinessDevelopmentProject(business(), 1_700_000_000_000)
   if (!project) throw new Error('business project fixture failed')
   return { ...project, ...overrides }
+}
+
+function businessConstructionProject() {
+  return createConstructionProjectFromRecipe(
+    businessConstructionRecipe({ id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 240 }),
+    1,
+    1,
+    1,
+  )
 }
 
 describe('planLifeDay', () => {
@@ -163,6 +177,51 @@ describe('planLifeDay', () => {
       route: { kind: 'panel', panel: 'construction' },
       taskId: 'build-house-hour',
     })
+  })
+
+  test('routes active business building through materials, permit, labor, and opening after the house exists', () => {
+    const base = {
+      lifeDay: 8,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home' as const, incomePerDay: 0 }],
+      communityActionsThisWeek: 0,
+    }
+    const project = businessConstructionProject()
+
+    const gatherPlan = planLifeDay(snap({ ...base, constructionProjects: [project] }))
+    expect(gatherPlan.primary.id).toMatch(/^gather-business-building-|deposit-business-building-materials$/)
+    expect(gatherPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
+    expect(gatherPlan.agenda.map((item) => item.id)).toContain(gatherPlan.primary.id)
+    expect(gatherPlan.constructionForecast?.remainingLaborMinutes).toBe(project.laborRequiredMinutes)
+
+    const readyForPermit = {
+      ...project,
+      deposited: freshResources(project.required),
+    }
+    const permitPlan = planLifeDay(snap({ ...base, money: 1_000, constructionProjects: [readyForPermit] }))
+    expect(permitPlan.primary.id).toBe('pay-business-building-permit')
+    expect(permitPlan.primary.value).toBe('respect')
+
+    const readyForLabor = {
+      ...readyForPermit,
+      permitFeePaid: true,
+    }
+    const laborPlan = planLifeDay(snap({ ...base, constructionProjects: [readyForLabor] }))
+    expect(laborPlan.primary.id).toBe('build-business-building-hour')
+    expect(laborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'construction' },
+      taskId: 'build-business-building-hour',
+    })
+
+    const completeReady = {
+      ...readyForLabor,
+      laborDoneMinutes: project.laborRequiredMinutes,
+    }
+    const finishPlan = planLifeDay(snap({ ...base, constructionProjects: [completeReady] }))
+    expect(finishPlan.primary.id).toBe('complete-business-building')
+    expect(finishPlan.primary.title).toBe('Open Food Cart')
   })
 
   test('routes active business development through materials, budget, worker, and completion', () => {
