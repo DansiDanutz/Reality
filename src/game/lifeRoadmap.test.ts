@@ -78,6 +78,83 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.constructionProjects.length).toBe(1)
   })
 
+  test('projects critical hydration recovery before returning to work', () => {
+    const roadmap = planLifeRoadmap(snap({
+      needs: { ...goodNeeds, hydration: 20 },
+    }), 2)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'drink-water',
+      route: { kind: 'survival-action', action: 'drink-water' },
+    })
+    expect(roadmap.days[1].primary.id).toBe('find-job')
+    expect(roadmap.finalSnapshot.needs.hydration).toBeGreaterThan(35)
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+  })
+
+  test('projects owned food consumption before returning to work', () => {
+    const roadmap = planLifeRoadmap(snap({
+      needs: { ...goodNeeds, hunger: 20 },
+      inventory: { sandwich: 1 },
+    }), 2)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'eat-food',
+      route: { kind: 'consume-action', itemId: 'sandwich' },
+    })
+    expect(roadmap.days[1].primary.id).toBe('find-job')
+    expect(roadmap.finalSnapshot.needs.hunger).toBeGreaterThan(35)
+    expect(roadmap.finalSnapshot.inventory.sandwich).toBe(0)
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+  })
+
+  test('projects a cooked home meal before returning to work', () => {
+    const roadmap = planLifeRoadmap(snap({
+      needs: { ...goodNeeds, hunger: 20 },
+      assets: [home()],
+      inventory: { bread: 1, cheese: 1 },
+    }), 2)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'eat-food',
+      route: { kind: 'cook-action', recipeId: 'grilledcheese' },
+    })
+    expect(roadmap.days[1].primary.id).toBe('find-job')
+    expect(roadmap.finalSnapshot.needs.hunger).toBeGreaterThan(35)
+    expect(roadmap.finalSnapshot.inventory).toMatchObject({ bread: 0, cheese: 0 })
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+  })
+
+  test('projects emergency food purchase before returning to work', () => {
+    const roadmap = planLifeRoadmap(snap({
+      needs: { ...goodNeeds, hunger: 20 },
+      money: 500,
+    }), 2)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'eat-food',
+      route: { kind: 'market', focus: 'food' },
+    })
+    expect(roadmap.days[1].primary.id).toBe('find-job')
+    expect(roadmap.finalSnapshot.needs.hunger).toBeGreaterThan(35)
+    expect(roadmap.finalSnapshot.money).toBeLessThan(500)
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+  })
+
+  test('projects sleep recovery before returning to work', () => {
+    const roadmap = planLifeRoadmap(snap({
+      needs: { ...goodNeeds, energy: 25 },
+    }), 2)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'sleep-tonight',
+      route: { kind: 'survival-action', action: 'sleep' },
+    })
+    expect(roadmap.days[1].primary.id).toBe('find-job')
+    expect(roadmap.finalSnapshot.needs.energy).toBeGreaterThan(30)
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+  })
+
   test('keeps the first-month life loop clear from survival routine to house and business shell', () => {
     const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 30)
     const primaryIds = roadmap.days.map((day) => day.primary.id)

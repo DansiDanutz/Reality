@@ -8,7 +8,7 @@ import {
   hireBusinessDevelopmentWorker,
   payBusinessDevelopmentBudget,
 } from './businessDevelopment'
-import { jobById } from './catalog'
+import { SHOP_ITEMS, itemById, jobById, recipeById } from './catalog'
 import {
   addConstructionLabor,
   advanceConstructionWorkerContracts,
@@ -21,8 +21,9 @@ import {
   payPermit,
 } from './construction'
 import { communityActionById } from './community'
+import { SLEEP_HOURS, advanceLife, applyEffects } from './engine'
 import { addResources, RESOURCE_META, freshResources } from './resources'
-import type { PlacedAsset } from './types'
+import type { Needs, PlacedAsset, ShopCategory, ShopItem } from './types'
 import {
   planLifeDay,
   type LifeLadderAsset,
@@ -59,6 +60,19 @@ const DEFAULT_ROADMAP_DAYS = 8
 const MAX_ROADMAP_DAYS = 30
 const FOODCART_ITEM = { id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 200 }
 const ROADMAP_DAY_MS = 24 * 60 * 60 * 1000
+const CARE_FOCUS_NEED: Partial<Record<ShopCategory, keyof Needs>> = {
+  food: 'hunger',
+  groceries: 'hunger',
+  drinks: 'hydration',
+  leisure: 'fun',
+  health: 'energy',
+}
+const FREE_CARE_EFFECTS: Partial<Record<ShopCategory, Partial<Needs>>> = {
+  food: { hunger: 25 },
+  groceries: { hunger: 12 },
+  drinks: { hydration: 35 },
+  health: { energy: 10 },
+}
 
 function clampHorizon(days: number): number {
   if (!Number.isFinite(days)) return DEFAULT_ROADMAP_DAYS
@@ -71,6 +85,80 @@ function roadmapDayStartMs(lifeDay: number): number {
 
 function roadmapDayEndMs(lifeDay: number): number {
   return roadmapDayStartMs(lifeDay) + ROADMAP_DAY_MS
+}
+
+function careMarketItem(focus: ShopCategory, money: number): ShopItem | null {
+  const need = CARE_FOCUS_NEED[focus]
+  if (!need) return null
+  return SHOP_ITEMS
+    .filter((item) =>
+      item.category === focus &&
+      !item.durable &&
+      !item.placeable &&
+      item.price <= money &&
+      (item.effects?.[need] ?? 0) > 0
+    )
+    .sort((a, b) => a.price - b.price || ((b.effects?.[need] ?? 0) - (a.effects?.[need] ?? 0)))[0] ?? null
+}
+
+function applyNeedEffects(snapshot: LifeLadderSnapshot, effects: Partial<Needs>, healthDelta = 0): LifeLadderSnapshot {
+  return {
+    ...snapshot,
+    needs: applyEffects(snapshot.needs, effects),
+    health: Math.min(100, Math.max(0, snapshot.health + healthDelta)),
+  }
+}
+
+function applyCarePurchase(snapshot: LifeLadderSnapshot, focus: ShopCategory): LifeLadderSnapshot {
+  const item = careMarketItem(focus, snapshot.money)
+  if (item?.effects) {
+    return {
+      ...applyNeedEffects(snapshot, item.effects, focus === 'health' ? 8 : 0),
+      money: snapshot.money - item.price,
+    }
+  }
+  const fallback = FREE_CARE_EFFECTS[focus]
+  return fallback ? applyNeedEffects(snapshot, fallback, focus === 'health' ? 5 : 0) : snapshot
+}
+
+function applyInventoryConsume(snapshot: LifeLadderSnapshot, itemId: string): LifeLadderSnapshot {
+  const item = itemById(itemId)
+  const owned = snapshot.inventory[itemId] ?? 0
+  if (!item?.effects || owned <= 0) return snapshot
+  return {
+    ...applyNeedEffects(snapshot, item.effects),
+    inventory: item.durable ? snapshot.inventory : { ...snapshot.inventory, [itemId]: Math.max(0, owned - 1) },
+  }
+}
+
+function canCookRecipe(recipe: NonNullable<ReturnType<typeof recipeById>>, inventory: Record<string, number>): boolean {
+  return Object.entries(recipe.ingredients).every(([id, qty]) => (inventory[id] ?? 0) >= qty)
+}
+
+function applyCookedRecipe(snapshot: LifeLadderSnapshot, recipeId: string): LifeLadderSnapshot {
+  const recipe = recipeById(recipeId)
+  if (!recipe || !canCookRecipe(recipe, snapshot.inventory)) return snapshot
+  const inventory = { ...snapshot.inventory }
+  for (const [id, qty] of Object.entries(recipe.ingredients)) {
+    inventory[id] = Math.max(0, (inventory[id] ?? 0) - qty)
+  }
+  return {
+    ...applyNeedEffects(snapshot, recipe.effects),
+    inventory,
+  }
+}
+
+function applySleep(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
+  const rested = advanceLife(
+    {
+      needs: snapshot.needs,
+      health: snapshot.health,
+      assets: snapshot.assets.map(asPlacedAsset),
+    },
+    SLEEP_HOURS * 60,
+    snapshot.assets.some((asset) => asset.kind === 'home') ? 'sleepingHome' : 'sleepingRough',
+  )
+  return { ...snapshot, needs: rested.needs, health: rested.health }
 }
 
 function cloneSnapshot(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
@@ -279,6 +367,29 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       xp,
       level: Math.max(next.level, xp >= 40 ? 2 : next.level),
       educationActions: next.educationActions + 1,
+    }
+  }
+
+  if (route.kind === 'market') {
+    next = applyCarePurchase(next, route.focus)
+  }
+
+  if (route.kind === 'consume-action') {
+    next = applyInventoryConsume(next, route.itemId)
+  }
+
+  if (route.kind === 'cook-action') {
+    next = applyCookedRecipe(next, route.recipeId)
+  }
+
+  if (route.kind === 'survival-action') {
+    if (route.action === 'drink-water') {
+      const water = itemById('water')
+      next = water?.effects && next.money >= water.price
+        ? { ...applyNeedEffects(next, water.effects), money: next.money - water.price }
+        : applyNeedEffects(next, { hydration: 35 })
+    } else {
+      next = applySleep(next)
     }
   }
 
