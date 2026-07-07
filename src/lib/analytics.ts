@@ -19,8 +19,10 @@ export const FUNNEL_EVENTS = [
   'first_home_placed',
   'first_business_placed',
   'first_collect',
+  'd1_return',
   'd7_return',
   'tutorial_complete',
+  'life_ladder_stage_progress',
   // Retention engine events — measure the new systems so we can tune them.
   'first_achievement',       // first achievement claimed
   'first_lucky',             // first lucky moment witnessed

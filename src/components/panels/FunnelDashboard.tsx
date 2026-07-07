@@ -22,7 +22,19 @@ const EVENT_LABELS: Record<string, { step: string; detail: string }> = {
   first_home_placed: { step: 'Homed', detail: 'Placed a home on Earth' },
   first_business_placed: { step: 'Founded', detail: 'Opened a first business' },
   first_collect: { step: 'Collected', detail: 'Banked their first earnings' },
+  d1_return: { step: 'Returned D1', detail: 'Came back after one real day' },
   d7_return: { step: 'Returned', detail: 'Came back a real week later' },
+  tutorial_complete: { step: 'Learned basics', detail: 'Finished the first tutorial path' },
+  life_ladder_stage_progress: { step: 'Climbed ladder', detail: 'Reached a later Life Ladder stage' },
+  first_achievement: { step: 'Achieved', detail: 'Claimed a first achievement' },
+  first_lucky: { step: 'Lucky moment', detail: 'Saw a first lucky moment' },
+  streak_7: { step: 'Seven-day streak', detail: 'Built a 7-day daily streak' },
+  daily_complete: { step: 'Perfect day', detail: 'Completed all daily challenges' },
+  first_upgrade: { step: 'Upgraded', detail: 'Improved a first business' },
+  business_maxed: { step: 'Maxed business', detail: 'Reached the business level cap' },
+  week_milestone: { step: 'Week milestone', detail: 'Crossed a long-term time milestone' },
+  notifications_enabled: { step: 'Notifications', detail: 'Enabled return reminders' },
+  telegram_linked: { step: 'Telegram linked', detail: 'Verified Telegram identity' },
 }
 
 interface FunnelStep {
