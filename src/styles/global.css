@@ -180,6 +180,13 @@ body {
   border-radius: 2px 2px 0 0;
   background: rgba(5, 7, 14, 0.78);
 }
+.map-beacon.biz.map-business-marker.developing {
+  outline: 2px solid rgba(125, 216, 255, 0.86);
+  outline-offset: 3px;
+  background:
+    conic-gradient(#7dd8ff var(--business-development-progress, 0%), #f0b429 0),
+    linear-gradient(to bottom, #f7d778 0 22%, #f0b429 23% 100%);
+}
 @keyframes beacon-pulse {
   0% { box-shadow: 0 0 0 0 rgba(240, 180, 41, 0.55); }
   100% { box-shadow: 0 0 0 16px rgba(240, 180, 41, 0); }
