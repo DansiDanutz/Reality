@@ -1106,6 +1106,14 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueLatestReviewRecencyCounts {
+  total: number
+  neverReviewed: number
+  reviewedWithinWeek: number
+  reviewedWithinMonth: number
+  stale: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1262,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    latestReviewRecencyCounts: FounderCovenantReviewQueueLatestReviewRecencyCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4459,7 +4468,7 @@ async function scanFounderCovenantReviewQueue(
     current,
     failed: results.length - caughtUp - current,
     hasMore,
-    totals: founderCovenantReviewQueueTotals(sortedItems),
+    totals: founderCovenantReviewQueueTotals(sortedItems, now),
     items: sortedItems,
     results,
   }
@@ -4611,6 +4620,7 @@ function founderCovenantReviewQueueLatestReview(
 
 function founderCovenantReviewQueueTotals(
   items: FounderCovenantReviewQueueItem[],
+  now: Date,
 ): FounderCovenantReviewQueueDashboard['totals'] {
   return {
     founders: items.length,
@@ -4631,7 +4641,36 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    latestReviewRecencyCounts: founderCovenantLatestReviewRecencyCounts(items, now),
   }
+}
+
+function founderCovenantLatestReviewRecencyCounts(
+  items: FounderCovenantReviewQueueItem[],
+  now: Date,
+): FounderCovenantReviewQueueLatestReviewRecencyCounts {
+  const nowMs = now.getTime()
+  return items.reduce<FounderCovenantReviewQueueLatestReviewRecencyCounts>(
+    (totals, item) => {
+      const reviewedAt = item.latestReview?.reviewedAt ?? item.lastReviewAt
+      if (!reviewedAt) {
+        return { ...totals, total: totals.total + 1, neverReviewed: totals.neverReviewed + 1 }
+      }
+
+      const ageMs = nowMs - Date.parse(reviewedAt)
+      if (!Number.isFinite(ageMs)) {
+        return { ...totals, total: totals.total + 1, stale: totals.stale + 1 }
+      }
+      if (ageMs <= FOUNDER_COVENANT_WEEKLY_REVIEW_MS) {
+        return { ...totals, total: totals.total + 1, reviewedWithinWeek: totals.reviewedWithinWeek + 1 }
+      }
+      if (ageMs <= FOUNDER_COVENANT_MONTHLY_REVIEW_MS) {
+        return { ...totals, total: totals.total + 1, reviewedWithinMonth: totals.reviewedWithinMonth + 1 }
+      }
+      return { ...totals, total: totals.total + 1, stale: totals.stale + 1 }
+    },
+    { total: 0, neverReviewed: 0, reviewedWithinWeek: 0, reviewedWithinMonth: 0, stale: 0 },
+  )
 }
 
 function compareFounderCovenantReviewQueueItems(

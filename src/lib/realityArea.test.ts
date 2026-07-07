@@ -1056,6 +1056,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with malformed latest review recency totals', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      totals: {
+        ...serverFounderCovenantReviewQueue().totals,
+        latestReviewRecencyCounts: {
+          ...serverFounderCovenantReviewQueue().totals.latestReviewRecencyCounts,
+          neverReviewed: '1',
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable approval request metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2994,6 +3018,13 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      latestReviewRecencyCounts: {
+        total: 1,
+        neverReviewed: 1,
+        reviewedWithinWeek: 0,
+        reviewedWithinMonth: 0,
+        stale: 0,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
