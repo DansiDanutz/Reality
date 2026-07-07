@@ -3297,6 +3297,48 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('operator founder covenant review returns a structured storage failure when accepted evidence cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://operator-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          note: 'Weekly operator evidence reviewed.',
+          evidenceKinds: ['external_contribution', 'ideas_feedback'],
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        areaId: 'founder-area-0012',
+      },
+    })
+    expect((res.body as { state: { founderReviewHistory?: unknown[] } }).state.founderReviewHistory ?? []).toHaveLength(0)
+    expect((res.body as { state: { transactions: unknown[] } }).state.transactions).toHaveLength(existing.transactions.length)
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('operator founder covenant review rejects disabled enforcement actions before loading areas', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
