@@ -761,6 +761,7 @@ describe('runWorldServerCommand', () => {
     expect(result).toMatchObject({ ok: false, error: 'invalid_area_label' })
     expect(result.area?.claim).toBeUndefined()
     expect(result.area?.transactions).toEqual([])
+    expect(repo.loads).toBe(0)
     expect(repo.saves).toBe(0)
   })
 
@@ -803,12 +804,60 @@ describe('runWorldServerCommand', () => {
       },
     })
 
+    const badLocationRepo = new MemoryWorldRepo()
+    const badLocation = await runWorldServerCommand(badLocationRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 144,
+        centerLng: 26,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    const largeRadiusRepo = new MemoryWorldRepo()
+    const largeRadius = await runWorldServerCommand(largeRadiusRepo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44,
+        centerLng: 26,
+        radiusKm: 99,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
     expect(badTime).toMatchObject({ ok: false, error: 'invalid_claim_time' })
     expect(badTime.area?.transactions).toEqual([])
+    expect(badTimeRepo.loads).toBe(0)
     expect(badTimeRepo.saves).toBe(0)
     expect(badSource).toMatchObject({ ok: false, error: 'invalid_claim_source' })
     expect(badSource.area?.transactions).toEqual([])
+    expect(badSourceRepo.loads).toBe(0)
     expect(badSourceRepo.saves).toBe(0)
+    expect(badLocation).toMatchObject({ ok: false, error: 'invalid_location' })
+    expect(badLocation.area?.transactions).toEqual([])
+    expect(badLocationRepo.loads).toBe(0)
+    expect(badLocationRepo.saves).toBe(0)
+    expect(largeRadius).toMatchObject({ ok: false, error: 'area_too_large' })
+    expect(largeRadius.area?.transactions).toEqual([])
+    expect(largeRadiusRepo.loads).toBe(0)
+    expect(largeRadiusRepo.saves).toBe(0)
   })
 
   test('rejects invalid area identity before loading or saving state', async () => {

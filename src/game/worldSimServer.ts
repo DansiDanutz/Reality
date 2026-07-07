@@ -470,6 +470,17 @@ async function createClaimedArea(
   const simCitizens = normalizeSimCitizenSeeds(simSeeds, command.founder.id)
   if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
+  const seed: WorldArea = {
+    id: areaId,
+    name,
+    now: command.now,
+    citizens: [newAreaFounder(command.founder), ...simCitizens],
+    businesses: [],
+    transactions: [],
+  }
+  const claimed = claimWorldArea(seed, command.claim)
+  if (!claimed.ok) return { ok: false, error: claimed.error, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
+
   if (await loadStoredArea(repo, areaId)) return { ok: false, error: 'area_exists' }
   const founderArea = await repo.loadAreaByFounder(command.authenticatedFounderId)
   if (founderArea) {
@@ -481,16 +492,6 @@ async function createClaimedArea(
     }
   }
 
-  const seed: WorldArea = {
-    id: areaId,
-    name,
-    now: command.now,
-    citizens: [newAreaFounder(command.founder), ...simCitizens],
-    businesses: [],
-    transactions: [],
-  }
-  const claimed = claimWorldArea(seed, command.claim)
-  if (!claimed.ok) return { ok: false, error: claimed.error, area: claimed.area, dashboard: areaNeedsDashboard(claimed.area) }
   claimed.area.transactions.push(founderCreditTransaction(areaId, command.now, command.founder))
   claimed.area.transactions.push(
     ...simCitizens.map((citizen, index) => simCitizenCreditTransaction(areaId, command.now, index + 2, citizen)),
