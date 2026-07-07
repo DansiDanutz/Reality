@@ -4225,6 +4225,20 @@ async function catchUpPersistedAreaState(
   return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
 }
 
+function areaStorageUnavailablePayload(state: FounderAreaState | null): {
+  ok: false
+  error: string
+  code: 'area_storage_unavailable'
+  state: FounderAreaState | null
+} {
+  return {
+    ok: false,
+    error: 'Reality area storage is briefly unavailable.',
+    code: 'area_storage_unavailable',
+    state,
+  }
+}
+
 async function handleServerClockTickAreas(
   req: VercelRequest,
   res: VercelResponse,
@@ -4922,7 +4936,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      const state = await persistAreaState(citizen.citizenId, result.state, true)
+      let state: FounderAreaState
+      try {
+        state = await persistAreaState(citizen.citizenId, result.state, true)
+      } catch {
+        res.status(503).json(areaStorageUnavailablePayload(stateForInsurance))
+        return
+      }
       res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
