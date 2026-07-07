@@ -1,12 +1,14 @@
 import { playableMapAnchorFor } from './mapAnchor'
+import type { ServicePoi } from './mapDiscovery'
 import type { Citizen, PlacedAsset } from './types'
 
 export interface WorkersHall {
-  id: 'workers-hall'
-  name: 'Workers Hall'
+  id: string
+  name: string
   lat: number
   lng: number
   description: string
+  source: 'osm' | 'fallback'
 }
 
 export type WorkersHallPanel = 'construction' | 'business'
@@ -31,17 +33,35 @@ function offsetLatLng(lat: number, lng: number, km: number, bearingDeg: number):
   }
 }
 
-export function workersHallFor(citizen: Citizen | null, assets: PlacedAsset[]): WorkersHall | null {
+export function workersHallFor(citizen: Citizen | null, assets: PlacedAsset[], servicePois: ServicePoi[] = []): WorkersHall | null {
   const anchor = playableMapAnchorFor(citizen, assets)
   if (!anchor) return null
+  const discovered = servicePois
+    .filter((poi) => poi.kind === 'workers-hall')
+    .sort((a, b) => squaredDistance(a, anchor) - squaredDistance(b, anchor))[0]
+  if (discovered) {
+    return {
+      id: discovered.id,
+      name: discovered.label,
+      lat: discovered.lat,
+      lng: discovered.lng,
+      source: discovered.source,
+      description: 'Recruit AI workers for construction sites and business interiors from this real local labor building.',
+    }
+  }
   const point = offsetLatLng(anchor.lat, anchor.lng, 0.42, 72)
   return {
     id: 'workers-hall',
     name: 'Workers Hall',
     lat: point.lat,
     lng: point.lng,
+    source: 'fallback',
     description: 'Recruit AI workers for construction sites and business interiors; paid contracts advance over real time.',
   }
+}
+
+function squaredDistance(point: { lat: number; lng: number }, anchor: { lat: number; lng: number }): number {
+  return (point.lat - anchor.lat) ** 2 + (point.lng - anchor.lng) ** 2
 }
 
 export function workersHallPanelFor(snapshot: {

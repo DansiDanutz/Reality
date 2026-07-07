@@ -57,6 +57,7 @@ describe('migrateSave - backfills every field added after v1', () => {
     expect(out.luckyMomentsSeenIds).toEqual([])
     expect(out.resources).toEqual({ wood: 0, stone: 0, metal: 0, glass: 0 })
     expect(out.resourceNodes).toEqual([])
+    expect(out.servicePois).toEqual([])
     expect(out.constructionProjects).toEqual([])
     expect(out.placingConstruction).toBeNull()
     expect(out.selectedMapTarget).toBeNull()
@@ -332,7 +333,7 @@ describe('migrateSave - completeness guard', () => {
       'streakLength', 'streakLastClaimDay', 'streakBest',
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
-      'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
+      'resources', 'resourceNodes', 'servicePois', 'constructionProjects', 'placingConstruction',
       'selectedMapTarget', 'educationProgress', 'community', 'businessDevelopmentProjects',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
@@ -346,6 +347,6 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(15)
+    expect(SAVE_VERSION).toBe(16)
   })
 })
