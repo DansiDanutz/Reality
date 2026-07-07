@@ -36,6 +36,16 @@ export interface DailyChallengeSnapshot {
   sleptToday: number
   /** Items purchased since local midnight. */
   boughtToday: number
+  /** Study blocks completed since local midnight. */
+  studiedToday: number
+  /** Resource gathering trips completed since local midnight. */
+  gatheredToday: number
+  /** Construction labor minutes completed since local midnight. */
+  constructionMinutesToday: number
+  /** Community help actions completed since local midnight. */
+  communityToday: number
+  /** Business interior development minutes completed since local midnight. */
+  businessDevelopmentMinutesToday: number
 }
 
 export type ChallengeDifficulty = 'easy' | 'medium' | 'hard'
@@ -75,15 +85,20 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
   { id: 'sleep-1', label: 'Sleep once', verb: 'sleeps', difficulty: 'easy', metric: 'sleptToday', target: 1 },
   { id: 'buy-1', label: 'Buy 1 item', verb: 'items bought', difficulty: 'easy', metric: 'boughtToday', target: 1 },
   { id: 'buy-2', label: 'Buy 2 items', verb: 'items bought', difficulty: 'easy', metric: 'boughtToday', target: 2 },
+  { id: 'gather-1', label: 'Gather 1 resource trip', verb: 'gather trips', difficulty: 'easy', metric: 'gatheredToday', target: 1 },
   // ── Medium (a real session's worth, ~$250) ────────────────────────────
   { id: 'shift-1', label: 'Complete 1 shift', verb: 'shifts', difficulty: 'medium', metric: 'shiftsToday', target: 1 },
   { id: 'eat-5', label: 'Eat 5 meals', verb: 'meals', difficulty: 'medium', metric: 'mealsToday', target: 5 },
   { id: 'earn-200', label: 'Earn $200', verb: 'earned', difficulty: 'medium', metric: 'earnedToday', target: 200 },
   { id: 'buy-3', label: 'Buy 3 items', verb: 'items bought', difficulty: 'medium', metric: 'boughtToday', target: 3 },
+  { id: 'study-1', label: 'Study 1 block', verb: 'study blocks', difficulty: 'medium', metric: 'studiedToday', target: 1 },
+  { id: 'community-1', label: 'Help locally once', verb: 'help actions', difficulty: 'medium', metric: 'communityToday', target: 1 },
   // ── Hard (a full day's effort, ~$500) ─────────────────────────────────
   { id: 'shift-2', label: 'Complete 2 shifts', verb: 'shifts', difficulty: 'hard', metric: 'shiftsToday', target: 2 },
   { id: 'earn-1000', label: 'Earn $1,000', verb: 'earned', difficulty: 'hard', metric: 'earnedToday', target: 1000 },
   { id: 'earn-2000', label: 'Earn $2,000', verb: 'earned', difficulty: 'hard', metric: 'earnedToday', target: 2000 },
+  { id: 'build-60', label: 'Build for 60 minutes', verb: 'build minutes', difficulty: 'hard', metric: 'constructionMinutesToday', target: 60 },
+  { id: 'business-dev-60', label: 'Develop a business for 60 minutes', verb: 'business minutes', difficulty: 'hard', metric: 'businessDevelopmentMinutesToday', target: 60 },
 ] as const
 
 /**
