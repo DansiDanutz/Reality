@@ -13,8 +13,8 @@
  *     state (meals, shifts, earned money, study, gathering, build labor,
  *     community help, and business development). The store resets the "today"
  *     counters at midnight; this module reads them via a DailyChallengeSnapshot.
- *   - Rewards scale with difficulty: easy ($100+25XP), medium ($250+50XP),
- *     hard ($500+100XP). Completing all 3 grants a bonus ($1000+200XP).
+ *   - Rewards scale with difficulty. Cash is stage-aware before first business
+ *     so daily tasks support the life loop without replacing work.
  *
  * Pure: given a snapshot + the day's challenge set, returns progress +
  * completion. The store owns the side effects (granting rewards, the
@@ -70,6 +70,8 @@ export interface DailyChallengeContext extends Partial<DailyChallengeSnapshot> {
   canHelpCommunity: boolean
   /** A business interior project is ready for player/worker labor. */
   canDevelopBusiness: boolean
+  /** Owns at least one earning building; stronger cash challenge rewards are fair. */
+  hasBusiness: boolean
 }
 
 export type ChallengeDifficulty = 'easy' | 'medium' | 'hard'
@@ -96,6 +98,42 @@ export const CHALLENGE_REWARD: Record<ChallengeDifficulty, { cash: number; xp: n
 
 /** Bonus for completing all 3 challenges in a day. */
 export const DAILY_COMPLETE_BONUS = { cash: 1_000, xp: 200 }
+export const PRE_BUSINESS_DAILY_CASH_FRACTION = 0.5
+
+const DAILY_CASH_WEIGHTS: Record<ChallengeDifficulty | 'bonus', number> = {
+  easy: 1,
+  medium: 2,
+  hard: 3,
+  bonus: 4,
+}
+const DAILY_CASH_WEIGHT_TOTAL = Object.values(DAILY_CASH_WEIGHTS).reduce((sum, weight) => sum + weight, 0)
+const STATIC_DAILY_CASH_TOTAL =
+  CHALLENGE_REWARD.easy.cash +
+  CHALLENGE_REWARD.medium.cash +
+  CHALLENGE_REWARD.hard.cash +
+  DAILY_COMPLETE_BONUS.cash
+
+export function dailyChallengeCashBudget(context?: DailyChallengeContext): number {
+  if (!context || context.hasBusiness) return STATIC_DAILY_CASH_TOTAL
+  const workdayValue = Math.max(0, Math.floor(context.maxEarnedToday))
+  return Math.min(STATIC_DAILY_CASH_TOTAL, Math.max(20, Math.floor(workdayValue * PRE_BUSINESS_DAILY_CASH_FRACTION)))
+}
+
+function scaledCash(weight: number, context?: DailyChallengeContext): number {
+  if (!context || context.hasBusiness) return -1
+  return Math.max(1, Math.floor((dailyChallengeCashBudget(context) * weight) / DAILY_CASH_WEIGHT_TOTAL))
+}
+
+export function challengeRewardFor(def: Pick<ChallengeDef, 'difficulty'>, context?: DailyChallengeContext): { cash: number; xp: number } {
+  const staticReward = CHALLENGE_REWARD[def.difficulty]
+  const cash = scaledCash(DAILY_CASH_WEIGHTS[def.difficulty], context)
+  return cash < 0 ? staticReward : { ...staticReward, cash }
+}
+
+export function dailyCompleteBonusForContext(context?: DailyChallengeContext): { cash: number; xp: number } {
+  const cash = scaledCash(DAILY_CASH_WEIGHTS.bonus, context)
+  return cash < 0 ? DAILY_COMPLETE_BONUS : { ...DAILY_COMPLETE_BONUS, cash }
+}
 
 /**
  * The challenge pool. Each day, the generator picks one from each difficulty

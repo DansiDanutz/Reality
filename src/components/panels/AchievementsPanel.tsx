@@ -11,8 +11,8 @@ import {
 import {
   challengesForDay,
   challengeProgress,
-  CHALLENGE_REWARD,
-  DAILY_COMPLETE_BONUS,
+  challengeRewardFor,
+  dailyCompleteBonusForContext,
   type ChallengeDef,
   type DailyChallengeContext,
 } from '../../game/dailyChallenges'
@@ -338,6 +338,7 @@ function DailyChallengesBlock({
   const snap = { ...counters }
   const done = challenges.filter((c) => claimed.includes(c.id) || challengeProgress(c, snap).complete).length
   const allDone = done === challenges.length
+  const bonusReward = dailyCompleteBonusForContext(context)
 
   return (
     <div className="daily-challenges" aria-label="Daily challenges">
@@ -350,7 +351,7 @@ function DailyChallengesBlock({
           const isClaimed = claimed.includes(c.id)
           const prog = challengeProgress(c, snap)
           const pct = Math.min(100, Math.round((prog.current / prog.target) * 100))
-          const r = CHALLENGE_REWARD[c.difficulty]
+          const r = challengeRewardFor(c, context)
           return (
             <li key={c.id} className={`daily-item${isClaimed || prog.complete ? ' complete' : ''}`}>
               <div className="daily-item-label">
@@ -374,7 +375,7 @@ function DailyChallengesBlock({
         <div className="daily-bonus">
           {bonusClaimed
             ? <span className="daily-bonus-claimed">🎯 All 3 complete — bonus claimed!</span>
-            : <span className="daily-bonus-pending">🎯 All 3 complete — bonus +{formatMoney(DAILY_COMPLETE_BONUS.cash)}, +{DAILY_COMPLETE_BONUS.xp} XP incoming!</span>}
+            : <span className="daily-bonus-pending">🎯 All 3 complete — bonus +{formatMoney(bonusReward.cash)}, +{bonusReward.xp} XP incoming!</span>}
         </div>
       )}
     </div>
