@@ -179,6 +179,14 @@ export interface WorldFounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+export interface WorldFounderCovenantReviewQueueScanStatusCounts {
+  caughtUp: number
+  current: number
+  timeMovedBackward: number
+  writeConflict: number
+  failed: number
+}
+
 export interface WorldFounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -322,6 +330,7 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    scanStatusCounts: WorldFounderCovenantReviewQueueScanStatusCounts
   }
   items: WorldFounderCovenantReviewQueueItem[]
   results: WorldFounderCovenantReviewQueueScanResult[]
@@ -437,7 +446,7 @@ export async function readWorldFounderCovenantReviewQueue(
       failed: results.filter((result) =>
         result.status === 'time_moved_backward' || result.status === 'write_conflict'
       ).length,
-      totals: founderCovenantReviewQueueTotals(sortedItems),
+      totals: founderCovenantReviewQueueTotals(sortedItems, results),
       items: sortedItems,
       results,
     },
@@ -843,6 +852,7 @@ function founderCovenantReviewQueueLatestReview(
 
 function founderCovenantReviewQueueTotals(
   items: WorldFounderCovenantReviewQueueItem[],
+  results: WorldFounderCovenantReviewQueueScanResult[],
 ): WorldFounderCovenantReviewQueueDashboard['totals'] {
   return {
     founders: items.length,
@@ -864,6 +874,21 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    scanStatusCounts: founderCovenantReviewQueueScanStatusCounts(results),
+  }
+}
+
+function founderCovenantReviewQueueScanStatusCounts(
+  results: WorldFounderCovenantReviewQueueScanResult[],
+): WorldFounderCovenantReviewQueueScanStatusCounts {
+  const timeMovedBackward = results.filter((result) => result.status === 'time_moved_backward').length
+  const writeConflict = results.filter((result) => result.status === 'write_conflict').length
+  return {
+    caughtUp: results.filter((result) => result.status === 'caught_up').length,
+    current: results.filter((result) => result.status === 'current').length,
+    timeMovedBackward,
+    writeConflict,
+    failed: timeMovedBackward + writeConflict,
   }
 }
 

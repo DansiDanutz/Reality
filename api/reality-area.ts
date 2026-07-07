@@ -1106,6 +1106,14 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueScanStatusCounts {
+  caughtUp: number
+  current: number
+  invalid: number
+  unavailable: number
+  failed: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1262,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    scanStatusCounts: FounderCovenantReviewQueueScanStatusCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4459,7 +4468,7 @@ async function scanFounderCovenantReviewQueue(
     current,
     failed: results.length - caughtUp - current,
     hasMore,
-    totals: founderCovenantReviewQueueTotals(sortedItems),
+    totals: founderCovenantReviewQueueTotals(sortedItems, results),
     items: sortedItems,
     results,
   }
@@ -4611,6 +4620,7 @@ function founderCovenantReviewQueueLatestReview(
 
 function founderCovenantReviewQueueTotals(
   items: FounderCovenantReviewQueueItem[],
+  results: FounderCovenantReviewQueueScanResult[],
 ): FounderCovenantReviewQueueDashboard['totals'] {
   return {
     founders: items.length,
@@ -4631,6 +4641,21 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    scanStatusCounts: founderCovenantReviewQueueScanStatusCounts(results),
+  }
+}
+
+function founderCovenantReviewQueueScanStatusCounts(
+  results: FounderCovenantReviewQueueScanResult[],
+): FounderCovenantReviewQueueScanStatusCounts {
+  const invalid = results.filter((result) => result.status === 'invalid').length
+  const unavailable = results.filter((result) => result.status === 'unavailable').length
+  return {
+    caughtUp: results.filter((result) => result.status === 'caught_up').length,
+    current: results.filter((result) => result.status === 'current').length,
+    invalid,
+    unavailable,
+    failed: invalid + unavailable,
   }
 }
 

@@ -587,6 +587,13 @@ describe('FounderAreaPanel covenant presenters', () => {
         pendingApprovals: 2,
         pendingNotifications: 1,
         blockers: 5,
+        scanStatusCounts: {
+          caughtUp: 1,
+          current: 0,
+          invalid: 1,
+          unavailable: 0,
+          failed: 1,
+        },
       },
     }
     const item = {
@@ -630,7 +637,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       '2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available',
     )
     expect(founderCovenantOperatorQueuePageSummary(queue)).toBe(
-      '2 scanned · 1 caught up · 0 current · 1 failed · next page ready',
+      '2 scanned · 1 caught up · 0 current · 1 failed (1 invalid, 0 unavailable) · next page ready',
     )
     expect(founderCovenantOperatorQueueItemSummary(item)).toBe(
       'Manual review · manual review · score 35/100 · $350 debt · 2 warnings · 1 critical · 5 blockers · 1 tx',

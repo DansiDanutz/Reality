@@ -56,6 +56,11 @@ export function FounderCovenantQueuePanel({
           tone={queue.totals.blockers > 0 ? 'warning' : 'stable'}
           value={queue.totals.blockers}
         />
+        <QueueTotalChip
+          label="Scan failed"
+          tone={queue.totals.scanStatusCounts.failed > 0 ? 'critical' : 'stable'}
+          value={queue.totals.scanStatusCounts.failed}
+        />
       </div>
       {reviewRows.length === 0 ? (
         <p className="panel-sub">No founders in this review page.</p>

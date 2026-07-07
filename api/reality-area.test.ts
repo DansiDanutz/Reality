@@ -1516,6 +1516,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -2115,6 +2117,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2650,6 +2654,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -3511,6 +3517,13 @@ describe('reality area authority API', () => {
         pendingApprovals: 2,
         pendingNotifications: 1,
         blockers: 5,
+        scanStatusCounts: {
+          caughtUp: 1,
+          current: 0,
+          invalid: 0,
+          unavailable: 0,
+          failed: 0,
+        },
       },
       results: [{
         citizenId: CITIZEN_ID,
@@ -3676,6 +3689,55 @@ describe('reality area authority API', () => {
     expect(persisted.founderCovenant.waitlistHandoffEnabled).toBe(false)
   })
 
+  test('founder covenant review queue counts invalid and unavailable scan statuses for operators', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList(['reality-areas/not-a-founder-state.json', areaStatePath(CITIZEN_ID)], 'blob://unavailable-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('unavailable', { status: 503 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '2' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      founderCovenantReviewQueue: {
+        scanned: 2,
+        caughtUp: 0,
+        current: 0,
+        failed: 2,
+        totals: {
+          founders: 0,
+          scanStatusCounts: {
+            caughtUp: 0,
+            current: 0,
+            invalid: 1,
+            unavailable: 1,
+            failed: 2,
+          },
+        },
+        items: [],
+        results: [{
+          citizenId: null,
+          areaId: null,
+          status: 'invalid',
+          updatedAt: null,
+          transactionsAdded: 0,
+        }, {
+          citizenId: CITIZEN_ID,
+          areaId: null,
+          status: 'unavailable',
+          updatedAt: null,
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('founder covenant review queue exposes latest evidence review context without execution authority', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
@@ -3793,6 +3855,13 @@ describe('reality area authority API', () => {
           pendingApprovals: 0,
           pendingNotifications: 0,
           blockers: 0,
+          scanStatusCounts: {
+            caughtUp: 0,
+            current: 0,
+            invalid: 0,
+            unavailable: 0,
+            failed: 0,
+          },
         },
         items: [],
         results: [],

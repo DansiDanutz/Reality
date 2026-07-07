@@ -37,6 +37,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('waitlist disabled')
     expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
+    expect(html).toContain('Scan failed')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
@@ -238,6 +239,13 @@ describe('FounderCovenantQueuePanel', () => {
         indebted: 0,
         totalOutstandingDebt: 0,
         blockers: 0,
+        scanStatusCounts: {
+          caughtUp: 0,
+          current: 0,
+          invalid: 0,
+          unavailable: 0,
+          failed: 0,
+        },
       },
     }
 
@@ -313,6 +321,13 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      scanStatusCounts: {
+        caughtUp: 1,
+        current: 1,
+        invalid: 0,
+        unavailable: 0,
+        failed: 0,
+      },
     },
     items: [item, current],
     results: [{

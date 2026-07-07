@@ -734,9 +734,13 @@ export function founderCovenantOperatorQueueSummary(
 }
 
 export function founderCovenantOperatorQueuePageSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'scanned' | 'caughtUp' | 'current' | 'failed' | 'hasMore'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'scanned' | 'caughtUp' | 'current' | 'failed' | 'hasMore' | 'totals'>,
 ): string {
-  return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed${queue.hasMore ? ' · next page ready' : ''}`
+  const scanStatus = queue.totals.scanStatusCounts
+  const failureDetail = scanStatus.failed > 0
+    ? ` (${scanStatus.invalid} invalid, ${scanStatus.unavailable} unavailable)`
+    : ''
+  return `${queue.scanned} scanned · ${scanStatus.caughtUp} caught up · ${scanStatus.current} current · ${scanStatus.failed} failed${failureDetail}${queue.hasMore ? ' · next page ready' : ''}`
 }
 
 export function founderCovenantOperatorQueueItemSummary(

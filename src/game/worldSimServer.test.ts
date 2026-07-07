@@ -1336,6 +1336,15 @@ describe('runWorldServerCommand', () => {
       caughtUp: 2,
       current: 0,
       failed: 0,
+      totals: {
+        scanStatusCounts: {
+          caughtUp: 2,
+          current: 0,
+          timeMovedBackward: 0,
+          writeConflict: 0,
+          failed: 0,
+        },
+      },
     })
     expect(queue.items.map((item) => item.founderCitizenId)).toEqual(['founder-2', 'founder'])
     expect(queue.items[0]).toMatchObject({
@@ -1552,6 +1561,15 @@ describe('runWorldServerCommand', () => {
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
       approvalWorkflowEnabled: false,
+      totals: {
+        scanStatusCounts: {
+          caughtUp: 0,
+          current: 2,
+          timeMovedBackward: 0,
+          writeConflict: 0,
+          failed: 0,
+        },
+      },
     })
     expect(firstResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
       .toEqual(['area-1', 'area-2'])
@@ -1571,6 +1589,15 @@ describe('runWorldServerCommand', () => {
       current: 1,
       caughtUp: 0,
       failed: 0,
+      totals: {
+        scanStatusCounts: {
+          caughtUp: 0,
+          current: 1,
+          timeMovedBackward: 0,
+          writeConflict: 0,
+          failed: 0,
+        },
+      },
     })
     expect(secondResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
       .toEqual(['area-3'])
@@ -1579,6 +1606,40 @@ describe('runWorldServerCommand', () => {
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_limit' })
     await expect(readWorldFounderCovenantReviewQueue(repo, now, { cursor: `area-1\narea-2` }))
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_cursor' })
+  })
+
+  test('counts write conflicts in the evidence-only founder covenant review queue', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    repo.conflictNextSave()
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, 1_000 + HOUR)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected review queue to build around conflict: ${result.error}`)
+    expect(result.founderCovenantReviewQueue).toMatchObject({
+      scanned: 1,
+      caughtUp: 0,
+      current: 0,
+      failed: 1,
+      totals: {
+        founders: 0,
+        scanStatusCounts: {
+          caughtUp: 0,
+          current: 0,
+          timeMovedBackward: 0,
+          writeConflict: 1,
+          failed: 1,
+        },
+      },
+      items: [],
+      results: [{
+        areaId: 'area-1',
+        status: 'write_conflict',
+        checkedAt: 1_000,
+        transactionsAdded: 0,
+      }],
+    })
   })
 
   test('reports unavailable founder covenant review queue repositories', async () => {
