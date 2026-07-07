@@ -21,7 +21,15 @@ import {
   payPermit,
 } from './construction'
 import { communityActionById } from './community'
-import { SLEEP_HOURS, advanceLife, applyEffects } from './engine'
+import {
+  addStudyMinutes,
+  createEducationProgress,
+  educationActionCount,
+  educationCourseById,
+  educationCourseForItem,
+  nextStudyBlockMinutes,
+} from './education'
+import { SLEEP_HOURS, advanceLife, applyEffects, applyXp } from './engine'
 import { addResources, RESOURCE_META, freshResources } from './resources'
 import type { Needs, PlacedAsset, ShopCategory, ShopItem } from './types'
 import {
@@ -375,16 +383,32 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     }
   }
 
-  if (route.kind === 'education-action' || (route.kind === 'market' && route.focus === 'education')) {
-    const coursePrice = route.kind === 'market' ? itemById(FIRST_COURSE_ITEM_ID)?.price ?? 80 : 0
-    if (next.money >= coursePrice) {
-      const xp = next.xp + 40
+  if (route.kind === 'market' && route.focus === 'education') {
+    const course = educationCourseForItem(FIRST_COURSE_ITEM_ID)
+    const price = itemById(FIRST_COURSE_ITEM_ID)?.price ?? 80
+    const existing = course ? next.educationProgress.find((progress) => progress.courseId === course.id) : null
+    if (course && !existing && next.money >= price) {
       next = {
         ...next,
-        money: next.money - coursePrice,
-        xp,
-        level: Math.max(next.level, xp >= 40 ? 2 : next.level),
-        educationActions: next.educationActions + 1,
+        money: next.money - price,
+        educationProgress: [...next.educationProgress, createEducationProgress(course, roadmapDayStartMs(next.lifeDay))],
+      }
+    }
+  }
+
+  if (route.kind === 'education-action') {
+    const course = educationCourseById(route.courseId)
+    const current = course ? next.educationProgress.find((progress) => progress.courseId === course.id) ?? null : null
+    if (course && current) {
+      const studied = addStudyMinutes(course, current, nextStudyBlockMinutes(course, current), roadmapDayEndMs(next.lifeDay))
+      const educationProgress = next.educationProgress.map((progress) => progress.courseId === course.id ? studied.progress : progress)
+      const xp = studied.xpGained > 0 ? applyXp(next.level, next.xp, studied.xpGained) : null
+      next = {
+        ...next,
+        educationProgress,
+        educationActions: Math.max(next.educationActions, educationActionCount(educationProgress)),
+        level: xp?.level ?? next.level,
+        xp: xp?.xp ?? next.xp,
       }
     }
   }

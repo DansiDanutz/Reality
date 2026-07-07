@@ -70,7 +70,8 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days[0].primary.id).toBe('find-job')
     expect(roadmap.days[1].primary.id).toBe('first-shift')
     expect(roadmap.days[2].primary.id).toBe('study-first-course')
-    expect(roadmap.days[3].primary.id).toBe('place-home-foundation')
+    expect(roadmap.days[3].primary.id).toBe('study-course')
+    expect(roadmap.days[4].primary.id).toBe('place-home-foundation')
     expect(roadmap.days.some((day) => day.primary.id.startsWith('gather-'))).toBe(true)
     expect(roadmap.valuesCovered).toEqual(expect.arrayContaining(['body', 'work', 'school', 'capital']))
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
@@ -194,7 +195,7 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
   })
 
-  test('projects the first education course as a paid market action', () => {
+  test('projects the first education course as paid enrollment before XP', () => {
     const roadmap = planLifeRoadmap(snap({
       money: 500,
       jobId: 'barista',
@@ -205,9 +206,35 @@ describe('planLifeRoadmap', () => {
       id: 'study-first-course',
       route: { kind: 'market', focus: 'education' },
     })
+    expect(roadmap.finalSnapshot.educationActions).toBe(0)
+    expect(roadmap.finalSnapshot.xp).toBe(0)
+    expect(roadmap.finalSnapshot.money).toBe(502)
+    expect(roadmap.finalSnapshot.educationProgress[0]).toMatchObject({
+      courseId: 'course',
+      studiedMinutes: 0,
+      completedAt: null,
+    })
+  })
+
+  test('projects enrolled course study into completion XP', () => {
+    const roadmap = planLifeRoadmap(snap({
+      money: 500,
+      jobId: 'barista',
+      shiftsWorked: 1,
+    }), 2)
+
+    expect(roadmap.days.map((day) => day.primary.id)).toEqual([
+      'study-first-course',
+      'study-course',
+    ])
     expect(roadmap.finalSnapshot.educationActions).toBe(1)
     expect(roadmap.finalSnapshot.xp).toBe(40)
-    expect(roadmap.finalSnapshot.money).toBe(502)
+    expect(roadmap.finalSnapshot.level).toBe(1)
+    expect(roadmap.finalSnapshot.educationProgress[0]).toMatchObject({
+      courseId: 'course',
+      studiedMinutes: 60,
+    })
+    expect(roadmap.finalSnapshot.educationProgress[0].completedAt).toBeTypeOf('number')
   })
 
   test('keeps the first-month life loop clear from survival routine to house and business shell', () => {
@@ -218,8 +245,12 @@ describe('planLifeRoadmap', () => {
       'find-job',
       'first-shift',
       'study-first-course',
-      'place-home-foundation',
+      'study-course',
     ])
+    expect(primaryIds[4]).toBe('place-home-foundation')
+    expect(primaryIds).toEqual(expect.arrayContaining([
+      'place-home-foundation',
+    ]))
     expect(primaryIds).toEqual(expect.arrayContaining([
       'deposit-house-materials',
       'pay-house-permit',
@@ -227,7 +258,6 @@ describe('planLifeRoadmap', () => {
       'build-first-business',
       'deposit-business-building-materials',
       'pay-business-building-permit',
-      'hire-business-building-worker-hour',
     ]))
     expect(primaryIds.some((id) => id.startsWith('gather-'))).toBe(true)
 
@@ -253,13 +283,9 @@ describe('planLifeRoadmap', () => {
       name: 'Food Cart',
       resultKind: 'business',
       permitFeePaid: true,
+      laborDoneMinutes: 0,
     })
-    expect(businessBuild?.workerContracts[0]).toMatchObject({
-      source: 'workers-hall',
-      workerId: 'helper',
-      paidMinutes: 120,
-      workedMinutes: 120,
-    })
+    expect(businessBuild?.workerContracts).toEqual([])
   })
 
   test('projects routed Workers Hall helper hours into a completed house asset', () => {
