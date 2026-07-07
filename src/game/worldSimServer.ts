@@ -170,6 +170,7 @@ export type WorldFounderCovenantReviewQueueScanStatus =
   | 'current'
   | 'caught_up'
   | 'time_moved_backward'
+  | 'unavailable'
   | 'write_conflict'
 
 export interface WorldFounderCovenantReviewQueueSignalCounts {
@@ -435,7 +436,9 @@ export async function readWorldFounderCovenantReviewQueue(
       caughtUp: results.filter((result) => result.status === 'caught_up').length,
       current: results.filter((result) => result.status === 'current').length,
       failed: results.filter((result) =>
-        result.status === 'time_moved_backward' || result.status === 'write_conflict'
+        result.status === 'time_moved_backward' ||
+        result.status === 'unavailable' ||
+        result.status === 'write_conflict'
       ).length,
       totals: founderCovenantReviewQueueTotals(sortedItems),
       items: sortedItems,
@@ -633,7 +636,20 @@ async function founderCovenantReviewQueueRecord(
   const scanStatus: WorldFounderCovenantReviewQueueScanStatus = advanced ? 'caught_up' : 'current'
 
   if (advanced) {
-    const saved = await saveStoredArea(repo, reviewArea, { expectedRevision: record.revision })
+    let saved: SaveWorldAreaResult
+    try {
+      saved = await saveStoredArea(repo, reviewArea, { expectedRevision: record.revision })
+    } catch {
+      return {
+        result: {
+          areaId: area.id,
+          status: 'unavailable',
+          checkedAt: area.now,
+          transactionsAdded: 0,
+        },
+        item: null,
+      }
+    }
     if (!saved.ok) {
       return {
         result: {

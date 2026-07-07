@@ -1594,6 +1594,43 @@ describe('runWorldServerCommand', () => {
       .resolves.toEqual({ ok: false, error: 'invalid_command_time' })
   })
 
+  test('reports unavailable queue catch-up save failures without exposing unsaved review evidence', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
+    let saveAttempts = 0
+    const failingRepo: WorldAreaRepository = {
+      loadArea: repo.loadArea.bind(repo),
+      loadAreaByFounder: repo.loadAreaByFounder.bind(repo),
+      listAreaRecords: repo.listAreaRecords.bind(repo),
+      saveArea: async () => {
+        saveAttempts += 1
+        throw new Error('storage save unavailable')
+      },
+    }
+
+    const result = await readWorldFounderCovenantReviewQueue(failingRepo, 1_000 + HOUR)
+    const saved = await repo.loadArea('area-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected queue to return scan failure evidence: ${result.error}`)
+    expect(result.founderCovenantReviewQueue).toMatchObject({
+      scanned: 1,
+      caughtUp: 0,
+      current: 0,
+      failed: 1,
+      items: [],
+      results: [{
+        areaId: 'area-1',
+        status: 'unavailable',
+        checkedAt: 1_000,
+        transactionsAdded: 0,
+      }],
+    })
+    expect(saveAttempts).toBe(1)
+    expect(saved?.now).toBe(1_000)
+    expect(saved?.citizens[0].needs.hydration).toBe(50)
+  })
+
   test('rejects founder area reads without a claimed area', async () => {
     const blankRepo = new MemoryWorldRepo()
     const blankFounder = await runWorldServerCommand(blankRepo, {
