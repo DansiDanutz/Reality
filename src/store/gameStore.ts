@@ -1560,7 +1560,7 @@ export const useGame = create<GameState>()(
             money: s.money - item.price,
             placing: item,
             panel: null,
-            log: note(s.log, `${item.name} purchased. Click anywhere on Earth to place it.`),
+            log: note(s.log, `${item.name} purchased. Place it inside your claimed area.`),
           })
           return
         }

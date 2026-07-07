@@ -149,7 +149,7 @@ export default function Welcome() {
           Eat. Sleep. Work. Build. Every citizen starts with nothing but time — except the first{' '}
           {FOUNDER_SLOTS.toLocaleString()} founders, who receive{' '}
           <strong className="gold">{formatMoney(FOUNDER_BALANCE)}</strong> to start the world's economy.
-          Buy businesses, place them anywhere on the planet, and get paid while you live your life.
+          Buy businesses, place them inside claimed local areas, and get paid while you live your life.
         </p>
         <form
           className="welcome-form"

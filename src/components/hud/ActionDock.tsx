@@ -29,7 +29,7 @@ export default function ActionDock() {
     return (
       <div className="dock placing-banner">
         <span className="placing-pulse" />
-        <span>Click anywhere on Earth to place your <strong>{placing.name}</strong></span>
+        <span>Click inside your claimed area to place your <strong>{placing.name}</strong></span>
         <button className="btn ghost" onClick={cancelPlacing}>Cancel &amp; refund</button>
       </div>
     )

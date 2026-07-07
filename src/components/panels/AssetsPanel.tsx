@@ -21,7 +21,7 @@ export default function AssetsPanel() {
 
       {assets.length === 0 ? (
         <p className="panel-sub">
-          Nothing on the map yet. Buy a home or a business in the shop, then click anywhere on Earth to place it.
+          Nothing on the map yet. Buy a home or a business in the shop, then place it inside your claimed area.
         </p>
       ) : (
         <>
