@@ -838,6 +838,8 @@ export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
+const SIM_DEBT_REPAYMENT_CASH_RESERVE = 50
+const SIM_DEBT_REPAYMENT_PER_HOUR = 25
 
 const SURVIVAL_WARNING_HYDRATION = 50
 const SURVIVAL_WARNING_HUNGER = 50
@@ -3002,6 +3004,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
       continue
     }
     if (shouldHospitalize(citizen)) hospitalize(area, citizen, context)
+    else repaySimMedicalDebt(area, citizen, context)
   }
   removeDepartingCitizens(area, departingCitizens, context)
 }
@@ -3284,6 +3287,37 @@ function purchaseInsurancePolicy(
     memo: `${citizen.name} bought insurance from ${insurer.name}.`,
   })
   return true
+}
+
+function repaySimMedicalDebt(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return
+  if (!citizen.debts || citizen.debts.length === 0) return
+
+  const available = roundMoney(citizen.money - SIM_DEBT_REPAYMENT_CASH_RESERVE)
+  if (available <= 0) return
+
+  const debt = [...citizen.debts]
+    .filter((candidate) => candidate.kind === 'medical' && candidate.amount > 0)
+    .sort((a, b) => a.issuedAt - b.issuedAt || a.id.localeCompare(b.id))[0]
+  if (!debt) return
+
+  const payment = roundMoney(Math.min(debt.amount, available, SIM_DEBT_REPAYMENT_PER_HOUR * context.hours))
+  if (payment <= 0) return
+
+  citizen.money = roundMoney(citizen.money - payment)
+  citizen.debt = roundMoney(Math.max(0, citizen.debt - payment))
+  debt.amount = roundMoney(debt.amount - payment)
+  if (debt.amount <= 0) citizen.debts = citizen.debts.filter((candidate) => candidate.id !== debt.id)
+
+  const creditor = area.businesses.find((business) => business.id === debt.creditorId)
+  if (creditor) creditor.cash = roundMoney(creditor.cash + payment)
+  recordTransaction(area, context.at, {
+    kind: 'debt_repayment',
+    fromId: citizen.id,
+    toId: debt.creditorId,
+    amount: payment,
+    memo: `${citizen.name} repaid medical debt to ${debt.creditorId}.`,
+  })
 }
 
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
