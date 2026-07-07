@@ -105,6 +105,28 @@ describe('register API Telegram identity bridge', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('rejects client-controlled identity and economy fields before storage writes', async () => {
+    for (const field of ['citizenId', 'token', 'founderNumber', 'telegramUserId', 'telegramAccountId', 'money', 'balance']) {
+      vi.mocked(list).mockReset()
+      vi.mocked(put).mockClear()
+      const res = responseRecorder()
+
+      await handler({
+        method: 'POST',
+        body: { name: 'David', [field]: field === 'founderNumber' ? 1 : 'client-value' },
+      } as never, res as never)
+
+      expect(res.statusCode).toBe(400)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Registration contains fields the server must own.',
+        code: 'client_controlled_registration_field',
+      })
+      expect(list).not.toHaveBeenCalled()
+      expect(put).not.toHaveBeenCalled()
+    }
+  })
+
   test('keeps non-Telegram registration available', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([]))

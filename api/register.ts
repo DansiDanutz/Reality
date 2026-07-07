@@ -9,6 +9,7 @@ import {
 } from './telegram-auth'
 
 const FOUNDER_SLOTS = 2_000
+const REGISTRATION_BODY_FIELDS = new Set(['name', 'telegramInitData'])
 
 async function claimedSlots(): Promise<number> {
   let count = 0
@@ -34,7 +35,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { name, telegramInitData } = (req.body ?? {}) as { name?: string; telegramInitData?: unknown }
+  const body = (req.body ?? {}) as Record<string, unknown>
+  if (hasUnexpectedRegistrationField(body)) {
+    res.status(400).json({
+      ok: false,
+      error: 'Registration contains fields the server must own.',
+      code: 'client_controlled_registration_field',
+    })
+    return
+  }
+
+  const { name, telegramInitData } = body as { name?: string; telegramInitData?: unknown }
   const clean = String(name ?? '').trim()
   if (clean.length < 2 || clean.length > 24) {
     res.status(400).json({ ok: false, error: 'Name must be 2–24 characters.' })
@@ -180,6 +191,10 @@ function citizenRecord(name: string, createdAt: Date, telegram: TelegramRealityA
       telegramLinkedAt: createdAt.toISOString(),
     } : {}),
   }
+}
+
+function hasUnexpectedRegistrationField(body: Record<string, unknown>): boolean {
+  return Object.keys(body).some((key) => !REGISTRATION_BODY_FIELDS.has(key))
 }
 
 function telegramDisplayName(telegram: Pick<TelegramRealityAccountRecord, 'firstName' | 'lastName' | 'username'>): string {
