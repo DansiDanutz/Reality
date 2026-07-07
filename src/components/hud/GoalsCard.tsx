@@ -33,7 +33,10 @@ function buildEtaSummary(forecast: ConstructionDayForecast | null): string | nul
   if (forecast.totalGatherMinutes > 0) parts.push(`${formatPlanMinutes(forecast.totalGatherMinutes)} gather`)
   if (forecast.remainingLaborMinutes > 0) {
     parts.push(`${forecast.playerOnlyDaysAtOneHour}d solo`)
-    if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
+    if (forecast.activeWorkerCount > 0) {
+      parts.push(`${forecast.activeWorkerCount} worker active`)
+      parts.push(`${formatPlanMinutes(Math.round(forecast.activeWorkerLaborMinutesRemaining))} paid help left`)
+    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
       parts.push(`${forecast.helperTwoHourDays}d with helper`)
       parts.push(`${formatMoney(forecast.helperTwoHourCost)}/helper day`)
       parts.push(forecast.helperTwoHourAffordableToday ? 'hire today' : `save ${formatMoney(forecast.helperTwoHourCashNeeded)}`)
