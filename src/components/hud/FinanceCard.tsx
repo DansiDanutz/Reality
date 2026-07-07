@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { jobById } from '../../game/catalog'
+import { educationWageBonusFrom } from '../../game/education'
 import { careerRankOf, cashflowOf, formatMoney, nextRankOf, wageBonusFrom } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
@@ -13,9 +14,11 @@ export default function FinanceCard() {
   const inventory = useGame((s) => s.inventory)
   const jobId = useGame((s) => s.jobId)
   const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const educationProgress = useGame((s) => s.educationProgress)
 
   const job = jobId ? jobById(jobId) : undefined
   const hasHome = assets.some((a) => a.kind === 'home')
+  const schoolWageBonus = educationWageBonusFrom(educationProgress)
 
   const flow = useMemo(
     () =>
@@ -24,9 +27,9 @@ export default function FinanceCard() {
         hasHome,
         wage: job?.wage ?? 0,
         shiftsWorked,
-        wageBonus: wageBonusFrom(inventory),
+        wageBonus: wageBonusFrom(inventory) + schoolWageBonus,
       }),
-    [assets, hasHome, job?.wage, shiftsWorked, inventory],
+    [assets, hasHome, job?.wage, shiftsWorked, inventory, schoolWageBonus],
   )
   const rank = careerRankOf(shiftsWorked)
   const next = nextRankOf(shiftsWorked)
@@ -64,7 +67,7 @@ export default function FinanceCard() {
       <div className="finance-career">
         <div className="finance-career-head">
           <span className="stat-label">career · {rank.title}</span>
-          <span className="stat-label mono">×{rank.wageMultiplier.toFixed(2)}</span>
+          <span className="stat-label mono">×{rank.wageMultiplier.toFixed(2)}{schoolWageBonus > 0 ? ` · school +${Math.round(schoolWageBonus * 100)}%` : ''}</span>
         </div>
         <div className="xp-track">
           <div className="xp-fill" style={{ width: `${rankProgress}%` }} />

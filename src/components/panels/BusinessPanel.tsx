@@ -8,6 +8,7 @@ import {
 } from '../../game/businessDevelopment'
 import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import { CONSTRUCTION_WORKERS } from '../../game/construction'
+import { educationBusinessLaborMultiplier } from '../../game/education'
 import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
@@ -30,6 +31,7 @@ export default function BusinessPanel() {
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const money = useGame((s) => s.money)
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
+  const educationProgress = useGame((s) => s.educationProgress)
   const collectIncome = useGame((s) => s.collectIncome)
   const upgradeBusiness = useGame((s) => s.upgradeBusiness)
   const depositBusinessDevelopmentResources = useGame((s) => s.depositBusinessDevelopmentResources)
@@ -63,6 +65,8 @@ export default function BusinessPanel() {
   const projectLabor = project ? businessDevelopmentLaborBreakdown(project) : null
   const shortfall = project ? businessDevelopmentShortfall(project) : null
   const activeWorkerContracts = project?.workerContracts?.filter((contract) => contract.workedMinutes < contract.paidMinutes) ?? []
+  const studyLaborMultiplier = educationBusinessLaborMultiplier(educationProgress)
+  const studyLaborBonus = Math.max(0, Math.round((studyLaborMultiplier - 1) * 100))
   const atCap = level >= MAX_BUSINESS_LEVEL || !plan
 
   return (
@@ -161,6 +165,10 @@ export default function BusinessPanel() {
                 <span className="stat-value mono">{activeWorkerContracts.length}</span>
               </div>
               <div className="stat">
+                <span className="stat-label">school efficiency</span>
+                <span className="stat-value mono">{studyLaborBonus > 0 ? `+${studyLaborBonus}%` : '0%'}</span>
+              </div>
+              <div className="stat">
                 <span className="stat-label">remaining</span>
                 <span className="stat-value mono gold">{formatMinutes(projectLabor.remainingMinutes)}</span>
               </div>
@@ -171,7 +179,7 @@ export default function BusinessPanel() {
                 {project.budgetPaid ? 'Budget paid' : `Pay ${formatMoney(project.budgetCost)}`}
               </button>
               <button className="btn primary" disabled={!projectProgress?.resourcesComplete || !projectProgress.budgetComplete || projectProgress.laborComplete} onClick={() => startBusinessDevelopmentWork(project.id)}>
-                Work 60m
+                {studyLaborBonus > 0 ? `Work 60m -> ${formatMinutes(Math.round(60 * studyLaborMultiplier))}` : 'Work 60m'}
               </button>
               <button className="btn ghost" disabled={!projectProgress?.complete} onClick={() => completeBusinessDevelopmentIfReady(project.id)}>
                 Finish L{project.levelTo}
