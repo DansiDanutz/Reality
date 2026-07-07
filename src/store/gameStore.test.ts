@@ -167,6 +167,83 @@ describe('hard work body gates', () => {
   })
 })
 
+describe('sleep daily counter', () => {
+  test('starting sleep counts once for daily tasks even if the player leaves early', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      activity: null,
+      dailyCounters: {
+        day: 0,
+        mealsToday: 0,
+        shiftsToday: 0,
+        earnedToday: 0,
+        sleptToday: 0,
+        boughtToday: 0,
+        studiedToday: 0,
+        gatheredToday: 0,
+        constructionMinutesToday: 0,
+        communityToday: 0,
+        businessDevelopmentMinutesToday: 0,
+      },
+      timesSlept: 0,
+      log: [],
+    })
+
+    useGame.getState().startSleep()
+    expect(useGame.getState().timesSlept).toBe(1)
+    expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
+
+    useGame.getState().leaveActivity()
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().timesSlept).toBe(1)
+    expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
+  })
+
+  test('completed sleep does not double-count after the start action', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 20, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      lastSeenAt: now,
+      dailyCounters: {
+        day: 0,
+        mealsToday: 0,
+        shiftsToday: 0,
+        earnedToday: 0,
+        sleptToday: 0,
+        boughtToday: 0,
+        studiedToday: 0,
+        gatheredToday: 0,
+        constructionMinutesToday: 0,
+        communityToday: 0,
+        businessDevelopmentMinutesToday: 0,
+      },
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startSleep()
+    const activity = useGame.getState().activity
+    expect(activity).toMatchObject({ kind: 'sleep' })
+    expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
+
+    advanceLiveTo(activity!.endsAt)
+
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
+  })
+})
+
 describe('construction worker contracts', () => {
   test('player construction labor waits for materials and permit like hired workers do', () => {
     const now = Date.now()
