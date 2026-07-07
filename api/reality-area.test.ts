@@ -1516,6 +1516,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -2115,6 +2117,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2650,6 +2654,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -3511,6 +3517,13 @@ describe('reality area authority API', () => {
         pendingApprovals: 2,
         pendingNotifications: 1,
         blockers: 5,
+        readinessCounts: {
+          blocked: 1,
+          needsEvidence: 0,
+          overdue: 0,
+          ready: 0,
+          monitoring: 0,
+        },
       },
       results: [{
         citizenId: CITIZEN_ID,
@@ -3793,6 +3806,13 @@ describe('reality area authority API', () => {
           pendingApprovals: 0,
           pendingNotifications: 0,
           blockers: 0,
+          readinessCounts: {
+            blocked: 0,
+            needsEvidence: 0,
+            overdue: 0,
+            ready: 0,
+            monitoring: 0,
+          },
         },
         items: [],
         results: [],

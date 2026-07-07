@@ -1106,6 +1106,14 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueReadinessCounts {
+  blocked: number
+  needsEvidence: number
+  overdue: number
+  ready: number
+  monitoring: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1262,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    readinessCounts: FounderCovenantReviewQueueReadinessCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4631,7 +4640,20 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    readinessCounts: founderCovenantReviewQueueReadinessCounts(items),
   }
+}
+
+function founderCovenantReviewQueueReadinessCounts(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueReadinessCounts {
+  return items.reduce((counts, item) => ({
+    blocked: counts.blocked + (item.reviewReadiness.status === 'blocked' ? 1 : 0),
+    needsEvidence: counts.needsEvidence + (item.reviewReadiness.status === 'needs_evidence' ? 1 : 0),
+    overdue: counts.overdue + (item.reviewReadiness.status === 'overdue' ? 1 : 0),
+    ready: counts.ready + (item.reviewReadiness.status === 'ready' ? 1 : 0),
+    monitoring: counts.monitoring + (item.reviewReadiness.status === 'monitoring' ? 1 : 0),
+  }), { blocked: 0, needsEvidence: 0, overdue: 0, ready: 0, monitoring: 0 })
 }
 
 function compareFounderCovenantReviewQueueItems(

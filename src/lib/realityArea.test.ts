@@ -2957,6 +2957,7 @@ function serverDashboard(): RealityAreaDashboard {
 function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
   const dashboard = serverDashboard()
   const review = dashboard.founderCovenant
+  const reviewReadiness = serverFounderCovenantReviewReadiness(review)
   return {
     generatedAt: '2026-07-06T04:00:00.000Z',
     evidenceOnly: true,
@@ -2994,6 +2995,13 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      readinessCounts: {
+        blocked: reviewReadiness.status === 'blocked' ? 1 : 0,
+        needsEvidence: reviewReadiness.status === 'needs_evidence' ? 1 : 0,
+        overdue: reviewReadiness.status === 'overdue' ? 1 : 0,
+        ready: reviewReadiness.status === 'ready' ? 1 : 0,
+        monitoring: reviewReadiness.status === 'monitoring' ? 1 : 0,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3016,7 +3024,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       activitySignals: serverFounderCovenantActivitySignals(review.activityReview),
       reviewInputs: review.reviewInputs,
       stages: review.stages,
-      reviewReadiness: serverFounderCovenantReviewReadiness(review),
+      reviewReadiness,
       reviewChecklist: review.reviewChecklist,
       manualActions: review.manualActions.map((action) => ({
         ...action,
