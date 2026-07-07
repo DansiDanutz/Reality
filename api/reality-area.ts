@@ -4962,7 +4962,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date()) : null
+      let state = existing
+      if (existing) {
+        try {
+          state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+          })
+          return
+        }
+      }
       if (!state) {
         res.status(refreshAreaStatus('area_not_claimed')).json({
           ok: false,
