@@ -153,7 +153,7 @@ describe('planLifeDay', () => {
     expect(plan.primary.value).toBe('community')
   })
 
-  test('routes a house project through materials, permit, then free-time labor', () => {
+  test('routes a house project through materials, permit, worker help, then fallback labor', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const gatherPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [project] }))
     expect(gatherPlan.primary.id).toMatch(/^gather-|deposit-house-materials$/)
@@ -169,11 +169,19 @@ describe('planLifeDay', () => {
       ...readyForPermit,
       permitFeePaid: true,
     }
-    const laborPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [readyForLabor] }))
-    expect(laborPlan.primary.id).toBe('build-house-hour')
-    expect(laborPlan.agenda[0].id).toBe('build-house-hour')
-    expect(laborPlan.agenda.map((item) => item.id)).toContain('support-body')
-    expect(laborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+    const workerPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [readyForLabor] }))
+    expect(workerPlan.primary.id).toBe('hire-house-worker-hour')
+    expect(workerPlan.primary.detail).toContain('$16/hour')
+    expect(workerPlan.agenda[0].id).toBe('hire-house-worker-hour')
+    expect(workerPlan.agenda.map((item) => item.id)).toContain('support-body')
+    expect(workerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'construction' },
+      taskId: 'hire-house-worker-hour',
+    })
+
+    const selfLaborPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 100, constructionProjects: [readyForLabor] }))
+    expect(selfLaborPlan.primary.id).toBe('build-house-hour')
+    expect(selfLaborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'panel', panel: 'construction' },
       taskId: 'build-house-hour',
     })
@@ -209,8 +217,16 @@ describe('planLifeDay', () => {
       permitFeePaid: true,
     }
     const laborPlan = planLifeDay(snap({ ...base, constructionProjects: [readyForLabor] }))
-    expect(laborPlan.primary.id).toBe('build-business-building-hour')
+    expect(laborPlan.primary.id).toBe('hire-business-building-worker-hour')
+    expect(laborPlan.primary.title).toBe('Hire 1h helper for Food Cart')
     expect(laborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'construction' },
+      taskId: 'hire-business-building-worker-hour',
+    })
+
+    const cashTightLaborPlan = planLifeDay(snap({ ...base, money: 100, constructionProjects: [readyForLabor] }))
+    expect(cashTightLaborPlan.primary.id).toBe('build-business-building-hour')
+    expect(cashTightLaborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'panel', panel: 'construction' },
       taskId: 'build-business-building-hour',
     })
