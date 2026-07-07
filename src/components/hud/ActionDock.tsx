@@ -49,6 +49,7 @@ export default function ActionDock() {
     const isCook = activity.kind === 'cook'
     const isGather = activity.kind === 'gather'
     const isConstruction = activity.kind === 'construction'
+    const isCommunity = activity.kind === 'community'
     const label = isSleep
       ? 'Sleeping'
       : isCook
@@ -57,7 +58,9 @@ export default function ActionDock() {
           ? `Gathering · ${activity.title}`
           : isConstruction
             ? `Building · ${activity.title}`
-            : `On shift · ${activity.title}`
+            : isCommunity
+              ? `Helping · ${activity.title}`
+              : `On shift · ${activity.title}`
     // Live progress bar: how far through the activity we are. Re-renders
     // every tick via the lastSeenAt subscription above, so the bar fills
     // smoothly in real time. A text countdown is data; a filling bar is felt.
@@ -77,7 +80,7 @@ export default function ActionDock() {
           </div>
         </div>
         <button className="btn ghost" onClick={leaveActivity}>
-          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : isGather || isConstruction ? 'Stop' : 'Leave early'}
+          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : isGather || isConstruction || isCommunity ? 'Stop' : 'Leave early'}
         </button>
       </div>
     )

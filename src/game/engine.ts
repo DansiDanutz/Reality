@@ -1,4 +1,5 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
+import type { CommunityActionId } from './community'
 import type { ResourceKind } from './resources'
 import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
@@ -97,7 +98,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study'
+  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -114,6 +115,9 @@ export interface Activity {
   /** Education course studied when a study activity completes. */
   courseId?: string
   studyMinutes?: number
+  /** Community action completed when a community block finishes. */
+  communityActionId?: CommunityActionId
+  communityMinutes?: number
 }
 
 /**
