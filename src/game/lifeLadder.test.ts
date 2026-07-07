@@ -384,6 +384,45 @@ describe('planLifeDay', () => {
       route: { kind: 'education-action', courseId: 'certification' },
       minutes: 60,
     })
+    expect(plan.routine.find((block) => block.id === 'growth-block')).toMatchObject({
+      taskId: 'study-certification',
+      route: { kind: 'education-action', courseId: 'certification' },
+    })
+  })
+
+  test('uses the growth routine for weekly community help when no course is active', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 10,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }, { kind: 'business', incomePerDay: 240 }],
+      communityActionsThisWeek: 0,
+    }))
+
+    expect(plan.primary.id).toBe('plan-business-development')
+    expect(plan.routine.find((block) => block.id === 'growth-block')).toMatchObject({
+      taskId: 'help-local-person',
+      value: 'community',
+      route: { kind: 'community-action', actionId: 'help-errand' },
+    })
+  })
+
+  test('uses the growth routine for friendship after weekly community help is done', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 20,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }, { kind: 'business', incomePerDay: 240 }],
+      communityActionsThisWeek: 1,
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'growth-block')).toMatchObject({
+      taskId: 'support-friendship',
+      value: 'friendship',
+      route: { kind: 'community-action', actionId: 'check-neighbor' },
+    })
   })
 
   test('never invents high-income tasks for a player with no business', () => {
