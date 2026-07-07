@@ -3077,7 +3077,8 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
     const due = roundMoney(wage * context.hours)
     if (due <= 0) continue
     const retainedStaffIds: string[] = []
-    for (const workerId of business.staffCitizenIds) {
+    const staffCitizenIds = uniqueStaffCitizenIds(business.staffCitizenIds)
+    for (const workerId of staffCitizenIds) {
       const worker = area.citizens.find((c) => c.id === workerId)
       if (!worker) continue
       if (worker.state.kind !== 'active') {
@@ -3103,7 +3104,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
         delete worker.jobBusinessId
       }
     }
-    for (const workerId of business.staffCitizenIds) {
+    for (const workerId of staffCitizenIds) {
       if (retainedStaffIds.includes(workerId)) continue
       const worker = area.citizens.find((c) => c.id === workerId)
       if (worker?.state.kind === 'active' && worker.jobBusinessId === business.id) delete worker.jobBusinessId
@@ -3315,9 +3316,13 @@ function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number
 }
 
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
-  return business.staffCitizenIds
+  return uniqueStaffCitizenIds(business.staffCitizenIds)
     .map((id) => area.citizens.find((c) => c.id === id))
     .filter((c): c is WorldCitizen => c?.state.kind === 'active' && c.jobBusinessId === business.id).length
+}
+
+function uniqueStaffCitizenIds(staffCitizenIds: readonly string[]): string[] {
+  return [...new Set(staffCitizenIds)]
 }
 
 function applyServiceEffect(citizen: WorldCitizen, effect: ServiceEffect, quality: number): void {

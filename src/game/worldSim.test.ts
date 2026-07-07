@@ -982,6 +982,55 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('duplicate active staff roster entries pay one wage and are retained once', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', {
+        cash: 100,
+        staffCitizenIds: ['worker', 'worker', 'worker'],
+        wagePerHour: 15,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(115)
+    expect(out.citizens[0].jobBusinessId).toBe('food1')
+    expect(out.businesses[0].cash).toBe(85)
+    expect(out.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(summary.wagesPaid).toBe(15)
+    expect(out.transactions).toHaveLength(1)
+    expect(out.transactions[0]).toMatchObject({
+      kind: 'worker_wage',
+      fromId: 'food1',
+      toId: 'worker',
+      amount: 15,
+    })
+  })
+
+  test('duplicate inactive staff roster entries are retained once without wages', () => {
+    const start = area({
+      citizens: [sim('patient', {
+        jobBusinessId: 'clinic1',
+        state: { kind: 'hospitalized', until: 2 * HOUR },
+      })],
+      businesses: [business('clinic', 'clinic1', {
+        cash: 100,
+        staffCitizenIds: ['patient', 'patient'],
+        wagePerHour: 24,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(100)
+    expect(out.citizens[0].jobBusinessId).toBe('clinic1')
+    expect(out.businesses[0].cash).toBe(100)
+    expect(out.businesses[0].staffCitizenIds).toEqual(['patient'])
+    expect(summary.wagesPaid).toBe(0)
+    expect(out.transactions).toEqual([])
+  })
+
   test('underfunded businesses pay what they can and lose active staff', () => {
     const start = area({
       citizens: [sim('worker', { jobBusinessId: 'food1' })],
@@ -1490,6 +1539,22 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.businesses.find((b) => b.id === 'staffed')!.quality).toBe(1)
     expect(out.businesses.find((b) => b.id === 'floor')!.quality).toBe(MIN_BUSINESS_QUALITY)
     expect(start.businesses.find((b) => b.id === 'unstaffed')!.quality).toBe(1)
+  })
+
+  test('duplicate staff roster entries count once for dashboard staffing and capacity', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [
+        business('food', 'food1', { staffCitizenIds: ['worker', 'worker', 'worker'] }),
+      ],
+    }))
+    const food = dash.existingBusinesses.find((candidate) => candidate.id === 'food1')!
+
+    expect(food.activeStaff).toBe(1)
+    expect(food.targetStaff).toBe(2)
+    expect(food.openPositions).toBe(1)
+    expect(food.hourlyCapacity).toBe(24)
+    expect(dash.capacity.food).toBe(24)
   })
 
   test('dashboard separates sim demand, real demand, licenses, and saturation', () => {
