@@ -11,7 +11,7 @@ import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import { CONSTRUCTION_WORKERS } from '../../game/construction'
 import { educationBusinessLaborMultiplier } from '../../game/education'
 import { formatMoney } from '../../game/engine'
-import { businessDevelopmentDayForecast } from '../../game/lifeLadder'
+import { businessDevelopmentDayForecast, lifeDayFromCreatedAt } from '../../game/lifeLadder'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 import { businessDevelopmentForecastCards } from './constructionPanelView'
@@ -35,6 +35,7 @@ export default function BusinessPanel() {
   const assets = useGame((s) => s.assets)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const money = useGame((s) => s.money)
+  const citizen = useGame((s) => s.citizen)
   const resources = useGame((s) => s.resources)
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const educationProgress = useGame((s) => s.educationProgress)
@@ -71,7 +72,8 @@ export default function BusinessPanel() {
   const projectLabor = project ? businessDevelopmentLaborBreakdown(project) : null
   const shortfall = project ? businessDevelopmentShortfall(project) : null
   const activeWorkerContracts = project?.workerContracts?.filter((contract) => contract.workedMinutes < contract.paidMinutes) ?? []
-  const interiorForecast = project ? businessDevelopmentDayForecast(project, resources, money) : null
+  const lifeDay = lifeDayFromCreatedAt(citizen?.createdAt ?? 0)
+  const interiorForecast = project ? businessDevelopmentDayForecast(project, resources, money, undefined, lifeDay) : null
   const studyLaborMultiplier = educationBusinessLaborMultiplier(educationProgress)
   const studyLaborBonus = Math.max(0, Math.round((studyLaborMultiplier - 1) * 100))
   const atCap = level >= MAX_BUSINESS_LEVEL || !plan

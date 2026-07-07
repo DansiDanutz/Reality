@@ -69,6 +69,11 @@ describe('constructionForecastCards', () => {
       label: 'Workers',
       value: '3d helper plan',
     }))
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Finish',
+      value: 'day 8',
+      detail: 'Solo path; helper can shorten to day 3 after cash is safe.',
+    }))
   })
 
   test('shows active paid worker time instead of the helper plan', () => {
@@ -98,6 +103,12 @@ describe('constructionForecastCards', () => {
       detail: '40m paid time can add 1h labor.',
       tone: 'gold',
     }))
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Finish',
+      value: 'day 3',
+      detail: 'Active paid help plus your free hour can finish the build by then.',
+      tone: 'gold',
+    }))
   })
 })
 
@@ -121,6 +132,11 @@ describe('businessDevelopmentForecastCards', () => {
       value: '2h 30m',
       detail: '3d at 1h/day or 2d at 2h/day.',
     }))
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Finish',
+      value: 'day 3',
+      detail: 'Solo path; helper can shorten to day 1 after cash is safe.',
+    }))
   })
 
   test('marks funded and gathered interior steps as ready', () => {
@@ -131,5 +147,11 @@ describe('businessDevelopmentForecastCards', () => {
 
     expect(cards).toContainEqual(expect.objectContaining({ label: 'Materials', value: 'ready', tone: 'ok' }))
     expect(cards).toContainEqual(expect.objectContaining({ label: 'Budget', value: 'paid', tone: 'ok' }))
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Finish',
+      value: 'day 1',
+      detail: '2h helper plan beats solo day 3.',
+      tone: 'gold',
+    }))
   })
 })

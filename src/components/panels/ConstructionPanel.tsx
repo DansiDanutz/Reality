@@ -8,7 +8,7 @@ import {
   estimateConstructionWorkerHire,
 } from '../../game/construction'
 import { formatMoney } from '../../game/engine'
-import { constructionDayForecast } from '../../game/lifeLadder'
+import { constructionDayForecast, lifeDayFromCreatedAt } from '../../game/lifeLadder'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 import { constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
@@ -40,6 +40,7 @@ export default function ConstructionPanel() {
   const resources = useGame((s) => s.resources)
   const resourceNodes = useGame((s) => s.resourceNodes)
   const projects = useGame((s) => s.constructionProjects)
+  const citizen = useGame((s) => s.citizen)
   const home = useGame((s) => s.assets.find((asset) => asset.kind === 'home' && asset.itemId === STARTER_HOUSE_RECIPE.itemId) ?? null)
   const hasStarterHome = useGame((s) => s.assets.some((asset) => asset.kind === 'home' && asset.itemId === STARTER_HOUSE_RECIPE.itemId))
   const placingConstruction = useGame((s) => s.placingConstruction)
@@ -70,8 +71,9 @@ export default function ConstructionPanel() {
   const planLaborMinutes = activeProject?.laborRequiredMinutes ?? STARTER_HOUSE_RECIPE.laborRequiredMinutes
   const planPercent = activeProgress?.percent ?? (hasStarterHome ? 100 : 0)
   const finalStage = constructionFinalStageView(planKind, Boolean(activeProgress?.complete), hasStarterHome)
+  const lifeDay = lifeDayFromCreatedAt(citizen?.createdAt ?? 0)
   const buildForecast = activeProject || !hasStarterHome
-    ? constructionDayForecast(activeProject ?? undefined, resources, money)
+    ? constructionDayForecast(activeProject ?? undefined, resources, money, undefined, undefined, lifeDay)
     : null
 
   return (
@@ -130,7 +132,7 @@ export default function ConstructionPanel() {
         <section className="founder-section" aria-label={`${planName} forecast`}>
           <div className="founder-section-head">
             <h3 className="founder-section-title">Build forecast</h3>
-            <span className="item-desc">materials · permit · labor · workers</span>
+            <span className="item-desc">materials · permit · labor · workers · finish</span>
           </div>
           <div className="build-forecast-grid">
             {constructionForecastCards(buildForecast).map((card) => (

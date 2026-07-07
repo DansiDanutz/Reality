@@ -1067,7 +1067,9 @@ describe('constructionDayForecast', () => {
     expect(forecast.totalGatherMinutes).toBe(99)
     expect(forecast.playerOnlyDaysAtOneHour).toBe(8)
     expect(forecast.playerOnlyDaysAtTwoHours).toBe(4)
+    expect(forecast.playerOnlyCompletionLifeDay).toBe(8)
     expect(forecast.helperTwoHourDays).toBe(3)
+    expect(forecast.helperTwoHourCompletionLifeDay).toBe(3)
     expect(forecast.helperTwoHourLaborMinutes).toBe(120)
     expect(forecast.helperTwoHourCost).toBe(32)
     expect(forecast.helperTwoHourAffordableToday).toBe(false)
@@ -1085,11 +1087,13 @@ describe('constructionDayForecast', () => {
       laborDoneMinutes: 120,
     }
 
-    const forecast = constructionDayForecast(project, freshResources(), 500)
+    const forecast = constructionDayForecast(project, freshResources(), 500, undefined, undefined, 6)
 
     expect(forecast.remainingLaborMinutes).toBe(360)
     expect(forecast.playerOnlyDaysAtOneHour).toBe(6)
+    expect(forecast.playerOnlyCompletionLifeDay).toBe(11)
     expect(forecast.helperTwoHourDays).toBe(2)
+    expect(forecast.helperTwoHourCompletionLifeDay).toBe(7)
     expect(forecast.totalGatherMinutes).toBe(0)
     expect(forecast.helperTwoHourAffordableToday).toBe(true)
     expect(forecast.helperTwoHourCashNeeded).toBe(0)
@@ -1122,6 +1126,7 @@ describe('constructionDayForecast', () => {
     expect(forecast.activeWorkerCount).toBe(1)
     expect(forecast.activeWorkerPaidMinutesRemaining).toBe(40)
     expect(forecast.activeWorkerLaborMinutesRemaining).toBe(60)
+    expect(forecast.activeWorkerCompletionLifeDay).toBe(3)
   })
 })
 
@@ -1142,7 +1147,9 @@ describe('businessDevelopmentDayForecast', () => {
     expect(forecast.remainingLaborMinutes).toBe(150)
     expect(forecast.playerOnlyDaysAtOneHour).toBe(3)
     expect(forecast.playerOnlyDaysAtTwoHours).toBe(2)
+    expect(forecast.playerOnlyCompletionLifeDay).toBe(3)
     expect(forecast.helperTwoHourDays).toBe(1)
+    expect(forecast.helperTwoHourCompletionLifeDay).toBe(1)
     expect(forecast.helperTwoHourLaborMinutes).toBe(120)
     expect(forecast.helperTwoHourCost).toBe(32)
     expect(forecast.helperTwoHourAffordableToday).toBe(false)
@@ -1177,6 +1184,7 @@ describe('businessDevelopmentDayForecast', () => {
     expect(forecast.activeWorkerCount).toBe(1)
     expect(forecast.activeWorkerPaidMinutesRemaining).toBe(50)
     expect(forecast.activeWorkerLaborMinutesRemaining).toBe(75)
+    expect(forecast.activeWorkerCompletionLifeDay).toBe(1)
     expect(forecast.helperTwoHourAffordableToday).toBe(true)
   })
 })
