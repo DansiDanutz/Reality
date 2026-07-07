@@ -420,14 +420,14 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
-  const ownedFood = lowest === 'hunger' ? strongestOwnedFood(snapshot.inventory) : null
-  const bodyRoute: LifePlanRoute = lowest === 'hydration' && snapshot.money >= 1
-    ? { kind: 'survival-action', action: 'drink-water' }
-    : lowest === 'energy'
-      ? { kind: 'survival-action', action: 'sleep' }
-    : ownedFood
-      ? { kind: 'consume-action', itemId: ownedFood.id }
-    : { kind: 'market', focus: marketFocusForNeed(lowest) }
+  const ownedRecovery = lowest === 'energy' ? null : strongestOwnedNeedItem(snapshot.inventory, lowest)
+  const bodyRoute: LifePlanRoute = ownedRecovery
+    ? { kind: 'consume-action', itemId: ownedRecovery.id }
+    : lowest === 'hydration' && snapshot.money >= 1
+      ? { kind: 'survival-action', action: 'drink-water' }
+      : lowest === 'energy'
+        ? { kind: 'survival-action', action: 'sleep' }
+        : { kind: 'market', focus: marketFocusForNeed(lowest) }
   const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', bodyRoute, 30)
   const activeCourse = activeEducationCourse(snapshot.educationProgress)
   const school = activeCourse
@@ -457,10 +457,15 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
 }
 
 function strongestOwnedFood(inventory: Record<string, number>): { id: string; hunger: number } | null {
+  const item = strongestOwnedNeedItem(inventory, 'hunger')
+  return item ? { id: item.id, hunger: item.amount } : null
+}
+
+function strongestOwnedNeedItem(inventory: Record<string, number>, need: keyof Needs): { id: string; amount: number } | null {
   return SHOP_ITEMS
-    .filter((item) => !item.durable && (inventory[item.id] ?? 0) > 0 && (item.effects?.hunger ?? 0) > 0)
-    .map((item) => ({ id: item.id, hunger: item.effects?.hunger ?? 0 }))
-    .sort((a, b) => b.hunger - a.hunger)[0] ?? null
+    .filter((item) => (inventory[item.id] ?? 0) > 0 && (item.effects?.[need] ?? 0) > 0)
+    .map((item) => ({ id: item.id, amount: item.effects?.[need] ?? 0 }))
+    .sort((a, b) => b.amount - a.amount)[0] ?? null
 }
 
 function compactAgenda(tasks: (LifePlanTask | null)[]): LifePlanTask[] {
