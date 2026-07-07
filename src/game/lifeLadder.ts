@@ -6,7 +6,7 @@ import {
   type EducationCourseId,
   type EducationProgress,
 } from './education'
-import { RECIPES, SHOP_ITEMS } from './catalog'
+import { jobById, RECIPES, SHOP_ITEMS } from './catalog'
 import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentProgress,
@@ -23,8 +23,9 @@ import {
   type ConstructionProject,
 } from './construction'
 import type { CommunityActionId } from './community'
+import { millionairePathOf, type MillionairePath } from './millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceInventory, type ResourceKind, freshResources } from './resources'
-import type { AssetKind, Needs, ShopCategory } from './types'
+import type { Needs, PlacedAsset, ShopCategory } from './types'
 
 export type LifeValue = 'body' | 'school' | 'work' | 'respect' | 'friendship' | 'community' | 'capital'
 
@@ -124,7 +125,11 @@ export interface LifePlan {
   timeBudget: LifeTimeBudget
   constructionForecast: ConstructionDayForecast | null
   businessDevelopmentForecast: BusinessDevelopmentDayForecast | null
+  millionairePath: MillionairePath
+  millionaireTask: LifePlanTask
 }
+
+export type LifeLadderAsset = Pick<PlacedAsset, 'kind' | 'incomePerDay'> & Partial<PlacedAsset>
 
 export interface LifeLadderSnapshot {
   lifeDay: number
@@ -136,7 +141,7 @@ export interface LifeLadderSnapshot {
   jobId: string | null
   shiftsWorked: number
   activityKind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | 'business-development' | null
-  assets: { kind: AssetKind; incomePerDay: number }[]
+  assets: LifeLadderAsset[]
   inventory: Record<string, number>
   resources: ResourceInventory
   constructionProjects: ConstructionProject[]
@@ -145,6 +150,8 @@ export interface LifeLadderSnapshot {
   educationProgress: EducationProgress[]
   communityActionsThisWeek: number
   communityActionsToday: number
+  communityRespect: number
+  communityTrust: number
 }
 
 export const STANDARD_DAY_BUDGET: LifeTimeBudget = {
@@ -478,6 +485,75 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   return task('help-local-person', 'Help one local person', 'Respect and friendship grow from showing up before anyone owes you.', 'community', { kind: 'community-action', actionId: 'help-errand' }, 35)
 }
 
+function placedAssetForPath(asset: LifeLadderAsset, index: number): PlacedAsset {
+  const fallback = asset.kind === 'home'
+    ? { itemId: 'studio', name: 'Studio Apartment' }
+    : { itemId: 'foodcart', name: 'Food Cart' }
+  return {
+    id: asset.id ?? `${asset.kind}-${index + 1}`,
+    itemId: asset.itemId ?? fallback.itemId,
+    kind: asset.kind,
+    name: asset.name ?? fallback.name,
+    lat: asset.lat ?? 0,
+    lng: asset.lng ?? 0,
+    incomePerDay: asset.incomePerDay,
+    pendingIncome: asset.pendingIncome ?? 0,
+    placedAtMinute: asset.placedAtMinute ?? 0,
+    level: asset.level,
+  }
+}
+
+function millionairePathFor(snapshot: LifeLadderSnapshot): MillionairePath {
+  return millionairePathOf({
+    money: snapshot.money,
+    inventory: snapshot.inventory,
+    assets: snapshot.assets.map(placedAssetForPath),
+    needs: snapshot.needs,
+    health: snapshot.health,
+    level: snapshot.level,
+    jobWage: snapshot.jobId ? jobById(snapshot.jobId)?.wage ?? 0 : 0,
+    shiftsWorked: snapshot.shiftsWorked,
+    educationActions: snapshot.educationActions,
+    communityRespect: snapshot.communityRespect,
+    communityTrust: snapshot.communityTrust,
+  })
+}
+
+function millionairePathTask(
+  path: MillionairePath,
+  candidates: {
+    body: LifePlanTask | null
+    work: LifePlanTask | null
+    school: LifePlanTask | null
+    construction: LifePlanTask | null
+    business: LifePlanTask | null
+    steady: LifePlanTask
+  },
+): LifePlanTask {
+  if (path.nextAction === 'recover-body') {
+    return candidates.body ?? task('millionaire-recover-body', 'Recover before the money push', path.nextActionDetail, 'body', { kind: 'market', focus: 'health' }, 60)
+  }
+  if (path.nextAction === 'find-job' || path.nextAction === 'work-shift') {
+    return candidates.work ?? task('millionaire-work-shift', 'Work the next safe shift', path.nextActionDetail, 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
+  }
+  if (path.nextAction === 'study') {
+    return candidates.school ?? task('millionaire-study-skill', 'Study the next useful skill', path.nextActionDetail, 'school', { kind: 'market', focus: 'education' }, 60)
+  }
+  if (path.nextAction === 'build-home') {
+    return candidates.construction ?? task('millionaire-start-home', 'Start the home build', path.nextActionDetail, 'capital', { kind: 'panel', panel: 'construction' }, 30)
+  }
+  if (path.nextAction === 'buy-business') {
+    return candidates.business ?? task('millionaire-build-business', 'Build the first business', path.nextActionDetail, 'capital', { kind: 'market', focus: 'business' }, 45)
+  }
+  if (path.nextAction === 'upgrade-business') {
+    return candidates.business ?? task('millionaire-upgrade-business', 'Upgrade the first business', path.nextActionDetail, 'capital', { kind: 'panel', panel: 'business' }, 20)
+  }
+  if (path.nextAction === 'reinvest') {
+    return candidates.business ?? task('millionaire-reinvest', 'Reinvest the surplus', path.nextActionDetail, 'capital', { kind: 'panel', panel: 'assets' }, 60)
+  }
+  return task('millionaire-keep-growing', 'Keep wealth productive', path.nextActionDetail, 'capital', { kind: 'panel', panel: 'assets' }, 30)
+}
+
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
   const ownedRecovery = lowest === 'energy' ? null : strongestOwnedNeedItem(snapshot.inventory, lowest)
@@ -746,6 +822,15 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const business = businessPrimary(snapshot)
   const businessBeforeCommunity = business && business.id !== 'build-first-business' ? business : null
   const steady = task('steady-owner-day', 'Run a steady owner day', 'Collect, study, help someone, and reinvest the surplus.', 'capital', { kind: 'panel', panel: 'assets' }, 60)
+  const millionairePath = millionairePathFor(snapshot)
+  const millionaireTask = millionairePathTask(millionairePath, {
+    body,
+    work,
+    school,
+    construction,
+    business,
+    steady,
+  })
   const primary =
     active
     ?? body
@@ -754,6 +839,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     ?? construction
     ?? businessBeforeCommunity
     ?? community
+    ?? millionaireTask
     ?? business
     ?? steady
 
@@ -766,6 +852,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     construction,
     businessBeforeCommunity,
     community,
+    millionaireTask,
     business,
     ...support,
     steady,
@@ -788,5 +875,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     businessDevelopmentForecast: activeBusinessDevelopmentProject
       ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money)
       : null,
+    millionairePath,
+    millionaireTask,
   }
 }
