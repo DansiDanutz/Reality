@@ -410,6 +410,10 @@ describe('worldSim snapshot codec', () => {
     badDebt.citizens[0].debts![0].creditorId = ''
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badDebt }))).toEqual({ ok: false, error: 'invalid_area' })
 
+    const negativeDebtIssuedAt = area()
+    negativeDebtIssuedAt.citizens[0].debts![0].issuedAt = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeDebtIssuedAt }))).toEqual({ ok: false, error: 'invalid_area' })
+
     const badDebtTotal = area()
     badDebtTotal.citizens[0].debt = 1
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badDebtTotal }))).toEqual({ ok: false, error: 'invalid_area' })
