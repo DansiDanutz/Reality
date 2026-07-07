@@ -10,6 +10,7 @@ import {
 } from '../../game/lifeLadder'
 import { MILLIONAIRE_STAGE_META, MILLIONAIRE_STAGE_ORDER, millionaireStageProgress } from '../../game/millionairePath'
 import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
+import { millionaireEtaSummary } from './goalsCardView'
 
 function formatPlanMinutes(minutes: number): string {
   if (minutes <= 0) return 'now'
@@ -116,15 +117,6 @@ function interiorEtaSummary(forecast: BusinessDevelopmentDayForecast | null): st
   }
   if (parts.length === 0) return 'Interior ready to finish'
   return `Interior ETA: ${parts.join(' · ')}`
-}
-
-function millionaireEtaSummary(plan: ReturnType<typeof planLifeDay>): string | null {
-  const path = plan.millionairePath
-  if (path.stage === 'millionaire') return 'Path to $1M: reached · keep reinvesting'
-  const pace = path.daysToMillionaire === null
-    ? 'cashflow blocked'
-    : `${path.daysToMillionaire}d at current pace`
-  return `Path to $1M: ${formatMoney(path.millionaireGap)} left · ${pace}`
 }
 
 /**
@@ -301,7 +293,7 @@ export default function GoalsCard() {
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
   const buildEta = buildEtaSummary(lifePlan.constructionForecast)
   const interiorEta = interiorEtaSummary(lifePlan.businessDevelopmentForecast)
-  const pathEta = millionaireEtaSummary(lifePlan)
+  const pathEta = millionaireEtaSummary(lifePlan.millionairePath)
   const activeEta = buildEta ?? interiorEta ?? pathEta
   const stageProgress = millionaireStageProgress(lifePlan.millionairePath.stage)
   const routineSummary = lifePlan.routine
