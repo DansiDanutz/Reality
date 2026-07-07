@@ -58,8 +58,11 @@ const DEFAULT_CENTER = {
 export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId' | 'name' | 'homeCity' | 'spawnLat' | 'spawnLng' | 'telegramAccountId'>): FounderAreaProfile {
   const founderId = cleanClientId(citizen.citizenId ?? citizen.name, 'founder')
   const areaPlace = citizen.homeCity?.trim() || 'Founder'
-  const centerLat = finiteCoordinate(citizen.spawnLat, DEFAULT_CENTER.lat)
-  const centerLng = finiteCoordinate(citizen.spawnLng, DEFAULT_CENTER.lng)
+  const spawnLat = citizen.spawnLat
+  const spawnLng = citizen.spawnLng
+  const hasValidSpawn = isLatitude(spawnLat) && isLongitude(spawnLng)
+  const centerLat = hasValidSpawn ? spawnLat : DEFAULT_CENTER.lat
+  const centerLng = hasValidSpawn ? spawnLng : DEFAULT_CENTER.lng
   return {
     founderId,
     founderName: citizen.name.trim() || 'Founder',
@@ -70,7 +73,7 @@ export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId'
     radiusKm: 1,
     claimSource: citizen.telegramAccountId
       ? 'telegram'
-      : citizen.spawnLat !== undefined && citizen.spawnLng !== undefined
+      : hasValidSpawn
         ? 'geolocation'
         : 'manual',
   }
@@ -190,6 +193,10 @@ function cleanClientId(value: string, fallback: string): string {
   return cleaned || fallback
 }
 
-function finiteCoordinate(value: number | undefined, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+function isLatitude(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90
+}
+
+function isLongitude(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180
 }

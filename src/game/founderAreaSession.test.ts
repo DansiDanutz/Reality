@@ -53,6 +53,67 @@ describe('Founder Area session', () => {
       .toBe(true)
   })
 
+  test('falls back to manual default center for impossible or incomplete spawn coordinates', () => {
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-bad-lat',
+      name: 'Bad Latitude',
+      homeCity: 'Bucharest',
+      spawnLat: 120,
+      spawnLng: 26.08,
+    })).toMatchObject({
+      founderId: 'founder-bad-lat',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      claimSource: 'manual',
+    })
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-bad-lng',
+      name: 'Bad Longitude',
+      homeCity: 'Bucharest',
+      spawnLat: 44.45,
+      spawnLng: 220,
+    })).toMatchObject({
+      founderId: 'founder-bad-lng',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      claimSource: 'manual',
+    })
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-incomplete',
+      name: 'Incomplete',
+      spawnLat: 44.45,
+    })).toMatchObject({
+      founderId: 'founder-incomplete',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      claimSource: 'manual',
+    })
+  })
+
+  test('preserves valid spawn coordinates and Telegram claim sources', () => {
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-geo',
+      name: 'Geo Founder',
+      spawnLat: -90,
+      spawnLng: 180,
+    })).toMatchObject({
+      centerLat: -90,
+      centerLng: 180,
+      claimSource: 'geolocation',
+    })
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-telegram',
+      name: 'Telegram Founder',
+      spawnLat: 120,
+      spawnLng: 220,
+      telegramAccountId: 'telegram:42424242',
+    })).toMatchObject({
+      centerLat: 44.45,
+      centerLng: 26.08,
+      claimSource: 'telegram',
+    })
+  })
+
   test('applies dashboard build payloads and advances real time through server commands', async () => {
     const session = createFounderAreaSession(founderAreaProfileFromCitizen({ name: 'Founder' }))
     const claimed = await claimFounderArea(session, HOUR)
