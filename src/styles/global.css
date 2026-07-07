@@ -1438,6 +1438,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   animation: none !important;
   z-index: auto !important;
 }
+/* Goals is a button, so the generic HUD child reset would otherwise shrink-wrap it. */
+.hud-body > .goals-card { width: 100% !important; }
 /* Cards that anchor children absolutely stay their own positioning context */
 .hud-body > .needs { position: relative !important; }
 .hud-resize {
@@ -1575,6 +1577,75 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+.goals-card-reason {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.goals-card-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.goals-card-agenda-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.goals-card-agenda-index {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+.goals-card-agenda-time {
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .goals-card {
+    gap: 4px;
+    padding: 8px 10px;
+  }
+  .goals-card-title,
+  .goals-card-streak,
+  .goals-card-primary {
+    font-size: 12px;
+  }
+  .goals-card-count,
+  .goals-card-detail {
+    font-size: 10px;
+  }
+  .goals-card-primary,
+  .goals-card-reason {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .goals-card-reason {
+    display: none;
+  }
+  .goals-card-agenda {
+    display: none;
+  }
 }
 
 .tutorial {
