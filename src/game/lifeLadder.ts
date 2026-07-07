@@ -245,6 +245,21 @@ function firstMissingBusinessResource(project: BusinessDevelopmentProject, resou
     ?? null
 }
 
+function activeWorkerLaborRemaining(
+  remainingLaborMinutes: number,
+  contracts: { paidMinutes: number; workedMinutes: number; laborMultiplier: number }[] = [],
+): number {
+  return Math.min(
+    remainingLaborMinutes,
+    contracts
+      .filter((contract) => contract.workedMinutes < contract.paidMinutes)
+      .reduce(
+        (sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes) * Math.max(0, contract.laborMultiplier),
+        0,
+      ),
+  )
+}
+
 function activeConstructionProject(snapshot: LifeLadderSnapshot): ConstructionProject | null {
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   const homeProject = snapshot.constructionProjects.find((candidate) => candidate.resultKind === 'home') ?? null
@@ -307,6 +322,18 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
     )
   }
   if (!progress.laborComplete) {
+    const labor = constructionLaborBreakdown(project)
+    const activeWorkerLabor = activeWorkerLaborRemaining(labor.remainingMinutes, project.workerContracts)
+    if (activeWorkerLabor >= labor.remainingMinutes && labor.remainingMinutes > 0) {
+      return task(
+        isBusinessBuild ? 'monitor-business-building-worker-finish' : 'monitor-house-worker-finish',
+        isBusinessBuild ? `Let the helper finish ${project.name}` : 'Let the helper finish the house',
+        `Paid Workers Hall time can cover the remaining ${labor.remainingMinutes}m. Check the site and finish when the worker ledger turns ready.`,
+        'capital',
+        { kind: 'panel', panel: 'construction' },
+        5,
+      )
+    }
     const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
     if (activeWorkers.length > 0) {
       return task(
@@ -413,6 +440,17 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     }
     if (!progress.laborComplete) {
       const labor = businessDevelopmentLaborBreakdown(project)
+      const activeWorkerLabor = activeWorkerLaborRemaining(labor.remainingMinutes, project.workerContracts)
+      if (activeWorkerLabor >= labor.remainingMinutes && labor.remainingMinutes > 0) {
+        return task(
+          'monitor-business-worker-finish',
+          `Let the helper finish ${project.businessName}`,
+          `Paid Workers Hall time can cover the remaining ${labor.remainingMinutes}m inside. Check the business and finish when the worker ledger turns ready.`,
+          'capital',
+          { kind: 'panel', panel: 'business' },
+          5,
+        )
+      }
       const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
       if (activeWorkers.length > 0) {
         return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
