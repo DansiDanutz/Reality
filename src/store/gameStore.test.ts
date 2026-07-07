@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { freshCommunityStats } from '../game/community'
+import { communityDay, freshCommunityStats } from '../game/community'
 import { STARTER_HOUSE_RECIPE, createConstructionProject } from '../game/construction'
 import { freshResources } from '../game/resources'
 import type { PlacedAsset, ShopItem } from '../game/types'
@@ -231,12 +231,94 @@ describe('community action loop', () => {
       friendship: 2,
       trust: 2,
       actionsThisWeek: 1,
+      actionsToday: 1,
     })
     expect(completed.xp).toBe(30)
 
     useGame.getState().tick()
     expect(useGame.getState().community.actionsThisWeek).toBe(1)
     expect(useGame.getState().xp).toBe(30)
+  })
+
+  test('blocks a second community action on the same day', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+
+    useGame.setState({
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: {
+        ...freshCommunityStats(now),
+        respect: 2,
+        friendship: 2,
+        trust: 2,
+        actionsThisWeek: 1,
+        actionsToday: 1,
+        actionDay: communityDay(now),
+      },
+      activity: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startCommunityAction('check-neighbor')
+
+    const state = useGame.getState()
+    expect(state.activity).toBeNull()
+    expect(state.community.actionsToday).toBe(1)
+    expect(state.xp).toBe(0)
+    expect(state.toasts.at(-1)).toMatchObject({ tone: 'blocked' })
+  })
+
+  test('does not grant duplicate XP from a carried community action after the daily cap', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: {
+        ...freshCommunityStats(now),
+        respect: 2,
+        friendship: 2,
+        trust: 2,
+        actionsThisWeek: 1,
+        actionsToday: 1,
+        actionDay: communityDay(now),
+      },
+      activity: {
+        kind: 'community',
+        startedAt: now - 20 * 60_000,
+        endsAt: now,
+        title: 'Check on a neighbor',
+        communityActionId: 'check-neighbor',
+        communityMinutes: 20,
+      },
+      lastSeenAt: now - 1_000,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().tick()
+
+    const state = useGame.getState()
+    expect(state.activity).toBeNull()
+    expect(state.xp).toBe(0)
+    expect(state.community).toMatchObject({
+      respect: 2,
+      friendship: 2,
+      trust: 2,
+      actionsThisWeek: 1,
+      actionsToday: 1,
+    })
   })
 
   test('leaving community work early gives no community progress', () => {

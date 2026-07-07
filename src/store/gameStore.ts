@@ -48,11 +48,13 @@ import {
   type EducationProgress,
 } from '../game/education'
 import {
+  canStartCommunityAction,
   communityActionById,
   completeCommunityAction,
   completeReliableShift,
   freshCommunityStats,
   normalizeCommunityStats,
+  resetCommunityActionDayIfNeeded,
   resetCommunityWeekIfNeeded,
   type CommunityActionId,
   type CommunityStats,
@@ -1271,12 +1273,19 @@ export const useGame = create<GameState>()(
         if (completedSpecialActivity?.kind === 'community' && completedSpecialActivity.communityActionId) {
           const action = communityActionById(completedSpecialActivity.communityActionId)
           if (action) {
+            const before = resetCommunityActionDayIfNeeded(resetCommunityWeekIfNeeded(community, now), now)
             community = completeCommunityAction(community, action, now)
-            const prog = applyXp(level, xp, action.rewards.xp)
-            level = prog.level
-            xp = prog.xp
-            log = note(log, `${action.title} complete: +${action.rewards.respect} respect, +${action.rewards.friendship} friendship, +${action.rewards.trust} trust.`)
-            if (!wasAway) toasts = withToast(toasts, `${action.title} complete +${action.rewards.xp} XP`, 'achieve')
+            const rewardApplied = community.actionsToday > before.actionsToday
+            if (rewardApplied) {
+              const prog = applyXp(level, xp, action.rewards.xp)
+              level = prog.level
+              xp = prog.xp
+              log = note(log, `${action.title} complete: +${action.rewards.respect} respect, +${action.rewards.friendship} friendship, +${action.rewards.trust} trust.`)
+              if (!wasAway) toasts = withToast(toasts, `${action.title} complete +${action.rewards.xp} XP`, 'achieve')
+            } else {
+              log = note(log, `${action.title} complete, but community rewards are already done for today.`)
+              if (!wasAway) toasts = withToast(toasts, 'Community reward already claimed today.', 'blocked')
+            }
           }
         }
         if (completedSpecialActivity?.kind === 'business-development' && completedSpecialActivity.businessDevelopmentProjectId) {
@@ -2062,6 +2071,15 @@ export const useGame = create<GameState>()(
           return
         }
         const now = Date.now()
+        const community = resetCommunityActionDayIfNeeded(resetCommunityWeekIfNeeded(s.community, now), now)
+        if (!canStartCommunityAction(community, now)) {
+          set({
+            community,
+            toasts: withToast(s.toasts, 'You already helped locally today. Come back tomorrow so trust stays real.', 'blocked'),
+            log: note(s.log, 'Community action blocked: today already has a completed local help action.'),
+          })
+          return
+        }
         set({
           activity: {
             kind: 'community',
@@ -2071,7 +2089,7 @@ export const useGame = create<GameState>()(
             communityActionId: action.id,
             communityMinutes: action.minutes,
           },
-          community: resetCommunityWeekIfNeeded(s.community, now),
+          community,
           needs: applyEffects(s.needs, action.effects),
           panel: null,
           log: note(s.log, `Started community work: ${action.title}.`),
