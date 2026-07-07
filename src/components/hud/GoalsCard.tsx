@@ -33,6 +33,7 @@ export default function GoalsCard() {
   const assets = useGame((s) => s.assets)
   const resources = useGame((s) => s.resources)
   const constructionProjects = useGame((s) => s.constructionProjects)
+  const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const educationProgress = useGame((s) => s.educationProgress)
   const community = useGame((s) => s.community)
   const streakLength = useGame((s) => s.streakLength)
@@ -74,6 +75,7 @@ export default function GoalsCard() {
     assets,
     resources,
     constructionProjects,
+    businessDevelopmentProjects,
     educationActions: educationActionCount(educationProgress),
     communityActionsThisWeek: community.actionsThisWeek,
   })
