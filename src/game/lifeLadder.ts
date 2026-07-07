@@ -484,11 +484,20 @@ function firstTaskByValue(tasks: LifePlanTask[], values: LifeValue[]): LifePlanT
   return tasks.find((item) => values.includes(item.value)) ?? null
 }
 
+function growthRoutineTask(snapshot: LifeLadderSnapshot, tasks: LifePlanTask[]): LifePlanTask | null {
+  const school = firstTaskByValue(tasks, ['school'])
+  if (school && (school.route.kind === 'education-action' || school.id === 'study-first-course')) return school
+  const community = firstTaskByValue(tasks, ['community'])
+  if (snapshot.communityActionsThisWeek <= 0 && community) return community
+  const friendship = firstTaskByValue(tasks, ['friendship'])
+  return friendship ?? community ?? school ?? firstTaskByValue(tasks, ['respect'])
+}
+
 function buildDailyRoutine(snapshot: LifeLadderSnapshot, primary: LifePlanTask, agenda: LifePlanTask[], support: LifePlanTask[]): LifeRoutineBlock[] {
   const taskPool = [primary, ...agenda, ...support]
   const bodyTask = primary.value === 'body' ? primary : firstTaskByValue(taskPool, ['body'])
   const workTask = firstTaskByValue(taskPool, ['work'])
-  const growthTask = firstTaskByValue(taskPool, ['school', 'community', 'friendship', 'respect'])
+  const growthTask = growthRoutineTask(snapshot, taskPool)
   const capitalTask = firstTaskByValue(taskPool, ['capital'])
   const hasActiveBuild = snapshot.constructionProjects.length > 0 || snapshot.businessDevelopmentProjects.length > 0
 
