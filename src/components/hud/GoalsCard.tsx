@@ -1,9 +1,11 @@
+import { useEffect } from 'react'
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
 import { missedSeriousWorkYesterday } from '../../game/community'
 import { educationActionCount } from '../../game/education'
 import { lifeDayFromCreatedAt, planLifeDay } from '../../game/lifeLadder'
 import { MILLIONAIRE_STAGE_META, MILLIONAIRE_STAGE_ORDER, millionaireStageProgress } from '../../game/millionairePath'
 import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
+import { track } from '../../lib/analytics'
 import {
   buildEtaSummary,
   formatPlanMinutes,
@@ -61,6 +63,10 @@ export default function GoalsCard() {
   const cook = useGame((s) => s.cook)
   const quickDrink = useGame((s) => s.quickDrink)
   const startSleep = useGame((s) => s.startSleep)
+
+  useEffect(() => {
+    if (citizen) track('today_plan_viewed')
+  }, [citizen])
 
   if (!citizen) return null
 

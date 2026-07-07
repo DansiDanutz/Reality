@@ -1353,6 +1353,7 @@ export const useGame = create<GameState>()(
           community = completeReliableShift(community, now)
           const respectGained = community.respect - beforeRespect
           const trustGained = community.trust - beforeTrust
+          if (respectGained > 0) track('respect_gained')
           if (!wasAway && (respectGained > 0 || trustGained > 0)) {
             log = note(log, `Reliable shift complete: +${respectGained} respect, +${trustGained} trust.`)
             toasts = withToast(toasts, `Reliable shift +${respectGained} respect`, 'sky')
@@ -1416,6 +1417,7 @@ export const useGame = create<GameState>()(
             if (!wasAway) studiedDelta += 1
             educationProgress = educationProgress.map((candidate) => candidate.courseId === course.id ? studied.progress : candidate)
             if (studied.xpGained > 0) {
+              track('education_completed')
               const prog = applyXp(level, xp, studied.xpGained)
               level = prog.level
               xp = prog.xp
@@ -1435,6 +1437,9 @@ export const useGame = create<GameState>()(
             community = completeCommunityAction(community, action, now)
             const rewardApplied = community.actionsToday > before.actionsToday
             if (rewardApplied) {
+              track('community_action_completed')
+              if (action.rewards.respect > 0) track('respect_gained')
+              if (action.rewards.friendship > 0) track('friendship_gained')
               if (!wasAway) communityDelta += 1
               const prog = applyXp(level, xp, action.rewards.xp)
               level = prog.level
@@ -1912,7 +1917,10 @@ export const useGame = create<GameState>()(
           communityFriendship: community.friendship,
           communityTrust: community.trust,
         }).stage
-        if (ladderStage !== 'survival') track('life_ladder_stage_progress')
+        if (ladderStage !== 'survival') {
+          track('life_ladder_stage_progress')
+          track('millionaire_path_milestone')
+        }
 
         set({
           needs,
@@ -2010,6 +2018,7 @@ export const useGame = create<GameState>()(
           courierOpenedDays: [...s.courierOpenedDays, pkg.day],
           log: note(s.log, `Courier package day ${pkg.day}: ${pkg.objective}`),
         })
+        track('courier_package_opened')
       },
 
       dismissCourierPackage: () => {
@@ -2038,6 +2047,8 @@ export const useGame = create<GameState>()(
           toasts: withToast(s.toasts, `Courier day ${pkg.day} complete: +${formatMoney(pkg.rewardCash)}, +${pkg.rewardXp} XP`, 'achieve'),
           log: note(s.log, `Courier package complete: ${pkg.title} (+${formatMoney(pkg.rewardCash)}, +${pkg.rewardXp} XP).`),
         })
+        track('courier_package_completed')
+        track('today_plan_completed')
       },
 
       startGatherResource: (nodeId) => {
@@ -2318,6 +2329,7 @@ export const useGame = create<GameState>()(
           panel: null,
           log: note(s.log, `Started studying ${course.name} for ${minutes} minutes.`),
         })
+        track('education_started')
       },
 
       startCommunityAction: (actionId) => {
@@ -2757,6 +2769,7 @@ export const useGame = create<GameState>()(
         const community = recordBrokenCommitment(s.community, now)
         const respectLost = beforeRespect - community.respect
         const trustLost = beforeTrust - community.trust
+        if (respectLost > 0 || trustLost > 0) track('respect_lost')
         const hoursWorked = Math.max(0, (now - a.startedAt) / 3_600_000)
         const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + totalWageBonus(s.inventory, s.educationProgress)))
         const reputationNote = respectLost > 0 || trustLost > 0
