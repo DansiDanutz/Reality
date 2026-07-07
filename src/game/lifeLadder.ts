@@ -73,6 +73,25 @@ export interface ConstructionDayForecast {
   totalGatherMinutes: number
 }
 
+export interface BusinessDevelopmentDayForecast {
+  budgetRemaining: number
+  budgetAffordableToday: boolean
+  budgetCashNeeded: number
+  remainingLaborMinutes: number
+  playerOnlyDaysAtOneHour: number
+  playerOnlyDaysAtTwoHours: number
+  helperTwoHourDays: number
+  helperTwoHourLaborMinutes: number
+  helperTwoHourCost: number
+  helperTwoHourAffordableToday: boolean
+  helperTwoHourCashNeeded: number
+  activeWorkerCount: number
+  activeWorkerPaidMinutesRemaining: number
+  activeWorkerLaborMinutesRemaining: number
+  resourceTrips: ResourceTripForecast[]
+  totalGatherMinutes: number
+}
+
 export interface LifePlan {
   lifeDay: number
   primary: LifePlanTask
@@ -82,6 +101,7 @@ export interface LifePlan {
   valuesCovered: LifeValue[]
   timeBudget: LifeTimeBudget
   constructionForecast: ConstructionDayForecast | null
+  businessDevelopmentForecast: BusinessDevelopmentDayForecast | null
 }
 
 export interface LifeLadderSnapshot {
@@ -432,6 +452,43 @@ function buildDailyRoutine(snapshot: LifeLadderSnapshot, primary: LifePlanTask, 
   ]
 }
 
+function resourceTripForecasts(shortfall: ResourceInventory, resources: ResourceInventory): {
+  resourceTrips: ResourceTripForecast[]
+  totalGatherMinutes: number
+} {
+  const resourceTrips = RESOURCE_KINDS.map((kind) => {
+    const missing = Math.max(0, shortfall[kind] - (resources[kind] ?? 0))
+    const meta = RESOURCE_META[kind]
+    const trips = Math.ceil(missing / meta.yieldAmount)
+    return { kind, missing, trips, minutes: trips * meta.gatherMinutes }
+  })
+  return {
+    resourceTrips,
+    totalGatherMinutes: resourceTrips.reduce((sum, item) => sum + item.minutes, 0),
+  }
+}
+
+function activeWorkerForecast(
+  remainingLaborMinutes: number,
+  contracts: { paidMinutes: number; workedMinutes: number; laborMultiplier: number }[] = [],
+): {
+  activeWorkerCount: number
+  activeWorkerPaidMinutesRemaining: number
+  activeWorkerLaborMinutesRemaining: number
+} {
+  const activeContracts = contracts.filter((contract) => contract.workedMinutes < contract.paidMinutes)
+  const activeWorkerPaidMinutesRemaining = activeContracts.reduce((sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes), 0)
+  const activeWorkerLaborMinutesRemaining = Math.min(
+    remainingLaborMinutes,
+    activeContracts.reduce((sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes) * Math.max(0, contract.laborMultiplier), 0),
+  )
+  return {
+    activeWorkerCount: activeContracts.length,
+    activeWorkerPaidMinutesRemaining,
+    activeWorkerLaborMinutesRemaining,
+  }
+}
+
 export function constructionDayForecast(
   project: ConstructionProject = {
     id: 'starter-house-plan',
@@ -457,25 +514,13 @@ export function constructionDayForecast(
   money = 0,
   cashSafetyFloor = CASH_SAFETY_FLOOR,
 ): ConstructionDayForecast {
-  const shortfall = constructionShortfall(project)
-  const resourceTrips = RESOURCE_KINDS.map((kind) => {
-    const missing = Math.max(0, shortfall[kind] - (resources[kind] ?? 0))
-    const meta = RESOURCE_META[kind]
-    const trips = Math.ceil(missing / meta.yieldAmount)
-    return { kind, missing, trips, minutes: trips * meta.gatherMinutes }
-  })
-  const totalGatherMinutes = resourceTrips.reduce((sum, item) => sum + item.minutes, 0)
+  const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(constructionShortfall(project), resources)
   const remainingLaborMinutes = constructionLaborBreakdown(project).remainingMinutes
   const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
   const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
   const helperCost = helper ? helper.ratePerHour * 2 : 0
   const helperCashNeeded = Math.max(0, helperCost + cashSafetyFloor - money)
-  const activeContracts = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
-  const activeWorkerPaidMinutesRemaining = activeContracts.reduce((sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes), 0)
-  const activeWorkerLaborMinutesRemaining = Math.min(
-    remainingLaborMinutes,
-    activeContracts.reduce((sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes) * Math.max(0, contract.laborMultiplier), 0),
-  )
+  const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
   return {
     remainingLaborMinutes,
     playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
@@ -485,9 +530,40 @@ export function constructionDayForecast(
     helperTwoHourCost: helperCost,
     helperTwoHourAffordableToday: helperCashNeeded <= 0,
     helperTwoHourCashNeeded: helperCashNeeded,
-    activeWorkerCount: activeContracts.length,
-    activeWorkerPaidMinutesRemaining,
-    activeWorkerLaborMinutesRemaining,
+    ...activeWorkers,
+    resourceTrips,
+    totalGatherMinutes,
+  }
+}
+
+export function businessDevelopmentDayForecast(
+  project: BusinessDevelopmentProject,
+  resources: ResourceInventory = freshResources(),
+  money = 0,
+  cashSafetyFloor = CASH_SAFETY_FLOOR,
+): BusinessDevelopmentDayForecast {
+  const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(businessDevelopmentShortfall(project), resources)
+  const budgetRemaining = project.budgetPaid ? 0 : project.budgetCost
+  const budgetCashNeeded = Math.max(0, budgetRemaining + cashSafetyFloor - money)
+  const remainingLaborMinutes = businessDevelopmentLaborBreakdown(project).remainingMinutes
+  const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
+  const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
+  const helperCost = helper ? helper.ratePerHour * 2 : 0
+  const helperCashNeeded = Math.max(0, budgetRemaining + helperCost + cashSafetyFloor - money)
+  const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
+  return {
+    budgetRemaining,
+    budgetAffordableToday: budgetCashNeeded <= 0,
+    budgetCashNeeded,
+    remainingLaborMinutes,
+    playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
+    playerOnlyDaysAtTwoHours: Math.ceil(remainingLaborMinutes / 120),
+    helperTwoHourDays: Math.ceil(remainingLaborMinutes / (60 + helperDailyMinutes)),
+    helperTwoHourLaborMinutes: helperDailyMinutes,
+    helperTwoHourCost: helperCost,
+    helperTwoHourAffordableToday: helperCashNeeded <= 0,
+    helperTwoHourCashNeeded: helperCashNeeded,
+    ...activeWorkers,
     resourceTrips,
     totalGatherMinutes,
   }
@@ -531,6 +607,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   ])
   const valuesCovered = Array.from(new Set([primary, ...support].map((item) => item.value)))
   const activeProject = activeConstructionProject(snapshot)
+  const activeBusinessDevelopmentProject = snapshot.businessDevelopmentProjects[0] ?? null
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   return {
     lifeDay: snapshot.lifeDay,
@@ -542,6 +619,9 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     timeBudget: STANDARD_DAY_BUDGET,
     constructionForecast: activeProject || !hasHome
       ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money)
+      : null,
+    businessDevelopmentForecast: activeBusinessDevelopmentProject
+      ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money)
       : null,
   }
 }
