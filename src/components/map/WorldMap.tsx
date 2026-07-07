@@ -1,9 +1,10 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { constructionProgress } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
+import { workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
@@ -93,14 +94,26 @@ function constructionElement(name: string, progressPercent: number): HTMLButtonE
   return el
 }
 
+function workersHallElement(hall: WorkersHall): HTMLButtonElement {
+  const el = document.createElement('button')
+  el.type = 'button'
+  el.className = 'map-workers-hall'
+  el.title = `${hall.name} — ${hall.description}`
+  el.setAttribute('aria-label', `${hall.name}. ${hall.description}`)
+  el.textContent = 'W'
+  return el
+}
+
 export default function WorldMap() {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<maplibregl.Marker[]>([])
   const resourceMarkersRef = useRef<maplibregl.Marker[]>([])
   const constructionMarkersRef = useRef<maplibregl.Marker[]>([])
+  const workersHallMarkerRef = useRef<maplibregl.Marker | null>(null)
   const [styleReady, setStyleReady] = useState(false)
 
+  const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
   const placing = useGame((s) => s.placing)
   const placingConstruction = useGame((s) => s.placingConstruction)
@@ -114,6 +127,7 @@ export default function WorldMap() {
   const level = useGame((s) => s.level)
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
+  const workersHall = useMemo(() => workersHallFor(citizen, assets), [citizen, assets])
   const [world, setWorld] = useState<WorldAsset[]>([])
   const introDone = useRef(false)
   const lastTargetRef = useRef<string | null>(null)
@@ -261,6 +275,19 @@ export default function WorldMap() {
       return new maplibregl.Marker({ element: el }).setLngLat([project.lng, project.lat]).addTo(map)
     })
   }, [constructionProjects])
+
+  useEffect(() => {
+    const map = mapRef.current
+    workersHallMarkerRef.current?.remove()
+    workersHallMarkerRef.current = null
+    if (!map || !workersHall) return
+    const el = workersHallElement(workersHall)
+    el.addEventListener('click', (event) => {
+      event.stopPropagation()
+      useGame.getState().setPanel('construction')
+    })
+    workersHallMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([workersHall.lng, workersHall.lat]).addTo(map)
+  }, [workersHall])
 
   useEffect(() => {
     const map = mapRef.current
