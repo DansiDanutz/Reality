@@ -1,4 +1,5 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
+import { educationActionCount } from '../../game/education'
 import { lifeDayFromCreatedAt, planLifeDay } from '../../game/lifeLadder'
 import { useGame } from '../../store/gameStore'
 
@@ -24,6 +25,7 @@ export default function GoalsCard() {
   const assets = useGame((s) => s.assets)
   const resources = useGame((s) => s.resources)
   const constructionProjects = useGame((s) => s.constructionProjects)
+  const educationProgress = useGame((s) => s.educationProgress)
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
   const setPanel = useGame((s) => s.setPanel)
@@ -63,7 +65,7 @@ export default function GoalsCard() {
     assets,
     resources,
     constructionProjects,
-    educationActions: level > 1 || xp >= 40 ? 1 : 0,
+    educationActions: educationActionCount(educationProgress),
     communityActionsThisWeek: 0,
   })
 
