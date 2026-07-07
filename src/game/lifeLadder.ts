@@ -182,6 +182,13 @@ function lowestNeed(needs: Needs): keyof Needs {
   return entries.reduce((lowest, current) => current[1] < lowest[1] ? current : lowest)[0]
 }
 
+function marketFocusForNeed(need: keyof Needs): ShopCategory {
+  if (need === 'hydration') return 'drinks'
+  if (need === 'hunger') return 'food'
+  if (need === 'hygiene' || need === 'fun') return 'leisure'
+  return 'health'
+}
+
 function bodyRecoveryTask(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   if (snapshot.health < 40) {
     return task('body-recover', 'Recover your body first', 'Health is low. Drink, eat, and rest before chasing money.', 'body', { kind: 'market', focus: 'health' }, 60)
@@ -420,7 +427,7 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
       ? { kind: 'survival-action', action: 'sleep' }
     : ownedFood
       ? { kind: 'consume-action', itemId: ownedFood.id }
-    : { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }
+    : { kind: 'market', focus: marketFocusForNeed(lowest) }
   const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', bodyRoute, 30)
   const activeCourse = activeEducationCourse(snapshot.educationProgress)
   const school = activeCourse
