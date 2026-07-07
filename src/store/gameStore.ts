@@ -49,8 +49,14 @@ import { thoughtForDay } from '../game/thoughts'
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
+import {
+  authenticateTelegramMiniApp,
+  citizenWithTelegramSession,
+  telegramDisplayName,
+  telegramMiniAppInitData,
+} from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
@@ -349,6 +355,7 @@ interface GameState {
   /** Re-run IP hometown detection and move the citizen's spawn — null on success, error text otherwise */
   redetectSpawn: () => Promise<string | null>
   generateAvatar: (params: AvatarParams) => Promise<string | null>
+  linkTelegram: () => Promise<string | null>
   registerOnline: () => Promise<void>
   reportScore: () => Promise<void>
   linkGoogle: (credential: string) => Promise<string | null>
@@ -553,6 +560,7 @@ export const useGame = create<GameState>()(
         })
         track('citizen_created')
         void get().registerOnline()
+        void get().linkTelegram()
       },
 
       // Backfill a hometown for citizens created before IP spawn existed
@@ -599,7 +607,11 @@ export const useGame = create<GameState>()(
       registerOnline: async () => {
         const s = get()
         if (!s.citizen || s.citizen.token) return
-        let d = await tryPost('/api/register', { name: s.citizen.name })
+        const telegramInitData = telegramMiniAppInitData()
+        const registrationPayload = telegramInitData
+          ? { name: s.citizen.name, telegramInitData }
+          : { name: s.citizen.name }
+        let d = await tryPost('/api/register', registrationPayload)
         const cur = get()
         if (!cur.citizen || cur.citizen.token) return
 
@@ -607,11 +619,14 @@ export const useGame = create<GameState>()(
           // Unique names: on collision, take a numbered variant and retry once
           if (d?.code === 'name_taken') {
             const variant = `${cur.citizen.name.slice(0, 19)}-${Math.floor(100 + Math.random() * 900)}`
+            const retryPayload = telegramInitData
+              ? { name: variant, telegramInitData }
+              : { name: variant }
             set({
               citizen: { ...cur.citizen, name: variant },
               log: note(cur.log, `"${cur.citizen.name}" was already a citizen — you are ${variant}.`),
             })
-            const retry = await tryPost('/api/register', { name: variant })
+            const retry = await tryPost('/api/register', retryPayload)
             if (retry?.ok) {
               d = retry
             } else {
@@ -635,6 +650,11 @@ export const useGame = create<GameState>()(
             token: d.token as string,
             founderNumber,
             online: true,
+            telegramUserId: typeof d.telegramUserId === 'string' ? d.telegramUserId : latest.citizen.telegramUserId,
+            telegramAccountId: typeof d.telegramAccountId === 'string' ? d.telegramAccountId : latest.citizen.telegramAccountId,
+            telegramUsername: typeof d.telegramUsername === 'string' ? d.telegramUsername : latest.citizen.telegramUsername,
+            telegramName: typeof d.telegramName === 'string' ? d.telegramName : latest.citizen.telegramName,
+            telegramLinkedAt: typeof d.telegramLinkedAt === 'number' ? d.telegramLinkedAt : latest.citizen.telegramLinkedAt,
           },
           money: isFounder ? latest.money : Math.min(latest.money, CITIZEN_BALANCE),
           log: note(
@@ -658,6 +678,27 @@ export const useGame = create<GameState>()(
           })
         }
         void get().reportScore()
+      },
+
+      linkTelegram: async () => {
+        const s = get()
+        if (!s.citizen) return null
+        const result = await authenticateTelegramMiniApp()
+        if (!result.ok) {
+          return result.reason === 'not_in_telegram' ? null : result.error ?? 'Telegram sign-in failed.'
+        }
+
+        const latest = get()
+        if (!latest.citizen) return null
+        const wasLinkedToSameUser = latest.citizen.telegramUserId === result.session.telegramUser.id
+        set({
+          citizen: citizenWithTelegramSession(latest.citizen, result.session, Date.now()),
+          log: wasLinkedToSameUser
+            ? latest.log
+            : note(latest.log, `Telegram linked: ${telegramDisplayName(result.session.telegramUser)}.`),
+        })
+        if (!wasLinkedToSameUser) track('telegram_linked')
+        return null
       },
 
       reportScore: async () => {

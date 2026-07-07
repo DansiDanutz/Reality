@@ -15,6 +15,7 @@ export interface Weather {
 }
 
 const CLEAR: Weather = { condition: 'clear' }
+const weatherCache = new Map<string, Promise<Weather>>()
 
 /**
  * Fetch the current weather at a lat/lng. Open-Meteo's `weather_code` (WMO
@@ -23,6 +24,19 @@ const CLEAR: Weather = { condition: 'clear' }
  * atmosphere, never a load-bearing system.
  */
 export async function fetchWeather(lat: number, lng: number): Promise<Weather> {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`
+  const cached = weatherCache.get(key)
+  if (cached) return cached
+  const promise = fetchWeatherUncached(lat, lng)
+  weatherCache.set(key, promise)
+  return promise
+}
+
+export function preloadWeather(lat: number, lng: number) {
+  void fetchWeather(lat, lng)
+}
+
+async function fetchWeatherUncached(lat: number, lng: number): Promise<Weather> {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=weather_code,temperature_2m`
     const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
