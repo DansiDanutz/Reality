@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react'
 import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
+import {
+  educationCourseForItem,
+  educationPercent,
+  educationRemainingMinutes,
+  nextStudyBlockMinutes,
+  type EducationProgress,
+} from '../../game/education'
 import { formatMoney, seasonOf } from '../../game/engine'
 import type { NeedKey, Pet, ShopCategory, ShopItem } from '../../game/types'
 import { useFocusTrap } from '../../lib/useFocusTrap'
@@ -26,7 +33,7 @@ function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] 
     }
   }
   if (item.wageBonus) out.push({ text: `+${Math.round(item.wageBonus * 100)}% wage`, tone: 'gold' })
-  if (item.grantXp) out.push({ text: `+${item.grantXp} XP`, tone: 'sky' })
+  if (item.grantXp) out.push({ text: `${item.grantXp} XP goal`, tone: 'sky' })
   if (item.incomePerDay) out.push({ text: `+${formatMoney(item.incomePerDay)}/day`, tone: 'gold' })
   if (item.pet) out.push({ text: `${formatMoney(item.pet.foodCostPerDay)}/day food`, tone: 'sky' })
   if (item.durable) out.push({ text: 'keep forever', tone: 'sky' })
@@ -65,6 +72,31 @@ function PetRow({
   )
 }
 
+function EducationRow({
+  progress,
+  percent,
+  remainingMinutes,
+}: {
+  progress: EducationProgress | null
+  percent: number
+  remainingMinutes: number
+}) {
+  const complete = progress?.completedAt !== null && progress?.completedAt !== undefined
+  const label = !progress
+    ? 'not enrolled'
+    : complete
+      ? 'complete'
+      : `${remainingMinutes}m left`
+  return (
+    <div className="education-row">
+      <div className="education-meter" aria-label={`Course progress ${percent}%`}>
+        <div className="education-fill" style={{ width: `${percent}%` }} />
+      </div>
+      <span className={complete ? 'education-state done' : 'education-state'}>{label}</span>
+    </div>
+  )
+}
+
 export default function Market() {
   // Quick actions (Eat, Drink) can aim the Market at a category
   const [tab, setTab] = useState<Tab>(() => useGame.getState().marketFocus ?? 'all')
@@ -76,7 +108,10 @@ export default function Market() {
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
   const pets = useGame((s) => s.pets)
+  const educationProgress = useGame((s) => s.educationProgress)
+  const activity = useGame((s) => s.activity)
   const buy = useGame((s) => s.buy)
+  const startStudy = useGame((s) => s.startStudy)
   const consume = useGame((s) => s.consume)
   const feedPet = useGame((s) => s.feedPet)
   const playWithPet = useGame((s) => s.playWithPet)
@@ -188,8 +223,18 @@ export default function Market() {
               // Pets are owned companions, not inventory rows — their state lives in `pets`
               const myPets = item.pet ? pets.filter((p) => p.itemId === item.id) : []
               const petOwned = myPets.length > 0
+              const course = educationCourseForItem(item.id)
+              const courseProgress = course
+                ? educationProgress.find((progress) => progress.courseId === course.id) ?? null
+                : null
+              const courseCompleted = courseProgress?.completedAt !== null && courseProgress?.completedAt !== undefined
+              const courseEnrolled = Boolean(courseProgress)
+              const coursePercent = course ? educationPercent(course, courseProgress) : 0
+              const courseRemaining = course ? educationRemainingMinutes(course, courseProgress) : 0
+              const studyingThis = Boolean(course && activity?.kind === 'study' && activity.courseId === course.id)
+              const studyMinutes = course ? nextStudyBlockMinutes(course, courseProgress) : 0
               return (
-                <li className={`card${soldToYou || petOwned ? ' owned' : ''}`} key={item.id} title={item.description}>
+                <li className={`card${soldToYou || petOwned || courseEnrolled ? ' owned' : ''}`} key={item.id} title={item.description}>
                   <img
                     className="card-img"
                     src={`/market/${item.id}.jpg`}
@@ -207,6 +252,8 @@ export default function Market() {
                     {owned > 0 && !item.durable && <em className="item-owned">×{owned}</em>}
                     {soldToYou && <span className="card-ownedtag">owned</span>}
                     {petOwned && <span className="card-ownedtag">adopted</span>}
+                    {courseCompleted && <span className="card-ownedtag">certified</span>}
+                    {courseEnrolled && !courseCompleted && <span className="card-ownedtag">enrolled</span>}
                   </div>
                   <div className="card-chips">
                     {chips(item).slice(0, 2).map((c) => (
@@ -214,6 +261,13 @@ export default function Market() {
                     ))}
                   </div>
                   {petOwned && <PetRow pets={myPets} money={money} foodCost={item.pet!.foodCostPerDay} onFeed={feedPet} />}
+                  {course && (
+                    <EducationRow
+                      progress={courseProgress}
+                      percent={coursePercent}
+                      remainingMinutes={courseRemaining}
+                    />
+                  )}
                   <div className="card-foot">
                     <span className="card-price mono">{formatMoney(item.price)}</span>
                     <div className="card-actions">
@@ -223,7 +277,15 @@ export default function Market() {
                       {petOwned && (
                         <button className="btn small ghost" onClick={() => playWithPet(myPets[0].petId)}>Play</button>
                       )}
-                      {!soldToYou && !petOwned && (
+                      {course ? (
+                        <button
+                          className="btn small primary"
+                          disabled={courseCompleted || (courseEnrolled ? Boolean(activity) || studyMinutes <= 0 : !affordable)}
+                          onClick={() => courseEnrolled ? startStudy(course.id) : buy(item.id)}
+                        >
+                          {courseCompleted ? 'Done' : studyingThis ? 'Studying' : courseEnrolled ? 'Study' : 'Enroll'}
+                        </button>
+                      ) : !soldToYou && !petOwned && (
                         <button className="btn small primary" disabled={!affordable} onClick={() => buy(item.id)}>
                           {item.category === 'business' ? 'Build' : item.placeable ? 'Place' : item.grantXp ? 'Enroll' : item.pet ? 'Adopt' : 'Buy'}
                         </button>

@@ -37,6 +37,17 @@ import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
 import {
+  addStudyMinutes,
+  createEducationProgress,
+  educationCourseById,
+  educationCourseForItem,
+  educationRemainingMinutes,
+  nextStudyBlockMinutes,
+  normalizeEducationProgress,
+  type EducationCourseId,
+  type EducationProgress,
+} from '../game/education'
+import {
   type ConstructionProject,
   type ConstructionWorkerId,
   STARTER_HOUSE_RECIPE,
@@ -106,7 +117,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 9
+export const SAVE_VERSION = 10
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -121,6 +132,7 @@ export const SAVE_VERSION = 9
  *   v6 → v7: courier packages + resource inventory + construction projects
  *   v7 → v8: construction worker labor ledger
  *   v8 → v9: construction projects produce homes or businesses
+ *   v9 → v10: education progress ledger for real study blocks
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -187,6 +199,12 @@ export function migrateSave(persisted: unknown): GameState {
         }
         if (state && state.placingConstruction === undefined) state.placingConstruction = null
         if (state && state.selectedMapTarget === undefined) state.selectedMapTarget = null
+        if (state && !state.educationProgress) state.educationProgress = []
+        if (state && state.educationProgress) {
+          state.educationProgress = state.educationProgress
+            .map((progress) => normalizeEducationProgress(progress))
+            .filter((progress): progress is EducationProgress => progress !== null)
+        }
         if (state && state.activeCourierPackage === undefined) state.activeCourierPackage = null
         if (state && state.courierLastDay === undefined) state.courierLastDay = 0
         if (state && !state.courierOpenedDays) state.courierOpenedDays = []
@@ -327,6 +345,8 @@ interface GameState {
   setResourceNodes: (nodes: ResourceNode[]) => void
   /** Active build projects placed on the map before they become assets. */
   constructionProjects: ConstructionProject[]
+  /** Real study progress. Buying education enrolls here; XP arrives after study time. */
+  educationProgress: EducationProgress[]
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
   pets: Pet[]
   /** ms timestamp each grocery id was last restocked — the spoilage clock */
@@ -439,6 +459,7 @@ interface GameState {
   startConstructionWork: (projectId: string) => void
   hireConstructionWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
   completeConstructionIfReady: (projectId: string) => void
+  startStudy: (courseId: EducationCourseId) => void
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
@@ -521,6 +542,7 @@ const FRESH = {
   resources: freshResources(),
   resourceNodes: [] as ResourceNode[],
   constructionProjects: [] as ConstructionProject[],
+  educationProgress: [] as EducationProgress[],
   pets: [] as Pet[],
   groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
@@ -910,7 +932,7 @@ export const useGame = create<GameState>()(
         const wasAway = now - from > 15 * 60_000
         const completedSpecialActivity =
           s.activity &&
-          (s.activity.kind === 'gather' || s.activity.kind === 'construction') &&
+          (s.activity.kind === 'gather' || s.activity.kind === 'construction' || s.activity.kind === 'study') &&
           now >= s.activity.endsAt
             ? s.activity
             : null
@@ -1091,6 +1113,7 @@ export const useGame = create<GameState>()(
         let money = out.money + wageBonusEarned
         let resources = s.resources
         let constructionProjects = s.constructionProjects
+        let educationProgress = s.educationProgress
         if (completedSpecialActivity?.kind === 'gather' && completedSpecialActivity.resourceKind && completedSpecialActivity.resourceAmount) {
           const kind = completedSpecialActivity.resourceKind
           const amount = completedSpecialActivity.resourceAmount
@@ -1117,6 +1140,26 @@ export const useGame = create<GameState>()(
             } else {
               log = note(log, `Construction labor complete: ${minutes} minutes on ${project.name}.`)
               if (!wasAway) toasts = withToast(toasts, `Construction labor +${minutes}m`, 'gold')
+            }
+          }
+        }
+        if (completedSpecialActivity?.kind === 'study' && completedSpecialActivity.courseId) {
+          const course = educationCourseById(completedSpecialActivity.courseId)
+          const current = educationProgress.find((candidate) => candidate.courseId === completedSpecialActivity.courseId) ?? null
+          if (course && current) {
+            const minutes = completedSpecialActivity.studyMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
+            const studied = addStudyMinutes(course, current, minutes, now)
+            educationProgress = educationProgress.map((candidate) => candidate.courseId === course.id ? studied.progress : candidate)
+            if (studied.xpGained > 0) {
+              const prog = applyXp(level, xp, studied.xpGained)
+              level = prog.level
+              xp = prog.xp
+              log = note(log, `${course.name} complete: +${studied.xpGained} XP.`)
+              if (!wasAway) toasts = withToast(toasts, `${course.name} complete +${studied.xpGained} XP`, 'achieve')
+            } else {
+              const remaining = educationRemainingMinutes(course, studied.progress)
+              log = note(log, `Studied ${course.name} for ${minutes} minutes. ${remaining} minutes left.`)
+              if (!wasAway) toasts = withToast(toasts, `Study block complete: ${course.name}`, 'sky')
             }
           }
         }
@@ -1466,6 +1509,7 @@ export const useGame = create<GameState>()(
           inventory: out.inventory,
           resources,
           constructionProjects,
+          educationProgress,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
           achievementsClaimed: achievementsClaimed,
@@ -1808,6 +1852,48 @@ export const useGame = create<GameState>()(
         publishPlacedAsset(s.citizen, completed.asset)
       },
 
+      startStudy: (courseId) => {
+        const s = get()
+        if (s.activity) return
+        const course = educationCourseById(courseId)
+        if (!course) return
+        const progress = s.educationProgress.find((candidate) => candidate.courseId === course.id) ?? null
+        if (!progress) {
+          set({
+            panel: 'shop',
+            toasts: withToast(s.toasts, `Enroll in ${course.name} before studying it.`, 'blocked'),
+          })
+          return
+        }
+        if (progress.completedAt !== null) {
+          set({ toasts: withToast(s.toasts, `${course.name} is already complete.`, 'sky') })
+          return
+        }
+        if (s.needs.energy < 15 || s.needs.hunger < 10 || s.needs.hydration < 10 || s.health < 20) {
+          set({
+            toasts: withToast(s.toasts, 'Too worn down to study. Eat, drink, and rest first.', 'blocked'),
+            log: note(s.log, 'Study blocked: your body needs food, water, or rest first.'),
+          })
+          return
+        }
+        const minutes = nextStudyBlockMinutes(course, progress)
+        if (minutes <= 0) return
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'study',
+            startedAt: now,
+            endsAt: now + minutes * 60_000,
+            title: `Study ${course.name}`,
+            courseId: course.id,
+            studyMinutes: minutes,
+          },
+          needs: applyEffects(s.needs, { energy: -4, fun: -2 }),
+          panel: null,
+          log: note(s.log, `Started studying ${course.name} for ${minutes} minutes.`),
+        })
+      },
+
       // One tap, one dollar, half the water bar — hydration without friction
       quickDrink: () => {
         const s = get()
@@ -2018,6 +2104,10 @@ export const useGame = create<GameState>()(
           set({ activity: null, log: note(s.log, 'Stopped construction before this work block counted.') })
           return
         }
+        if (a.kind === 'study') {
+          set({ activity: null, log: note(s.log, 'Stopped studying before this block counted.') })
+          return
+        }
         // Leaving a shift early: pro-rata pay, no XP
         const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
         const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)))
@@ -2053,6 +2143,32 @@ export const useGame = create<GameState>()(
             placing: item,
             panel: null,
             log: note(s.log, `${item.name} purchased. Click anywhere on Earth to place it.`),
+          })
+          return
+        }
+
+        const course = educationCourseForItem(item.id)
+        if (course) {
+          const existing = s.educationProgress.find((progress) => progress.courseId === course.id)
+          if (existing?.completedAt !== null && existing?.completedAt !== undefined) {
+            set({ toasts: withToast(s.toasts, `${course.name} is already complete.`, 'sky') })
+            return
+          }
+          if (existing) {
+            set({
+              panel: 'shop',
+              toasts: withToast(s.toasts, `${course.name} is already enrolled. Study the next block.`, 'sky'),
+              log: note(s.log, `${course.name} is already enrolled. ${educationRemainingMinutes(course, existing)} minutes of study remain.`),
+            })
+            return
+          }
+          const progress = createEducationProgress(course)
+          set({
+            ...dailyCountersPatch,
+            money: s.money - item.price,
+            educationProgress: [...s.educationProgress, progress],
+            log: note(s.log, `Enrolled in ${course.name}. Study ${course.studyMinutesRequired} minutes to earn ${course.xpReward} XP.`),
+            toasts: withToast(s.toasts, `${course.name} enrolled`, 'sky'),
           })
           return
         }
