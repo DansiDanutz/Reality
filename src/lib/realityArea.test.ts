@@ -17,6 +17,7 @@ import {
   type RealityAreaCovenantManualAction,
   type RealityAreaDashboard,
   type RealityAreaState,
+  type RealityFounderCovenantReviewReceipt,
   type RealityFounderCovenantReviewQueueDashboard,
   type RealityFounderCovenantReviewQueueItem,
 } from './realityArea'
@@ -958,7 +959,12 @@ describe('Reality area client', () => {
 
   test('records operator founder covenant review evidence without founder credentials', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+      jsonResponse(200, {
+        ok: true,
+        state: serverState(),
+        dashboard: serverDashboard(),
+        reviewReceipt: serverReviewReceipt(),
+      }))
 
     await expect(recordRealityFounderCovenantOperatorReview({
       operatorToken: ' operator-token ',
@@ -971,6 +977,7 @@ describe('Reality area client', () => {
       ok: true,
       state: serverState(),
       dashboard: serverDashboard(),
+      reviewReceipt: serverReviewReceipt(),
     })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
@@ -995,6 +1002,32 @@ describe('Reality area client', () => {
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body.citizenId).toBeUndefined()
     expect(body.token).toBeUndefined()
+  })
+
+  test('rejects executable operator founder covenant review receipts', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, {
+        ok: true,
+        state: serverState(),
+        dashboard: serverDashboard(),
+        reviewReceipt: {
+          ...serverReviewReceipt(),
+          automationEnabled: true,
+          executionEnabled: true,
+        },
+      }))
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review receipt was rejected.',
+      code: 'invalid_review_receipt',
+    })
   })
 
   test('keeps operator review evidence blocked without operator authority', async () => {
@@ -1952,6 +1985,33 @@ function serverState(): RealityAreaState {
       }],
     },
     updatedAt: '2026-07-06T03:30:00.000Z',
+  }
+}
+
+function serverReviewReceipt(): RealityFounderCovenantReviewReceipt {
+  return {
+    id: 'founder-area-0012:1783308600000:founder-review:telegram-operator:42424242',
+    areaId: 'founder-area-0012',
+    founderCitizenId: 'citizen-1',
+    reviewerId: 'telegram-operator:42424242',
+    recordedAt: '2026-07-06T03:30:00.000Z',
+    actionKind: 'record_review',
+    reviewCadence: 'weekly_monthly_manual',
+    manualEvidenceKinds: ['external_contribution'],
+    manualOnly: true,
+    evidenceOnly: true,
+    manualReviewRequired: true,
+    covenantStatus: 'manual_review',
+    nextAction: 'manual_review',
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    approvalWorkflowEnabled: false,
+    automationEnabled: false,
+    executionEnabled: false,
+    pendingApprovalCount: 2,
+    pendingNotificationCount: 1,
+    blockerCount: 5,
+    blockers: ['approval_workflow_disabled', 'probation_execution_disabled', 'replacement_disabled', 'waitlist_handoff_disabled'],
   }
 }
 

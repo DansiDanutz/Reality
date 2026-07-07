@@ -1036,8 +1036,38 @@ export interface RealityFounderCovenantOperatorReviewRequest {
   evidenceKinds?: RealityAreaCovenantManualEvidenceKind[]
 }
 
+export interface RealityFounderCovenantReviewReceipt {
+  id: string
+  areaId: string
+  founderCitizenId: string
+  reviewerId: string
+  recordedAt: string
+  actionKind: 'record_review'
+  reviewCadence: 'weekly_monthly_manual'
+  manualEvidenceKinds: readonly RealityAreaCovenantManualEvidenceKind[]
+  manualOnly: true
+  evidenceOnly: true
+  manualReviewRequired: boolean
+  covenantStatus: RealityAreaCovenantStatus
+  nextAction: RealityAreaCovenantNextAction
+  replacementEnabled: false
+  waitlistHandoffEnabled: false
+  approvalWorkflowEnabled: false
+  automationEnabled: false
+  executionEnabled: false
+  pendingApprovalCount: number
+  pendingNotificationCount: number
+  blockerCount: number
+  blockers: readonly RealityAreaCovenantApprovalBlocker[]
+}
+
 export type RealityFounderCovenantOperatorReviewResult =
-  | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
+  | {
+    ok: true
+    state: RealityAreaState
+    dashboard?: RealityAreaDashboard
+    reviewReceipt?: RealityFounderCovenantReviewReceipt
+  }
   | { ok: false; reason: 'missing_operator_token' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
@@ -1213,7 +1243,21 @@ export async function recordRealityFounderCovenantOperatorReview(
     const data = await response.json() as Record<string, unknown>
     const state = isRealityAreaState(data.state) ? data.state : null
     const dashboard = isRealityAreaDashboard(data.dashboard) ? data.dashboard : undefined
-    if (response.ok && data.ok === true && state) return { ok: true, state, dashboard }
+    const hasReviewReceipt = data.reviewReceipt !== undefined
+    const reviewReceipt = hasReviewReceipt && isRealityFounderCovenantReviewReceipt(data.reviewReceipt)
+      ? data.reviewReceipt
+      : undefined
+    if (response.ok && data.ok === true && state) {
+      if (hasReviewReceipt && !reviewReceipt) {
+        return {
+          ok: false,
+          reason: 'server_rejected',
+          error: 'Founder covenant review receipt was rejected.',
+          code: 'invalid_review_receipt',
+        }
+      }
+      return { ok: true, state, dashboard, ...(reviewReceipt ? { reviewReceipt } : {}) }
+    }
     return {
       ok: false,
       reason: 'server_rejected',
@@ -2377,6 +2421,34 @@ function isRealityFounderCovenantReviewQueueScanStatus(
   value: unknown,
 ): value is RealityFounderCovenantReviewQueueScanStatus {
   return value === 'caught_up' || value === 'current' || value === 'invalid' || value === 'unavailable'
+}
+
+function isRealityFounderCovenantReviewReceipt(value: unknown): value is RealityFounderCovenantReviewReceipt {
+  return isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.areaId === 'string' &&
+    typeof value.founderCitizenId === 'string' &&
+    typeof value.reviewerId === 'string' &&
+    typeof value.recordedAt === 'string' &&
+    value.actionKind === 'record_review' &&
+    value.reviewCadence === 'weekly_monthly_manual' &&
+    Array.isArray(value.manualEvidenceKinds) &&
+    value.manualEvidenceKinds.every(isRealityAreaCovenantManualEvidenceKind) &&
+    value.manualOnly === true &&
+    value.evidenceOnly === true &&
+    typeof value.manualReviewRequired === 'boolean' &&
+    isRealityAreaCovenantStatus(value.covenantStatus) &&
+    isRealityAreaCovenantNextAction(value.nextAction) &&
+    value.replacementEnabled === false &&
+    value.waitlistHandoffEnabled === false &&
+    value.approvalWorkflowEnabled === false &&
+    value.automationEnabled === false &&
+    value.executionEnabled === false &&
+    typeof value.pendingApprovalCount === 'number' &&
+    typeof value.pendingNotificationCount === 'number' &&
+    typeof value.blockerCount === 'number' &&
+    Array.isArray(value.blockers) &&
+    value.blockers.every(isRealityAreaCovenantApprovalBlocker)
 }
 
 function isRealityAreaCovenantManualAction(value: unknown): value is RealityAreaCovenantManualAction {

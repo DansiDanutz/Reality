@@ -3277,6 +3277,29 @@ describe('reality area authority API', () => {
     })
     expect(res.body).toMatchObject({
       ok: true,
+      reviewReceipt: {
+        areaId: 'founder-area-0012',
+        founderCitizenId: CITIZEN_ID,
+        reviewerId: 'telegram-operator:42424242',
+        recordedAt: '2026-07-06T03:00:00.000Z',
+        actionKind: 'record_review',
+        reviewCadence: 'weekly_monthly_manual',
+        manualEvidenceKinds: ['external_contribution', 'ideas_feedback'],
+        manualOnly: true,
+        evidenceOnly: true,
+        manualReviewRequired: false,
+        covenantStatus: 'watch',
+        nextAction: 'warn_founder',
+        replacementEnabled: false,
+        waitlistHandoffEnabled: false,
+        approvalWorkflowEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        pendingApprovalCount: 2,
+        pendingNotificationCount: 1,
+        blockerCount: 4,
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled', 'probation_execution_disabled'],
+      },
       state: {
         founderReviewHistory: [{
           reviewerId: 'telegram-operator:42424242',
@@ -3295,6 +3318,7 @@ describe('reality area authority API', () => {
         },
       },
     })
+    expect((res.body as { reviewReceipt: { id: string } }).reviewReceipt.id).toContain('founder-review:telegram-operator:42424242')
   })
 
   test('operator founder covenant review returns a structured storage failure when accepted evidence cannot persist', async () => {
