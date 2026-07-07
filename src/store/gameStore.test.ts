@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { createBusinessDevelopmentProject, depositBusinessDevelopmentResources, payBusinessDevelopmentBudget } from '../game/businessDevelopment'
 import { communityDay, freshCommunityStats } from '../game/community'
 import { STARTER_HOUSE_RECIPE, createConstructionProject } from '../game/construction'
+import { EDUCATION_COURSES, createEducationProgress, type EducationCourse } from '../game/education'
 import { freshResources } from '../game/resources'
 import type { PlacedAsset, ShopItem } from '../game/types'
 import { useGame } from './gameStore'
@@ -35,6 +37,14 @@ function advanceLiveTo(endAt: number, stepMs = LIVE_STEP_MS) {
     cursor = Math.min(cursor + stepMs, endAt)
     vi.setSystemTime(cursor)
     useGame.getState().tick()
+  }
+}
+
+function completedCourse(course: EducationCourse, completedAt = Date.now()) {
+  return {
+    ...createEducationProgress(course, completedAt - course.studyMinutesRequired * 60_000),
+    studiedMinutes: course.studyMinutesRequired,
+    completedAt,
   }
 }
 
@@ -224,6 +234,33 @@ describe('education study loop', () => {
 
     useGame.getState().tick()
     expect(useGame.getState().xp).toBe(40)
+  })
+
+  test('completed education increases completed shift pay', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      jobId: 'barista',
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      educationProgress: [completedCourse(EDUCATION_COURSES.certification, now)],
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startShift()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    expect(useGame.getState().dailyCounters.earnedToday).toBe(Math.round(15 * 8 * 1.04))
   })
 
   test('leaving a study block early gives no minutes or XP', () => {
@@ -606,5 +643,37 @@ describe('business interior development', () => {
     expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(60)
     expect(state.businessDevelopmentProjects[0].hiredLaborMinutes).toBe(60)
     expect(state.businessDevelopmentProjects[0].workerContracts[0].workedMinutes).toBe(60)
+  })
+
+  test('completed education makes owner interior work more efficient', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+    const plan = createBusinessDevelopmentProject(business(), now)!
+    const deposited = depositBusinessDevelopmentResources(plan, freshResources(plan.required)).project
+    const ready = payBusinessDevelopmentBudget(deposited, deposited.budgetCost).project
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      assets: [business()],
+      businessDevelopmentProjects: [ready],
+      educationProgress: [completedCourse(EDUCATION_COURSES.certification, now)],
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startBusinessDevelopmentWork(ready.id)
+    const activity = useGame.getState().activity
+    expect(activity).toMatchObject({ kind: 'business-development', laborMinutes: 63 })
+
+    advanceLiveTo(activity!.endsAt)
+
+    expect(useGame.getState().businessDevelopmentProjects[0].laborDoneMinutes).toBe(63)
   })
 })

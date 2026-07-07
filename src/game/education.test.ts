@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import {
   addStudyMinutes,
+  completedEducationCourses,
   createEducationProgress,
   educationActionCount,
+  educationBusinessLaborMultiplier,
   educationPercent,
   educationRemainingMinutes,
+  educationWageBonusFrom,
   nextStudyBlockMinutes,
   EDUCATION_COURSES,
 } from './education'
@@ -55,5 +58,26 @@ describe('education progress', () => {
 
     expect(educationActionCount([enrolled])).toBe(0)
     expect(educationActionCount([studied])).toBe(1)
+  })
+
+  test('completed courses grant career and business labor advantages', () => {
+    const course = {
+      ...createEducationProgress(EDUCATION_COURSES.course),
+      studiedMinutes: EDUCATION_COURSES.course.studyMinutesRequired,
+      completedAt: 2_000,
+    }
+    const certification = {
+      ...createEducationProgress(EDUCATION_COURSES.certification),
+      studiedMinutes: EDUCATION_COURSES.certification.studyMinutesRequired,
+      completedAt: 3_000,
+    }
+    const unfinishedBootcamp = {
+      ...createEducationProgress(EDUCATION_COURSES.bootcamp),
+      studiedMinutes: 60,
+    }
+
+    expect(completedEducationCourses([course, certification, unfinishedBootcamp]).map((item) => item.id)).toEqual(['course', 'certification'])
+    expect(educationWageBonusFrom([course, certification, unfinishedBootcamp])).toBeCloseTo(0.05)
+    expect(educationBusinessLaborMultiplier([course, certification, unfinishedBootcamp])).toBeCloseTo(1.07)
   })
 })
