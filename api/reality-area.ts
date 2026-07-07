@@ -4797,7 +4797,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (intentType === 'claimArea') {
       if (existing) {
-        const state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        let state: FounderAreaState
+        try {
+          state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+          })
+          return
+        }
         res.status(409).json({
           ok: false,
           error: 'Area already claimed.',
