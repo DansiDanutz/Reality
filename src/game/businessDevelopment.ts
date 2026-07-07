@@ -1,0 +1,269 @@
+import { upgradeOutcome, type UpgradeOutcome } from './businessUpgrades'
+import {
+  type ConstructionWorkerId,
+  workerById,
+} from './construction'
+import {
+  RESOURCE_KINDS,
+  type ResourceInventory,
+  freshResources,
+  resourceShortfall,
+} from './resources'
+import type { PlacedAsset } from './types'
+
+export interface BusinessDevelopmentProject {
+  id: string
+  businessId: string
+  businessName: string
+  itemId: string
+  levelFrom: number
+  levelTo: number
+  incomeBefore: number
+  incomeAfter: number
+  incomeDelta: number
+  required: ResourceInventory
+  deposited: ResourceInventory
+  laborRequiredMinutes: number
+  laborDoneMinutes: number
+  hiredLaborMinutes: number
+  budgetCost: number
+  budgetPaid: boolean
+  startedAt: number
+}
+
+export interface BusinessDevelopmentPlan {
+  outcome: UpgradeOutcome
+  required: ResourceInventory
+  laborRequiredMinutes: number
+  budgetCost: number
+}
+
+function roundToFive(value: number): number {
+  return Math.max(5, Math.round(value / 5) * 5)
+}
+
+export function businessDevelopmentPlanFor(asset: PlacedAsset): BusinessDevelopmentPlan | null {
+  if (asset.kind !== 'business') return null
+  const level = asset.level ?? 1
+  const baseIncome = asset.incomePerDay / level
+  const outcome = upgradeOutcome(baseIncome, level)
+  if (!outcome) return null
+  const scale = Math.min(10, Math.max(1, outcome.cost / 1_000))
+  return {
+    outcome,
+    required: {
+      wood: roundToFive(10 + level * 4 + scale * 4),
+      stone: roundToFive(6 + level * 3 + scale * 3),
+      metal: roundToFive(12 + level * 5 + scale * 5),
+      glass: roundToFive(6 + level * 2 + scale * 3),
+    },
+    laborRequiredMinutes: roundToFive(90 + level * 45 + scale * 15),
+    budgetCost: outcome.cost,
+  }
+}
+
+export function createBusinessDevelopmentProject(asset: PlacedAsset, now = Date.now()): BusinessDevelopmentProject | null {
+  const plan = businessDevelopmentPlanFor(asset)
+  if (!plan) return null
+  const level = asset.level ?? 1
+  return {
+    id: `${asset.id}:develop:${level}->${plan.outcome.newLevel}:${now}`,
+    businessId: asset.id,
+    businessName: asset.name,
+    itemId: asset.itemId,
+    levelFrom: level,
+    levelTo: plan.outcome.newLevel,
+    incomeBefore: asset.incomePerDay,
+    incomeAfter: plan.outcome.newIncome,
+    incomeDelta: plan.outcome.incomeDelta,
+    required: freshResources(plan.required),
+    deposited: freshResources(),
+    laborRequiredMinutes: plan.laborRequiredMinutes,
+    laborDoneMinutes: 0,
+    hiredLaborMinutes: 0,
+    budgetCost: plan.budgetCost,
+    budgetPaid: false,
+    startedAt: now,
+  }
+}
+
+export function normalizeBusinessDevelopmentProject(project: Partial<BusinessDevelopmentProject>): BusinessDevelopmentProject | null {
+  if (!project.id || !project.businessId || !project.businessName || !project.itemId) return null
+  const levelFrom = Math.max(1, Math.floor(project.levelFrom ?? 1))
+  const levelTo = Math.max(levelFrom + 1, Math.floor(project.levelTo ?? levelFrom + 1))
+  const laborRequiredMinutes = Math.max(5, Math.floor(project.laborRequiredMinutes ?? 60))
+  return {
+    id: String(project.id),
+    businessId: String(project.businessId),
+    businessName: String(project.businessName),
+    itemId: String(project.itemId),
+    levelFrom,
+    levelTo,
+    incomeBefore: Math.max(0, Number(project.incomeBefore ?? 0)),
+    incomeAfter: Math.max(0, Number(project.incomeAfter ?? 0)),
+    incomeDelta: Math.max(0, Number(project.incomeDelta ?? 0)),
+    required: freshResources(project.required),
+    deposited: freshResources(project.deposited),
+    laborRequiredMinutes,
+    laborDoneMinutes: Math.min(laborRequiredMinutes, Math.max(0, Math.floor(project.laborDoneMinutes ?? 0))),
+    hiredLaborMinutes: Math.max(0, Math.floor(project.hiredLaborMinutes ?? 0)),
+    budgetCost: Math.max(0, Math.floor(project.budgetCost ?? 0)),
+    budgetPaid: Boolean(project.budgetPaid),
+    startedAt: Number.isFinite(project.startedAt) ? Number(project.startedAt) : Date.now(),
+  }
+}
+
+export function businessDevelopmentShortfall(project: BusinessDevelopmentProject): ResourceInventory {
+  return resourceShortfall(project.deposited, project.required)
+}
+
+export function businessDevelopmentProgress(project: BusinessDevelopmentProject): {
+  resourcesComplete: boolean
+  budgetComplete: boolean
+  laborComplete: boolean
+  complete: boolean
+  percent: number
+} {
+  const resourcesComplete = RESOURCE_KINDS.every((kind) => project.deposited[kind] >= project.required[kind])
+  const budgetComplete = project.budgetPaid
+  const laborComplete = project.laborDoneMinutes >= project.laborRequiredMinutes
+  const resourceRatio = RESOURCE_KINDS.reduce((sum, kind) => {
+    const required = project.required[kind]
+    return sum + (required <= 0 ? 1 : Math.min(1, project.deposited[kind] / required))
+  }, 0) / RESOURCE_KINDS.length
+  const laborRatio = project.laborRequiredMinutes <= 0 ? 1 : Math.min(1, project.laborDoneMinutes / project.laborRequiredMinutes)
+  const budgetRatio = budgetComplete ? 1 : 0
+  return {
+    resourcesComplete,
+    budgetComplete,
+    laborComplete,
+    complete: resourcesComplete && budgetComplete && laborComplete,
+    percent: Math.round((resourceRatio * 0.45 + laborRatio * 0.35 + budgetRatio * 0.2) * 100),
+  }
+}
+
+export function depositBusinessDevelopmentResources(
+  project: BusinessDevelopmentProject,
+  inventory: ResourceInventory,
+): { project: BusinessDevelopmentProject; inventory: ResourceInventory; deposited: ResourceInventory } {
+  const currentInventory = freshResources(inventory)
+  const currentDeposited = freshResources(project.deposited)
+  const deposited = freshResources()
+  const nextInventory = freshResources(currentInventory)
+  const nextDeposited = freshResources(currentDeposited)
+
+  for (const kind of RESOURCE_KINDS) {
+    const need = Math.max(0, project.required[kind] - currentDeposited[kind])
+    const move = Math.min(need, currentInventory[kind])
+    if (move <= 0) continue
+    nextInventory[kind] -= move
+    nextDeposited[kind] += move
+    deposited[kind] = move
+  }
+
+  return {
+    project: { ...project, deposited: nextDeposited },
+    inventory: nextInventory,
+    deposited,
+  }
+}
+
+export function payBusinessDevelopmentBudget(
+  project: BusinessDevelopmentProject,
+  money: number,
+): { project: BusinessDevelopmentProject; money: number; paid: boolean } {
+  if (project.budgetPaid) return { project, money, paid: false }
+  if (money < project.budgetCost) return { project, money, paid: false }
+  return {
+    project: { ...project, budgetPaid: true },
+    money: money - project.budgetCost,
+    paid: true,
+  }
+}
+
+export function addBusinessDevelopmentLabor(project: BusinessDevelopmentProject, minutes: number): BusinessDevelopmentProject {
+  const laborDoneMinutes = Math.min(project.laborRequiredMinutes, project.laborDoneMinutes + Math.max(0, Math.floor(minutes)))
+  return { ...project, laborDoneMinutes }
+}
+
+export function businessDevelopmentLaborBreakdown(project: BusinessDevelopmentProject): {
+  playerMinutes: number
+  hiredMinutes: number
+  totalMinutes: number
+  remainingMinutes: number
+} {
+  const hiredMinutes = Math.max(0, project.hiredLaborMinutes)
+  const totalMinutes = Math.max(0, project.laborDoneMinutes)
+  return {
+    playerMinutes: Math.max(0, totalMinutes - hiredMinutes),
+    hiredMinutes,
+    totalMinutes,
+    remainingMinutes: Math.max(0, project.laborRequiredMinutes - totalMinutes),
+  }
+}
+
+export function businessDevelopmentWorkerBlocker(project: BusinessDevelopmentProject): 'materials' | 'budget' | 'labor' | null {
+  const progress = businessDevelopmentProgress(project)
+  if (!progress.resourcesComplete) return 'materials'
+  if (!progress.budgetComplete) return 'budget'
+  if (progress.laborComplete) return 'labor'
+  return null
+}
+
+export function estimateBusinessDevelopmentWorkerHire(
+  project: BusinessDevelopmentProject,
+  workerId: ConstructionWorkerId,
+  hours = 1,
+): { hours: number; cost: number; laborMinutes: number; blockedBy: ReturnType<typeof businessDevelopmentWorkerBlocker> } | null {
+  const worker = workerById(workerId)
+  if (!worker) return null
+  const requestedHours = Math.min(Math.max(hours, 1), worker.maxHours)
+  const blockedBy = businessDevelopmentWorkerBlocker(project)
+  if (blockedBy) return { hours: requestedHours, cost: worker.ratePerHour * requestedHours, laborMinutes: 0, blockedBy }
+  const remaining = businessDevelopmentLaborBreakdown(project).remainingMinutes
+  const laborMinutes = Math.min(remaining, Math.round(requestedHours * 60 * worker.laborMultiplier))
+  return {
+    hours: requestedHours,
+    cost: worker.ratePerHour * requestedHours,
+    laborMinutes,
+    blockedBy: null,
+  }
+}
+
+export function hireBusinessDevelopmentWorker(
+  project: BusinessDevelopmentProject,
+  workerId: ConstructionWorkerId,
+  money: number,
+  hours = 1,
+): { project: BusinessDevelopmentProject; money: number; hired: boolean; cost: number; laborMinutes: number; reason: 'unknown_worker' | 'materials' | 'budget' | 'labor' | 'money' | null } {
+  const estimate = estimateBusinessDevelopmentWorkerHire(project, workerId, hours)
+  if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, reason: 'unknown_worker' }
+  if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: estimate.blockedBy }
+  if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'money' }
+  if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'labor' }
+  const worked = addBusinessDevelopmentLabor(project, estimate.laborMinutes)
+  return {
+    project: {
+      ...worked,
+      hiredLaborMinutes: Math.min(worked.laborDoneMinutes, project.hiredLaborMinutes + estimate.laborMinutes),
+    },
+    money: money - estimate.cost,
+    hired: true,
+    cost: estimate.cost,
+    laborMinutes: estimate.laborMinutes,
+    reason: null,
+  }
+}
+
+export function completeBusinessDevelopmentProject(
+  project: BusinessDevelopmentProject,
+  asset: PlacedAsset | null | undefined,
+): PlacedAsset | null {
+  if (!asset || asset.id !== project.businessId || asset.kind !== 'business') return null
+  if (!businessDevelopmentProgress(project).complete) return null
+  return {
+    ...asset,
+    level: project.levelTo,
+    incomePerDay: project.incomeAfter,
+  }
+}
