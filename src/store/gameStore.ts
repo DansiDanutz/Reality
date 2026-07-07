@@ -38,9 +38,14 @@ import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } f
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
 import {
   type ConstructionProject,
+  type ConstructionWorkerId,
+  STARTER_HOUSE_RECIPE,
+  businessConstructionRecipe,
   completeConstructionProject,
   createConstructionProject,
+  createConstructionProjectFromRecipe,
   depositResources,
+  hireConstructionWorker as hireConstructionWorkerForProject,
   payPermit,
   addConstructionLabor,
   totalResourceCount,
@@ -79,7 +84,11 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | null
+
+export type MapTarget =
+  | { kind: 'asset'; id: string }
+  | { kind: 'construction'; id: string }
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
@@ -97,7 +106,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 7
+export const SAVE_VERSION = 9
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -110,6 +119,8 @@ export const SAVE_VERSION = 7
  *   v3 → v4: illness + lastIllnessRollAt
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
  *   v6 → v7: courier packages + resource inventory + construction projects
+ *   v7 → v8: construction worker labor ledger
+ *   v8 → v9: construction projects produce homes or businesses
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -165,7 +176,17 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.resources) state.resources = freshResources()
         if (state && !state.resourceNodes) state.resourceNodes = []
         if (state && !state.constructionProjects) state.constructionProjects = []
+        if (state && state.constructionProjects) {
+          state.constructionProjects = state.constructionProjects.map((project) => ({
+            ...project,
+            itemId: project.itemId ?? STARTER_HOUSE_RECIPE.itemId,
+            resultKind: project.resultKind ?? 'home',
+            incomePerDay: project.incomePerDay ?? 0,
+            hiredLaborMinutes: project.hiredLaborMinutes ?? 0,
+          }))
+        }
         if (state && state.placingConstruction === undefined) state.placingConstruction = null
+        if (state && state.selectedMapTarget === undefined) state.selectedMapTarget = null
         if (state && state.activeCourierPackage === undefined) state.activeCourierPackage = null
         if (state && state.courierLastDay === undefined) state.courierLastDay = 0
         if (state && !state.courierOpenedDays) state.courierOpenedDays = []
@@ -265,6 +286,19 @@ async function tryPost(path: string, body: unknown): Promise<Record<string, unkn
   }
 }
 
+function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
+  if (!citizen?.token) return
+  void tryPost('/api/world', {
+    citizenId: citizen.citizenId,
+    token: citizen.token,
+    assetId: asset.id,
+    itemId: asset.itemId,
+    kind: asset.kind,
+    lat: asset.lat,
+    lng: asset.lng,
+  })
+}
+
 interface GameState {
   citizen: Citizen | null
   money: number
@@ -301,6 +335,8 @@ interface GameState {
   placing: ShopItem | null
   /** Construction recipe awaiting a map click for placement. */
   placingConstruction: 'starter-house' | null
+  /** Map target selected from menus/markers. Drives camera focus. */
+  selectedMapTarget: MapTarget | null
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
@@ -401,6 +437,7 @@ interface GameState {
   depositConstructionResources: (projectId: string) => void
   payConstructionPermit: (projectId: string) => void
   startConstructionWork: (projectId: string) => void
+  hireConstructionWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
   completeConstructionIfReady: (projectId: string) => void
   quickDrink: () => void
   startGig: () => void
@@ -458,6 +495,7 @@ interface GameState {
   /** Claim one achievement's XP + cash bounty (idempotent by id) */
   claimAchievement: (achievementId: string) => void
   toggleTutorial: () => void
+  selectMapTarget: (target: MapTarget | null) => void
   setPanel: (panel: PanelId) => void
   reset: () => void
 }
@@ -487,6 +525,7 @@ const FRESH = {
   groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
   placingConstruction: null as 'starter-house' | null,
+  selectedMapTarget: null as MapTarget | null,
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
@@ -627,6 +666,26 @@ function completeConstructionForState(
   }
 }
 
+function panelForCompletedAsset(asset: PlacedAsset | null): PanelId {
+  if (!asset) return null
+  return asset.kind === 'business' ? 'business' : 'home'
+}
+
+function trackPlacedAsset(asset: PlacedAsset): void {
+  track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
+}
+
+function constructionCompleteText(asset: PlacedAsset, mode: 'materials' | 'permit' | 'workers' = 'materials'): string {
+  if (asset.kind === 'business') {
+    return mode === 'workers'
+      ? `${asset.name} opened with hired help. Customers can find it on the map.`
+      : `${asset.name} opened from local materials. The business is live on the map.`
+  }
+  if (mode === 'workers') return `${asset.name} completed with hired help. The map is updated.`
+  if (mode === 'permit') return `${asset.name} completed after the permit cleared.`
+  return `${asset.name} completed from local materials. You have a door of your own.`
+}
+
 export const useGame = create<GameState>()(
   persist(
     (set, get) => ({
@@ -762,15 +821,7 @@ export const useGame = create<GameState>()(
 
         const { citizen, assets } = get()
         for (const a of assets) {
-          void tryPost('/api/world', {
-            citizenId: citizen?.citizenId,
-            token: citizen?.token,
-            assetId: a.id,
-            itemId: a.itemId,
-            kind: a.kind,
-            lat: a.lat,
-            lng: a.lng,
-          })
+          publishPlacedAsset(citizen, a)
         }
         void get().reportScore()
       },
@@ -904,6 +955,7 @@ export const useGame = create<GameState>()(
         let achievementsClaimed = s.achievementsClaimed
         let streakBest = s.streakBest
         let savingsGoalReached = s.savingsGoalReached
+        let selectedMapTarget = s.selectedMapTarget
         // Show-or-queue a celebration. Declared early so every celebration
         // site (milestone, lucky, achievement, level, daily, savings) can use
         // it regardless of order in the tick. If none is showing, show
@@ -1057,8 +1109,10 @@ export const useGame = create<GameState>()(
             constructionProjects = completed.constructionProjects
             out.assets = completed.assets
             if (completed.asset) {
-              track('first_home_placed')
-              log = note(log, `${completed.asset.name} completed from local materials. You have a door of your own.`)
+              trackPlacedAsset(completed.asset)
+              publishPlacedAsset(s.citizen, completed.asset)
+              selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+              log = note(log, constructionCompleteText(completed.asset))
               if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} complete!`, 'achieve')
             } else {
               log = note(log, `Construction labor complete: ${minutes} minutes on ${project.name}.`)
@@ -1436,6 +1490,7 @@ export const useGame = create<GameState>()(
           activeBoosters: activeBoosters,
           combo: combo,
           comboLastActionAt: s.comboLastActionAt,
+          selectedMapTarget,
           toasts,
           log,
         })
@@ -1578,6 +1633,7 @@ export const useGame = create<GameState>()(
         set({
           constructionProjects: [...s.constructionProjects, project],
           placingConstruction: null,
+          selectedMapTarget: { kind: 'construction', id: project.id },
           panel: 'construction',
           log: note(s.log, `${project.name} foundation placed at ${lat.toFixed(2)}°, ${lng.toFixed(2)}°.`),
           toasts: withToast(s.toasts, `${project.name} foundation placed. Gather materials to build it.`, 'gold'),
@@ -1607,13 +1663,17 @@ export const useGame = create<GameState>()(
           resources: out.inventory,
           constructionProjects: completed.constructionProjects,
           assets: completed.assets,
-          panel: completed.asset ? 'assets' : s.panel,
+          selectedMapTarget: completed.asset ? { kind: 'asset', id: completed.asset.id } : { kind: 'construction', id: projectId },
+          panel: completed.asset ? panelForCompletedAsset(completed.asset) : s.panel,
           log: note(s.log, completed.asset
-            ? `${completed.asset.name} completed from local materials. You have a door of your own.`
+            ? constructionCompleteText(completed.asset)
             : `Deposited ${formatResourceList(out.deposited)} into ${project.name}.`),
           toasts: withToast(s.toasts, completed.asset ? `${completed.asset.name} complete!` : `Deposited ${formatResourceList(out.deposited)}.`, completed.asset ? 'achieve' : 'gold'),
         })
-        if (completed.asset) track('first_home_placed')
+        if (completed.asset) {
+          trackPlacedAsset(completed.asset)
+          publishPlacedAsset(s.citizen, completed.asset)
+        }
       },
 
       payConstructionPermit: (projectId) => {
@@ -1631,13 +1691,17 @@ export const useGame = create<GameState>()(
           money: paid.money,
           constructionProjects: completed.constructionProjects,
           assets: completed.assets,
-          panel: completed.asset ? 'assets' : s.panel,
+          selectedMapTarget: completed.asset ? { kind: 'asset', id: completed.asset.id } : { kind: 'construction', id: projectId },
+          panel: completed.asset ? panelForCompletedAsset(completed.asset) : s.panel,
           log: note(s.log, completed.asset
-            ? `${completed.asset.name} completed after the permit cleared.`
+            ? constructionCompleteText(completed.asset, 'permit')
             : `Permit paid for ${project.name} (${formatMoney(project.permitFee)}).`),
           toasts: withToast(s.toasts, completed.asset ? `${completed.asset.name} complete!` : `Permit paid for ${project.name}.`, completed.asset ? 'achieve' : 'gold'),
         })
-        if (completed.asset) track('first_home_placed')
+        if (completed.asset) {
+          trackPlacedAsset(completed.asset)
+          publishPlacedAsset(s.citizen, completed.asset)
+        }
       },
 
       startConstructionWork: (projectId) => {
@@ -1667,8 +1731,55 @@ export const useGame = create<GameState>()(
           },
           needs: applyEffects(s.needs, { energy: -10, hygiene: -4 }),
           panel: null,
+          selectedMapTarget: { kind: 'construction', id: projectId },
           log: note(s.log, `Started ${laborMinutes} minutes of construction labor on ${project.name}.`),
         })
+      },
+
+      hireConstructionWorker: (projectId, workerId, hours = 1) => {
+        const s = get()
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const hired = hireConstructionWorkerForProject(project, workerId, s.money, hours)
+        if (!hired.hired) {
+          const reason = hired.reason === 'materials'
+            ? 'Workers need the materials deposited first.'
+            : hired.reason === 'permit'
+              ? 'Workers need the permit paid before they build.'
+              : hired.reason === 'money'
+                ? `Need ${formatMoney(hired.cost)} to hire that worker.`
+                : hired.reason === 'labor'
+                  ? 'Labor is already complete.'
+                  : 'That worker is not available.'
+          set({ toasts: withToast(s.toasts, reason, 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
+          return
+        }
+        const projects = s.constructionProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate)
+        const completed = completeConstructionForState({ constructionProjects: projects, assets: s.assets }, projectId)
+        set({
+          money: hired.money,
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          selectedMapTarget: completed.asset ? { kind: 'asset', id: completed.asset.id } : { kind: 'construction', id: projectId },
+          panel: completed.asset ? panelForCompletedAsset(completed.asset) : s.panel,
+          toasts: withToast(
+            s.toasts,
+            completed.asset
+              ? `${completed.asset.name} complete!`
+              : `Workers added ${hired.laborMinutes}m of labor for ${formatMoney(hired.cost)}.`,
+            completed.asset ? 'achieve' : 'gold',
+          ),
+          log: note(
+            s.log,
+            completed.asset
+              ? constructionCompleteText(completed.asset, 'workers')
+              : `Hired workers for ${project.name}: ${hired.laborMinutes} minutes of labor (${formatMoney(hired.cost)}).`,
+          ),
+        })
+        if (completed.asset) {
+          trackPlacedAsset(completed.asset)
+          publishPlacedAsset(s.citizen, completed.asset)
+        }
       },
 
       completeConstructionIfReady: (projectId) => {
@@ -1681,11 +1792,13 @@ export const useGame = create<GameState>()(
         set({
           constructionProjects: completed.constructionProjects,
           assets: completed.assets,
-          panel: 'assets',
+          selectedMapTarget: { kind: 'asset', id: completed.asset.id },
+          panel: panelForCompletedAsset(completed.asset),
           toasts: withToast(s.toasts, `${completed.asset.name} complete!`, 'achieve'),
-          log: note(s.log, `${completed.asset.name} completed from local materials. You have a door of your own.`),
+          log: note(s.log, constructionCompleteText(completed.asset)),
         })
-        track('first_home_placed')
+        trackPlacedAsset(completed.asset)
+        publishPlacedAsset(s.citizen, completed.asset)
       },
 
       // One tap, one dollar, half the water bar — hydration without friction
@@ -2022,10 +2135,27 @@ export const useGame = create<GameState>()(
             return
           }
         }
+        if (item.category === 'business') {
+          const recipe = businessConstructionRecipe(item)
+          const project = createConstructionProjectFromRecipe(recipe, lat, lng)
+          set({
+            constructionProjects: [...s.constructionProjects, project],
+            placing: null,
+            selectedMapTarget: { kind: 'construction', id: project.id },
+            panel: 'construction',
+            // The business purchase becomes irreversible once its foundation is
+            // placed; it only starts earning after construction completes.
+            dailyCounters: bumpBoughtToday(s),
+            log: note(s.log, `${item.name} foundation placed at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°. Build it before it can open.`),
+            toasts: withToast(s.toasts, `${item.name} foundation placed. Gather materials, pay the permit, and build it.`, 'gold'),
+          })
+          return
+        }
+
         const asset: PlacedAsset = {
           id: `${item.id}-${Date.now()}`,
           itemId: item.id,
-          kind: item.category === 'home' ? 'home' : 'business',
+          kind: 'home',
           name: item.name,
           lat,
           lng,
@@ -2036,23 +2166,14 @@ export const useGame = create<GameState>()(
         set({
           assets: [...s.assets, asset],
           placing: null,
+          selectedMapTarget: { kind: 'asset', id: asset.id },
           // The placeable purchase COMPLETES here (buy was refundable until
           // placement) — this is where it counts for "Buy N items" challenges.
           dailyCounters: bumpBoughtToday(s),
           log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
         track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
-        if (s.citizen?.token) {
-          void tryPost('/api/world', {
-            citizenId: s.citizen.citizenId,
-            token: s.citizen.token,
-            assetId: asset.id,
-            itemId: asset.itemId,
-            kind: asset.kind,
-            lat: asset.lat,
-            lng: asset.lng,
-          })
-        }
+        publishPlacedAsset(s.citizen, asset)
       },
 
       cancelPlacing: () => {
@@ -2290,6 +2411,7 @@ export const useGame = create<GameState>()(
         if (on) track('walk_mode_entered')
         set({ streetMode: on, panel: null })
       },
+      selectMapTarget: (target) => set({ selectedMapTarget: target }),
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),
     }),
@@ -2322,6 +2444,7 @@ export const useGame = create<GameState>()(
               key !== 'goldenOpportunity' &&
               key !== 'toasts' &&
               key !== 'marketNeed' &&
+              key !== 'selectedMapTarget' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
           ),
