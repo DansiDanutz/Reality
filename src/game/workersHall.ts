@@ -9,6 +9,8 @@ export interface WorkersHall {
   description: string
 }
 
+export type WorkersHallPanel = 'construction' | 'business'
+
 function offsetLatLng(lat: number, lng: number, km: number, bearingDeg: number): { lat: number; lng: number } {
   const earthKm = 6_371
   const bearing = (bearingDeg * Math.PI) / 180
@@ -38,6 +40,14 @@ export function workersHallFor(citizen: Citizen | null, assets: PlacedAsset[]): 
     name: 'Workers Hall',
     lat: point.lat,
     lng: point.lng,
-    description: 'Recruit AI workers for construction today; real worker contracts can plug in later.',
+    description: 'Recruit AI workers for construction sites and business interiors; paid contracts advance over real time.',
   }
+}
+
+export function workersHallPanelFor(snapshot: {
+  constructionProjects: readonly unknown[]
+  businessDevelopmentProjects: readonly unknown[]
+}): WorkersHallPanel {
+  if (snapshot.constructionProjects.length === 0 && snapshot.businessDevelopmentProjects.length > 0) return 'business'
+  return 'construction'
 }
