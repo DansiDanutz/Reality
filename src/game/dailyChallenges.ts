@@ -10,9 +10,9 @@
  *   - 3 challenges per day, drawn from a pool, seeded by (citizenId, dayIndex)
  *     so they're stable across reloads but vary day-to-day.
  *   - Each challenge tracks a numeric counter that already exists in the game
- *     state (meals eaten today, shifts worked today, money earned today).
- *     The store resets the "today" counters at midnight; this module reads
- *     them via a DailyChallengeSnapshot.
+ *     state (meals, shifts, earned money, study, gathering, build labor,
+ *     community help, and business development). The store resets the "today"
+ *     counters at midnight; this module reads them via a DailyChallengeSnapshot.
  *   - Rewards scale with difficulty: easy ($100+25XP), medium ($250+50XP),
  *     hard ($500+100XP). Completing all 3 grants a bonus ($1000+200XP).
  *
@@ -46,6 +46,30 @@ export interface DailyChallengeSnapshot {
   communityToday: number
   /** Business interior development minutes completed since local midnight. */
   businessDevelopmentMinutesToday: number
+}
+
+/**
+ * The player's current ability to finish each kind of task today. This is
+ * intentionally capability-shaped, not UI-shaped, so HUD, notifications, and
+ * auto-claim all resolve the same stage-aware challenge set.
+ */
+export interface DailyChallengeContext extends Partial<DailyChallengeSnapshot> {
+  /** Maximum realistic wage/passive income the player can collect today. */
+  maxEarnedToday: number
+  /** Full shifts the current job/life stage can reasonably complete today. */
+  maxShiftsToday: number
+  /** Cheapest purchasable item count the current cash balance can cover. */
+  maxPurchasesToday: number
+  /** An enrolled course has study minutes remaining. */
+  hasStudyBlock: boolean
+  /** A resource trip is available and meaningful today. */
+  canGatherResources: boolean
+  /** A construction project is ready for player/worker labor. */
+  canDoConstructionLabor: boolean
+  /** A community action can still be completed today. */
+  canHelpCommunity: boolean
+  /** A business interior project is ready for player/worker labor. */
+  canDevelopBusiness: boolean
 }
 
 export type ChallengeDifficulty = 'easy' | 'medium' | 'hard'
@@ -101,23 +125,66 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
   { id: 'business-dev-60', label: 'Develop a business for 60 minutes', verb: 'business minutes', difficulty: 'hard', metric: 'businessDevelopmentMinutesToday', target: 60 },
 ] as const
 
+const DIFFICULTIES: readonly ChallengeDifficulty[] = ['easy', 'medium', 'hard']
+
 /**
  * Generate the 3 challenges for a given (citizenId, dayIndex) pair. Seeded
  * so the same citizen on the same calendar day always gets the same set
  * (stable across reloads), but different days get different sets.
  *
- * One challenge per difficulty band (easy/medium/hard), picked via a
- * deterministic seeded PRNG from the seed.
+ * With no context this preserves the legacy one-per-difficulty behavior.
+ * With context it filters impossible stage tasks first, then backfills from
+ * reachable tasks if a difficulty band has no fair option.
  */
-export function challengesForDay(citizenId: string, dayIndex: number): ChallengeDef[] {
+export function challengesForDay(citizenId: string, dayIndex: number, context?: DailyChallengeContext): ChallengeDef[] {
+  const pool = eligibleChallengesForContext(context)
   const out: ChallengeDef[] = []
-  for (const diff of ['easy', 'medium', 'hard'] as ChallengeDifficulty[]) {
-    const band = CHALLENGE_POOL.filter((c) => c.difficulty === diff)
-    const seed = hashSeed(`${citizenId}:${dayIndex}:${diff}`)
-    const pick = band[seed % band.length]
+  const used = new Set<string>()
+  for (const diff of DIFFICULTIES) {
+    const pick = seededPick(
+      pool.filter((c) => c.difficulty === diff),
+      `${citizenId}:${dayIndex}:${diff}`,
+      used,
+    )
+    if (pick) {
+      out.push(pick)
+      used.add(pick.id)
+    }
+  }
+  while (out.length < 3) {
+    const pick = seededPick(pool, `${citizenId}:${dayIndex}:backfill:${out.length}`, used)
+    if (!pick) break
     out.push(pick)
+    used.add(pick.id)
   }
   return out
+}
+
+export function eligibleChallengesForContext(context?: DailyChallengeContext): ChallengeDef[] {
+  if (!context) return [...CHALLENGE_POOL]
+  return CHALLENGE_POOL.filter((challenge) => challengeEligible(challenge, context))
+}
+
+function challengeEligible(def: ChallengeDef, context: DailyChallengeContext): boolean {
+  const progressToday = Number(context[def.metric] ?? 0)
+  if (progressToday > 0) return true
+
+  if (def.metric === 'shiftsToday') return context.maxShiftsToday >= def.target
+  if (def.metric === 'earnedToday') return context.maxEarnedToday >= def.target
+  if (def.metric === 'boughtToday') return context.maxPurchasesToday >= def.target
+  if (def.metric === 'studiedToday') return context.hasStudyBlock
+  if (def.metric === 'gatheredToday') return context.canGatherResources
+  if (def.metric === 'constructionMinutesToday') return context.canDoConstructionLabor
+  if (def.metric === 'communityToday') return context.canHelpCommunity
+  if (def.metric === 'businessDevelopmentMinutesToday') return context.canDevelopBusiness
+
+  return true
+}
+
+function seededPick(candidates: readonly ChallengeDef[], seedText: string, used: Set<string>): ChallengeDef | null {
+  const available = candidates.filter((candidate) => !used.has(candidate.id))
+  if (available.length <= 0) return null
+  return available[hashSeed(seedText) % available.length]
 }
 
 /**
