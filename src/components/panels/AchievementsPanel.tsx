@@ -14,11 +14,12 @@ import {
   CHALLENGE_REWARD,
   DAILY_COMPLETE_BONUS,
   type ChallengeDef,
+  type DailyChallengeContext,
 } from '../../game/dailyChallenges'
 import { COMMUNITY_ACTIONS, type CommunityActionId, type CommunityStats } from '../../game/community'
 import { LUCKY_MOMENT_DEFS, RARITY_META } from '../../game/luckyMoments'
 import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
-import { achievementSnapshotOf, useGame } from '../../store/gameStore'
+import { achievementSnapshotOf, dailyChallengeContextOf, useGame } from '../../store/gameStore'
 
 /**
  * Format a progress counter for the achievement bar. Money thresholds
@@ -54,7 +55,14 @@ export default function AchievementsPanel() {
   useGame((s) => s.timesSlept)
   useGame((s) => s.shiftsWorked)
   useGame((s) => s.totalCollected)
-  useGame((s) => s.assets.length)
+  useGame((s) => s.assets)
+  useGame((s) => s.money)
+  useGame((s) => s.jobId)
+  useGame((s) => s.inventory)
+  useGame((s) => s.resourceNodes.length)
+  useGame((s) => s.constructionProjects)
+  useGame((s) => s.businessDevelopmentProjects)
+  useGame((s) => s.educationProgress)
   const claimAchievement = useGame((s) => s.claimAchievement)
   const streakLength = useGame((s) => s.streakLength)
   const streakBest = useGame((s) => s.streakBest)
@@ -75,7 +83,9 @@ export default function AchievementsPanel() {
   }, [])
 
   // Read the full snapshot once per render from the live store
-  const snapshot = achievementSnapshotOf(useGame.getState())
+  const state = useGame.getState()
+  const snapshot = achievementSnapshotOf(state)
+  const challengeContext = dailyChallengeContextOf(state)
 
   // Group by category, preserve definition order within each
   const byCategory = new Map<AchievementCategory, Achievement[]>()
@@ -135,6 +145,7 @@ export default function AchievementsPanel() {
               counters={dailyCounters}
               claimed={dailyClaimed}
               bonusClaimed={dailyBonusClaimed}
+              context={challengeContext}
             />
           )}
 
@@ -296,6 +307,7 @@ function DailyChallengesBlock({
   counters,
   claimed,
   bonusClaimed,
+  context,
 }: {
   citizenId: string
   day: number
@@ -313,11 +325,12 @@ function DailyChallengesBlock({
   }
   claimed: string[]
   bonusClaimed: boolean
+  context: DailyChallengeContext
 }) {
   // Only show challenges once the day has been seeded (day > 0). Before the
   // first midnight the citizen hasn't been assigned a day yet.
   if (day <= 0) return null
-  const challenges: ChallengeDef[] = challengesForDay(citizenId, day)
+  const challenges: ChallengeDef[] = challengesForDay(citizenId, day, context)
   const snap = { ...counters }
   const done = challenges.filter((c) => claimed.includes(c.id) || challengeProgress(c, snap).complete).length
   const allDone = done === challenges.length
