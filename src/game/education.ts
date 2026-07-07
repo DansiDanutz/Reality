@@ -1,3 +1,7 @@
+import { JOBS } from './catalog'
+import { applyXp } from './engine'
+import type { Job } from './types'
+
 export type EducationCourseId =
   | 'course'
   | 'masterclass'
@@ -23,6 +27,14 @@ export interface EducationProgress {
   enrolledAt: number
   studiedMinutes: number
   completedAt: number | null
+}
+
+export interface EducationCareerOutlook {
+  projectedLevel: number
+  projectedXp: number
+  unlockedJobs: Job[]
+  nextLockedJob: Job | null
+  summary: string
 }
 
 export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
@@ -179,4 +191,42 @@ export function educationBusinessLaborBonusFrom(progress: EducationProgress[]): 
 
 export function educationBusinessLaborMultiplier(progress: EducationProgress[]): number {
   return roundedRate(1 + educationBusinessLaborBonusFrom(progress))
+}
+
+export function educationCareerOutlook(course: EducationCourse, level: number, xp: number): EducationCareerOutlook {
+  const currentLevel = Math.max(1, Math.floor(level))
+  const projected = applyXp(currentLevel, Math.max(0, Math.floor(xp)), course.xpReward)
+  const unlockedJobs = JOBS
+    .filter((job) => job.requiredLevel > currentLevel && job.requiredLevel <= projected.level)
+    .sort((a, b) => a.requiredLevel - b.requiredLevel || b.wage - a.wage)
+  const nextLockedJob = JOBS
+    .filter((job) => job.requiredLevel > projected.level)
+    .sort((a, b) => a.requiredLevel - b.requiredLevel || b.wage - a.wage)[0] ?? null
+  const summary = unlockedJobs.length > 0
+    ? `Can unlock ${jobListText(unlockedJobs)}.`
+    : nextLockedJob
+      ? `Moves toward ${nextLockedJob.title} at level ${nextLockedJob.requiredLevel}.`
+      : 'Strengthens wages and business work after the career ladder is open.'
+  return {
+    projectedLevel: projected.level,
+    projectedXp: projected.xp,
+    unlockedJobs,
+    nextLockedJob,
+    summary,
+  }
+}
+
+export function educationPathTextForJob(job: Job, level: number, xp: number): string {
+  if (level >= job.requiredLevel) return 'Unlocked now.'
+  const course = Object.values(EDUCATION_COURSES).find((candidate) =>
+    educationCareerOutlook(candidate, level, xp).projectedLevel >= job.requiredLevel
+  )
+  return course
+    ? `Study ${course.name} to reach level ${job.requiredLevel}.`
+    : `Study toward level ${job.requiredLevel}.`
+}
+
+function jobListText(jobs: readonly Job[]): string {
+  if (jobs.length <= 2) return jobs.map((job) => job.title).join(' and ')
+  return `${jobs.slice(0, 2).map((job) => job.title).join(', ')} and ${jobs.length - 2} more`
 }

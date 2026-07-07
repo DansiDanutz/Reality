@@ -1,5 +1,5 @@
 import { JOBS } from '../../game/catalog'
-import { educationWageBonusFrom } from '../../game/education'
+import { educationPathTextForJob, educationWageBonusFrom } from '../../game/education'
 import { careerRankOf, formatMoney, wageBonusFrom, xpForLevel } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
@@ -35,7 +35,7 @@ export default function WorkPanel() {
               <div className="item-info">
                 <span className="item-name">{job.title}</span>
                 <span className="item-desc">{job.flavor}</span>
-                {locked && <span className="item-locked">Unlocks at level {job.requiredLevel}</span>}
+                {locked && <span className="item-locked">Unlocks at level {job.requiredLevel} · {educationPathTextForJob(job, level, xp)}</span>}
               </div>
               <div className="item-buy">
                 <span className="item-price mono">

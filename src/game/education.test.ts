@@ -5,7 +5,9 @@ import {
   createEducationProgress,
   educationActionCount,
   educationBusinessLaborMultiplier,
+  educationCareerOutlook,
   educationPercent,
+  educationPathTextForJob,
   educationRemainingMinutes,
   educationWageBonusFrom,
   nextStudyBlockMinutes,
@@ -79,5 +81,20 @@ describe('education progress', () => {
     expect(completedEducationCourses([course, certification, unfinishedBootcamp]).map((item) => item.id)).toEqual(['course', 'certification'])
     expect(educationWageBonusFrom([course, certification, unfinishedBootcamp])).toBeCloseTo(0.05)
     expect(educationBusinessLaborMultiplier([course, certification, unfinishedBootcamp])).toBeCloseTo(1.07)
+  })
+
+  test('shows which jobs a course can unlock from the current level path', () => {
+    const outlook = educationCareerOutlook(EDUCATION_COURSES.course, 1, 60)
+
+    expect(outlook.projectedLevel).toBe(2)
+    expect(outlook.unlockedJobs.map((job) => job.id)).toEqual(['teacher', 'mechanic', 'retail'])
+    expect(outlook.summary).toBe('Can unlock Teacher, Mechanic and 1 more.')
+  })
+
+  test('points locked jobs at the next useful course path', () => {
+    expect(educationPathTextForJob({ id: 'developer', title: 'Software Developer', wage: 55, requiredLevel: 4, flavor: '' }, 1, 0))
+      .toBe('Study University Semester to reach level 4.')
+    expect(educationPathTextForJob({ id: 'barista', title: 'Barista', wage: 15, requiredLevel: 1, flavor: '' }, 1, 0))
+      .toBe('Unlocked now.')
   })
 })

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
 import {
   educationCourseForItem,
+  educationCareerOutlook,
   educationPercent,
   educationRemainingMinutes,
   nextStudyBlockMinutes,
@@ -81,10 +82,12 @@ function EducationRow({
   progress,
   percent,
   remainingMinutes,
+  outlook,
 }: {
   progress: EducationProgress | null
   percent: number
   remainingMinutes: number
+  outlook: string
 }) {
   const complete = progress?.completedAt !== null && progress?.completedAt !== undefined
   const label = !progress
@@ -93,11 +96,14 @@ function EducationRow({
       ? 'complete'
       : `${remainingMinutes}m left`
   return (
-    <div className="education-row">
-      <div className="education-meter" aria-label={`Course progress ${percent}%`}>
-        <div className="education-fill" style={{ width: `${percent}%` }} />
+    <div className="education-progress">
+      <div className="education-row">
+        <div className="education-meter" aria-label={`Course progress ${percent}%`}>
+          <div className="education-fill" style={{ width: `${percent}%` }} />
+        </div>
+        <span className={complete ? 'education-state done' : 'education-state'}>{label}</span>
       </div>
-      <span className={complete ? 'education-state done' : 'education-state'}>{label}</span>
+      <span className="education-outlook">{outlook}</span>
     </div>
   )
 }
@@ -113,6 +119,8 @@ export default function Market() {
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
   const pets = useGame((s) => s.pets)
+  const level = useGame((s) => s.level)
+  const xp = useGame((s) => s.xp)
   const educationProgress = useGame((s) => s.educationProgress)
   const activity = useGame((s) => s.activity)
   const buy = useGame((s) => s.buy)
@@ -271,6 +279,7 @@ export default function Market() {
                       progress={courseProgress}
                       percent={coursePercent}
                       remainingMinutes={courseRemaining}
+                      outlook={educationCareerOutlook(course, level, xp).summary}
                     />
                   )}
                   <div className="card-foot">
