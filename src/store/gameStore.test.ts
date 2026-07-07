@@ -266,6 +266,48 @@ describe('community action loop', () => {
   })
 })
 
+describe('shift reliability loop', () => {
+  test('completing a full shift earns bounded respect and reliable shift credit', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T00:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      jobId: 'barista',
+      shiftsWorked: 0,
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: freshCommunityStats(now),
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startShift()
+    const activity = useGame.getState().activity
+    expect(activity).toMatchObject({ kind: 'shift', title: 'Barista' })
+
+    vi.setSystemTime(activity!.endsAt)
+    useGame.getState().tick()
+
+    const state = useGame.getState()
+    expect(state.activity).toBeNull()
+    expect(state.shiftsWorked).toBe(1)
+    expect(state.community).toMatchObject({
+      respect: 1,
+      trust: 1,
+      reliableShifts: 1,
+      workRespectToday: 1,
+    })
+  })
+})
+
 describe('business interior development', () => {
   test('planning development does not instantly upgrade a business', () => {
     useGame.setState({
