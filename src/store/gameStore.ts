@@ -2080,6 +2080,15 @@ export const useGame = create<GameState>()(
           set({ toasts: withToast(s.toasts, 'Labor is already complete. Finish the remaining requirements.', 'sky') })
           return
         }
+        const progress = constructionProgress(project)
+        if (!progress.resourcesComplete) {
+          set({ toasts: withToast(s.toasts, 'Deposit construction materials before work starts.', 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
+          return
+        }
+        if (!progress.permitComplete) {
+          set({ toasts: withToast(s.toasts, 'Pay the building permit before work starts.', 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
+          return
+        }
         const laborMinutes = Math.min(60, remaining)
         const now = Date.now()
         set({
