@@ -1616,6 +1616,28 @@ describe('runWorldServerCommand', () => {
     expect(blankRepo.saves + missingRepo.saves).toBe(0)
   })
 
+  test('returns structured founder-area read load failures before saving state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => null,
+      loadAreaByFounder: async () => {
+        throw new Error('founder area lookup unavailable')
+      },
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
   test('rejects write conflicts while reading and advancing a founder area', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
