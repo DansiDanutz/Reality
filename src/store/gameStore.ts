@@ -77,6 +77,7 @@ import {
   createConstructionProjectFromRecipe,
   depositResources,
   hireConstructionWorker as hireConstructionWorkerForProject,
+  advanceConstructionWorkerContracts,
   payPermit,
   addConstructionLabor,
   totalResourceCount,
@@ -137,7 +138,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 12
+export const SAVE_VERSION = 13
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -155,6 +156,7 @@ export const SAVE_VERSION = 12
  *   v9 → v10: education progress ledger for real study blocks
  *   v10 → v11: community respect/friendship/trust progression
  *   v11 → v12: business interior development project ledger
+ *   v12 → v13: real-time construction worker contract ledger
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -217,6 +219,7 @@ export function migrateSave(persisted: unknown): GameState {
             resultKind: project.resultKind ?? 'home',
             incomePerDay: project.incomePerDay ?? 0,
             hiredLaborMinutes: project.hiredLaborMinutes ?? 0,
+            workerContracts: Array.isArray(project.workerContracts) ? project.workerContracts : [],
           }))
         }
         if (state && state.placingConstruction === undefined) state.placingConstruction = null
@@ -1215,6 +1218,22 @@ export const useGame = create<GameState>()(
             }
           }
         }
+        for (const project of [...constructionProjects]) {
+          if (!constructionProjects.some((candidate) => candidate.id === project.id)) continue
+          const advanced = advanceConstructionWorkerContracts(project, now)
+          if (advanced.laborMinutes <= 0) continue
+          const projects = constructionProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
+          const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, project.id)
+          constructionProjects = completed.constructionProjects
+          out.assets = completed.assets
+          if (completed.asset) {
+            trackPlacedAsset(completed.asset)
+            publishPlacedAsset(s.citizen, completed.asset)
+            selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+            log = note(log, constructionCompleteText(completed.asset, 'workers'))
+            if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} complete!`, 'achieve')
+          }
+        }
         if (completedSpecialActivity?.kind === 'study' && completedSpecialActivity.courseId) {
           const course = educationCourseById(completedSpecialActivity.courseId)
           const current = educationProgress.find((candidate) => candidate.courseId === completedSpecialActivity.courseId) ?? null
@@ -1917,32 +1936,21 @@ export const useGame = create<GameState>()(
           set({ toasts: withToast(s.toasts, reason, 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
           return
         }
-        const projects = s.constructionProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate)
-        const completed = completeConstructionForState({ constructionProjects: projects, assets: s.assets }, projectId)
         set({
           money: hired.money,
-          constructionProjects: completed.constructionProjects,
-          assets: completed.assets,
-          selectedMapTarget: completed.asset ? { kind: 'asset', id: completed.asset.id } : { kind: 'construction', id: projectId },
-          panel: completed.asset ? panelForCompletedAsset(completed.asset) : s.panel,
+          constructionProjects: s.constructionProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate),
+          selectedMapTarget: { kind: 'construction', id: projectId },
+          panel: s.panel,
           toasts: withToast(
             s.toasts,
-            completed.asset
-              ? `${completed.asset.name} complete!`
-              : `Workers added ${hired.laborMinutes}m of labor for ${formatMoney(hired.cost)}.`,
-            completed.asset ? 'achieve' : 'gold',
+            `Worker booked ${Math.round((hired.contract?.paidMinutes ?? 0) / 60)}h for ${formatMoney(hired.cost)}.`,
+            'gold',
           ),
           log: note(
             s.log,
-            completed.asset
-              ? constructionCompleteText(completed.asset, 'workers')
-              : `Hired workers for ${project.name}: ${hired.laborMinutes} minutes of labor (${formatMoney(hired.cost)}).`,
+            `Hired ${hired.contract?.workerName ?? 'worker'} for ${project.name}: ${hired.laborMinutes} minutes of labor over ${hired.contract?.paidMinutes ?? 0} paid minutes (${formatMoney(hired.cost)}).`,
           ),
         })
-        if (completed.asset) {
-          trackPlacedAsset(completed.asset)
-          publishPlacedAsset(s.citizen, completed.asset)
-        }
       },
 
       completeConstructionIfReady: (projectId) => {
