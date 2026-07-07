@@ -388,6 +388,77 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(0)
   })
 
+  test('returns a structured error when claimed-area preflight cannot load area state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => {
+        throw new Error('area load unavailable')
+      },
+      loadAreaRecord: async () => {
+        throw new Error('area record unavailable')
+      },
+      loadAreaByFounder: async () => null,
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
+  test('returns a structured error when claimed-area preflight cannot load founder state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => null,
+      loadAreaByFounder: async () => {
+        throw new Error('founder area load unavailable')
+      },
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
   test('rejects claimed-area creation when storage reports a write race', async () => {
     const repo = new MemoryWorldRepo()
     repo.conflictNextSave()

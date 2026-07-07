@@ -144,6 +144,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'area_repository_unavailable'
   | 'founder_area_exists'
   | 'invalid_area_identity'
   | 'invalid_command_time'
@@ -470,8 +471,15 @@ async function createClaimedArea(
   const simCitizens = normalizeSimCitizenSeeds(simSeeds, command.founder.id)
   if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
-  if (await loadStoredArea(repo, areaId)) return { ok: false, error: 'area_exists' }
-  const founderArea = await repo.loadAreaByFounder(command.authenticatedFounderId)
+  let existingArea: WorldAreaRecord | null
+  let founderArea: WorldAreaRecord | null
+  try {
+    existingArea = await loadStoredArea(repo, areaId)
+    founderArea = await repo.loadAreaByFounder(command.authenticatedFounderId)
+  } catch {
+    return { ok: false, error: 'area_repository_unavailable' }
+  }
+  if (existingArea) return { ok: false, error: 'area_exists' }
   if (founderArea) {
     return {
       ok: false,
