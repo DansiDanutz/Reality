@@ -31,11 +31,37 @@ describe('workersHallFor', () => {
   test('places the hall near the citizen spawn before they own a home', () => {
     const hall = workersHallFor(citizen, [])!
 
-    expect(hall).toMatchObject({ id: 'workers-hall', name: 'Workers Hall' })
+    expect(hall).toMatchObject({ id: 'workers-hall', name: 'Workers Hall', source: 'fallback' })
     expect(hall.lat).not.toBe(citizen.spawnLat)
     expect(hall.lng).not.toBe(citizen.spawnLng)
     expect(Math.abs(hall.lat - citizen.spawnLat!)).toBeLessThan(0.01)
     expect(Math.abs(hall.lng - citizen.spawnLng!)).toBeLessThan(0.01)
+  })
+
+  test('prefers a discovered local labor building over the generated fallback', () => {
+    const hall = workersHallFor(citizen, [], [{
+      id: 'osm-workers-hall-46.7000-22.2000',
+      kind: 'workers-hall',
+      label: 'Distant Commercial Office',
+      lat: 46.7,
+      lng: 22.2,
+      source: 'osm',
+    }, {
+      id: 'osm-workers-hall-45.7000-21.2000',
+      kind: 'workers-hall',
+      label: 'Timisoara Labor Office',
+      lat: 45.7,
+      lng: 21.2,
+      source: 'osm',
+    }])!
+
+    expect(hall).toMatchObject({
+      id: 'osm-workers-hall-45.7000-21.2000',
+      name: 'Timisoara Labor Office',
+      lat: 45.7,
+      lng: 21.2,
+      source: 'osm',
+    })
   })
 
   test('moves the hall near the owned home anchor once home exists', () => {

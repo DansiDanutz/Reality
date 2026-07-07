@@ -102,6 +102,7 @@ import {
   formatResourceList,
   freshResources,
 } from '../game/resources'
+import type { ServicePoi } from '../game/mapDiscovery'
 import { DEFAULT_MAP_ANCHOR } from '../game/mapAnchor'
 import {
   challengesForDay,
@@ -235,7 +236,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 15
+export const SAVE_VERSION = 16
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -256,6 +257,7 @@ export const SAVE_VERSION = 15
  *   v12 → v13: real-time construction worker contract ledger
  *   v13 → v14: real-time business interior worker contract ledger
  *   v14 → v15: serious work streak fields in community progression
+ *   v15 → v16: discovered city service POIs for real Workers Hall locations
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -308,6 +310,7 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
         if (state && !state.resources) state.resources = freshResources()
         if (state && !state.resourceNodes) state.resourceNodes = []
+        if (state && !state.servicePois) state.servicePois = []
         if (state && !state.constructionProjects) state.constructionProjects = []
         if (state && state.constructionProjects) {
           state.constructionProjects = state.constructionProjects.map((project) => ({
@@ -485,6 +488,9 @@ interface GameState {
   /** Resource nodes discovered around the citizen's anchor. */
   resourceNodes: ResourceNode[]
   setResourceNodes: (nodes: ResourceNode[]) => void
+  /** City services discovered around the citizen's anchor. */
+  servicePois: ServicePoi[]
+  setServicePois: (pois: ServicePoi[]) => void
   /** Active build projects placed on the map before they become assets. */
   constructionProjects: ConstructionProject[]
   /** Real study progress. Buying education enrolls here; XP arrives after study time. */
@@ -693,6 +699,7 @@ const FRESH = {
   assets: [] as PlacedAsset[],
   resources: freshResources(),
   resourceNodes: [] as ResourceNode[],
+  servicePois: [] as ServicePoi[],
   constructionProjects: [] as ConstructionProject[],
   educationProgress: [] as EducationProgress[],
   community: freshCommunityStats(),
@@ -1915,6 +1922,7 @@ export const useGame = create<GameState>()(
       setDockOrder: (order) => set({ hudDockOrder: order }),
       resetHudLayout: () => set({ hudLayout: {} }),
       setResourceNodes: (nodes) => set({ resourceNodes: nodes }),
+      setServicePois: (pois) => set({ servicePois: pois }),
 
       setSavingsGoal: (target) => set({ savingsGoal: Math.max(0, Math.floor(target)), savingsGoalReached: false }),
 
