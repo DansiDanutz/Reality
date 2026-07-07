@@ -137,4 +137,30 @@ describe('business development projects', () => {
     expect(finishedContract.project.laborDoneMinutes).toBe(120)
     expect(finishedContract.project.workerContracts[0].workedMinutes).toBe(120)
   })
+
+  test('community credit reduces upfront interior worker cash without changing labor time', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_000)!
+    const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project
+    const paid = payBusinessDevelopmentBudget(deposited, project.budgetCost).project
+
+    const estimate = estimateBusinessDevelopmentWorkerHire(paid, 'helper', 2, 30)
+    expect(estimate).toMatchObject({
+      hours: 2,
+      cost: 24,
+      laborMinutes: 120,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+      blockedBy: null,
+    })
+
+    const hired = hireBusinessDevelopmentWorker(paid, 'helper', 24, 2, 1_000, 30)
+    expect(hired.hired).toBe(true)
+    expect(hired.money).toBe(0)
+    expect(hired.contract).toMatchObject({
+      paidMinutes: 120,
+      cost: 24,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+    })
+  })
 })

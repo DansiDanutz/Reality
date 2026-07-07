@@ -53,6 +53,7 @@ import {
 import {
   canStartCommunityAction,
   communityActionById,
+  availableCommunityHelperMinutes,
   completeCommunityAction,
   completeReliableShift,
   freshCommunityStats,
@@ -61,9 +62,11 @@ import {
   recordBrokenCommitment,
   resetCommunityActionDayIfNeeded,
   resetCommunityWeekIfNeeded,
+  spendCommunityHelperMinutes,
   type CommunityActionId,
   type CommunityStats,
 } from '../game/community'
+import { communityAdvantageOf } from '../game/millionairePath'
 import {
   addBusinessDevelopmentLabor,
   advanceBusinessDevelopmentWorkerContracts,
@@ -330,7 +333,12 @@ export function migrateSave(persisted: unknown): GameState {
             incomePerDay: project.incomePerDay ?? 0,
             hiredLaborMinutes: project.hiredLaborMinutes ?? 0,
             workerContracts: Array.isArray(project.workerContracts)
-              ? project.workerContracts.map((contract) => ({ ...contract, source: 'workers-hall' as const }))
+              ? project.workerContracts.map((contract) => ({
+                  ...contract,
+                  source: 'workers-hall' as const,
+                  communityCreditMinutes: contract.communityCreditMinutes ?? 0,
+                  communityCreditValue: contract.communityCreditValue ?? 0,
+                }))
               : [],
           }))
         }
@@ -855,6 +863,16 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
 function citizenCourierDay(citizen: Citizen, todayDay: number, anchorLat?: number, anchorLng?: number): number {
   const createdDay = dayIndexOf(citizen.createdAt, anchorLat, anchorLng)
   return Math.max(1, todayDay - createdDay + 1)
+}
+
+function communityWorkerCreditMinutes(community: CommunityStats, shiftsWorked: number, now = Date.now()): number {
+  const advantage = communityAdvantageOf({
+    communityRespect: community.respect,
+    communityFriendship: community.friendship,
+    communityTrust: community.trust,
+    shiftsWorked,
+  })
+  return availableCommunityHelperMinutes(community, advantage.weeklyHelperMinutes, now)
 }
 
 function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
@@ -2240,7 +2258,10 @@ export const useGame = create<GameState>()(
         const s = get()
         const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
         if (!project) return
-        const hired = hireConstructionWorkerForProject(project, workerId, s.money, hours)
+        const now = Date.now()
+        const community = resetCommunityWeekIfNeeded(s.community, now)
+        const helperCreditMinutes = communityWorkerCreditMinutes(community, s.shiftsWorked, now)
+        const hired = hireConstructionWorkerForProject(project, workerId, s.money, hours, now, helperCreditMinutes)
         if (!hired.hired) {
           const reason = hired.reason === 'materials'
             ? 'Workers need the materials deposited first.'
@@ -2254,19 +2275,28 @@ export const useGame = create<GameState>()(
           set({ toasts: withToast(s.toasts, reason, 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
           return
         }
+        const communityCreditMinutes = hired.contract?.communityCreditMinutes ?? 0
+        const creditedCommunity = communityCreditMinutes > 0
+          ? spendCommunityHelperMinutes(community, communityCreditMinutes, now)
+          : community
         set({
           money: hired.money,
           constructionProjects: s.constructionProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate),
+          community: creditedCommunity,
           selectedMapTarget: { kind: 'construction', id: projectId },
           panel: s.panel,
           toasts: withToast(
             s.toasts,
-            `Worker booked ${Math.round((hired.contract?.paidMinutes ?? 0) / 60)}h for ${formatMoney(hired.cost)}.`,
+            communityCreditMinutes > 0
+              ? `Worker booked ${Math.round((hired.contract?.paidMinutes ?? 0) / 60)}h with ${communityCreditMinutes}m community help.`
+              : `Worker booked ${Math.round((hired.contract?.paidMinutes ?? 0) / 60)}h for ${formatMoney(hired.cost)}.`,
             'gold',
           ),
           log: note(
             s.log,
-            `Hired ${hired.contract?.workerName ?? 'worker'} for ${project.name}: ${hired.laborMinutes} minutes of labor over ${hired.contract?.paidMinutes ?? 0} paid minutes (${formatMoney(hired.cost)}).`,
+            communityCreditMinutes > 0
+              ? `Hired ${hired.contract?.workerName ?? 'worker'} for ${project.name}: ${hired.laborMinutes} minutes of labor, ${formatMoney(hired.cost)} cash, ${communityCreditMinutes}m community-backed help.`
+              : `Hired ${hired.contract?.workerName ?? 'worker'} for ${project.name}: ${hired.laborMinutes} minutes of labor over ${hired.contract?.paidMinutes ?? 0} paid minutes (${formatMoney(hired.cost)}).`,
           ),
         })
       },
@@ -2486,7 +2516,9 @@ export const useGame = create<GameState>()(
         const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
         if (!project) return
         const now = Date.now()
-        const hired = hireBusinessDevelopmentWorkerForProject(project, workerId, s.money, hours, now)
+        const community = resetCommunityWeekIfNeeded(s.community, now)
+        const helperCreditMinutes = communityWorkerCreditMinutes(community, s.shiftsWorked, now)
+        const hired = hireBusinessDevelopmentWorkerForProject(project, workerId, s.money, hours, now, helperCreditMinutes)
         if (!hired.hired) {
           const reason = hired.reason === 'materials'
             ? 'Workers need the interior materials deposited first.'
@@ -2501,19 +2533,28 @@ export const useGame = create<GameState>()(
           return
         }
         const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate)
+        const communityCreditMinutes = hired.contract?.communityCreditMinutes ?? 0
+        const creditedCommunity = communityCreditMinutes > 0
+          ? spendCommunityHelperMinutes(community, communityCreditMinutes, now)
+          : community
         set({
           money: hired.money,
           businessDevelopmentProjects: projects,
+          community: creditedCommunity,
           selectedMapTarget: { kind: 'asset', id: project.businessId },
           panel: 'business',
           toasts: withToast(
             s.toasts,
-            `Booked ${hired.contract?.workerName ?? 'worker'} for ${Math.round(hired.contract?.paidMinutes ?? hours * 60)}m on ${project.businessName}.`,
+            communityCreditMinutes > 0
+              ? `Booked ${hired.contract?.workerName ?? 'worker'} with ${communityCreditMinutes}m community help.`
+              : `Booked ${hired.contract?.workerName ?? 'worker'} for ${Math.round(hired.contract?.paidMinutes ?? hours * 60)}m on ${project.businessName}.`,
             'gold',
           ),
           log: note(
             s.log,
-            `Booked ${hired.contract?.workerName ?? 'worker'} for ${project.businessName}'s interior: ${Math.round(hired.contract?.paidMinutes ?? hours * 60)} paid minutes, up to ${Math.round(hired.laborMinutes)}m labor (${formatMoney(hired.cost)}).`,
+            communityCreditMinutes > 0
+              ? `Booked ${hired.contract?.workerName ?? 'worker'} for ${project.businessName}'s interior: ${Math.round(hired.laborMinutes)}m labor, ${formatMoney(hired.cost)} cash, ${communityCreditMinutes}m community-backed help.`
+              : `Booked ${hired.contract?.workerName ?? 'worker'} for ${project.businessName}'s interior: ${Math.round(hired.contract?.paidMinutes ?? hours * 60)} paid minutes, up to ${Math.round(hired.laborMinutes)}m labor (${formatMoney(hired.cost)}).`,
           ),
         })
       },

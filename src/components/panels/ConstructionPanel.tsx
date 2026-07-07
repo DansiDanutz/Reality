@@ -9,6 +9,8 @@ import {
 } from '../../game/construction'
 import { formatMoney } from '../../game/engine'
 import { constructionDayForecast, lifeDayFromCreatedAt } from '../../game/lifeLadder'
+import { availableCommunityHelperMinutes } from '../../game/community'
+import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 import { constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
@@ -37,6 +39,8 @@ const RESOURCE_SOURCE: Record<ResourceKind, string> = {
 export default function ConstructionPanel() {
   const [workerHours, setWorkerHours] = useState<Record<string, number>>({})
   const money = useGame((s) => s.money)
+  const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const community = useGame((s) => s.community)
   const resources = useGame((s) => s.resources)
   const resourceNodes = useGame((s) => s.resourceNodes)
   const projects = useGame((s) => s.constructionProjects)
@@ -72,8 +76,15 @@ export default function ConstructionPanel() {
   const planPercent = activeProgress?.percent ?? (hasStarterHome ? 100 : 0)
   const finalStage = constructionFinalStageView(planKind, Boolean(activeProgress?.complete), hasStarterHome)
   const lifeDay = lifeDayFromCreatedAt(citizen?.createdAt ?? 0)
+  const communityAdvantage = communityAdvantageOf({
+    communityRespect: community.respect,
+    communityFriendship: community.friendship,
+    communityTrust: community.trust,
+    shiftsWorked,
+  })
+  const communityCreditMinutes = availableCommunityHelperMinutes(community, communityAdvantage.weeklyHelperMinutes)
   const buildForecast = activeProject || !hasStarterHome
-    ? constructionDayForecast(activeProject ?? undefined, resources, money, undefined, undefined, lifeDay)
+    ? constructionDayForecast(activeProject ?? undefined, resources, money, undefined, undefined, lifeDay, communityCreditMinutes)
     : null
 
   return (
@@ -203,7 +214,7 @@ export default function ConstructionPanel() {
               {CONSTRUCTION_WORKERS.map((worker) => {
                 const hourChoices = workerHourChoices(worker.maxHours)
                 const hours = selectedWorkerHours(workerHours, worker.id, worker.maxHours)
-                const estimate = estimateConstructionWorkerHire(activeProject, worker.id, hours)
+                const estimate = estimateConstructionWorkerHire(activeProject, worker.id, hours, communityCreditMinutes)
                 const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
                 const blocker = estimate?.blockedBy === 'materials'
                   ? 'deposit materials first'
@@ -236,7 +247,10 @@ export default function ConstructionPanel() {
                         </button>
                       ))}
                     </div>
-                    <span className="item-desc mono">{hours}h contract = {formatMinutes(laborMinutes)} labor · {formatMoney(cost)} total</span>
+                    <span className="item-desc mono">
+                      {hours}h contract = {formatMinutes(laborMinutes)} labor · {formatMoney(cost)} total
+                      {(estimate?.communityCreditMinutes ?? 0) > 0 ? ` · ${estimate?.communityCreditMinutes}m community help` : ''}
+                    </span>
                     <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, hours)}>
                       {blocker ?? `Hire ${hours}h · ${formatMoney(cost)}`}
                     </button>

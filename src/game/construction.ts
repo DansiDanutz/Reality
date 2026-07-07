@@ -65,6 +65,8 @@ export interface ConstructionWorkerContract {
   laborMultiplier: number
   ratePerHour: number
   cost: number
+  communityCreditMinutes?: number
+  communityCreditValue?: number
 }
 
 export const STARTER_HOUSE_RECIPE: ConstructionRecipe = {
@@ -337,19 +339,26 @@ export function estimateConstructionWorkerHire(
   project: ConstructionProject,
   workerId: ConstructionWorkerId,
   hours = 1,
-): { worker: ConstructionWorker; hours: number; cost: number; laborMinutes: number; blockedBy: ReturnType<typeof constructionWorkerBlocker> } | null {
+  communityCreditMinutes = 0,
+): { worker: ConstructionWorker; hours: number; cost: number; laborMinutes: number; communityCreditMinutes: number; communityCreditValue: number; blockedBy: ReturnType<typeof constructionWorkerBlocker> } | null {
   const worker = workerById(workerId)
   if (!worker) return null
   const requestedHours = Math.min(Math.max(hours, 1), worker.maxHours)
+  const paidMinutes = requestedHours * 60
+  const creditMinutes = Math.min(paidMinutes, Math.max(0, Math.floor(communityCreditMinutes)))
+  const creditValue = Math.min(worker.ratePerHour * requestedHours, Math.round((worker.ratePerHour / 60) * creditMinutes))
+  const cost = Math.max(0, worker.ratePerHour * requestedHours - creditValue)
   const blockedBy = constructionWorkerBlocker(project)
-  if (blockedBy) return { worker, hours: requestedHours, cost: worker.ratePerHour * requestedHours, laborMinutes: 0, blockedBy }
+  if (blockedBy) return { worker, hours: requestedHours, cost, laborMinutes: 0, communityCreditMinutes: creditMinutes, communityCreditValue: creditValue, blockedBy }
   const remaining = constructionLaborBreakdown(project).remainingMinutes
   const laborMinutes = Math.min(remaining, Math.round(requestedHours * 60 * worker.laborMultiplier))
   return {
     worker,
     hours: requestedHours,
-    cost: worker.ratePerHour * requestedHours,
+    cost,
     laborMinutes,
+    communityCreditMinutes: creditMinutes,
+    communityCreditValue: creditValue,
     blockedBy: null,
   }
 }
@@ -360,8 +369,9 @@ export function hireConstructionWorker(
   money: number,
   hours = 1,
   now = Date.now(),
+  communityCreditMinutes = 0,
 ): { project: ConstructionProject; money: number; hired: boolean; cost: number; laborMinutes: number; contract: ConstructionWorkerContract | null; reason: 'unknown_worker' | 'materials' | 'permit' | 'labor' | 'money' | null } {
-  const estimate = estimateConstructionWorkerHire(project, workerId, hours)
+  const estimate = estimateConstructionWorkerHire(project, workerId, hours, communityCreditMinutes)
   if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, contract: null, reason: 'unknown_worker' }
   if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: estimate.blockedBy }
   if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'money' }
@@ -378,6 +388,8 @@ export function hireConstructionWorker(
     laborMultiplier: estimate.worker.laborMultiplier,
     ratePerHour: estimate.worker.ratePerHour,
     cost: estimate.cost,
+    communityCreditMinutes: estimate.communityCreditMinutes,
+    communityCreditValue: estimate.communityCreditValue,
   }
   return {
     project: {

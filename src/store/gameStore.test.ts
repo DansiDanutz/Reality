@@ -659,6 +659,44 @@ describe('construction worker contracts', () => {
     expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(60)
   })
 
+  test('community backing pays part of a Workers Hall construction contract once per weekly ledger', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, now),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      money: 8,
+      shiftsWorked: 0,
+      community: { ...freshCommunityStats(now), respect: 3 },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      constructionProjects: [project],
+      assets: [],
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().hireConstructionWorker(project.id, 'helper', 1)
+    const hired = useGame.getState()
+
+    expect(hired.money).toBe(0)
+    expect(hired.community.helperMinutesUsedThisWeek).toBe(30)
+    expect(hired.constructionProjects[0].workerContracts[0]).toMatchObject({
+      paidMinutes: 60,
+      cost: 8,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+    })
+  })
+
   test('completed construction stays a permanent map asset after duplicate completion attempts', () => {
     const now = Date.now()
     const project = {

@@ -297,6 +297,7 @@ describe('migrateSave - backfills every field added after v1', () => {
       seriousWorkLastDay: 0,
       brokenCommitments: 0,
       commitmentPenaltyDay: 0,
+      helperMinutesUsedThisWeek: 0,
     })
   })
 

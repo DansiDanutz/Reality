@@ -26,7 +26,7 @@ import {
   type ConstructionProject,
 } from './construction'
 import type { CommunityActionId } from './community'
-import { millionairePathOf, type MillionairePath } from './millionairePath'
+import { communityAdvantageOf, millionairePathOf, type MillionairePath } from './millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceInventory, type ResourceKind, freshResources } from './resources'
 import type { Needs, PlacedAsset, ShopCategory } from './types'
 
@@ -168,6 +168,7 @@ export interface LifeLadderSnapshot {
   communityRespect: number
   communityFriendship: number
   communityTrust: number
+  communityHelperMinutesUsedThisWeek?: number
   seriousWorkMissedYesterday?: boolean
 }
 
@@ -301,12 +302,12 @@ function activeWorkerLaborRemaining(
   )
 }
 
-function affordableConstructionHelperEstimate(project: ConstructionProject, money: number) {
+function affordableConstructionHelperEstimate(project: ConstructionProject, money: number, communityCreditMinutes = 0) {
   const remaining = constructionLaborBreakdown(project).remainingMinutes
   const preferredHours = remaining > 60 ? PREFERRED_HELPER_HOURS : 1
   const estimates = [
-    estimateConstructionWorkerHire(project, 'helper', preferredHours),
-    preferredHours > 1 ? estimateConstructionWorkerHire(project, 'helper', 1) : null,
+    estimateConstructionWorkerHire(project, 'helper', preferredHours, communityCreditMinutes),
+    preferredHours > 1 ? estimateConstructionWorkerHire(project, 'helper', 1, communityCreditMinutes) : null,
   ]
   return estimates.find((estimate) =>
     estimate &&
@@ -316,12 +317,12 @@ function affordableConstructionHelperEstimate(project: ConstructionProject, mone
   ) ?? null
 }
 
-function affordableBusinessHelperEstimate(project: BusinessDevelopmentProject, money: number) {
+function affordableBusinessHelperEstimate(project: BusinessDevelopmentProject, money: number, communityCreditMinutes = 0) {
   const remaining = businessDevelopmentLaborBreakdown(project).remainingMinutes
   const preferredHours = remaining > 60 ? PREFERRED_HELPER_HOURS : 1
   const estimates = [
-    estimateBusinessDevelopmentWorkerHire(project, 'helper', preferredHours),
-    preferredHours > 1 ? estimateBusinessDevelopmentWorkerHire(project, 'helper', 1) : null,
+    estimateBusinessDevelopmentWorkerHire(project, 'helper', preferredHours, communityCreditMinutes),
+    preferredHours > 1 ? estimateBusinessDevelopmentWorkerHire(project, 'helper', 1, communityCreditMinutes) : null,
   ]
   return estimates.find((estimate) =>
     estimate &&
@@ -416,7 +417,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         60,
       )
     }
-    const helperEstimate = affordableConstructionHelperEstimate(project, snapshot.money)
+    const helperEstimate = affordableConstructionHelperEstimate(project, snapshot.money, communityHelperCreditMinutes(snapshot))
     if (helperEstimate) {
       return task(
         isBusinessBuild ? 'hire-business-building-worker-hour' : 'hire-house-worker-hour',
@@ -538,7 +539,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       if (activeWorkers.length > 0) {
         return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
       }
-      const helperEstimate = affordableBusinessHelperEstimate(project, snapshot.money)
+      const helperEstimate = affordableBusinessHelperEstimate(project, snapshot.money, communityHelperCreditMinutes(snapshot))
       if (helperEstimate) {
         return task(
           'hire-business-worker-hour',
@@ -847,6 +848,16 @@ function completionLifeDay(currentLifeDay: number, laborDays: number): number {
   return safeCurrentDay + laborDays - 1
 }
 
+function communityHelperCreditMinutes(snapshot: Pick<LifeLadderSnapshot, 'communityRespect' | 'communityFriendship' | 'communityTrust' | 'shiftsWorked' | 'communityHelperMinutesUsedThisWeek'>): number {
+  const advantage = communityAdvantageOf({
+    communityRespect: snapshot.communityRespect,
+    communityFriendship: snapshot.communityFriendship,
+    communityTrust: snapshot.communityTrust,
+    shiftsWorked: snapshot.shiftsWorked,
+  })
+  return Math.max(0, advantage.weeklyHelperMinutes - Math.max(0, Math.floor(snapshot.communityHelperMinutesUsedThisWeek ?? 0)))
+}
+
 export function constructionDayForecast(
   project: ConstructionProject = {
     id: 'starter-house-plan',
@@ -873,6 +884,7 @@ export function constructionDayForecast(
   cashSafetyFloor = CASH_SAFETY_FLOOR,
   upfrontCost = 0,
   currentLifeDay = 1,
+  communityCreditMinutes = 0,
 ): ConstructionDayForecast {
   const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(constructionShortfall(project), resources)
   const remainingLaborMinutes = constructionLaborBreakdown(project).remainingMinutes
@@ -882,7 +894,8 @@ export function constructionDayForecast(
   const permitCashNeeded = Math.max(0, permitRemaining + cashSafetyFloor - money)
   const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
   const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
-  const helperCost = helper ? helper.ratePerHour * 2 : 0
+  const helperEstimate = helper ? estimateConstructionWorkerHire(project, 'helper', 2, communityCreditMinutes) : null
+  const helperCost = helperEstimate?.cost ?? (helper ? helper.ratePerHour * 2 : 0)
   const helperCashNeeded = Math.max(0, helperCost + cashSafetyFloor - money)
   const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
   const playerOnlyDaysAtOneHour = forecastLaborDays(remainingLaborMinutes, 60)
@@ -921,6 +934,7 @@ export function businessDevelopmentDayForecast(
   money = 0,
   cashSafetyFloor = CASH_SAFETY_FLOOR,
   currentLifeDay = 1,
+  communityCreditMinutes = 0,
 ): BusinessDevelopmentDayForecast {
   const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(businessDevelopmentShortfall(project), resources)
   const budgetRemaining = project.budgetPaid ? 0 : project.budgetCost
@@ -928,7 +942,8 @@ export function businessDevelopmentDayForecast(
   const remainingLaborMinutes = businessDevelopmentLaborBreakdown(project).remainingMinutes
   const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
   const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
-  const helperCost = helper ? helper.ratePerHour * 2 : 0
+  const helperEstimate = helper ? estimateBusinessDevelopmentWorkerHire(project, 'helper', 2, communityCreditMinutes) : null
+  const helperCost = helperEstimate?.cost ?? (helper ? helper.ratePerHour * 2 : 0)
   const helperCashNeeded = Math.max(0, budgetRemaining + helperCost + cashSafetyFloor - money)
   const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
   const playerOnlyDaysAtOneHour = forecastLaborDays(remainingLaborMinutes, 60)
@@ -1011,6 +1026,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const valuesCovered = Array.from(new Set([primary, ...support].map((item) => item.value)))
   const activeProject = activeConstructionProject(snapshot)
   const activeBusinessDevelopmentProject = snapshot.businessDevelopmentProjects[0] ?? null
+  const helperCreditMinutes = communityHelperCreditMinutes(snapshot)
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   const hasBusiness = snapshot.assets.some((asset) => asset.kind === 'business')
   const firstBusinessShell = hasHome && !hasBusiness && !activeProject
@@ -1025,12 +1041,12 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     valuesCovered,
     timeBudget: STANDARD_DAY_BUDGET,
     constructionForecast: activeProject || !hasHome
-      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, 0, snapshot.lifeDay)
+      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, 0, snapshot.lifeDay, helperCreditMinutes)
       : firstBusinessShell
-        ? constructionDayForecast(firstBusinessShell.project, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, firstBusinessShell.item.price, snapshot.lifeDay)
+        ? constructionDayForecast(firstBusinessShell.project, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, firstBusinessShell.item.price, snapshot.lifeDay, helperCreditMinutes)
       : null,
     businessDevelopmentForecast: activeBusinessDevelopmentProject
-      ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, snapshot.lifeDay)
+      ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, snapshot.lifeDay, helperCreditMinutes)
       : null,
     millionairePath,
     millionaireTask,

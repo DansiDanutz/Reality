@@ -1,11 +1,14 @@
 import { describe, expect, test } from 'vitest'
 import { SHOP_ITEMS } from './catalog'
 import {
+  availableCommunityHelperMinutes,
   communityDay,
   completeReliableShift,
   freshCommunityStats,
   missedSeriousWorkYesterday,
   recordBrokenCommitment,
+  resetCommunityWeekIfNeeded,
+  spendCommunityHelperMinutes,
 } from './community'
 import { communityAdvantageOf, millionairePathOf, type MillionairePathInput } from './millionairePath'
 import { rewardForStreakDay } from './streak'
@@ -143,6 +146,18 @@ describe('reputation contract', () => {
 
     expect(millionairePathOf(snap({ communityRespect: 4 })).stage).toBe('survival')
     expect(millionairePathOf(snap({ communityRespect: 5 })).stage).toBe('reliable')
+  })
+
+  test('community helper minutes spend and reset with the local week', () => {
+    const now = Date.UTC(2026, 6, 7, 12)
+    const stats = freshCommunityStats(now)
+    const spent = spendCommunityHelperMinutes(stats, 35, now)
+
+    expect(availableCommunityHelperMinutes(spent, 90, now)).toBe(55)
+    expect(resetCommunityWeekIfNeeded(spent, now + 7 * DAY_MS)).toMatchObject({
+      actionsThisWeek: 0,
+      helperMinutesUsedThisWeek: 0,
+    })
   })
 
   test('reputation is not directly purchasable from the shop catalog', () => {

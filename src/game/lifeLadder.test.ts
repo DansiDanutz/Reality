@@ -1057,6 +1057,27 @@ describe('planLifeDay', () => {
     expect(plan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
     expect(plan.agenda.map((item) => item.id)).toContain('help-local-person')
   })
+
+  test('uses community backing to make Workers Hall help the next safe build step', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 1, 1, 1),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 120,
+    }
+
+    const plan = planLifeDay(snap({
+      money: 124,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      constructionProjects: [project],
+      communityRespect: 3,
+    }))
+
+    expect(plan.primary.id).toBe('hire-house-worker-hour')
+    expect(plan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 2 })
+  })
 })
 
 describe('constructionDayForecast', () => {
@@ -1101,6 +1122,25 @@ describe('constructionDayForecast', () => {
     expect(forecast.totalGatherMinutes).toBe(0)
     expect(forecast.helperTwoHourAffordableToday).toBe(true)
     expect(forecast.helperTwoHourCashNeeded).toBe(0)
+  })
+
+  test('applies community helper credit to the construction forecast cash gate', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 1, 1, 1),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 120,
+    }
+
+    const withoutCredit = constructionDayForecast(project, freshResources(), 124)
+    const withCredit = constructionDayForecast(project, freshResources(), 124, undefined, undefined, 1, 30)
+
+    expect(withoutCredit.helperTwoHourCost).toBe(32)
+    expect(withoutCredit.helperTwoHourAffordableToday).toBe(false)
+    expect(withoutCredit.helperTwoHourCashNeeded).toBe(8)
+    expect(withCredit.helperTwoHourCost).toBe(24)
+    expect(withCredit.helperTwoHourAffordableToday).toBe(true)
+    expect(withCredit.helperTwoHourCashNeeded).toBe(0)
   })
 
   test('accounts for already active worker contracts in the build forecast', () => {
@@ -1192,5 +1232,22 @@ describe('businessDevelopmentDayForecast', () => {
     expect(forecast.activeWorkerLaborMinutesRemaining).toBe(75)
     expect(forecast.activeWorkerCompletionLifeDay).toBe(1)
     expect(forecast.helperTwoHourAffordableToday).toBe(true)
+  })
+
+  test('applies community helper credit to the business interior forecast cash gate', () => {
+    const project = businessProject({
+      deposited: freshResources({ wood: 20, stone: 10, metal: 20, glass: 10 }),
+      budgetPaid: true,
+    })
+
+    const withoutCredit = businessDevelopmentDayForecast(project, freshResources(), 124)
+    const withCredit = businessDevelopmentDayForecast(project, freshResources(), 124, undefined, 1, 30)
+
+    expect(withoutCredit.helperTwoHourCost).toBe(32)
+    expect(withoutCredit.helperTwoHourAffordableToday).toBe(false)
+    expect(withoutCredit.helperTwoHourCashNeeded).toBe(8)
+    expect(withCredit.helperTwoHourCost).toBe(24)
+    expect(withCredit.helperTwoHourAffordableToday).toBe(true)
+    expect(withCredit.helperTwoHourCashNeeded).toBe(0)
   })
 })

@@ -147,6 +147,34 @@ describe('construction', () => {
     expect(finished.project.workerContracts[0].workedMinutes).toBe(120)
   })
 
+  test('community credit reduces upfront worker cash without changing labor time', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const estimate = estimateConstructionWorkerHire(project, 'helper', 2, 30)
+    expect(estimate).toMatchObject({
+      hours: 2,
+      cost: 24,
+      laborMinutes: 120,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+      blockedBy: null,
+    })
+
+    const hired = hireConstructionWorker(project, 'helper', 24, 2, 1_000, 30)
+    expect(hired.hired).toBe(true)
+    expect(hired.money).toBe(0)
+    expect(hired.contract).toMatchObject({
+      paidMinutes: 120,
+      cost: 24,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+    })
+  })
+
   test('worker contracts add labor as real paid minutes pass', () => {
     const project = {
       ...createConstructionProject('starter-house', 45.7, 21.2, 123),

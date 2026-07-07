@@ -9,9 +9,11 @@ import {
 } from '../../game/businessDevelopment'
 import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import { CONSTRUCTION_WORKERS } from '../../game/construction'
+import { availableCommunityHelperMinutes } from '../../game/community'
 import { educationBusinessLaborMultiplier } from '../../game/education'
 import { formatMoney } from '../../game/engine'
 import { businessDevelopmentDayForecast, lifeDayFromCreatedAt } from '../../game/lifeLadder'
+import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 import { activeBusinessConstructionProject } from './businessPanelView'
@@ -36,6 +38,8 @@ export default function BusinessPanel() {
   const assets = useGame((s) => s.assets)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const money = useGame((s) => s.money)
+  const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const community = useGame((s) => s.community)
   const citizen = useGame((s) => s.citizen)
   const resources = useGame((s) => s.resources)
   const constructionProjects = useGame((s) => s.constructionProjects)
@@ -94,7 +98,14 @@ export default function BusinessPanel() {
   const shortfall = project ? businessDevelopmentShortfall(project) : null
   const activeWorkerContracts = project?.workerContracts?.filter((contract) => contract.workedMinutes < contract.paidMinutes) ?? []
   const lifeDay = lifeDayFromCreatedAt(citizen?.createdAt ?? 0)
-  const interiorForecast = project ? businessDevelopmentDayForecast(project, resources, money, undefined, lifeDay) : null
+  const communityAdvantage = communityAdvantageOf({
+    communityRespect: community.respect,
+    communityFriendship: community.friendship,
+    communityTrust: community.trust,
+    shiftsWorked,
+  })
+  const communityCreditMinutes = availableCommunityHelperMinutes(community, communityAdvantage.weeklyHelperMinutes)
+  const interiorForecast = project ? businessDevelopmentDayForecast(project, resources, money, undefined, lifeDay, communityCreditMinutes) : null
   const studyLaborMultiplier = educationBusinessLaborMultiplier(educationProgress)
   const studyLaborBonus = Math.max(0, Math.round((studyLaborMultiplier - 1) * 100))
   const atCap = level >= MAX_BUSINESS_LEVEL || !plan
@@ -234,7 +245,7 @@ export default function BusinessPanel() {
               {CONSTRUCTION_WORKERS.map((worker) => {
                 const hourChoices = workerHourChoices(worker.maxHours)
                 const hours = selectedWorkerHours(workerHours, worker.id, worker.maxHours)
-                const estimate = estimateBusinessDevelopmentWorkerHire(project, worker.id, hours)
+                const estimate = estimateBusinessDevelopmentWorkerHire(project, worker.id, hours, communityCreditMinutes)
                 const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
                 const blocker = estimate?.blockedBy === 'materials'
                   ? 'deposit materials first'
@@ -267,7 +278,10 @@ export default function BusinessPanel() {
                         </button>
                       ))}
                     </div>
-                    <span className="item-desc mono">{hours}h contract = up to {formatMinutes(laborMinutes)} interior labor · {formatMoney(cost)} total</span>
+                    <span className="item-desc mono">
+                      {hours}h contract = up to {formatMinutes(laborMinutes)} interior labor · {formatMoney(cost)} total
+                      {(estimate?.communityCreditMinutes ?? 0) > 0 ? ` · ${estimate?.communityCreditMinutes}m community help` : ''}
+                    </span>
                     <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, hours)}>
                       {blocker ?? `Book ${hours}h · ${formatMoney(cost)}`}
                     </button>

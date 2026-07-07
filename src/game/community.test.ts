@@ -32,6 +32,7 @@ describe('community actions', () => {
       seriousWorkLastDay: 0,
       brokenCommitments: 0,
       commitmentPenaltyDay: 0,
+      helperMinutesUsedThisWeek: 0,
     })
   })
 

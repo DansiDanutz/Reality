@@ -32,6 +32,7 @@ export interface CommunityStats {
   seriousWorkLastDay: number
   brokenCommitments: number
   commitmentPenaltyDay: number
+  helperMinutesUsedThisWeek: number
 }
 
 const DAY_MS = 24 * 3_600_000
@@ -89,6 +90,7 @@ export function freshCommunityStats(now = Date.now()): CommunityStats {
     seriousWorkLastDay: 0,
     brokenCommitments: 0,
     commitmentPenaltyDay: 0,
+    helperMinutesUsedThisWeek: 0,
   }
 }
 
@@ -110,12 +112,13 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
     seriousWorkLastDay: Number.isFinite(stats.seriousWorkLastDay) ? Math.max(0, Math.floor(stats.seriousWorkLastDay ?? 0)) : 0,
     brokenCommitments: Math.max(0, Math.floor(stats.brokenCommitments ?? 0)),
     commitmentPenaltyDay: Number.isFinite(stats.commitmentPenaltyDay) ? Math.max(0, Math.floor(stats.commitmentPenaltyDay ?? 0)) : 0,
+    helperMinutesUsedThisWeek: Math.max(0, Math.floor(stats.helperMinutesUsedThisWeek ?? 0)),
   }
 }
 
 export function resetCommunityWeekIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
   const week = communityWeek(now)
-  return stats.week === week ? stats : { ...stats, actionsThisWeek: 0, week }
+  return stats.week === week ? stats : { ...stats, actionsThisWeek: 0, helperMinutesUsedThisWeek: 0, week }
 }
 
 export function resetCommunityWorkDayIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
@@ -130,6 +133,19 @@ export function resetCommunityActionDayIfNeeded(stats: CommunityStats, now = Dat
 
 export function canStartCommunityAction(stats: CommunityStats, now = Date.now()): boolean {
   return resetCommunityActionDayIfNeeded(stats, now).actionsToday <= 0
+}
+
+export function availableCommunityHelperMinutes(stats: CommunityStats, weeklyHelperMinutes: number, now = Date.now()): number {
+  const current = resetCommunityWeekIfNeeded(stats, now)
+  return Math.max(0, Math.floor(weeklyHelperMinutes) - current.helperMinutesUsedThisWeek)
+}
+
+export function spendCommunityHelperMinutes(stats: CommunityStats, minutes: number, now = Date.now()): CommunityStats {
+  const current = resetCommunityWeekIfNeeded(stats, now)
+  return {
+    ...current,
+    helperMinutesUsedThisWeek: current.helperMinutesUsedThisWeek + Math.max(0, Math.floor(minutes)),
+  }
 }
 
 export function communityActionById(actionId: CommunityActionId): CommunityAction | null {

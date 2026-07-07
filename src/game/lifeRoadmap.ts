@@ -41,7 +41,7 @@ import {
   type LifePlanTask,
   type LifeValue,
 } from './lifeLadder'
-import type { MillionaireStage } from './millionairePath'
+import { communityAdvantageOf, type MillionaireStage } from './millionairePath'
 
 export interface LifeRoadmapDay {
   lifeDay: number
@@ -202,6 +202,25 @@ function cloneSnapshot(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
       workerContracts: [...project.workerContracts],
     })),
     educationProgress: snapshot.educationProgress.map((progress) => ({ ...progress })),
+    communityHelperMinutesUsedThisWeek: Math.max(0, snapshot.communityHelperMinutesUsedThisWeek ?? 0),
+  }
+}
+
+function roadmapCommunityHelperCredit(snapshot: LifeLadderSnapshot): number {
+  const advantage = communityAdvantageOf({
+    communityRespect: snapshot.communityRespect,
+    communityFriendship: snapshot.communityFriendship,
+    communityTrust: snapshot.communityTrust,
+    shiftsWorked: snapshot.shiftsWorked,
+  })
+  return Math.max(0, advantage.weeklyHelperMinutes - Math.max(0, snapshot.communityHelperMinutesUsedThisWeek ?? 0))
+}
+
+function applyRoadmapCommunityHelperCredit(snapshot: LifeLadderSnapshot, minutes: number): LifeLadderSnapshot {
+  if (minutes <= 0) return snapshot
+  return {
+    ...snapshot,
+    communityHelperMinutesUsedThisWeek: Math.max(0, snapshot.communityHelperMinutesUsedThisWeek ?? 0) + Math.max(0, Math.floor(minutes)),
   }
 }
 
@@ -468,8 +487,8 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     } else if (route.action === 'hire-helper') {
       next = updateConstructionProject(next, route.projectId, (project, current) => {
         const now = roadmapDayStartMs(current.lifeDay)
-        const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, now)
-        next = { ...current, money: hired.money }
+        const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, now, roadmapCommunityHelperCredit(current))
+        next = applyRoadmapCommunityHelperCredit({ ...current, money: hired.money }, hired.contract?.communityCreditMinutes ?? 0)
         return hired.project
       })
     }
@@ -494,8 +513,8 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     } else if (route.action === 'hire-helper') {
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
         const now = roadmapDayStartMs(current.lifeDay)
-        const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, now)
-        next = { ...current, money: hired.money }
+        const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, now, roadmapCommunityHelperCredit(current))
+        next = applyRoadmapCommunityHelperCredit({ ...current, money: hired.money }, hired.contract?.communityCreditMinutes ?? 0)
         return hired.project
       })
     }
@@ -512,6 +531,7 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     activityKind: null,
     communityActionsToday: 0,
     communityActionsThisWeek: (next.lifeDay + 1) % 7 === 1 ? 0 : next.communityActionsThisWeek,
+    communityHelperMinutesUsedThisWeek: (next.lifeDay + 1) % 7 === 1 ? 0 : next.communityHelperMinutesUsedThisWeek ?? 0,
   }
 }
 
