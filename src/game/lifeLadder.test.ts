@@ -90,7 +90,11 @@ describe('planLifeDay', () => {
     }))
 
     expect(plan.routine.reduce((sum, block) => sum + block.minutes, 0)).toBe(24 * 60)
-    expect(plan.routine.find((block) => block.id === 'sleep-block')).toMatchObject({ minutes: 480, value: 'body' })
+    expect(plan.routine.find((block) => block.id === 'sleep-block')).toMatchObject({
+      minutes: 480,
+      value: 'body',
+      route: { kind: 'survival-action', action: 'sleep' },
+    })
     expect(plan.routine.find((block) => block.id === 'work-block')).toMatchObject({
       minutes: 480,
       value: 'work',
