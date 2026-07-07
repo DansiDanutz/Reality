@@ -32,7 +32,7 @@ import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/a
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, pickFirstLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
-import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
+import { MYSTERY_BOXES, openBox, type BoxReward, type BoxTier } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
@@ -377,7 +377,7 @@ interface GameState {
   /** Open a mystery box — the gacha loop. Returns the reward for reveal. */
   openMysteryBox: (tier: BoxTier) => void
   /** The most recent mystery box result (transient — for the reveal animation). */
-  lastBoxReward: { label: string; cash: number; xp: number; rarity: string; icon: string; tier: BoxTier } | null
+  lastBoxReward: (BoxReward & { tier: BoxTier }) | null
   /** Clear the reveal once it has played, so a panel remount doesn't replay it. */
   clearBoxReward: () => void
   /** Lifetime count of boxes opened. */
