@@ -39,6 +39,7 @@ export type LifePlanRoute =
   | { kind: 'work-action'; action: 'shift' }
   | { kind: 'community-action'; actionId: CommunityActionId }
   | { kind: 'education-action'; courseId: EducationCourseId }
+  | { kind: 'survival-action'; action: 'drink-water' | 'sleep' }
   | { kind: 'none' }
 
 export interface LifePlanTask {
@@ -183,13 +184,13 @@ function bodyRecoveryTask(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     return task('body-recover', 'Recover your body first', 'Health is low. Drink, eat, and rest before chasing money.', 'body', { kind: 'market', focus: 'health' }, 60)
   }
   if (snapshot.needs.hydration <= NEED_RECOVERY_FLOOR) {
-    return task('drink-water', 'Drink water', 'Hydration is the fastest survival risk. Fix it before work or construction.', 'body', { kind: 'market', focus: 'drinks' }, 5)
+    return task('drink-water', 'Drink water', 'Hydration is the fastest survival risk. Fix it before work or construction.', 'body', { kind: 'survival-action', action: 'drink-water' }, 5)
   }
   if (snapshot.needs.hunger <= NEED_RECOVERY_FLOOR) {
     return task('eat-food', 'Eat a real meal', 'Food keeps the workday and construction day possible.', 'body', { kind: 'market', focus: 'food' }, 20)
   }
   if (snapshot.needs.energy <= 30) {
-    return task('sleep-tonight', 'Sleep before pushing harder', 'Energy is too low for serious work. Rest protects tomorrow.', 'body', { kind: 'panel', panel: 'home' }, STANDARD_DAY_BUDGET.sleepMinutes)
+    return task('sleep-tonight', 'Sleep before pushing harder', 'Energy is too low for serious work. Rest protects tomorrow.', 'body', { kind: 'survival-action', action: 'sleep' }, STANDARD_DAY_BUDGET.sleepMinutes)
   }
   return null
 }
