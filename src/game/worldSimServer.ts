@@ -406,7 +406,12 @@ export async function readWorldFounderCovenantReviewQueue(
     return { ok: false, error: 'invalid_review_queue_cursor' }
   }
 
-  const page = await repo.listAreaRecords({ limit, ...(cursor ? { cursor } : {}) })
+  let page: WorldAreaRecordPage
+  try {
+    page = await repo.listAreaRecords({ limit, ...(cursor ? { cursor } : {}) })
+  } catch {
+    return { ok: false, error: 'review_queue_unavailable' }
+  }
   const items: WorldFounderCovenantReviewQueueItem[] = []
   const results: WorldFounderCovenantReviewQueueScanResult[] = []
 

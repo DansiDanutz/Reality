@@ -1594,6 +1594,24 @@ describe('runWorldServerCommand', () => {
       .resolves.toEqual({ ok: false, error: 'invalid_command_time' })
   })
 
+  test('reports thrown founder covenant review queue listing failures before catch-up writes', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    const saveAttemptsBefore = repo.saveAttempts
+    const failingRepo: WorldAreaRepository = {
+      loadArea: repo.loadArea.bind(repo),
+      loadAreaByFounder: repo.loadAreaByFounder.bind(repo),
+      saveArea: repo.saveArea.bind(repo),
+      listAreaRecords: async () => {
+        throw new Error('storage list unavailable')
+      },
+    }
+
+    await expect(readWorldFounderCovenantReviewQueue(failingRepo, 1_000 + HOUR))
+      .resolves.toEqual({ ok: false, error: 'review_queue_unavailable' })
+    expect(repo.saveAttempts).toBe(saveAttemptsBefore)
+  })
+
   test('rejects founder area reads without a claimed area', async () => {
     const blankRepo = new MemoryWorldRepo()
     const blankFounder = await runWorldServerCommand(blankRepo, {
