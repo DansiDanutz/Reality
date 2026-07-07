@@ -273,7 +273,7 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateConstructionProject(next, route.projectId, (project) => addConstructionLabor(project, 60))
     } else if (route.action === 'hire-helper') {
       next = updateConstructionProject(next, route.projectId, (project, current) => {
-        const hired = hireConstructionWorker(project, 'helper', current.money, 1, current.lifeDay)
+        const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, current.lifeDay)
         const withLabor = addConstructionLabor(hired.project, hired.laborMinutes)
         next = { ...current, money: hired.money }
         return {
@@ -305,7 +305,7 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateBusinessDevelopmentProject(next, route.projectId, (project) => addBusinessDevelopmentLabor(project, 60))
     } else if (route.action === 'hire-helper') {
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
-        const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, 1, current.lifeDay)
+        const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, current.lifeDay)
         const withLabor = addBusinessDevelopmentLabor(hired.project, hired.laborMinutes)
         next = { ...current, money: hired.money }
         return {
