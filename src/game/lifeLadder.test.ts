@@ -340,6 +340,68 @@ describe('planLifeDay', () => {
     })
   })
 
+  test('opens groceries for routine hunger when a kitchen exists but no recipe is ready', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      inventory: { rice: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'groceries' },
+    })
+  })
+
+  test('opens groceries for routine hunger when a hot plate creates cooking access', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+      inventory: { hotplate: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'groceries' },
+    })
+  })
+
+  test('does not treat kitchen furniture as owned ready food', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+      inventory: { kitchen: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'groceries' },
+    })
+  })
+
+  test('keeps critical hunger on ready food when a kitchen has no ready recipe', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 20 },
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      inventory: { rice: 1 },
+    }))
+
+    expect(plan.primary).toMatchObject({
+      id: 'eat-food',
+      route: { kind: 'market', focus: 'food' },
+    })
+  })
+
   test('opens the food market for hunger care when no food is owned', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
