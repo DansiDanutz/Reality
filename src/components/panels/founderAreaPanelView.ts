@@ -727,6 +727,7 @@ export function founderCovenantOperatorQueueSummary(
   const riskParts = [
     `${totals.manualReviewRequired} manual review${totals.manualReviewRequired === 1 ? '' : 's'}`,
     `${totals.overdue} overdue`,
+    `${totals.evidenceGapCounts.total} evidence gap${totals.evidenceGapCounts.total === 1 ? '' : 's'} (${totals.evidenceGapCounts.populationGrowth} population, ${totals.evidenceGapCounts.externalContribution} contribution, ${totals.evidenceGapCounts.ideasFeedback} ideas)`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,
   ]

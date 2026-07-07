@@ -794,6 +794,16 @@ export interface RealityFounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+export interface RealityFounderCovenantReviewQueueEvidenceGapCounts {
+  total: number
+  inGameActivity: number
+  areaHealth: number
+  populationGrowth: number
+  externalContribution: number
+  ideasFeedback: number
+  reviewConsistency: number
+}
+
 export interface RealityFounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -942,6 +952,7 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    evidenceGapCounts: RealityFounderCovenantReviewQueueEvidenceGapCounts
   }
   items: RealityFounderCovenantReviewQueueItem[]
   results: RealityFounderCovenantReviewQueueScanResult[]
@@ -2238,7 +2249,21 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.insuredFounders === 'number' &&
     typeof value.pendingApprovals === 'number' &&
     typeof value.pendingNotifications === 'number' &&
-    typeof value.blockers === 'number'
+    typeof value.blockers === 'number' &&
+    isRealityFounderCovenantReviewQueueEvidenceGapCounts(value.evidenceGapCounts)
+}
+
+function isRealityFounderCovenantReviewQueueEvidenceGapCounts(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueEvidenceGapCounts {
+  return isRecord(value) &&
+    typeof value.total === 'number' &&
+    typeof value.inGameActivity === 'number' &&
+    typeof value.areaHealth === 'number' &&
+    typeof value.populationGrowth === 'number' &&
+    typeof value.externalContribution === 'number' &&
+    typeof value.ideasFeedback === 'number' &&
+    typeof value.reviewConsistency === 'number'
 }
 
 function isRealityFounderCovenantReviewQueueItem(

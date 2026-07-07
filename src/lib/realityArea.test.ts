@@ -2957,6 +2957,7 @@ function serverDashboard(): RealityAreaDashboard {
 function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
   const dashboard = serverDashboard()
   const review = dashboard.founderCovenant
+  const evidenceGapCounts = serverFounderCovenantEvidenceGapCounts(review.reviewInputs)
   return {
     generatedAt: '2026-07-06T04:00:00.000Z',
     evidenceOnly: true,
@@ -2994,6 +2995,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      evidenceGapCounts,
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3061,6 +3063,31 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       transactionsAdded: 1,
     }],
   }
+}
+
+function serverFounderCovenantEvidenceGapCounts(
+  inputs: RealityAreaDashboard['founderCovenant']['reviewInputs'],
+): RealityFounderCovenantReviewQueueDashboard['totals']['evidenceGapCounts'] {
+  const counts: RealityFounderCovenantReviewQueueDashboard['totals']['evidenceGapCounts'] = {
+    total: 0,
+    inGameActivity: 0,
+    areaHealth: 0,
+    populationGrowth: 0,
+    externalContribution: 0,
+    ideasFeedback: 0,
+    reviewConsistency: 0,
+  }
+  for (const input of inputs) {
+    if (!input.manualEvidenceRequired && input.status !== 'manual_needed') continue
+    counts.total += 1
+    if (input.kind === 'in_game_activity') counts.inGameActivity += 1
+    if (input.kind === 'area_health') counts.areaHealth += 1
+    if (input.kind === 'population_growth') counts.populationGrowth += 1
+    if (input.kind === 'external_contribution') counts.externalContribution += 1
+    if (input.kind === 'ideas_feedback') counts.ideasFeedback += 1
+    if (input.kind === 'review_consistency') counts.reviewConsistency += 1
+  }
+  return counts
 }
 
 function serverFounderCovenantReviewReadiness(

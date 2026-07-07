@@ -1106,6 +1106,16 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueEvidenceGapCounts {
+  total: number
+  inGameActivity: number
+  areaHealth: number
+  populationGrowth: number
+  externalContribution: number
+  ideasFeedback: number
+  reviewConsistency: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1264,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    evidenceGapCounts: FounderCovenantReviewQueueEvidenceGapCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4631,6 +4642,53 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    evidenceGapCounts: founderCovenantReviewQueueEvidenceGapCounts(items),
+  }
+}
+
+function founderCovenantReviewQueueEvidenceGapCounts(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueEvidenceGapCounts {
+  return items.reduce((counts, item) => {
+    for (const input of item.reviewInputs) {
+      if (!founderCovenantReviewInputNeedsManualEvidence(input)) continue
+      counts.total += 1
+      counts[founderCovenantReviewEvidenceGapCountKey(input.kind)] += 1
+    }
+    return counts
+  }, {
+    total: 0,
+    inGameActivity: 0,
+    areaHealth: 0,
+    populationGrowth: 0,
+    externalContribution: 0,
+    ideasFeedback: 0,
+    reviewConsistency: 0,
+  })
+}
+
+function founderCovenantReviewInputNeedsManualEvidence(
+  input: FounderAreaCovenantReviewInput,
+): boolean {
+  return input.manualEvidenceRequired || input.status === 'manual_needed'
+}
+
+function founderCovenantReviewEvidenceGapCountKey(
+  kind: FounderAreaCovenantReviewInput['kind'],
+): Exclude<keyof FounderCovenantReviewQueueEvidenceGapCounts, 'total'> {
+  switch (kind) {
+    case 'in_game_activity':
+      return 'inGameActivity'
+    case 'area_health':
+      return 'areaHealth'
+    case 'population_growth':
+      return 'populationGrowth'
+    case 'external_contribution':
+      return 'externalContribution'
+    case 'ideas_feedback':
+      return 'ideasFeedback'
+    case 'review_consistency':
+      return 'reviewConsistency'
   }
 }
 
