@@ -380,6 +380,10 @@ describe('worldSim snapshot codec', () => {
     badAreaEvent.areaEvents![0].serviceKind = 'water'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badAreaEvent }))).toEqual({ ok: false, error: 'invalid_area' })
 
+    const negativeAreaEventTime = area()
+    negativeAreaEventTime.areaEvents![0].at = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeAreaEventTime }))).toEqual({ ok: false, error: 'invalid_area' })
+
     const nonSimDeparture = area()
     nonSimDeparture.areaEvents![0].simulated = false
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: nonSimDeparture }))).toEqual({ ok: false, error: 'invalid_area' })
