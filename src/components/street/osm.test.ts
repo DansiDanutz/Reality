@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchNeighborhood } from './osm'
+import { clearNeighborhoodCacheForTest, fetchNeighborhood } from './osm'
 
 const okResponse = (elements: unknown[]) =>
   ({ ok: true, json: () => Promise.resolve({ elements }) }) as unknown as Response
@@ -16,6 +16,7 @@ const BUILDING = {
 
 describe('fetchNeighborhood mirror fallback', () => {
   afterEach(() => {
+    clearNeighborhoodCacheForTest()
     vi.unstubAllGlobals()
   })
 
