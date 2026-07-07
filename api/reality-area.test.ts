@@ -3967,6 +3967,57 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('advanceHour returns a structured storage failure when the server tick cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const existing = withBusiness(advanceReadyState(), {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        updatedAt: '2026-07-06T06:00:00.000Z',
+        transactions: existing.transactions,
+      },
+      dashboard: {
+        updatedAt: '2026-07-06T06:00:00.000Z',
+      },
+    })
+    const state = (res.body as { state: ReturnType<typeof withBusiness> }).state
+    const simWater = state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(simWater?.money).toBe(100)
+    expect(simWater?.needs.hydration).toBe(42)
+    expect(state.businesses.find((business) => business.id === 'water-1')).toMatchObject({
+      cash: 5,
+    })
+    expect(state.transactions.some((transaction) => transaction.kind === 'customer_purchase')).toBe(false)
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('advanceHour lets severely unserved Sim Citizens leave and clears staffing references', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
