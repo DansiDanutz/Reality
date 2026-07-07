@@ -1389,7 +1389,7 @@ function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: n
 }
 
 function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
-  return (citizen.debts ?? []).map((debt) => {
+  return payableDebts(citizen).map((debt) => {
     const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
     const blockers: AreaDebtRepaymentBlocker[] = []
     if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
@@ -1409,8 +1409,16 @@ function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
 }
 
 function totalDebt(citizen: WorldCitizen): number {
-  const itemizedDebt = (citizen.debts ?? []).reduce((total, debt) => total + debt.amount, 0)
-  return roundMoney(Math.max(citizen.debt, itemizedDebt))
+  const itemizedDebt = payableDebts(citizen).reduce((total, debt) => total + debt.amount, 0)
+  return roundMoney(Math.max(payableMoney(citizen.debt), itemizedDebt))
+}
+
+function payableDebts(citizen: WorldCitizen): WorldDebt[] {
+  return (citizen.debts ?? []).filter((debt) => payableMoney(debt.amount) > 0)
+}
+
+function payableMoney(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0
 }
 
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
@@ -2919,7 +2927,7 @@ function repayDebtFromIntent(
   }
 
   const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
-  if (!debt || debt.amount <= 0) return { ok: false, area, error: 'debt_not_found' }
+  if (!debt || payableMoney(debt.amount) <= 0) return { ok: false, area, error: 'debt_not_found' }
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, area, error: 'invalid_debt_payment' }

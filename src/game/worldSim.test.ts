@@ -1355,6 +1355,18 @@ describe('advanceWorldArea — local real-time economy', () => {
             memo: 'Sim hospitalized owes medical debt to clinic1.',
           }],
         }),
+        sim('bad-debt', {
+          money: 1_000,
+          debt: 0,
+          debts: [{
+            id: 'non-finite-debt',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: Number.POSITIVE_INFINITY,
+            issuedAt: HOUR,
+            memo: 'Sim bad-debt has a malformed medical debt line.',
+          }],
+        }),
       ],
       businesses: [business('clinic', 'clinic1', { cash: 50 })],
     })
@@ -1386,6 +1398,13 @@ describe('advanceWorldArea — local real-time economy', () => {
       debtId: 'debt2',
       amount: 10,
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+
+    expect(applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'bad-debt',
+      debtId: 'non-finite-debt',
+      amount: 10,
+    })).toMatchObject({ ok: false, error: 'debt_not_found' })
   })
 
   test('Sim Citizens can leave when severe local needs stay unserved', () => {
@@ -1845,6 +1864,52 @@ describe('advanceWorldArea — local real-time economy', () => {
         amount: 120,
       },
     ])
+  })
+
+  test('dashboard ignores non-payable debt rows for repayments and covenant review', () => {
+    const start = claimedArea()
+    const founder = start.citizens.find((citizen) => citizen.id === 'founder')!
+    founder.debt = 75
+    founder.debts = [{
+      id: 'settled-debt',
+      kind: 'medical',
+      creditorId: 'system:hospital',
+      amount: 0,
+      issuedAt: HOUR,
+      memo: 'Founder settled this medical debt.',
+    }, {
+      id: 'void-debt',
+      kind: 'medical',
+      creditorId: 'system:hospital',
+      amount: -25,
+      issuedAt: HOUR,
+      memo: 'Founder voided this medical debt.',
+    }, {
+      id: 'malformed-debt',
+      kind: 'medical',
+      creditorId: 'system:hospital',
+      amount: Number.POSITIVE_INFINITY,
+      issuedAt: HOUR,
+      memo: 'Founder has a malformed medical debt row.',
+    }]
+
+    const dash = areaNeedsDashboard(start)
+    const founderDashboard = dash.citizens.find((citizen) => citizen.id === 'founder')
+
+    expect(founderDashboard).toMatchObject({
+      id: 'founder',
+      debt: 75,
+      debts: [],
+    })
+    expect(dash.founderCovenant.activityReview).toMatchObject({
+      indebted: true,
+    })
+    expect(dash.founderCovenant.signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'founder_debt', amount: 75 }),
+    ]))
+    expect(dash.founderCovenant.signals).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ amount: Number.POSITIVE_INFINITY }),
+    ]))
   })
 
   test('dashboard surfaces unreviewed Sim departures as founder covenant evidence', () => {
