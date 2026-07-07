@@ -290,6 +290,7 @@ function isFounderCovenantReviewHistoryItem(value: unknown): value is FounderCov
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isNonEmptyString(value.reviewerId) &&
     isOneOf(value.actionKind, COVENANT_MANUAL_ACTION_KINDS) &&
     isNonEmptyString(value.summary) &&

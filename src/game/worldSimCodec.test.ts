@@ -230,6 +230,16 @@ describe('worldSim snapshot codec', () => {
     }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects negative founder covenant review timestamps', () => {
+    const reviewed = area()
+    reviewed.founderReviewHistory = [{ ...founderReview(), at: -1 }]
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: reviewed,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('accepts historical ledger entries for departed Sim Citizens with event evidence', () => {
     const departed = area()
     departed.areaEvents![0] = {
