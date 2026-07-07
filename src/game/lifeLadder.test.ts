@@ -189,6 +189,22 @@ describe('planLifeDay', () => {
     })
   })
 
+  test('makes routine hydration care consume owned water before opening the market', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hydration: 45 },
+      inventory: { water: 1 },
+      money: 0,
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'consume-action', itemId: 'water' },
+    })
+  })
+
   test('makes routine energy care start sleep when energy is lowest but not critical', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
@@ -219,6 +235,21 @@ describe('planLifeDay', () => {
     })
   })
 
+  test('makes routine hygiene care use the strongest owned hygiene item before shopping', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hygiene: 45 },
+      inventory: { shower_public: 1, showerset: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'consume-action', itemId: 'showerset' },
+    })
+  })
+
   test('opens the leisure market for fun care', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
@@ -230,6 +261,21 @@ describe('planLifeDay', () => {
     expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
       taskId: 'support-body',
       route: { kind: 'market', focus: 'leisure' },
+    })
+  })
+
+  test('makes routine fun care use the strongest owned fun item before shopping', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, fun: 45 },
+      inventory: { speaker: 1, console: 1 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'consume-action', itemId: 'console' },
     })
   })
 
