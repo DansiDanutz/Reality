@@ -256,15 +256,28 @@ function roadmapDay(plan: LifePlan): LifeRoadmapDay {
   }
 }
 
+type ConstructionProjectSnapshot = LifeLadderSnapshot['constructionProjects'][number]
+type BusinessDevelopmentProjectSnapshot = LifeLadderSnapshot['businessDevelopmentProjects'][number]
+type ProjectUpdateResult<T> = T | null | { project: T | null; snapshot: LifeLadderSnapshot }
+
+function isSnapshotUpdate<T>(result: ProjectUpdateResult<T>): result is { project: T | null; snapshot: LifeLadderSnapshot } {
+  return !!result && typeof result === 'object' && 'snapshot' in result && 'project' in result
+}
+
 function updateConstructionProject(
   snapshot: LifeLadderSnapshot,
   projectId: string,
-  updater: (project: LifeLadderSnapshot['constructionProjects'][number], current: LifeLadderSnapshot) => LifeLadderSnapshot['constructionProjects'][number] | null,
+  updater: (project: ConstructionProjectSnapshot, current: LifeLadderSnapshot) => ProjectUpdateResult<ConstructionProjectSnapshot>,
 ): LifeLadderSnapshot {
   let next = snapshot
   const projects = snapshot.constructionProjects.flatMap((project) => {
     if (project.id !== projectId) return [project]
-    const updated = updater(project, next)
+    const result = updater(project, next)
+    if (isSnapshotUpdate(result)) {
+      next = result.snapshot
+      return result.project ? [result.project] : []
+    }
+    const updated = result
     if (!updated) return []
     return [updated]
   })
@@ -274,12 +287,17 @@ function updateConstructionProject(
 function updateBusinessDevelopmentProject(
   snapshot: LifeLadderSnapshot,
   projectId: string,
-  updater: (project: LifeLadderSnapshot['businessDevelopmentProjects'][number], current: LifeLadderSnapshot) => LifeLadderSnapshot['businessDevelopmentProjects'][number] | null,
+  updater: (project: BusinessDevelopmentProjectSnapshot, current: LifeLadderSnapshot) => ProjectUpdateResult<BusinessDevelopmentProjectSnapshot>,
 ): LifeLadderSnapshot {
   let next = snapshot
   const projects = snapshot.businessDevelopmentProjects.flatMap((project) => {
     if (project.id !== projectId) return [project]
-    const updated = updater(project, next)
+    const result = updater(project, next)
+    if (isSnapshotUpdate(result)) {
+      next = result.snapshot
+      return result.project ? [result.project] : []
+    }
+    const updated = result
     if (!updated) return []
     return [updated]
   })
@@ -473,14 +491,12 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     if (route.action === 'deposit') {
       next = updateConstructionProject(next, route.projectId, (project, current) => {
         const deposited = depositResources(project, current.resources)
-        next = { ...current, resources: deposited.inventory }
-        return deposited.project
+        return { project: deposited.project, snapshot: { ...current, resources: deposited.inventory } }
       })
     } else if (route.action === 'permit') {
       next = updateConstructionProject(next, route.projectId, (project, current) => {
         const paid = payPermit(project, current.money)
-        next = { ...current, money: paid.money }
-        return paid.project
+        return { project: paid.project, snapshot: { ...current, money: paid.money } }
       })
     } else if (route.action === 'work') {
       next = updateConstructionProject(next, route.projectId, (project) => addConstructionLabor(project, 60))
@@ -488,8 +504,10 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateConstructionProject(next, route.projectId, (project, current) => {
         const now = roadmapDayStartMs(current.lifeDay)
         const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, now, roadmapCommunityHelperCredit(current))
-        next = applyRoadmapCommunityHelperCredit({ ...current, money: hired.money }, hired.contract?.communityCreditMinutes ?? 0)
-        return hired.project
+        return {
+          project: hired.project,
+          snapshot: applyRoadmapCommunityHelperCredit({ ...current, money: hired.money }, hired.contract?.communityCreditMinutes ?? 0),
+        }
       })
     }
     next = applyConstructionCompletion(next, route.projectId)
@@ -499,14 +517,12 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     if (route.action === 'deposit') {
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
         const deposited = depositBusinessDevelopmentResources(project, current.resources)
-        next = { ...current, resources: deposited.inventory }
-        return deposited.project
+        return { project: deposited.project, snapshot: { ...current, resources: deposited.inventory } }
       })
     } else if (route.action === 'budget') {
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
         const paid = payBusinessDevelopmentBudget(project, current.money)
-        next = { ...current, money: paid.money }
-        return paid.project
+        return { project: paid.project, snapshot: { ...current, money: paid.money } }
       })
     } else if (route.action === 'work') {
       next = updateBusinessDevelopmentProject(next, route.projectId, (project) => addBusinessDevelopmentLabor(project, 60))
@@ -514,8 +530,10 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
         const now = roadmapDayStartMs(current.lifeDay)
         const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, now, roadmapCommunityHelperCredit(current))
-        next = applyRoadmapCommunityHelperCredit({ ...current, money: hired.money }, hired.contract?.communityCreditMinutes ?? 0)
-        return hired.project
+        return {
+          project: hired.project,
+          snapshot: applyRoadmapCommunityHelperCredit({ ...current, money: hired.money }, hired.contract?.communityCreditMinutes ?? 0),
+        }
       })
     }
     next = applyBusinessCompletion(next, route.projectId)

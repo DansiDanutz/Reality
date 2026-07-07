@@ -697,6 +697,42 @@ describe('construction worker contracts', () => {
     })
   })
 
+  test('community backing pays part of a Workers Hall business interior contract once per weekly ledger', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+    const plan = createBusinessDevelopmentProject(business(), now)!
+    const deposited = depositBusinessDevelopmentResources(plan, freshResources(plan.required)).project
+    const ready = payBusinessDevelopmentBudget(deposited, deposited.budgetCost).project
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      assets: [business()],
+      businessDevelopmentProjects: [ready],
+      money: 8,
+      shiftsWorked: 0,
+      community: { ...freshCommunityStats(now), respect: 3 },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().hireBusinessDevelopmentWorker(ready.id, 'helper', 1)
+    const hired = useGame.getState()
+
+    expect(hired.money).toBe(0)
+    expect(hired.community.helperMinutesUsedThisWeek).toBe(30)
+    expect(hired.businessDevelopmentProjects[0].workerContracts[0]).toMatchObject({
+      paidMinutes: 60,
+      cost: 8,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+    })
+  })
+
   test('completed construction stays a permanent map asset after duplicate completion attempts', () => {
     const now = Date.now()
     const project = {

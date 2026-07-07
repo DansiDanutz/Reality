@@ -256,8 +256,8 @@ describe('planLifeRoadmap', () => {
       'pay-house-permit',
       'hire-house-worker-hour',
       'build-first-business',
-      'deposit-business-building-materials',
-      'pay-business-building-permit',
+      'gather-business-building-wood',
+      'gather-business-building-stone',
     ]))
     expect(primaryIds.some((id) => id.startsWith('gather-'))).toBe(true)
 
@@ -282,23 +282,41 @@ describe('planLifeRoadmap', () => {
     expect(businessBuild).toMatchObject({
       name: 'Food Cart',
       resultKind: 'business',
-      permitFeePaid: true,
+      permitFeePaid: false,
       laborDoneMinutes: 0,
     })
     expect(businessBuild?.workerContracts).toEqual([])
   })
 
   test('projects the second month through business shell labor and interior upgrade', () => {
-    const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 39)
+    const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 54)
     const primaryIds = roadmap.days.map((day) => day.primary.id)
 
-    expect(roadmap.horizonDays).toBe(39)
-    expect(primaryIds.slice(30, 39)).toEqual([
+    expect(roadmap.horizonDays).toBe(54)
+    expect(primaryIds.slice(27, 54)).toEqual([
+      'gather-business-building-wood',
+      'gather-business-building-wood',
+      'gather-business-building-stone',
+      'gather-business-building-stone',
+      'gather-business-building-metal',
+      'gather-business-building-metal',
+      'gather-business-building-metal',
+      'gather-business-building-glass',
+      'gather-business-building-glass',
+      'deposit-business-building-materials',
+      'pay-business-building-permit',
       'hire-business-building-worker-hour',
       'hire-business-building-worker-hour',
       'hire-business-building-worker-hour',
       'hire-business-building-worker-hour',
       'plan-business-development',
+      'gather-business-wood',
+      'gather-business-stone',
+      'gather-business-metal',
+      'gather-business-metal',
+      'gather-business-metal',
+      'gather-business-glass',
+      'gather-business-glass',
       'deposit-business-materials',
       'pay-business-budget',
       'hire-business-worker-hour',
@@ -375,6 +393,55 @@ describe('planLifeRoadmap', () => {
       paidMinutes: 120,
       workedMinutes: 120,
     })
+  })
+
+  test('spends roadmap community helper credit once across repeated house helper hires', () => {
+    const project = createConstructionProject('starter-house', 1, 1, 1)
+    const laborRequiredMinutes = project.laborRequiredMinutes + 300
+    const readyForTwoHelperBlocks = {
+      ...project,
+      laborRequiredMinutes,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+      laborDoneMinutes: laborRequiredMinutes - 300,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 10,
+      money: 156,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      communityRespect: 3,
+      constructionProjects: [readyForTwoHelperBlocks],
+    }), 2)
+
+    const remainingProject = roadmap.finalSnapshot.constructionProjects[0]
+    expect(roadmap.days.map((day) => day.primary.id)).toEqual(['hire-house-worker-hour', 'hire-house-worker-hour'])
+    expect(remainingProject.workerContracts).toHaveLength(2)
+    expect(remainingProject.workerContracts[0]).toMatchObject({
+      cost: 24,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+    })
+    expect(remainingProject.workerContracts[1]).toMatchObject({
+      cost: 32,
+      communityCreditMinutes: 0,
+      communityCreditValue: 0,
+    })
+    expect(roadmap.finalSnapshot.communityHelperMinutesUsedThisWeek).toBe(30)
+  })
+
+  test('resets projected community helper credit on the next roadmap week', () => {
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 7,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      communityHelperMinutesUsedThisWeek: 30,
+    }), 1)
+
+    expect(roadmap.finalSnapshot.lifeDay).toBe(8)
+    expect(roadmap.finalSnapshot.communityHelperMinutesUsedThisWeek).toBe(0)
   })
 
   test('lets an active paid house helper finish during a monitor day', () => {
