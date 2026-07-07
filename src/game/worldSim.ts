@@ -1340,6 +1340,8 @@ function ledgerPayoutClassification(transactions: WorldTransaction[]): AreaLedge
 
 function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaCitizenDashboard {
   const presentation = citizenPresentation(citizen)
+  const health = normalizedHealth(citizen.health)
+  const needs = normalizedNeeds(citizen.needs)
   return {
     id: citizen.id,
     name: citizen.name,
@@ -1349,8 +1351,8 @@ function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): A
     participantLabel: presentation.participantLabel,
     visualTone: presentation.visualTone,
     state: citizen.state.kind,
-    health: citizen.health,
-    needs: { ...citizen.needs },
+    health,
+    needs,
     money: citizen.money,
     debt: citizen.debt,
     debts: debtDashboard(citizen),
@@ -2435,10 +2437,12 @@ function citizenPresentation(citizen: WorldCitizen): {
 }
 
 function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
-  if (citizen.needs.hydration < 70) demand.water += 1
-  if (citizen.needs.hunger < 70) demand.food += 1
-  if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
-  if (citizen.health < 80) demand.clinic += 1
+  const health = normalizedHealth(citizen.health)
+  const needs = normalizedNeeds(citizen.needs)
+  if (needs.hydration < 70) demand.water += 1
+  if (needs.hunger < 70) demand.food += 1
+  if (!citizen.homeBusinessId || needs.energy < 60) demand.housing += 1
+  if (health < 80) demand.clinic += 1
   if (!hasActiveInsurance(citizen, at)) demand.insurance += 1
 }
 
@@ -2637,6 +2641,8 @@ function survivalDashboard(area: WorldArea): AreaSurvivalDashboard {
 
 function citizenSurvivalSignal(area: WorldArea, citizen: WorldCitizen): CitizenSurvivalSignal {
   const presentation = citizenPresentation(citizen)
+  const health = normalizedHealth(citizen.health)
+  const needs = normalizedNeeds(citizen.needs)
   if (citizen.state.kind === 'hospitalized') {
     return {
       citizenId: citizen.id,
@@ -2654,16 +2660,16 @@ function citizenSurvivalSignal(area: WorldArea, citizen: WorldCitizen): CitizenS
   }
 
   const warnings: WorldSurvivalWarningKind[] = []
-  if (citizen.needs.hydration <= SURVIVAL_WARNING_HYDRATION) warnings.push('water')
-  if (citizen.needs.hunger <= SURVIVAL_WARNING_HUNGER) warnings.push('food')
-  if (citizen.needs.energy <= SURVIVAL_WARNING_ENERGY) warnings.push('rest')
-  if (citizen.health <= SURVIVAL_WARNING_HEALTH) warnings.push('health')
+  if (needs.hydration <= SURVIVAL_WARNING_HYDRATION) warnings.push('water')
+  if (needs.hunger <= SURVIVAL_WARNING_HUNGER) warnings.push('food')
+  if (needs.energy <= SURVIVAL_WARNING_ENERGY) warnings.push('rest')
+  if (health <= SURVIVAL_WARNING_HEALTH) warnings.push('health')
 
   const danger =
-    citizen.needs.hydration <= SURVIVAL_DANGER_NEED_LEVEL ||
-    citizen.needs.hunger <= SURVIVAL_DANGER_NEED_LEVEL ||
-    citizen.needs.energy <= SURVIVAL_DANGER_NEED_LEVEL ||
-    citizen.health <= SURVIVAL_DANGER_HEALTH
+    needs.hydration <= SURVIVAL_DANGER_NEED_LEVEL ||
+    needs.hunger <= SURVIVAL_DANGER_NEED_LEVEL ||
+    needs.energy <= SURVIVAL_DANGER_NEED_LEVEL ||
+    health <= SURVIVAL_DANGER_HEALTH
 
   return {
     citizenId: citizen.id,
@@ -3448,7 +3454,8 @@ function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
   return {
     ...citizen,
     debts: citizen.debts?.map((debt) => ({ ...debt })),
-    needs: { ...citizen.needs },
+    health: normalizedHealth(citizen.health),
+    needs: normalizedNeeds(citizen.needs),
     state: citizen.state.kind === 'hospitalized'
       ? { kind: 'hospitalized', until: citizen.state.until }
       : { kind: 'active' },
@@ -3490,4 +3497,22 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+function normalizedHealth(value: number): number {
+  return finitePercent(value, 100)
+}
+
+function normalizedNeeds(needs: Needs): Needs {
+  return {
+    hunger: finitePercent(needs.hunger, 90),
+    hydration: finitePercent(needs.hydration, 90),
+    energy: finitePercent(needs.energy, 90),
+    hygiene: finitePercent(needs.hygiene, 90),
+    fun: finitePercent(needs.fun, 90),
+  }
+}
+
+function finitePercent(value: number, fallback: number): number {
+  return Number.isFinite(value) ? clamp(value) : fallback
 }

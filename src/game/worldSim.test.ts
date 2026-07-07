@@ -832,6 +832,47 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('advanceWorldArea normalizes malformed citizen vitals before ticking the economy', () => {
+    const start = area({
+      citizens: [sim('wild', {
+        health: Number.NaN,
+        needs: fullNeeds({
+          hunger: 150,
+          hydration: Number.NaN,
+          energy: -10,
+        }),
+      })],
+      businesses: [
+        business('water', 'water1', { cash: 0 }),
+        business('food', 'food1', { cash: 0 }),
+        business('housing', 'home1', { cash: 0 }),
+        business('clinic', 'clinic1', { cash: 0 }),
+      ],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const wild = out.citizens[0]
+
+    expect(wild.health).toBe(98)
+    expect(wild.needs.hunger).toBeCloseTo(96.2)
+    expect(wild.needs.hydration).toBeCloseTo(85.2)
+    expect(wild.needs.energy).toBe(32)
+    expect(wild.needs.hygiene).toBeCloseTo(96.9)
+    expect(wild.money).toBe(72)
+    expect(wild.state).toEqual({ kind: 'active' })
+    expect(wild.homeBusinessId).toBe('home1')
+    expect(out.businesses.find((candidate) => candidate.id === 'home1')!.cash).toBe(28)
+    expect(out.businesses.find((candidate) => candidate.id === 'clinic1')!.cash).toBe(0)
+    expect(summary).toMatchObject({
+      purchases: 1,
+      hospitalizations: 0,
+      revenueByBusiness: { home1: 28 },
+    })
+    expect(out.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'wild', toId: 'home1', amount: 28 },
+    ])
+  })
+
   test('a small area advances needs, purchases, wages, and dashboard signals together', () => {
     const start = area({
       citizens: [
@@ -1599,6 +1640,44 @@ describe('advanceWorldArea — local real-time economy', () => {
       estimatedHourlyRevenue: 56,
       estimatedHourlyWageCost: 16,
       estimatedHourlyProfit: 40,
+    })
+  })
+
+  test('dashboard normalizes malformed citizen vitals before demand and survival signals', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [sim('wild', {
+        health: Number.POSITIVE_INFINITY,
+        needs: fullNeeds({
+          hunger: Number.NaN,
+          hydration: -20,
+          energy: 150,
+        }),
+      })],
+    }))
+    const wild = dash.citizens[0]
+
+    expect(wild.health).toBe(100)
+    expect(wild.needs).toMatchObject({
+      hunger: 90,
+      hydration: 0,
+      energy: 100,
+    })
+    expect(dash.demand).toMatchObject({
+      water: 1,
+      food: 0,
+      housing: 1,
+      clinic: 0,
+      insurance: 1,
+    })
+    expect(dash.survival).toMatchObject({
+      stableCitizens: 0,
+      warningCitizens: 0,
+      dangerCitizens: 1,
+      hospitalizedCitizens: 0,
+    })
+    expect(dash.survival.signals.find((signal) => signal.citizenId === 'wild')).toMatchObject({
+      risk: 'danger',
+      warnings: ['water'],
     })
   })
 
