@@ -6,7 +6,7 @@ import {
   createConstructionProject,
   createConstructionProjectFromRecipe,
 } from './construction'
-import { constructionDayForecast, planLifeDay, type LifeLadderSnapshot } from './lifeLadder'
+import { businessDevelopmentDayForecast, constructionDayForecast, planLifeDay, type LifeLadderSnapshot } from './lifeLadder'
 import { freshResources } from './resources'
 import type { PlacedAsset } from './types'
 
@@ -277,6 +277,10 @@ describe('planLifeDay', () => {
     const gatherPlan = planLifeDay(snap({ ...base, businessDevelopmentProjects: [project] }))
     expect(gatherPlan.primary.id).toMatch(/^gather-business-/)
     expect(gatherPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
+    expect(gatherPlan.businessDevelopmentForecast).toMatchObject({
+      budgetRemaining: project.budgetCost,
+      remainingLaborMinutes: project.laborRequiredMinutes,
+    })
 
     const depositPlan = planLifeDay(snap({
       ...base,
@@ -423,5 +427,61 @@ describe('constructionDayForecast', () => {
     expect(forecast.activeWorkerCount).toBe(1)
     expect(forecast.activeWorkerPaidMinutesRemaining).toBe(40)
     expect(forecast.activeWorkerLaborMinutesRemaining).toBe(60)
+  })
+})
+
+describe('businessDevelopmentDayForecast', () => {
+  test('forecasts interior materials, budget, and helper labor from day one', () => {
+    const project = businessProject()
+    const forecast = businessDevelopmentDayForecast(project, freshResources(), 500)
+    const trips = Object.fromEntries(forecast.resourceTrips.map((item) => [item.kind, item.trips]))
+
+    expect(project.required).toEqual({ wood: 20, stone: 10, metal: 20, glass: 10 })
+    expect(project.budgetCost).toBe(960)
+    expect(project.laborRequiredMinutes).toBe(150)
+    expect(trips).toEqual({ wood: 1, stone: 1, metal: 3, glass: 2 })
+    expect(forecast.totalGatherMinutes).toBe(58)
+    expect(forecast.budgetRemaining).toBe(960)
+    expect(forecast.budgetAffordableToday).toBe(false)
+    expect(forecast.budgetCashNeeded).toBe(560)
+    expect(forecast.remainingLaborMinutes).toBe(150)
+    expect(forecast.playerOnlyDaysAtOneHour).toBe(3)
+    expect(forecast.playerOnlyDaysAtTwoHours).toBe(2)
+    expect(forecast.helperTwoHourDays).toBe(1)
+    expect(forecast.helperTwoHourLaborMinutes).toBe(120)
+    expect(forecast.helperTwoHourCost).toBe(32)
+    expect(forecast.helperTwoHourAffordableToday).toBe(false)
+    expect(forecast.helperTwoHourCashNeeded).toBe(592)
+  })
+
+  test('accounts for already active interior worker contracts', () => {
+    const project = businessProject({
+      deposited: freshResources({ wood: 20, stone: 10, metal: 20, glass: 10 }),
+      budgetPaid: true,
+      laborDoneMinutes: 30,
+      hiredLaborMinutes: 30,
+      workerContracts: [{
+        id: 'business-worker-1',
+        workerId: 'builder',
+        workerName: 'Skilled builder',
+        hiredAt: 1,
+        paidUntil: 3_600_001,
+        paidMinutes: 60,
+        workedMinutes: 10,
+        laborMultiplier: 1.5,
+        ratePerHour: 28,
+        cost: 28,
+      }],
+    })
+
+    const forecast = businessDevelopmentDayForecast(project, freshResources(), 500)
+
+    expect(forecast.totalGatherMinutes).toBe(0)
+    expect(forecast.budgetRemaining).toBe(0)
+    expect(forecast.remainingLaborMinutes).toBe(120)
+    expect(forecast.activeWorkerCount).toBe(1)
+    expect(forecast.activeWorkerPaidMinutesRemaining).toBe(50)
+    expect(forecast.activeWorkerLaborMinutesRemaining).toBe(75)
+    expect(forecast.helperTwoHourAffordableToday).toBe(true)
   })
 })
