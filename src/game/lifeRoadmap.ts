@@ -65,7 +65,7 @@ export interface LifeRoadmap {
 }
 
 const DEFAULT_ROADMAP_DAYS = 8
-const MAX_ROADMAP_DAYS = 30
+const MAX_ROADMAP_DAYS = 60
 const FOODCART_ITEM = { id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 200 }
 const FIRST_COURSE_ITEM_ID = 'course'
 const ROADMAP_DAY_MS = 24 * 60 * 60 * 1000

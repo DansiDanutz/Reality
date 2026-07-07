@@ -288,6 +288,39 @@ describe('planLifeRoadmap', () => {
     expect(businessBuild?.workerContracts).toEqual([])
   })
 
+  test('projects the second month through business shell labor and interior upgrade', () => {
+    const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 39)
+    const primaryIds = roadmap.days.map((day) => day.primary.id)
+
+    expect(roadmap.horizonDays).toBe(39)
+    expect(primaryIds.slice(30, 39)).toEqual([
+      'hire-business-building-worker-hour',
+      'hire-business-building-worker-hour',
+      'hire-business-building-worker-hour',
+      'hire-business-building-worker-hour',
+      'plan-business-development',
+      'deposit-business-materials',
+      'pay-business-budget',
+      'hire-business-worker-hour',
+      'hire-business-worker-hour',
+    ])
+    expect(roadmap.finalSnapshot.constructionProjects).toEqual([])
+    expect(roadmap.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    expect(roadmap.finalSnapshot.assets.find((asset) => asset.kind === 'business')).toMatchObject({
+      name: 'Food Cart',
+      kind: 'business',
+      level: 2,
+      incomePerDay: 400,
+    })
+  })
+
+  test('caps long roadmap audits at two months', () => {
+    const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 99)
+
+    expect(roadmap.horizonDays).toBe(60)
+    expect(roadmap.days).toHaveLength(60)
+  })
+
   test('projects routed Workers Hall helper hours into a completed house asset', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const readyForFinalHelperBlock = {
