@@ -1056,6 +1056,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with malformed activity signal totals', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      totals: {
+        ...serverFounderCovenantReviewQueue().totals,
+        activitySignalStatusCounts: {
+          ...serverFounderCovenantReviewQueue().totals.activitySignalStatusCounts,
+          manualReview: '3',
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable approval request metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2957,6 +2981,7 @@ function serverDashboard(): RealityAreaDashboard {
 function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
   const dashboard = serverDashboard()
   const review = dashboard.founderCovenant
+  const activitySignals = serverFounderCovenantActivitySignals(review.activityReview)
   return {
     generatedAt: '2026-07-06T04:00:00.000Z',
     evidenceOnly: true,
@@ -2994,6 +3019,12 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      activitySignalStatusCounts: {
+        total: activitySignals.length,
+        met: activitySignals.filter((signal) => signal.status === 'met').length,
+        watch: activitySignals.filter((signal) => signal.status === 'watch').length,
+        manualReview: activitySignals.filter((signal) => signal.status === 'manual_review').length,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3013,7 +3044,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
       activityReview: review.activityReview,
-      activitySignals: serverFounderCovenantActivitySignals(review.activityReview),
+      activitySignals,
       reviewInputs: review.reviewInputs,
       stages: review.stages,
       reviewReadiness: serverFounderCovenantReviewReadiness(review),

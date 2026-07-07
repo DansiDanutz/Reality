@@ -44,6 +44,11 @@ export function FounderCovenantQueuePanel({
           tone={queue.totals.manualReviewRequired > 0 ? 'critical' : 'stable'}
           value={queue.totals.manualReviewRequired}
         />
+        <QueueTotalChip
+          label="Manual signals"
+          tone={queue.totals.activitySignalStatusCounts.manualReview > 0 ? 'warning' : 'stable'}
+          value={queue.totals.activitySignalStatusCounts.manualReview}
+        />
         <QueueTotalChip label="Overdue" tone={queue.totals.overdue > 0 ? 'warning' : 'stable'} value={queue.totals.overdue} />
         <QueueTotalChip
           label="Hospital"
