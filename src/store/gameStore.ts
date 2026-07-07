@@ -112,8 +112,8 @@ import {
   challengesForDay,
   challengeProgress,
   challengeSetSummary,
-  CHALLENGE_REWARD,
-  DAILY_COMPLETE_BONUS,
+  challengeRewardFor,
+  dailyCompleteBonusForContext,
   type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
@@ -222,6 +222,7 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     canDoConstructionLabor: constructionLaborReady,
     canHelpCommunity: canStartCommunityAction(s.community),
     canDevelopBusiness: businessLaborReady,
+    hasBusiness: s.assets.some((asset) => asset.kind === 'business'),
   }
 }
 
@@ -1832,7 +1833,7 @@ export const useGame = create<GameState>()(
             communityToday: dailyCounters.communityToday,
             businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
           }
-          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, dailyChallengeContextOf({
+          const challengeContext = dailyChallengeContextOf({
             money,
             jobId: s.jobId,
             shiftsWorked: s.shiftsWorked,
@@ -1844,7 +1845,8 @@ export const useGame = create<GameState>()(
             educationProgress,
             community,
             dailyCounters,
-          }))
+          })
+          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, challengeContext)
           const newlyComplete = dayChallenges.filter((c) => {
             if (dailyClaimed.includes(c.id)) return false
             return challengeProgress(c, csnap).complete
@@ -1853,7 +1855,7 @@ export const useGame = create<GameState>()(
             let totalXp = 0
             let totalCash = 0
             for (const c of newlyComplete) {
-              const r = CHALLENGE_REWARD[c.difficulty]
+              const r = challengeRewardFor(c, challengeContext)
               totalXp += r.xp
               totalCash += r.cash
               toasts = withToast(toasts, `✅ Daily: ${c.label} complete! +${formatMoney(r.cash)}, +${r.xp} XP`, 'ok')
@@ -1868,19 +1870,20 @@ export const useGame = create<GameState>()(
             if (!dailyBonusClaimed) {
               const summary = challengeSetSummary(dayChallenges, csnap)
               if (summary.allComplete) {
-                const bprog = applyXp(level, xp, DAILY_COMPLETE_BONUS.xp)
+                const bonus = dailyCompleteBonusForContext(challengeContext)
+                const bprog = applyXp(level, xp, bonus.xp)
                 level = bprog.level
                 xp = bprog.xp
-                money += DAILY_COMPLETE_BONUS.cash
+                money += bonus.cash
                 dailyBonusClaimed = true
                 track('daily_complete')
-                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
-                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(DAILY_COMPLETE_BONUS.cash)} and ${DAILY_COMPLETE_BONUS.xp} XP.`)
+                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(bonus.cash)}, +${bonus.xp} XP`, 'achieve')
+                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(bonus.cash)} and ${bonus.xp} XP.`)
                 celebrate({
                   icon: '🎯',
                   title: 'All 3 daily challenges!',
                   detail: 'A perfect day. Come back tomorrow for a fresh set.',
-                  reward: `+${formatMoney(DAILY_COMPLETE_BONUS.cash)} · +${DAILY_COMPLETE_BONUS.xp} XP`,
+                  reward: `+${formatMoney(bonus.cash)} · +${bonus.xp} XP`,
                   tone: 'daily',
                 })
               }
