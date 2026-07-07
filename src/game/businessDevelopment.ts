@@ -2,6 +2,7 @@ import { upgradeOutcome, type UpgradeOutcome } from './businessUpgrades'
 import {
   type ConstructionWorker,
   type ConstructionWorkerId,
+  type WorkerContractSource,
   workerById,
 } from './construction'
 import {
@@ -35,6 +36,7 @@ export interface BusinessDevelopmentProject {
 
 export interface BusinessDevelopmentWorkerContract {
   id: string
+  source: WorkerContractSource
   workerId: ConstructionWorkerId
   workerName: string
   hiredAt: number
@@ -115,6 +117,7 @@ function normalizeBusinessDevelopmentWorkerContracts(
     if (paidMinutes <= 0) return []
     return [{
       id: String(contract.id ?? `${projectId}:${worker.id}:${index}`),
+      source: 'workers-hall',
       workerId: worker.id,
       workerName: String(contract.workerName ?? worker.name),
       hiredAt: Number.isFinite(contract.hiredAt) ? Number(contract.hiredAt) : Date.now(),
@@ -331,6 +334,7 @@ export function hireBusinessDevelopmentWorker(
   if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'labor' }
   const contract: BusinessDevelopmentWorkerContract = {
     id: `${project.id}:${estimate.worker.id}:${now}`,
+    source: 'workers-hall',
     workerId: estimate.worker.id,
     workerName: estimate.worker.name,
     hiredAt: now,

@@ -102,6 +102,7 @@ describe('construction', () => {
     expect(out.project.laborDoneMinutes).toBe(0)
     expect(out.project.hiredLaborMinutes).toBe(0)
     expect(out.contract).toMatchObject({
+      source: 'workers-hall',
       workerId: 'builder',
       workerName: 'Skilled builder',
       hiredAt: 1_000,

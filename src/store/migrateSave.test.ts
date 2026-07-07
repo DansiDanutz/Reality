@@ -167,6 +167,78 @@ describe('migrateSave - backfills every field added after v1', () => {
     })
   })
 
+  test('old worker contracts backfill Workers Hall source', () => {
+    const out = migrateSave({
+      ...v1Save,
+      constructionProjects: [{
+        id: 'starter-house-old',
+        recipeId: 'starter-house',
+        name: 'Starter House',
+        lat: 45.7,
+        lng: 21.2,
+        required: { wood: 120, stone: 60, metal: 20, glass: 10 },
+        deposited: { wood: 120, stone: 60, metal: 20, glass: 10 },
+        laborRequiredMinutes: 480,
+        laborDoneMinutes: 30,
+        permitFee: 500,
+        permitFeePaid: true,
+        status: 'building',
+        placedAt: 123,
+        workerContracts: [{
+          id: 'starter-house-old:helper:1',
+          workerId: 'helper',
+          workerName: 'Local helper',
+          hiredAt: 1_700_000_000_000,
+          paidUntil: 1_700_003_600_000,
+          paidMinutes: 60,
+          workedMinutes: 15,
+          laborMultiplier: 1,
+          ratePerHour: 16,
+          cost: 16,
+        }],
+      }],
+      businessDevelopmentProjects: [{
+        id: 'foodcart-1:develop',
+        businessId: 'foodcart-1',
+        businessName: 'Food Cart',
+        itemId: 'foodcart',
+        levelFrom: 1,
+        levelTo: 2,
+        required: { wood: 20, stone: 15, metal: 25, glass: 10 },
+        deposited: { wood: 20, stone: 15, metal: 25, glass: 10 },
+        laborRequiredMinutes: 150,
+        laborDoneMinutes: 20,
+        budgetCost: 960,
+        budgetPaid: true,
+        workerContracts: [{
+          id: 'foodcart-1:helper:1',
+          workerId: 'helper',
+          workerName: 'Local helper',
+          hiredAt: 1_700_000_000_000,
+          paidUntil: 1_700_003_600_000,
+          paidMinutes: 60,
+          workedMinutes: 15,
+          laborMultiplier: 1,
+          ratePerHour: 16,
+          cost: 16,
+        }],
+      }],
+    })
+
+    expect(out.constructionProjects[0].workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
+      workerName: 'Local helper',
+      paidMinutes: 60,
+      cost: 16,
+    })
+    expect(out.businessDevelopmentProjects[0].workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
+      workerName: 'Local helper',
+      paidMinutes: 60,
+      cost: 16,
+    })
+  })
+
   test('old education progress is normalized by course id', () => {
     const out = migrateSave({
       ...v1Save,
@@ -351,6 +423,6 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(16)
+    expect(SAVE_VERSION).toBe(17)
   })
 })

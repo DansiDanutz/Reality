@@ -58,6 +58,37 @@ describe('businessInteriorAssetView', () => {
     expect(view.progress.budgetComplete).toBe(true)
     expect(view.progress.laborComplete).toBe(false)
   })
+
+  test('summarizes active Workers Hall interior contracts with ETA', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_700_000_000_000)
+    if (!project) throw new Error('business development fixture failed')
+
+    const view = businessInteriorAssetView({
+      ...project,
+      workerContracts: [{
+        id: 'foodcart-1:helper:1',
+        source: 'workers-hall' as const,
+        workerId: 'helper',
+        workerName: 'Local helper',
+        hiredAt: 1_700_000_000_000,
+        paidUntil: 1_700_003_600_000,
+        paidMinutes: 60,
+        workedMinutes: 15,
+        laborMultiplier: 1,
+        ratePerHour: 16,
+        cost: 16,
+      }],
+    }, 1_700_000_900_000)
+
+    expect(view.workerText).toBe('1 worker active')
+    expect(view.workerEtaText).toBe('1 worker active · Workers Hall: Local helper ends in 45m')
+    expect(view.workerViews[0]).toMatchObject({
+      sourceLabel: 'Workers Hall',
+      paidText: '1h paid',
+      costText: '$16',
+      etaText: 'ends in 45m',
+    })
+  })
 })
 
 describe('asset menu navigation', () => {
@@ -127,6 +158,7 @@ describe('constructionAssetView', () => {
       laborDoneMinutes: project.laborRequiredMinutes - 45,
       workerContracts: [{
         id: 'starter-house:helper:1',
+        source: 'workers-hall' as const,
         workerId: 'helper',
         workerName: 'Local helper',
         hiredAt: 1_700_000_000_000,
@@ -137,12 +169,19 @@ describe('constructionAssetView', () => {
         ratePerHour: 16,
         cost: 16,
       }],
-    })
+    }, 1_700_000_900_000)
 
     expect(view.materialText).toBe('materials ready')
     expect(view.permitText).toBe('permit paid')
     expect(view.laborText).toBe('45m labor left')
     expect(view.workerText).toBe('1 worker active')
+    expect(view.workerEtaText).toBe('1 worker active · Workers Hall: Local helper ends in 45m')
+    expect(view.workerViews[0]).toMatchObject({
+      sourceLabel: 'Workers Hall',
+      progressText: '15m worked of 1h',
+      costText: '$16',
+      etaText: 'ends in 45m',
+    })
     expect(view.progress.resourcesComplete).toBe(true)
     expect(view.progress.permitComplete).toBe(true)
     expect(view.progress.laborComplete).toBe(false)

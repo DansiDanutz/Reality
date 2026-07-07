@@ -84,6 +84,7 @@ describe('constructionForecastCards', () => {
       laborDoneMinutes: 120,
       workerContracts: [{
         id: 'worker-1',
+        source: 'workers-hall' as const,
         workerId: 'builder' as const,
         workerName: 'Skilled builder',
         hiredAt: 1,
