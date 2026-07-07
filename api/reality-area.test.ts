@@ -1516,6 +1516,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -2115,6 +2117,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2171,6 +2175,36 @@ describe('reality area authority API', () => {
       ok: false,
       code: 'business_saturated',
     })
+  })
+
+  test('buildBusiness rejects drifted founder money even when area balance can pay', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const driftedFounderState = withCitizen({ ...existingState(), updatedAt: '2026-07-06T03:30:00.000Z' }, CITIZEN_ID, {
+      money: 1,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-build-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'water',
+          businessId: 'water-1',
+          name: 'Founder Water',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(402)
+    expect(res.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('buildBusiness unlocks another same-kind license as active population grows', async () => {
@@ -2484,7 +2518,7 @@ describe('reality area authority API', () => {
     expect(unavailable.statusCode).toBe(409)
     expect(unavailable.body).toMatchObject({ ok: false, code: 'service_not_available' })
 
-    const brokeState = withBusiness({ ...existingState(), balance: 1 }, {
+    const brokeState = withBusiness({ ...existingState(), balance: 1, updatedAt: '2026-07-06T08:00:00.000Z' }, {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
@@ -2508,6 +2542,34 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const driftedFounderState = withBusiness(
+      withCitizen({ ...existingState(), updatedAt: '2026-07-06T08:00:00.000Z' }, CITIZEN_ID, { money: 1 }),
+      {
+        id: 'water-1',
+        name: 'Founder Water',
+        kind: 'water',
+        price: 2,
+        cash: 0,
+      },
+    )
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-service-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
+    const driftedFounder = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyWater' },
+      },
+    } as never, driftedFounder as never)
+
+    expect(driftedFounder.statusCode).toBe(402)
+    expect(driftedFounder.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
 
     const hospitalizedState = withBusiness(withCitizen(existingState(), CITIZEN_ID, {
       state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
@@ -2650,6 +2712,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -5680,7 +5744,7 @@ describe('reality area authority API', () => {
     expect(alreadyInsured.statusCode).toBe(409)
     expect(alreadyInsured.body).toMatchObject({ ok: false, code: 'already_insured' })
 
-    const brokeState = withBusiness({ ...existingState(), balance: 20 }, {
+    const brokeState = withBusiness({ ...existingState(), balance: 20, updatedAt: '2026-07-06T08:00:00.000Z' }, {
       id: 'insurance-1',
       name: 'Founder Insurance',
       kind: 'insurance',
@@ -5704,6 +5768,34 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const driftedFounderState = withBusiness(
+      withCitizen({ ...existingState(), updatedAt: '2026-07-06T08:00:00.000Z' }, CITIZEN_ID, { money: 20 }),
+      {
+        id: 'insurance-1',
+        name: 'Founder Insurance',
+        kind: 'insurance',
+        price: 45,
+        cash: 0,
+      },
+    )
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
+    const driftedFounder = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, driftedFounder as never)
+
+    expect(driftedFounder.statusCode).toBe(402)
+    expect(driftedFounder.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('repayDebt requires a server debt, active founder, and funds', async () => {
@@ -5786,6 +5878,35 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const lowAreaBalanceState = withCitizen({ ...existingState(), balance: 50 }, CITIZEN_ID, {
+      debt: 120,
+      debts: [{
+        id: 'founder-medical-1',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 120,
+        issuedAt: '2026-07-06T07:00:00.000Z',
+        memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://low-area-balance-debt-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(lowAreaBalanceState), { status: 200 })))
+    const lowAreaBalance = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      },
+    } as never, lowAreaBalance as never)
+
+    expect(lowAreaBalance.statusCode).toBe(402)
+    expect(lowAreaBalance.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
