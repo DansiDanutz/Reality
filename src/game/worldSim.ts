@@ -1012,7 +1012,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const realDemand = zeroKindRecord()
   const shortage = zeroKindRecord()
   for (const citizen of activeCitizens) {
-    addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
+    addCitizenDemand(area, citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
   }
   for (const kind of BUSINESS_KINDS) {
     demand[kind] = simDemand[kind] + realDemand[kind]
@@ -2434,12 +2434,17 @@ function citizenPresentation(citizen: WorldCitizen): {
   }
 }
 
-function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
+function addCitizenDemand(area: WorldArea, citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
   if (citizen.needs.hydration < 70) demand.water += 1
   if (citizen.needs.hunger < 70) demand.food += 1
-  if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
+  if (!hasValidHome(area, citizen) || citizen.needs.energy < 60) demand.housing += 1
   if (citizen.health < 80) demand.clinic += 1
   if (!hasActiveInsurance(citizen, at)) demand.insurance += 1
+}
+
+function hasValidHome(area: WorldArea, citizen: WorldCitizen): boolean {
+  if (!citizen.homeBusinessId) return false
+  return area.businesses.some((business) => business.id === citizen.homeBusinessId && business.kind === 'housing')
 }
 
 function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {

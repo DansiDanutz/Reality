@@ -1602,6 +1602,28 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('dashboard treats stale or non-housing home assignments as housing demand', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [
+        sim('no-home', { needs: fullNeeds({ energy: 90 }) }),
+        sim('missing-home', { homeBusinessId: 'missing-home', needs: fullNeeds({ energy: 90 }) }),
+        sim('wrong-kind-home', { homeBusinessId: 'food1', needs: fullNeeds({ energy: 90 }) }),
+        sim('valid-home', { homeBusinessId: 'home1', needs: fullNeeds({ energy: 90 }) }),
+      ],
+      businesses: [
+        business('food', 'food1'),
+        business('housing', 'home1'),
+      ],
+    }))
+
+    expect(dash.demand.housing).toBe(3)
+    expect(dash.simDemand.housing).toBe(3)
+    expect(dash.existingBusinesses.find((entry) => entry.id === 'home1')).toMatchObject({
+      kind: 'housing',
+      hourlyCapacity: 8,
+    })
+  })
+
   test('dashboard reports unserved shortage when demand exceeds local capacity', () => {
     const thirstyCitizens = Array.from({ length: 30 }, (_, i) => sim(`c${i}`, {
       needs: fullNeeds({ hydration: 40 }),
