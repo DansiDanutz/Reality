@@ -199,7 +199,8 @@ body {
 }
 
 .map-resource,
-.map-construction {
+.map-construction,
+.map-workers-hall {
   width: 28px;
   height: 28px;
   display: grid;
@@ -215,7 +216,8 @@ body {
   transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
 }
 .map-resource:hover,
-.map-construction:hover {
+.map-construction:hover,
+.map-workers-hall:hover {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(255, 255, 255, 0.12);
 }
@@ -253,6 +255,30 @@ body {
   border-left: 2px solid #201603;
   transform: rotate(45deg);
   opacity: 0.72;
+}
+.map-workers-hall {
+  background:
+    linear-gradient(to bottom, #dbe8f7 0 22%, #7dd8ff 23% 100%);
+  color: #061019;
+  border-radius: 8px 8px 5px 5px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.38),
+    0 0 0 0 rgba(125, 216, 255, 0.5);
+  animation: beacon-pulse-sky 2.4s ease-out infinite;
+  position: relative;
+}
+.map-workers-hall::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 7px;
+  height: 5px;
+  border-radius: 2px;
+  background: rgba(5, 7, 14, 0.28);
+  box-shadow: 0 9px 0 rgba(5, 7, 14, 0.24);
 }
 @keyframes beacon-pulse-ready {
   0% {
