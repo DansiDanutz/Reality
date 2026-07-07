@@ -89,7 +89,11 @@ describe('planLifeDay', () => {
 
     expect(plan.routine.reduce((sum, block) => sum + block.minutes, 0)).toBe(24 * 60)
     expect(plan.routine.find((block) => block.id === 'sleep-block')).toMatchObject({ minutes: 480, value: 'body' })
-    expect(plan.routine.find((block) => block.id === 'work-block')).toMatchObject({ minutes: 480, value: 'work' })
+    expect(plan.routine.find((block) => block.id === 'work-block')).toMatchObject({
+      minutes: 480,
+      value: 'work',
+      route: { kind: 'work-action', action: 'shift' },
+    })
     expect(plan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({ minutes: 360, value: 'capital' })
   })
 
@@ -113,6 +117,19 @@ describe('planLifeDay', () => {
 
     expect(plan.primary.id).toBe('find-job')
     expect(plan.primary.value).toBe('work')
+    expect(plan.primary.route).toEqual({ kind: 'panel', panel: 'work' })
+  })
+
+  test('starts real shift routes once a citizen has a job', () => {
+    const firstShiftPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 0, money: 500 }))
+
+    expect(firstShiftPlan.primary.id).toBe('first-shift')
+    expect(firstShiftPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
+
+    const cashFloorPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 50 }))
+
+    expect(cashFloorPlan.primary.id).toBe('cash-floor-shift')
+    expect(cashFloorPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
   })
 
   test('adds school as the early-life primary once body, work, and cash are safe', () => {
@@ -151,6 +168,7 @@ describe('planLifeDay', () => {
 
     expect(plan.primary.id).toBe('help-local-person')
     expect(plan.primary.value).toBe('community')
+    expect(plan.primary.route).toEqual({ kind: 'community-action', actionId: 'help-errand' })
   })
 
   test('routes a house project through materials, permit, worker help, then fallback labor', () => {
@@ -178,6 +196,10 @@ describe('planLifeDay', () => {
     const permitPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 1_000, constructionProjects: [readyForPermit] }))
     expect(permitPlan.primary.id).toBe('pay-house-permit')
     expect(permitPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'permit' })
+
+    const workForPermitPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 100, constructionProjects: [readyForPermit] }))
+    expect(workForPermitPlan.primary.id).toBe('work-for-permit')
+    expect(workForPermitPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
 
     const readyForLabor = {
       ...readyForPermit,
@@ -326,6 +348,7 @@ describe('planLifeDay', () => {
     const workForBudgetPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [resourcesReady] }))
     expect(workForBudgetPlan.primary.id).toBe('work-for-business-budget')
     expect(workForBudgetPlan.primary.value).toBe('work')
+    expect(workForBudgetPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
 
     const laborReady = businessProject({ deposited: freshResources(project.required), budgetPaid: true })
     const hirePlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [laborReady] }))
