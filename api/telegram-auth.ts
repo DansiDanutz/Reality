@@ -191,7 +191,7 @@ function safeHexEqual(actual: string, expected: string): boolean {
 function readUnixSeconds(value: string | undefined): number | null {
   if (!value || !/^\d+$/.test(value)) return null
   const seconds = Number(value)
-  return Number.isSafeInteger(seconds) ? seconds : null
+  return isUnixSeconds(seconds) ? seconds : null
 }
 
 function parseTelegramMiniAppUser(rawUser: string): TelegramMiniAppUser | null {
@@ -231,6 +231,10 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
 
+function isUnixSeconds(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
 function isTelegramRealityAccountRecord(
   value: unknown,
   user: Pick<TelegramMiniAppUser, 'id'>,
@@ -239,7 +243,7 @@ function isTelegramRealityAccountRecord(
   if (value.realityAccountId !== realityTelegramAccountId(user)) return false
   if (value.telegramUserId !== user.id) return false
   if (value.provider !== 'telegram-mini-app') return false
-  if (typeof value.firstName !== 'string' || typeof value.authDate !== 'number' || typeof value.lastVerifiedAt !== 'string') {
+  if (typeof value.firstName !== 'string' || !isUnixSeconds(value.authDate) || typeof value.lastVerifiedAt !== 'string') {
     return false
   }
   if (value.citizenId !== undefined && (typeof value.citizenId !== 'string' || !value.citizenId)) return false

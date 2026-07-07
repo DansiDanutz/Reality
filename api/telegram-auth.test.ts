@@ -224,6 +224,53 @@ describe('telegram Mini App auth', () => {
     }
   })
 
+  test('server handler ignores stored account records with invalid auth dates', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T02:45:00.000Z'))
+    try {
+      const existingAccount = {
+        realityAccountId: 'telegram:42424242',
+        telegramUserId: '42424242',
+        citizenId: '11111111-1111-4111-8111-111111111111',
+        founderNumber: 12,
+        citizenLinkedAt: '2026-07-06T01:00:00.000Z',
+        firstName: 'David',
+        authDate: Math.floor(Date.now() / 1000) - 0.5,
+        lastVerifiedAt: '2026-07-06T01:00:00.000Z',
+        provider: 'telegram-mini-app',
+      }
+      vi.mocked(list).mockResolvedValueOnce(blobList(['telegram-users/42424242.json'], 'blob://invalid-telegram'))
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingAccount), { status: 200 })))
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+      })
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(200)
+      const account = (res.body as { account: Record<string, unknown> }).account
+      expect(account).toMatchObject({
+        realityAccountId: 'telegram:42424242',
+        telegramUserId: '42424242',
+        authDate: Math.floor(Date.now() / 1000) - 30,
+        lastVerifiedAt: '2026-07-06T02:45:00.000Z',
+      })
+      expect(account).not.toHaveProperty('citizenId')
+      expect(account).not.toHaveProperty('founderNumber')
+      expect(account).not.toHaveProperty('citizenLinkedAt')
+      expect(put).toHaveBeenCalledWith(
+        'telegram-users/42424242.json',
+        JSON.stringify(account),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test('builds deterministic Telegram Reality account ids', () => {
     expect(realityTelegramAccountId({ id: '42424242' })).toBe('telegram:42424242')
     expect(telegramRealityAccountPath({ id: '42424242' })).toBe('telegram-users/42424242.json')
