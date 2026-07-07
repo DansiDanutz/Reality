@@ -26,6 +26,7 @@ const NEED_LABEL: Record<NeedKey, string> = {
 /** Human-readable effect chips for an item card */
 function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] {
   const out: { text: string; tone: 'ok' | 'gold' | 'sky' }[] = []
+  const course = item.category === 'education' ? educationCourseForItem(item.id) : null
   if (item.effects) {
     const label: Record<string, string> = { hunger: 'food', hydration: 'water', energy: 'energy', hygiene: 'hygiene', fun: 'fun' }
     for (const [k, v] of Object.entries(item.effects)) {
@@ -33,7 +34,11 @@ function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] 
     }
   }
   if (item.wageBonus) out.push({ text: `+${Math.round(item.wageBonus * 100)}% wage`, tone: 'gold' })
-  if (item.grantXp) out.push({ text: `${item.grantXp} XP goal`, tone: 'sky' })
+  if (course) {
+    out.push({ text: `${course.xpReward} XP`, tone: 'sky' })
+    out.push({ text: `+${Math.round(course.wageBonus * 100)}% wages`, tone: 'gold' })
+    out.push({ text: `+${Math.round(course.businessLaborBonus * 100)}% biz work`, tone: 'ok' })
+  } else if (item.grantXp) out.push({ text: `${item.grantXp} XP goal`, tone: 'sky' })
   if (item.incomePerDay) out.push({ text: `+${formatMoney(item.incomePerDay)}/day`, tone: 'gold' })
   if (item.pet) out.push({ text: `${formatMoney(item.pet.foodCostPerDay)}/day food`, tone: 'sky' })
   if (item.durable) out.push({ text: 'keep forever', tone: 'sky' })
@@ -256,7 +261,7 @@ export default function Market() {
                     {courseEnrolled && !courseCompleted && <span className="card-ownedtag">enrolled</span>}
                   </div>
                   <div className="card-chips">
-                    {chips(item).slice(0, 2).map((c) => (
+                    {chips(item).slice(0, 3).map((c) => (
                       <span key={c.text} className={`chip ${c.tone}`}>{c.text}</span>
                     ))}
                   </div>

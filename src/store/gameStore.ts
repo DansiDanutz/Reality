@@ -41,7 +41,9 @@ import {
   createEducationProgress,
   educationCourseById,
   educationCourseForItem,
+  educationBusinessLaborMultiplier,
   educationRemainingMinutes,
+  educationWageBonusFrom,
   nextStudyBlockMinutes,
   normalizeEducationProgress,
   type EducationCourseId,
@@ -178,9 +180,13 @@ type DailyChallengeContextState = {
 
 const CHEAPEST_SHOP_PRICE = Math.max(1, Math.min(...SHOP_ITEMS.map((item) => item.price).filter((price) => price > 0)))
 
+function totalWageBonus(inventory: Record<string, number>, educationProgress: EducationProgress[]): number {
+  return wageBonusFrom(inventory) + educationWageBonusFrom(educationProgress)
+}
+
 export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyChallengeContext {
   const job = s.jobId ? jobById(s.jobId) : undefined
-  const wageBonus = wageBonusFrom(s.inventory)
+  const wageBonus = totalWageBonus(s.inventory, s.educationProgress)
   const rank = careerRankOf(s.shiftsWorked)
   const shiftPay = job ? Math.round(job.wage * rank.wageMultiplier * (1 + wageBonus) * SHIFT_HOURS) : 0
   const advancedEnoughForTwoShifts = Boolean(job) && s.shiftsWorked >= 35
@@ -1108,7 +1114,7 @@ export const useGame = create<GameState>()(
             money: s.money,
             activity: s.activity,
             hasHome: s.assets.some((a) => a.kind === 'home'),
-            wageBonus: wageBonusFrom(s.inventory),
+            wageBonus: totalWageBonus(s.inventory, s.educationProgress),
             lastFountainAt: s.lastFountainAt,
             lastFoodBankAt: s.lastFoodBankAt,
             pets: s.pets,
@@ -2310,13 +2316,15 @@ export const useGame = create<GameState>()(
           set({ toasts: withToast(s.toasts, 'Interior labor is complete. Finish the upgrade.', 'sky') })
           return
         }
-        const laborMinutes = Math.min(60, remaining)
+        const laborMultiplier = educationBusinessLaborMultiplier(s.educationProgress)
+        const laborMinutes = Math.min(Math.round(60 * laborMultiplier), remaining)
+        const workMinutes = Math.min(60, Math.ceil(laborMinutes / laborMultiplier))
         const now = Date.now()
         set({
           activity: {
             kind: 'business-development',
             startedAt: now,
-            endsAt: now + laborMinutes * 60_000,
+            endsAt: now + workMinutes * 60_000,
             title: `Develop ${project.businessName}`,
             businessDevelopmentProjectId: project.id,
             laborMinutes,
@@ -2324,7 +2332,12 @@ export const useGame = create<GameState>()(
           needs: applyEffects(s.needs, { energy: -8, hygiene: -2 }),
           panel: null,
           selectedMapTarget: { kind: 'asset', id: project.businessId },
-          log: note(s.log, `Started ${laborMinutes} minutes of interior work on ${project.businessName}.`),
+          log: note(
+            s.log,
+            laborMinutes > workMinutes
+              ? `Started ${workMinutes} real minutes on ${project.businessName}; school efficiency counts as ${laborMinutes} minutes of interior work.`
+              : `Started ${workMinutes} minutes of interior work on ${project.businessName}.`,
+          ),
         })
       },
 
@@ -2608,7 +2621,7 @@ export const useGame = create<GameState>()(
         }
         // Leaving a shift early: pro-rata pay, no XP
         const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
-        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)))
+        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + totalWageBonus(s.inventory, s.educationProgress)))
         set({
           activity: null,
           money: s.money + pay,
