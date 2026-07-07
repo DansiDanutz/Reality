@@ -442,9 +442,9 @@ function isFounderCovenantApprovalRequest(value: unknown): value is FounderCoven
 
 function isFounderCovenantReviewSchedule(value: unknown): boolean {
   return isRecord(value) &&
-    (value.lastReviewAt === null || isFiniteNumber(value.lastReviewAt)) &&
-    isFiniteNumber(value.nextWeeklyReviewAt) &&
-    isFiniteNumber(value.nextMonthlyReviewAt) &&
+    (value.lastReviewAt === null || isNonNegativeFiniteNumber(value.lastReviewAt)) &&
+    isNonNegativeFiniteNumber(value.nextWeeklyReviewAt) &&
+    isNonNegativeFiniteNumber(value.nextMonthlyReviewAt) &&
     typeof value.weeklyReviewDue === 'boolean' &&
     typeof value.monthlyReviewDue === 'boolean' &&
     typeof value.overdue === 'boolean' &&
@@ -610,6 +610,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0
 }
 
 function isMoney(value: unknown): value is number {
