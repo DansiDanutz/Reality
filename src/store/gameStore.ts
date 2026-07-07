@@ -866,6 +866,7 @@ function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | '
     hasHome: s.assets.some((asset) => asset.kind === 'home'),
     jobId: s.jobId,
     shiftsWorked: s.shiftsWorked,
+    educationProgress: s.educationProgress,
     educationActions: educationActionCount(s.educationProgress),
     communityActionsThisWeek: s.community.actionsThisWeek,
   }

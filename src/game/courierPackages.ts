@@ -1,5 +1,6 @@
 import { RESOURCE_META, type ResourceKind } from './resources'
 import type { ConstructionProject } from './construction'
+import type { EducationCourseId, EducationProgress } from './education'
 import type { LifePlanTask } from './lifeLadder'
 
 export type CourierRequirement =
@@ -7,6 +8,7 @@ export type CourierRequirement =
   | { kind: 'food'; timesEaten: number }
   | { kind: 'job' }
   | { kind: 'shift'; shiftsWorked: number }
+  | { kind: 'education-enrolled'; courseId: EducationCourseId }
   | { kind: 'education'; educationActions: number }
   | { kind: 'community'; actionsThisWeek: number }
   | { kind: 'street-mode-seen' }
@@ -35,6 +37,7 @@ export interface CourierSnapshot {
   hasHome: boolean
   jobId?: string | null
   shiftsWorked?: number
+  educationProgress?: EducationProgress[]
   educationActions?: number
   communityActionsThisWeek?: number
 }
@@ -153,6 +156,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return Boolean(snapshot.jobId)
     case 'shift':
       return (snapshot.shiftsWorked ?? 0) >= requirement.shiftsWorked
+    case 'education-enrolled':
+      return (snapshot.educationProgress ?? []).some((progress) => progress.courseId === requirement.courseId)
     case 'education':
       return (snapshot.educationActions ?? 0) >= requirement.educationActions
     case 'community':
@@ -206,7 +211,8 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   const route = primary.route
   if (route.kind === 'panel' && route.panel === 'work') return { kind: 'job' }
   if (route.kind === 'work-action') return { kind: 'shift', shiftsWorked: (snapshot.shiftsWorked ?? 0) + 1 }
-  if (route.kind === 'education-action' || (route.kind === 'market' && route.focus === 'education')) {
+  if (route.kind === 'market' && route.focus === 'education') return { kind: 'education-enrolled', courseId: 'course' }
+  if (route.kind === 'education-action') {
     return { kind: 'education', educationActions: (snapshot.educationActions ?? 0) + 1 }
   }
   if (route.kind === 'community-action') return { kind: 'community', actionsThisWeek: (snapshot.communityActionsThisWeek ?? 0) + 1 }

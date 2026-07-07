@@ -7,6 +7,7 @@ import {
   shouldCreateCourierPackage,
 } from './courierPackages'
 import { STARTER_HOUSE_RECIPE, createConstructionProject } from './construction'
+import { EDUCATION_COURSES, createEducationProgress } from './education'
 import { freshResources } from './resources'
 
 describe('courierPackages', () => {
@@ -102,6 +103,22 @@ describe('courierPackages', () => {
       hasHome: false,
       shiftsWorked: 2,
     })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education-enrolled', courseId: 'course' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationProgress: [],
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education-enrolled', courseId: 'course' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationProgress: [createEducationProgress(EDUCATION_COURSES.course, 1_000)],
+    })).toBe(true)
     expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education', educationActions: 1 } }, {
       timesEaten: 0,
       sawStreetMode: false,
@@ -144,6 +161,58 @@ describe('courierPackages', () => {
       requirement: { kind: 'shift', shiftsWorked: 1 },
     })
     expect(pkg?.story).toContain('Life Ladder')
+  })
+
+  test('turns course enrollment tasks into enrollment requirements', () => {
+    const pkg = courierPackageForLifePlan(2, {
+      id: 'study-first-course',
+      title: 'Study one useful skill',
+      detail: 'School compounds wages. Do one course while your body and income are safe.',
+      value: 'school',
+      minutes: 60,
+      route: { kind: 'market', focus: 'education' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationActions: 0,
+      educationProgress: [],
+    })
+
+    expect(pkg).toMatchObject({
+      day: 2,
+      title: 'Study one useful skill',
+      objective: 'Study one useful skill',
+      requirement: { kind: 'education-enrolled', courseId: 'course' },
+    })
+  })
+
+  test('turns study tasks into earned education action requirements', () => {
+    const pkg = courierPackageForLifePlan(2, {
+      id: 'study-course',
+      title: 'Study Online Course',
+      detail: '60 minutes remain. Finish the course block before chasing the next credential.',
+      value: 'school',
+      minutes: 60,
+      route: { kind: 'education-action', courseId: 'course' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationActions: 0,
+      educationProgress: [createEducationProgress(EDUCATION_COURSES.course, 1_000)],
+    })
+
+    expect(pkg).toMatchObject({
+      day: 2,
+      title: 'Study Online Course',
+      objective: 'Study Online Course',
+      requirement: { kind: 'education', educationActions: 1 },
+    })
   })
 
   test('turns gather tasks into one concrete resource trip requirement', () => {

@@ -46,6 +46,7 @@ export default function CourierPackagePrompt() {
     hasHome,
     jobId,
     shiftsWorked,
+    educationProgress,
     educationActions: educationActionCount(educationProgress),
     communityActionsThisWeek: community.actionsThisWeek,
   })
@@ -67,6 +68,7 @@ export default function CourierPackagePrompt() {
       case 'shift':
         setPanel('work')
         return
+      case 'education-enrolled':
       case 'education':
         openMarket('education')
         return
@@ -104,8 +106,10 @@ export default function CourierPackagePrompt() {
         ? 'Find work'
         : pkg.requirement.kind === 'shift'
           ? 'Work shift'
-          : pkg.requirement.kind === 'education'
-            ? 'Study'
+          : pkg.requirement.kind === 'education-enrolled'
+            ? 'Enroll'
+            : pkg.requirement.kind === 'education'
+              ? 'Study'
             : pkg.requirement.kind === 'community'
               ? 'Help'
       : pkg.requirement.kind === 'street-mode-seen'
