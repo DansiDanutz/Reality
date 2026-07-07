@@ -440,7 +440,56 @@ describe('shift reliability loop', () => {
       trust: 1,
       reliableShifts: 1,
       workRespectToday: 1,
+      seriousWorkStreak: 1,
+      seriousWorkBest: 1,
     })
+  })
+
+  test('serious work streak advances across real work days separately from login streak', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T00:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      jobId: 'barista',
+      shiftsWorked: 0,
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: freshCommunityStats(now),
+      streakLength: 9,
+      streakBest: 9,
+      streakLastClaimDay: 1_000_000,
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startShift()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+    expect(useGame.getState().community.seriousWorkStreak).toBe(1)
+    expect(useGame.getState().streakLength).toBe(9)
+
+    const nextDay = now + 24 * 3_600_000
+    vi.setSystemTime(nextDay)
+    useGame.setState({
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      lastSeenAt: nextDay,
+      activity: null,
+    })
+    useGame.getState().startShift()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    const state = useGame.getState()
+    expect(state.community.seriousWorkStreak).toBe(2)
+    expect(state.community.seriousWorkBest).toBe(2)
+    expect(state.streakLength).toBe(9)
   })
 })
 

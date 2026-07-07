@@ -27,6 +27,9 @@ export interface CommunityStats {
   reliableShifts: number
   workRespectDay: number
   workRespectToday: number
+  seriousWorkStreak: number
+  seriousWorkBest: number
+  seriousWorkLastDay: number
 }
 
 const DAY_MS = 24 * 3_600_000
@@ -79,6 +82,9 @@ export function freshCommunityStats(now = Date.now()): CommunityStats {
     reliableShifts: 0,
     workRespectDay: communityDay(now),
     workRespectToday: 0,
+    seriousWorkStreak: 0,
+    seriousWorkBest: 0,
+    seriousWorkLastDay: 0,
   }
 }
 
@@ -95,6 +101,9 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
     reliableShifts: Math.max(0, Math.floor(stats.reliableShifts ?? 0)),
     workRespectDay: Number.isFinite(stats.workRespectDay) ? Math.floor(stats.workRespectDay ?? communityDay(now)) : communityDay(now),
     workRespectToday: Math.max(0, Math.floor(stats.workRespectToday ?? 0)),
+    seriousWorkStreak: Math.max(0, Math.floor(stats.seriousWorkStreak ?? 0)),
+    seriousWorkBest: Math.max(0, Math.floor(stats.seriousWorkBest ?? 0)),
+    seriousWorkLastDay: Number.isFinite(stats.seriousWorkLastDay) ? Math.max(0, Math.floor(stats.seriousWorkLastDay ?? 0)) : 0,
   }
 }
 
@@ -137,11 +146,21 @@ export function completeCommunityAction(stats: CommunityStats, action: Community
 export function completeReliableShift(stats: CommunityStats, now = Date.now()): CommunityStats {
   const current = resetCommunityWorkDayIfNeeded(stats, now)
   const respectGained = current.workRespectToday > 0 ? 0 : 1
+  const day = communityDay(now)
+  const seriousWorkStreak =
+    current.seriousWorkLastDay === day
+      ? current.seriousWorkStreak
+      : current.seriousWorkLastDay === day - 1
+        ? current.seriousWorkStreak + 1
+        : 1
   return {
     ...current,
     respect: current.respect + respectGained,
     trust: current.trust + respectGained,
     reliableShifts: current.reliableShifts + 1,
     workRespectToday: current.workRespectToday + respectGained,
+    seriousWorkStreak,
+    seriousWorkBest: Math.max(current.seriousWorkBest, seriousWorkStreak),
+    seriousWorkLastDay: day,
   }
 }

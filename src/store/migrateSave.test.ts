@@ -69,6 +69,9 @@ describe('migrateSave - backfills every field added after v1', () => {
       actionsToday: 0,
       reliableShifts: 0,
       workRespectToday: 0,
+      seriousWorkStreak: 0,
+      seriousWorkBest: 0,
+      seriousWorkLastDay: 0,
     })
     expect(out.businessDevelopmentProjects).toEqual([])
     expect(out.activeCourierPackage).toBeNull()
@@ -214,6 +217,9 @@ describe('migrateSave - backfills every field added after v1', () => {
       reliableShifts: 0,
       workRespectDay: expect.any(Number),
       workRespectToday: 0,
+      seriousWorkStreak: 0,
+      seriousWorkBest: 0,
+      seriousWorkLastDay: 0,
     })
   })
 
@@ -340,6 +346,6 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(14)
+    expect(SAVE_VERSION).toBe(15)
   })
 })

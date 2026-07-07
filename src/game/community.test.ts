@@ -25,6 +25,9 @@ describe('community actions', () => {
       reliableShifts: 0,
       workRespectDay: 0,
       workRespectToday: 0,
+      seriousWorkStreak: 0,
+      seriousWorkBest: 0,
+      seriousWorkLastDay: 0,
     })
   })
 
@@ -106,6 +109,9 @@ describe('community actions', () => {
       reliableShifts: 1,
       workRespectDay: communityDay(today),
       workRespectToday: 1,
+      seriousWorkStreak: 1,
+      seriousWorkBest: 1,
+      seriousWorkLastDay: communityDay(today),
     })
 
     const secondSameDay = completeReliableShift(first, today + 2 * 3_600_000)
@@ -113,11 +119,28 @@ describe('community actions', () => {
     expect(secondSameDay.trust).toBe(1)
     expect(secondSameDay.reliableShifts).toBe(2)
     expect(secondSameDay.workRespectToday).toBe(1)
+    expect(secondSameDay.seriousWorkStreak).toBe(1)
+    expect(secondSameDay.seriousWorkBest).toBe(1)
 
     const nextDay = completeReliableShift(secondSameDay, today + 24 * 3_600_000)
     expect(nextDay.respect).toBe(2)
     expect(nextDay.trust).toBe(2)
     expect(nextDay.reliableShifts).toBe(3)
     expect(nextDay.workRespectToday).toBe(1)
+    expect(nextDay.seriousWorkStreak).toBe(2)
+    expect(nextDay.seriousWorkBest).toBe(2)
+  })
+
+  test('serious work streak resets after missed work days without losing the best', () => {
+    const today = Date.UTC(2026, 6, 7, 12)
+    const first = completeReliableShift(freshCommunityStats(today), today)
+    const second = completeReliableShift(first, today + 24 * 3_600_000)
+    const afterGap = completeReliableShift(second, today + 4 * 24 * 3_600_000)
+
+    expect(second.seriousWorkStreak).toBe(2)
+    expect(second.seriousWorkBest).toBe(2)
+    expect(afterGap.seriousWorkStreak).toBe(1)
+    expect(afterGap.seriousWorkBest).toBe(2)
+    expect(afterGap.seriousWorkLastDay).toBe(communityDay(today + 4 * 24 * 3_600_000))
   })
 })
