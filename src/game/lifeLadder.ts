@@ -67,7 +67,7 @@ export interface LifeLadderSnapshot {
   xp: number
   jobId: string | null
   shiftsWorked: number
-  activityKind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | null
+  activityKind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | null
   assets: { kind: AssetKind; incomePerDay: number }[]
   resources: ResourceInventory
   constructionProjects: ConstructionProject[]
