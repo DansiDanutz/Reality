@@ -1643,6 +1643,41 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+.goals-card-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 96px);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.goals-card-stage-copy {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.goals-card-stage-rail {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.goals-card-stage-step {
+  height: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+}
+.goals-card-stage-step.complete {
+  border-color: rgba(67, 217, 163, 0.36);
+  background: rgba(67, 217, 163, 0.22);
+}
+.goals-card-stage-step.current {
+  border-color: rgba(240, 180, 41, 0.78);
+  background: var(--gold);
+}
 .goals-card-routine {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1751,6 +1786,24 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .goals-card-detail {
     font-size: 10px;
   }
+  .goals-card-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .goals-card-stage-copy {
+    font-size: 9px;
+  }
+  .goals-card-stage-rail {
+    display: none;
+  }
+  .goals-card-forecast {
+    font-size: 10px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .goals-card-primary,
   .goals-card-reason {
     white-space: nowrap;
@@ -1764,17 +1817,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
     display: none;
   }
   .goals-card-routine {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .goals-card-routine-item {
-    min-height: 30px;
-    padding: 4px;
-  }
-  .goals-card-routine-item:nth-child(n+4) {
     display: none;
-  }
-  .goals-card-routine-title {
-    font-size: 8px;
   }
 }
 
@@ -3055,10 +3098,10 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .hud-window[data-card="objectives"] {
     left: 8px !important; top: 108px !important;
     width: calc(100vw - 160px) !important;   /* leave 140px + gutter for the mood card */
-    max-height: 124px !important;
+    max-height: 184px !important;
   }
   .hud-window[data-card="citizen"] {
-    left: 8px !important; top: 240px !important;  /* 108 + 124 + 8 */
+    left: 8px !important; top: 300px !important;  /* 108 + objectives + 8 */
     width: calc(100vw - 160px) !important;
     max-height: 80px !important;
   }

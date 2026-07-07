@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE } from './catalog'
 import { cashflowOf, netWorthOf } from './engine'
-import { millionairePathOf, type MillionairePathInput } from './millionairePath'
+import { MILLIONAIRE_STAGE_ORDER, millionairePathOf, millionaireStageProgress, type MillionairePathInput } from './millionairePath'
 import type { Needs, PlacedAsset } from './types'
 
 const goodNeeds: Needs = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }
@@ -156,5 +156,30 @@ describe('millionairePathOf', () => {
     expect(path.daysToMillionaire).toBe(0)
     expect(path.nextAction).toBe('millionaire')
     expect(path.reach.label).toBe('your continent')
+  })
+
+  test('stage progress exposes the full path ladder in order', () => {
+    expect(MILLIONAIRE_STAGE_ORDER).toEqual([
+      'survival',
+      'stable',
+      'skilled',
+      'reliable',
+      'owner',
+      'employer',
+      'millionaire',
+    ])
+
+    expect(millionaireStageProgress('survival')).toMatchObject({
+      current: 1,
+      total: 7,
+      label: 'Survival',
+      nextLabel: 'Stable cash',
+    })
+    expect(millionaireStageProgress('millionaire')).toMatchObject({
+      current: 7,
+      total: 7,
+      percent: 100,
+      nextLabel: null,
+    })
   })
 })

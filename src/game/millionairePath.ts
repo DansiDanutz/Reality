@@ -18,6 +18,34 @@ export type MillionaireStage =
   | 'employer'
   | 'millionaire'
 
+export const MILLIONAIRE_STAGE_ORDER: MillionaireStage[] = [
+  'survival',
+  'stable',
+  'skilled',
+  'reliable',
+  'owner',
+  'employer',
+  'millionaire',
+]
+
+export const MILLIONAIRE_STAGE_META: Record<MillionaireStage, { label: string; shortLabel: string }> = {
+  survival: { label: 'Survival', shortLabel: 'Survive' },
+  stable: { label: 'Stable cash', shortLabel: 'Stable' },
+  skilled: { label: 'Skilled work', shortLabel: 'Skill' },
+  reliable: { label: 'Reliable respect', shortLabel: 'Respect' },
+  owner: { label: 'Owner', shortLabel: 'Owner' },
+  employer: { label: 'Employer', shortLabel: 'Employ' },
+  millionaire: { label: 'Millionaire', shortLabel: '$1M' },
+}
+
+export interface MillionaireStageProgress {
+  current: number
+  total: number
+  percent: number
+  label: string
+  nextLabel: string | null
+}
+
 export type MillionaireNextAction =
   | 'recover-body'
   | 'find-job'
@@ -58,6 +86,20 @@ export interface MillionairePath {
 const MILLIONAIRE_NET_WORTH = 1_000_000
 const BODY_FLOOR = 35
 const CASH_FLOOR = 100
+
+export function millionaireStageProgress(stage: MillionaireStage): MillionaireStageProgress {
+  const index = Math.max(0, MILLIONAIRE_STAGE_ORDER.indexOf(stage))
+  const current = index + 1
+  const total = MILLIONAIRE_STAGE_ORDER.length
+  const next = MILLIONAIRE_STAGE_ORDER[index + 1] ?? null
+  return {
+    current,
+    total,
+    percent: Math.round((current / total) * 100),
+    label: MILLIONAIRE_STAGE_META[stage].label,
+    nextLabel: next ? MILLIONAIRE_STAGE_META[next].label : null,
+  }
+}
 
 function bodyUnsafe(input: Pick<MillionairePathInput, 'needs' | 'health'>): boolean {
   return input.health < 40 ||
