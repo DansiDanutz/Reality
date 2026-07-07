@@ -90,6 +90,7 @@ import {
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
+  founderStaffingSummaryText,
 } from './founderAreaPanelView'
 
 type PanelState =
@@ -937,9 +938,7 @@ export default function FounderAreaPanel() {
           <section className="founder-section" aria-label="Staffing">
             <div className="founder-section-head">
               <h3 className="founder-section-title">Staffing</h3>
-              <span className="item-desc">
-                {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready
-              </span>
+              <span className="item-desc">{founderStaffingSummaryText(dashboard.jobs)}</span>
             </div>
             {dashboard.jobs.candidates.length === 0 || dashboard.jobs.openPositions === 0 ? (
               <p className="panel-sub">No open staffing needs.</p>

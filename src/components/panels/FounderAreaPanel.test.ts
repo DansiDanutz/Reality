@@ -63,6 +63,7 @@ import {
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
+  founderStaffingSummaryText,
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
@@ -118,6 +119,14 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderGrowthBlockerText('invite_tracking_disabled')).toBe('Invite tracking')
     expect(founderGrowthBlockerText('automatic_growth_rewards_disabled')).toBe('Automatic growth rewards')
     expect(founderGrowthBlockerText('manual_review_required')).toBe('Manual review')
+  })
+
+  test('summarizes staffing with Sim workers and real acceptance separated', () => {
+    expect(founderStaffingSummaryText({
+      openPositions: 3,
+      hireableSimWorkers: 2,
+      realWorkersRequiringAcceptance: 1,
+    })).toBe('3 open · 2 sim ready · 1 real acceptance')
   })
 
   test('summarizes disabled founder handoff readiness without implying transfer execution', () => {

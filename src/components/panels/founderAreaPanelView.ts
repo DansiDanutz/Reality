@@ -101,6 +101,12 @@ export interface FounderPayoutReadinessSummaryItem {
   tone: FounderCovenantReviewTone
 }
 
+export interface FounderStaffingSummarySource {
+  openPositions: number
+  hireableSimWorkers: number
+  realWorkersRequiringAcceptance: number
+}
+
 export interface FounderCovenantScheduleItem {
   key: string
   label: string
@@ -396,6 +402,10 @@ export function founderPayoutReadinessPolicyText(
   const promise = payout.noProfitPromise ? 'no profit promise' : 'profit wording review'
   const rail = payout.stablecoinRailPlanned ? 'stablecoin rail planned later' : 'no settlement rail'
   return `${promise} · ${rail}`
+}
+
+export function founderStaffingSummaryText(jobs: FounderStaffingSummarySource): string {
+  return `${jobs.openPositions} open · ${jobs.hireableSimWorkers} sim ready · ${jobs.realWorkersRequiringAcceptance} real acceptance`
 }
 
 export function founderSettlementSummaryItems(
