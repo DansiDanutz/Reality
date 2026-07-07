@@ -98,6 +98,15 @@ function interiorEtaSummary(forecast: BusinessDevelopmentDayForecast | null): st
   return `Interior ETA: ${parts.join(' · ')}`
 }
 
+function millionaireEtaSummary(plan: ReturnType<typeof planLifeDay>): string | null {
+  const path = plan.millionairePath
+  if (path.stage === 'millionaire') return 'Path to $1M: reached · keep reinvesting'
+  const pace = path.daysToMillionaire === null
+    ? 'cashflow blocked'
+    : `${path.daysToMillionaire}d at current pace`
+  return `Path to $1M: ${formatMoney(path.millionaireGap)} left · ${pace}`
+}
+
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
  * onboarding completes. Shows the player's streak + daily-challenge progress
@@ -188,6 +197,8 @@ export default function GoalsCard() {
     educationProgress,
     communityActionsThisWeek: community.actionsThisWeek,
     communityActionsToday: community.actionsToday,
+    communityRespect: community.respect,
+    communityTrust: community.trust,
   })
 
   const openRoute = (route: typeof lifePlan.primary.route) => {
@@ -251,7 +262,8 @@ export default function GoalsCard() {
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
   const buildEta = buildEtaSummary(lifePlan.constructionForecast)
   const interiorEta = interiorEtaSummary(lifePlan.businessDevelopmentForecast)
-  const activeEta = buildEta ?? interiorEta
+  const pathEta = millionaireEtaSummary(lifePlan)
+  const activeEta = buildEta ?? interiorEta ?? pathEta
   const routineSummary = lifePlan.routine
     .map((block) => `${block.title} ${formatPlanMinutes(block.minutes)}`)
     .join(', ')
