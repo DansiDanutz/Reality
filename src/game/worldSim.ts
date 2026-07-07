@@ -2920,6 +2920,9 @@ function repayDebtFromIntent(
 
   const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
   if (!debt || debt.amount <= 0) return { ok: false, area, error: 'debt_not_found' }
+  if (!canReceiveMedicalDebtPayment(area, debt)) {
+    return { ok: false, area, error: 'invalid_debt_payment' }
+  }
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, area, error: 'invalid_debt_payment' }
@@ -2940,6 +2943,12 @@ function repayDebtFromIntent(
     memo: `${actor.name} repaid debt to ${debt.creditorId}.`,
   })
   return { ok: true, area }
+}
+
+function canReceiveMedicalDebtPayment(area: WorldArea, debt: WorldDebt): boolean {
+  if (debt.kind !== 'medical') return false
+  if (debt.creditorId === 'system:hospital') return true
+  return area.businesses.some((business) => business.id === debt.creditorId && business.kind === 'clinic')
 }
 
 function requireAreaFounder(area: WorldArea, actorCitizenId: string): RequireAreaFounderResult {

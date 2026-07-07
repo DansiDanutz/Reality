@@ -1327,6 +1327,46 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('repayDebt intent rejects debt rows without a valid medical receiver', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 150,
+        debts: [{
+          id: 'missing-creditor',
+          kind: 'medical',
+          creditorId: 'ghost-clinic',
+          amount: 75,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to ghost-clinic.',
+        }, {
+          id: 'wrong-kind-creditor',
+          kind: 'medical',
+          creditorId: 'water1',
+          amount: 75,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to water1.',
+        }],
+      })],
+      businesses: [business('water', 'water1', { cash: 25 })],
+    })
+
+    for (const debtId of ['missing-creditor', 'wrong-kind-creditor']) {
+      const result = applyWorldIntent(start, {
+        type: 'repayDebt',
+        actorCitizenId: 'c1',
+        debtId,
+        amount: 25,
+      })
+
+      expect(result).toMatchObject({ ok: false, error: 'invalid_debt_payment' })
+      expect(result.area.citizens[0]).toMatchObject({ money: 200, debt: 150 })
+      expect(result.area.citizens[0].debts).toHaveLength(2)
+      expect(result.area.businesses[0]).toMatchObject({ id: 'water1', cash: 25 })
+      expect(result.area.transactions).toEqual([])
+    }
+  })
+
   test('repayDebt intent rejects invalid, missing, unavailable, and unaffordable repayments', () => {
     const start = area({
       citizens: [
