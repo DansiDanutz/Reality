@@ -402,15 +402,27 @@ export function msToLocalMidnight(now: number, lat?: number, lng?: number): numb
   }
 }
 
-/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
-function bumpBoughtToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+function dailyCounterDayFor(s: Pick<GameState, 'assets' | 'citizen'>): number {
   const home = s.assets.find((a) => a.kind === 'home')
   const anchorLat = home ? home.lat : s.citizen?.spawnLat
   const anchorLng = home ? home.lng : s.citizen?.spawnLng
-  const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
+  return dayIndexOf(Date.now(), anchorLat, anchorLng)
+}
+
+/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
+function bumpBoughtToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
   return s.dailyCounters.day === todayDay
     ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
     : freshDailyCounters(todayDay, { boughtToday: 1 })
+}
+
+/** Today's dailyCounters with sleptToday bumped when intentional sleep starts. */
+function bumpSleptToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, sleptToday: s.dailyCounters.sleptToday + 1 }
+    : freshDailyCounters(todayDay, { sleptToday: 1 })
 }
 
 /**
@@ -1720,13 +1732,14 @@ export const useGame = create<GameState>()(
         // precise sum of every positive inflow (wages, lucky, bounty, streak,
         // daily, bonus, business pending) -- replacing the old imprecise
         // approximation that double-counted wages and clamped spending.
-        // Sleeps are inferred from activity kind transitions.
+        // Sleep is counted when it starts (same timing as lifetime timesSlept),
+        // so leaving early does not create a confusing daily/lifetime mismatch.
         // Away spans never feed the challenge counters: challenges reward
         // TODAY'S engagement, and a multi-day absence compressed into one
         // tick would auto-complete "eat 2 meals" / "work a shift" on return.
         const mealsDelta = wasAway ? 0 : out.mealsCooked
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
-        const sleptDelta = !wasAway && s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
+        const sleptDelta = 0
         if (
           mealsDelta ||
           shiftsDelta ||
@@ -2585,6 +2598,7 @@ export const useGame = create<GameState>()(
         set({
           activity: { kind: 'sleep', startedAt: now, endsAt: now + SLEEP_HOURS * 3_600_000 },
           timesSlept: s.timesSlept + 1,
+          dailyCounters: bumpSleptToday(s),
           log: note(s.log, hasHome ? 'Lights out at home. Energy refills through the night.' : 'Sleeping rough. A home would make this count for more.'),
         })
       },
