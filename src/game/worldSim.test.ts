@@ -2836,6 +2836,40 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('ledger dashboards keep non-finite transaction amounts finite', () => {
+    const transactions: WorldTransaction[] = [
+      { id: 'tx1', at: 1, kind: 'customer_purchase', payoutEligibility: 'game_only', fromId: 'resident', toId: 'food1', amount: Number.NaN, memo: 'tampered sale' },
+      { id: 'tx2', at: 2, kind: 'worker_wage', payoutEligibility: 'game_only', fromId: 'food1', toId: 'worker', amount: Number.NaN, memo: 'tampered wage' },
+      { id: 'tx3', at: 3, kind: 'insurance_premium', payoutEligibility: 'game_only', fromId: 'resident', toId: 'ins1', amount: 45, memo: 'premium' },
+    ]
+    const dash = areaNeedsDashboard(area({
+      transactions,
+      businesses: [business('food', 'food1'), business('insurance', 'ins1')],
+    }))
+    const foodLedger = dash.existingBusinesses.find((candidate) => candidate.id === 'food1')!.ledger
+
+    expect(Number.isNaN(transactions[0].amount)).toBe(true)
+    expect(dash.ledger.totalsByKind.customer_purchase).toBe(0)
+    expect(dash.ledger.totalsByKind.worker_wage).toBe(0)
+    expect(dash.ledger.totalsByKind.insurance_premium).toBe(45)
+    expect(dash.ledger.payoutClassification).toMatchObject({
+      gameOnlyTransactionCount: 3,
+      gameOnlyAmount: 45,
+      payoutEligibleTransactionCount: 0,
+      payoutEligibleAmount: 0,
+    })
+    expect(dash.ledger.recentTransactions.find((transaction) => transaction.id === 'tx1')!.amount).toBe(0)
+    expect(foodLedger).toMatchObject({
+      transactionCount: 2,
+      revenue: 0,
+      expenses: 0,
+      netCashFlow: 0,
+      wagesPaid: 0,
+    })
+    expect(foodLedger.recentTransactions.map((transaction) => transaction.amount)).toEqual([0, 0])
+    expect(Number.isFinite(foodLedger.netCashFlow)).toBe(true)
+  })
+
   test('business dashboard surfaces operational alerts from staffing, cash, owner state, and quality', () => {
     const owner = sim('owner', { state: { kind: 'hospitalized', until: 3 * HOUR } })
     const worker = sim('worker', { jobBusinessId: 'food1' })
