@@ -177,6 +177,10 @@ export default function BusinessPanel() {
                 Finish L{project.levelTo}
               </button>
             </div>
+            <div className="founder-section-head">
+              <h3 className="founder-section-title">Workers Hall</h3>
+              <span className="item-desc">AI interior workers by the hour</span>
+            </div>
             <div className="worker-grid">
               {CONSTRUCTION_WORKERS.map((worker) => {
                 const estimate = estimateBusinessDevelopmentWorkerHire(project, worker.id, 1)
@@ -197,7 +201,7 @@ export default function BusinessPanel() {
                       <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
                     </div>
                     <p className="item-desc">{worker.description}</p>
-                    <span className="item-desc mono">1h contract = up to {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} interior labor</span>
+                    <span className="item-desc mono">1h Workers Hall contract = up to {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} interior labor</span>
                     <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, 1)}>
                       {blocker ?? `Book 1h · ${formatMoney(worker.ratePerHour)}`}
                     </button>
