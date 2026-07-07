@@ -218,6 +218,8 @@ function isWorldCitizen(value: unknown): value is WorldCitizen {
     if (!Array.isArray(debts) || !debts.every(isWorldDebt)) return false
     if (!hasUniqueIds(debts)) return false
     if (roundMoney(debts.reduce((total, debt) => total + debt.amount, 0)) !== value.debt) return false
+  } else if (value.debt > 0) {
+    return false
   }
   if (!isCitizenState(value.state)) return false
   if (value.homeBusinessId !== undefined && !isNonEmptyString(value.homeBusinessId)) return false
