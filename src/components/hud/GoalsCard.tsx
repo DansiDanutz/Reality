@@ -1,4 +1,5 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
+import { missedSeriousWorkYesterday } from '../../game/community'
 import { educationActionCount } from '../../game/education'
 import { formatMoney } from '../../game/engine'
 import {
@@ -230,6 +231,7 @@ export default function GoalsCard() {
     communityRespect: community.respect,
     communityFriendship: community.friendship,
     communityTrust: community.trust,
+    seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
   })
 
   const openRoute = (route: typeof lifePlan.primary.route) => {

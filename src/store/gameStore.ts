@@ -56,6 +56,7 @@ import {
   completeCommunityAction,
   completeReliableShift,
   freshCommunityStats,
+  missedSeriousWorkYesterday,
   normalizeCommunityStats,
   resetCommunityActionDayIfNeeded,
   resetCommunityWeekIfNeeded,
@@ -1676,6 +1677,7 @@ export const useGame = create<GameState>()(
               communityRespect: community.respect,
               communityFriendship: community.friendship,
               communityTrust: community.trust,
+              seriousWorkMissedYesterday: missedSeriousWorkYesterday(community, now),
             }).primary, courierSnapshot) ?? baseCourierPackage
           : null
         if (nextPackage) {
