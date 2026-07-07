@@ -255,6 +255,14 @@ export default function ConstructionPanel() {
               const progress = constructionProgress(project)
               const missing = constructionShortfall(project)
               const labor = constructionLaborBreakdown(project)
+              const canWork = progress.resourcesComplete && progress.permitComplete && !progress.laborComplete
+              const workLabel = !progress.resourcesComplete
+                ? 'Deposit first'
+                : !progress.permitComplete
+                  ? 'Permit first'
+                  : progress.laborComplete
+                    ? 'Labor done'
+                    : 'Work 60m'
               return (
                 <li className="item construction-project" key={project.id}>
                   <div className="item-info construction-project-info">
@@ -288,8 +296,8 @@ export default function ConstructionPanel() {
                     <button className="btn small ghost" disabled={project.permitFeePaid} onClick={() => payConstructionPermit(project.id)}>
                       {project.permitFeePaid ? 'Permit paid' : `Permit ${formatMoney(project.permitFee)}`}
                     </button>
-                    <button className="btn small primary" disabled={project.laborDoneMinutes >= project.laborRequiredMinutes} onClick={() => startConstructionWork(project.id)}>
-                      Work 60m
+                    <button className={canWork ? 'btn small primary' : 'btn small ghost'} disabled={!canWork} onClick={() => startConstructionWork(project.id)}>
+                      {workLabel}
                     </button>
                     <button className="btn small primary" disabled={!progress.complete} onClick={() => completeConstructionIfReady(project.id)}>
                       Complete
