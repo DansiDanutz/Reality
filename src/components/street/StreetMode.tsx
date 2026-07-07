@@ -3,6 +3,8 @@ import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
 import { playAmbientOneShot, playFootstep, playThud, startAmbience, stopAmbience } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
+import { loadStreetScene } from './loadStreetMode'
+import { streetAnchorFor } from './streetAnchor'
 import { fetchWeather, shouldSnow } from './weather'
 import type { StreetMarker, StreetSceneHandle } from './streetScene'
 
@@ -92,8 +94,7 @@ export default function StreetMode() {
   }, [])
 
   const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
-  const home = assets.find((a) => a.kind === 'home') ?? assets[0]
-  const anchor = home ?? (citizen?.spawnLat !== undefined ? { lat: citizen.spawnLat, lng: citizen.spawnLng! } : null)
+  const anchor = streetAnchorFor(citizen, assets)
 
   useEffect(() => {
     if (!containerRef.current || !anchor) return
@@ -102,7 +103,7 @@ export default function StreetMode() {
     // Real weather at the street's location (Rule #1): rain renders any time;
     // snow only in the real winter hemisphere. Fire-and-forget — defaults clear.
     const month = new Date().getMonth() + 1
-    void Promise.all([fetchWeather(anchor.lat, anchor.lng), import('./streetScene')])
+    void Promise.all([fetchWeather(anchor.lat, anchor.lng), loadStreetScene()])
       .then(([rawWeather, { createStreetScene }]) => {
         if (disposed) return
         const weather = shouldSnow(rawWeather, month, anchor.lat)
