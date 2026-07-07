@@ -44,6 +44,7 @@ import {
   DAILY_COMPLETE_BONUS,
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
+import { clientRewardGrant } from '../game/clientRewardFaucets'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
@@ -994,10 +995,11 @@ export const useGame = create<GameState>()(
             ? (Math.random() < 0.05 ? pickFirstLuckyMoment() : null)
             : rollLuckyMoment()
           if (lucky) {
-            const prog = applyXp(level, xp, lucky.xp)
+            const grant = clientRewardGrant('lucky_moment', { cash: lucky.money, xp: lucky.xp })
+            const prog = applyXp(level, xp, grant.xp)
             level = prog.level
             xp = prog.xp
-            money += lucky.money
+            money += grant.cash
             luckyMomentsSeen = luckyMomentsSeen + 1
             if (luckyMomentsSeen === 1) track('first_lucky')
             if (!luckyMomentsSeenIds.includes(lucky.id)) {
@@ -1005,8 +1007,8 @@ export const useGame = create<GameState>()(
             }
             const icon = RARITY_META[lucky.rarity].icon
             const label = RARITY_META[lucky.rarity].label.toUpperCase()
-            toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(lucky.money)}, +${lucky.xp} XP)`, lucky.rarity === 'legendary' ? 'legendary' : 'lucky')
-            log = note(log, `${label}: ${lucky.text} Found ${formatMoney(lucky.money)} and gained ${lucky.xp} XP.`)
+            toasts = withToast(toasts, `${icon} ${label}! ${lucky.text} (+${formatMoney(grant.cash)}, +${grant.xp} XP)`, lucky.rarity === 'legendary' ? 'legendary' : 'lucky')
+            log = note(log, `${label}: ${lucky.text} Found ${formatMoney(grant.cash)} and gained ${grant.xp} XP.`)
             // Legendary jackpots earn a full celebration overlay — they're
             // once-in-a-lifetime events that deserve more than a toast.
             if (lucky.rarity === 'legendary') {
@@ -1014,7 +1016,7 @@ export const useGame = create<GameState>()(
                 icon: '🌟',
                 title: 'LEGENDARY!',
                 detail: lucky.text,
-                reward: `+${formatMoney(lucky.money)} · +${lucky.xp} XP`,
+                reward: `+${formatMoney(grant.cash)} · +${grant.xp} XP`,
                 tone: 'legendary',
               })
             }
@@ -1045,10 +1047,11 @@ export const useGame = create<GameState>()(
           const earnedIds = newlyEarned.map((a) => a.id)
           const totalXp = newlyEarned.reduce((sum, a) => sum + a.xp, 0)
           const totalBounty = newlyEarned.reduce((sum, a) => sum + a.bounty, 0)
-          const prog = applyXp(level, xp, totalXp)
+          const grant = clientRewardGrant('achievement_bounty', { cash: totalBounty, xp: totalXp })
+          const prog = applyXp(level, xp, grant.xp)
           level = prog.level
           xp = prog.xp
-          money += totalBounty
+          money += grant.cash
           for (const a of newlyEarned) {
             toasts = withToast(toasts, `🏆 ${a.title} — +${a.xp} XP, ${formatMoney(a.bounty)}`, 'achieve')
             log = note(log, `🏆 Earned "${a.title}" — ${a.detail} (+${formatMoney(a.bounty)}, +${a.xp} XP).`)
@@ -1091,13 +1094,14 @@ export const useGame = create<GameState>()(
           }
           // Day 1 (spawn day) and grace-day holds pay nothing and stay quiet.
           if (streakOut.advanced && (streakOut.cash > 0 || streakOut.xp > 0)) {
-            const prog = applyXp(level, xp, streakOut.xp)
+            const grant = clientRewardGrant('streak', { cash: streakOut.cash, xp: streakOut.xp })
+            const prog = applyXp(level, xp, grant.xp)
             level = prog.level
             xp = prog.xp
-            money += streakOut.cash
+            money += grant.cash
             const label = streakLabel(streakOut.length)
-            toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(streakOut.cash)}, +${streakOut.xp} XP`, 'streak')
-            log = note(log, `🔥 Day ${streakOut.length} of your streak — the world rewards consistency. Claimed ${formatMoney(streakOut.cash)} and ${streakOut.xp} XP.`)
+            toasts = withToast(toasts, `🔥 ${label}! +${formatMoney(grant.cash)}, +${grant.xp} XP`, 'streak')
+            log = note(log, `🔥 Day ${streakOut.length} of your streak — the world rewards consistency. Claimed ${formatMoney(grant.cash)} and ${grant.xp} XP.`)
           } else if (streakOut.reset) {
             // A reset is worth surfacing — but framed as a fresh start, not a
             // loss. Returning players should feel welcomed, not punished (the
@@ -1217,28 +1221,30 @@ export const useGame = create<GameState>()(
               toasts = withToast(toasts, `✅ Daily: ${c.label} complete! +${formatMoney(r.cash)}, +${r.xp} XP`, 'ok')
               log = note(log, `Daily challenge complete: ${c.label} (+${formatMoney(r.cash)}, +${r.xp} XP).`)
             }
-            const prog = applyXp(level, xp, totalXp)
+            const grant = clientRewardGrant('daily_challenge', { cash: totalCash, xp: totalXp })
+            const prog = applyXp(level, xp, grant.xp)
             level = prog.level
             xp = prog.xp
-            money += totalCash
+            money += grant.cash
             dailyClaimed = [...dailyClaimed, ...newlyComplete.map((c) => c.id)]
             // All-3-complete bonus
             if (!dailyBonusClaimed) {
               const summary = challengeSetSummary(dayChallenges, csnap)
               if (summary.allComplete) {
-                const bprog = applyXp(level, xp, DAILY_COMPLETE_BONUS.xp)
+                const bonusGrant = clientRewardGrant('daily_challenge', DAILY_COMPLETE_BONUS)
+                const bprog = applyXp(level, xp, bonusGrant.xp)
                 level = bprog.level
                 xp = bprog.xp
-                money += DAILY_COMPLETE_BONUS.cash
+                money += bonusGrant.cash
                 dailyBonusClaimed = true
                 track('daily_complete')
-                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
-                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(DAILY_COMPLETE_BONUS.cash)} and ${DAILY_COMPLETE_BONUS.xp} XP.`)
+                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(bonusGrant.cash)}, +${bonusGrant.xp} XP`, 'achieve')
+                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(bonusGrant.cash)} and ${bonusGrant.xp} XP.`)
                 celebrate({
                   icon: '🎯',
                   title: 'All 3 daily challenges!',
                   detail: 'A perfect day. Come back tomorrow for a fresh set.',
-                  reward: `+${formatMoney(DAILY_COMPLETE_BONUS.cash)} · +${DAILY_COMPLETE_BONUS.xp} XP`,
+                  reward: `+${formatMoney(bonusGrant.cash)} · +${bonusGrant.xp} XP`,
                   tone: 'daily',
                 })
               }
@@ -1834,14 +1840,15 @@ export const useGame = create<GameState>()(
           set({ goldenOpportunity: null })
           return
         }
-        const prog = applyXp(s.level, s.xp, opp.xp)
+        const grant = clientRewardGrant('golden_opportunity', { cash: opp.cash, xp: opp.xp })
+        const prog = applyXp(s.level, s.xp, grant.xp)
         set({
           goldenOpportunity: null,
-          money: s.money + opp.cash,
+          money: s.money + grant.cash,
           level: prog.level,
           xp: prog.xp,
-          toasts: withToast(s.toasts, `${opp.icon} Claimed! +${formatMoney(opp.cash)}, +${opp.xp} XP`, 'gold'),
-          log: note(s.log, `Claimed a golden opportunity: ${opp.label} (+${formatMoney(opp.cash)}, +${opp.xp} XP).`),
+          toasts: withToast(s.toasts, `${opp.icon} Claimed! +${formatMoney(grant.cash)}, +${grant.xp} XP`, 'gold'),
+          log: note(s.log, `Claimed a golden opportunity: ${opp.label} (+${formatMoney(grant.cash)}, +${grant.xp} XP).`),
         })
       },
 
@@ -1853,15 +1860,16 @@ export const useGame = create<GameState>()(
           return
         }
         const reward = openBox(tier)
-        const prog = applyXp(s.level, s.xp, reward.xp)
+        const grant = clientRewardGrant('mystery_box', { cash: reward.cash, xp: reward.xp })
+        const prog = applyXp(s.level, s.xp, grant.xp)
         set({
-          money: s.money - def.cost + reward.cash,
+          money: s.money - def.cost + grant.cash,
           level: prog.level,
           xp: prog.xp,
           mysteryBoxesOpened: s.mysteryBoxesOpened + 1,
           lastBoxReward: { ...reward, tier },
-          toasts: withToast(s.toasts, `${reward.icon} ${def.name}: ${reward.label} +${formatMoney(reward.cash)}, +${reward.xp} XP`, reward.rarity === 'jackpot' ? 'legendary' : reward.rarity === 'rare' ? 'lucky' : 'gold'),
-          log: note(s.log, `Opened a ${def.name} (${formatMoney(def.cost)}): ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
+          toasts: withToast(s.toasts, `${reward.icon} ${def.name}: ${reward.label} +${formatMoney(grant.cash)}, +${grant.xp} XP`, reward.rarity === 'jackpot' ? 'legendary' : reward.rarity === 'rare' ? 'lucky' : 'gold'),
+          log: note(s.log, `Opened a ${def.name} (${formatMoney(def.cost)}): ${reward.label} — ${formatMoney(grant.cash)} + ${grant.xp} XP.`),
         })
       },
 
@@ -1875,18 +1883,19 @@ export const useGame = create<GameState>()(
         if (s.achievementsClaimed.includes(achievementId)) return
         const ach = ACHIEVEMENTS.find((a) => a.id === achievementId)
         if (!ach) return
-        const prog = applyXp(s.level, s.xp, ach.xp)
+        const grant = clientRewardGrant('achievement_bounty', { cash: ach.bounty, xp: ach.xp })
+        const prog = applyXp(s.level, s.xp, grant.xp)
         set({
           achievementsClaimed: [...s.achievementsClaimed, achievementId],
           xp: prog.xp,
           level: prog.level,
-          money: s.money + ach.bounty,
-          toasts: withToast(s.toasts, `🏆 ${ach.title} — +${ach.xp} XP, ${formatMoney(ach.bounty)}`, 'gold'),
+          money: s.money + grant.cash,
+          toasts: withToast(s.toasts, `🏆 ${ach.title} — +${grant.xp} XP, ${formatMoney(grant.cash)}`, 'gold'),
           log: note(
             s.log,
             prog.levelsGained > 0
-              ? `Achievement unlocked: ${ach.title} — +${ach.xp} XP, ${formatMoney(ach.bounty)}. Level ${prog.level}!`
-              : `Achievement unlocked: ${ach.title} — +${ach.xp} XP, ${formatMoney(ach.bounty)}.`,
+              ? `Achievement unlocked: ${ach.title} — +${grant.xp} XP, ${formatMoney(grant.cash)}. Level ${prog.level}!`
+              : `Achievement unlocked: ${ach.title} — +${grant.xp} XP, ${formatMoney(grant.cash)}.`,
           ),
         })
       },
