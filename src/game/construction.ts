@@ -248,7 +248,7 @@ export function constructionLaborBreakdown(project: ConstructionProject): {
 function activePaidMinutes(contract: ConstructionWorkerContract, now: number): number {
   if (now <= contract.hiredAt) return 0
   const elapsedMinutes = (Math.min(now, contract.paidUntil) - contract.hiredAt) / 60_000
-  return Math.min(contract.paidMinutes, Math.max(0, elapsedMinutes))
+  return Math.min(contract.paidMinutes, Math.max(0, Math.floor(elapsedMinutes)))
 }
 
 export function advanceConstructionWorkerContracts(
