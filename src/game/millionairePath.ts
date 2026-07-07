@@ -6,6 +6,7 @@ import {
   type Cashflow,
   type Reach,
 } from './engine'
+import { educationWageBonusFrom, type EducationProgress } from './education'
 import type { Needs, PlacedAsset } from './types'
 
 export type MillionaireStage =
@@ -38,6 +39,7 @@ export interface MillionairePathInput {
   jobWage: number
   shiftsWorked: number
   educationActions: number
+  educationProgress?: EducationProgress[]
   communityRespect: number
   communityTrust: number
 }
@@ -145,7 +147,7 @@ export function millionairePathOf(input: MillionairePathInput): MillionairePath 
     hasHome,
     wage: input.jobWage,
     shiftsWorked: input.shiftsWorked,
-    wageBonus: wageBonusFrom(input.inventory),
+    wageBonus: wageBonusFrom(input.inventory) + educationWageBonusFrom(input.educationProgress ?? []),
   })
   const millionaireGap = Math.max(0, MILLIONAIRE_NET_WORTH - netWorth)
   const stage = stageOf(input, netWorth, cashflow)
