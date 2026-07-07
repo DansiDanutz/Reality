@@ -145,56 +145,75 @@ export default function ConstructionPanel() {
         )}
       </section>
 
-      {activeProject && activeLabor && (
-        <section className="founder-section workers-hall">
-          <div className="founder-section-head">
-            <h3 className="founder-section-title">Workers Hall</h3>
-            <span className="item-desc">AI workers first · real workers later</span>
-          </div>
-          <div className="labor-ledger">
-            <div className="stat">
-              <span className="stat-label">player labor</span>
-              <span className="stat-value mono">{formatMinutes(activeLabor.playerMinutes)}</span>
+      <section className="founder-section workers-hall">
+        <div className="founder-section-head">
+          <h3 className="founder-section-title">Workers Hall</h3>
+          <span className="item-desc">AI workers first · real workers later</span>
+        </div>
+        {activeProject && activeLabor ? (
+          <>
+            <div className="labor-ledger">
+              <div className="stat">
+                <span className="stat-label">player labor</span>
+                <span className="stat-value mono">{formatMinutes(activeLabor.playerMinutes)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">hired labor</span>
+                <span className="stat-value mono">{formatMinutes(activeLabor.hiredMinutes)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">remaining</span>
+                <span className="stat-value mono gold">{formatMinutes(activeLabor.remainingMinutes)}</span>
+              </div>
             </div>
-            <div className="stat">
-              <span className="stat-label">hired labor</span>
-              <span className="stat-value mono">{formatMinutes(activeLabor.hiredMinutes)}</span>
+            <div className="worker-grid">
+              {CONSTRUCTION_WORKERS.map((worker) => {
+                const estimate = estimateConstructionWorkerHire(activeProject, worker.id, 1)
+                const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
+                const blocker = estimate?.blockedBy === 'materials'
+                  ? 'deposit materials first'
+                  : estimate?.blockedBy === 'permit'
+                    ? 'pay permit first'
+                    : estimate?.blockedBy === 'labor'
+                      ? 'labor complete'
+                      : estimate && money < estimate.cost
+                        ? `need ${formatMoney(estimate.cost)}`
+                        : null
+                return (
+                  <article className="worker-card" key={worker.id}>
+                    <div className="worker-card-head">
+                      <strong>{worker.name}</strong>
+                      <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
+                    </div>
+                    <p className="item-desc">{worker.description}</p>
+                    <span className="item-desc mono">1h hire = {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} labor · max {worker.maxHours}h/day</span>
+                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, 1)}>
+                      {blocker ?? `Hire 1h · ${formatMoney(worker.ratePerHour)}`}
+                    </button>
+                  </article>
+                )
+              })}
             </div>
-            <div className="stat">
-              <span className="stat-label">remaining</span>
-              <span className="stat-value mono gold">{formatMinutes(activeLabor.remainingMinutes)}</span>
-            </div>
-          </div>
-          <div className="worker-grid">
-            {CONSTRUCTION_WORKERS.map((worker) => {
-              const estimate = estimateConstructionWorkerHire(activeProject, worker.id, 1)
-              const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
-              const blocker = estimate?.blockedBy === 'materials'
-                ? 'deposit materials first'
-                : estimate?.blockedBy === 'permit'
-                  ? 'pay permit first'
-                  : estimate?.blockedBy === 'labor'
-                    ? 'labor complete'
-                    : estimate && money < estimate.cost
-                      ? `need ${formatMoney(estimate.cost)}`
-                      : null
-              return (
+          </>
+        ) : (
+          <>
+            <p className="panel-sub">The hall is open on the map. Place or select a construction site before hiring workers by the hour.</p>
+            <div className="worker-grid">
+              {CONSTRUCTION_WORKERS.map((worker) => (
                 <article className="worker-card" key={worker.id}>
                   <div className="worker-card-head">
                     <strong>{worker.name}</strong>
                     <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
                   </div>
                   <p className="item-desc">{worker.description}</p>
-                  <span className="item-desc mono">1h hire = {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} labor · max {worker.maxHours}h/day</span>
-                  <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, 1)}>
-                    {blocker ?? `Hire 1h · ${formatMoney(worker.ratePerHour)}`}
-                  </button>
+                  <span className="item-desc mono">max {worker.maxHours}h/day · {worker.laborMultiplier}x labor</span>
+                  <button className="btn small ghost" disabled>select a build</button>
                 </article>
-              )
-            })}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="founder-section">
         <div className="founder-section-head">
