@@ -15,6 +15,11 @@ const snap = (over: Partial<DailyChallengeSnapshot> = {}): DailyChallengeSnapsho
   earnedToday: 0,
   sleptToday: 0,
   boughtToday: 0,
+  studiedToday: 0,
+  gatheredToday: 0,
+  constructionMinutesToday: 0,
+  communityToday: 0,
+  businessDevelopmentMinutesToday: 0,
   ...over,
 })
 
@@ -78,6 +83,11 @@ describe('challengeProgress — tracking', () => {
     expect(metrics.has('earnedToday')).toBe(true)
     expect(metrics.has('sleptToday')).toBe(true)
     expect(metrics.has('boughtToday')).toBe(true)
+    expect(metrics.has('studiedToday')).toBe(true)
+    expect(metrics.has('gatheredToday')).toBe(true)
+    expect(metrics.has('constructionMinutesToday')).toBe(true)
+    expect(metrics.has('communityToday')).toBe(true)
+    expect(metrics.has('businessDevelopmentMinutesToday')).toBe(true)
   })
 })
 
@@ -102,6 +112,11 @@ describe('challengeSetSummary — completion', () => {
       earnedToday: 5000,
       sleptToday: 3,
       boughtToday: 5,
+      studiedToday: 5,
+      gatheredToday: 5,
+      constructionMinutesToday: 180,
+      communityToday: 2,
+      businessDevelopmentMinutesToday: 180,
     })
     const summary = challengeSetSummary(defs, fullSnap)
     expect(summary.done).toBe(3)
@@ -136,7 +151,18 @@ describe('challenge rewards — balance', () => {
     for (const c of CHALLENGE_POOL) {
       expect(c.target, c.id).toBeGreaterThan(0)
       // metric must be a key of the snapshot
-      expect(['mealsToday', 'shiftsToday', 'earnedToday', 'sleptToday', 'boughtToday']).toContain(c.metric)
+      expect([
+        'mealsToday',
+        'shiftsToday',
+        'earnedToday',
+        'sleptToday',
+        'boughtToday',
+        'studiedToday',
+        'gatheredToday',
+        'constructionMinutesToday',
+        'communityToday',
+        'businessDevelopmentMinutesToday',
+      ]).toContain(c.metric)
     }
   })
 

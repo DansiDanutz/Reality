@@ -75,6 +75,19 @@ describe('migrateSave - backfills every field added after v1', () => {
     expect(out.courierLastDay).toBe(0)
     expect(out.courierOpenedDays).toEqual([])
     expect(out.completedCourierDays).toEqual([])
+    expect(out.dailyCounters).toMatchObject({
+      mealsToday: 0,
+      shiftsToday: 0,
+      earnedToday: 0,
+      sleptToday: 0,
+      boughtToday: 0,
+      studiedToday: 0,
+      gatheredToday: 0,
+      constructionMinutesToday: 0,
+      communityToday: 0,
+      businessDevelopmentMinutesToday: 0,
+      day: 0,
+    })
   })
 
   test('pre-existing fields are preserved', () => {
@@ -201,6 +214,34 @@ describe('migrateSave - backfills every field added after v1', () => {
       reliableShifts: 0,
       workRespectDay: expect.any(Number),
       workRespectToday: 0,
+    })
+  })
+
+  test('old daily counters gain roadmap action fields without losing progress', () => {
+    const out = migrateSave({
+      ...v1Save,
+      dailyCounters: {
+        mealsToday: 1.8,
+        shiftsToday: 1,
+        earnedToday: 125.5,
+        sleptToday: 1,
+        boughtToday: 2,
+        day: 20_000.9,
+      },
+    })
+
+    expect(out.dailyCounters).toEqual({
+      mealsToday: 1,
+      shiftsToday: 1,
+      earnedToday: 125,
+      sleptToday: 1,
+      boughtToday: 2,
+      studiedToday: 0,
+      gatheredToday: 0,
+      constructionMinutesToday: 0,
+      communityToday: 0,
+      businessDevelopmentMinutesToday: 0,
+      day: 20_000,
     })
   })
 
