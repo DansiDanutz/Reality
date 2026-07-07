@@ -34,6 +34,7 @@ function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
     communityActionsThisWeek: 0,
     communityActionsToday: 0,
     communityRespect: 0,
+    communityFriendship: 0,
     communityTrust: 0,
     ...overrides,
   }
@@ -591,6 +592,27 @@ describe('planLifeDay', () => {
     expect(plan.millionairePath.nextAction).toBe('buy-business')
     expect(plan.millionaireTask.id).toBe('build-first-business')
     expect(plan.agenda.map((item) => item.id)).toContain('build-first-business')
+  })
+
+  test('passes friendship into the millionaire opportunity forecast', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 12,
+      money: 50_000,
+      jobId: 'barista',
+      shiftsWorked: 4,
+      educationActions: 1,
+      communityActionsThisWeek: 1,
+      communityRespect: 3,
+      communityFriendship: 8,
+      communityTrust: 3,
+    }))
+
+    expect(plan.millionairePath.stage).toBe('reliable')
+    expect(plan.millionairePath.communityAdvantage).toMatchObject({
+      tier: 'trusted',
+      dailyOpportunityValue: 22,
+    })
+    expect(plan.millionairePath.nextActionDetail).toContain('Local trust adds about $22/day')
   })
 
   test('shows the first business as a cash-gated construction shell before it exists', () => {

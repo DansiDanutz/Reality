@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE } from './catalog'
 import { cashflowOf, netWorthOf } from './engine'
-import { MILLIONAIRE_STAGE_ORDER, millionairePathOf, millionaireStageProgress, type MillionairePathInput } from './millionairePath'
+import { MILLIONAIRE_STAGE_ORDER, communityAdvantageOf, millionairePathOf, millionaireStageProgress, type MillionairePathInput } from './millionairePath'
 import type { Needs, PlacedAsset } from './types'
 
 const goodNeeds: Needs = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }
@@ -48,6 +48,7 @@ function snap(overrides: Partial<MillionairePathInput> = {}): MillionairePathInp
     shiftsWorked: 0,
     educationActions: 0,
     communityRespect: 0,
+    communityFriendship: 0,
     communityTrust: 0,
     ...overrides,
   }
@@ -114,6 +115,64 @@ describe('millionairePathOf', () => {
     expect(withoutHome.nextAction).toBe('build-home')
     expect(withHome.nextAction).toBe('buy-business')
     expect(withHome.cashflow.livingCostPerDay).toBeLessThan(withoutHome.cashflow.livingCostPerDay)
+  })
+
+  test('friendship and trust create practical opportunity without changing cashflow truth', () => {
+    const alone = millionairePathOf(snap({
+      money: 50_000,
+      level: 2,
+      educationActions: 1,
+      shiftsWorked: 8,
+    }))
+    const backed = millionairePathOf(snap({
+      money: 50_000,
+      level: 2,
+      educationActions: 1,
+      shiftsWorked: 8,
+      communityRespect: 8,
+      communityFriendship: 12,
+      communityTrust: 8,
+    }))
+
+    expect(backed.stage).toBe('reliable')
+    expect(backed.cashflow).toEqual(alone.cashflow)
+    expect(backed.communityAdvantage).toMatchObject({
+      tier: 'backed',
+      dailyOpportunityValue: 45,
+      weeklyHelperMinutes: 180,
+    })
+    expect(backed.daysToMillionaire!).toBeLessThan(alone.daysToMillionaire!)
+    expect(backed.nextActionDetail).toContain('Community backing adds about $45/day')
+  })
+
+  test('friendship alone can move the life path into reliable respect', () => {
+    const path = millionairePathOf(snap({
+      communityFriendship: 6,
+    }))
+
+    expect(path.stage).toBe('reliable')
+    expect(path.communityAdvantage.tier).toBe('known')
+  })
+
+  test('community advantage tiers combine reliable work and neighbor relationships', () => {
+    expect(communityAdvantageOf({
+      communityRespect: 0,
+      communityFriendship: 0,
+      communityTrust: 0,
+      shiftsWorked: 0,
+    })).toMatchObject({ tier: 'alone', dailyOpportunityValue: 0 })
+    expect(communityAdvantageOf({
+      communityRespect: 2,
+      communityFriendship: 2,
+      communityTrust: 1,
+      shiftsWorked: 1,
+    })).toMatchObject({ tier: 'known', dailyOpportunityValue: 8 })
+    expect(communityAdvantageOf({
+      communityRespect: 5,
+      communityFriendship: 5,
+      communityTrust: 4,
+      shiftsWorked: 4,
+    })).toMatchObject({ tier: 'trusted', dailyOpportunityValue: 22 })
   })
 
   test('business ownership advances stages and uses passive cashflow in the forecast', () => {

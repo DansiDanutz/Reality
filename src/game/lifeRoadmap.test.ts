@@ -29,6 +29,7 @@ function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
     communityActionsThisWeek: 0,
     communityActionsToday: 0,
     communityRespect: 0,
+    communityFriendship: 0,
     communityTrust: 0,
     ...overrides,
   }

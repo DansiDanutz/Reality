@@ -69,7 +69,19 @@ export interface MillionairePathInput {
   educationActions: number
   educationProgress?: EducationProgress[]
   communityRespect: number
+  communityFriendship: number
   communityTrust: number
+}
+
+export type MillionaireCommunityTier = 'alone' | 'known' | 'trusted' | 'backed'
+
+export interface MillionaireCommunityAdvantage {
+  score: number
+  tier: MillionaireCommunityTier
+  label: string
+  dailyOpportunityValue: number
+  weeklyHelperMinutes: number
+  detail: string | null
 }
 
 export interface MillionairePath {
@@ -77,6 +89,7 @@ export interface MillionairePath {
   netWorth: number
   millionaireGap: number
   cashflow: Cashflow
+  communityAdvantage: MillionaireCommunityAdvantage
   daysToMillionaire: number | null
   reach: Reach
   nextAction: MillionaireNextAction
@@ -114,13 +127,64 @@ function stageOf(input: MillionairePathInput, netWorth: number, cashflow: Cashfl
   if (netWorth >= MILLIONAIRE_NET_WORTH) return 'millionaire'
   if (businesses >= 2 || cashflow.passivePerDay >= cashflow.livingCostPerDay + cashflow.upkeepPerDay) return 'employer'
   if (hasHome || businesses >= 1) return 'owner'
-  if (input.shiftsWorked >= 5 || input.communityRespect >= 5 || input.communityTrust >= 5) return 'reliable'
+  if (input.shiftsWorked >= 5 || input.communityRespect >= 5 || input.communityFriendship >= 6 || input.communityTrust >= 5) return 'reliable'
   if (input.level >= 2 || input.educationActions > 0) return 'skilled'
   if (input.jobWage > 0 && cashflow.netPerDay > 0 && input.money >= CASH_FLOOR) return 'stable'
   return 'survival'
 }
 
-function nextActionOf(input: MillionairePathInput, stage: MillionaireStage, cashflow: Cashflow): {
+export function communityAdvantageOf(input: Pick<MillionairePathInput, 'communityRespect' | 'communityFriendship' | 'communityTrust' | 'shiftsWorked'>): MillionaireCommunityAdvantage {
+  const respect = Math.max(0, Math.floor(input.communityRespect))
+  const friendship = Math.max(0, Math.floor(input.communityFriendship))
+  const trust = Math.max(0, Math.floor(input.communityTrust))
+  const reliability = Math.min(20, Math.max(0, Math.floor(input.shiftsWorked)))
+  const score = respect * 2 + friendship + trust * 2 + reliability
+
+  if (score >= 45) {
+    return {
+      score,
+      tier: 'backed',
+      label: 'Community backed',
+      dailyOpportunityValue: 45,
+      weeklyHelperMinutes: 180,
+      detail: 'Community backing adds about $45/day of practical advantage through referrals, borrowed tools, and trusted help.',
+    }
+  }
+  if (score >= 22) {
+    return {
+      score,
+      tier: 'trusted',
+      label: 'Trusted local',
+      dailyOpportunityValue: 22,
+      weeklyHelperMinutes: 90,
+      detail: 'Local trust adds about $22/day of practical advantage through better referrals and shared help.',
+    }
+  }
+  if (score >= 6) {
+    return {
+      score,
+      tier: 'known',
+      label: 'Known neighbor',
+      dailyOpportunityValue: 8,
+      weeklyHelperMinutes: 30,
+      detail: 'Being known locally adds about $8/day of practical advantage through small favors and tips.',
+    }
+  }
+  return {
+    score,
+    tier: 'alone',
+    label: 'No backing yet',
+    dailyOpportunityValue: 0,
+    weeklyHelperMinutes: 0,
+    detail: null,
+  }
+}
+
+function withCommunityAdvantage(detail: string, advantage: MillionaireCommunityAdvantage): string {
+  return advantage.detail ? `${detail} ${advantage.detail}` : detail
+}
+
+function nextActionOf(input: MillionairePathInput, stage: MillionaireStage, cashflow: Cashflow, communityAdvantage: MillionaireCommunityAdvantage): {
   nextAction: MillionaireNextAction
   nextActionDetail: string
 } {
@@ -159,24 +223,24 @@ function nextActionOf(input: MillionairePathInput, stage: MillionaireStage, cash
   if (!hasHome) {
     return {
       nextAction: 'build-home',
-      nextActionDetail: 'Build a home to lower living cost and stabilize daily life.',
+      nextActionDetail: withCommunityAdvantage('Build a home to lower living cost and stabilize daily life.', communityAdvantage),
     }
   }
   if (businesses <= 0) {
     return {
       nextAction: 'buy-business',
-      nextActionDetail: 'Turn stable home life into the first earning building.',
+      nextActionDetail: withCommunityAdvantage('Turn stable home life into the first earning building.', communityAdvantage),
     }
   }
   if (businesses === 1) {
     return {
       nextAction: 'upgrade-business',
-      nextActionDetail: 'Develop the inside of the first business before expanding.',
+      nextActionDetail: withCommunityAdvantage('Develop the inside of the first business before expanding.', communityAdvantage),
     }
   }
   return {
     nextAction: 'reinvest',
-    nextActionDetail: 'Reinvest surplus into better businesses until $1M is normal math.',
+    nextActionDetail: withCommunityAdvantage('Reinvest surplus into better businesses until $1M is normal math.', communityAdvantage),
   }
 }
 
@@ -193,17 +257,20 @@ export function millionairePathOf(input: MillionairePathInput): MillionairePath 
   })
   const millionaireGap = Math.max(0, MILLIONAIRE_NET_WORTH - netWorth)
   const stage = stageOf(input, netWorth, cashflow)
-  const next = nextActionOf(input, stage, cashflow)
+  const communityAdvantage = communityAdvantageOf(input)
+  const next = nextActionOf(input, stage, cashflow, communityAdvantage)
+  const netProgressPerDay = cashflow.netPerDay + communityAdvantage.dailyOpportunityValue
 
   return {
     stage,
     netWorth,
     millionaireGap,
     cashflow,
+    communityAdvantage,
     daysToMillionaire: millionaireGap <= 0
       ? 0
-      : cashflow.netPerDay > 0
-        ? Math.ceil(millionaireGap / cashflow.netPerDay)
+      : netProgressPerDay > 0
+        ? Math.ceil(millionaireGap / netProgressPerDay)
         : null,
     reach: reachOf(input.level, businessCount, hasHome, netWorth),
     ...next,
