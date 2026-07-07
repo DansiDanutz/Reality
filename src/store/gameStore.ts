@@ -25,7 +25,7 @@ import {
   type Activity,
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
 import { zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
@@ -84,6 +84,7 @@ import {
   advanceConstructionWorkerContracts,
   payPermit,
   addConstructionLabor,
+  constructionProgress,
   totalResourceCount,
 } from '../game/construction'
 import {
@@ -106,6 +107,7 @@ import {
   challengeSetSummary,
   CHALLENGE_REWARD,
   DAILY_COMPLETE_BONUS,
+  type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { track } from '../lib/analytics'
@@ -158,6 +160,57 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
     communityToday: Math.max(0, Math.floor(Number(counters?.communityToday ?? 0))),
     businessDevelopmentMinutesToday: Math.max(0, Math.floor(Number(counters?.businessDevelopmentMinutesToday ?? 0))),
   })
+}
+
+type DailyChallengeContextState = {
+  money: number
+  jobId: string | null
+  shiftsWorked: number
+  inventory: Record<string, number>
+  assets: PlacedAsset[]
+  resourceNodes: ResourceNode[]
+  constructionProjects: ConstructionProject[]
+  businessDevelopmentProjects: BusinessDevelopmentProject[]
+  educationProgress: EducationProgress[]
+  community: CommunityStats
+  dailyCounters: DailyCounters
+}
+
+const CHEAPEST_SHOP_PRICE = Math.max(1, Math.min(...SHOP_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+
+export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyChallengeContext {
+  const job = s.jobId ? jobById(s.jobId) : undefined
+  const wageBonus = wageBonusFrom(s.inventory)
+  const rank = careerRankOf(s.shiftsWorked)
+  const shiftPay = job ? Math.round(job.wage * rank.wageMultiplier * (1 + wageBonus) * SHIFT_HOURS) : 0
+  const advancedEnoughForTwoShifts = Boolean(job) && s.shiftsWorked >= 35
+  const maxShiftsToday = job ? (advancedEnoughForTwoShifts ? 2 : 1) : 0
+  const pendingIncome = s.assets.reduce((sum, asset) => sum + Math.max(0, asset.pendingIncome ?? 0), 0)
+  const activeStudy = s.educationProgress.some((progress) => {
+    if (progress.completedAt !== null) return false
+    const course = educationCourseById(progress.courseId)
+    return Boolean(course && educationRemainingMinutes(course, progress) > 0)
+  })
+  const constructionLaborReady = s.constructionProjects.some((project) => {
+    const progress = constructionProgress(project)
+    return progress.resourcesComplete && progress.permitComplete && !progress.laborComplete
+  })
+  const businessLaborReady = s.businessDevelopmentProjects.some((project) => {
+    const progress = businessDevelopmentProgress(project)
+    return progress.resourcesComplete && progress.budgetComplete && !progress.laborComplete
+  })
+
+  return {
+    ...s.dailyCounters,
+    maxEarnedToday: pendingIncome + shiftPay * maxShiftsToday,
+    maxShiftsToday: Math.max(s.dailyCounters.shiftsToday, maxShiftsToday),
+    maxPurchasesToday: Math.max(s.dailyCounters.boughtToday, Math.floor(s.money / CHEAPEST_SHOP_PRICE)),
+    hasStudyBlock: activeStudy,
+    canGatherResources: s.resourceNodes.length > 0,
+    canDoConstructionLabor: constructionLaborReady,
+    canHelpCommunity: canStartCommunityAction(s.community),
+    canDevelopBusiness: businessLaborReady,
+  }
 }
 
 /**
@@ -1672,7 +1725,6 @@ export const useGame = create<GameState>()(
         }
         // Auto-grant any newly-complete challenges (idempotent via dailyClaimed).
         if (s.citizen) {
-          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay)
           const csnap: DailyChallengeSnapshot = {
             mealsToday: dailyCounters.mealsToday,
             shiftsToday: dailyCounters.shiftsToday,
@@ -1685,6 +1737,19 @@ export const useGame = create<GameState>()(
             communityToday: dailyCounters.communityToday,
             businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
           }
+          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, dailyChallengeContextOf({
+            money,
+            jobId: s.jobId,
+            shiftsWorked: s.shiftsWorked,
+            inventory: s.inventory,
+            assets: out.assets,
+            resourceNodes: s.resourceNodes,
+            constructionProjects,
+            businessDevelopmentProjects,
+            educationProgress,
+            community,
+            dailyCounters,
+          }))
           const newlyComplete = dayChallenges.filter((c) => {
             if (dailyClaimed.includes(c.id)) return false
             return challengeProgress(c, csnap).complete

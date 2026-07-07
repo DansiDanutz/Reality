@@ -3,7 +3,7 @@ import { track } from './analytics'
 import { zoneFor } from '../game/clock'
 import { challengesForDay, challengeProgress } from '../game/dailyChallenges'
 import { decideNotifications, markNotified, NOTIFICATION_REASONS, type NotificationLog, type NotificationSnapshot } from '../game/notifications'
-import { msToLocalMidnight, useGame } from '../store/gameStore'
+import { dailyChallengeContextOf, msToLocalMidnight, useGame } from '../store/gameStore'
 
 /**
  * Web Notifications — the game reaches OUT to the player.
@@ -148,24 +148,9 @@ function dayIndexOf(now: number, lat?: number, lng?: number): number {
  * because it needs the live store's dailyCounters, which the engine module
  * can't import without a cycle.
  */
-function countDailyDone(s: {
-  citizen: { citizenId?: string } | null
-  dailyCounters: {
-    mealsToday: number
-    shiftsToday: number
-    earnedToday: number
-    sleptToday: number
-    boughtToday: number
-    studiedToday: number
-    gatheredToday: number
-    constructionMinutesToday: number
-    communityToday: number
-    businessDevelopmentMinutesToday: number
-  }
-  dailyClaimed: string[]
-}, todayDay: number): number {
+function countDailyDone(s: ReturnType<typeof useGame.getState>, todayDay: number): number {
   if (!s.citizen) return 0
-  const challenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay)
+  const challenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, dailyChallengeContextOf(s))
   const snap = {
     mealsToday: s.dailyCounters.mealsToday,
     shiftsToday: s.dailyCounters.shiftsToday,
