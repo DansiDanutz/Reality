@@ -313,6 +313,10 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     }
     if (!progress.laborComplete) {
       const labor = businessDevelopmentLaborBreakdown(project)
+      const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
+      if (activeWorkers.length > 0) {
+        return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'panel', panel: 'business' }, 60)
+      }
       const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
       if (helper && labor.remainingMinutes >= 120 && snapshot.money >= helper.ratePerHour + CASH_SAFETY_FLOOR) {
         return task('hire-business-worker-hour', `Hire 1h worker for ${project.businessName}`, 'Keep the interior moving while your own day stays balanced.', 'capital', { kind: 'panel', panel: 'business' }, 5)
