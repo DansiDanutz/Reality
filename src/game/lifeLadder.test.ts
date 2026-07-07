@@ -81,6 +81,20 @@ describe('planLifeDay', () => {
     expect(plan.primary.title).not.toMatch(/\$1,000|\$2,000/)
   })
 
+  test('surfaces community help once weekly survival and build blockers are clear', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 5,
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      communityActionsThisWeek: 0,
+    }))
+
+    expect(plan.primary.id).toBe('help-local-person')
+    expect(plan.primary.value).toBe('community')
+  })
+
   test('routes a house project through materials, permit, then free-time labor', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const gatherPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [project] }))
