@@ -1590,6 +1590,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   cursor: pointer;
 }
 .goals-card-main:focus-visible,
+.goals-card-agenda-item:focus-visible,
 .goals-card-routine-item:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
@@ -1693,14 +1694,30 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   border-top: 1px solid var(--line);
 }
 .goals-card-agenda-item {
+  appearance: none;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
+  width: 100%;
   min-height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text);
+  font: inherit;
   font-size: 11px;
   line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+.goals-card-agenda-item:hover .goals-card-agenda-index {
+  border-color: rgba(125, 216, 255, 0.72);
+  color: var(--text);
+}
+.goals-card-agenda-item:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 .goals-card-agenda-index {
   width: 18px;
