@@ -1,22 +1,9 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { FUNNEL_EVENTS } from './funnelEvents'
 
-// Self-contained (api/ cannot import from src/): keep in sync with src/lib/analytics.ts
-const FUNNEL_EVENTS = new Set([
-  'welcome_seen',
-  'spawn_detected',
-  'citizen_created',
-  'avatar_created',
-  'first_zoom_to_street',
-  'walk_mode_entered',
-  'first_purchase',
-  'first_shift_started',
-  'first_home_placed',
-  'first_business_placed',
-  'first_collect',
-  'd7_return',
-])
+const FUNNEL_EVENT_SET = new Set<string>(FUNNEL_EVENTS)
 
 /**
  * Funnel milestone tracking. One blob per (event, anonymous id), claim-once:
@@ -30,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { event, aid } = (req.body ?? {}) as { event?: string; aid?: string }
-  if (!event || !FUNNEL_EVENTS.has(event) || !/^[0-9a-f-]{36}$/i.test(String(aid ?? ''))) {
+  if (!event || !FUNNEL_EVENT_SET.has(event) || !/^[0-9a-f-]{36}$/i.test(String(aid ?? ''))) {
     res.status(400).json({ ok: false, error: 'Bad event.' })
     return
   }

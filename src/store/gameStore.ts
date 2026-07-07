@@ -39,6 +39,7 @@ import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game
 import {
   addStudyMinutes,
   createEducationProgress,
+  educationActionCount,
   educationCourseById,
   educationCourseForItem,
   educationBusinessLaborMultiplier,
@@ -113,6 +114,7 @@ import {
   type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
+import { millionairePathOf } from '../game/millionairePath'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
@@ -1265,6 +1267,7 @@ export const useGame = create<GameState>()(
         // Territorial progression: celebrate when the citizen's reach grows
         let reachTier = s.reachTier
         // The habit metric: still living this life a week later (Rule of retention)
+        if (now - s.citizen.createdAt >= 24 * 3_600_000) track('d1_return')
         if (now - s.citizen.createdAt >= 7 * 24 * 3_600_000) track('d7_return')
 
         // Weekly milestone celebration — fires once when the citizen crosses
@@ -1840,6 +1843,23 @@ export const useGame = create<GameState>()(
             }
           }
         }
+
+        const ladderStage = millionairePathOf({
+          money,
+          inventory: out.inventory,
+          assets: out.assets,
+          needs,
+          health: out.health,
+          level,
+          jobWage: s.jobId ? jobById(s.jobId)?.wage ?? 0 : 0,
+          shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+          educationActions: educationActionCount(educationProgress),
+          educationProgress,
+          communityRespect: community.respect,
+          communityFriendship: community.friendship,
+          communityTrust: community.trust,
+        }).stage
+        if (ladderStage !== 'survival') track('life_ladder_stage_progress')
 
         set({
           needs,
