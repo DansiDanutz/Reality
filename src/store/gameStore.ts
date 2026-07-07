@@ -36,6 +36,7 @@ import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
+import { rollbackRejectedWorldPlacement, settleWorldPlacementResponse } from '../game/worldPlacementSettlement'
 import {
   challengesForDay,
   challengeProgress,
@@ -1661,12 +1662,13 @@ export const useGame = create<GameState>()(
           pendingIncome: 0,
           placedAtMinute: 0,
         }
+        const optimisticDailyCounters = bumpBoughtToday(s)
         set({
           assets: [...s.assets, asset],
           placing: null,
           // The placeable purchase COMPLETES here (buy was refundable until
           // placement) — this is where it counts for "Buy N items" challenges.
-          dailyCounters: bumpBoughtToday(s),
+          dailyCounters: optimisticDailyCounters,
           log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
         track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
@@ -1679,6 +1681,31 @@ export const useGame = create<GameState>()(
             kind: asset.kind,
             lat: asset.lat,
             lng: asset.lng,
+          }).then((response) => {
+            const settlement = settleWorldPlacementResponse(response)
+            if (settlement.kind !== 'rejected') return
+
+            const latest = get()
+            const rollback = rollbackRejectedWorldPlacement({
+              assets: latest.assets,
+              placing: latest.placing,
+              item,
+              assetId: asset.id,
+              dailyCounters: latest.dailyCounters,
+              previousDailyCounters: s.dailyCounters,
+              optimisticDailyCounters,
+              rejection: settlement,
+            })
+            if (!rollback.changed) return
+
+            set({
+              assets: rollback.assets,
+              placing: rollback.placing,
+              money: latest.money + rollback.refund,
+              dailyCounters: rollback.dailyCounters,
+              toasts: withToast(latest.toasts, rollback.message, 'blocked'),
+              log: note(latest.log, `${item.name} was not placed: ${rollback.message}`),
+            })
           })
         }
       },
