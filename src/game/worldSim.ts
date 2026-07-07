@@ -944,7 +944,9 @@ export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWo
   ) {
     return { ok: false, area, error: 'invalid_location' }
   }
-  if (claim.radiusKm < MIN_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_small' }
+  if (!Number.isFinite(claim.radiusKm) || claim.radiusKm < MIN_FOUNDER_AREA_RADIUS_KM) {
+    return { ok: false, area, error: 'area_too_small' }
+  }
   if (claim.radiusKm > MAX_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_large' }
 
   area.claim = { ...claim, label }
