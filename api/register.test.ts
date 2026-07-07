@@ -105,6 +105,28 @@ describe('register API Telegram identity bridge', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('rejects malformed Telegram initData fields before registration storage writes', async () => {
+    for (const telegramInitData of [{ auth_date: String(NOW_SECONDS) }, '   ']) {
+      vi.mocked(list).mockReset()
+      vi.mocked(put).mockClear()
+      const res = responseRecorder()
+
+      await handler({
+        method: 'POST',
+        body: { name: 'David', telegramInitData },
+      } as never, res as never)
+
+      expect(res.statusCode).toBe(400)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Telegram initData must be a signed Mini App string.',
+        code: 'invalid_telegram_init_data',
+      })
+      expect(list).not.toHaveBeenCalled()
+      expect(put).not.toHaveBeenCalled()
+    }
+  })
+
   test('keeps non-Telegram registration available', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([]))
