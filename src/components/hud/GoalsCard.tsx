@@ -262,11 +262,21 @@ export default function GoalsCard() {
     ? (
         <span className="goals-card-agenda">
           {agendaPreview.map((item, index) => (
-            <span className="goals-card-agenda-item" key={item.id}>
+            <button
+              type="button"
+              className="goals-card-agenda-item"
+              key={item.id}
+              onClick={(event) => {
+                event.stopPropagation()
+                openRoute(item.route)
+              }}
+              disabled={item.route.kind === 'none'}
+              aria-label={`${item.title}. ${item.detail} ${formatPlanMinutes(item.minutes)}.`}
+            >
               <span className="goals-card-agenda-index">{index + 2}</span>
               <span>{item.title}</span>
               <span className="goals-card-agenda-time">{formatPlanMinutes(item.minutes)}</span>
-            </span>
+            </button>
           ))}
         </span>
       )
@@ -301,8 +311,8 @@ export default function GoalsCard() {
         <span className="goals-card-reason">{lifePlan.primary.detail}</span>
         {activeEta && <span className="goals-card-forecast">{activeEta}</span>}
         <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
-        {agenda}
       </button>
+      {agenda}
       {routine}
     </section>
   )
