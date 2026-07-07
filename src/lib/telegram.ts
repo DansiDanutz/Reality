@@ -93,10 +93,10 @@ export function telegramDisplayName(user: Pick<TelegramMiniAppUser, 'firstName' 
 function isVerifiedTelegramSession(value: Record<string, unknown>): value is Record<string, unknown> & VerifiedTelegramMiniAppSession & { ok: true } {
   const user = value.telegramUser
   return typeof value.realityAccountId === 'string' &&
-    value.realityAccountId.startsWith('telegram:') &&
     Number.isFinite(value.authDate) &&
     isRecord(user) &&
     typeof user.id === 'string' &&
+    value.realityAccountId === `telegram:${user.id}` &&
     typeof user.firstName === 'string'
 }
 

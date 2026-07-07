@@ -66,6 +66,24 @@ describe('Telegram Mini App client bridge', () => {
     })
   })
 
+  test('rejects verified responses with mismatched Reality account ids', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        ...verifiedSession(),
+        realityAccountId: 'telegram:777',
+      }),
+    }))
+
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_session',
+      error: 'Telegram session could not be verified.',
+      code: undefined,
+    })
+  })
+
   test('maps a verified Telegram session onto a local citizen', () => {
     const citizen: Citizen = {
       name: 'David',
