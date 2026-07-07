@@ -321,5 +321,28 @@ describe('constructionDayForecast', () => {
     expect(forecast.totalGatherMinutes).toBe(99)
     expect(forecast.playerOnlyDaysAtOneHour).toBe(8)
     expect(forecast.playerOnlyDaysAtTwoHours).toBe(4)
+    expect(forecast.helperTwoHourDays).toBe(3)
+    expect(forecast.helperTwoHourLaborMinutes).toBe(120)
+    expect(forecast.helperTwoHourCost).toBe(32)
+    expect(forecast.helperTwoHourAffordableToday).toBe(false)
+    expect(forecast.helperTwoHourCashNeeded).toBe(132)
+  })
+
+  test('shows when a 2h helper plan is safe above the survival cash floor', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 1, 1, 1),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 120,
+    }
+
+    const forecast = constructionDayForecast(project, freshResources(), 500)
+
+    expect(forecast.remainingLaborMinutes).toBe(360)
+    expect(forecast.playerOnlyDaysAtOneHour).toBe(6)
+    expect(forecast.helperTwoHourDays).toBe(2)
+    expect(forecast.totalGatherMinutes).toBe(0)
+    expect(forecast.helperTwoHourAffordableToday).toBe(true)
+    expect(forecast.helperTwoHourCashNeeded).toBe(0)
   })
 })
