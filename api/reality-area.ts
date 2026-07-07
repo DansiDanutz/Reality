@@ -1043,6 +1043,7 @@ type RefreshAreaIntentError = 'unsupported_intent' | 'client_controlled_server_f
 type ApplyRefreshAreaError =
   | RefreshAreaIntentError
   | 'area_not_claimed'
+  | 'area_load_unavailable'
 
 type ServerClockTickAreasIntent =
   | { ok: true; limit: number; pages: number; cursor?: string }
@@ -4763,7 +4764,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    const existing = await readAreaState(citizen.citizenId)
+    let refreshAreaIntent: RefreshAreaIntent | null = null
+    if (req.method === 'POST' && intentType === 'refreshArea') {
+      const intent = normalizeRefreshAreaIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(refreshAreaStatus(intent.error)).json({
+          ok: false,
+          error: refreshAreaMessage(intent.error),
+          code: intent.error,
+          state: null,
+        })
+        return
+      }
+      refreshAreaIntent = intent
+    }
+
+    let existing: FounderAreaState | null
+    try {
+      existing = await readAreaState(citizen.citizenId)
+    } catch (error) {
+      if (req.method === 'POST' && intentType === 'refreshArea') {
+        res.status(refreshAreaStatus('area_load_unavailable')).json({
+          ok: false,
+          error: refreshAreaMessage('area_load_unavailable'),
+          code: 'area_load_unavailable',
+          state: null,
+        })
+        return
+      }
+      throw error
+    }
     if (req.method === 'GET') {
       const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date()) : null
       res.status(200).json({ ok: true, ...areaPayload(state), founderNumber: citizen.founderNumber })
@@ -4951,7 +4981,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'refreshArea') {
-      const intent = normalizeRefreshAreaIntent(rawIntent)
+      const intent = refreshAreaIntent ?? normalizeRefreshAreaIntent(rawIntent)
       if (!intent.ok) {
         res.status(refreshAreaStatus(intent.error)).json({
           ok: false,
@@ -6085,6 +6115,7 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
 }
 
 function refreshAreaStatus(error: ApplyRefreshAreaError): number {
+  if (error === 'area_load_unavailable') return 503
   if (error === 'area_not_claimed') return 409
   return error === 'unsupported_intent' ? 400 : 422
 }
@@ -6093,6 +6124,8 @@ function refreshAreaMessage(error: ApplyRefreshAreaError): string {
   switch (error) {
     case 'area_not_claimed':
       return 'Area must be claimed before refreshing the server area.'
+    case 'area_load_unavailable':
+      return 'Founder area is temporarily unavailable for refresh.'
     default:
       return 'Invalid refreshArea intent.'
   }
