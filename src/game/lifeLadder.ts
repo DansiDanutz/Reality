@@ -6,6 +6,7 @@ import {
   type EducationCourseId,
   type EducationProgress,
 } from './education'
+import { SHOP_ITEMS } from './catalog'
 import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentProgress,
@@ -39,6 +40,7 @@ export type LifePlanRoute =
   | { kind: 'work-action'; action: 'shift' }
   | { kind: 'community-action'; actionId: CommunityActionId }
   | { kind: 'education-action'; courseId: EducationCourseId }
+  | { kind: 'consume-action'; itemId: string }
   | { kind: 'survival-action'; action: 'drink-water' | 'sleep' }
   | { kind: 'none' }
 
@@ -134,6 +136,7 @@ export interface LifeLadderSnapshot {
   shiftsWorked: number
   activityKind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | 'business-development' | null
   assets: { kind: AssetKind; incomePerDay: number }[]
+  inventory: Record<string, number>
   resources: ResourceInventory
   constructionProjects: ConstructionProject[]
   businessDevelopmentProjects: BusinessDevelopmentProject[]
@@ -402,8 +405,11 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
+  const ownedFood = lowest === 'hunger' ? strongestOwnedFood(snapshot.inventory) : null
   const bodyRoute: LifePlanRoute = lowest === 'hydration' && snapshot.money >= 1
     ? { kind: 'survival-action', action: 'drink-water' }
+    : ownedFood
+      ? { kind: 'consume-action', itemId: ownedFood.id }
     : { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }
   const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', bodyRoute, 30)
   const activeCourse = activeEducationCourse(snapshot.educationProgress)
@@ -431,6 +437,13 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
     60,
   )
   return [body, school, work, respect, friendship, community, capital]
+}
+
+function strongestOwnedFood(inventory: Record<string, number>): { id: string; hunger: number } | null {
+  return SHOP_ITEMS
+    .filter((item) => !item.durable && (inventory[item.id] ?? 0) > 0 && (item.effects?.hunger ?? 0) > 0)
+    .map((item) => ({ id: item.id, hunger: item.effects?.hunger ?? 0 }))
+    .sort((a, b) => b.hunger - a.hunger)[0] ?? null
 }
 
 function compactAgenda(tasks: (LifePlanTask | null)[]): LifePlanTask[] {
