@@ -168,6 +168,11 @@ export default function GoalsCard() {
     earnedToday: dailyCounters.earnedToday,
     sleptToday: dailyCounters.sleptToday,
     boughtToday: dailyCounters.boughtToday,
+    studiedToday: dailyCounters.studiedToday,
+    gatheredToday: dailyCounters.gatheredToday,
+    constructionMinutesToday: dailyCounters.constructionMinutesToday,
+    communityToday: dailyCounters.communityToday,
+    businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
   }
   const summary = challenges.length > 0 ? challengeSetSummary(challenges, csnap) : null
   // Count a challenge as "done" if claimed OR complete (claim is auto, so this
