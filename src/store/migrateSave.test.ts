@@ -65,11 +65,12 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.streakBest).toBe(0)
     expect(out.luckyMomentsSeen).toBe(0)
     expect(out.luckyMomentsSeenIds).toEqual([])
-    // v7: courier packages + construction resources
+    // v7/v8/v9: courier packages + construction resources + worker/result ledger
     expect(out.resources).toEqual({ wood: 0, stone: 0, metal: 0, glass: 0 })
     expect(out.resourceNodes).toEqual([])
     expect(out.constructionProjects).toEqual([])
     expect(out.placingConstruction).toBeNull()
+    expect(out.selectedMapTarget).toBeNull()
     expect(out.activeCourierPackage).toBeNull()
     expect(out.courierLastDay).toBe(0)
     expect(out.courierOpenedDays).toEqual([])
@@ -120,6 +121,34 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.luckyMomentsSeen).toBe(3)
     expect(out.luckyMomentsSeenIds).toEqual(['lottery', 'found_cash'])
     expect(out.lastIllnessRollAt).toBe(12345)
+  })
+
+  test('old construction projects backfill asset result fields', () => {
+    const out = migrateSave({
+      ...v1Save,
+      constructionProjects: [{
+        id: 'starter-house-old',
+        recipeId: 'starter-house',
+        name: 'Starter House',
+        lat: 45.7,
+        lng: 21.2,
+        required: { wood: 120, stone: 60, metal: 20, glass: 10 },
+        deposited: { wood: 0, stone: 0, metal: 0, glass: 0 },
+        laborRequiredMinutes: 480,
+        laborDoneMinutes: 0,
+        permitFee: 500,
+        permitFeePaid: false,
+        status: 'planned',
+        placedAt: 123,
+      }],
+    })
+
+    expect(out.constructionProjects[0]).toMatchObject({
+      itemId: 'microstudio',
+      resultKind: 'home',
+      incomePerDay: 0,
+      hiredLaborMinutes: 0,
+    })
   })
 
   test('a citizen with an active illness keeps it (not reset to null)', () => {
@@ -186,6 +215,7 @@ describe('migrateSave — completeness guard', () => {
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
       'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
+      'selectedMapTarget',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
     for (const f of tickCriticalFields) {
@@ -208,6 +238,6 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(7)
+    expect(SAVE_VERSION).toBe(9)
   })
 })
