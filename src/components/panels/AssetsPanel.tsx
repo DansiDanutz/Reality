@@ -1,12 +1,30 @@
 import { useState } from 'react'
 import { formatMoney } from '../../game/engine'
-import { businessDevelopmentPlanFor, businessDevelopmentProgress } from '../../game/businessDevelopment'
+import {
+  businessDevelopmentPlanFor,
+  businessDevelopmentProgress,
+} from '../../game/businessDevelopment'
 import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import { constructionLaborBreakdown, constructionProgress, constructionShortfall } from '../../game/construction'
 import { RESOURCE_KINDS, RESOURCE_META } from '../../game/resources'
 import ConfirmDialog from '../hud/ConfirmDialog'
 import type { MapTarget } from '../../store/gameStore'
 import { useGame } from '../../store/gameStore'
+import { businessInteriorAssetView } from './assetsPanelView'
+
+function formatMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h <= 0) return `${m}m`
+  if (m <= 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
+function missingResourceText(missing: Record<string, number>): string {
+  return RESOURCE_KINDS.filter((kind) => missing[kind] > 0)
+    .map((kind) => `${missing[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`)
+    .join(', ')
+}
 
 export default function AssetsPanel() {
   const assets = useGame((s) => s.assets)
@@ -21,6 +39,7 @@ export default function AssetsPanel() {
 
   const pending = assets.reduce((sum, a) => sum + a.pendingIncome, 0)
   const dailyIncome = assets.reduce((sum, a) => sum + a.incomePerDay, 0)
+  const activeProjectCount = projects.length + businessDevelopmentProjects.length
   const showOnMap = (target: MapTarget) => {
     selectMapTarget(target)
     setPanel(null)
@@ -30,7 +49,7 @@ export default function AssetsPanel() {
     <section className="panel" aria-label="Assets">
       <h2 className="panel-title">Your assets</h2>
 
-      {assets.length === 0 && projects.length === 0 ? (
+      {assets.length === 0 && projects.length === 0 && businessDevelopmentProjects.length === 0 ? (
         <p className="panel-sub">
           Nothing on the map yet. Place a Starter House foundation from Build, or buy a home or business in the shop.
         </p>
@@ -42,8 +61,8 @@ export default function AssetsPanel() {
               <span className="stat-value mono gold">+{formatMoney(dailyIncome)}/day</span>
             </div>
             <div className="stat">
-              <span className="stat-label">active builds</span>
-              <span className="stat-value mono">{projects.length}</span>
+              <span className="stat-label">active projects</span>
+              <span className="stat-value mono">{activeProjectCount}</span>
             </div>
             <button className="btn primary" disabled={pending < 1} onClick={collectIncome}>
               Collect {formatMoney(Math.floor(pending))}
@@ -61,9 +80,7 @@ export default function AssetsPanel() {
                   const progress = constructionProgress(project)
                   const missing = constructionShortfall(project)
                   const labor = constructionLaborBreakdown(project)
-                  const missingText = RESOURCE_KINDS.filter((kind) => missing[kind] > 0)
-                    .map((kind) => `${missing[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`)
-                    .join(', ')
+                  const missingText = missingResourceText(missing)
                   return (
                     <li className="item asset-item build-asset-item" key={project.id}>
                       <div className="item-info">
@@ -73,7 +90,7 @@ export default function AssetsPanel() {
                           <div style={{ width: `${progress.percent}%` }} />
                         </div>
                         <span className="item-desc">
-                          {progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`} · {Math.floor(labor.remainingMinutes / 60)}h {labor.remainingMinutes % 60}m labor left
+                          {progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`} · {formatMinutes(labor.remainingMinutes)} labor left
                         </span>
                       </div>
                       <div className="item-buy asset-actions">
@@ -82,6 +99,52 @@ export default function AssetsPanel() {
                           Build plan
                         </button>
                         <button className="btn small ghost" onClick={() => showOnMap({ kind: 'construction', id: project.id })}>
+                          Show map
+                        </button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+
+          {businessDevelopmentProjects.length > 0 && (
+            <section className="asset-section" aria-label="Active business interiors">
+              <div className="founder-section-head">
+                <h3 className="founder-section-title">Business interiors</h3>
+                <span className="item-desc">inside upgrades in progress</span>
+              </div>
+              <ul className="item-list">
+                {businessDevelopmentProjects.map((project) => {
+                  const view = businessInteriorAssetView(project)
+                  const { progress } = view
+                  return (
+                    <li className="item asset-item build-asset-item" key={project.id}>
+                      <div className="item-info">
+                        <span className="item-name">
+                          ◆ {view.title} <span className="asset-level mono">{view.levelText}</span>
+                        </span>
+                        <span className="asset-income mono">{view.incomeText}</span>
+                        <div className="asset-build-meter" aria-label={`${project.businessName} interior ${progress.percent}% complete`}>
+                          <div style={{ width: `${progress.percent}%` }} />
+                        </div>
+                        <span className="item-desc">
+                          {view.materialText} · {view.budgetText} · {view.laborText}
+                        </span>
+                        <span className="house-stage-list compact" aria-label={`${project.businessName} interior stages`}>
+                          <span className={progress.resourcesComplete ? 'chip ok' : 'chip'}>materials</span>
+                          <span className={progress.budgetComplete ? 'chip ok' : 'chip'}>budget</span>
+                          <span className={progress.laborComplete ? 'chip ok' : 'chip'}>labor</span>
+                          <span className={progress.complete ? 'chip gold' : 'chip'}>L{project.levelTo}</span>
+                        </span>
+                      </div>
+                      <div className="item-buy asset-actions">
+                        <span className="item-price mono">{view.percentText}</span>
+                        <button className="btn small primary" onClick={() => { selectMapTarget({ kind: 'asset', id: project.businessId }); setPanel('business') }}>
+                          Open plan
+                        </button>
+                        <button className="btn small ghost" onClick={() => showOnMap({ kind: 'asset', id: project.businessId })}>
                           Show map
                         </button>
                       </div>
