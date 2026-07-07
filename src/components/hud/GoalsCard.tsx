@@ -95,14 +95,14 @@ export default function GoalsCard() {
     communityActionsThisWeek: community.actionsThisWeek,
   })
 
-  const openPrimary = () => {
-    const route = lifePlan.primary.route
+  const openRoute = (route: typeof lifePlan.primary.route) => {
     if (route.kind === 'market') {
       openMarket(route.focus)
       return
     }
     if (route.kind === 'panel') setPanel(route.panel)
   }
+  const openPrimary = () => openRoute(lifePlan.primary.route)
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
   const routineSummary = lifePlan.routine
     .map((block) => `${block.title} ${formatPlanMinutes(block.minutes)}`)
@@ -110,14 +110,18 @@ export default function GoalsCard() {
   const routine = (
     <span className="goals-card-routine" aria-label={`Daily routine: ${routineSummary}`}>
       {lifePlan.routine.map((block) => (
-        <span
+        <button
+          type="button"
           className={`goals-card-routine-item ${block.value}${block.taskId === lifePlan.primary.id ? ' active' : ''}`}
           key={block.id}
+          onClick={() => openRoute(block.route)}
+          disabled={block.route.kind === 'none'}
           title={block.title}
+          aria-label={`${block.title}. ${block.detail} ${formatPlanMinutes(block.minutes)}.`}
         >
           <span className="goals-card-routine-time">{formatPlanMinutes(block.minutes)}</span>
           <span className="goals-card-routine-title">{routineShortLabel(block)}</span>
-        </span>
+        </button>
       ))}
     </span>
   )
@@ -136,43 +140,36 @@ export default function GoalsCard() {
     : null
 
   return (
-    <button
+    <section
       className="goals-card"
-      onClick={openPrimary}
       aria-label={`Today plan: ${lifePlan.primary.title}. Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
-      <header className="goals-card-head">
-        <span className="goals-card-title">🎯 Today</span>
-        {streakLength >= 2 && (
-          <span className="goals-card-streak" aria-hidden>🔥 {streakLength}</span>
+      <button type="button" className="goals-card-main" onClick={openPrimary}>
+        <header className="goals-card-head">
+          <span className="goals-card-title">🎯 Today</span>
+          {streakLength >= 2 && (
+            <span className="goals-card-streak" aria-hidden>🔥 {streakLength}</span>
+          )}
+        </header>
+        {total > 0 && (
+          <>
+            <div className="goals-card-bar" aria-hidden>
+              <div
+                className="goals-card-bar-fill"
+                style={{ width: `${(done / total) * 100}%` }}
+              />
+            </div>
+            <span className={`goals-card-count mono ${allDone ? 'done' : oneLeft ? 'near' : ''}`}>
+              {allDone ? 'All done! 🎉' : oneLeft ? '1 to go!' : `${done}/${total} challenges`}
+            </span>
+          </>
         )}
-      </header>
-      {total > 0 ? (
-        <>
-          <div className="goals-card-bar" aria-hidden>
-            <div
-              className="goals-card-bar-fill"
-              style={{ width: `${(done / total) * 100}%` }}
-            />
-          </div>
-          <span className={`goals-card-count mono ${allDone ? 'done' : oneLeft ? 'near' : ''}`}>
-            {allDone ? 'All done! 🎉' : oneLeft ? '1 to go!' : `${done}/${total} challenges`}
-          </span>
-          <span className="goals-card-primary">{lifePlan.primary.title}</span>
-          <span className="goals-card-reason">{lifePlan.primary.detail}</span>
-          <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
-          {routine}
-          {agenda}
-        </>
-      ) : (
-        <>
-          <span className="goals-card-primary">{lifePlan.primary.title}</span>
-          <span className="goals-card-reason">{lifePlan.primary.detail}</span>
-          <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
-          {routine}
-          {agenda}
-        </>
-      )}
-    </button>
+        <span className="goals-card-primary">{lifePlan.primary.title}</span>
+        <span className="goals-card-reason">{lifePlan.primary.detail}</span>
+        <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
+        {agenda}
+      </button>
+      {routine}
+    </section>
   )
 }
