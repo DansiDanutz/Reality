@@ -190,7 +190,15 @@ function bodyRecoveryTask(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     return task('drink-water', 'Drink water', 'Hydration is the fastest survival risk. Fix it before work or construction.', 'body', { kind: 'survival-action', action: 'drink-water' }, 5)
   }
   if (snapshot.needs.hunger <= NEED_RECOVERY_FLOOR) {
-    return task('eat-food', 'Eat a real meal', 'Food keeps the workday and construction day possible.', 'body', { kind: 'market', focus: 'food' }, 20)
+    const ownedFood = strongestOwnedFood(snapshot.inventory)
+    return task(
+      'eat-food',
+      'Eat a real meal',
+      'Food keeps the workday and construction day possible.',
+      'body',
+      ownedFood ? { kind: 'consume-action', itemId: ownedFood.id } : { kind: 'market', focus: 'food' },
+      20,
+    )
   }
   if (snapshot.needs.energy <= 30) {
     return task('sleep-tonight', 'Sleep before pushing harder', 'Energy is too low for serious work. Rest protects tomorrow.', 'body', { kind: 'survival-action', action: 'sleep' }, STANDARD_DAY_BUDGET.sleepMinutes)
