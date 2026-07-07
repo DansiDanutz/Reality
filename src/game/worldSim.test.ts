@@ -613,6 +613,33 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('buyInsurance intent ignores malformed non-finite existing policy expirations', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', {
+        money: 500,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: Number.POSITIVE_INFINITY,
+      })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected malformed policy to be replaceable')
+    const resident = result.area.citizens.find((citizen) => citizen.id === 'resident')!
+    expect(resident.money).toBe(455)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(INSURANCE_POLICY_PERIOD_MS)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+  })
+
   test('buyInsurance intent rejects hospitalized citizens', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500, state: { kind: 'hospitalized', until: 10 * HOUR } })],
@@ -633,6 +660,32 @@ describe('advanceWorldArea — local real-time economy', () => {
         money: 100,
         insuranceBusinessId: 'ins1',
         insurancePaidUntil: HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { cash: 45, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+    const insurer = out.businesses[0]
+
+    expect(resident.money).toBe(55)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(insurer.cash).toBe(90)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(summary.insurancePoliciesLapsed).toBe(0)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+  })
+
+  test('insurance with a non-finite expiration renews from real cash before acting active', () => {
+    const start = area({
+      citizens: [sim('resident', {
+        kind: 'real',
+        money: 100,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: Number.POSITIVE_INFINITY,
       })],
       businesses: [business('insurance', 'ins1', { cash: 45, price: 45 })],
     })
@@ -2735,6 +2788,11 @@ describe('advanceWorldArea — local real-time economy', () => {
         sim('buyer', { money: 50 }),
         sim('broke', { money: 10 }),
         sim('covered', { money: 50, insuranceBusinessId: 'ins-high', insurancePaidUntil: 2 * HOUR }),
+        sim('malformed-policy', {
+          money: 50,
+          insuranceBusinessId: 'ins-high',
+          insurancePaidUntil: Number.POSITIVE_INFINITY,
+        }),
         sim('patient', { money: 50, state: { kind: 'hospitalized', until: 3 * HOUR } }),
       ],
       businesses: [
@@ -2764,6 +2822,15 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.citizens.find((citizen) => citizen.id === 'covered')!.insuranceAction).toMatchObject({
       canBuyNow: false,
       blockers: ['already_insured'],
+    })
+    expect(dash.demand.insurance).toBe(3)
+    expect(dash.citizens.find((citizen) => citizen.id === 'malformed-policy')).toMatchObject({
+      insuranceActive: false,
+      insuranceAction: {
+        insuranceBusinessId: 'ins-low',
+        canBuyNow: true,
+        blockers: [],
+      },
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'patient')!.insuranceAction).toMatchObject({
       canBuyNow: false,

@@ -3068,7 +3068,8 @@ function lapseInsurance(citizen: WorldCitizen, context: StepContext): void {
 }
 
 function hasActiveInsurance(citizen: WorldCitizen, at: number): boolean {
-  return Boolean(citizen.insuranceBusinessId && citizen.insurancePaidUntil !== undefined && citizen.insurancePaidUntil > at)
+  const paidUntil = finiteInsurancePaidUntil(citizen.insurancePaidUntil)
+  return Boolean(citizen.insuranceBusinessId && paidUntil !== undefined && paidUntil > at)
 }
 
 function payWorkerWages(area: WorldArea, context: StepContext): void {
@@ -3445,7 +3446,8 @@ function cloneArea(area: WorldArea): WorldArea {
 }
 
 function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
-  return {
+  const insurancePaidUntil = finiteInsurancePaidUntil(citizen.insurancePaidUntil)
+  const cloned: WorldCitizen = {
     ...citizen,
     debts: citizen.debts?.map((debt) => ({ ...debt })),
     needs: { ...citizen.needs },
@@ -3453,6 +3455,9 @@ function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
       ? { kind: 'hospitalized', until: citizen.state.until }
       : { kind: 'active' },
   }
+  if (insurancePaidUntil === undefined) delete cloned.insurancePaidUntil
+  else cloned.insurancePaidUntil = insurancePaidUntil
+  return cloned
 }
 
 function zeroKindRecord(): Record<WorldBusinessKind, number> {
@@ -3490,4 +3495,8 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+function finiteInsurancePaidUntil(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) ? value : undefined
 }
