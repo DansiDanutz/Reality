@@ -145,6 +145,38 @@ describe('challengesForDay — generation', () => {
     expect(progressed).toContain('business-dev-60')
     expect(progressed).toContain('study-1')
   })
+
+  test('guarantees a community task at least once in each eligible week', () => {
+    const ready = context({
+      maxEarnedToday: 500,
+      maxShiftsToday: 1,
+      maxPurchasesToday: 3,
+      canHelpCommunity: true,
+    })
+
+    for (let week = 2_700; week < 2_710; week++) {
+      const weeklyIds = new Set<string>()
+      for (let offset = 0; offset < 7; offset++) {
+        for (const challenge of challengesForDay('neighborly-citizen', week * 7 + offset, ready)) {
+          weeklyIds.add(challenge.id)
+        }
+      }
+      expect(weeklyIds.has('community-1'), `missing community task for week ${week}`).toBe(true)
+    }
+  })
+
+  test('does not force community tasks before community help is available', () => {
+    const locked = context({
+      maxEarnedToday: 500,
+      maxShiftsToday: 1,
+      maxPurchasesToday: 3,
+      canHelpCommunity: false,
+    })
+
+    for (let d = 19_000; d < 19_070; d++) {
+      expect(challengesForDay('locked-community', d, locked).map((c) => c.id)).not.toContain('community-1')
+    }
+  })
 })
 
 describe('challengeProgress — tracking', () => {

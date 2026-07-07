@@ -138,14 +138,17 @@ const DIFFICULTIES: readonly ChallengeDifficulty[] = ['easy', 'medium', 'hard']
  */
 export function challengesForDay(citizenId: string, dayIndex: number, context?: DailyChallengeContext): ChallengeDef[] {
   const pool = eligibleChallengesForContext(context)
+  const weeklyCommunity = weeklyCommunityChallenge(citizenId, dayIndex, context)
   const out: ChallengeDef[] = []
   const used = new Set<string>()
   for (const diff of DIFFICULTIES) {
-    const pick = seededPick(
-      pool.filter((c) => c.difficulty === diff),
-      `${citizenId}:${dayIndex}:${diff}`,
-      used,
-    )
+    const pick = weeklyCommunity && diff === 'medium'
+      ? weeklyCommunity
+      : seededPick(
+        pool.filter((c) => c.difficulty === diff),
+        `${citizenId}:${dayIndex}:${diff}`,
+        used,
+      )
     if (pick) {
       out.push(pick)
       used.add(pick.id)
@@ -163,6 +166,16 @@ export function challengesForDay(citizenId: string, dayIndex: number, context?: 
 export function eligibleChallengesForContext(context?: DailyChallengeContext): ChallengeDef[] {
   if (!context) return [...CHALLENGE_POOL]
   return CHALLENGE_POOL.filter((challenge) => challengeEligible(challenge, context))
+}
+
+function weeklyCommunityChallenge(citizenId: string, dayIndex: number, context?: DailyChallengeContext): ChallengeDef | null {
+  if (!context) return null
+  const community = CHALLENGE_POOL.find((challenge) => challenge.id === 'community-1') ?? null
+  if (!community || !challengeEligible(community, context)) return null
+  const weekIndex = Math.floor(dayIndex / 7)
+  const communityOffset = hashSeed(`${citizenId}:${weekIndex}:community`) % 7
+  const dayOffset = ((dayIndex % 7) + 7) % 7
+  return dayOffset === communityOffset ? community : null
 }
 
 function challengeEligible(def: ChallengeDef, context: DailyChallengeContext): boolean {
