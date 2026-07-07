@@ -73,6 +73,13 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.selectedMapTarget).toBeNull()
     // v10: education progress ledger
     expect(out.educationProgress).toEqual([])
+    // v11: community respect/friendship/trust ledger
+    expect(out.community).toMatchObject({
+      respect: 0,
+      friendship: 0,
+      trust: 0,
+      actionsThisWeek: 0,
+    })
     expect(out.activeCourierPackage).toBeNull()
     expect(out.courierLastDay).toBe(0)
     expect(out.courierOpenedDays).toEqual([])
@@ -183,6 +190,27 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.educationProgress).toEqual([])
   })
 
+  test('old community stats are normalized without losing earned values', () => {
+    const out = migrateSave({
+      ...v1Save,
+      community: {
+        respect: 4.8,
+        friendship: 3.1,
+        trust: 2.9,
+        actionsThisWeek: 1.7,
+        week: 42.4,
+      },
+    })
+
+    expect(out.community).toEqual({
+      respect: 4,
+      friendship: 3,
+      trust: 2,
+      actionsThisWeek: 1,
+      week: 42,
+    })
+  })
+
   test('a citizen with an active illness keeps it (not reset to null)', () => {
     const v4Save = {
       ...v1Save,
@@ -247,7 +275,7 @@ describe('migrateSave — completeness guard', () => {
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
       'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
-      'selectedMapTarget', 'educationProgress',
+      'selectedMapTarget', 'educationProgress', 'community',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
     for (const f of tickCriticalFields) {
@@ -270,6 +298,6 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(10)
+    expect(SAVE_VERSION).toBe(11)
   })
 })
