@@ -69,6 +69,7 @@ export default function CourierPackagePrompt() {
         setPanel('work')
         return
       case 'education-enrolled':
+      case 'education-study':
       case 'education':
         openMarket('education')
         return
@@ -108,6 +109,8 @@ export default function CourierPackagePrompt() {
           ? 'Work shift'
           : pkg.requirement.kind === 'education-enrolled'
             ? 'Enroll'
+            : pkg.requirement.kind === 'education-study'
+              ? 'Study'
             : pkg.requirement.kind === 'education'
               ? 'Study'
             : pkg.requirement.kind === 'community'

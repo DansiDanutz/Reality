@@ -119,6 +119,22 @@ describe('courierPackages', () => {
       hasHome: false,
       educationProgress: [createEducationProgress(EDUCATION_COURSES.course, 1_000)],
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education-study', courseId: 'course', studiedMinutes: 60 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationProgress: [createEducationProgress(EDUCATION_COURSES.course, 1_000)],
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education-study', courseId: 'course', studiedMinutes: 60 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationProgress: [{ ...createEducationProgress(EDUCATION_COURSES.course, 1_000), studiedMinutes: 60 }],
+    })).toBe(true)
     expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'education', educationActions: 1 } }, {
       timesEaten: 0,
       sawStreetMode: false,
@@ -189,7 +205,7 @@ describe('courierPackages', () => {
     })
   })
 
-  test('turns study tasks into earned education action requirements', () => {
+  test('turns study tasks into exact study progress requirements', () => {
     const pkg = courierPackageForLifePlan(2, {
       id: 'study-course',
       title: 'Study Online Course',
@@ -211,7 +227,34 @@ describe('courierPackages', () => {
       day: 2,
       title: 'Study Online Course',
       objective: 'Study Online Course',
-      requirement: { kind: 'education', educationActions: 1 },
+      requirement: { kind: 'education-study', courseId: 'course', studiedMinutes: 60 },
+    })
+  })
+
+  test('keeps repeated long-course study objectives clearable by minutes', () => {
+    const progress = {
+      ...createEducationProgress(EDUCATION_COURSES.certification, 1_000),
+      studiedMinutes: 60,
+    }
+    const pkg = courierPackageForLifePlan(2, {
+      id: 'study-certification',
+      title: 'Study Professional Certification',
+      detail: '120 minutes remain. Finish the course block before chasing the next credential.',
+      value: 'school',
+      minutes: 60,
+      route: { kind: 'education-action', courseId: 'certification' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationActions: 1,
+      educationProgress: [progress],
+    })
+
+    expect(pkg).toMatchObject({
+      requirement: { kind: 'education-study', courseId: 'certification', studiedMinutes: 120 },
     })
   })
 

@@ -1,6 +1,11 @@
 import { RESOURCE_META, type ResourceKind } from './resources'
 import type { ConstructionProject } from './construction'
-import type { EducationCourseId, EducationProgress } from './education'
+import {
+  educationCourseById,
+  nextStudyBlockMinutes,
+  type EducationCourseId,
+  type EducationProgress,
+} from './education'
 import type { LifePlanTask } from './lifeLadder'
 
 export type CourierRequirement =
@@ -9,6 +14,7 @@ export type CourierRequirement =
   | { kind: 'job' }
   | { kind: 'shift'; shiftsWorked: number }
   | { kind: 'education-enrolled'; courseId: EducationCourseId }
+  | { kind: 'education-study'; courseId: EducationCourseId; studiedMinutes: number }
   | { kind: 'education'; educationActions: number }
   | { kind: 'community'; actionsThisWeek: number }
   | { kind: 'street-mode-seen' }
@@ -158,6 +164,10 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return (snapshot.shiftsWorked ?? 0) >= requirement.shiftsWorked
     case 'education-enrolled':
       return (snapshot.educationProgress ?? []).some((progress) => progress.courseId === requirement.courseId)
+    case 'education-study':
+      return (snapshot.educationProgress ?? []).some((progress) =>
+        progress.courseId === requirement.courseId && progress.studiedMinutes >= requirement.studiedMinutes
+      )
     case 'education':
       return (snapshot.educationActions ?? 0) >= requirement.educationActions
     case 'community':
@@ -213,6 +223,15 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   if (route.kind === 'work-action') return { kind: 'shift', shiftsWorked: (snapshot.shiftsWorked ?? 0) + 1 }
   if (route.kind === 'market' && route.focus === 'education') return { kind: 'education-enrolled', courseId: 'course' }
   if (route.kind === 'education-action') {
+    const course = educationCourseById(route.courseId)
+    const progress = (snapshot.educationProgress ?? []).find((candidate) => candidate.courseId === route.courseId) ?? null
+    if (course && progress) {
+      return {
+        kind: 'education-study',
+        courseId: route.courseId,
+        studiedMinutes: progress.studiedMinutes + nextStudyBlockMinutes(course, progress),
+      }
+    }
     return { kind: 'education', educationActions: (snapshot.educationActions ?? 0) + 1 }
   }
   if (route.kind === 'community-action') return { kind: 'community', actionsThisWeek: (snapshot.communityActionsThisWeek ?? 0) + 1 }
