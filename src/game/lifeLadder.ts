@@ -416,6 +416,8 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const ownedFood = lowest === 'hunger' ? strongestOwnedFood(snapshot.inventory) : null
   const bodyRoute: LifePlanRoute = lowest === 'hydration' && snapshot.money >= 1
     ? { kind: 'survival-action', action: 'drink-water' }
+    : lowest === 'energy'
+      ? { kind: 'survival-action', action: 'sleep' }
     : ownedFood
       ? { kind: 'consume-action', itemId: ownedFood.id }
     : { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }
