@@ -223,7 +223,12 @@ function isWorldCitizen(value: unknown): value is WorldCitizen {
   if (value.homeBusinessId !== undefined && !isNonEmptyString(value.homeBusinessId)) return false
   if (value.jobBusinessId !== undefined && !isNonEmptyString(value.jobBusinessId)) return false
   if (value.insuranceBusinessId !== undefined && !isNonEmptyString(value.insuranceBusinessId)) return false
-  if (value.insurancePaidUntil !== undefined && !isFiniteNumber(value.insurancePaidUntil)) return false
+  if (
+    value.insurancePaidUntil !== undefined &&
+    (!isFiniteNumber(value.insurancePaidUntil) || value.insurancePaidUntil < 0)
+  ) {
+    return false
+  }
   if (value.heirCitizenId !== undefined && !isNonEmptyString(value.heirCitizenId)) return false
   return true
 }
