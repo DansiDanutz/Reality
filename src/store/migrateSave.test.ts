@@ -1,23 +1,16 @@
 import { describe, expect, test } from 'vitest'
-import { migrateSave } from './gameStore'
 import type { Needs } from '../game/types'
+import { migrateSave } from './gameStore'
 
 /**
  * Regression tests for save migration. A future edit that adds a field to
  * GameState but forgets the backfill here would silently corrupt every old
- * save on load. These tests pin the post-migrate shape for every version.
- *
- * The strategy: build minimal saves shaped like each historical version,
- * run them through migrateSave, and assert every backfilled field is present
- * with the documented default while every pre-existing field is preserved.
+ * save on load.
  */
 
-// The oldest possible save — a v1 citizen before hydration/pets/illness/streak.
-// Only the fields the original persist wrote; everything else is undefined.
 const v1Save = {
   citizen: { name: 'Ada', founderNumber: 1, createdAt: 1_700_000_000_00 },
   money: 50000,
-  // v1 needs had no hydration key
   needs: { hunger: 80, energy: 80, hygiene: 80, fun: 70 } as Needs,
   health: 100,
   level: 3,
@@ -49,68 +42,60 @@ const v1Save = {
   hudDockOrder: ['objectives'],
 }
 
-describe('migrateSave — backfills every field added after v1', () => {
-  test('a v1 save gets all v2–v5 backfills', () => {
+describe('migrateSave - backfills every field added after v1', () => {
+  test('a v1 save gets all current backfills', () => {
     const out = migrateSave({ ...v1Save })
-    // v2: hydration need
+
     expect(out.needs.hydration).toBe(75)
-    // v3: pets
     expect(out.pets).toEqual([])
-    // v4: illness
     expect(out.illness).toBeNull()
     expect(out.lastIllnessRollAt).toBe(0)
-    // v5: streak + lucky moments
     expect(out.streakLength).toBe(0)
     expect(out.streakLastClaimDay).toBe(0)
     expect(out.streakBest).toBe(0)
     expect(out.luckyMomentsSeen).toBe(0)
     expect(out.luckyMomentsSeenIds).toEqual([])
-    // v7/v8/v9: courier packages + construction resources + worker/result ledger
     expect(out.resources).toEqual({ wood: 0, stone: 0, metal: 0, glass: 0 })
     expect(out.resourceNodes).toEqual([])
     expect(out.constructionProjects).toEqual([])
     expect(out.placingConstruction).toBeNull()
     expect(out.selectedMapTarget).toBeNull()
-    // v10: education progress ledger
     expect(out.educationProgress).toEqual([])
-    // v11: community respect/friendship/trust ledger
     expect(out.community).toMatchObject({
       respect: 0,
       friendship: 0,
       trust: 0,
       actionsThisWeek: 0,
     })
+    expect(out.businessDevelopmentProjects).toEqual([])
     expect(out.activeCourierPackage).toBeNull()
     expect(out.courierLastDay).toBe(0)
     expect(out.courierOpenedDays).toEqual([])
     expect(out.completedCourierDays).toEqual([])
-    // achievementsClaimed was added with the achievements feature; ensure it
-    // doesn't crash if absent (the store's FRESH merge handles undefined).
   })
 
-  test('pre-existing fields are preserved (no clobbering)', () => {
+  test('pre-existing fields are preserved', () => {
     const out = migrateSave({ ...v1Save })
     expect(out.citizen?.name).toBe('Ada')
     expect(out.money).toBe(50000)
     expect(out.shiftsWorked).toBe(12)
     expect(out.inventory.noodles).toBe(2)
-    expect(out.needs.hunger).toBe(80) // original need untouched
+    expect(out.needs.hunger).toBe(80)
   })
 
-  test('a v3 save (has hydration + pets) is migrated idempotently', () => {
-    // A save that already has hydration and pets should NOT have them reset.
+  test('a v3 save with hydration and pets is migrated idempotently', () => {
     const v3Save = {
       ...v1Save,
       needs: { hunger: 60, hydration: 50, energy: 70, hygiene: 70, fun: 60 } as Needs,
       pets: [{ itemId: 'cat', hunger: 80, petId: 'cat-1' }],
     }
     const out = migrateSave({ ...v3Save })
-    expect(out.needs.hydration).toBe(50) // preserved, not reset to 75
+    expect(out.needs.hydration).toBe(50)
     expect(out.pets).toHaveLength(1)
     expect(out.pets[0].petId).toBe('cat-1')
   })
 
-  test('a v5 save (has streak + lucky moments) is migrated idempotently', () => {
+  test('a v5 save with streak and lucky moments is migrated idempotently', () => {
     const v5Save = {
       ...v1Save,
       needs: { ...v1Save.needs, hydration: 65 } as Needs,
@@ -124,7 +109,6 @@ describe('migrateSave — backfills every field added after v1', () => {
       luckyMomentsSeenIds: ['lottery', 'found_cash'],
     }
     const out = migrateSave({ ...v5Save })
-    // Nothing should be reset — the values are already present.
     expect(out.streakLength).toBe(7)
     expect(out.streakBest).toBe(14)
     expect(out.luckyMomentsSeen).toBe(3)
@@ -211,7 +195,40 @@ describe('migrateSave — backfills every field added after v1', () => {
     })
   })
 
-  test('a citizen with an active illness keeps it (not reset to null)', () => {
+  test('old business development projects normalize missing ledger fields', () => {
+    const out = migrateSave({
+      ...v1Save,
+      businessDevelopmentProjects: [{
+        id: 'foodcart-1:develop',
+        businessId: 'foodcart-1',
+        businessName: 'Food Cart',
+        itemId: 'foodcart',
+        levelFrom: 1,
+        levelTo: 2,
+        required: { wood: 20, stone: 15, metal: 25, glass: 10 },
+        deposited: { wood: 5 },
+        laborRequiredMinutes: 150,
+        laborDoneMinutes: 20,
+        budgetCost: 960,
+      }],
+    })
+
+    expect(out.businessDevelopmentProjects[0]).toMatchObject({
+      id: 'foodcart-1:develop',
+      businessId: 'foodcart-1',
+      levelFrom: 1,
+      levelTo: 2,
+      required: { wood: 20, stone: 15, metal: 25, glass: 10 },
+      deposited: { wood: 5, stone: 0, metal: 0, glass: 0 },
+      laborRequiredMinutes: 150,
+      laborDoneMinutes: 20,
+      hiredLaborMinutes: 0,
+      budgetCost: 960,
+      budgetPaid: false,
+    })
+  })
+
+  test('a citizen with an active illness keeps it', () => {
     const v4Save = {
       ...v1Save,
       needs: { ...v1Save.needs, hydration: 40 } as Needs,
@@ -223,48 +240,32 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.lastIllnessRollAt).toBe(500)
   })
 
-  test('garbage input does not crash (returns the cast input)', () => {
-    // migrate is called by zustand with whatever was in localStorage. If the
-    // user hand-edited it to garbage, we must not throw — return it and let
-    // the store's merge handle the fallout. This is defensive but important:
-    // a thrown migrate would brick the entire app on load.
+  test('garbage input does not crash', () => {
     expect(() => migrateSave(null)).not.toThrow()
     expect(() => migrateSave({})).not.toThrow()
     expect(() => migrateSave('not a state')).not.toThrow()
     expect(() => migrateSave(undefined)).not.toThrow()
   })
 
-  test('a falsy lastIllnessRollAt (0) is preserved as 0, not treated as missing', () => {
-    // The backfill uses `!state.lastIllnessRollAt` which is truthy for 0 —
-    // this means a legit 0 gets "backfilled" to 0, which is harmless but
-    // worth pinning so a future refactor doesn't accidentally change it.
+  test('a falsy lastIllnessRollAt is preserved as 0', () => {
     const out = migrateSave({ ...v1Save, lastIllnessRollAt: 0 })
     expect(out.lastIllnessRollAt).toBe(0)
   })
 
-  test('sawAchievementsPanel backfills true for veterans (≥7 tutorial steps)', () => {
-    // A returning player who finished the original 8-step tutorial shouldn't
-    // be re-nudged to "discover achievements" — they're already past onboarding.
+  test('sawAchievementsPanel backfills true for veterans', () => {
     const veteran = { ...v1Save, tutorialClaimed: ['avatar', 'eat', 'job', 'shift', 'sleep', 'home', 'business'] }
     const out = migrateSave(veteran)
     expect(out.sawAchievementsPanel).toBe(true)
   })
 
-  test('sawAchievementsPanel backfills false for new players (<7 tutorial steps)', () => {
-    // A player mid-onboarding SHOULD still get the discovery nudge.
+  test('sawAchievementsPanel backfills false for new players', () => {
     const newbie = { ...v1Save, tutorialClaimed: ['avatar', 'eat'] }
     const out = migrateSave(newbie)
     expect(out.sawAchievementsPanel).toBe(false)
   })
 })
 
-/**
- * Forward-completeness guard: every field in the post-migrate output that the
- * tick() reads must be present (not undefined). If a future feature adds a
- * field to GameState but forgets the backfill, this test catches it on the
- * v1-save path — the most likely to be missed.
- */
-describe('migrateSave — completeness guard', () => {
+describe('migrateSave - completeness guard', () => {
   test('a migrated v1 save has no undefined in the fields tick() touches', () => {
     const out = migrateSave({ ...v1Save })
     const tickCriticalFields = [
@@ -275,29 +276,19 @@ describe('migrateSave — completeness guard', () => {
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
       'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
-      'selectedMapTarget', 'educationProgress', 'community',
+      'selectedMapTarget', 'educationProgress', 'community', 'businessDevelopmentProjects',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
     for (const f of tickCriticalFields) {
       expect((out as unknown as Record<string, unknown>)[f], `field ${f} is undefined after migrate`).toBeDefined()
     }
-    // needs.hydration specifically — the most common migration bug
     expect(out.needs.hydration).toBeDefined()
   })
 })
 
-/**
- * The version pin. zustand/persist only calls migrate() when the stored
- * version differs from this configured one — so a new persisted field
- * WITHOUT a version bump means its backfill above is dead code for every
- * existing save (the v5→v6 incident: veterans were re-shown the
- * achievements nudge + street controls overlay because the conditional
- * backfills never ran). If you add a migration, bump the version and
- * update this pin in the same commit.
- */
 describe('persist configuration', () => {
-  test('the persist version matches the latest migration (bump both together)', async () => {
+  test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(11)
+    expect(SAVE_VERSION).toBe(12)
   })
 })
