@@ -42,8 +42,8 @@ Following the roadmap (plan 02, item #1) and real incidence:
 The citizen rolls for illness **once per real day**, inside `liveRealtime`'s away/day boundary (same cadence as the dignity-floor cooldowns). Both needs can contribute; the worse the neglect, the higher the risk — but the ceiling is humane.
 
 ```
-P(cold on a given day) = clamp( (40 − hygiene)/200 , 0 , 0.30 )
-P(flu  on a given day) = clamp( (40 − energy) /200 , 0 , 0.30 )
+P(cold on a given day) = clamp( (40 − hygiene)/200 , 0 , 0.20 )
+P(flu  on a given day) = clamp( (40 − energy) /200 , 0 , 0.20 )
 ```
 
 | Need level | Cold risk (hygiene) | Flu risk (energy) |
@@ -56,7 +56,7 @@ P(flu  on a given day) = clamp( (40 − energy) /200 , 0 , 0.30 )
 
 **Design notes:**
 - A clean, rested citizen **never gets sick** — prevention is 100% in the player's hands, as in life. This is the key teaching lever.
-- The ceiling is 20%/day, not the literal 30% the formula allows — capped so a chronically dirty citizen gets a cold roughly weekly, not daily. (The clamp `min(…, 0.20)` is the humane guardrail; the `0.30` in the formula is unreachable headroom.)
+- The ceiling is 20%/day (`ILLNESS_RISK_CAP = 0.2` in `engine.ts`), so a chronically dirty citizen gets a cold roughly weekly, not daily. The clamp *is* the humane guardrail — there is no headroom above it.
 - Both rolls are independent: a citizen sleeping rough in the rain can catch both, but it's rare.
 - If already ill (cold OR flu), **no new illness rolls** until recovered/cured — illnesses don't stack.
 
