@@ -6,6 +6,8 @@ import {
   challengeProgress,
   challengeSetSummary,
   DAILY_COMPLETE_BONUS,
+  eligibleChallengesForContext,
+  type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from './dailyChallenges'
 
@@ -20,6 +22,18 @@ const snap = (over: Partial<DailyChallengeSnapshot> = {}): DailyChallengeSnapsho
   constructionMinutesToday: 0,
   communityToday: 0,
   businessDevelopmentMinutesToday: 0,
+  ...over,
+})
+
+const context = (over: Partial<DailyChallengeContext> = {}): DailyChallengeContext => ({
+  maxEarnedToday: 0,
+  maxShiftsToday: 0,
+  maxPurchasesToday: 0,
+  hasStudyBlock: false,
+  canGatherResources: false,
+  canDoConstructionLabor: false,
+  canHelpCommunity: false,
+  canDevelopBusiness: false,
   ...over,
 })
 
@@ -61,6 +75,75 @@ describe('challengesForDay — generation', () => {
         expect(poolIds.has(c.id), `unknown id ${c.id}`).toBe(true)
       }
     }
+  })
+
+  test('filters impossible early hard tasks for low-capacity citizens', () => {
+    const early = context({
+      maxEarnedToday: 120,
+      maxShiftsToday: 1,
+      maxPurchasesToday: 2,
+    })
+
+    for (let d = 19_000; d < 19_365; d++) {
+      const ids = challengesForDay('new-citizen', d, early).map((c) => c.id)
+      expect(ids).toHaveLength(3)
+      expect(ids).not.toContain('shift-2')
+      expect(ids).not.toContain('earn-1000')
+      expect(ids).not.toContain('earn-2000')
+      expect(ids).not.toContain('build-60')
+      expect(ids).not.toContain('business-dev-60')
+      expect(ids).not.toContain('study-1')
+    }
+  })
+
+  test('backfills from reachable tasks when a difficulty band has no fair option', () => {
+    const out = challengesForDay('bare-citizen', 19_000, context())
+    expect(out).toHaveLength(3)
+    expect(out.every((challenge) => ['mealsToday', 'sleptToday'].includes(challenge.metric))).toBe(true)
+  })
+
+  test('unlocks roadmap action challenges only when their systems are ready', () => {
+    const locked = eligibleChallengesForContext(context()).map((c) => c.id)
+    expect(locked).not.toContain('study-1')
+    expect(locked).not.toContain('community-1')
+    expect(locked).not.toContain('build-60')
+    expect(locked).not.toContain('business-dev-60')
+
+    const ready = eligibleChallengesForContext(context({
+      maxEarnedToday: 2_500,
+      maxShiftsToday: 2,
+      maxPurchasesToday: 5,
+      hasStudyBlock: true,
+      canGatherResources: true,
+      canDoConstructionLabor: true,
+      canHelpCommunity: true,
+      canDevelopBusiness: true,
+    })).map((c) => c.id)
+
+    expect(ready).toContain('study-1')
+    expect(ready).toContain('community-1')
+    expect(ready).toContain('build-60')
+    expect(ready).toContain('business-dev-60')
+    expect(ready).toContain('shift-2')
+    expect(ready).toContain('earn-2000')
+  })
+
+  test('keeps progressed tasks eligible for the rest of the day', () => {
+    const progressed = eligibleChallengesForContext(context({
+      communityToday: 1,
+      constructionMinutesToday: 30,
+      businessDevelopmentMinutesToday: 30,
+      studiedToday: 1,
+      canHelpCommunity: false,
+      canDoConstructionLabor: false,
+      canDevelopBusiness: false,
+      hasStudyBlock: false,
+    })).map((c) => c.id)
+
+    expect(progressed).toContain('community-1')
+    expect(progressed).toContain('build-60')
+    expect(progressed).toContain('business-dev-60')
+    expect(progressed).toContain('study-1')
   })
 })
 

@@ -8,7 +8,7 @@ import {
   type ConstructionDayForecast,
   type LifePlanRoute,
 } from '../../game/lifeLadder'
-import { useGame } from '../../store/gameStore'
+import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
 
 function formatPlanMinutes(minutes: number): string {
   if (minutes <= 0) return 'now'
@@ -161,7 +161,6 @@ export default function GoalsCard() {
 
   // Daily challenges — only show if the day has been seeded.
   const day = dailyCounters.day
-  const challenges = day > 0 ? challengesForDay(citizen.citizenId ?? 'anon', day) : []
   const csnap: DailyChallengeSnapshot = {
     mealsToday: dailyCounters.mealsToday,
     shiftsToday: dailyCounters.shiftsToday,
@@ -174,6 +173,20 @@ export default function GoalsCard() {
     communityToday: dailyCounters.communityToday,
     businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
   }
+  const challengeContext = dailyChallengeContextOf({
+    money,
+    jobId,
+    shiftsWorked,
+    inventory,
+    assets,
+    resourceNodes,
+    constructionProjects,
+    businessDevelopmentProjects,
+    educationProgress,
+    community,
+    dailyCounters,
+  })
+  const challenges = day > 0 ? challengesForDay(citizen.citizenId ?? 'anon', day, challengeContext) : []
   const summary = challenges.length > 0 ? challengeSetSummary(challenges, csnap) : null
   // Count a challenge as "done" if claimed OR complete (claim is auto, so this
   // matches what the player sees in the panel).
