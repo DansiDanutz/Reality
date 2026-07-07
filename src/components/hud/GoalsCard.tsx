@@ -47,6 +47,7 @@ function routineShortLabel(block: { id: string; value: string; route: LifePlanRo
   }
   if (block.route.kind === 'work-action') return 'Work'
   if (block.route.kind === 'community-action') return block.route.actionId === 'check-neighbor' ? 'Friends' : 'Help'
+  if (block.route.kind === 'education-action') return 'School'
   return 'Own'
 }
 
@@ -137,6 +138,7 @@ export default function GoalsCard() {
   const completeBusinessDevelopmentIfReady = useGame((s) => s.completeBusinessDevelopmentIfReady)
   const startShift = useGame((s) => s.startShift)
   const startCommunityAction = useGame((s) => s.startCommunityAction)
+  const startStudy = useGame((s) => s.startStudy)
 
   if (!citizen) return null
 
@@ -174,6 +176,7 @@ export default function GoalsCard() {
     constructionProjects,
     businessDevelopmentProjects,
     educationActions: educationActionCount(educationProgress),
+    educationProgress,
     communityActionsThisWeek: community.actionsThisWeek,
   })
 
@@ -213,6 +216,10 @@ export default function GoalsCard() {
     }
     if (route.kind === 'community-action') {
       startCommunityAction(route.actionId)
+      return
+    }
+    if (route.kind === 'education-action') {
+      startStudy(route.courseId)
       return
     }
     if (route.kind === 'panel') setPanel(route.panel)
