@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { itemById } from '../../game/catalog'
 import {
   businessDevelopmentLaborBreakdown,
@@ -12,6 +13,7 @@ import { educationBusinessLaborMultiplier } from '../../game/education'
 import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
+import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
 function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60)
@@ -27,6 +29,7 @@ function pct(current: number, target: number): number {
 }
 
 export default function BusinessPanel() {
+  const [workerHours, setWorkerHours] = useState<Record<string, number>>({})
   const assets = useGame((s) => s.assets)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const money = useGame((s) => s.money)
@@ -191,7 +194,9 @@ export default function BusinessPanel() {
             </div>
             <div className="worker-grid">
               {CONSTRUCTION_WORKERS.map((worker) => {
-                const estimate = estimateBusinessDevelopmentWorkerHire(project, worker.id, 1)
+                const hourChoices = workerHourChoices(worker.maxHours)
+                const hours = selectedWorkerHours(workerHours, worker.id, worker.maxHours)
+                const estimate = estimateBusinessDevelopmentWorkerHire(project, worker.id, hours)
                 const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
                 const blocker = estimate?.blockedBy === 'materials'
                   ? 'deposit materials first'
@@ -202,6 +207,8 @@ export default function BusinessPanel() {
                       : estimate && money < estimate.cost
                         ? `need ${formatMoney(estimate.cost)}`
                         : null
+                const cost = estimate?.cost ?? worker.ratePerHour * hours
+                const laborMinutes = estimate?.laborMinutes ?? Math.round(hours * 60 * worker.laborMultiplier)
                 return (
                   <article className="worker-card" key={worker.id}>
                     <div className="worker-card-head">
@@ -209,9 +216,22 @@ export default function BusinessPanel() {
                       <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
                     </div>
                     <p className="item-desc">{worker.description}</p>
-                    <span className="item-desc mono">1h Workers Hall contract = up to {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} interior labor</span>
-                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, 1)}>
-                      {blocker ?? `Book 1h · ${formatMoney(worker.ratePerHour)}`}
+                    <div className="worker-hour-selector" role="group" aria-label={`${worker.name} interior contract hours`}>
+                      {hourChoices.map((choice) => (
+                        <button
+                          className={choice === hours ? 'worker-hour-choice active' : 'worker-hour-choice'}
+                          type="button"
+                          aria-pressed={choice === hours}
+                          key={choice}
+                          onClick={() => setWorkerHours((current) => ({ ...current, [worker.id]: choice }))}
+                        >
+                          {choice}h
+                        </button>
+                      ))}
+                    </div>
+                    <span className="item-desc mono">{hours}h contract = up to {formatMinutes(laborMinutes)} interior labor · {formatMoney(cost)} total</span>
+                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, hours)}>
+                      {blocker ?? `Book ${hours}h · ${formatMoney(cost)}`}
                     </button>
                   </article>
                 )

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import {
   CONSTRUCTION_WORKERS,
   STARTER_HOUSE_RECIPE,
@@ -11,6 +11,7 @@ import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 import { constructionFinalStageView } from './constructionPanelView'
+import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
   if (target <= 0) return 100
@@ -33,6 +34,7 @@ const RESOURCE_SOURCE: Record<ResourceKind, string> = {
 }
 
 export default function ConstructionPanel() {
+  const [workerHours, setWorkerHours] = useState<Record<string, number>>({})
   const money = useGame((s) => s.money)
   const resources = useGame((s) => s.resources)
   const resourceNodes = useGame((s) => s.resourceNodes)
@@ -175,17 +177,21 @@ export default function ConstructionPanel() {
             </div>
             <div className="worker-grid">
               {CONSTRUCTION_WORKERS.map((worker) => {
-                const estimate = estimateConstructionWorkerHire(activeProject, worker.id, 1)
+                const hourChoices = workerHourChoices(worker.maxHours)
+                const hours = selectedWorkerHours(workerHours, worker.id, worker.maxHours)
+                const estimate = estimateConstructionWorkerHire(activeProject, worker.id, hours)
                 const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
                 const blocker = estimate?.blockedBy === 'materials'
                   ? 'deposit materials first'
-                  : estimate?.blockedBy === 'permit'
-                    ? 'pay permit first'
-                    : estimate?.blockedBy === 'labor'
-                      ? 'labor complete'
-                      : estimate && money < estimate.cost
-                        ? `need ${formatMoney(estimate.cost)}`
-                        : null
+                    : estimate?.blockedBy === 'permit'
+                      ? 'pay permit first'
+                      : estimate?.blockedBy === 'labor'
+                        ? 'labor complete'
+                        : estimate && money < estimate.cost
+                          ? `need ${formatMoney(estimate.cost)}`
+                          : null
+                const cost = estimate?.cost ?? worker.ratePerHour * hours
+                const laborMinutes = estimate?.laborMinutes ?? Math.round(hours * 60 * worker.laborMultiplier)
                 return (
                   <article className="worker-card" key={worker.id}>
                     <div className="worker-card-head">
@@ -193,9 +199,22 @@ export default function ConstructionPanel() {
                       <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
                     </div>
                     <p className="item-desc">{worker.description}</p>
-                    <span className="item-desc mono">1h hire = {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} labor · max {worker.maxHours}h/day</span>
-                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, 1)}>
-                      {blocker ?? `Hire 1h · ${formatMoney(worker.ratePerHour)}`}
+                    <div className="worker-hour-selector" role="group" aria-label={`${worker.name} contract hours`}>
+                      {hourChoices.map((choice) => (
+                        <button
+                          className={choice === hours ? 'worker-hour-choice active' : 'worker-hour-choice'}
+                          type="button"
+                          aria-pressed={choice === hours}
+                          key={choice}
+                          onClick={() => setWorkerHours((current) => ({ ...current, [worker.id]: choice }))}
+                        >
+                          {choice}h
+                        </button>
+                      ))}
+                    </div>
+                    <span className="item-desc mono">{hours}h contract = {formatMinutes(laborMinutes)} labor · {formatMoney(cost)} total</span>
+                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, hours)}>
+                      {blocker ?? `Hire ${hours}h · ${formatMoney(cost)}`}
                     </button>
                   </article>
                 )

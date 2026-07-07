@@ -107,4 +107,33 @@ describe('business development projects', () => {
     expect(finishedContract.project.hiredLaborMinutes).toBe(60)
     expect(finishedContract.project.workerContracts[0].workedMinutes).toBe(60)
   })
+
+  test('worker contracts honor selected hours and upfront interior cost', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_000)!
+    const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project
+    const paid = payBusinessDevelopmentBudget(deposited, project.budgetCost).project
+
+    const estimate = estimateBusinessDevelopmentWorkerHire(paid, 'helper', 2)
+    expect(estimate).toMatchObject({
+      hours: 2,
+      cost: 32,
+      laborMinutes: 120,
+      blockedBy: null,
+    })
+
+    const hired = hireBusinessDevelopmentWorker(paid, 'helper', 100, 2, 1_000)
+    expect(hired.hired).toBe(true)
+    expect(hired.money).toBe(68)
+    expect(hired.project.laborDoneMinutes).toBe(0)
+    expect(hired.contract).toMatchObject({
+      paidUntil: 7_201_000,
+      paidMinutes: 120,
+      cost: 32,
+    })
+
+    const finishedContract = advanceBusinessDevelopmentWorkerContracts(hired.project, 7_201_000)
+    expect(finishedContract.laborMinutes).toBe(120)
+    expect(finishedContract.project.laborDoneMinutes).toBe(120)
+    expect(finishedContract.project.workerContracts[0].workedMinutes).toBe(120)
+  })
 })
