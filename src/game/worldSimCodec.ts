@@ -469,6 +469,7 @@ function hasValidAreaReferences(area: WorldArea): boolean {
   const departedCitizens = new Map((area.areaEvents ?? [])
     .filter((event) => event.kind === 'sim_citizen_departure')
     .map((event) => [event.citizenId, event]))
+  if (!hasUniqueLedgerAccountIds(citizens, businesses, departedCitizens)) return false
 
   if (area.claim && citizens.get(area.claim.founderCitizenId)?.kind !== 'real') return false
 
@@ -511,6 +512,27 @@ function hasValidAreaReferences(area: WorldArea): boolean {
     if (!isValidTransactionReferences(transaction, area, citizens, businesses, departedCitizens)) return false
   }
 
+  return true
+}
+
+function hasUniqueLedgerAccountIds(
+  citizens: Map<string, WorldCitizen>,
+  businesses: Map<string, WorldBusiness>,
+  departedCitizens: Map<string, WorldAreaEvent>,
+): boolean {
+  const accounts = new Set<string>(SYSTEM_LEDGER_ACCOUNTS)
+  for (const accountId of citizens.keys()) {
+    if (accounts.has(accountId)) return false
+    accounts.add(accountId)
+  }
+  for (const accountId of businesses.keys()) {
+    if (accounts.has(accountId)) return false
+    accounts.add(accountId)
+  }
+  for (const accountId of departedCitizens.keys()) {
+    if (accounts.has(accountId)) return false
+    accounts.add(accountId)
+  }
   return true
 }
 
