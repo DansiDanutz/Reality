@@ -9,6 +9,7 @@ import {
   freshCommunityStats,
   missedSeriousWorkYesterday,
   normalizeCommunityStats,
+  recordBrokenCommitment,
   resetCommunityActionDayIfNeeded,
   resetCommunityWeekIfNeeded,
 } from './community'
@@ -29,6 +30,8 @@ describe('community actions', () => {
       seriousWorkStreak: 0,
       seriousWorkBest: 0,
       seriousWorkLastDay: 0,
+      brokenCommitments: 0,
+      commitmentPenaltyDay: 0,
     })
   })
 
@@ -152,5 +155,35 @@ describe('community actions', () => {
     expect(missedSeriousWorkYesterday(freshCommunityStats(today), today + 3 * 24 * 3_600_000)).toBe(false)
     expect(missedSeriousWorkYesterday(first, today + 24 * 3_600_000)).toBe(false)
     expect(missedSeriousWorkYesterday(first, today + 2 * 24 * 3_600_000)).toBe(true)
+  })
+
+  test('broken commitments lose at most one respect and trust per day', () => {
+    const today = Date.UTC(2026, 6, 7, 12)
+    const trusted = {
+      ...freshCommunityStats(today),
+      respect: 3,
+      trust: 2,
+      seriousWorkStreak: 4,
+      seriousWorkBest: 4,
+    }
+    const first = recordBrokenCommitment(trusted, today)
+    const secondSameDay = recordBrokenCommitment(first, today + 2 * 3_600_000)
+
+    expect(first).toMatchObject({
+      respect: 2,
+      trust: 1,
+      brokenCommitments: 1,
+      commitmentPenaltyDay: communityDay(today),
+      seriousWorkStreak: 0,
+      seriousWorkBest: 4,
+    })
+    expect(secondSameDay).toMatchObject({
+      respect: 2,
+      trust: 1,
+      brokenCommitments: 2,
+      commitmentPenaltyDay: communityDay(today),
+      seriousWorkStreak: 0,
+      seriousWorkBest: 4,
+    })
   })
 })

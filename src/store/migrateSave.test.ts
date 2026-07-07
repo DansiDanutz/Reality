@@ -73,6 +73,8 @@ describe('migrateSave - backfills every field added after v1', () => {
       seriousWorkStreak: 0,
       seriousWorkBest: 0,
       seriousWorkLastDay: 0,
+      brokenCommitments: 0,
+      commitmentPenaltyDay: 0,
     })
     expect(out.businessDevelopmentProjects).toEqual([])
     expect(out.activeCourierPackage).toBeNull()
@@ -221,6 +223,8 @@ describe('migrateSave - backfills every field added after v1', () => {
       seriousWorkStreak: 0,
       seriousWorkBest: 0,
       seriousWorkLastDay: 0,
+      brokenCommitments: 0,
+      commitmentPenaltyDay: 0,
     })
   })
 
