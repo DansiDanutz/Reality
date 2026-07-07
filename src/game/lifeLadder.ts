@@ -1,4 +1,10 @@
 import {
+  businessDevelopmentLaborBreakdown,
+  businessDevelopmentProgress,
+  businessDevelopmentShortfall,
+  type BusinessDevelopmentProject,
+} from './businessDevelopment'
+import {
   CONSTRUCTION_WORKERS,
   STARTER_HOUSE_RECIPE,
   constructionLaborBreakdown,
@@ -72,6 +78,7 @@ export interface LifeLadderSnapshot {
   assets: { kind: AssetKind; incomePerDay: number }[]
   resources: ResourceInventory
   constructionProjects: ConstructionProject[]
+  businessDevelopmentProjects: BusinessDevelopmentProject[]
   educationActions: number
   communityActionsThisWeek: number
 }
@@ -120,7 +127,12 @@ function bodyRecoveryTask(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 function firstMissingResource(project: ConstructionProject, resources: ResourceInventory): ResourceKind | null {
   const missing = constructionShortfall(project)
   return RESOURCE_KINDS.find((kind) => missing[kind] > 0 && resources[kind] < missing[kind])
-    ?? RESOURCE_KINDS.find((kind) => missing[kind] > 0)
+    ?? null
+}
+
+function firstMissingBusinessResource(project: BusinessDevelopmentProject, resources: ResourceInventory): ResourceKind | null {
+  const missing = businessDevelopmentShortfall(project)
+  return RESOURCE_KINDS.find((kind) => missing[kind] > 0 && resources[kind] < missing[kind])
     ?? null
 }
 
@@ -172,8 +184,36 @@ function schoolPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 
 function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   if (!snapshot.assets.some((asset) => asset.kind === 'home')) return null
-  if (snapshot.assets.some((asset) => asset.kind === 'business')) {
-    return task('collect-and-reinvest', 'Collect and reinvest profits', 'Owner days are still serious days: collect income, then upgrade or save.', 'capital', { kind: 'panel', panel: 'assets' }, 20)
+  const project = snapshot.businessDevelopmentProjects[0] ?? null
+  if (project) {
+    const progress = businessDevelopmentProgress(project)
+    if (!progress.resourcesComplete) {
+      const kind = firstMissingBusinessResource(project, snapshot.resources)
+      if (!kind) {
+        return task('deposit-business-materials', `Deposit ${project.businessName} materials`, 'Move gathered ingredients into the interior plan so the upgrade can advance.', 'capital', { kind: 'panel', panel: 'business' }, 15)
+      }
+      const meta = RESOURCE_META[kind]
+      return task(`gather-business-${kind}`, `Gather ${meta.label.toLowerCase()} for ${project.businessName}`, `${project.businessName}'s interior still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`, 'capital', { kind: 'panel', panel: 'construction' }, meta.gatherMinutes)
+    }
+    if (!progress.budgetComplete) {
+      if (snapshot.money >= project.budgetCost + CASH_SAFETY_FLOOR) {
+        return task('pay-business-budget', `Pay ${project.businessName} budget`, `Pay ${project.budgetCost} to unlock interior labor for level ${project.levelTo}.`, 'respect', { kind: 'panel', panel: 'business' }, 10)
+      }
+      return task('work-for-business-budget', `Work for ${project.businessName}'s budget`, 'Earn before funding the upgrade so food and water stay safe.', 'work', { kind: 'panel', panel: 'work' }, STANDARD_DAY_BUDGET.workMinutes)
+    }
+    if (!progress.laborComplete) {
+      const labor = businessDevelopmentLaborBreakdown(project)
+      const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
+      if (helper && labor.remainingMinutes >= 120 && snapshot.money >= helper.ratePerHour + CASH_SAFETY_FLOOR) {
+        return task('hire-business-worker-hour', `Hire 1h worker for ${project.businessName}`, 'Keep the interior moving while your own day stays balanced.', 'capital', { kind: 'panel', panel: 'business' }, 5)
+      }
+      return task('develop-business-hour', `Work 60m inside ${project.businessName}`, 'Use free time after work and body care to build the business from the inside.', 'capital', { kind: 'panel', panel: 'business' }, 60)
+    }
+    return task('finish-business-development', `Finish ${project.businessName} L${project.levelTo}`, 'Materials, budget, and labor are ready. Make the interior upgrade permanent.', 'capital', { kind: 'panel', panel: 'business' }, 10)
+  }
+  const business = snapshot.assets.find((asset) => asset.kind === 'business') ?? null
+  if (business) {
+    return task('plan-business-development', 'Plan the next business upgrade', 'Turn profit into layout, tools, and service quality before chasing a second business.', 'capital', { kind: 'panel', panel: 'business' }, 20)
   }
   return task('build-first-business', 'Build the first business', 'Use stable home life to start an earning building, not instant magic income.', 'capital', { kind: 'market', focus: 'business' }, 45)
 }
@@ -192,7 +232,15 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const respect = task('support-respect', 'Keep one commitment', 'Finish the shift, build hour, or study block you start today.', 'respect', { kind: 'panel', panel: 'achievements' }, 10)
   const friendship = task('support-friendship', 'Check on one friend', 'Friendship is not decoration. It keeps life stable when the grind gets hard.', 'friendship', { kind: 'panel', panel: 'achievements' }, 15)
   const community = task('support-community', 'Help one local person', 'Community grows trust first, rewards second.', 'community', { kind: 'panel', panel: 'achievements' }, 30)
-  const capital = task('support-capital', snapshot.constructionProjects.length > 0 ? 'Move the build forward' : 'Save toward ownership', 'Turn work into a house, then a business, then cashflow.', 'capital', { kind: 'panel', panel: snapshot.constructionProjects.length > 0 ? 'construction' : 'assets' }, 60)
+  const hasBusinessProject = snapshot.businessDevelopmentProjects.length > 0
+  const capital = task(
+    'support-capital',
+    snapshot.constructionProjects.length > 0 ? 'Move the build forward' : hasBusinessProject ? 'Move the business interior forward' : 'Save toward ownership',
+    'Turn work into a house, then a business, then cashflow.',
+    'capital',
+    { kind: 'panel', panel: snapshot.constructionProjects.length > 0 ? 'construction' : hasBusinessProject ? 'business' : 'assets' },
+    60,
+  )
   return [body, school, work, respect, friendship, community, capital]
 }
 
@@ -261,6 +309,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const construction = constructionPrimary(snapshot)
   const community = communityPrimary(snapshot)
   const business = businessPrimary(snapshot)
+  const businessBeforeCommunity = business && business.id !== 'build-first-business' ? business : null
   const steady = task('steady-owner-day', 'Run a steady owner day', 'Collect, study, help someone, and reinvest the surplus.', 'capital', { kind: 'panel', panel: 'assets' }, 60)
   const primary =
     active
@@ -268,6 +317,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     ?? work
     ?? school
     ?? construction
+    ?? businessBeforeCommunity
     ?? community
     ?? business
     ?? steady
@@ -279,6 +329,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     work,
     school,
     construction,
+    businessBeforeCommunity,
     community,
     business,
     ...support,
