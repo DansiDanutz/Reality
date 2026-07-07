@@ -766,6 +766,27 @@ function comboXP(s: GameState, baseXP: number): { bonusXP: number; comboToast: s
   return { bonusXP, comboToast, newCombo }
 }
 
+type BodyWorkBlocker = 'health' | 'energy' | 'hunger' | 'hydration'
+
+function bodyWorkBlocker(
+  needs: Needs,
+  health: number,
+  floors: { energy: number; hunger?: number; hydration?: number },
+): BodyWorkBlocker | null {
+  if (health < 20) return 'health'
+  if (needs.energy < floors.energy) return 'energy'
+  if (needs.hunger < (floors.hunger ?? 15)) return 'hunger'
+  if (needs.hydration < (floors.hydration ?? 15)) return 'hydration'
+  return null
+}
+
+function bodyWorkBlockerText(blocker: BodyWorkBlocker, action: string): string {
+  if (blocker === 'hydration') return `Drink water before ${action}.`
+  if (blocker === 'hunger') return `Eat before ${action}.`
+  if (blocker === 'energy') return `Rest before ${action}.`
+  return `Recover before ${action}.`
+}
+
 /**
  * Build the achievement snapshot from live game state. Centralised here so the
  * panel and the auto-claimer see the exact same view. `distinctItemsOwned`
@@ -1930,8 +1951,9 @@ export const useGame = create<GameState>()(
         if (s.activity) return
         const node = s.resourceNodes.find((candidate) => candidate.id === nodeId)
         if (!node) return
-        if (s.needs.energy < node.energyCost + 5 || s.health < 20) {
-          set({ toasts: withToast(s.toasts, `Too worn down to gather ${RESOURCE_META[node.kind].label.toLowerCase()}. Rest first.`, 'blocked') })
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: node.energyCost + 5 })
+        if (blocker) {
+          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, `gathering ${RESOURCE_META[node.kind].label.toLowerCase()}`), 'blocked') })
           return
         }
         const now = Date.now()
@@ -2071,8 +2093,9 @@ export const useGame = create<GameState>()(
         if (s.activity) return
         const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
         if (!project) return
-        if (s.needs.energy < 20 || s.health < 20) {
-          set({ toasts: withToast(s.toasts, 'Too worn down for construction work. Rest first.', 'blocked') })
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
+        if (blocker) {
+          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'construction work'), 'blocked') })
           return
         }
         const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
@@ -2307,8 +2330,9 @@ export const useGame = create<GameState>()(
         if (s.activity) return
         const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
         if (!project) return
-        if (s.needs.energy < 20 || s.health < 20) {
-          set({ toasts: withToast(s.toasts, 'Too worn down for interior work. Rest first.', 'blocked') })
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
+        if (blocker) {
+          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'interior work'), 'blocked') })
           return
         }
         const progress = businessDevelopmentProgress(project)
@@ -2435,11 +2459,12 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.'), toasts: withToast(s.toasts, 'Down with the flu — no shifts until it passes 🤒', 'blocked') })
           return
         }
-        // A gig is lighter than a full shift (lower energy floor), but a
-        // starving citizen still can't work — matches the shift gate and the
-        // HealthGuide's "below 15 you are too weak to start a shift."
-        if (s.needs.energy < 15 || s.needs.hunger < 15 || s.health < 20) {
-          set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.'), toasts: withToast(s.toasts, 'Too worn down for a gig — drink, eat, rest.', 'blocked') })
+        // A gig is lighter than a full shift, but food and water still gate
+        // work. The daily loop should make body care non-optional.
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 15 })
+        if (blocker) {
+          const text = bodyWorkBlockerText(blocker, 'taking a gig')
+          set({ log: note(s.log, text), toasts: withToast(s.toasts, text, 'blocked') })
           return
         }
         track('first_shift_started')
@@ -2573,8 +2598,10 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.') })
           return
         }
-        if (s.needs.energy < 25 || s.needs.hunger < 15 || s.health < 20) {
-          set({ log: note(s.log, 'Too worn down to work. Eat and sleep first.') })
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 25 })
+        if (blocker) {
+          const text = bodyWorkBlockerText(blocker, 'starting a shift')
+          set({ log: note(s.log, text), toasts: withToast(s.toasts, text, 'blocked') })
           return
         }
         track('first_shift_started')
