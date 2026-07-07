@@ -66,6 +66,7 @@ describe('migrateSave - backfills every field added after v1', () => {
       friendship: 0,
       trust: 0,
       actionsThisWeek: 0,
+      actionsToday: 0,
       reliableShifts: 0,
       workRespectToday: 0,
     })
@@ -195,6 +196,8 @@ describe('migrateSave - backfills every field added after v1', () => {
       trust: 2,
       actionsThisWeek: 1,
       week: 42,
+      actionsToday: 0,
+      actionDay: expect.any(Number),
       reliableShifts: 0,
       workRespectDay: expect.any(Number),
       workRespectToday: 0,
