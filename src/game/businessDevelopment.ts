@@ -1,5 +1,6 @@
 import { upgradeOutcome, type UpgradeOutcome } from './businessUpgrades'
 import {
+  type ConstructionWorker,
   type ConstructionWorkerId,
   workerById,
 } from './construction'
@@ -26,9 +27,23 @@ export interface BusinessDevelopmentProject {
   laborRequiredMinutes: number
   laborDoneMinutes: number
   hiredLaborMinutes: number
+  workerContracts: BusinessDevelopmentWorkerContract[]
   budgetCost: number
   budgetPaid: boolean
   startedAt: number
+}
+
+export interface BusinessDevelopmentWorkerContract {
+  id: string
+  workerId: ConstructionWorkerId
+  workerName: string
+  hiredAt: number
+  paidUntil: number
+  paidMinutes: number
+  workedMinutes: number
+  laborMultiplier: number
+  ratePerHour: number
+  cost: number
 }
 
 export interface BusinessDevelopmentPlan {
@@ -81,10 +96,36 @@ export function createBusinessDevelopmentProject(asset: PlacedAsset, now = Date.
     laborRequiredMinutes: plan.laborRequiredMinutes,
     laborDoneMinutes: 0,
     hiredLaborMinutes: 0,
+    workerContracts: [],
     budgetCost: plan.budgetCost,
     budgetPaid: false,
     startedAt: now,
   }
+}
+
+function normalizeBusinessDevelopmentWorkerContracts(
+  contracts: Partial<BusinessDevelopmentWorkerContract>[] | undefined,
+  projectId: string,
+): BusinessDevelopmentWorkerContract[] {
+  if (!Array.isArray(contracts)) return []
+  return contracts.flatMap((contract, index) => {
+    const worker = workerById(contract.workerId as ConstructionWorkerId)
+    if (!worker) return []
+    const paidMinutes = Math.max(0, Math.floor(Number(contract.paidMinutes ?? 0)))
+    if (paidMinutes <= 0) return []
+    return [{
+      id: String(contract.id ?? `${projectId}:${worker.id}:${index}`),
+      workerId: worker.id,
+      workerName: String(contract.workerName ?? worker.name),
+      hiredAt: Number.isFinite(contract.hiredAt) ? Number(contract.hiredAt) : Date.now(),
+      paidUntil: Number.isFinite(contract.paidUntil) ? Number(contract.paidUntil) : Date.now(),
+      paidMinutes,
+      workedMinutes: Math.min(paidMinutes, Math.max(0, Number(contract.workedMinutes ?? 0))),
+      laborMultiplier: Math.max(0, Number(contract.laborMultiplier ?? worker.laborMultiplier)),
+      ratePerHour: Math.max(0, Number(contract.ratePerHour ?? worker.ratePerHour)),
+      cost: Math.max(0, Number(contract.cost ?? worker.ratePerHour * (paidMinutes / 60))),
+    }]
+  })
 }
 
 export function normalizeBusinessDevelopmentProject(project: Partial<BusinessDevelopmentProject>): BusinessDevelopmentProject | null {
@@ -107,6 +148,7 @@ export function normalizeBusinessDevelopmentProject(project: Partial<BusinessDev
     laborRequiredMinutes,
     laborDoneMinutes: Math.min(laborRequiredMinutes, Math.max(0, Math.floor(project.laborDoneMinutes ?? 0))),
     hiredLaborMinutes: Math.max(0, Math.floor(project.hiredLaborMinutes ?? 0)),
+    workerContracts: normalizeBusinessDevelopmentWorkerContracts(project.workerContracts, String(project.id)),
     budgetCost: Math.max(0, Math.floor(project.budgetCost ?? 0)),
     budgetPaid: Boolean(project.budgetPaid),
     startedAt: Number.isFinite(project.startedAt) ? Number(project.startedAt) : Date.now(),
@@ -214,19 +256,64 @@ export function estimateBusinessDevelopmentWorkerHire(
   project: BusinessDevelopmentProject,
   workerId: ConstructionWorkerId,
   hours = 1,
-): { hours: number; cost: number; laborMinutes: number; blockedBy: ReturnType<typeof businessDevelopmentWorkerBlocker> } | null {
+): { worker: ConstructionWorker; hours: number; cost: number; laborMinutes: number; blockedBy: ReturnType<typeof businessDevelopmentWorkerBlocker> } | null {
   const worker = workerById(workerId)
   if (!worker) return null
   const requestedHours = Math.min(Math.max(hours, 1), worker.maxHours)
   const blockedBy = businessDevelopmentWorkerBlocker(project)
-  if (blockedBy) return { hours: requestedHours, cost: worker.ratePerHour * requestedHours, laborMinutes: 0, blockedBy }
+  if (blockedBy) return { worker, hours: requestedHours, cost: worker.ratePerHour * requestedHours, laborMinutes: 0, blockedBy }
   const remaining = businessDevelopmentLaborBreakdown(project).remainingMinutes
   const laborMinutes = Math.min(remaining, Math.round(requestedHours * 60 * worker.laborMultiplier))
   return {
+    worker,
     hours: requestedHours,
     cost: worker.ratePerHour * requestedHours,
     laborMinutes,
     blockedBy: null,
+  }
+}
+
+function activePaidMinutes(contract: BusinessDevelopmentWorkerContract, now: number): number {
+  if (now <= contract.hiredAt) return 0
+  const elapsedMinutes = (Math.min(now, contract.paidUntil) - contract.hiredAt) / 60_000
+  return Math.min(contract.paidMinutes, Math.max(0, Math.floor(elapsedMinutes)))
+}
+
+export function advanceBusinessDevelopmentWorkerContracts(
+  project: BusinessDevelopmentProject,
+  now = Date.now(),
+): { project: BusinessDevelopmentProject; laborMinutes: number } {
+  const contracts = project.workerContracts ?? []
+  if (contracts.length === 0) return { project: { ...project, workerContracts: [] }, laborMinutes: 0 }
+
+  let laborDoneMinutes = Math.max(0, project.laborDoneMinutes)
+  let hiredLaborMinutes = Math.max(0, project.hiredLaborMinutes ?? 0)
+  let laborDelta = 0
+  const nextContracts = contracts.map((contract) => {
+    const paidWorkedTarget = activePaidMinutes(contract, now)
+    const availablePaidMinutes = Math.max(0, paidWorkedTarget - contract.workedMinutes)
+    const multiplier = Math.max(0, contract.laborMultiplier)
+    const remainingLabor = Math.max(0, project.laborRequiredMinutes - laborDoneMinutes)
+    const possibleLabor = availablePaidMinutes * multiplier
+    const addedLabor = Math.min(remainingLabor, possibleLabor)
+    const paidMinutesUsed = multiplier > 0 ? addedLabor / multiplier : 0
+    laborDoneMinutes += addedLabor
+    hiredLaborMinutes += addedLabor
+    laborDelta += addedLabor
+    return {
+      ...contract,
+      workedMinutes: Math.min(contract.paidMinutes, contract.workedMinutes + paidMinutesUsed),
+    }
+  })
+
+  return {
+    project: {
+      ...project,
+      laborDoneMinutes: Math.min(project.laborRequiredMinutes, laborDoneMinutes),
+      hiredLaborMinutes: Math.min(Math.min(project.laborRequiredMinutes, laborDoneMinutes), hiredLaborMinutes),
+      workerContracts: nextContracts,
+    },
+    laborMinutes: laborDelta,
   }
 }
 
@@ -235,22 +322,35 @@ export function hireBusinessDevelopmentWorker(
   workerId: ConstructionWorkerId,
   money: number,
   hours = 1,
-): { project: BusinessDevelopmentProject; money: number; hired: boolean; cost: number; laborMinutes: number; reason: 'unknown_worker' | 'materials' | 'budget' | 'labor' | 'money' | null } {
+  now = Date.now(),
+): { project: BusinessDevelopmentProject; money: number; hired: boolean; cost: number; laborMinutes: number; contract: BusinessDevelopmentWorkerContract | null; reason: 'unknown_worker' | 'materials' | 'budget' | 'labor' | 'money' | null } {
   const estimate = estimateBusinessDevelopmentWorkerHire(project, workerId, hours)
-  if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, reason: 'unknown_worker' }
-  if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: estimate.blockedBy }
-  if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'money' }
-  if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'labor' }
-  const worked = addBusinessDevelopmentLabor(project, estimate.laborMinutes)
+  if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, contract: null, reason: 'unknown_worker' }
+  if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: estimate.blockedBy }
+  if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'money' }
+  if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'labor' }
+  const contract: BusinessDevelopmentWorkerContract = {
+    id: `${project.id}:${estimate.worker.id}:${now}`,
+    workerId: estimate.worker.id,
+    workerName: estimate.worker.name,
+    hiredAt: now,
+    paidUntil: now + estimate.hours * 3_600_000,
+    paidMinutes: estimate.hours * 60,
+    workedMinutes: 0,
+    laborMultiplier: estimate.worker.laborMultiplier,
+    ratePerHour: estimate.worker.ratePerHour,
+    cost: estimate.cost,
+  }
   return {
     project: {
-      ...worked,
-      hiredLaborMinutes: Math.min(worked.laborDoneMinutes, project.hiredLaborMinutes + estimate.laborMinutes),
+      ...project,
+      workerContracts: [...(project.workerContracts ?? []), contract],
     },
     money: money - estimate.cost,
     hired: true,
     cost: estimate.cost,
     laborMinutes: estimate.laborMinutes,
+    contract,
     reason: null,
   }
 }
