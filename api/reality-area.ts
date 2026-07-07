@@ -1106,6 +1106,15 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueBlockerCounts {
+  total: number
+  approvalWorkflowDisabled: number
+  telegramDeliveryDisabled: number
+  probationExecutionDisabled: number
+  replacementDisabled: number
+  waitlistHandoffDisabled: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1263,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    blockerCounts: FounderCovenantReviewQueueBlockerCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4631,7 +4641,32 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    blockerCounts: founderCovenantReviewQueueBlockerCounts(items),
   }
+}
+
+function founderCovenantReviewQueueBlockerCounts(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueBlockerCounts {
+  const counts: FounderCovenantReviewQueueBlockerCounts = {
+    total: 0,
+    approvalWorkflowDisabled: 0,
+    telegramDeliveryDisabled: 0,
+    probationExecutionDisabled: 0,
+    replacementDisabled: 0,
+    waitlistHandoffDisabled: 0,
+  }
+  for (const item of items) {
+    for (const blocker of item.reviewQueue.blockers) {
+      counts.total += 1
+      if (blocker === 'approval_workflow_disabled') counts.approvalWorkflowDisabled += 1
+      if (blocker === 'telegram_delivery_disabled') counts.telegramDeliveryDisabled += 1
+      if (blocker === 'probation_execution_disabled') counts.probationExecutionDisabled += 1
+      if (blocker === 'replacement_disabled') counts.replacementDisabled += 1
+      if (blocker === 'waitlist_handoff_disabled') counts.waitlistHandoffDisabled += 1
+    }
+  }
+  return counts
 }
 
 function compareFounderCovenantReviewQueueItems(

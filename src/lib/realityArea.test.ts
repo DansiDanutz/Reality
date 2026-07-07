@@ -2957,6 +2957,7 @@ function serverDashboard(): RealityAreaDashboard {
 function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
   const dashboard = serverDashboard()
   const review = dashboard.founderCovenant
+  const blockerCounts = serverFounderCovenantBlockerCounts(review.reviewQueue.blockers)
   return {
     generatedAt: '2026-07-06T04:00:00.000Z',
     evidenceOnly: true,
@@ -2994,6 +2995,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      blockerCounts,
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3060,6 +3062,19 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       updatedAt: dashboard.updatedAt,
       transactionsAdded: 1,
     }],
+  }
+}
+
+function serverFounderCovenantBlockerCounts(
+  blockers: RealityAreaDashboard['founderCovenant']['reviewQueue']['blockers'],
+): RealityFounderCovenantReviewQueueDashboard['totals']['blockerCounts'] {
+  return {
+    total: blockers.length,
+    approvalWorkflowDisabled: blockers.includes('approval_workflow_disabled') ? 1 : 0,
+    telegramDeliveryDisabled: blockers.includes('telegram_delivery_disabled') ? 1 : 0,
+    probationExecutionDisabled: blockers.includes('probation_execution_disabled') ? 1 : 0,
+    replacementDisabled: blockers.includes('replacement_disabled') ? 1 : 0,
+    waitlistHandoffDisabled: blockers.includes('waitlist_handoff_disabled') ? 1 : 0,
   }
 }
 
