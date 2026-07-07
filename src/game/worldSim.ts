@@ -3287,19 +3287,23 @@ function purchaseInsurancePolicy(
 }
 
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
-  const candidates = area.businesses
-    .filter((business) => business.kind === kind && serviceCapacity(area, business, context.hours) > 0)
-    .sort((a, b) => a.id.localeCompare(b.id))
-  if (candidates.length === 0) return null
+  const available = area.businesses
+    .filter((business) => business.kind === kind)
+    .filter((business) => {
+      const capacity = serviceCapacity(area, business, context.hours)
+      const used = context.capacityUsed[business.id] ?? 0
+      return used < capacity
+    })
+    .sort((a, b) => businessPrice(a) - businessPrice(b) || a.id.localeCompare(b.id))
+  if (available.length === 0) return null
 
-  const start = context.servedByKind[kind] % candidates.length
-  for (let offset = 0; offset < candidates.length; offset++) {
-    const business = candidates[(start + offset) % candidates.length]
-    const capacity = serviceCapacity(area, business, context.hours)
-    const used = context.capacityUsed[business.id] ?? 0
-    if (used < capacity) return business
-  }
-  return null
+  const lowestPrice = businessPrice(available[0])
+  const cheapest = available.filter((business) => businessPrice(business) === lowestPrice)
+  return cheapest[context.servedByKind[kind] % cheapest.length] ?? null
+}
+
+function businessPrice(business: WorldBusiness): number {
+  return business.price ?? DEFAULT_PRICES[business.kind]
 }
 
 function reserveBusinessCapacity(context: StepContext, business: WorldBusiness): void {

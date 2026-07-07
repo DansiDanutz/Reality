@@ -1113,6 +1113,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(crowdedOut.businesses[1].cash).toBe(60)
   })
 
+  test('citizens prefer lower-priced local providers before expensive competitors', () => {
+    const hungryCitizens = Array.from({ length: 3 }, (_, i) => sim(`c${i}`, {
+      needs: fullNeeds({ hunger: 45 }),
+      money: 50,
+    }))
+    const start = area({
+      citizens: hungryCitizens,
+      businesses: [
+        business('food', 'food-expensive', { price: 20 }),
+        business('food', 'food-cheap', { price: 10 }),
+      ],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(summary.purchases).toBe(3)
+    expect(out.businesses.find((candidate) => candidate.id === 'food-cheap')!.cash).toBe(30)
+    expect(out.businesses.find((candidate) => candidate.id === 'food-expensive')!.cash).toBe(0)
+    expect(out.transactions.filter((transaction) => transaction.kind === 'customer_purchase')).toMatchObject([
+      { toId: 'food-cheap', amount: 10 },
+      { toId: 'food-cheap', amount: 10 },
+      { toId: 'food-cheap', amount: 10 },
+    ])
+  })
+
   test('near-death collapse sends the citizen to hospital and creates medical debt', () => {
     const start = area({
       citizens: [sim('c1', { health: COLLAPSE_HEALTH - 10, money: 50 })],
