@@ -1434,6 +1434,52 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('area event dashboard keeps malformed event snapshots finite without mutating source events', () => {
+    const malformedEvent = {
+      id: 'event-1',
+      at: Number.POSITIVE_INFINITY,
+      kind: 'sim_citizen_departure' as const,
+      severity: 'warning' as const,
+      citizenId: 'departed',
+      citizenName: 'Departed Resident',
+      simulated: true,
+      reason: 'water_unserved' as const,
+      serviceKind: 'water' as const,
+      health: Number.NaN,
+      needs: fullNeeds({
+        hunger: -10,
+        hydration: Number.NaN,
+        energy: 150,
+      }),
+      message: 'Departed Resident left the area because water stayed unserved while health was low.',
+    }
+
+    const dash = areaNeedsDashboard(area({ areaEvents: [malformedEvent] }))
+    const event = dash.areaEvents.recentEvents[0]
+
+    expect(Number.isNaN(malformedEvent.health)).toBe(true)
+    expect(Number.isNaN(malformedEvent.needs.hydration)).toBe(true)
+    expect(dash.areaEvents).toMatchObject({
+      eventCount: 1,
+      simDepartures: 1,
+      warningEvents: 1,
+      criticalEvents: 0,
+    })
+    expect(event).toMatchObject({
+      id: 'event-1',
+      at: 'invalid_event_time',
+      displayName: 'Departed Resident (Sim)',
+      participantLabel: 'Sim Citizen',
+      visualTone: 'simulated',
+      health: 100,
+      needs: {
+        hunger: 0,
+        hydration: 90,
+        energy: 100,
+      },
+    })
+  })
+
   test('real citizens and business owners do not silently leave the area', () => {
     const realCitizen = sim('real1', {
       kind: 'real',
