@@ -653,6 +653,12 @@ describe('FounderAreaPanel covenant presenters', () => {
     })).toBe('Shortage: water, housing')
 
     expect(founderCovenantSignalText({
+      kind: 'stale_founder_activity',
+      severity: 'warning',
+      message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
+    })).toBe('Stale activity')
+
+    expect(founderCovenantSignalText({
       kind: 'sim_departure',
       severity: 'warning',
       message: '2 Sim Citizens left after the latest review because essential services stayed unserved.',

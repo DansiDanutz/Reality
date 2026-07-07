@@ -2434,6 +2434,10 @@ describe('advanceWorldArea — local real-time economy', () => {
       approvalRequests: [],
     })
     expect(dash.founderCovenant.signals).toEqual([{
+      kind: 'stale_founder_activity',
+      severity: 'warning',
+      message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
+    }, {
       kind: 'review_due',
       severity: 'warning',
       message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
@@ -2452,6 +2456,34 @@ describe('advanceWorldArea — local real-time economy', () => {
         authorityGate: expect.objectContaining({ executionEnabled: false }),
       }),
     ]))
+  })
+
+  test('dashboard suppresses stale activity when recent founder-owned business activity exists', () => {
+    const start = claimedArea({
+      now: 8 * 24 * HOUR,
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+      transactions: [{
+        id: 'recent-water-sale',
+        at: 8 * 24 * HOUR - HOUR,
+        kind: 'customer_purchase',
+        payoutEligibility: 'game_only',
+        fromId: 'thirsty',
+        toId: 'water1',
+        amount: 2,
+        memo: 'Recent water sale.',
+      }],
+    })
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant.reviewSchedule?.overdue).toBe(true)
+    expect(dash.founderCovenant.signals.map((signal) => signal.kind)).not.toContain('stale_founder_activity')
+    expect(dash.founderCovenant.signals).toEqual(expect.arrayContaining([{
+      kind: 'review_due',
+      severity: 'warning',
+      message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+    }]))
+    expect(dash.founderCovenant.reviewQueue.executionEnabled).toBe(false)
   })
 
   test('dashboard surfaces survival warning, danger, and hospitalization signals', () => {
