@@ -132,6 +132,37 @@ describe('planLifeDay', () => {
     expect(plan.primary.route).toEqual({ kind: 'survival-action', action: 'sleep' })
   })
 
+  test('makes routine hydration care a direct drink action when safe', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hydration: 45 },
+      money: 100,
+    }))
+
+    expect(plan.primary.id).not.toBe('drink-water')
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'survival-action', action: 'drink-water' },
+    })
+  })
+
+  test('opens the drinks market for hydration care when the player is broke', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hydration: 45 },
+      money: 0,
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'drinks' },
+    })
+  })
+
   test('sends an unemployed citizen to find work before capital tasks', () => {
     const plan = planLifeDay(snap({ money: 50 }))
 
