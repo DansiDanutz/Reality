@@ -2306,6 +2306,53 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('records founder covenant reviews without sharing prior manual evidence', () => {
+    const reviewAt = 2 * HOUR
+    const start = claimedArea({ now: reviewAt })
+
+    const first = recordFounderCovenantReview(start, {
+      reviewedAt: reviewAt,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      note: 'First manual review.',
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error(`expected first review to record: ${first.error}`)
+
+    const second = recordFounderCovenantReview(first.area, {
+      reviewedAt: reviewAt,
+      reviewerId: 'reviewer-2',
+      actionKind: 'record_review',
+      note: 'Second manual review.',
+    })
+    expect(second.ok).toBe(true)
+    if (!second.ok) throw new Error(`expected second review to record: ${second.error}`)
+
+    const sourceEntry = first.area.founderReviewHistory?.[0]
+    const carriedEntry = second.area.founderReviewHistory?.[0]
+
+    expect(carriedEntry).toEqual(sourceEntry)
+    expect(carriedEntry).not.toBe(sourceEntry)
+    expect(carriedEntry?.authorityGate).not.toBe(sourceEntry?.authorityGate)
+    expect(carriedEntry?.decision).not.toBe(sourceEntry?.decision)
+    expect(carriedEntry?.signals).not.toBe(sourceEntry?.signals)
+    expect(carriedEntry?.activityReview).not.toBe(sourceEntry?.activityReview)
+    expect(carriedEntry?.reviewQueue).not.toBe(sourceEntry?.reviewQueue)
+    expect(carriedEntry?.reviewQueue.recommendedActionKinds).not.toBe(sourceEntry?.reviewQueue.recommendedActionKinds)
+    expect(carriedEntry?.reviewQueue.blockers).not.toBe(sourceEntry?.reviewQueue.blockers)
+    expect(carriedEntry?.reviewInputs).not.toBe(sourceEntry?.reviewInputs)
+    expect(carriedEntry?.reviewInputs[0]).not.toBe(sourceEntry?.reviewInputs[0])
+    expect(carriedEntry?.stages).not.toBe(sourceEntry?.stages)
+    expect(carriedEntry?.stages[0]).not.toBe(sourceEntry?.stages[0])
+    expect(carriedEntry?.reviewChecklist).not.toBe(sourceEntry?.reviewChecklist)
+    expect(carriedEntry?.reviewChecklist[0]).not.toBe(sourceEntry?.reviewChecklist[0])
+    expect(carriedEntry?.manualActions).not.toBe(sourceEntry?.manualActions)
+    expect(carriedEntry?.manualActions[0]).not.toBe(sourceEntry?.manualActions[0])
+    expect(carriedEntry?.manualActions[0]?.authorityGate).not.toBe(sourceEntry?.manualActions[0]?.authorityGate)
+    expect(carriedEntry?.reviewSchedule).not.toBe(sourceEntry?.reviewSchedule)
+    expect(second.area.founderReviewHistory).toHaveLength(2)
+  })
+
   test('records same-time founder covenant reviews with unique evidence ids', () => {
     const reviewAt = 2 * HOUR
     const start = claimedArea({ now: reviewAt })
