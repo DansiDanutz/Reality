@@ -245,6 +245,95 @@ describe('sleep daily counter', () => {
 })
 
 describe('construction worker contracts', () => {
+  test('a bought business becomes a map construction project before interior development', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada', spawnLat: 45, spawnLng: 21 },
+      money: 20_000,
+      assets: [{
+        id: 'home-1',
+        itemId: 'microstudio',
+        kind: 'home',
+        name: 'Starter House',
+        lat: 45,
+        lng: 21,
+        incomePerDay: 0,
+        pendingIncome: 0,
+        placedAtMinute: 0,
+      }],
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [],
+      placing: null,
+      selectedMapTarget: null,
+      panel: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().buy('foodcart')
+    expect(useGame.getState().money).toBe(5_000)
+    expect(useGame.getState().placing).toMatchObject({ id: 'foodcart', category: 'business' })
+    expect(useGame.getState().assets.filter((asset) => asset.kind === 'business')).toEqual([])
+
+    useGame.getState().placeAt(45.01, 21.01)
+
+    let state = useGame.getState()
+    expect(state.placing).toBeNull()
+    expect(state.assets.filter((asset) => asset.kind === 'business')).toEqual([])
+    expect(state.businessDevelopmentProjects).toEqual([])
+    expect(state.constructionProjects).toHaveLength(1)
+    expect(state.constructionProjects[0]).toMatchObject({
+      itemId: 'foodcart',
+      name: 'Food Cart',
+      resultKind: 'business',
+      incomePerDay: 200,
+      permitFee: 500,
+    })
+    expect(state.selectedMapTarget).toEqual({ kind: 'construction', id: state.constructionProjects[0].id })
+    expect(state.panel).toBe('construction')
+    expect(state.log[0]).toContain('Build it before it can open')
+
+    const project = state.constructionProjects[0]
+    useGame.setState({ resources: freshResources(project.required) })
+    useGame.getState().depositConstructionResources(project.id)
+    useGame.getState().payConstructionPermit(project.id)
+    state = useGame.getState()
+    const ready = state.constructionProjects[0]
+    useGame.setState({
+      constructionProjects: [{
+        ...ready,
+        laborDoneMinutes: ready.laborRequiredMinutes,
+      }],
+    })
+    useGame.getState().completeConstructionIfReady(project.id)
+
+    state = useGame.getState()
+    const builtBusiness = state.assets.find((asset) => asset.kind === 'business')
+    expect(state.constructionProjects).toEqual([])
+    expect(builtBusiness).toMatchObject({
+      itemId: 'foodcart',
+      name: 'Food Cart',
+      kind: 'business',
+      incomePerDay: 200,
+    })
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: builtBusiness!.id })
+    expect(state.panel).toBe('business')
+
+    useGame.getState().upgradeBusiness(builtBusiness!.id)
+    state = useGame.getState()
+    expect(state.businessDevelopmentProjects).toHaveLength(1)
+    expect(state.businessDevelopmentProjects[0]).toMatchObject({
+      businessId: builtBusiness!.id,
+      businessName: 'Food Cart',
+      levelFrom: 1,
+      levelTo: 2,
+    })
+  })
+
   test('player construction labor waits for materials and permit like hired workers do', () => {
     const now = Date.now()
     const project = createConstructionProject('starter-house', 45.7, 21.2, now)
