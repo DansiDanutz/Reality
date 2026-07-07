@@ -136,6 +136,30 @@ describe('telegram Mini App auth', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('server handler rejects client-owned Telegram identity fields before verification', async () => {
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        initData: 'tampered-session',
+        telegramUserId: '42424242',
+        realityAccountId: 'telegram:42424242',
+        citizenId: '11111111-1111-4111-8111-111111111111',
+        founderNumber: 12,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Telegram auth only accepts initData.',
+      code: 'client_owned_body_field',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('server handler persists a verified Telegram identity record', async () => {
     process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
     vi.useFakeTimers()
