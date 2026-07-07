@@ -838,6 +838,7 @@ export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
+export const REAL_WORKER_SERVICE_UNIT = 1.25
 
 const SURVIVAL_WARNING_HYDRATION = 50
 const SURVIVAL_WARNING_HUNGER = 50
@@ -3308,8 +3309,8 @@ function reserveBusinessCapacity(context: StepContext, business: WorldBusiness):
 }
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {
-  const activeStaff = activeStaffCount(area, business)
-  const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
+  const activeStaffUnits = activeStaffServiceUnits(area, business)
+  const staffMultiplier = activeStaffUnits === 0 ? 1 : 1 + activeStaffUnits * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
 }
@@ -3318,6 +3319,13 @@ function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
   return business.staffCitizenIds
     .map((id) => area.citizens.find((c) => c.id === id))
     .filter((c): c is WorldCitizen => c?.state.kind === 'active' && c.jobBusinessId === business.id).length
+}
+
+function activeStaffServiceUnits(area: WorldArea, business: WorldBusiness): number {
+  return business.staffCitizenIds
+    .map((id) => area.citizens.find((c) => c.id === id))
+    .filter((c): c is WorldCitizen => c?.state.kind === 'active' && c.jobBusinessId === business.id)
+    .reduce((total, citizen) => total + (citizen.kind === 'real' ? REAL_WORKER_SERVICE_UNIT : 1), 0)
 }
 
 function applyServiceEffect(citizen: WorldCitizen, effect: ServiceEffect, quality: number): void {

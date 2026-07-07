@@ -21,6 +21,7 @@ import {
   licenseSlotsForPopulation,
   nextLicenseUnlockPopulation,
   recordFounderCovenantReview,
+  REAL_WORKER_SERVICE_UNIT,
   type WorldArea,
   type WorldBusiness,
   type WorldBusinessKind,
@@ -935,6 +936,30 @@ describe('advanceWorldArea — local real-time economy', () => {
       toId: 'worker',
       amount: 10,
     })
+  })
+
+  test('accepted real workers improve service capacity more than sim workers', () => {
+    const simStaffed = areaNeedsDashboard(area({
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', { staffCitizenIds: ['worker'], quality: 1 })],
+    }))
+    const realStaffed = areaNeedsDashboard(area({
+      citizens: [sim('worker', { kind: 'real', jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', { staffCitizenIds: ['worker'], quality: 1 })],
+    }))
+
+    expect(REAL_WORKER_SERVICE_UNIT).toBeGreaterThan(1)
+    expect(simStaffed.existingBusinesses.find((entry) => entry.id === 'food1')).toMatchObject({
+      activeStaff: 1,
+      openPositions: 1,
+      hourlyCapacity: 24,
+    })
+    expect(realStaffed.existingBusinesses.find((entry) => entry.id === 'food1')).toMatchObject({
+      activeStaff: 1,
+      openPositions: 1,
+      hourlyCapacity: 27,
+    })
+    expect(realStaffed.capacity.food).toBeGreaterThan(simStaffed.capacity.food)
   })
 
   test('unpaid attempts do not consume scarce service capacity from paying citizens', () => {
