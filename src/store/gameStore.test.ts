@@ -30,6 +30,18 @@ const business = (): PlacedAsset => ({
   level: 1,
 })
 
+const home = (): PlacedAsset => ({
+  id: 'home-1',
+  itemId: 'microstudio',
+  kind: 'home',
+  name: 'Starter House',
+  lat: 45,
+  lng: 21,
+  incomePerDay: 0,
+  pendingIncome: 0,
+  placedAtMinute: 0,
+})
+
 const LIVE_STEP_MS = 15 * 60_000
 
 function advanceLiveTo(endAt: number, stepMs = LIVE_STEP_MS) {
@@ -375,6 +387,83 @@ describe('sleep daily counter', () => {
 
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
+  })
+})
+
+describe('completed home benefits', () => {
+  test('active construction does not grant home sleep recovery until it becomes an asset', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+    const base = {
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 20, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      timesSlept: 0,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    }
+
+    useGame.setState({
+      ...base,
+      assets: [],
+      constructionProjects: [project],
+    })
+    useGame.getState().startSleep()
+    expect(useGame.getState().log.at(-1)).toBe('Sleeping rough. A home would make this count for more.')
+
+    vi.setSystemTime(now + 60 * 60_000)
+    useGame.getState().tick()
+    expect(useGame.getState().needs.energy).toBe(31)
+
+    useGame.setState({
+      ...base,
+      assets: [home()],
+      constructionProjects: [project],
+    })
+    useGame.getState().startSleep()
+    expect(useGame.getState().log.at(-1)).toBe('Lights out at home. Energy refills through the night.')
+
+    vi.setSystemTime(now + 60 * 60_000)
+    useGame.getState().tick()
+    expect(useGame.getState().needs.energy).toBe(36)
+  })
+
+  test('active construction does not grant a kitchen until the home is complete', () => {
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+    const base = {
+      inventory: { bread: 1, cheese: 1 },
+      activity: null,
+      log: [],
+      toasts: [],
+    }
+
+    useGame.setState({
+      ...base,
+      assets: [],
+      constructionProjects: [project],
+    })
+    useGame.getState().cook('grilledcheese')
+
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().log.at(-1)).toBe('No kitchen yet — a $40 Hot Plate or any home lets you cook.')
+
+    useGame.setState({
+      ...base,
+      assets: [home()],
+      constructionProjects: [project],
+    })
+    useGame.getState().cook('grilledcheese')
+
+    expect(useGame.getState().activity).toMatchObject({
+      kind: 'cook',
+      recipeId: 'grilledcheese',
+    })
+    expect(useGame.getState().inventory).toMatchObject({ bread: 0, cheese: 0 })
   })
 })
 
