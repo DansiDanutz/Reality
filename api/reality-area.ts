@@ -1106,6 +1106,14 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueActionCounts {
+  total: number
+  recordReview: number
+  sendWarning: number
+  startProbation: number
+  recommendReplacement: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1262,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    actionCounts: FounderCovenantReviewQueueActionCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4631,7 +4640,30 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    actionCounts: founderCovenantReviewQueueActionCounts(items),
   }
+}
+
+function founderCovenantReviewQueueActionCounts(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueActionCounts {
+  const counts: FounderCovenantReviewQueueActionCounts = {
+    total: 0,
+    recordReview: 0,
+    sendWarning: 0,
+    startProbation: 0,
+    recommendReplacement: 0,
+  }
+  for (const item of items) {
+    for (const kind of item.recommendedActionKinds) {
+      counts.total += 1
+      if (kind === 'record_review') counts.recordReview += 1
+      if (kind === 'send_warning') counts.sendWarning += 1
+      if (kind === 'start_probation') counts.startProbation += 1
+      if (kind === 'recommend_replacement') counts.recommendReplacement += 1
+    }
+  }
+  return counts
 }
 
 function compareFounderCovenantReviewQueueItems(

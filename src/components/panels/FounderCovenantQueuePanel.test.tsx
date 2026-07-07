@@ -35,7 +35,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('approval workflow disabled')
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
-    expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
+    expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · 2 recommended actions (1 review, 1 warning, 0 probation, 0 replacement) · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
@@ -238,12 +238,19 @@ describe('FounderCovenantQueuePanel', () => {
         indebted: 0,
         totalOutstandingDebt: 0,
         blockers: 0,
+        actionCounts: {
+          total: 0,
+          recordReview: 0,
+          sendWarning: 0,
+          startProbation: 0,
+          recommendReplacement: 0,
+        },
       },
     }
 
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
-    expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · 0 recommended actions (0 review, 0 warning, 0 probation, 0 replacement) · $0 debt')
     expect(html).toContain('No founders in this review page.')
   })
 })
@@ -271,7 +278,24 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
     },
     signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
     signalKinds: [],
+    reviewQueue: {
+      ...item.reviewQueue,
+      nextStep: 'monitor',
+      recordReviewEnabled: false,
+      recommendedActionKinds: [],
+      pendingApprovalKinds: [],
+      pendingApprovalCount: 0,
+      pendingNotificationKinds: [],
+      pendingNotificationCount: 0,
+      blockerCount: 0,
+      blockers: [],
+    },
     blockerCount: 0,
+    recommendedActionKinds: [],
+    pendingApprovalRequests: [],
+    pendingApprovalKinds: [],
+    pendingNotificationDrafts: [],
+    pendingNotificationKinds: [],
     scanStatus: 'current',
     transactionsAdded: 0,
   })
@@ -313,6 +337,13 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      actionCounts: {
+        total: 2,
+        recordReview: 1,
+        sendWarning: 1,
+        startProbation: 0,
+        recommendReplacement: 0,
+      },
     },
     items: [item, current],
     results: [{

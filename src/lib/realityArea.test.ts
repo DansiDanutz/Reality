@@ -2957,6 +2957,7 @@ function serverDashboard(): RealityAreaDashboard {
 function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
   const dashboard = serverDashboard()
   const review = dashboard.founderCovenant
+  const actionCounts = serverFounderCovenantActionCounts(review.reviewQueue.recommendedActionKinds)
   return {
     generatedAt: '2026-07-06T04:00:00.000Z',
     evidenceOnly: true,
@@ -2994,6 +2995,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      actionCounts,
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3060,6 +3062,18 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       updatedAt: dashboard.updatedAt,
       transactionsAdded: 1,
     }],
+  }
+}
+
+function serverFounderCovenantActionCounts(
+  kinds: RealityAreaDashboard['founderCovenant']['reviewQueue']['recommendedActionKinds'],
+): RealityFounderCovenantReviewQueueDashboard['totals']['actionCounts'] {
+  return {
+    total: kinds.length,
+    recordReview: kinds.filter((kind) => kind === 'record_review').length,
+    sendWarning: kinds.filter((kind) => kind === 'send_warning').length,
+    startProbation: kinds.filter((kind) => kind === 'start_probation').length,
+    recommendReplacement: kinds.filter((kind) => kind === 'recommend_replacement').length,
   }
 }
 

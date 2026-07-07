@@ -729,6 +729,7 @@ export function founderCovenantOperatorQueueSummary(
     `${totals.overdue} overdue`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,
+    `${totals.actionCounts.total} recommended action${totals.actionCounts.total === 1 ? '' : 's'} (${totals.actionCounts.recordReview} review, ${totals.actionCounts.sendWarning} warning, ${totals.actionCounts.startProbation} probation, ${totals.actionCounts.recommendReplacement} replacement)`,
   ]
   return `${totals.founders} founder${totals.founders === 1 ? '' : 's'} · ${riskParts.join(' · ')} · ${formatMoney(totals.totalOutstandingDebt)} debt${queue.hasMore ? ' · more available' : ''}`
 }
