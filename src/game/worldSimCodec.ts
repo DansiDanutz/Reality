@@ -261,6 +261,7 @@ function isWorldTransaction(value: unknown): value is WorldTransaction {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, TRANSACTION_KINDS) &&
     value.payoutEligibility === 'game_only' &&
     isNonEmptyString(value.fromId) &&
