@@ -1563,6 +1563,19 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .goals-card-count { font-size: 12px; color: var(--muted); }
 .goals-card-count.done { color: var(--ok); font-weight: 600; }
 .goals-card-count.near { color: var(--gold); font-weight: 600; }
+.goals-card-primary {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.goals-card-detail {
+  color: var(--sky);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 .tutorial {
   width: 100%;
