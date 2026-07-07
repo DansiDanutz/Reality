@@ -71,6 +71,7 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.constructionProjects).toEqual([])
     expect(out.placingConstruction).toBeNull()
     expect(out.selectedMapTarget).toBeNull()
+    expect(out.businessDevelopmentProjects).toEqual([])
     expect(out.activeCourierPackage).toBeNull()
     expect(out.courierLastDay).toBe(0)
     expect(out.courierOpenedDays).toEqual([])
@@ -151,6 +152,39 @@ describe('migrateSave — backfills every field added after v1', () => {
     })
   })
 
+  test('old business development projects normalize missing ledger fields', () => {
+    const out = migrateSave({
+      ...v1Save,
+      businessDevelopmentProjects: [{
+        id: 'foodcart-1:develop',
+        businessId: 'foodcart-1',
+        businessName: 'Food Cart',
+        itemId: 'foodcart',
+        levelFrom: 1,
+        levelTo: 2,
+        required: { wood: 20, stone: 15, metal: 25, glass: 10 },
+        deposited: { wood: 5 },
+        laborRequiredMinutes: 150,
+        laborDoneMinutes: 20,
+        budgetCost: 960,
+      }],
+    })
+
+    expect(out.businessDevelopmentProjects[0]).toMatchObject({
+      id: 'foodcart-1:develop',
+      businessId: 'foodcart-1',
+      levelFrom: 1,
+      levelTo: 2,
+      required: { wood: 20, stone: 15, metal: 25, glass: 10 },
+      deposited: { wood: 5, stone: 0, metal: 0, glass: 0 },
+      laborRequiredMinutes: 150,
+      laborDoneMinutes: 20,
+      hiredLaborMinutes: 0,
+      budgetCost: 960,
+      budgetPaid: false,
+    })
+  })
+
   test('a citizen with an active illness keeps it (not reset to null)', () => {
     const v4Save = {
       ...v1Save,
@@ -215,7 +249,7 @@ describe('migrateSave — completeness guard', () => {
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
       'resources', 'resourceNodes', 'constructionProjects', 'placingConstruction',
-      'selectedMapTarget',
+      'selectedMapTarget', 'businessDevelopmentProjects',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
     ] as const
     for (const f of tickCriticalFields) {
@@ -238,6 +272,6 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(9)
+    expect(SAVE_VERSION).toBe(10)
   })
 })
