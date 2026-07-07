@@ -52,6 +52,7 @@ export interface ConstructionDayForecast {
 export interface LifePlan {
   lifeDay: number
   primary: LifePlanTask
+  agenda: LifePlanTask[]
   support: LifePlanTask[]
   valuesCovered: LifeValue[]
   timeBudget: LifeTimeBudget
@@ -189,6 +190,18 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   return [body, school, work, respect, friendship, community, capital]
 }
 
+function compactAgenda(tasks: (LifePlanTask | null)[]): LifePlanTask[] {
+  const seen = new Set<string>()
+  const agenda: LifePlanTask[] = []
+  for (const item of tasks) {
+    if (!item || seen.has(item.id)) continue
+    seen.add(item.id)
+    agenda.push(item)
+    if (agenda.length >= 3) break
+  }
+  return agenda
+}
+
 export function constructionDayForecast(
   project: ConstructionProject = {
     id: 'starter-house-plan',
@@ -236,21 +249,38 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const active = snapshot.activityKind
     ? task('finish-active-commitment', 'Finish the current commitment', 'Respect grows when you finish what you start.', 'respect', { kind: 'none' }, 0)
     : null
+  const body = bodyRecoveryTask(snapshot)
+  const work = workPrimary(snapshot)
+  const school = schoolPrimary(snapshot)
+  const construction = constructionPrimary(snapshot)
+  const business = businessPrimary(snapshot)
+  const steady = task('steady-owner-day', 'Run a steady owner day', 'Collect, study, help someone, and reinvest the surplus.', 'capital', { kind: 'panel', panel: 'assets' }, 60)
   const primary =
     active
-    ?? bodyRecoveryTask(snapshot)
-    ?? workPrimary(snapshot)
-    ?? schoolPrimary(snapshot)
-    ?? constructionPrimary(snapshot)
-    ?? businessPrimary(snapshot)
-    ?? task('steady-owner-day', 'Run a steady owner day', 'Collect, study, help someone, and reinvest the surplus.', 'capital', { kind: 'panel', panel: 'assets' }, 60)
+    ?? body
+    ?? work
+    ?? school
+    ?? construction
+    ?? business
+    ?? steady
 
   const support = supportTasks(snapshot)
+  const agenda = compactAgenda([
+    primary,
+    body,
+    work,
+    school,
+    construction,
+    business,
+    ...support,
+    steady,
+  ])
   const valuesCovered = Array.from(new Set([primary, ...support].map((item) => item.value)))
   const homeProject = snapshot.constructionProjects.find((candidate) => candidate.resultKind === 'home') ?? null
   return {
     lifeDay: snapshot.lifeDay,
     primary,
+    agenda,
     support,
     valuesCovered,
     timeBudget: STANDARD_DAY_BUDGET,
