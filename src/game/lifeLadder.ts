@@ -144,6 +144,7 @@ export interface LifeLadderSnapshot {
   educationActions: number
   educationProgress: EducationProgress[]
   communityActionsThisWeek: number
+  communityActionsToday: number
 }
 
 export const STANDARD_DAY_BUDGET: LifeTimeBudget = {
@@ -472,6 +473,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 
 function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   if (snapshot.lifeDay < 2) return null
+  if (snapshot.communityActionsToday > 0) return null
   if (snapshot.communityActionsThisWeek > 0) return null
   return task('help-local-person', 'Help one local person', 'Respect and friendship grow from showing up before anyone owes you.', 'community', { kind: 'community-action', actionId: 'help-errand' }, 35)
 }
@@ -550,6 +552,7 @@ function firstTaskByValue(tasks: LifePlanTask[], values: LifeValue[]): LifePlanT
 function growthRoutineTask(snapshot: LifeLadderSnapshot, tasks: LifePlanTask[]): LifePlanTask | null {
   const school = firstTaskByValue(tasks, ['school'])
   if (school && (school.route.kind === 'education-action' || school.id === 'study-first-course')) return school
+  if (snapshot.communityActionsToday > 0) return school ?? firstTaskByValue(tasks, ['respect'])
   const community = firstTaskByValue(tasks, ['community'])
   if (snapshot.communityActionsThisWeek <= 0 && community) return community
   const friendship = firstTaskByValue(tasks, ['friendship'])

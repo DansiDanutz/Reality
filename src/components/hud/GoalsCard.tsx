@@ -187,6 +187,7 @@ export default function GoalsCard() {
     educationActions: educationActionCount(educationProgress),
     educationProgress,
     communityActionsThisWeek: community.actionsThisWeek,
+    communityActionsToday: community.actionsToday,
   })
 
   const openRoute = (route: typeof lifePlan.primary.route) => {
