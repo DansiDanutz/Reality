@@ -185,6 +185,29 @@ describe('planLifeDay', () => {
       route: { kind: 'panel', panel: 'construction' },
       taskId: 'build-house-hour',
     })
+
+    const withActiveWorker = {
+      ...readyForLabor,
+      workerContracts: [{
+        id: 'worker-1',
+        workerId: 'helper' as const,
+        workerName: 'Local helper',
+        hiredAt: 1,
+        paidUntil: 3_600_001,
+        paidMinutes: 60,
+        workedMinutes: 10,
+        laborMultiplier: 1,
+        ratePerHour: 16,
+        cost: 16,
+      }],
+    }
+    const activeWorkerPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [withActiveWorker] }))
+    expect(activeWorkerPlan.primary.id).toBe('build-house-with-worker-hour')
+    expect(activeWorkerPlan.primary.detail).toContain('already paid and active')
+    expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'construction' },
+      taskId: 'build-house-with-worker-hour',
+    })
   })
 
   test('routes active business building through materials, permit, labor, and opening after the house exists', () => {
@@ -326,6 +349,9 @@ describe('constructionDayForecast', () => {
     expect(forecast.helperTwoHourCost).toBe(32)
     expect(forecast.helperTwoHourAffordableToday).toBe(false)
     expect(forecast.helperTwoHourCashNeeded).toBe(132)
+    expect(forecast.activeWorkerCount).toBe(0)
+    expect(forecast.activeWorkerPaidMinutesRemaining).toBe(0)
+    expect(forecast.activeWorkerLaborMinutesRemaining).toBe(0)
   })
 
   test('shows when a 2h helper plan is safe above the survival cash floor', () => {
@@ -344,5 +370,34 @@ describe('constructionDayForecast', () => {
     expect(forecast.totalGatherMinutes).toBe(0)
     expect(forecast.helperTwoHourAffordableToday).toBe(true)
     expect(forecast.helperTwoHourCashNeeded).toBe(0)
+  })
+
+  test('accounts for already active worker contracts in the build forecast', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 1, 1, 1),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 120,
+      hiredLaborMinutes: 60,
+      workerContracts: [{
+        id: 'worker-1',
+        workerId: 'builder' as const,
+        workerName: 'Skilled builder',
+        hiredAt: 1,
+        paidUntil: 3_600_001,
+        paidMinutes: 60,
+        workedMinutes: 20,
+        laborMultiplier: 1.5,
+        ratePerHour: 28,
+        cost: 28,
+      }],
+    }
+
+    const forecast = constructionDayForecast(project, freshResources(), 500)
+
+    expect(forecast.remainingLaborMinutes).toBe(360)
+    expect(forecast.activeWorkerCount).toBe(1)
+    expect(forecast.activeWorkerPaidMinutesRemaining).toBe(40)
+    expect(forecast.activeWorkerLaborMinutesRemaining).toBe(60)
   })
 })
