@@ -390,6 +390,10 @@ describe('worldSim snapshot codec', () => {
     badState.citizens[0].state = { kind: 'hospitalized', until: Number.NaN }
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badState }))).toEqual({ ok: false, error: 'invalid_area' })
 
+    const negativeRecovery = area()
+    negativeRecovery.citizens[0].state = { kind: 'hospitalized', until: -1 }
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeRecovery }))).toEqual({ ok: false, error: 'invalid_area' })
+
     const badBusiness = area()
     badBusiness.businesses[0].staffCitizenIds = ['']
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badBusiness }))).toEqual({ ok: false, error: 'invalid_area' })

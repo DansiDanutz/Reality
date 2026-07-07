@@ -241,7 +241,7 @@ function isWorldDebt(value: unknown): value is WorldDebt {
 function isCitizenState(value: unknown): value is WorldCitizenState {
   if (!isRecord(value)) return false
   if (value.kind === 'active') return true
-  return value.kind === 'hospitalized' && isFiniteNumber(value.until)
+  return value.kind === 'hospitalized' && isFiniteNumber(value.until) && value.until >= 0
 }
 
 function isWorldBusiness(value: unknown): value is WorldBusiness {
