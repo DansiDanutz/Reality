@@ -794,6 +794,13 @@ export interface RealityFounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+export interface RealityFounderCovenantReviewQueueInputStatusCounts {
+  total: number
+  captured: number
+  watch: number
+  manualNeeded: number
+}
+
 export interface RealityFounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -942,6 +949,7 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    reviewInputStatusCounts: RealityFounderCovenantReviewQueueInputStatusCounts
   }
   items: RealityFounderCovenantReviewQueueItem[]
   results: RealityFounderCovenantReviewQueueScanResult[]
@@ -2238,7 +2246,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.insuredFounders === 'number' &&
     typeof value.pendingApprovals === 'number' &&
     typeof value.pendingNotifications === 'number' &&
-    typeof value.blockers === 'number'
+    typeof value.blockers === 'number' &&
+    isRealityFounderCovenantReviewQueueInputStatusCounts(value.reviewInputStatusCounts)
 }
 
 function isRealityFounderCovenantReviewQueueItem(
@@ -2360,6 +2369,16 @@ function isRealityFounderCovenantReviewQueueSignalCounts(
     typeof value.info === 'number' &&
     typeof value.warning === 'number' &&
     typeof value.critical === 'number'
+}
+
+function isRealityFounderCovenantReviewQueueInputStatusCounts(
+  value: unknown,
+): value is RealityFounderCovenantReviewQueueInputStatusCounts {
+  return isRecord(value) &&
+    typeof value.total === 'number' &&
+    typeof value.captured === 'number' &&
+    typeof value.watch === 'number' &&
+    typeof value.manualNeeded === 'number'
 }
 
 function isRealityFounderCovenantReviewQueueScanResult(

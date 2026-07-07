@@ -724,13 +724,16 @@ export function founderCovenantOperatorQueueSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals' | 'hasMore'>,
 ): string {
   const { totals } = queue
+  const inputCounts = totals.reviewInputStatusCounts
+  const inputSummary = `${inputCounts.total} review input${inputCounts.total === 1 ? '' : 's'}: ` +
+    `${inputCounts.captured} captured, ${inputCounts.watch} watch, ${inputCounts.manualNeeded} manual`
   const riskParts = [
     `${totals.manualReviewRequired} manual review${totals.manualReviewRequired === 1 ? '' : 's'}`,
     `${totals.overdue} overdue`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,
   ]
-  return `${totals.founders} founder${totals.founders === 1 ? '' : 's'} · ${riskParts.join(' · ')} · ${formatMoney(totals.totalOutstandingDebt)} debt${queue.hasMore ? ' · more available' : ''}`
+  return `${totals.founders} founder${totals.founders === 1 ? '' : 's'} · ${inputSummary} · ${riskParts.join(' · ')} · ${formatMoney(totals.totalOutstandingDebt)} debt${queue.hasMore ? ' · more available' : ''}`
 }
 
 export function founderCovenantOperatorQueuePageSummary(

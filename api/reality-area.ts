@@ -1106,6 +1106,13 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueInputStatusCounts {
+  total: number
+  captured: number
+  watch: number
+  manualNeeded: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1261,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    reviewInputStatusCounts: FounderCovenantReviewQueueInputStatusCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4595,6 +4603,17 @@ function founderCovenantReviewSignalCounts(
   }
 }
 
+function founderCovenantReviewInputStatusCounts(
+  reviewInputs: readonly FounderAreaCovenantReviewInput[],
+): FounderCovenantReviewQueueInputStatusCounts {
+  return {
+    total: reviewInputs.length,
+    captured: reviewInputs.filter((input) => input.status === 'captured').length,
+    watch: reviewInputs.filter((input) => input.status === 'watch').length,
+    manualNeeded: reviewInputs.filter((input) => input.status === 'manual_needed').length,
+  }
+}
+
 function founderCovenantReviewQueueLatestReview(
   review: FounderAreaCovenantLatestReview | null,
 ): FounderCovenantReviewQueueLatestReview | null {
@@ -4631,6 +4650,18 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    reviewInputStatusCounts: items.reduce<FounderCovenantReviewQueueInputStatusCounts>(
+      (totals, item) => {
+        const counts = founderCovenantReviewInputStatusCounts(item.reviewInputs)
+        return {
+          total: totals.total + counts.total,
+          captured: totals.captured + counts.captured,
+          watch: totals.watch + counts.watch,
+          manualNeeded: totals.manualNeeded + counts.manualNeeded,
+        }
+      },
+      { total: 0, captured: 0, watch: 0, manualNeeded: 0 },
+    ),
   }
 }
 
