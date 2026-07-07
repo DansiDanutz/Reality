@@ -97,7 +97,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction'
+  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'business-development'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -111,6 +111,8 @@ export interface Activity {
   /** Construction project worked on when a construction activity completes. */
   projectId?: string
   laborMinutes?: number
+  /** Business interior development project worked on when a development activity completes. */
+  businessDevelopmentProjectId?: string
 }
 
 /**
@@ -219,7 +221,7 @@ export interface LiveOutput extends WorldSlice {
 const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
-  if (activity.kind === 'gather' || activity.kind === 'construction') return 'working'
+  if (activity.kind === 'gather' || activity.kind === 'construction' || activity.kind === 'business-development') return 'working'
   if (activity.kind === 'cook') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }

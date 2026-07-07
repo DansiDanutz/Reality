@@ -1,14 +1,42 @@
 import { itemById } from '../../game/catalog'
-import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../../game/businessUpgrades'
+import {
+  businessDevelopmentLaborBreakdown,
+  businessDevelopmentPlanFor,
+  businessDevelopmentProgress,
+  businessDevelopmentShortfall,
+  estimateBusinessDevelopmentWorkerHire,
+} from '../../game/businessDevelopment'
+import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
+import { CONSTRUCTION_WORKERS } from '../../game/construction'
 import { formatMoney } from '../../game/engine'
+import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
+
+function formatMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h <= 0) return `${m}m`
+  if (m <= 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
+function pct(current: number, target: number): number {
+  if (target <= 0) return 100
+  return Math.min(100, Math.round((current / target) * 100))
+}
 
 export default function BusinessPanel() {
   const assets = useGame((s) => s.assets)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const money = useGame((s) => s.money)
+  const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const collectIncome = useGame((s) => s.collectIncome)
   const upgradeBusiness = useGame((s) => s.upgradeBusiness)
+  const depositBusinessDevelopmentResources = useGame((s) => s.depositBusinessDevelopmentResources)
+  const payBusinessDevelopmentBudget = useGame((s) => s.payBusinessDevelopmentBudget)
+  const startBusinessDevelopmentWork = useGame((s) => s.startBusinessDevelopmentWork)
+  const hireBusinessDevelopmentWorker = useGame((s) => s.hireBusinessDevelopmentWorker)
+  const completeBusinessDevelopmentIfReady = useGame((s) => s.completeBusinessDevelopmentIfReady)
   const selectMapTarget = useGame((s) => s.selectMapTarget)
   const setPanel = useGame((s) => s.setPanel)
 
@@ -29,10 +57,12 @@ export default function BusinessPanel() {
 
   const item = itemById(business.itemId)
   const level = business.level ?? 1
-  const baseIncome = business.incomePerDay / level
-  const upgrade = upgradeOutcome(baseIncome, level)
-  const canUpgrade = upgrade !== null && money >= upgrade.cost
-  const atCap = level >= MAX_BUSINESS_LEVEL
+  const plan = businessDevelopmentPlanFor(business)
+  const project = businessDevelopmentProjects.find((candidate) => candidate.businessId === business.id) ?? null
+  const projectProgress = project ? businessDevelopmentProgress(project) : null
+  const projectLabor = project ? businessDevelopmentLaborBreakdown(project) : null
+  const shortfall = project ? businessDevelopmentShortfall(project) : null
+  const atCap = level >= MAX_BUSINESS_LEVEL || !plan
 
   return (
     <section className="panel business-panel" aria-label="Business interior">
@@ -78,30 +108,119 @@ export default function BusinessPanel() {
       <section className="founder-section business-development">
         <div className="founder-section-head">
           <h3 className="founder-section-title">Develop inside</h3>
-          <span className="item-desc">{atCap ? 'fully developed' : upgrade ? `next L${upgrade.newLevel}` : 'stable'}</span>
+          <span className="item-desc">{project ? `${projectProgress?.percent ?? 0}% ready` : atCap ? 'fully developed' : plan ? `next L${plan.outcome.newLevel}` : 'stable'}</span>
         </div>
-        <div className="business-upgrade-card">
-          <div>
-            <strong>{atCap ? 'Maximum development' : 'Interior upgrade'}</strong>
-            <p className="item-desc">
-              {atCap
-                ? `${business.name} is fully developed and earning ${formatMoney(business.incomePerDay)}/day.`
-                : upgrade
-                  ? `Improve layout, tools, staff flow, and service quality for +${formatMoney(upgrade.incomeDelta)}/day.`
-                  : 'No upgrade available.'}
-            </p>
+        {project && projectLabor ? (
+          <div className="business-development-plan">
+            <div className="business-upgrade-card">
+              <div>
+                <strong>L{project.levelFrom} → L{project.levelTo} interior plan</strong>
+                <p className="item-desc">
+                  Deposit materials, pay the development budget, then finish {formatMinutes(project.laborRequiredMinutes)} of work for +{formatMoney(project.incomeDelta)}/day.
+                </p>
+              </div>
+              <span className="chip gold">{projectProgress?.percent ?? 0}%</span>
+            </div>
+            <div className="house-stage-list" aria-label="Interior development stages">
+              <span className={projectProgress?.resourcesComplete ? 'chip ok' : 'chip'}>materials</span>
+              <span className={projectProgress?.budgetComplete ? 'chip ok' : 'chip'}>budget</span>
+              <span className={projectProgress?.laborComplete ? 'chip ok' : 'chip'}>labor</span>
+              <span className={projectProgress?.complete ? 'chip gold' : 'chip'}>open L{project.levelTo}</span>
+            </div>
+            <div className="construction-bars">
+              {RESOURCE_KINDS.map((kind) => (
+                <div className="construction-bar-row" key={kind}>
+                  <span>{RESOURCE_META[kind].label}</span>
+                  <div className="construction-bar"><div style={{ width: `${pct(project.deposited[kind], project.required[kind])}%` }} /></div>
+                  <span className="mono">{project.deposited[kind]}/{project.required[kind]}</span>
+                </div>
+              ))}
+              <div className="construction-bar-row">
+                <span>Labor</span>
+                <div className="construction-bar"><div style={{ width: `${pct(project.laborDoneMinutes, project.laborRequiredMinutes)}%` }} /></div>
+                <span className="mono">{formatMinutes(project.laborDoneMinutes)}/{formatMinutes(project.laborRequiredMinutes)}</span>
+              </div>
+            </div>
+            {shortfall && RESOURCE_KINDS.some((kind) => shortfall[kind] > 0) && (
+              <p className="item-desc">
+                Missing {RESOURCE_KINDS.filter((kind) => shortfall[kind] > 0).map((kind) => `${shortfall[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`).join(', ')}.
+              </p>
+            )}
+            <div className="labor-ledger">
+              <div className="stat">
+                <span className="stat-label">player labor</span>
+                <span className="stat-value mono">{formatMinutes(projectLabor.playerMinutes)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">hired labor</span>
+                <span className="stat-value mono">{formatMinutes(projectLabor.hiredMinutes)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">remaining</span>
+                <span className="stat-value mono gold">{formatMinutes(projectLabor.remainingMinutes)}</span>
+              </div>
+            </div>
+            <div className="house-actions">
+              <button className="btn primary" onClick={() => depositBusinessDevelopmentResources(project.id)}>Deposit materials</button>
+              <button className={money >= project.budgetCost && !project.budgetPaid ? 'btn primary' : 'btn ghost'} disabled={project.budgetPaid || money < project.budgetCost} onClick={() => payBusinessDevelopmentBudget(project.id)}>
+                {project.budgetPaid ? 'Budget paid' : `Pay ${formatMoney(project.budgetCost)}`}
+              </button>
+              <button className="btn primary" disabled={!projectProgress?.resourcesComplete || !projectProgress.budgetComplete || projectProgress.laborComplete} onClick={() => startBusinessDevelopmentWork(project.id)}>
+                Work 60m
+              </button>
+              <button className="btn ghost" disabled={!projectProgress?.complete} onClick={() => completeBusinessDevelopmentIfReady(project.id)}>
+                Finish L{project.levelTo}
+              </button>
+            </div>
+            <div className="worker-grid">
+              {CONSTRUCTION_WORKERS.map((worker) => {
+                const estimate = estimateBusinessDevelopmentWorkerHire(project, worker.id, 1)
+                const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
+                const blocker = estimate?.blockedBy === 'materials'
+                  ? 'deposit materials first'
+                  : estimate?.blockedBy === 'budget'
+                    ? 'pay budget first'
+                    : estimate?.blockedBy === 'labor'
+                      ? 'labor complete'
+                      : estimate && money < estimate.cost
+                        ? `need ${formatMoney(estimate.cost)}`
+                        : null
+                return (
+                  <article className="worker-card" key={worker.id}>
+                    <div className="worker-card-head">
+                      <strong>{worker.name}</strong>
+                      <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
+                    </div>
+                    <p className="item-desc">{worker.description}</p>
+                    <span className="item-desc mono">1h = {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} interior labor</span>
+                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, 1)}>
+                      {blocker ?? `Hire 1h · ${formatMoney(worker.ratePerHour)}`}
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
           </div>
-          {upgrade && (
-            <button
-              className={canUpgrade ? 'btn primary' : 'btn ghost'}
-              disabled={!canUpgrade}
-              onClick={() => upgradeBusiness(business.id)}
-            >
-              {canUpgrade ? `Develop · ${formatMoney(upgrade.cost)}` : `Need ${formatMoney(upgrade.cost)}`}
-            </button>
-          )}
-          {atCap && <span className="asset-maxed mono">MAX</span>}
-        </div>
+        ) : (
+          <div className="business-upgrade-card">
+            <div>
+              <strong>{atCap ? 'Maximum development' : 'Interior upgrade plan'}</strong>
+              <p className="item-desc">
+                {atCap
+                  ? `${business.name} is fully developed and earning ${formatMoney(business.incomePerDay)}/day.`
+                  : plan
+                    ? `Plan layout, tools, staff flow, and service quality for +${formatMoney(plan.outcome.incomeDelta)}/day. Requires ${formatResourceList(plan.required)}, ${formatMoney(plan.budgetCost)}, and ${formatMinutes(plan.laborRequiredMinutes)} labor.`
+                    : 'No upgrade available.'}
+              </p>
+            </div>
+            {plan && (
+              <button className="btn primary" onClick={() => upgradeBusiness(business.id)}>
+                Plan L{plan.outcome.newLevel}
+              </button>
+            )}
+            {atCap && <span className="asset-maxed mono">MAX</span>}
+          </div>
+        )}
       </section>
 
       <section className="founder-section">
