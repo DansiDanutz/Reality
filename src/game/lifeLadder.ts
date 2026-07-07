@@ -11,6 +11,7 @@ import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentProgress,
   businessDevelopmentShortfall,
+  estimateBusinessDevelopmentWorkerHire,
   type BusinessDevelopmentProject,
 } from './businessDevelopment'
 import {
@@ -38,8 +39,8 @@ export type LifePlanRoute =
   | { kind: 'panel'; panel: 'work' | 'construction' | 'assets' | 'home' | 'business' | 'achievements' }
   | { kind: 'market'; focus: ShopCategory }
   | { kind: 'gather'; resourceKind: ResourceKind }
-  | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction }
-  | { kind: 'business-development-action'; projectId: string; action: BusinessDevelopmentPlanAction }
+  | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction; hours?: number }
+  | { kind: 'business-development-action'; projectId: string; action: BusinessDevelopmentPlanAction; hours?: number }
   | { kind: 'work-action'; action: 'shift' }
   | { kind: 'community-action'; actionId: CommunityActionId }
   | { kind: 'education-action'; courseId: EducationCourseId }
@@ -174,6 +175,7 @@ export const STANDARD_DAY_BUDGET: LifeTimeBudget = {
 
 const NEED_RECOVERY_FLOOR = 35
 const CASH_SAFETY_FLOOR = 100
+const PREFERRED_HELPER_HOURS = 2
 
 function firstBusinessItem() {
   return SHOP_ITEMS
@@ -293,6 +295,36 @@ function activeWorkerLaborRemaining(
   )
 }
 
+function affordableConstructionHelperEstimate(project: ConstructionProject, money: number) {
+  const remaining = constructionLaborBreakdown(project).remainingMinutes
+  const preferredHours = remaining > 60 ? PREFERRED_HELPER_HOURS : 1
+  const estimates = [
+    estimateConstructionWorkerHire(project, 'helper', preferredHours),
+    preferredHours > 1 ? estimateConstructionWorkerHire(project, 'helper', 1) : null,
+  ]
+  return estimates.find((estimate) =>
+    estimate &&
+    estimate.blockedBy === null &&
+    estimate.laborMinutes > 0 &&
+    money >= estimate.cost + CASH_SAFETY_FLOOR
+  ) ?? null
+}
+
+function affordableBusinessHelperEstimate(project: BusinessDevelopmentProject, money: number) {
+  const remaining = businessDevelopmentLaborBreakdown(project).remainingMinutes
+  const preferredHours = remaining > 60 ? PREFERRED_HELPER_HOURS : 1
+  const estimates = [
+    estimateBusinessDevelopmentWorkerHire(project, 'helper', preferredHours),
+    preferredHours > 1 ? estimateBusinessDevelopmentWorkerHire(project, 'helper', 1) : null,
+  ]
+  return estimates.find((estimate) =>
+    estimate &&
+    estimate.blockedBy === null &&
+    estimate.laborMinutes > 0 &&
+    money >= estimate.cost + CASH_SAFETY_FLOOR
+  ) ?? null
+}
+
 function activeConstructionProject(snapshot: LifeLadderSnapshot): ConstructionProject | null {
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   const homeProject = snapshot.constructionProjects.find((candidate) => candidate.resultKind === 'home') ?? null
@@ -378,14 +410,14 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         60,
       )
     }
-    const helperEstimate = estimateConstructionWorkerHire(project, 'helper', 1)
-    if (helperEstimate && helperEstimate.blockedBy === null && helperEstimate.laborMinutes > 0 && snapshot.money >= helperEstimate.cost + CASH_SAFETY_FLOOR) {
+    const helperEstimate = affordableConstructionHelperEstimate(project, snapshot.money)
+    if (helperEstimate) {
       return task(
         isBusinessBuild ? 'hire-business-building-worker-hour' : 'hire-house-worker-hour',
-        isBusinessBuild ? `Hire 1h helper for ${project.name}` : 'Hire 1h helper for the house',
+        isBusinessBuild ? `Hire ${helperEstimate.hours}h helper for ${project.name}` : `Hire ${helperEstimate.hours}h helper for the house`,
         `Workers Hall help costs $${helperEstimate.worker.ratePerHour}/hour and adds ${helperEstimate.laborMinutes}m of labor while your day stays balanced.`,
         'capital',
-        { kind: 'construction-action', projectId: project.id, action: 'hire-helper' },
+        { kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: helperEstimate.hours },
         5,
       )
     }
@@ -500,9 +532,16 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       if (activeWorkers.length > 0) {
         return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
       }
-      const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
-      if (helper && labor.remainingMinutes >= 120 && snapshot.money >= helper.ratePerHour + CASH_SAFETY_FLOOR) {
-        return task('hire-business-worker-hour', `Hire 1h worker for ${project.businessName}`, 'Keep the interior moving while your own day stays balanced.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'hire-helper' }, 5)
+      const helperEstimate = affordableBusinessHelperEstimate(project, snapshot.money)
+      if (helperEstimate) {
+        return task(
+          'hire-business-worker-hour',
+          `Hire ${helperEstimate.hours}h worker for ${project.businessName}`,
+          `Workers Hall help costs $${helperEstimate.worker.ratePerHour}/hour and adds ${helperEstimate.laborMinutes}m inside while your own day stays balanced.`,
+          'capital',
+          { kind: 'business-development-action', projectId: project.id, action: 'hire-helper', hours: helperEstimate.hours },
+          5,
+        )
       }
       return task('develop-business-hour', `Work 60m inside ${project.businessName}`, 'Use free time after work and body care to build the business from the inside.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
     }
