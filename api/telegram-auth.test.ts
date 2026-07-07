@@ -33,10 +33,11 @@ describe('telegram Mini App auth', () => {
       signature: 'test-signature',
       user: JSON.stringify({
         id: 42_424_242,
-        first_name: 'David',
-        last_name: 'Reality',
-        username: 'davidreality',
-        language_code: 'en',
+        first_name: '  David  ',
+        last_name: '  Reality  ',
+        username: '  davidreality  ',
+        language_code: '  en  ',
+        photo_url: '  https://example.test/david.png  ',
         is_premium: true,
         allows_write_to_pm: true,
       }),
@@ -50,7 +51,7 @@ describe('telegram Mini App auth', () => {
         lastName: 'Reality',
         username: 'davidreality',
         languageCode: 'en',
-        photoUrl: undefined,
+        photoUrl: 'https://example.test/david.png',
         isBot: undefined,
         isPremium: true,
         allowsWriteToPm: true,
@@ -93,6 +94,27 @@ describe('telegram Mini App auth', () => {
   test('rejects invalid user payloads and duplicate fields', () => {
     expect(verifyTelegramMiniAppInitData(
       signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: 9 }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: 9, first_name: 'Found\ner' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({
+        auth_date: String(NOW_SECONDS),
+        user: JSON.stringify({ id: 9, first_name: 'Founder', username: 'x'.repeat(33) }),
+      }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({
+        auth_date: String(NOW_SECONDS),
+        user: JSON.stringify({ id: 9, first_name: 'Founder', photo_url: 'x'.repeat(2_049) }),
+      }),
       BOT_TOKEN,
       { nowSeconds: NOW_SECONDS },
     )).toEqual({ ok: false, error: 'invalid_user' })

@@ -6,6 +6,10 @@ const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
 const CLOCK_SKEW_SECONDS = 60
 const HASH_RE = /^[a-f0-9]{64}$/i
+const MAX_TELEGRAM_NAME_LENGTH = 64
+const MAX_TELEGRAM_USERNAME_LENGTH = 32
+const MAX_TELEGRAM_LANGUAGE_CODE_LENGTH = 35
+const MAX_TELEGRAM_PHOTO_URL_LENGTH = 2_048
 
 export interface TelegramMiniAppUser {
   id: string
@@ -203,16 +207,21 @@ function parseTelegramMiniAppUser(rawUser: string): TelegramMiniAppUser | null {
   }
   if (!isRecord(value)) return null
   const id = value.id
-  const firstName = optionalText(value.first_name)
+  const firstName = requiredTelegramText(value.first_name, MAX_TELEGRAM_NAME_LENGTH)
   if (!Number.isSafeInteger(id) || id < 0 || !firstName) return null
+  const lastName = optionalTelegramText(value.last_name, MAX_TELEGRAM_NAME_LENGTH)
+  const username = optionalTelegramText(value.username, MAX_TELEGRAM_USERNAME_LENGTH)
+  const languageCode = optionalTelegramText(value.language_code, MAX_TELEGRAM_LANGUAGE_CODE_LENGTH)
+  const photoUrl = optionalTelegramText(value.photo_url, MAX_TELEGRAM_PHOTO_URL_LENGTH)
+  if (lastName === false || username === false || languageCode === false || photoUrl === false) return null
 
   return {
     id: String(id),
     firstName,
-    lastName: optionalText(value.last_name),
-    username: optionalText(value.username),
-    languageCode: optionalText(value.language_code),
-    photoUrl: optionalText(value.photo_url),
+    lastName,
+    username,
+    languageCode,
+    photoUrl,
     isBot: optionalBoolean(value.is_bot),
     isPremium: optionalBoolean(value.is_premium),
     allowsWriteToPm: optionalBoolean(value.allows_write_to_pm),
@@ -225,6 +234,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function optionalText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+function requiredTelegramText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.length > maxLength || hasControlCharacter(trimmed)) return null
+  return trimmed
+}
+
+function optionalTelegramText(value: unknown, maxLength: number): string | undefined | false {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  if (trimmed.length > maxLength || hasControlCharacter(trimmed)) return false
+  return trimmed
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code <= 31 || code === 127) return true
+  }
+  return false
 }
 
 function optionalBoolean(value: unknown): boolean | undefined {
