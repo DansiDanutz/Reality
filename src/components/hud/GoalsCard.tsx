@@ -8,6 +8,7 @@ import {
   type ConstructionDayForecast,
   type LifePlanRoute,
 } from '../../game/lifeLadder'
+import { MILLIONAIRE_STAGE_META, MILLIONAIRE_STAGE_ORDER, millionaireStageProgress } from '../../game/millionairePath'
 import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
 
 function formatPlanMinutes(minutes: number): string {
@@ -282,6 +283,7 @@ export default function GoalsCard() {
   const interiorEta = interiorEtaSummary(lifePlan.businessDevelopmentForecast)
   const pathEta = millionaireEtaSummary(lifePlan)
   const activeEta = buildEta ?? interiorEta ?? pathEta
+  const stageProgress = millionaireStageProgress(lifePlan.millionairePath.stage)
   const routineSummary = lifePlan.routine
     .map((block) => `${block.title} ${formatPlanMinutes(block.minutes)}`)
     .join(', ')
@@ -330,7 +332,7 @@ export default function GoalsCard() {
   return (
     <section
       className="goals-card"
-      aria-label={`Today plan: ${lifePlan.primary.title}. ${activeEta ? `${activeEta}. ` : ''}Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
+      aria-label={`Today plan: ${lifePlan.primary.title}. Path stage ${stageProgress.current} of ${stageProgress.total}: ${stageProgress.label}. ${activeEta ? `${activeEta}. ` : ''}Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
       <button type="button" className="goals-card-main" onClick={openPrimary}>
         <header className="goals-card-head">
@@ -355,6 +357,21 @@ export default function GoalsCard() {
         <span className="goals-card-primary">{lifePlan.primary.title}</span>
         <span className="goals-card-reason">{lifePlan.primary.detail}</span>
         {activeEta && <span className="goals-card-forecast">{activeEta}</span>}
+        <span className="goals-card-stage">
+          <span className="goals-card-stage-copy">
+            Stage {stageProgress.current}/{stageProgress.total}: {stageProgress.label}
+            {stageProgress.nextLabel ? ` -> ${stageProgress.nextLabel}` : ''}
+          </span>
+          <span className="goals-card-stage-rail" aria-hidden>
+            {MILLIONAIRE_STAGE_ORDER.map((stage, index) => (
+              <span
+                className={`goals-card-stage-step${index < stageProgress.current ? ' complete' : ''}${stage === lifePlan.millionairePath.stage ? ' current' : ''}`}
+                key={stage}
+                title={MILLIONAIRE_STAGE_META[stage].label}
+              />
+            ))}
+          </span>
+        </span>
         <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
       </button>
       {agenda}
