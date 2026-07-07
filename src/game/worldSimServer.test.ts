@@ -1652,6 +1652,25 @@ describe('runWorldServerCommand', () => {
     expect(repo.saveAttempts).toBe(2)
   })
 
+  test('returns a structured error when server time advancement cannot save area state', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
+    repo.saveArea = async () => {
+      repo.saveAttempts += 1
+      throw new Error('area save unavailable')
+    }
+
+    const advanced = await runWorldServerCommand(repo, { type: 'advance', areaId: 'area-1', now: 1_000 + HOUR })
+    const saved = await repo.loadArea('area-1')
+
+    expect(advanced).toMatchObject({ ok: false, error: 'area_repository_unavailable' })
+    expect(advanced.area?.now).toBe(1_000)
+    expect(saved?.now).toBe(1_000)
+    expect(saved?.citizens[0].needs.hydration).toBe(50)
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
+  })
+
   test('rejects backwards time without saving', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)
