@@ -74,6 +74,99 @@ describe('construction placement guard', () => {
   })
 })
 
+describe('hard work body gates', () => {
+  test('gathering, building, business work, shifts, and gigs require food and water', () => {
+    const now = Date.now()
+    const constructionProject = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, now),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+    const businessPlan = createBusinessDevelopmentProject(business(), now)!
+    const businessDeposited = depositBusinessDevelopmentResources(businessPlan, freshResources(businessPlan.required)).project
+    const businessReady = payBusinessDevelopmentBudget(businessDeposited, businessDeposited.budgetCost).project
+    const base = {
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      money: 1_000,
+      jobId: 'barista',
+      health: 100,
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    }
+
+    useGame.setState({
+      ...base,
+      needs: { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 },
+      resourceNodes: [{
+        id: 'wood-node',
+        kind: 'wood',
+        label: 'Local timber lot',
+        lat: 45,
+        lng: 21,
+        source: 'fallback',
+        yieldAmount: 25,
+        gatherMinutes: 5,
+        energyCost: 8,
+      }],
+    })
+    useGame.getState().startGatherResource('wood-node')
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Drink water before gathering wood.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      ...base,
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      constructionProjects: [constructionProject],
+    })
+    useGame.getState().startConstructionWork(constructionProject.id)
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Eat before construction work.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      ...base,
+      needs: { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 },
+      assets: [business()],
+      businessDevelopmentProjects: [businessReady],
+    })
+    useGame.getState().startBusinessDevelopmentWork(businessReady.id)
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Drink water before interior work.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      ...base,
+      needs: { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 },
+    })
+    useGame.getState().startShift()
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Drink water before starting a shift.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      ...base,
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    })
+    useGame.getState().startGig()
+    expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Eat before taking a gig.',
+      tone: 'blocked',
+    })
+  })
+})
+
 describe('construction worker contracts', () => {
   test('player construction labor waits for materials and permit like hired workers do', () => {
     const now = Date.now()
