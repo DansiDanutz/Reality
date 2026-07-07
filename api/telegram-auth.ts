@@ -290,7 +290,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
   } catch {
-    res.status(500).json({ ok: false, error: 'Telegram identity is briefly unavailable.' })
+    res.status(503).json({
+      ok: false,
+      error: 'Telegram identity is briefly unavailable.',
+      code: 'telegram_identity_unavailable',
+    })
     return
   }
 
