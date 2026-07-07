@@ -62,7 +62,7 @@ const AREA_EVENT_KINDS: WorldAreaEventKind[] = ['sim_citizen_departure']
 const AREA_EVENT_SEVERITIES: WorldAreaEventSeverity[] = ['info', 'warning', 'critical']
 const DEPARTURE_REASONS: WorldDepartureReason[] = ['water_unserved', 'food_unserved', 'housing_unserved']
 const DEPARTURE_SERVICE_KINDS: WorldDepartureServiceKind[] = ['water', 'food', 'housing']
-const COVENANT_STATUSES: FounderCovenantStatus[] = ['unclaimed', 'active', 'watch', 'manual_review']
+const COVENANT_REVIEW_DECISION_STATUSES: FounderCovenantStatus[] = ['active', 'watch', 'manual_review']
 const COVENANT_NEXT_ACTIONS: FounderCovenantNextAction[] = ['claim_area', 'none', 'warn_founder', 'manual_review']
 const COVENANT_SIGNAL_SEVERITIES: FounderCovenantSignalSeverity[] = ['info', 'warning', 'critical']
 const COVENANT_SIGNAL_KINDS: FounderCovenantSignalKind[] = [
@@ -332,7 +332,7 @@ function isFounderCovenantAuthorityGate(value: unknown): boolean {
 
 function isFounderCovenantReviewDecision(value: unknown): boolean {
   return isRecord(value) &&
-    isOneOf(value.status, COVENANT_STATUSES) &&
+    isOneOf(value.status, COVENANT_REVIEW_DECISION_STATUSES) &&
     isOneOf(value.nextAction, COVENANT_NEXT_ACTIONS) &&
     typeof value.manualReviewRequired === 'boolean'
 }
