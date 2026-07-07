@@ -1636,6 +1636,12 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+.goals-card-forecast {
+  color: var(--gold);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 .goals-card-routine {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
