@@ -230,6 +230,38 @@ describe('worldSim snapshot codec', () => {
     }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects negative covenant approval request timestamps', () => {
+    const reviewed = area()
+    reviewed.founderReviewHistory = [founderReview()]
+    reviewed.founderReviewHistory[0].approvalRequests = [{
+      id: 'approval1',
+      at: -1,
+      kind: 'send_warning',
+      label: 'Send warning',
+      reason: 'Manual warning approval is required.',
+      status: 'pending_manual_approval',
+      recommended: true,
+      requiresApproval: true,
+      approvalEnabled: false,
+      automationEnabled: false,
+      executionEnabled: false,
+      authorityGate: {
+        requiredRole: 'main_founder',
+        status: 'approval_required',
+        approvedById: null,
+        approvedAt: null,
+        executionEnabled: false,
+      },
+      notificationDraftId: null,
+      blockers: ['approval_workflow_disabled'],
+    }]
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: reviewed,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('accepts historical ledger entries for departed Sim Citizens with event evidence', () => {
     const departed = area()
     departed.areaEvents![0] = {

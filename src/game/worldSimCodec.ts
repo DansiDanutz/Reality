@@ -425,6 +425,7 @@ function isFounderCovenantApprovalRequest(value: unknown): value is FounderCoven
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, COVENANT_APPROVAL_KINDS) &&
     isNonEmptyString(value.label) &&
     isNonEmptyString(value.reason) &&
