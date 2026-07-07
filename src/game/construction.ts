@@ -33,6 +33,7 @@ export interface ConstructionProject {
   laborRequiredMinutes: number
   laborDoneMinutes: number
   hiredLaborMinutes: number
+  workerContracts: ConstructionWorkerContract[]
   permitFee: number
   permitFeePaid: boolean
   incomePerDay: number
@@ -49,6 +50,19 @@ export interface ConstructionWorker {
   laborMultiplier: number
   maxHours: number
   description: string
+}
+
+export interface ConstructionWorkerContract {
+  id: string
+  workerId: ConstructionWorkerId
+  workerName: string
+  hiredAt: number
+  paidUntil: number
+  paidMinutes: number
+  workedMinutes: number
+  laborMultiplier: number
+  ratePerHour: number
+  cost: number
 }
 
 export const STARTER_HOUSE_RECIPE: ConstructionRecipe = {
@@ -151,6 +165,7 @@ export function createConstructionProjectFromRecipe(
     laborRequiredMinutes: recipe.laborRequiredMinutes,
     laborDoneMinutes: 0,
     hiredLaborMinutes: 0,
+    workerContracts: [],
     permitFee: recipe.permitFee,
     permitFeePaid: false,
     incomePerDay: recipe.incomePerDay,
@@ -230,6 +245,51 @@ export function constructionLaborBreakdown(project: ConstructionProject): {
   }
 }
 
+function activePaidMinutes(contract: ConstructionWorkerContract, now: number): number {
+  if (now <= contract.hiredAt) return 0
+  const elapsedMinutes = (Math.min(now, contract.paidUntil) - contract.hiredAt) / 60_000
+  return Math.min(contract.paidMinutes, Math.max(0, elapsedMinutes))
+}
+
+export function advanceConstructionWorkerContracts(
+  project: ConstructionProject,
+  now = Date.now(),
+): { project: ConstructionProject; laborMinutes: number } {
+  const contracts = project.workerContracts ?? []
+  if (contracts.length === 0) return { project: { ...project, workerContracts: [] }, laborMinutes: 0 }
+
+  let laborDoneMinutes = Math.max(0, project.laborDoneMinutes)
+  let hiredLaborMinutes = Math.max(0, project.hiredLaborMinutes ?? 0)
+  let laborDelta = 0
+  const nextContracts = contracts.map((contract) => {
+    const paidWorkedTarget = activePaidMinutes(contract, now)
+    const availablePaidMinutes = Math.max(0, paidWorkedTarget - contract.workedMinutes)
+    const multiplier = Math.max(0, contract.laborMultiplier)
+    const remainingLabor = Math.max(0, project.laborRequiredMinutes - laborDoneMinutes)
+    const possibleLabor = availablePaidMinutes * multiplier
+    const addedLabor = Math.min(remainingLabor, possibleLabor)
+    const paidMinutesUsed = multiplier > 0 ? addedLabor / multiplier : 0
+    laborDoneMinutes += addedLabor
+    hiredLaborMinutes += addedLabor
+    laborDelta += addedLabor
+    return {
+      ...contract,
+      workedMinutes: Math.min(contract.paidMinutes, contract.workedMinutes + paidMinutesUsed),
+    }
+  })
+
+  return {
+    project: {
+      ...project,
+      laborDoneMinutes: Math.min(project.laborRequiredMinutes, laborDoneMinutes),
+      hiredLaborMinutes: Math.min(Math.min(project.laborRequiredMinutes, laborDoneMinutes), hiredLaborMinutes),
+      workerContracts: nextContracts,
+      status: project.status === 'planned' ? 'building' : project.status,
+    },
+    laborMinutes: laborDelta,
+  }
+}
+
 export function constructionShortfall(project: ConstructionProject): ResourceInventory {
   return resourceShortfall(project.deposited, project.required)
 }
@@ -297,22 +357,36 @@ export function hireConstructionWorker(
   workerId: ConstructionWorkerId,
   money: number,
   hours = 1,
-): { project: ConstructionProject; money: number; hired: boolean; cost: number; laborMinutes: number; reason: 'unknown_worker' | 'materials' | 'permit' | 'labor' | 'money' | null } {
+  now = Date.now(),
+): { project: ConstructionProject; money: number; hired: boolean; cost: number; laborMinutes: number; contract: ConstructionWorkerContract | null; reason: 'unknown_worker' | 'materials' | 'permit' | 'labor' | 'money' | null } {
   const estimate = estimateConstructionWorkerHire(project, workerId, hours)
-  if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, reason: 'unknown_worker' }
-  if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: estimate.blockedBy }
-  if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'money' }
-  if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'labor' }
-  const worked = addConstructionLabor(project, estimate.laborMinutes)
+  if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, contract: null, reason: 'unknown_worker' }
+  if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: estimate.blockedBy }
+  if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'money' }
+  if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'labor' }
+  const contract: ConstructionWorkerContract = {
+    id: `${project.id}:${estimate.worker.id}:${now}`,
+    workerId: estimate.worker.id,
+    workerName: estimate.worker.name,
+    hiredAt: now,
+    paidUntil: now + estimate.hours * 3_600_000,
+    paidMinutes: estimate.hours * 60,
+    workedMinutes: 0,
+    laborMultiplier: estimate.worker.laborMultiplier,
+    ratePerHour: estimate.worker.ratePerHour,
+    cost: estimate.cost,
+  }
   return {
     project: {
-      ...worked,
-      hiredLaborMinutes: Math.min(worked.laborDoneMinutes, (project.hiredLaborMinutes ?? 0) + estimate.laborMinutes),
+      ...project,
+      workerContracts: [...(project.workerContracts ?? []), contract],
+      status: project.status === 'planned' ? 'building' : project.status,
     },
     money: money - estimate.cost,
     hired: true,
     cost: estimate.cost,
     laborMinutes: estimate.laborMinutes,
+    contract,
     reason: null,
   }
 }

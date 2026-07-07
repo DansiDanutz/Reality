@@ -56,6 +56,7 @@ export default function ConstructionPanel() {
       : null) ?? projects[0] ?? null
   const activeProgress = activeProject ? constructionProgress(activeProject) : null
   const activeLabor = activeProject ? constructionLaborBreakdown(activeProject) : null
+  const activeWorkerContracts = activeProject?.workerContracts?.filter((contract) => contract.workedMinutes < contract.paidMinutes) ?? []
   const starterProject = projects.find((project) => project.recipeId === 'starter-house')
   const planName = activeProject?.name ?? STARTER_HOUSE_RECIPE.name
   const planKind = activeProject?.resultKind ?? STARTER_HOUSE_RECIPE.resultKind
@@ -164,6 +165,10 @@ export default function ConstructionPanel() {
               <div className="stat">
                 <span className="stat-label">remaining</span>
                 <span className="stat-value mono gold">{formatMinutes(activeLabor.remainingMinutes)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">active workers</span>
+                <span className="stat-value mono">{activeWorkerContracts.length}</span>
               </div>
             </div>
             <div className="worker-grid">
