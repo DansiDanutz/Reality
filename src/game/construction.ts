@@ -1,4 +1,4 @@
-import type { PlacedAsset } from './types'
+import type { AssetKind, PlacedAsset, ShopItem } from './types'
 import {
   EMPTY_RESOURCES,
   RESOURCE_KINDS,
@@ -7,44 +7,119 @@ import {
   resourceShortfall,
 } from './resources'
 
-export type ConstructionRecipeId = 'starter-house'
+export type ConstructionRecipeId = 'starter-house' | `business:${string}`
 
 export interface ConstructionRecipe {
   id: ConstructionRecipeId
   name: string
   itemId: string
+  resultKind: AssetKind
   required: ResourceInventory
   laborRequiredMinutes: number
   permitFee: number
+  incomePerDay: number
 }
 
 export interface ConstructionProject {
   id: string
   recipeId: ConstructionRecipeId
   name: string
+  itemId: string
+  resultKind: AssetKind
   lat: number
   lng: number
   required: ResourceInventory
   deposited: ResourceInventory
   laborRequiredMinutes: number
   laborDoneMinutes: number
+  hiredLaborMinutes: number
   permitFee: number
   permitFeePaid: boolean
+  incomePerDay: number
   status: 'planned' | 'building' | 'complete'
   placedAt: number
+}
+
+export type ConstructionWorkerId = 'helper' | 'builder' | 'crew'
+
+export interface ConstructionWorker {
+  id: ConstructionWorkerId
+  name: string
+  ratePerHour: number
+  laborMultiplier: number
+  maxHours: number
+  description: string
 }
 
 export const STARTER_HOUSE_RECIPE: ConstructionRecipe = {
   id: 'starter-house',
   name: 'Starter House',
   itemId: 'microstudio',
+  resultKind: 'home',
   required: { wood: 120, stone: 60, metal: 20, glass: 10 },
   laborRequiredMinutes: 8 * 60,
   permitFee: 500,
+  incomePerDay: 0,
 }
 
-export const CONSTRUCTION_RECIPES: Record<ConstructionRecipeId, ConstructionRecipe> = {
+export const CONSTRUCTION_RECIPES: Record<'starter-house', ConstructionRecipe> = {
   'starter-house': STARTER_HOUSE_RECIPE,
+}
+
+export const CONSTRUCTION_WORKERS: ConstructionWorker[] = [
+  {
+    id: 'helper',
+    name: 'Local helper',
+    ratePerHour: 16,
+    laborMultiplier: 1,
+    maxHours: 4,
+    description: 'Reliable basic labor from the Workers Hall.',
+  },
+  {
+    id: 'builder',
+    name: 'Skilled builder',
+    ratePerHour: 28,
+    laborMultiplier: 1.5,
+    maxHours: 6,
+    description: 'Faster craft work once materials are on site.',
+  },
+  {
+    id: 'crew',
+    name: 'Small crew',
+    ratePerHour: 75,
+    laborMultiplier: 4,
+    maxHours: 8,
+    description: 'A coordinated AI crew for finishing big blocks of work.',
+  },
+]
+
+function roundToFive(value: number): number {
+  return Math.max(5, Math.round(value / 5) * 5)
+}
+
+export function businessConstructionRecipe(item: Pick<ShopItem, 'id' | 'name' | 'price' | 'incomePerDay'>): ConstructionRecipe {
+  const scale = Math.min(12, Math.max(1, item.price / 15_000))
+  return {
+    id: `business:${item.id}`,
+    name: item.name,
+    itemId: item.id,
+    resultKind: 'business',
+    required: {
+      wood: roundToFive(45 * scale),
+      stone: roundToFive(30 * scale),
+      metal: roundToFive(25 * scale),
+      glass: roundToFive(10 * scale),
+    },
+    laborRequiredMinutes: Math.round(Math.min(48, 6 + scale * 2) * 60),
+    permitFee: Math.max(500, Math.round(item.price * 0.03)),
+    incomePerDay: item.incomePerDay ?? 0,
+  }
+}
+
+function recipeFor(recipeId: ConstructionRecipeId): ConstructionRecipe {
+  const recipe = recipeId === 'starter-house' ? CONSTRUCTION_RECIPES[recipeId] : null
+  if (!recipe) throw new Error(`Unknown construction recipe: ${recipeId}`)
+  return recipe
 }
 
 export function createConstructionProject(
@@ -53,19 +128,32 @@ export function createConstructionProject(
   lng: number,
   now = Date.now(),
 ): ConstructionProject {
-  const recipe = CONSTRUCTION_RECIPES[recipeId]
+  const recipe = recipeFor(recipeId)
+  return createConstructionProjectFromRecipe(recipe, lat, lng, now)
+}
+
+export function createConstructionProjectFromRecipe(
+  recipe: ConstructionRecipe,
+  lat: number,
+  lng: number,
+  now = Date.now(),
+): ConstructionProject {
   return {
-    id: `${recipeId}-${now}`,
-    recipeId,
+    id: `${recipe.id}-${now}`,
+    recipeId: recipe.id,
     name: recipe.name,
+    itemId: recipe.itemId,
+    resultKind: recipe.resultKind,
     lat,
     lng,
     required: freshResources(recipe.required),
     deposited: freshResources(),
     laborRequiredMinutes: recipe.laborRequiredMinutes,
     laborDoneMinutes: 0,
+    hiredLaborMinutes: 0,
     permitFee: recipe.permitFee,
     permitFeePaid: false,
+    incomePerDay: recipe.incomePerDay,
     status: 'planned',
     placedAt: now,
   }
@@ -126,6 +214,22 @@ export function addConstructionLabor(
   }
 }
 
+export function constructionLaborBreakdown(project: ConstructionProject): {
+  playerMinutes: number
+  hiredMinutes: number
+  totalMinutes: number
+  remainingMinutes: number
+} {
+  const hiredMinutes = Math.max(0, project.hiredLaborMinutes ?? 0)
+  const totalMinutes = Math.max(0, project.laborDoneMinutes)
+  return {
+    playerMinutes: Math.max(0, totalMinutes - hiredMinutes),
+    hiredMinutes,
+    totalMinutes,
+    remainingMinutes: Math.max(0, project.laborRequiredMinutes - totalMinutes),
+  }
+}
+
 export function constructionShortfall(project: ConstructionProject): ResourceInventory {
   return resourceShortfall(project.deposited, project.required)
 }
@@ -135,15 +239,81 @@ export function constructionProgress(project: ConstructionProject): {
   laborComplete: boolean
   permitComplete: boolean
   complete: boolean
+  percent: number
 } {
   const resourcesComplete = RESOURCE_KINDS.every((kind) => project.deposited[kind] >= project.required[kind])
   const laborComplete = project.laborDoneMinutes >= project.laborRequiredMinutes
   const permitComplete = project.permitFeePaid
+  const resourceRatio = RESOURCE_KINDS.reduce((sum, kind) => {
+    const required = project.required[kind]
+    return sum + (required <= 0 ? 1 : Math.min(1, project.deposited[kind] / required))
+  }, 0) / RESOURCE_KINDS.length
+  const laborRatio = project.laborRequiredMinutes <= 0 ? 1 : Math.min(1, project.laborDoneMinutes / project.laborRequiredMinutes)
+  const permitRatio = permitComplete ? 1 : 0
   return {
     resourcesComplete,
     laborComplete,
     permitComplete,
     complete: resourcesComplete && laborComplete && permitComplete,
+    percent: Math.round(((resourceRatio * 0.55) + (laborRatio * 0.35) + (permitRatio * 0.1)) * 100),
+  }
+}
+
+export function workerById(workerId: ConstructionWorkerId): ConstructionWorker | undefined {
+  return CONSTRUCTION_WORKERS.find((worker) => worker.id === workerId)
+}
+
+export function constructionWorkerBlocker(project: ConstructionProject): 'materials' | 'permit' | 'labor' | null {
+  const progress = constructionProgress(project)
+  if (!progress.resourcesComplete) return 'materials'
+  if (!progress.permitComplete) return 'permit'
+  if (progress.laborComplete) return 'labor'
+  return null
+}
+
+export function estimateConstructionWorkerHire(
+  project: ConstructionProject,
+  workerId: ConstructionWorkerId,
+  hours = 1,
+): { worker: ConstructionWorker; hours: number; cost: number; laborMinutes: number; blockedBy: ReturnType<typeof constructionWorkerBlocker> } | null {
+  const worker = workerById(workerId)
+  if (!worker) return null
+  const requestedHours = Math.min(Math.max(hours, 1), worker.maxHours)
+  const blockedBy = constructionWorkerBlocker(project)
+  if (blockedBy) return { worker, hours: requestedHours, cost: worker.ratePerHour * requestedHours, laborMinutes: 0, blockedBy }
+  const remaining = constructionLaborBreakdown(project).remainingMinutes
+  const laborMinutes = Math.min(remaining, Math.round(requestedHours * 60 * worker.laborMultiplier))
+  return {
+    worker,
+    hours: requestedHours,
+    cost: worker.ratePerHour * requestedHours,
+    laborMinutes,
+    blockedBy: null,
+  }
+}
+
+export function hireConstructionWorker(
+  project: ConstructionProject,
+  workerId: ConstructionWorkerId,
+  money: number,
+  hours = 1,
+): { project: ConstructionProject; money: number; hired: boolean; cost: number; laborMinutes: number; reason: 'unknown_worker' | 'materials' | 'permit' | 'labor' | 'money' | null } {
+  const estimate = estimateConstructionWorkerHire(project, workerId, hours)
+  if (!estimate) return { project, money, hired: false, cost: 0, laborMinutes: 0, reason: 'unknown_worker' }
+  if (estimate.blockedBy) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: estimate.blockedBy }
+  if (money < estimate.cost) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'money' }
+  if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, reason: 'labor' }
+  const worked = addConstructionLabor(project, estimate.laborMinutes)
+  return {
+    project: {
+      ...worked,
+      hiredLaborMinutes: Math.min(worked.laborDoneMinutes, (project.hiredLaborMinutes ?? 0) + estimate.laborMinutes),
+    },
+    money: money - estimate.cost,
+    hired: true,
+    cost: estimate.cost,
+    laborMinutes: estimate.laborMinutes,
+    reason: null,
   }
 }
 
@@ -153,16 +323,17 @@ export function completeConstructionProject(project: ConstructionProject): {
 } {
   if (!constructionProgress(project).complete) return { project, asset: null }
   const completeProject = { ...project, status: 'complete' as const }
+  const idPrefix = project.recipeId.replace(/[^a-z0-9-]/gi, '-')
   return {
     project: completeProject,
     asset: {
-      id: `${project.recipeId}-home-${Date.now()}`,
-      itemId: CONSTRUCTION_RECIPES[project.recipeId].itemId,
-      kind: 'home',
+      id: `${idPrefix}-${project.resultKind}-${Date.now()}`,
+      itemId: project.itemId,
+      kind: project.resultKind,
       name: project.name,
       lat: project.lat,
       lng: project.lng,
-      incomePerDay: 0,
+      incomePerDay: project.incomePerDay,
       pendingIncome: 0,
       placedAtMinute: 0,
     },
