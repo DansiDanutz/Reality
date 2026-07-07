@@ -24,7 +24,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
       res.status(200).json({ ok: true, count })
     } catch {
-      res.status(200).json({ ok: true, count: 0 })
+      res.setHeader('Cache-Control', 'no-store')
+      res.status(503).json({
+        ok: false,
+        code: 'waitlist_count_unavailable',
+        error: 'The waitlist count is briefly unavailable. Try again in a minute.',
+      })
     }
     return
   }
@@ -57,6 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     )
     res.status(200).json({ ok: true })
   } catch {
-    res.status(500).json({ ok: false, error: 'The waitlist is briefly unavailable. Try again in a minute.' })
+    res.status(503).json({
+      ok: false,
+      code: 'waitlist_write_unavailable',
+      error: 'The waitlist is briefly unavailable. Try again in a minute.',
+    })
   }
 }
