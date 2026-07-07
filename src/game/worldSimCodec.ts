@@ -350,6 +350,7 @@ function isFounderCovenantSignal(value: unknown): boolean {
 function isFounderCovenantActivityReview(value: unknown): boolean {
   return isRecord(value) &&
     isFiniteNumber(value.checkedAt) &&
+    value.checkedAt >= 0 &&
     typeof value.active === 'boolean' &&
     typeof value.useful === 'boolean' &&
     typeof value.building === 'boolean' &&
