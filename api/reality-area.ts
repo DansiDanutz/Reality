@@ -1106,6 +1106,13 @@ interface FounderCovenantReviewQueueSignalCounts {
   critical: number
 }
 
+interface FounderCovenantReviewQueueChecklistStatusCounts {
+  total: number
+  met: number
+  watch: number
+  manualReview: number
+}
+
 interface FounderCovenantReviewQueueEconomicExposure {
   founderCash: number
   outstandingDebt: number
@@ -1254,6 +1261,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    reviewChecklistStatusCounts: FounderCovenantReviewQueueChecklistStatusCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4595,6 +4603,17 @@ function founderCovenantReviewSignalCounts(
   }
 }
 
+function founderCovenantReviewChecklistStatusCounts(
+  reviewChecklist: readonly FounderAreaCovenantReviewChecklistItem[],
+): FounderCovenantReviewQueueChecklistStatusCounts {
+  return {
+    total: reviewChecklist.length,
+    met: reviewChecklist.filter((item) => item.status === 'met').length,
+    watch: reviewChecklist.filter((item) => item.status === 'watch').length,
+    manualReview: reviewChecklist.filter((item) => item.status === 'manual_review').length,
+  }
+}
+
 function founderCovenantReviewQueueLatestReview(
   review: FounderAreaCovenantLatestReview | null,
 ): FounderCovenantReviewQueueLatestReview | null {
@@ -4631,6 +4650,18 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    reviewChecklistStatusCounts: items.reduce<FounderCovenantReviewQueueChecklistStatusCounts>(
+      (totals, item) => {
+        const counts = founderCovenantReviewChecklistStatusCounts(item.reviewChecklist)
+        return {
+          total: totals.total + counts.total,
+          met: totals.met + counts.met,
+          watch: totals.watch + counts.watch,
+          manualReview: totals.manualReview + counts.manualReview,
+        }
+      },
+      { total: 0, met: 0, watch: 0, manualReview: 0 },
+    ),
   }
 }
 

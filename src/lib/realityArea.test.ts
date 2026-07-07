@@ -1056,6 +1056,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with malformed checklist status totals', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      totals: {
+        ...serverFounderCovenantReviewQueue().totals,
+        reviewChecklistStatusCounts: {
+          ...serverFounderCovenantReviewQueue().totals.reviewChecklistStatusCounts,
+          manualReview: '3',
+        },
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable approval request metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -2957,6 +2981,7 @@ function serverDashboard(): RealityAreaDashboard {
 function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDashboard {
   const dashboard = serverDashboard()
   const review = dashboard.founderCovenant
+  const reviewChecklist = review.reviewChecklist
   return {
     generatedAt: '2026-07-06T04:00:00.000Z',
     evidenceOnly: true,
@@ -2994,6 +3019,12 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      reviewChecklistStatusCounts: {
+        total: reviewChecklist.length,
+        met: reviewChecklist.filter((item) => item.status === 'met').length,
+        watch: reviewChecklist.filter((item) => item.status === 'watch').length,
+        manualReview: reviewChecklist.filter((item) => item.status === 'manual_review').length,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3017,7 +3048,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       reviewInputs: review.reviewInputs,
       stages: review.stages,
       reviewReadiness: serverFounderCovenantReviewReadiness(review),
-      reviewChecklist: review.reviewChecklist,
+      reviewChecklist,
       manualActions: review.manualActions.map((action) => ({
         ...action,
         authorityGate: { ...action.authorityGate, executionEnabled: false },

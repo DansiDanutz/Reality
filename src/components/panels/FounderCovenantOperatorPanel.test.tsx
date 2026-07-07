@@ -27,6 +27,7 @@ describe('FounderCovenantOperatorPanel', () => {
 
     expect(html).toContain('Founder Review Queue')
     expect(html).toContain('Evidence only')
+    expect(html).toContain('1 founder · 1 checklist item: 0 met, 0 watch, 1 manual · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
@@ -119,6 +120,12 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      reviewChecklistStatusCounts: {
+        total: 1,
+        met: 0,
+        watch: 0,
+        manualReview: 1,
+      },
     },
     items: [{
       areaId: 'founder-area-0012',
