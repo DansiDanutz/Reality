@@ -6,6 +6,7 @@ import {
   createConstructionProject,
   createConstructionProjectFromRecipe,
 } from './construction'
+import { EDUCATION_COURSES, createEducationProgress } from './education'
 import { businessDevelopmentDayForecast, constructionDayForecast, planLifeDay, type LifeLadderSnapshot } from './lifeLadder'
 import { freshResources } from './resources'
 import type { PlacedAsset } from './types'
@@ -28,6 +29,7 @@ function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
     constructionProjects: [],
     businessDevelopmentProjects: [],
     educationActions: 0,
+    educationProgress: [],
     communityActionsThisWeek: 0,
     ...overrides,
   }
@@ -145,6 +147,48 @@ describe('planLifeDay', () => {
 
     expect(plan.primary.id).toBe('study-first-course')
     expect(plan.primary.value).toBe('school')
+    expect(plan.primary.route).toEqual({ kind: 'market', focus: 'education' })
+  })
+
+  test('starts study directly for an enrolled unfinished course', () => {
+    const progress = createEducationProgress(EDUCATION_COURSES.course, 1_700_000_000_000)
+    const plan = planLifeDay(snap({
+      lifeDay: 3,
+      jobId: 'barista',
+      shiftsWorked: 1,
+      money: 120,
+      educationActions: 0,
+      educationProgress: [progress],
+    }))
+
+    expect(plan.primary.id).toBe('study-course')
+    expect(plan.primary.value).toBe('school')
+    expect(plan.primary.minutes).toBe(60)
+    expect(plan.primary.route).toEqual({ kind: 'education-action', courseId: 'course' })
+    expect(plan.routine.find((block) => block.id === 'growth-block')).toMatchObject({
+      route: { kind: 'education-action', courseId: 'course' },
+      taskId: 'study-course',
+    })
+  })
+
+  test('keeps unfinished enrolled courses in the support plan after the first study block', () => {
+    const progress = {
+      ...createEducationProgress(EDUCATION_COURSES.certification, 1_700_000_000_000),
+      studiedMinutes: 60,
+    }
+    const plan = planLifeDay(snap({
+      lifeDay: 20,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      educationProgress: [progress],
+      communityActionsThisWeek: 1,
+    }))
+
+    expect(plan.support.find((task) => task.id === 'support-study-certification')).toMatchObject({
+      route: { kind: 'education-action', courseId: 'certification' },
+      minutes: 60,
+    })
   })
 
   test('never invents high-income tasks for a player with no business', () => {
