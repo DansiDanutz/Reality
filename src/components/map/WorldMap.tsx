@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useRef, useState } from 'react'
+import { constructionProgress } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
 import { track } from '../../lib/analytics'
@@ -57,14 +58,18 @@ function greatCircle(from: [number, number], to: [number, number], steps = 64): 
   return points
 }
 
-function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0): HTMLDivElement {
-  const el = document.createElement('div')
+function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0): HTMLButtonElement {
+  const el = document.createElement('button')
+  el.type = 'button'
   // 'ready' modifier lights up business beacons with a ring when they have
   // collectable income — surfaces the economy loop on the map so the player
   // sees which holdings need attention at a glance.
   const ready = own && kind === 'business' && pendingIncome >= 1 ? ' ready' : ''
-  el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}${ready}`
+  el.className = `map-beacon ${own ? (kind === 'home' ? 'home map-house-marker' : 'biz map-business-marker') : 'other'}${ready}`
   el.title = ready ? `${name} — ${Math.floor(pendingIncome)} ready to collect` : name
+  el.setAttribute('aria-label', ready ? `${name}, ${Math.floor(pendingIncome)} ready to collect` : name)
+  if (own && kind === 'home') el.textContent = '⌂'
+  if (own && kind === 'business') el.textContent = '◆'
   return el
 }
 
@@ -77,11 +82,13 @@ function resourceElement(kind: string, name: string, source: string): HTMLButton
   return el
 }
 
-function constructionElement(name: string): HTMLButtonElement {
+function constructionElement(name: string, progressPercent: number): HTMLButtonElement {
   const el = document.createElement('button')
   el.type = 'button'
   el.className = 'map-construction'
-  el.title = `${name} construction site`
+  el.title = `${name} construction site — ${progressPercent}% complete`
+  el.setAttribute('aria-label', `${name} construction site, ${progressPercent}% complete`)
+  el.style.setProperty('--construction-progress', `${Math.max(0, Math.min(100, progressPercent))}%`)
   el.textContent = '⌂'
   return el
 }
@@ -99,6 +106,7 @@ export default function WorldMap() {
   const placingConstruction = useGame((s) => s.placingConstruction)
   const resourceNodes = useGame((s) => s.resourceNodes)
   const constructionProjects = useGame((s) => s.constructionProjects)
+  const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const hasCitizen = useGame((s) => Boolean(s.citizen))
   const citizenId = useGame((s) => s.citizen?.citizenId)
   const spawnLat = useGame((s) => s.citizen?.spawnLat)
@@ -108,6 +116,7 @@ export default function WorldMap() {
   const inventory = useGame((s) => s.inventory)
   const [world, setWorld] = useState<WorldAsset[]>([])
   const introDone = useRef(false)
+  const lastTargetRef = useRef<string | null>(null)
 
   // Other citizens' holdings — the world looks inhabited
   useEffect(() => {
@@ -212,9 +221,15 @@ export default function WorldMap() {
     const map = mapRef.current
     if (!map) return
     markersRef.current.forEach((m) => m.remove())
-    markersRef.current = assets.map((a) =>
-      new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true, a.pendingIncome) }).setLngLat([a.lng, a.lat]).addTo(map),
-    )
+    markersRef.current = assets.map((a) => {
+      const el = beaconElement(a.kind, a.name, true, a.pendingIncome)
+      el.addEventListener('click', (event) => {
+        event.stopPropagation()
+        useGame.getState().selectMapTarget({ kind: 'asset', id: a.id })
+        useGame.getState().setPanel(a.kind === 'home' ? 'home' : a.kind === 'business' ? 'business' : 'assets')
+      })
+      return new maplibregl.Marker({ element: el }).setLngLat([a.lng, a.lat]).addTo(map)
+    })
   }, [assets])
 
   useEffect(() => {
@@ -236,14 +251,37 @@ export default function WorldMap() {
     if (!map) return
     constructionMarkersRef.current.forEach((m) => m.remove())
     constructionMarkersRef.current = constructionProjects.map((project) => {
-      const el = constructionElement(project.name)
+      const progress = constructionProgress(project)
+      const el = constructionElement(project.name, progress.percent)
       el.addEventListener('click', (event) => {
         event.stopPropagation()
+        useGame.getState().selectMapTarget({ kind: 'construction', id: project.id })
         useGame.getState().setPanel('construction')
       })
       return new maplibregl.Marker({ element: el }).setLngLat([project.lng, project.lat]).addTo(map)
     })
   }, [constructionProjects])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !styleReady || !selectedMapTarget) return
+    const key = `${selectedMapTarget.kind}:${selectedMapTarget.id}`
+    if (lastTargetRef.current === key) return
+    const target = selectedMapTarget.kind === 'asset'
+      ? assets.find((asset) => asset.id === selectedMapTarget.id)
+      : constructionProjects.find((project) => project.id === selectedMapTarget.id)
+    if (!target) return
+    lastTargetRef.current = key
+    ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
+    map.flyTo({
+      center: [target.lng, target.lat],
+      zoom: 16,
+      pitch: 58,
+      bearing: selectedMapTarget.kind === 'construction' ? 18 : map.getBearing(),
+      duration: 1400,
+      essential: true,
+    })
+  }, [selectedMapTarget, assets, constructionProjects, styleReady])
 
   // Other citizens' properties: a clustered GeoJSON source (issue #33). When
   // the world has many properties, individual DOM markers overlap into mush at
