@@ -12,6 +12,8 @@ export interface EducationCourse {
   name: string
   studyMinutesRequired: number
   xpReward: number
+  wageBonus: number
+  businessLaborBonus: number
   description: string
 }
 
@@ -30,6 +32,8 @@ export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
     name: 'Online Course',
     studyMinutesRequired: 60,
     xpReward: 40,
+    wageBonus: 0.01,
+    businessLaborBonus: 0.02,
     description: 'One focused evening that proves school is a habit, not a receipt.',
   },
   masterclass: {
@@ -38,6 +42,8 @@ export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
     name: 'Masterclass Series',
     studyMinutesRequired: 90,
     xpReward: 60,
+    wageBonus: 0.02,
+    businessLaborBonus: 0.03,
     description: 'A few serious sessions with people who already climbed.',
   },
   certification: {
@@ -46,6 +52,8 @@ export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
     name: 'Professional Certification',
     studyMinutesRequired: 180,
     xpReward: 150,
+    wageBonus: 0.04,
+    businessLaborBonus: 0.05,
     description: 'Proof of skill that takes real time and unlocks better work.',
   },
   bootcamp: {
@@ -54,6 +62,8 @@ export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
     name: 'Coding Bootcamp',
     studyMinutesRequired: 12 * 60,
     xpReward: 300,
+    wageBonus: 0.06,
+    businessLaborBonus: 0.08,
     description: 'A long focused climb into a better career lane.',
   },
   university: {
@@ -62,6 +72,8 @@ export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
     name: 'University Semester',
     studyMinutesRequired: 24 * 60,
     xpReward: 700,
+    wageBonus: 0.08,
+    businessLaborBonus: 0.12,
     description: 'The long game, played properly across many study blocks.',
   },
   mba: {
@@ -70,6 +82,8 @@ export const EDUCATION_COURSES: Record<EducationCourseId, EducationCourse> = {
     name: 'Executive MBA',
     studyMinutesRequired: 40 * 60,
     xpReward: 1_500,
+    wageBonus: 0.09,
+    businessLaborBonus: 0.15,
     description: 'Boardroom fluency earned through sustained study.',
   },
 }
@@ -142,4 +156,27 @@ export function addStudyMinutes(
 
 export function educationActionCount(progress: EducationProgress[]): number {
   return progress.filter((item) => item.studiedMinutes > 0 || item.completedAt !== null).length
+}
+
+export function completedEducationCourses(progress: EducationProgress[]): EducationCourse[] {
+  return progress
+    .filter((item) => item.completedAt !== null)
+    .map((item) => educationCourseById(item.courseId))
+    .filter((course): course is EducationCourse => course !== null)
+}
+
+function roundedRate(value: number): number {
+  return Math.round(value * 1_000) / 1_000
+}
+
+export function educationWageBonusFrom(progress: EducationProgress[]): number {
+  return roundedRate(completedEducationCourses(progress).reduce((sum, course) => sum + course.wageBonus, 0))
+}
+
+export function educationBusinessLaborBonusFrom(progress: EducationProgress[]): number {
+  return roundedRate(completedEducationCourses(progress).reduce((sum, course) => sum + course.businessLaborBonus, 0))
+}
+
+export function educationBusinessLaborMultiplier(progress: EducationProgress[]): number {
+  return roundedRate(1 + educationBusinessLaborBonusFrom(progress))
 }
