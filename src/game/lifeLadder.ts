@@ -460,7 +460,7 @@ function buildDailyRoutine(snapshot: LifeLadderSnapshot, primary: LifePlanTask, 
       'Sleep',
       'Protect the next day with a full rest window.',
       'body',
-      { kind: 'panel', panel: snapshot.assets.some((asset) => asset.kind === 'home') ? 'home' : 'assets' },
+      { kind: 'survival-action', action: 'sleep' },
       STANDARD_DAY_BUDGET.sleepMinutes,
     ),
     routineBlock(
