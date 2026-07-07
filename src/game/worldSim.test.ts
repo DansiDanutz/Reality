@@ -1386,6 +1386,57 @@ describe('advanceWorldArea — local real-time economy', () => {
       debtId: 'debt2',
       amount: 10,
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+
+    const missingCreditor = area({
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 75,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'missing-clinic',
+          amount: 75,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to missing-clinic.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    expect(applyWorldIntent(missingCreditor, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 25,
+    })).toMatchObject({ ok: false, error: 'invalid_debt_creditor' })
+    expect(missingCreditor.citizens[0].money).toBe(200)
+    expect(missingCreditor.transactions).toEqual([])
+
+    const wrongCreditorKind = area({
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 75,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'water1',
+          amount: 75,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to water1.',
+        }],
+      })],
+      businesses: [business('water', 'water1', { cash: 50 })],
+    })
+
+    expect(applyWorldIntent(wrongCreditorKind, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 25,
+    })).toMatchObject({ ok: false, error: 'invalid_debt_creditor' })
+    expect(wrongCreditorKind.citizens[0].money).toBe(200)
+    expect(wrongCreditorKind.businesses[0].cash).toBe(50)
+    expect(wrongCreditorKind.transactions).toEqual([])
   })
 
   test('Sim Citizens can leave when severe local needs stay unserved', () => {

@@ -798,6 +798,7 @@ export type WorldIntentError =
   | 'worker_already_hired'
   | 'real_worker_requires_acceptance'
   | 'debt_not_found'
+  | 'invalid_debt_creditor'
   | 'invalid_debt_payment'
 
 export type ApplyWorldIntentResult =
@@ -2920,6 +2921,12 @@ function repayDebtFromIntent(
 
   const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
   if (!debt || debt.amount <= 0) return { ok: false, area, error: 'debt_not_found' }
+  const creditor = debt.creditorId === 'system:hospital'
+    ? null
+    : area.businesses.find((business) => business.id === debt.creditorId && business.kind === 'clinic')
+  if (debt.creditorId !== 'system:hospital' && !creditor) {
+    return { ok: false, area, error: 'invalid_debt_creditor' }
+  }
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, area, error: 'invalid_debt_payment' }
@@ -2930,7 +2937,6 @@ function repayDebtFromIntent(
   debt.amount = roundMoney(debt.amount - payment)
   if (debt.amount <= 0) actor.debts = actor.debts?.filter((candidate) => candidate.id !== debt.id)
 
-  const creditor = area.businesses.find((business) => business.id === debt.creditorId)
   if (creditor) creditor.cash = roundMoney(creditor.cash + payment)
   recordTransaction(area, area.now, {
     kind: 'debt_repayment',
