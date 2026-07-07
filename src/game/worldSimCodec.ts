@@ -357,7 +357,7 @@ function isFounderCovenantActivityReview(value: unknown): boolean {
     typeof value.indebted === 'boolean' &&
     typeof value.hospitalized === 'boolean' &&
     typeof value.atRisk === 'boolean' &&
-    isFiniteNumber(value.score)
+    isPercentage(value.score)
 }
 
 function isFounderCovenantReviewQueue(value: unknown): boolean {
