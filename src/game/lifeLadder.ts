@@ -1,4 +1,12 @@
 import {
+  educationCourseById,
+  educationRemainingMinutes,
+  nextStudyBlockMinutes,
+  type EducationCourse,
+  type EducationCourseId,
+  type EducationProgress,
+} from './education'
+import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentProgress,
   businessDevelopmentShortfall,
@@ -30,6 +38,7 @@ export type LifePlanRoute =
   | { kind: 'business-development-action'; projectId: string; action: BusinessDevelopmentPlanAction }
   | { kind: 'work-action'; action: 'shift' }
   | { kind: 'community-action'; actionId: CommunityActionId }
+  | { kind: 'education-action'; courseId: EducationCourseId }
   | { kind: 'none' }
 
 export interface LifePlanTask {
@@ -128,6 +137,7 @@ export interface LifeLadderSnapshot {
   constructionProjects: ConstructionProject[]
   businessDevelopmentProjects: BusinessDevelopmentProject[]
   educationActions: number
+  educationProgress: EducationProgress[]
   communityActionsThisWeek: number
 }
 
@@ -314,7 +324,29 @@ function workPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   return null
 }
 
+function activeEducationCourse(progress: EducationProgress[]): { course: EducationCourse; progress: EducationProgress } | null {
+  for (const item of progress) {
+    if (item.completedAt !== null) continue
+    const course = educationCourseById(item.courseId)
+    if (!course || educationRemainingMinutes(course, item) <= 0) continue
+    return { course, progress: item }
+  }
+  return null
+}
+
 function schoolPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
+  const active = activeEducationCourse(snapshot.educationProgress)
+  if (active) {
+    const remaining = educationRemainingMinutes(active.course, active.progress)
+    return task(
+      `study-${active.course.id}`,
+      `Study ${active.course.name}`,
+      `${remaining} minutes remain. Finish the course block before chasing the next credential.`,
+      'school',
+      { kind: 'education-action', courseId: active.course.id },
+      nextStudyBlockMinutes(active.course, active.progress),
+    )
+  }
   if (snapshot.lifeDay > 14) return null
   if (snapshot.educationActions > 0 || snapshot.level > 1 || snapshot.xp >= 40) return null
   if (snapshot.money < 80 + CASH_SAFETY_FLOOR) return null
@@ -370,7 +402,17 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
   const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }, 30)
-  const school = task('support-school', 'Learn one small thing', 'A course, certification, or focused practice makes future work easier.', 'school', { kind: 'market', focus: 'education' }, 45)
+  const activeCourse = activeEducationCourse(snapshot.educationProgress)
+  const school = activeCourse
+    ? task(
+        `support-study-${activeCourse.course.id}`,
+        `Study ${activeCourse.course.name}`,
+        `${educationRemainingMinutes(activeCourse.course, activeCourse.progress)} minutes remain in this course.`,
+        'school',
+        { kind: 'education-action', courseId: activeCourse.course.id },
+        nextStudyBlockMinutes(activeCourse.course, activeCourse.progress),
+      )
+    : task('support-school', 'Learn one small thing', 'A course, certification, or focused practice makes future work easier.', 'school', { kind: 'market', focus: 'education' }, 45)
   const work = task(snapshot.jobId ? 'support-shift' : 'support-job', snapshot.jobId ? 'Keep work reliable' : 'Choose a job', 'Respect starts with showing up when you said you would.', 'work', snapshot.jobId ? { kind: 'work-action', action: 'shift' } : { kind: 'panel', panel: 'work' }, snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30)
   const respect = task('support-respect', 'Keep one commitment', 'Finish the shift, build hour, or study block you start today.', 'respect', { kind: 'panel', panel: 'achievements' }, 10)
   const friendship = task('support-friendship', 'Check on one friend', 'Friendship is not decoration. It keeps life stable when the grind gets hard.', 'friendship', { kind: 'community-action', actionId: 'check-neighbor' }, 20)
