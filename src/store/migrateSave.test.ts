@@ -328,6 +328,17 @@ describe('migrateSave - backfills every field added after v1', () => {
     })
   })
 
+  test('old saves do not reopen into the paid random box panel by default', () => {
+    const out = migrateSave({
+      ...v1Save,
+      panel: 'boxes',
+      mysteryBoxesOpened: 3,
+    })
+
+    expect(out.panel).toBeNull()
+    expect(out.mysteryBoxesOpened).toBe(3)
+  })
+
   test('old business development projects normalize missing ledger fields', () => {
     const out = migrateSave({
       ...v1Save,
@@ -423,6 +434,6 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(17)
+    expect(SAVE_VERSION).toBe(18)
   })
 })

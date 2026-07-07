@@ -243,7 +243,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 17
+export const SAVE_VERSION = 18
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -266,6 +266,7 @@ export const SAVE_VERSION = 17
  *   v14 → v15: serious work streak fields in community progression
  *   v15 → v16: discovered city service POIs for real Workers Hall locations
  *   v16 → v17: Workers Hall source marker on active worker contracts
+ *   v17 → v18: remove Mystery Boxes from persisted default panel recovery
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -293,6 +294,7 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
         if (state && state.mysteryBoxesOpened === undefined) state.mysteryBoxesOpened = 0
+        if (state?.panel === 'boxes') state.panel = null
         if (state && !state.activeBoosters) state.activeBoosters = []
         if (state && state.combo === undefined) state.combo = 0
         if (state && state.comboLastActionAt === undefined) state.comboLastActionAt = 0
