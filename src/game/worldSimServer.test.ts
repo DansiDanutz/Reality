@@ -221,6 +221,8 @@ describe('runWorldServerCommand', () => {
     expect(result.dashboard.jobs).toEqual({
       employedCitizens: 0,
       unemployedCitizens: 1,
+      unemployedSimCitizens: 0,
+      unemployedRealCitizens: 1,
       hireableSimWorkers: 0,
       realWorkersRequiringAcceptance: 0,
       openPositions: 0,

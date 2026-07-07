@@ -172,6 +172,8 @@ export interface FirstBuildRecommendation {
 export interface AreaJobsDashboard {
   employedCitizens: number
   unemployedCitizens: number
+  unemployedSimCitizens: number
+  unemployedRealCitizens: number
   hireableSimWorkers: number
   realWorkersRequiringAcceptance: number
   openPositions: number
@@ -2461,12 +2463,15 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderC
   }
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
+  const unemployedCitizens = activeCitizens.filter((citizen) => !hasActiveJob(area, citizen))
   const candidates = activeCitizens
     .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
     .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
   return {
     employedCitizens,
-    unemployedCitizens: activeCitizens.length - employedCitizens,
+    unemployedCitizens: unemployedCitizens.length,
+    unemployedSimCitizens: unemployedCitizens.filter((citizen) => citizen.kind === 'sim').length,
+    unemployedRealCitizens: unemployedCitizens.filter((citizen) => citizen.kind === 'real').length,
     hireableSimWorkers: candidates.filter((candidate) => candidate.action === 'hire_now').length,
     realWorkersRequiringAcceptance: candidates.filter((candidate) => candidate.action === 'requires_acceptance').length,
     openPositions,

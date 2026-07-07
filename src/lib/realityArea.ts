@@ -410,6 +410,8 @@ export interface RealityAreaWorkerCandidateDashboard {
 export interface RealityAreaJobsDashboard {
   employedCitizens: number
   unemployedCitizens: number
+  unemployedSimCitizens: number
+  unemployedRealCitizens: number
   hireableSimWorkers: number
   realWorkersRequiringAcceptance: number
   openPositions: number
@@ -1570,6 +1572,8 @@ function mergeRealityAreaJobsDashboard(
     ...fallback,
     employedCitizens: serverJobs.employedCitizens,
     unemployedCitizens: serverJobs.unemployedCitizens,
+    unemployedSimCitizens: serverJobs.unemployedSimCitizens,
+    unemployedRealCitizens: serverJobs.unemployedRealCitizens,
     hireableSimWorkers: serverJobs.hireableSimWorkers,
     realWorkersRequiringAcceptance: serverJobs.realWorkersRequiringAcceptance,
     openPositions: serverJobs.openPositions,
@@ -2716,6 +2720,8 @@ function isRealityAreaJobsDashboard(value: unknown): value is RealityAreaJobsDas
   return isRecord(value) &&
     typeof value.employedCitizens === 'number' &&
     typeof value.unemployedCitizens === 'number' &&
+    typeof value.unemployedSimCitizens === 'number' &&
+    typeof value.unemployedRealCitizens === 'number' &&
     typeof value.hireableSimWorkers === 'number' &&
     typeof value.realWorkersRequiringAcceptance === 'number' &&
     typeof value.openPositions === 'number' &&

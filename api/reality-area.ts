@@ -464,6 +464,8 @@ interface FounderAreaCovenantReview {
 interface FounderAreaJobsDashboard {
   employedCitizens: number
   unemployedCitizens: number
+  unemployedSimCitizens: number
+  unemployedRealCitizens: number
   hireableSimWorkers: number
   realWorkersRequiringAcceptance: number
   openPositions: number
@@ -3746,6 +3748,8 @@ function firstBuildReason(input: {
 
 function areaJobsDashboard(state: FounderAreaState): FounderAreaJobsDashboard {
   let employedCitizens = 0
+  let unemployedSimCitizens = 0
+  let unemployedRealCitizens = 0
   let hireableSimWorkers = 0
   let openPositions = 0
   let understaffedBusinesses = 0
@@ -3753,6 +3757,8 @@ function areaJobsDashboard(state: FounderAreaState): FounderAreaJobsDashboard {
   for (const citizen of state.citizens) {
     const employed = hasActiveJob(state, citizen)
     if (employed) employedCitizens += 1
+    if (!employed && citizen.kind === 'sim') unemployedSimCitizens += 1
+    if (!employed && citizen.kind === 'real') unemployedRealCitizens += 1
     if (!employed && citizen.kind === 'sim' && citizen.state.kind === 'active') hireableSimWorkers += 1
   }
   for (const business of state.businesses) {
@@ -3778,6 +3784,8 @@ function areaJobsDashboard(state: FounderAreaState): FounderAreaJobsDashboard {
   return {
     employedCitizens,
     unemployedCitizens: state.citizens.length - employedCitizens,
+    unemployedSimCitizens,
+    unemployedRealCitizens,
     hireableSimWorkers,
     realWorkersRequiringAcceptance: candidates.filter((candidate) => candidate.action === 'requires_acceptance').length,
     openPositions,

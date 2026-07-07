@@ -908,6 +908,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dashboard.jobs).toMatchObject({
       employedCitizens: 1,
       unemployedCitizens: 3,
+      unemployedSimCitizens: 3,
+      unemployedRealCitizens: 0,
       hireableSimWorkers: 3,
       realWorkersRequiringAcceptance: 0,
     })
@@ -1030,6 +1032,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dashboard.jobs).toMatchObject({
       employedCitizens: 0,
       unemployedCitizens: 1,
+      unemployedSimCitizens: 1,
+      unemployedRealCitizens: 0,
       hireableSimWorkers: 0,
       candidates: [],
     })
@@ -1573,6 +1577,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.jobs).toMatchObject({
       employedCitizens: 1,
       unemployedCitizens: 1,
+      unemployedSimCitizens: 0,
+      unemployedRealCitizens: 1,
       hireableSimWorkers: 0,
       realWorkersRequiringAcceptance: 1,
       openPositions: 3,

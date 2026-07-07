@@ -2486,6 +2486,8 @@ function serverDashboard(): RealityAreaDashboard {
     jobs: {
       employedCitizens: 1,
       unemployedCitizens: 1,
+      unemployedSimCitizens: 1,
+      unemployedRealCitizens: 0,
       hireableSimWorkers: 1,
       realWorkersRequiringAcceptance: 0,
       openPositions: 1,
