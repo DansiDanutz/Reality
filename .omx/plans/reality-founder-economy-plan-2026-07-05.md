@@ -281,7 +281,7 @@ Goal: use crypto rails only after the game economy is server-authoritative and l
 Recommended path:
 
 - Start with internal ledger credits.
-- Use stablecoin rails later for deposits/payouts.
+- Use TON settlement rails later for deposits/payouts.
 - Avoid launching a speculative Reality token in the first economy version.
 - Manual payout review only.
 - KYC/tax/compliance gates before any real withdrawal.
@@ -337,7 +337,7 @@ Risk: permanent death feels unfair during beta.
 Mitigation: start with hospitalization, debt, recovery, and insurance; enable death later.
 
 Risk: crypto/payout system creates legal exposure.
-Mitigation: internal credits first, stablecoin rails later, no profit promises, manual review, legal/compliance gate.
+Mitigation: internal credits first, TON settlement rails later, no profit promises, manual review, legal/compliance gate.
 
 ## Verification Plan
 

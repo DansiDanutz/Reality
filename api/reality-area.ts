@@ -759,7 +759,7 @@ interface FounderAreaPayoutReadinessDashboard {
   complianceReviewRequired: true
   noProfitPromise: true
   tonSettlementEnabled: false
-  stablecoinRailPlanned: true
+  tonSettlementRailPlanned: true
   blockers: readonly FounderAreaPayoutReadinessBlocker[]
 }
 
@@ -1352,6 +1352,7 @@ const SERVER_OWNED_SETTLEMENT_FIELDS = [
   'taxProfileRequired',
   'taxProfileStatus',
   'noProfitPromise',
+  'tonSettlementRailPlanned',
   'stablecoinRailPlanned',
   'payoutEligibility',
   'walletConnectionEnabled',
@@ -3336,7 +3337,7 @@ function areaPayoutReadinessDashboard(state: FounderAreaState): FounderAreaPayou
     complianceReviewRequired: true,
     noProfitPromise: true,
     tonSettlementEnabled: false,
-    stablecoinRailPlanned: true,
+    tonSettlementRailPlanned: true,
     blockers: [
       'game_credits_only',
       'payouts_disabled',

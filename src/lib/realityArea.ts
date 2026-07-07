@@ -545,7 +545,7 @@ export interface RealityAreaPayoutReadinessDashboard {
   complianceReviewRequired: true
   noProfitPromise: true
   tonSettlementEnabled: false
-  stablecoinRailPlanned: true
+  tonSettlementRailPlanned: true
   blockers: RealityAreaPayoutReadinessBlocker[]
 }
 
@@ -1962,7 +1962,7 @@ function isRealityAreaPayoutReadinessDashboard(value: unknown): value is Reality
     value.complianceReviewRequired === true &&
     value.noProfitPromise === true &&
     value.tonSettlementEnabled === false &&
-    value.stablecoinRailPlanned === true &&
+    value.tonSettlementRailPlanned === true &&
     Array.isArray(value.blockers) &&
     value.blockers.every(isRealityAreaPayoutReadinessBlocker)
 }

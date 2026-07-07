@@ -885,7 +885,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       complianceReviewRequired: true,
       noProfitPromise: true,
       tonSettlementEnabled: false,
-      stablecoinRailPlanned: true,
+      tonSettlementRailPlanned: true,
       blockers: [
         'game_credits_only',
         'payouts_disabled',
@@ -905,7 +905,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       { key: 'kyc', label: 'KYC', value: 'not started', tone: 'warning' },
       { key: 'tax', label: 'Tax', value: 'not started', tone: 'warning' },
     ])
-    expect(founderPayoutReadinessPolicyText(payout)).toBe('no profit promise · stablecoin rail planned later')
+    expect(founderPayoutReadinessPolicyText(payout)).toBe('no profit promise · TON settlement rail planned later')
     expect(founderPayoutReadinessBlockerText('game_credits_only')).toBe('Game credits only')
     expect(founderPayoutReadinessBlockerText('payouts_disabled')).toBe('Payouts')
     expect(founderPayoutReadinessBlockerText('withdrawals_disabled')).toBe('Withdrawals')

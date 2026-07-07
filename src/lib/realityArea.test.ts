@@ -2380,7 +2380,7 @@ function serverDashboard(): RealityAreaDashboard {
       complianceReviewRequired: true,
       noProfitPromise: true,
       tonSettlementEnabled: false,
-      stablecoinRailPlanned: true,
+      tonSettlementRailPlanned: true,
       blockers: [
         'game_credits_only',
         'payouts_disabled',

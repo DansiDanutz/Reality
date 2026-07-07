@@ -391,10 +391,10 @@ export function founderPayoutReadinessBlockerText(blocker: RealityAreaPayoutRead
 }
 
 export function founderPayoutReadinessPolicyText(
-  payout: Pick<RealityAreaPayoutReadinessDashboard, 'noProfitPromise' | 'stablecoinRailPlanned'>,
+  payout: Pick<RealityAreaPayoutReadinessDashboard, 'noProfitPromise' | 'tonSettlementRailPlanned'>,
 ): string {
   const promise = payout.noProfitPromise ? 'no profit promise' : 'profit wording review'
-  const rail = payout.stablecoinRailPlanned ? 'stablecoin rail planned later' : 'no settlement rail'
+  const rail = payout.tonSettlementRailPlanned ? 'TON settlement rail planned later' : 'no settlement rail'
   return `${promise} · ${rail}`
 }
 
