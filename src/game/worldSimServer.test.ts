@@ -416,6 +416,39 @@ describe('runWorldServerCommand', () => {
     expect(repo.saveAttempts).toBe(1)
   })
 
+  test('returns a structured error when claimed-area creation cannot save area state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => null,
+      loadAreaByFounder: async () => null,
+      saveArea: async () => {
+        saveAttempts += 1
+        throw new Error('area save unavailable')
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Founder District',
+      now: 1_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(1)
+  })
+
   test('rejects claimed-area creation when the founder claim is taken during save', async () => {
     const repo = new MemoryWorldRepo()
     repo.conflictFounderClaimOnNextSave('founder')

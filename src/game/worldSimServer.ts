@@ -144,6 +144,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'area_repository_unavailable'
   | 'founder_area_exists'
   | 'invalid_area_identity'
   | 'invalid_command_time'
@@ -496,10 +497,15 @@ async function createClaimedArea(
     ...simCitizens.map((citizen, index) => simCitizenCreditTransaction(areaId, command.now, index + 2, citizen)),
   )
 
-  const saved = await saveStoredArea(repo, claimed.area, {
-    expectedRevision: null,
-    expectedFounderAreaEmpty: command.authenticatedFounderId,
-  })
+  let saved: SaveWorldAreaResult
+  try {
+    saved = await saveStoredArea(repo, claimed.area, {
+      expectedRevision: null,
+      expectedFounderAreaEmpty: command.authenticatedFounderId,
+    })
+  } catch {
+    return { ok: false, error: 'area_repository_unavailable' }
+  }
   if (!saved.ok) return { ok: false, error: saved.error }
   return {
     ok: true,
