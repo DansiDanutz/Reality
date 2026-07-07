@@ -1254,6 +1254,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    signalCounts: FounderCovenantReviewQueueSignalCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -4631,7 +4632,19 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    signalCounts: founderCovenantReviewQueueAggregateSignalCounts(items),
   }
+}
+
+function founderCovenantReviewQueueAggregateSignalCounts(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueSignalCounts {
+  return items.reduce((totals, item) => ({
+    total: totals.total + item.signalCounts.total,
+    info: totals.info + item.signalCounts.info,
+    warning: totals.warning + item.signalCounts.warning,
+    critical: totals.critical + item.signalCounts.critical,
+  }), { total: 0, info: 0, warning: 0, critical: 0 })
 }
 
 function compareFounderCovenantReviewQueueItems(

@@ -729,6 +729,8 @@ export function founderCovenantOperatorQueueSummary(
     `${totals.overdue} overdue`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,
+    `${totals.signalCounts.warning} warning signal${totals.signalCounts.warning === 1 ? '' : 's'}`,
+    `${totals.signalCounts.critical} critical`,
   ]
   return `${totals.founders} founder${totals.founders === 1 ? '' : 's'} · ${riskParts.join(' · ')} · ${formatMoney(totals.totalOutstandingDebt)} debt${queue.hasMore ? ' · more available' : ''}`
 }

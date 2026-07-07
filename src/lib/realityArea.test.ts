@@ -2994,6 +2994,12 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      signalCounts: {
+        total: review.signals.length,
+        info: review.signals.filter((signal) => signal.severity === 'info').length,
+        warning: review.signals.filter((signal) => signal.severity === 'warning').length,
+        critical: review.signals.filter((signal) => signal.severity === 'critical').length,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
