@@ -2,10 +2,11 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createBusinessDevelopmentProject, depositBusinessDevelopmentResources, payBusinessDevelopmentBudget } from '../game/businessDevelopment'
 import { communityDay, freshCommunityStats } from '../game/community'
 import { STARTER_HOUSE_RECIPE, createConstructionProject } from '../game/construction'
+import { eligibleChallengesForContext } from '../game/dailyChallenges'
 import { EDUCATION_COURSES, createEducationProgress, type EducationCourse } from '../game/education'
 import { freshResources } from '../game/resources'
 import type { PlacedAsset, ShopItem } from '../game/types'
-import { useGame } from './gameStore'
+import { dailyChallengeContextOf, useGame } from './gameStore'
 
 const pendingHome: ShopItem = {
   id: 'microstudio',
@@ -46,6 +47,45 @@ function completedCourse(course: EducationCourse, completedAt = Date.now()) {
     studiedMinutes: course.studyMinutesRequired,
     completedAt,
   }
+}
+
+type StoreChallengeState = Parameters<typeof dailyChallengeContextOf>[0]
+
+function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
+  return {
+    day: 0,
+    mealsToday: 0,
+    shiftsToday: 0,
+    earnedToday: 0,
+    sleptToday: 0,
+    boughtToday: 0,
+    studiedToday: 0,
+    gatheredToday: 0,
+    constructionMinutesToday: 0,
+    communityToday: 0,
+    businessDevelopmentMinutesToday: 0,
+  }
+}
+
+function challengeState(overrides: Partial<StoreChallengeState> = {}): StoreChallengeState {
+  return {
+    money: 0,
+    jobId: null,
+    shiftsWorked: 0,
+    inventory: {},
+    assets: [],
+    resourceNodes: [],
+    constructionProjects: [],
+    businessDevelopmentProjects: [],
+    educationProgress: [],
+    community: freshCommunityStats(),
+    dailyCounters: emptyDailyCounters(),
+    ...overrides,
+  }
+}
+
+function eligibleDailyIds(state: Partial<StoreChallengeState>): string[] {
+  return eligibleChallengesForContext(dailyChallengeContextOf(challengeState(state))).map((challenge) => challenge.id)
 }
 
 afterEach(() => {
@@ -164,6 +204,100 @@ describe('hard work body gates', () => {
       text: 'Eat before taking a gig.',
       tone: 'blocked',
     })
+  })
+})
+
+describe('daily challenge readiness context', () => {
+  test('construction labor challenges unlock only after materials and permit are ready', () => {
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+    const deposited = { ...project, deposited: freshResources(STARTER_HOUSE_RECIPE.required) }
+    const ready = { ...deposited, permitFeePaid: true }
+    const complete = { ...ready, laborDoneMinutes: ready.laborRequiredMinutes }
+
+    expect(dailyChallengeContextOf(challengeState({ constructionProjects: [project] })).canDoConstructionLabor).toBe(false)
+    expect(eligibleDailyIds({ constructionProjects: [project] })).not.toContain('build-60')
+
+    expect(dailyChallengeContextOf(challengeState({ constructionProjects: [deposited] })).canDoConstructionLabor).toBe(false)
+    expect(eligibleDailyIds({ constructionProjects: [deposited] })).not.toContain('build-60')
+
+    expect(dailyChallengeContextOf(challengeState({ constructionProjects: [ready] })).canDoConstructionLabor).toBe(true)
+    expect(eligibleDailyIds({ constructionProjects: [ready] })).toContain('build-60')
+
+    expect(dailyChallengeContextOf(challengeState({ constructionProjects: [complete] })).canDoConstructionLabor).toBe(false)
+    expect(eligibleDailyIds({ constructionProjects: [complete] })).not.toContain('build-60')
+  })
+
+  test('started construction challenges stay visible even after the project finishes today', () => {
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+    const complete = {
+      ...project,
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes,
+    }
+
+    const ids = eligibleDailyIds({
+      constructionProjects: [complete],
+      dailyCounters: {
+        ...emptyDailyCounters(),
+        constructionMinutesToday: 30,
+      },
+    })
+
+    expect(ids).toContain('build-60')
+  })
+
+  test('business development challenges unlock only after resources and budget are ready', () => {
+    const now = Date.now()
+    const plan = createBusinessDevelopmentProject(business(), now)!
+    const deposited = depositBusinessDevelopmentResources(plan, freshResources(plan.required)).project
+    const ready = payBusinessDevelopmentBudget(deposited, deposited.budgetCost).project
+    const complete = { ...ready, laborDoneMinutes: ready.laborRequiredMinutes }
+
+    expect(dailyChallengeContextOf(challengeState({
+      assets: [business()],
+      businessDevelopmentProjects: [plan],
+    })).canDevelopBusiness).toBe(false)
+    expect(eligibleDailyIds({ assets: [business()], businessDevelopmentProjects: [plan] })).not.toContain('business-dev-60')
+
+    expect(dailyChallengeContextOf(challengeState({
+      assets: [business()],
+      businessDevelopmentProjects: [deposited],
+    })).canDevelopBusiness).toBe(false)
+    expect(eligibleDailyIds({ assets: [business()], businessDevelopmentProjects: [deposited] })).not.toContain('business-dev-60')
+
+    expect(dailyChallengeContextOf(challengeState({
+      assets: [business()],
+      businessDevelopmentProjects: [ready],
+    })).canDevelopBusiness).toBe(true)
+    expect(eligibleDailyIds({ assets: [business()], businessDevelopmentProjects: [ready] })).toContain('business-dev-60')
+
+    expect(dailyChallengeContextOf(challengeState({
+      assets: [business()],
+      businessDevelopmentProjects: [complete],
+    })).canDevelopBusiness).toBe(false)
+    expect(eligibleDailyIds({ assets: [business()], businessDevelopmentProjects: [complete] })).not.toContain('business-dev-60')
+  })
+
+  test('started business development challenges stay visible even after the upgrade finishes today', () => {
+    const now = Date.now()
+    const plan = createBusinessDevelopmentProject(business(), now)!
+    const deposited = depositBusinessDevelopmentResources(plan, freshResources(plan.required)).project
+    const ready = payBusinessDevelopmentBudget(deposited, deposited.budgetCost).project
+    const complete = { ...ready, laborDoneMinutes: ready.laborRequiredMinutes }
+
+    const ids = eligibleDailyIds({
+      assets: [business()],
+      businessDevelopmentProjects: [complete],
+      dailyCounters: {
+        ...emptyDailyCounters(),
+        businessDevelopmentMinutesToday: 30,
+      },
+    })
+
+    expect(ids).toContain('business-dev-60')
   })
 })
 
