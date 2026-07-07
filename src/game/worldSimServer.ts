@@ -144,6 +144,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'area_repository_unavailable'
   | 'founder_area_exists'
   | 'invalid_area_identity'
   | 'invalid_command_time'
@@ -1201,7 +1202,12 @@ async function applyIntentToStoredArea(
   if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
   if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
 
-  const loaded = await loadStoredArea(repo, normalizedAreaId)
+  let loaded: WorldAreaRecord | null
+  try {
+    loaded = await loadStoredArea(repo, normalizedAreaId)
+  } catch {
+    return { ok: false, error: 'area_repository_unavailable' }
+  }
   if (!loaded) return { ok: false, error: 'area_not_found' }
   return applyIntentToAreaRecord(repo, loaded, now, intent)
 }

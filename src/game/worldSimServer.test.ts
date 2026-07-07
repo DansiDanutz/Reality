@@ -1940,6 +1940,33 @@ describe('runWorldServerCommand', () => {
     expect(repo.saveAttempts).toBe(2)
   })
 
+  test('returns a structured error when applyIntent cannot load stored area state', async () => {
+    let saveAttempts = 0
+    const repo: WorldAreaRepository = {
+      loadArea: async () => {
+        throw new Error('area load unavailable')
+      },
+      loadAreaRecord: async () => {
+        throw new Error('area record unavailable')
+      },
+      loadAreaByFounder: async () => null,
+      saveArea: async () => {
+        saveAttempts += 1
+      },
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000,
+      authenticatedCitizenId: 'founder',
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_repository_unavailable' })
+    expect(saveAttempts).toBe(0)
+  })
+
   test('applies survival purchase intents through server-owned state', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 20 }) }))
