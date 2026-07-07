@@ -1058,6 +1058,7 @@ type ServerClockTickAreasIntentError =
 type ServerClockTickAreasError =
   | ServerClockTickAreasIntentError
   | 'server_clock_unauthorized'
+  | 'area_list_unavailable'
 
 type ServerClockAreaTickStatus = 'caught_up' | 'current' | 'invalid' | 'unavailable'
 
@@ -1082,6 +1083,12 @@ interface ServerClockTickAreasSummary {
   failed: number
   hasMore: boolean
   results: ServerClockAreaTickResult[]
+}
+
+class ServerClockAreaListFailure extends Error {
+  constructor() {
+    super('Server clock area list is unavailable.')
+  }
 }
 
 type FounderCovenantReviewQueueIntent =
@@ -4249,7 +4256,20 @@ async function handleServerClockTickAreas(
     return
   }
 
-  const clock = await tickServerClockAreas(new Date(), intent.limit, intent.pages, intent.cursor)
+  let clock: ServerClockTickAreasSummary
+  try {
+    clock = await tickServerClockAreas(new Date(), intent.limit, intent.pages, intent.cursor)
+  } catch (error) {
+    if (error instanceof ServerClockAreaListFailure) {
+      res.status(serverClockTickAreasStatus('area_list_unavailable')).json({
+        ok: false,
+        error: serverClockTickAreasMessage('area_list_unavailable'),
+        code: 'area_list_unavailable',
+      })
+      return
+    }
+    throw error
+  }
   res.status(200).json({ ok: true, clock })
 }
 
@@ -4369,11 +4389,16 @@ async function tickServerClockAreas(
   let nextCursor: string | undefined = cursor
 
   for (let page = 0; page < pages; page += 1) {
-    const batch = await list({
-      prefix: 'reality-areas/',
-      limit,
-      ...(nextCursor ? { cursor: nextCursor } : {}),
-    })
+    let batch: Awaited<ReturnType<typeof list>>
+    try {
+      batch = await list({
+        prefix: 'reality-areas/',
+        limit,
+        ...(nextCursor ? { cursor: nextCursor } : {}),
+      })
+    } catch {
+      throw new ServerClockAreaListFailure()
+    }
     pagesScanned += 1
     for (const blob of batch.blobs) {
       results.push(await tickServerClockAreaBlob(blob, now))
@@ -6100,6 +6125,7 @@ function refreshAreaMessage(error: ApplyRefreshAreaError): string {
 
 function serverClockTickAreasStatus(error: ServerClockTickAreasError): number {
   if (error === 'server_clock_unauthorized') return 403
+  if (error === 'area_list_unavailable') return 503
   return error === 'unsupported_intent' ? 400 : 422
 }
 
@@ -6113,6 +6139,8 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
       return 'Server clock pages must be between 1 and 5.'
     case 'invalid_cursor':
       return 'Server clock cursor is invalid.'
+    case 'area_list_unavailable':
+      return 'Server clock could not list Reality areas.'
     default:
       return 'Invalid tickAreas intent.'
   }
