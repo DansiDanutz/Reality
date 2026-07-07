@@ -62,6 +62,10 @@ export interface ConstructionDayForecast {
   playerOnlyDaysAtOneHour: number
   playerOnlyDaysAtTwoHours: number
   helperTwoHourDays: number
+  helperTwoHourLaborMinutes: number
+  helperTwoHourCost: number
+  helperTwoHourAffordableToday: boolean
+  helperTwoHourCashNeeded: number
   resourceTrips: ResourceTripForecast[]
   totalGatherMinutes: number
 }
@@ -431,6 +435,8 @@ export function constructionDayForecast(
     placedAt: 0,
   },
   resources: ResourceInventory = freshResources(),
+  money = 0,
+  cashSafetyFloor = CASH_SAFETY_FLOOR,
 ): ConstructionDayForecast {
   const shortfall = constructionShortfall(project)
   const resourceTrips = RESOURCE_KINDS.map((kind) => {
@@ -443,11 +449,17 @@ export function constructionDayForecast(
   const remainingLaborMinutes = constructionLaborBreakdown(project).remainingMinutes
   const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
   const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
+  const helperCost = helper ? helper.ratePerHour * 2 : 0
+  const helperCashNeeded = Math.max(0, helperCost + cashSafetyFloor - money)
   return {
     remainingLaborMinutes,
     playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
     playerOnlyDaysAtTwoHours: Math.ceil(remainingLaborMinutes / 120),
     helperTwoHourDays: Math.ceil(remainingLaborMinutes / (60 + helperDailyMinutes)),
+    helperTwoHourLaborMinutes: helperDailyMinutes,
+    helperTwoHourCost: helperCost,
+    helperTwoHourAffordableToday: helperCashNeeded <= 0,
+    helperTwoHourCashNeeded: helperCashNeeded,
     resourceTrips,
     totalGatherMinutes,
   }
@@ -501,7 +513,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     valuesCovered,
     timeBudget: STANDARD_DAY_BUDGET,
     constructionForecast: activeProject || !hasHome
-      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources)
+      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money)
       : null,
   }
 }
