@@ -593,6 +593,61 @@ describe('planLifeDay', () => {
     expect(plan.agenda.map((item) => item.id)).toContain('build-first-business')
   })
 
+  test('shows the first business as a cash-gated construction shell before it exists', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 8,
+      money: 500,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      communityActionsThisWeek: 1,
+    }))
+    const trips = Object.fromEntries(plan.constructionForecast?.resourceTrips.map((item) => [item.kind, item.trips]) ?? [])
+
+    expect(plan.primary.id).toBe('build-first-business')
+    expect(plan.primary.title).toBe('Save for Food Cart foundation')
+    expect(plan.primary.value).toBe('work')
+    expect(plan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
+    expect(plan.primary.detail).toContain('Food Cart costs $15,000 before the map shell')
+    expect(plan.constructionForecast).toMatchObject({
+      upfrontCostRemaining: 15_000,
+      upfrontCashNeeded: 14_600,
+      upfrontAffordableToday: false,
+      permitRemaining: 500,
+      permitCashNeeded: 100,
+      permitAffordableToday: false,
+      remainingLaborMinutes: 480,
+      totalGatherMinutes: 80,
+    })
+    expect(trips).toEqual({ wood: 2, stone: 2, metal: 4, glass: 2 })
+  })
+
+  test('routes the first business into Market placement once the shell cost is safe', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 8,
+      money: 20_000,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      communityActionsThisWeek: 1,
+    }))
+
+    expect(plan.primary.id).toBe('build-first-business')
+    expect(plan.primary.title).toBe('Place Food Cart foundation')
+    expect(plan.primary.value).toBe('capital')
+    expect(plan.primary.route).toEqual({ kind: 'market', focus: 'business' })
+    expect(plan.constructionForecast).toMatchObject({
+      upfrontCostRemaining: 15_000,
+      upfrontCashNeeded: 0,
+      upfrontAffordableToday: true,
+      permitRemaining: 500,
+      permitCashNeeded: 0,
+      permitAffordableToday: true,
+    })
+  })
+
   test('returns millionaire forecast data from the daily plan', () => {
     const plan = planLifeDay(snap({
       lifeDay: 30,
