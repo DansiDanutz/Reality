@@ -1617,6 +1617,41 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+.goals-card-routine {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 2px;
+}
+.goals-card-routine-item {
+  min-width: 0;
+  min-height: 38px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.goals-card-routine-item.active {
+  border-color: rgba(240, 180, 41, 0.82);
+  background: rgba(240, 180, 41, 0.08);
+}
+.goals-card-routine-time {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.goals-card-routine-title {
+  min-width: 0;
+  color: var(--text);
+  font-size: 9px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
 .goals-card-agenda {
   display: flex;
   flex-direction: column;
@@ -1678,6 +1713,19 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   }
   .goals-card-agenda {
     display: none;
+  }
+  .goals-card-routine {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .goals-card-routine-item {
+    min-height: 30px;
+    padding: 4px;
+  }
+  .goals-card-routine-item:nth-child(n+4) {
+    display: none;
+  }
+  .goals-card-routine-title {
+    font-size: 8px;
   }
 }
 
