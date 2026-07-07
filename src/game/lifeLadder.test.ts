@@ -110,8 +110,22 @@ describe('planLifeDay', () => {
 
     expect(plan.primary.id).toBe('drink-water')
     expect(plan.primary.value).toBe('body')
+    expect(plan.primary.route).toEqual({ kind: 'survival-action', action: 'drink-water' })
     expect(plan.agenda.map((item) => item.id)).toEqual(expect.arrayContaining(['drink-water']))
     expect(plan.agenda.some((item) => item.id.startsWith('gather-') || item.id === 'deposit-house-materials')).toBe(true)
+  })
+
+  test('starts sleep directly when energy blocks the day', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, energy: 25 },
+    }))
+
+    expect(plan.primary.id).toBe('sleep-tonight')
+    expect(plan.primary.value).toBe('body')
+    expect(plan.primary.route).toEqual({ kind: 'survival-action', action: 'sleep' })
   })
 
   test('sends an unemployed citizen to find work before capital tasks', () => {
