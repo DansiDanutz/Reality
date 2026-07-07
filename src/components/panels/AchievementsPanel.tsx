@@ -271,6 +271,10 @@ function CommunityBoard({
           <span className="stat-label">trust</span>
           <span className="stat-value mono gold">{community.trust}</span>
         </div>
+        <div className="stat">
+          <span className="stat-label">work streak</span>
+          <span className="stat-value mono">{community.seriousWorkStreak}</span>
+        </div>
       </div>
       <ul className="daily-list">
         {COMMUNITY_ACTIONS.map((action) => (
