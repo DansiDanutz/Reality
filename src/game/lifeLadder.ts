@@ -93,7 +93,9 @@ export interface ConstructionDayForecast {
   remainingLaborMinutes: number
   playerOnlyDaysAtOneHour: number
   playerOnlyDaysAtTwoHours: number
+  playerOnlyCompletionLifeDay: number
   helperTwoHourDays: number
+  helperTwoHourCompletionLifeDay: number
   helperTwoHourLaborMinutes: number
   helperTwoHourCost: number
   helperTwoHourAffordableToday: boolean
@@ -101,6 +103,7 @@ export interface ConstructionDayForecast {
   activeWorkerCount: number
   activeWorkerPaidMinutesRemaining: number
   activeWorkerLaborMinutesRemaining: number
+  activeWorkerCompletionLifeDay: number
   resourceTrips: ResourceTripForecast[]
   totalGatherMinutes: number
 }
@@ -112,7 +115,9 @@ export interface BusinessDevelopmentDayForecast {
   remainingLaborMinutes: number
   playerOnlyDaysAtOneHour: number
   playerOnlyDaysAtTwoHours: number
+  playerOnlyCompletionLifeDay: number
   helperTwoHourDays: number
+  helperTwoHourCompletionLifeDay: number
   helperTwoHourLaborMinutes: number
   helperTwoHourCost: number
   helperTwoHourAffordableToday: boolean
@@ -120,6 +125,7 @@ export interface BusinessDevelopmentDayForecast {
   activeWorkerCount: number
   activeWorkerPaidMinutesRemaining: number
   activeWorkerLaborMinutesRemaining: number
+  activeWorkerCompletionLifeDay: number
   resourceTrips: ResourceTripForecast[]
   totalGatherMinutes: number
 }
@@ -830,6 +836,17 @@ function activeWorkerForecast(
   }
 }
 
+function forecastLaborDays(remainingLaborMinutes: number, dailyLaborMinutes: number): number {
+  if (remainingLaborMinutes <= 0) return 0
+  return Math.max(1, Math.ceil(remainingLaborMinutes / Math.max(1, dailyLaborMinutes)))
+}
+
+function completionLifeDay(currentLifeDay: number, laborDays: number): number {
+  const safeCurrentDay = Math.max(1, Math.floor(Number.isFinite(currentLifeDay) ? currentLifeDay : 1))
+  if (laborDays <= 0) return safeCurrentDay
+  return safeCurrentDay + laborDays - 1
+}
+
 export function constructionDayForecast(
   project: ConstructionProject = {
     id: 'starter-house-plan',
@@ -855,6 +872,7 @@ export function constructionDayForecast(
   money = 0,
   cashSafetyFloor = CASH_SAFETY_FLOOR,
   upfrontCost = 0,
+  currentLifeDay = 1,
 ): ConstructionDayForecast {
   const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(constructionShortfall(project), resources)
   const remainingLaborMinutes = constructionLaborBreakdown(project).remainingMinutes
@@ -867,6 +885,12 @@ export function constructionDayForecast(
   const helperCost = helper ? helper.ratePerHour * 2 : 0
   const helperCashNeeded = Math.max(0, helperCost + cashSafetyFloor - money)
   const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
+  const playerOnlyDaysAtOneHour = forecastLaborDays(remainingLaborMinutes, 60)
+  const playerOnlyDaysAtTwoHours = forecastLaborDays(remainingLaborMinutes, 120)
+  const helperTwoHourDays = forecastLaborDays(remainingLaborMinutes, 60 + helperDailyMinutes)
+  const activeWorkerDays = activeWorkers.activeWorkerCount > 0
+    ? forecastLaborDays(remainingLaborMinutes, 60 + activeWorkers.activeWorkerLaborMinutesRemaining)
+    : 0
   return {
     upfrontCostRemaining,
     upfrontCashNeeded,
@@ -875,13 +899,16 @@ export function constructionDayForecast(
     permitCashNeeded,
     permitAffordableToday: permitCashNeeded <= 0,
     remainingLaborMinutes,
-    playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
-    playerOnlyDaysAtTwoHours: Math.ceil(remainingLaborMinutes / 120),
-    helperTwoHourDays: Math.ceil(remainingLaborMinutes / (60 + helperDailyMinutes)),
+    playerOnlyDaysAtOneHour,
+    playerOnlyDaysAtTwoHours,
+    playerOnlyCompletionLifeDay: completionLifeDay(currentLifeDay, playerOnlyDaysAtOneHour),
+    helperTwoHourDays,
+    helperTwoHourCompletionLifeDay: completionLifeDay(currentLifeDay, helperTwoHourDays),
     helperTwoHourLaborMinutes: helperDailyMinutes,
     helperTwoHourCost: helperCost,
     helperTwoHourAffordableToday: helperCashNeeded <= 0,
     helperTwoHourCashNeeded: helperCashNeeded,
+    activeWorkerCompletionLifeDay: activeWorkerDays > 0 ? completionLifeDay(currentLifeDay, activeWorkerDays) : 0,
     ...activeWorkers,
     resourceTrips,
     totalGatherMinutes,
@@ -893,6 +920,7 @@ export function businessDevelopmentDayForecast(
   resources: ResourceInventory = freshResources(),
   money = 0,
   cashSafetyFloor = CASH_SAFETY_FLOOR,
+  currentLifeDay = 1,
 ): BusinessDevelopmentDayForecast {
   const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(businessDevelopmentShortfall(project), resources)
   const budgetRemaining = project.budgetPaid ? 0 : project.budgetCost
@@ -903,18 +931,27 @@ export function businessDevelopmentDayForecast(
   const helperCost = helper ? helper.ratePerHour * 2 : 0
   const helperCashNeeded = Math.max(0, budgetRemaining + helperCost + cashSafetyFloor - money)
   const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
+  const playerOnlyDaysAtOneHour = forecastLaborDays(remainingLaborMinutes, 60)
+  const playerOnlyDaysAtTwoHours = forecastLaborDays(remainingLaborMinutes, 120)
+  const helperTwoHourDays = forecastLaborDays(remainingLaborMinutes, 60 + helperDailyMinutes)
+  const activeWorkerDays = activeWorkers.activeWorkerCount > 0
+    ? forecastLaborDays(remainingLaborMinutes, 60 + activeWorkers.activeWorkerLaborMinutesRemaining)
+    : 0
   return {
     budgetRemaining,
     budgetAffordableToday: budgetCashNeeded <= 0,
     budgetCashNeeded,
     remainingLaborMinutes,
-    playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
-    playerOnlyDaysAtTwoHours: Math.ceil(remainingLaborMinutes / 120),
-    helperTwoHourDays: Math.ceil(remainingLaborMinutes / (60 + helperDailyMinutes)),
+    playerOnlyDaysAtOneHour,
+    playerOnlyDaysAtTwoHours,
+    playerOnlyCompletionLifeDay: completionLifeDay(currentLifeDay, playerOnlyDaysAtOneHour),
+    helperTwoHourDays,
+    helperTwoHourCompletionLifeDay: completionLifeDay(currentLifeDay, helperTwoHourDays),
     helperTwoHourLaborMinutes: helperDailyMinutes,
     helperTwoHourCost: helperCost,
     helperTwoHourAffordableToday: helperCashNeeded <= 0,
     helperTwoHourCashNeeded: helperCashNeeded,
+    activeWorkerCompletionLifeDay: activeWorkerDays > 0 ? completionLifeDay(currentLifeDay, activeWorkerDays) : 0,
     ...activeWorkers,
     resourceTrips,
     totalGatherMinutes,
@@ -988,12 +1025,12 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     valuesCovered,
     timeBudget: STANDARD_DAY_BUDGET,
     constructionForecast: activeProject || !hasHome
-      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money)
+      ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, 0, snapshot.lifeDay)
       : firstBusinessShell
-        ? constructionDayForecast(firstBusinessShell.project, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, firstBusinessShell.item.price)
+        ? constructionDayForecast(firstBusinessShell.project, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, firstBusinessShell.item.price, snapshot.lifeDay)
       : null,
     businessDevelopmentForecast: activeBusinessDevelopmentProject
-      ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money)
+      ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, snapshot.lifeDay)
       : null,
     millionairePath,
     millionaireTask,
