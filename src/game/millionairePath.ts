@@ -1,0 +1,167 @@
+import {
+  cashflowOf,
+  netWorthOf,
+  reachOf,
+  wageBonusFrom,
+  type Cashflow,
+  type Reach,
+} from './engine'
+import type { Needs, PlacedAsset } from './types'
+
+export type MillionaireStage =
+  | 'survival'
+  | 'stable'
+  | 'skilled'
+  | 'reliable'
+  | 'owner'
+  | 'employer'
+  | 'millionaire'
+
+export type MillionaireNextAction =
+  | 'recover-body'
+  | 'find-job'
+  | 'work-shift'
+  | 'study'
+  | 'build-home'
+  | 'buy-business'
+  | 'upgrade-business'
+  | 'reinvest'
+  | 'millionaire'
+
+export interface MillionairePathInput {
+  money: number
+  inventory: Record<string, number>
+  assets: PlacedAsset[]
+  needs: Needs
+  health: number
+  level: number
+  jobWage: number
+  shiftsWorked: number
+  educationActions: number
+  communityRespect: number
+  communityTrust: number
+}
+
+export interface MillionairePath {
+  stage: MillionaireStage
+  netWorth: number
+  millionaireGap: number
+  cashflow: Cashflow
+  daysToMillionaire: number | null
+  reach: Reach
+  nextAction: MillionaireNextAction
+  nextActionDetail: string
+}
+
+const MILLIONAIRE_NET_WORTH = 1_000_000
+const BODY_FLOOR = 35
+const CASH_FLOOR = 100
+
+function bodyUnsafe(input: Pick<MillionairePathInput, 'needs' | 'health'>): boolean {
+  return input.health < 40 ||
+    input.needs.hydration <= BODY_FLOOR ||
+    input.needs.hunger <= BODY_FLOOR ||
+    input.needs.energy <= 30
+}
+
+function stageOf(input: MillionairePathInput, netWorth: number, cashflow: Cashflow): MillionaireStage {
+  const businesses = input.assets.filter((asset) => asset.kind === 'business').length
+  const hasHome = input.assets.some((asset) => asset.kind === 'home')
+  if (netWorth >= MILLIONAIRE_NET_WORTH) return 'millionaire'
+  if (businesses >= 2 || cashflow.passivePerDay >= cashflow.livingCostPerDay + cashflow.upkeepPerDay) return 'employer'
+  if (hasHome || businesses >= 1) return 'owner'
+  if (input.shiftsWorked >= 5 || input.communityRespect >= 5 || input.communityTrust >= 5) return 'reliable'
+  if (input.level >= 2 || input.educationActions > 0) return 'skilled'
+  if (input.jobWage > 0 && cashflow.netPerDay > 0 && input.money >= CASH_FLOOR) return 'stable'
+  return 'survival'
+}
+
+function nextActionOf(input: MillionairePathInput, stage: MillionaireStage, cashflow: Cashflow): {
+  nextAction: MillionaireNextAction
+  nextActionDetail: string
+} {
+  const businesses = input.assets.filter((asset) => asset.kind === 'business').length
+  const hasHome = input.assets.some((asset) => asset.kind === 'home')
+  if (bodyUnsafe(input)) {
+    return {
+      nextAction: 'recover-body',
+      nextActionDetail: 'Eat, drink, and sleep before chasing income.',
+    }
+  }
+  if (stage === 'millionaire') {
+    return {
+      nextAction: 'millionaire',
+      nextActionDetail: 'You crossed $1M net worth. Keep reinvesting and expanding reach.',
+    }
+  }
+  if (input.jobWage <= 0) {
+    return {
+      nextAction: 'find-job',
+      nextActionDetail: 'A job funds food, water, permits, and the first build.',
+    }
+  }
+  if (cashflow.netPerDay <= 0 || input.money < CASH_FLOOR) {
+    return {
+      nextAction: 'work-shift',
+      nextActionDetail: 'Work until daily cashflow and the cash floor are safe.',
+    }
+  }
+  if (input.educationActions <= 0 && input.level < 2) {
+    return {
+      nextAction: 'study',
+      nextActionDetail: 'Study one useful skill so better jobs and business choices open.',
+    }
+  }
+  if (!hasHome) {
+    return {
+      nextAction: 'build-home',
+      nextActionDetail: 'Build a home to lower living cost and stabilize daily life.',
+    }
+  }
+  if (businesses <= 0) {
+    return {
+      nextAction: 'buy-business',
+      nextActionDetail: 'Turn stable home life into the first earning building.',
+    }
+  }
+  if (businesses === 1) {
+    return {
+      nextAction: 'upgrade-business',
+      nextActionDetail: 'Develop the inside of the first business before expanding.',
+    }
+  }
+  return {
+    nextAction: 'reinvest',
+    nextActionDetail: 'Reinvest surplus into better businesses until $1M is normal math.',
+  }
+}
+
+export function millionairePathOf(input: MillionairePathInput): MillionairePath {
+  const netWorth = netWorthOf(input.money, input.inventory, input.assets)
+  const hasHome = input.assets.some((asset) => asset.kind === 'home')
+  const businessCount = input.assets.filter((asset) => asset.kind === 'business').length
+  const cashflow = cashflowOf({
+    assets: input.assets,
+    hasHome,
+    wage: input.jobWage,
+    shiftsWorked: input.shiftsWorked,
+    wageBonus: wageBonusFrom(input.inventory),
+  })
+  const millionaireGap = Math.max(0, MILLIONAIRE_NET_WORTH - netWorth)
+  const stage = stageOf(input, netWorth, cashflow)
+  const next = nextActionOf(input, stage, cashflow)
+
+  return {
+    stage,
+    netWorth,
+    millionaireGap,
+    cashflow,
+    daysToMillionaire: millionaireGap <= 0
+      ? 0
+      : cashflow.netPerDay > 0
+        ? Math.ceil(millionaireGap / cashflow.netPerDay)
+        : null,
+    reach: reachOf(input.level, businessCount, hasHome, netWorth),
+    ...next,
+  }
+}
