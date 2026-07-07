@@ -832,6 +832,62 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('non-finite target clocks do not advance the economy', () => {
+    const start = area({
+      now: HOUR,
+      citizens: [sim('c1', { needs: fullNeeds({ hydration: 50 }) })],
+      businesses: [business('water')],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, Number.POSITIVE_INFINITY)
+
+    expect(out.now).toBe(HOUR)
+    expect(out.citizens[0].money).toBe(100)
+    expect(out.citizens[0].needs.hydration).toBe(50)
+    expect(out.businesses[0].cash).toBe(0)
+    expect(out.transactions).toEqual([])
+    expect(summary).toMatchObject({
+      purchases: 0,
+      wagesPaid: 0,
+      hospitalizations: 0,
+      recoveries: 0,
+      citizensLeft: 0,
+      insurancePremiumsPaid: 0,
+      insurancePoliciesLapsed: 0,
+      debtsIssued: 0,
+      revenueByBusiness: {},
+    })
+  })
+
+  test('malformed stored clocks normalize without advancing from a fake baseline', () => {
+    const invalidNow = area({
+      now: Number.NaN,
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', { cash: 100, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+    })
+    const negativeNow = area({
+      now: -HOUR,
+      citizens: [sim('thirsty', { needs: fullNeeds({ hydration: 50 }) })],
+      businesses: [business('water')],
+    })
+
+    const invalid = advanceWorldArea(invalidNow, HOUR)
+    const negative = advanceWorldArea(negativeNow, HOUR)
+
+    expect(invalid.area.now).toBe(0)
+    expect(invalid.area.citizens[0].money).toBe(100)
+    expect(invalid.area.businesses[0].cash).toBe(100)
+    expect(invalid.area.transactions).toEqual([])
+    expect(invalid.summary.wagesPaid).toBe(0)
+
+    expect(negative.area.now).toBe(0)
+    expect(negative.area.citizens[0].money).toBe(100)
+    expect(negative.area.citizens[0].needs.hydration).toBe(50)
+    expect(negative.area.businesses[0].cash).toBe(0)
+    expect(negative.area.transactions).toEqual([])
+    expect(negative.summary.purchases).toBe(0)
+  })
+
   test('a small area advances needs, purchases, wages, and dashboard signals together', () => {
     const start = area({
       citizens: [
