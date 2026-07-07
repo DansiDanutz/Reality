@@ -97,7 +97,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction'
+  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -111,6 +111,9 @@ export interface Activity {
   /** Construction project worked on when a construction activity completes. */
   projectId?: string
   laborMinutes?: number
+  /** Education course studied when a study activity completes. */
+  courseId?: string
+  studyMinutes?: number
 }
 
 /**
@@ -220,7 +223,7 @@ const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
   if (activity.kind === 'gather' || activity.kind === 'construction') return 'working'
-  if (activity.kind === 'cook') return 'awake'
+  if (activity.kind === 'cook' || activity.kind === 'study') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }
 
