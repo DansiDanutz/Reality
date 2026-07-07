@@ -144,6 +144,7 @@ export type WorldServerCommand =
 export type WorldServerCommandError =
   | 'area_exists'
   | 'area_not_found'
+  | 'area_repository_unavailable'
   | 'founder_area_exists'
   | 'invalid_area_identity'
   | 'invalid_command_time'
@@ -1247,7 +1248,12 @@ async function applyIntentToAreaRecord(
 
   const applied = applyWorldIntent(advanced.area, intent)
   if (!applied.ok) {
-    const savedAdvanced = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
+    let savedAdvanced: SaveWorldAreaResult
+    try {
+      savedAdvanced = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
+    } catch {
+      return { ok: false, error: 'area_repository_unavailable', area, dashboard: areaNeedsDashboard(area) }
+    }
     if (!savedAdvanced.ok) return { ok: false, error: savedAdvanced.error, area, dashboard: areaNeedsDashboard(area) }
     return {
       ok: false,

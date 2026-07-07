@@ -2089,6 +2089,37 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(2)
   })
 
+  test('returns a structured error when rejected intent catch-up cannot save area state', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    repo.saveArea = async () => {
+      repo.saveAttempts += 1
+      throw new Error('area save unavailable')
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000 + HOUR,
+      authenticatedCitizenId: 'missing',
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'missing',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'area_repository_unavailable' })
+    expect(result.area?.now).toBe(1_000)
+    expect(result.area?.businesses).toEqual([])
+    expect(saved?.now).toBe(1_000)
+    expect(saved?.businesses).toEqual([])
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
+  })
+
   test('failed intents still return persisted server-simulation transaction deltas', async () => {
     const repo = new MemoryWorldRepo()
     const created = await createArea(repo, citizen('founder'), [
