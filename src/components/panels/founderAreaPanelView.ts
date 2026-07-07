@@ -101,6 +101,12 @@ export interface FounderPayoutReadinessSummaryItem {
   tone: FounderCovenantReviewTone
 }
 
+export interface FounderNeedDemandSource {
+  demand: number
+  simDemand?: number
+  realDemand?: number
+}
+
 export interface FounderCovenantScheduleItem {
   key: string
   label: string
@@ -396,6 +402,11 @@ export function founderPayoutReadinessPolicyText(
   const promise = payout.noProfitPromise ? 'no profit promise' : 'profit wording review'
   const rail = payout.stablecoinRailPlanned ? 'stablecoin rail planned later' : 'no settlement rail'
   return `${promise} · ${rail}`
+}
+
+export function founderNeedDemandSourceText(source: FounderNeedDemandSource): string {
+  if (source.simDemand === undefined || source.realDemand === undefined) return `demand ${source.demand}`
+  return `sim ${source.simDemand} · real ${source.realDemand}`
 }
 
 export function founderSettlementSummaryItems(

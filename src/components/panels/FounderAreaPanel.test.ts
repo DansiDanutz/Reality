@@ -56,6 +56,7 @@ import {
   founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderNeedDemandSourceText,
   founderPayoutReadinessBlockerText,
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
@@ -118,6 +119,18 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderGrowthBlockerText('invite_tracking_disabled')).toBe('Invite tracking')
     expect(founderGrowthBlockerText('automatic_growth_rewards_disabled')).toBe('Automatic growth rewards')
     expect(founderGrowthBlockerText('manual_review_required')).toBe('Manual review')
+  })
+
+  test('labels Needs Dashboard demand sources without mixing simulated and real demand', () => {
+    expect(founderNeedDemandSourceText({
+      demand: 4,
+      simDemand: 3,
+      realDemand: 1,
+    })).toBe('sim 3 · real 1')
+
+    expect(founderNeedDemandSourceText({
+      demand: 2,
+    })).toBe('demand 2')
   })
 
   test('summarizes disabled founder handoff readiness without implying transfer execution', () => {

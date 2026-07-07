@@ -83,6 +83,7 @@ import {
   founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderNeedDemandSourceText,
   founderPayoutReadinessBlockerText,
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
@@ -631,9 +632,27 @@ export default function FounderAreaPanel() {
           <section className="founder-section" aria-label="Needs Dashboard">
             <h3 className="founder-section-title">Needs Dashboard</h3>
             <div className="founder-need-grid">
-              <NeedMetric label="water" demand={dashboard.demand.water} shortage={dashboard.shortage.water} />
-              <NeedMetric label="food" demand={dashboard.demand.food} shortage={dashboard.shortage.food} />
-              <NeedMetric label="housing" demand={dashboard.demand.housing} shortage={dashboard.shortage.housing} />
+              <NeedMetric
+                label="water"
+                demand={dashboard.demand.water}
+                simDemand={dashboard.simDemand.water}
+                realDemand={dashboard.realDemand.water}
+                shortage={dashboard.shortage.water}
+              />
+              <NeedMetric
+                label="food"
+                demand={dashboard.demand.food}
+                simDemand={dashboard.simDemand.food}
+                realDemand={dashboard.realDemand.food}
+                shortage={dashboard.shortage.food}
+              />
+              <NeedMetric
+                label="housing"
+                demand={dashboard.demand.housing}
+                simDemand={dashboard.simDemand.housing}
+                realDemand={dashboard.realDemand.housing}
+                shortage={dashboard.shortage.housing}
+              />
               <NeedMetric label="jobs" demand={dashboard.jobs.unemployedCitizens} shortage={dashboard.jobs.openPositions} />
             </div>
           </section>
@@ -1061,11 +1080,24 @@ function getFounderLandRightsDashboard(
   return (dashboard as Partial<Pick<RealityAreaDashboard, 'landRights'>>).landRights ?? null
 }
 
-function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {
+function NeedMetric({
+  label,
+  demand,
+  shortage,
+  simDemand,
+  realDemand,
+}: {
+  label: string
+  demand: number
+  shortage: number
+  simDemand?: number
+  realDemand?: number
+}) {
   return (
     <div className={shortage > 0 ? 'founder-need short' : 'founder-need'}>
       <span className="stat-label">{label}</span>
       <span className="stat-value mono">{demand}</span>
+      <span className="item-desc">{founderNeedDemandSourceText({ demand, simDemand, realDemand })}</span>
       <span className="item-desc">short {shortage}</span>
     </div>
   )
