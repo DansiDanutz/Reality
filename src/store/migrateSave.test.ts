@@ -224,6 +224,7 @@ describe('migrateSave - backfills every field added after v1', () => {
       laborRequiredMinutes: 150,
       laborDoneMinutes: 20,
       hiredLaborMinutes: 0,
+      workerContracts: [],
       budgetCost: 960,
       budgetPaid: false,
     })
@@ -290,6 +291,6 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(13)
+    expect(SAVE_VERSION).toBe(14)
   })
 })

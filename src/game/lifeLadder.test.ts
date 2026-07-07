@@ -304,6 +304,30 @@ describe('planLifeDay', () => {
       taskId: 'hire-business-worker-hour',
     })
 
+    const withActiveWorker = businessProject({
+      deposited: freshResources(project.required),
+      budgetPaid: true,
+      workerContracts: [{
+        id: 'business-worker-1',
+        workerId: 'helper',
+        workerName: 'Local helper',
+        hiredAt: 1,
+        paidUntil: 3_600_001,
+        paidMinutes: 60,
+        workedMinutes: 10,
+        laborMultiplier: 1,
+        ratePerHour: 16,
+        cost: 16,
+      }],
+    })
+    const activeWorkerPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [withActiveWorker] }))
+    expect(activeWorkerPlan.primary.id).toBe('develop-business-with-worker-hour')
+    expect(activeWorkerPlan.primary.detail).toContain('already paid and active')
+    expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'panel', panel: 'business' },
+      taskId: 'develop-business-with-worker-hour',
+    })
+
     const selfWorkPlan = planLifeDay(snap({ ...base, money: 100, businessDevelopmentProjects: [laborReady] }))
     expect(selfWorkPlan.primary.id).toBe('develop-business-hour')
 
