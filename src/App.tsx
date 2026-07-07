@@ -14,6 +14,8 @@ import HudWindow from './components/hud/HudWindow'
 import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
 import { TUTORIAL_STEPS } from './game/tutorial'
+import FounderAreaPanel from './components/panels/FounderAreaPanel'
+import FounderCovenantOperatorPanel from './components/panels/FounderCovenantOperatorPanel'
 import NeedsPanel from './components/hud/NeedsPanel'
 import TopBar from './components/hud/TopBar'
 import TutorialPanel from './components/hud/TutorialPanel'
@@ -33,11 +35,17 @@ import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
 import { useNotifications } from './lib/useNotifications'
 import { useGame } from './store/gameStore'
+import { loadStreetMode, preloadStreetMode } from './components/street/loadStreetMode'
+import { preloadNeighborhood } from './components/street/osm'
+import { streetAnchorFor } from './components/street/streetAnchor'
+import { preloadWeather } from './components/street/weather'
 
 // Human-readable dialog labels so screen readers announce the drawer's purpose.
 const PANEL_LABELS: Record<string, string> = {
   work: 'Work',
   assets: 'Your assets',
+  founder: 'Founder area',
+  operator: 'Founder operations',
   top: 'Leaderboard',
   profile: 'Profile',
   health: 'Health guide',
@@ -49,17 +57,21 @@ const PANEL_LABELS: Record<string, string> = {
 
 // MapLibre is heavy — split it out so the shell paints instantly
 const WorldMap = lazy(() => import('./components/map/WorldMap'))
-const StreetMode = lazy(() => import('./components/street/StreetMode'))
+const StreetMode = lazy(loadStreetMode)
 
 export default function App() {
   const citizen = useGame((s) => s.citizen)
+  const assets = useGame((s) => s.assets)
   const panel = useGame((s) => s.panel)
   const streetMode = useGame((s) => s.streetMode)
   const targetsSeen = useGame((s) => s.targetsSeen)
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
+  const streetAnchor = streetAnchorFor(citizen, assets)
+  const streetAnchorLat = streetAnchor?.lat
+  const streetAnchorLng = streetAnchor?.lng
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // Web notifications — fires system notifications when the tab is hidden
@@ -74,6 +86,7 @@ export default function App() {
     useGame.getState().tick()
     void useGame.getState().registerOnline()
     void useGame.getState().ensureSpawn()
+    void useGame.getState().linkTelegram()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
@@ -84,6 +97,17 @@ export default function App() {
       clearInterval(scoreId)
     }
   }, [])
+
+  useEffect(() => {
+    if (!citizen) return
+    preloadStreetMode()
+    if (streetAnchorLat === undefined || streetAnchorLng === undefined) return
+    const timer = window.setTimeout(() => {
+      preloadWeather(streetAnchorLat, streetAnchorLng)
+      preloadNeighborhood(streetAnchorLat, streetAnchorLng)
+    }, 1_500)
+    return () => window.clearTimeout(timer)
+  }, [citizen, streetAnchorLat, streetAnchorLng])
 
   // Escape closes any open panel; single-key shortcuts fire the core actions
   // when the player isn't typing in an input. Power-user convenience that
@@ -194,6 +218,8 @@ export default function App() {
           <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
           {panel === 'work' && <WorkPanel />}
           {panel === 'assets' && <AssetsPanel />}
+          {panel === 'founder' && <FounderAreaPanel />}
+          {panel === 'operator' && <FounderCovenantOperatorPanel />}
           {panel === 'top' && <LeaderboardPanel />}
           {panel === 'profile' && <ProfilePanel />}
           {panel === 'health' && <HealthGuide />}

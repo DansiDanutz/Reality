@@ -10,6 +10,6 @@ export default defineConfig({
     // @playwright/test, not vitest, and would otherwise be picked up by
     // vitest's default *.spec.ts glob (and fail to import under vitest).
     // The e2e suite runs via its own `npm run test:e2e` script, never `verify`.
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'api/**/*.test.ts'],
   },
 })
