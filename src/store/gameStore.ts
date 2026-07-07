@@ -50,6 +50,7 @@ import {
 import {
   communityActionById,
   completeCommunityAction,
+  completeReliableShift,
   freshCommunityStats,
   normalizeCommunityStats,
   resetCommunityWeekIfNeeded,
@@ -1190,6 +1191,17 @@ export const useGame = create<GameState>()(
         let constructionProjects = s.constructionProjects
         let educationProgress = s.educationProgress
         let community = resetCommunityWeekIfNeeded(s.community, now)
+        if (out.shiftsCompleted > 0) {
+          const beforeRespect = community.respect
+          const beforeTrust = community.trust
+          community = completeReliableShift(community, now)
+          const respectGained = community.respect - beforeRespect
+          const trustGained = community.trust - beforeTrust
+          if (!wasAway && (respectGained > 0 || trustGained > 0)) {
+            log = note(log, `Reliable shift complete: +${respectGained} respect, +${trustGained} trust.`)
+            toasts = withToast(toasts, `Reliable shift +${respectGained} respect`, 'sky')
+          }
+        }
         let businessDevelopmentProjects = s.businessDevelopmentProjects
         if (completedSpecialActivity?.kind === 'gather' && completedSpecialActivity.resourceKind && completedSpecialActivity.resourceAmount) {
           const kind = completedSpecialActivity.resourceKind
