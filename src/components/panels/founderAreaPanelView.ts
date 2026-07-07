@@ -16,6 +16,7 @@ import type {
   FounderCovenantReviewSchedule,
   FounderCovenantSignal,
   FounderCovenantStage,
+  WorldClientIntentPayload,
   WorldTransactionKind,
 } from '../../game/worldSim'
 import type {
@@ -57,6 +58,53 @@ export interface FounderAreaEventSummaryItem {
   label: string
   value: string
   tone: FounderCovenantReviewTone
+}
+
+type FounderPanelPayloadCarrier = {
+  clientPayload: WorldClientIntentPayload | null
+}
+
+type FounderPanelExecutable<T extends FounderPanelPayloadCarrier> = T & {
+  clientPayload: WorldClientIntentPayload
+}
+
+function hasExecutablePayload<T extends FounderPanelPayloadCarrier>(
+  action: T,
+): action is FounderPanelExecutable<T> {
+  return action.clientPayload !== null
+}
+
+export function founderExecutableSurvivalAction<T extends FounderPanelPayloadCarrier & { available: boolean; canAfford: boolean }>(
+  founderCitizenId: string,
+  resident: { id: string },
+  survival: { actions: T[] } | null | undefined,
+): FounderPanelExecutable<T> | null {
+  if (resident.id !== founderCitizenId) return null
+  for (const action of survival?.actions ?? []) {
+    if (action.available && action.canAfford && hasExecutablePayload(action)) return action
+  }
+  return null
+}
+
+export function founderExecutableDebtAction<T extends FounderPanelPayloadCarrier & { canRepayNow: boolean }>(
+  founderCitizenId: string,
+  resident: { id: string; debts: T[] },
+): FounderPanelExecutable<T> | null {
+  if (resident.id !== founderCitizenId) return null
+  for (const debt of resident.debts) {
+    if (debt.canRepayNow && hasExecutablePayload(debt)) return debt
+  }
+  return null
+}
+
+export function founderExecutableInsurancePayload<T extends FounderPanelPayloadCarrier & { canBuyNow: boolean }>(
+  founderCitizenId: string,
+  resident: { id: string; insuranceAction: T },
+): WorldClientIntentPayload | null {
+  if (resident.id !== founderCitizenId) return null
+  return resident.insuranceAction.canBuyNow && resident.insuranceAction.clientPayload !== null
+    ? resident.insuranceAction.clientPayload
+    : null
 }
 
 export interface FounderSettlementSummaryItem {

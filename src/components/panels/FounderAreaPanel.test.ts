@@ -37,6 +37,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderExecutableDebtAction,
+  founderExecutableInsurancePayload,
+  founderExecutableSurvivalAction,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -66,6 +69,63 @@ import {
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
+  test('requires executable payloads before resident action buttons can submit', () => {
+    const resident = { id: 'founder' }
+    const survival = {
+      actions: [{
+        available: true,
+        canAfford: true,
+        clientPayload: null,
+        intent: 'buyFood',
+      }, {
+        available: true,
+        canAfford: true,
+        clientPayload: { type: 'buyWater' as const },
+        intent: 'buyWater',
+      }],
+    }
+
+    expect(founderExecutableSurvivalAction('founder', resident, survival)?.clientPayload).toEqual({ type: 'buyWater' })
+    expect(founderExecutableSurvivalAction('other', resident, survival)).toBeNull()
+    expect(founderExecutableSurvivalAction('founder', resident, {
+      actions: [{ available: true, canAfford: true, clientPayload: null }],
+    })).toBeNull()
+
+    expect(founderExecutableDebtAction('founder', {
+      id: 'founder',
+      debts: [{
+        canRepayNow: true,
+        clientPayload: null,
+      }, {
+        canRepayNow: true,
+        clientPayload: { type: 'repayDebt' as const, debtId: 'debt-2', amount: 50 },
+      }],
+    })?.clientPayload).toEqual({ type: 'repayDebt', debtId: 'debt-2', amount: 50 })
+    expect(founderExecutableDebtAction('founder', {
+      id: 'founder',
+      debts: [{ canRepayNow: true, clientPayload: null }],
+    })).toBeNull()
+
+    expect(founderExecutableInsurancePayload('founder', {
+      id: 'founder',
+      insuranceAction: {
+        canBuyNow: true,
+        clientPayload: { type: 'buyInsurance' as const, insuranceBusinessId: 'ins1' },
+      },
+    })).toEqual({ type: 'buyInsurance', insuranceBusinessId: 'ins1' })
+    expect(founderExecutableInsurancePayload('founder', {
+      id: 'founder',
+      insuranceAction: { canBuyNow: true, clientPayload: null },
+    })).toBeNull()
+    expect(founderExecutableInsurancePayload('other', {
+      id: 'founder',
+      insuranceAction: {
+        canBuyNow: true,
+        clientPayload: { type: 'buyInsurance' as const, insuranceBusinessId: 'ins1' },
+      },
+    })).toBeNull()
+  })
+
   test('summarizes server-verified founder Telegram identity', () => {
     const identity = {
       citizenId: 'citizen-1',
