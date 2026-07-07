@@ -225,7 +225,7 @@ export default function Market() {
                       )}
                       {!soldToYou && !petOwned && (
                         <button className="btn small primary" disabled={!affordable} onClick={() => buy(item.id)}>
-                          {item.placeable ? 'Place' : item.grantXp ? 'Enroll' : item.pet ? 'Adopt' : 'Buy'}
+                          {item.category === 'business' ? 'Build' : item.placeable ? 'Place' : item.grantXp ? 'Enroll' : item.pet ? 'Adopt' : 'Buy'}
                         </button>
                       )}
                     </div>
