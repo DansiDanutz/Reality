@@ -3,6 +3,7 @@ import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import handler, {
   realityTelegramAccountId,
+  telegramLaunchContext,
   telegramRealityAccountPath,
   telegramRealityAccountRecord,
   verifyTelegramMiniAppInitData,
@@ -60,6 +61,28 @@ describe('telegram Mini App auth', () => {
       startParam: 'founder-seat',
       realityAccountId: 'telegram:42424242',
     })
+  })
+
+  test('keeps only safe Telegram Mini App launch parameters', () => {
+    const safe = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      start_param: 'founder_0012-local',
+      user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+    })
+    expect(verifyTelegramMiniAppInitData(safe, BOT_TOKEN, { nowSeconds: NOW_SECONDS })).toMatchObject({
+      ok: true,
+      startParam: 'founder_0012-local',
+    })
+
+    const unsafe = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      start_param: 'founder/../../0012',
+      user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+    })
+    const verified = verifyTelegramMiniAppInitData(unsafe, BOT_TOKEN, { nowSeconds: NOW_SECONDS })
+    expect(verified.ok).toBe(true)
+    if (!verified.ok) throw new Error('expected valid Telegram auth')
+    expect(verified.startParam).toBeUndefined()
   })
 
   test('rejects tampered, stale, future, and unconfigured sessions', () => {
@@ -143,6 +166,7 @@ describe('telegram Mini App auth', () => {
     try {
       const initData = signedInitData({
         auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        start_param: 'founder_0012',
         user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
       })
       const res = responseRecorder()
@@ -162,6 +186,20 @@ describe('telegram Mini App auth', () => {
           username: 'davidreality',
           lastVerifiedAt: '2026-07-06T02:00:00.000Z',
           provider: 'telegram-mini-app',
+          launchContext: {
+            source: 'telegram-mini-app',
+            startParam: 'founder_0012',
+            capturedAt: '2026-07-06T02:00:00.000Z',
+            inviteTrackingEnabled: false,
+            automaticGrowthRewardsEnabled: false,
+          },
+        },
+        launchContext: {
+          source: 'telegram-mini-app',
+          startParam: 'founder_0012',
+          capturedAt: '2026-07-06T02:00:00.000Z',
+          inviteTrackingEnabled: false,
+          automaticGrowthRewardsEnabled: false,
         },
       })
       expect(put).toHaveBeenCalledWith(
@@ -190,6 +228,13 @@ describe('telegram Mini App auth', () => {
         authDate: Math.floor(Date.now() / 1000) - 120,
         lastVerifiedAt: '2026-07-06T01:00:00.000Z',
         provider: 'telegram-mini-app',
+        launchContext: {
+          source: 'telegram-mini-app',
+          startParam: 'founder_0012',
+          capturedAt: '2026-07-06T01:00:00.000Z',
+          inviteTrackingEnabled: false,
+          automaticGrowthRewardsEnabled: false,
+        },
       }
       vi.mocked(list).mockResolvedValueOnce(blobList(['telegram-users/42424242.json'], 'blob://existing-telegram'))
       vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingAccount), { status: 200 })))
@@ -212,6 +257,20 @@ describe('telegram Mini App auth', () => {
           citizenLinkedAt: '2026-07-06T01:00:00.000Z',
           username: 'newusername',
           lastVerifiedAt: '2026-07-06T02:30:00.000Z',
+          launchContext: {
+            source: 'telegram-mini-app',
+            startParam: 'founder_0012',
+            capturedAt: '2026-07-06T01:00:00.000Z',
+            inviteTrackingEnabled: false,
+            automaticGrowthRewardsEnabled: false,
+          },
+        },
+        launchContext: {
+          source: 'telegram-mini-app',
+          startParam: 'founder_0012',
+          capturedAt: '2026-07-06T01:00:00.000Z',
+          inviteTrackingEnabled: false,
+          automaticGrowthRewardsEnabled: false,
         },
       })
       expect(put).toHaveBeenCalledWith(
@@ -244,6 +303,7 @@ describe('telegram Mini App auth', () => {
       ok: true,
       authDate: NOW_SECONDS,
       realityAccountId: 'telegram:42424242',
+      startParam: 'founder_0012',
       user: { id: '42424242', firstName: 'David' },
     }, new Date('2026-07-06T00:00:00.000Z'), null, {
       citizenId: '11111111-1111-4111-8111-111111111111',
@@ -253,7 +313,22 @@ describe('telegram Mini App auth', () => {
       citizenId: '11111111-1111-4111-8111-111111111111',
       founderNumber: 12,
       citizenLinkedAt: '2026-07-06T00:00:00.000Z',
+      launchContext: {
+        source: 'telegram-mini-app',
+        startParam: 'founder_0012',
+        capturedAt: '2026-07-06T00:00:00.000Z',
+        inviteTrackingEnabled: false,
+        automaticGrowthRewardsEnabled: false,
+      },
     })
+    expect(telegramLaunchContext('founder_0012', new Date('2026-07-06T00:00:00.000Z'))).toEqual({
+      source: 'telegram-mini-app',
+      startParam: 'founder_0012',
+      capturedAt: '2026-07-06T00:00:00.000Z',
+      inviteTrackingEnabled: false,
+      automaticGrowthRewardsEnabled: false,
+    })
+    expect(telegramLaunchContext('founder/0012', new Date('2026-07-06T00:00:00.000Z'))).toBeUndefined()
   })
 })
 

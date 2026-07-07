@@ -14,6 +14,15 @@ export interface VerifiedTelegramMiniAppSession {
   telegramUser: TelegramMiniAppUser
   authDate: number
   startParam?: string
+  launchContext?: TelegramLaunchContext
+}
+
+export interface TelegramLaunchContext {
+  source: 'telegram-mini-app'
+  startParam: string
+  capturedAt: string
+  inviteTrackingEnabled: false
+  automaticGrowthRewardsEnabled: false
 }
 
 export type TelegramMiniAppAuthResult =
@@ -63,6 +72,7 @@ export async function authenticateTelegramMiniApp(
         telegramUser: data.telegramUser,
         authDate: data.authDate,
         startParam: typeof data.startParam === 'string' ? data.startParam : undefined,
+        launchContext: isTelegramLaunchContext(data.launchContext) ? data.launchContext : undefined,
       },
     }
   } catch {
@@ -102,4 +112,14 @@ function isVerifiedTelegramSession(value: Record<string, unknown>): value is Rec
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isTelegramLaunchContext(value: unknown): value is TelegramLaunchContext {
+  return isRecord(value) &&
+    value.source === 'telegram-mini-app' &&
+    typeof value.startParam === 'string' &&
+    /^[A-Za-z0-9_-]{1,96}$/.test(value.startParam) &&
+    typeof value.capturedAt === 'string' &&
+    value.inviteTrackingEnabled === false &&
+    value.automaticGrowthRewardsEnabled === false
 }

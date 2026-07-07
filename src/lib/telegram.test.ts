@@ -90,6 +90,13 @@ function verifiedSession(): VerifiedTelegramMiniAppSession {
     realityAccountId: 'telegram:42424242',
     authDate: 1_800_000_000,
     startParam: 'founder-seat',
+    launchContext: {
+      source: 'telegram-mini-app',
+      startParam: 'founder-seat',
+      capturedAt: '2026-07-06T00:00:00.000Z',
+      inviteTrackingEnabled: false,
+      automaticGrowthRewardsEnabled: false,
+    },
     telegramUser: {
       id: '42424242',
       firstName: 'David',

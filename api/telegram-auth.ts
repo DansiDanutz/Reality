@@ -6,6 +6,7 @@ const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
 const CLOCK_SKEW_SECONDS = 60
 const HASH_RE = /^[a-f0-9]{64}$/i
+const START_PARAM_RE = /^[A-Za-z0-9_-]{1,96}$/
 
 export interface TelegramMiniAppUser {
   id: string
@@ -60,6 +61,15 @@ export interface TelegramRealityAccountRecord {
   authDate: number
   lastVerifiedAt: string
   provider: 'telegram-mini-app'
+  launchContext?: TelegramLaunchContext
+}
+
+export interface TelegramLaunchContext {
+  source: 'telegram-mini-app'
+  startParam: string
+  capturedAt: string
+  inviteTrackingEnabled: false
+  automaticGrowthRewardsEnabled: false
 }
 
 export function verifyTelegramMiniAppInitData(
@@ -92,7 +102,7 @@ export function verifyTelegramMiniAppInitData(
     user,
     authDate,
     queryId: optionalText(parsed.fields.get('query_id')),
-    startParam: optionalText(parsed.fields.get('start_param')),
+    startParam: safeTelegramStartParam(optionalText(parsed.fields.get('start_param'))),
     realityAccountId: realityTelegramAccountId(user),
   }
 }
@@ -114,6 +124,7 @@ export function telegramRealityAccountRecord(
   const citizenId = citizenLink?.citizenId ?? existing?.citizenId
   const founderNumber = citizenLink ? citizenLink.founderNumber : existing?.founderNumber
   const citizenLinkedAt = citizenLink?.citizenLinkedAt ?? existing?.citizenLinkedAt
+  const launchContext = telegramLaunchContext(verified.startParam, lastVerifiedAt) ?? existing?.launchContext
   return {
     realityAccountId: verified.realityAccountId,
     telegramUserId: verified.user.id,
@@ -128,6 +139,19 @@ export function telegramRealityAccountRecord(
     authDate: verified.authDate,
     lastVerifiedAt: lastVerifiedAt.toISOString(),
     provider: 'telegram-mini-app',
+    ...(launchContext ? { launchContext } : {}),
+  }
+}
+
+export function telegramLaunchContext(startParam: string | undefined, capturedAt: Date): TelegramLaunchContext | undefined {
+  const safeStartParam = safeTelegramStartParam(startParam)
+  if (!safeStartParam) return undefined
+  return {
+    source: 'telegram-mini-app',
+    startParam: safeStartParam,
+    capturedAt: capturedAt.toISOString(),
+    inviteTrackingEnabled: false,
+    automaticGrowthRewardsEnabled: false,
   }
 }
 
@@ -227,6 +251,12 @@ function optionalText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
+function safeTelegramStartParam(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  return START_PARAM_RE.test(trimmed) ? trimmed : undefined
+}
+
 function optionalBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
@@ -245,7 +275,18 @@ function isTelegramRealityAccountRecord(
   if (value.citizenId !== undefined && (typeof value.citizenId !== 'string' || !value.citizenId)) return false
   if (value.founderNumber !== undefined && value.founderNumber !== null && typeof value.founderNumber !== 'number') return false
   if (value.citizenLinkedAt !== undefined && typeof value.citizenLinkedAt !== 'string') return false
+  if (value.launchContext !== undefined && !isTelegramLaunchContext(value.launchContext)) return false
   return true
+}
+
+function isTelegramLaunchContext(value: unknown): value is TelegramLaunchContext {
+  return isRecord(value) &&
+    value.source === 'telegram-mini-app' &&
+    typeof value.startParam === 'string' &&
+    START_PARAM_RE.test(value.startParam) &&
+    typeof value.capturedAt === 'string' &&
+    value.inviteTrackingEnabled === false &&
+    value.automaticGrowthRewardsEnabled === false
 }
 
 function readInitData(req: VercelRequest): string | null {
@@ -302,5 +343,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     authDate: verified.authDate,
     queryId: verified.queryId,
     startParam: verified.startParam,
+    launchContext: accountRecord.launchContext ?? null,
   })
 }
