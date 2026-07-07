@@ -31,7 +31,7 @@ import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, pickFirstLuckyMoment, RARITY_META } from '../game/luckyMoments'
-import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
+import { MAX_BUSINESS_LEVEL } from '../game/businessUpgrades'
 import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
@@ -56,6 +56,17 @@ import {
   type CommunityActionId,
   type CommunityStats,
 } from '../game/community'
+import {
+  addBusinessDevelopmentLabor,
+  businessDevelopmentProgress,
+  completeBusinessDevelopmentProject,
+  createBusinessDevelopmentProject,
+  depositBusinessDevelopmentResources,
+  hireBusinessDevelopmentWorker as hireBusinessDevelopmentWorkerForProject,
+  normalizeBusinessDevelopmentProject,
+  payBusinessDevelopmentBudget,
+  type BusinessDevelopmentProject,
+} from '../game/businessDevelopment'
 import {
   type ConstructionProject,
   type ConstructionWorkerId,
@@ -126,7 +137,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 11
+export const SAVE_VERSION = 12
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -143,6 +154,7 @@ export const SAVE_VERSION = 11
  *   v8 → v9: construction projects produce homes or businesses
  *   v9 → v10: education progress ledger for real study blocks
  *   v10 → v11: community respect/friendship/trust progression
+ *   v11 → v12: business interior development project ledger
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -217,6 +229,12 @@ export function migrateSave(persisted: unknown): GameState {
         }
         if (state && !state.community) state.community = freshCommunityStats()
         if (state && state.community) state.community = normalizeCommunityStats(state.community)
+        if (state && !state.businessDevelopmentProjects) state.businessDevelopmentProjects = []
+        if (state && state.businessDevelopmentProjects) {
+          state.businessDevelopmentProjects = state.businessDevelopmentProjects
+            .map((project) => normalizeBusinessDevelopmentProject(project))
+            .filter((project): project is BusinessDevelopmentProject => project !== null)
+        }
         if (state && state.activeCourierPackage === undefined) state.activeCourierPackage = null
         if (state && state.courierLastDay === undefined) state.courierLastDay = 0
         if (state && !state.courierOpenedDays) state.courierOpenedDays = []
@@ -361,6 +379,8 @@ interface GameState {
   educationProgress: EducationProgress[]
   /** Respect/friendship/community trust earned through real helpful actions. */
   community: CommunityStats
+  /** Active inside-the-business development projects before an upgrade is permanent. */
+  businessDevelopmentProjects: BusinessDevelopmentProject[]
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
   pets: Pet[]
   /** ms timestamp each grocery id was last restocked — the spoilage clock */
@@ -475,6 +495,11 @@ interface GameState {
   completeConstructionIfReady: (projectId: string) => void
   startStudy: (courseId: EducationCourseId) => void
   startCommunityAction: (actionId: CommunityActionId) => void
+  depositBusinessDevelopmentResources: (projectId: string) => void
+  payBusinessDevelopmentBudget: (projectId: string) => void
+  startBusinessDevelopmentWork: (projectId: string) => void
+  hireBusinessDevelopmentWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
+  completeBusinessDevelopmentIfReady: (projectId: string) => void
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
@@ -502,7 +527,7 @@ interface GameState {
   leaveActivity: () => void
   takeJob: (jobId: string) => void
   buy: (itemId: string) => void
-  /** Upgrade a business to the next level — multiplies its income. */
+  /** Start an interior development plan for the next business level. */
   upgradeBusiness: (assetId: string) => void
   /** Open a mystery box — the gacha loop. Returns the reward for reveal. */
   openMysteryBox: (tier: BoxTier) => void
@@ -559,6 +584,7 @@ const FRESH = {
   constructionProjects: [] as ConstructionProject[],
   educationProgress: [] as EducationProgress[],
   community: freshCommunityStats(),
+  businessDevelopmentProjects: [] as BusinessDevelopmentProject[],
   pets: [] as Pet[],
   groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
@@ -704,6 +730,23 @@ function completeConstructionForState(
   }
 }
 
+function completeBusinessDevelopmentForState(
+  s: Pick<GameState, 'businessDevelopmentProjects' | 'assets'>,
+  projectId: string,
+): { businessDevelopmentProjects: BusinessDevelopmentProject[]; assets: PlacedAsset[]; asset: PlacedAsset | null; project: BusinessDevelopmentProject | null } {
+  const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+  if (!project) return { businessDevelopmentProjects: s.businessDevelopmentProjects, assets: s.assets, asset: null, project: null }
+  const asset = s.assets.find((candidate) => candidate.id === project.businessId)
+  const completed = completeBusinessDevelopmentProject(project, asset)
+  if (!completed) return { businessDevelopmentProjects: s.businessDevelopmentProjects, assets: s.assets, asset: null, project }
+  return {
+    businessDevelopmentProjects: s.businessDevelopmentProjects.filter((candidate) => candidate.id !== projectId),
+    assets: s.assets.map((candidate) => candidate.id === completed.id ? completed : candidate),
+    asset: completed,
+    project,
+  }
+}
+
 function panelForCompletedAsset(asset: PlacedAsset | null): PanelId {
   if (!asset) return null
   return asset.kind === 'business' ? 'business' : 'home'
@@ -722,6 +765,11 @@ function constructionCompleteText(asset: PlacedAsset, mode: 'materials' | 'permi
   if (mode === 'workers') return `${asset.name} completed with hired help. The map is updated.`
   if (mode === 'permit') return `${asset.name} completed after the permit cleared.`
   return `${asset.name} completed from local materials. You have a door of your own.`
+}
+
+function businessDevelopmentCompleteText(project: BusinessDevelopmentProject, mode: 'labor' | 'workers' | 'budget' = 'labor'): string {
+  const source = mode === 'workers' ? 'with hired help' : mode === 'budget' ? 'after the budget cleared' : 'from interior work'
+  return `${project.businessName} developed to level ${project.levelTo} ${source}. Income is now ${formatMoney(project.incomeAfter)}/day.`
 }
 
 export const useGame = create<GameState>()(
@@ -948,7 +996,13 @@ export const useGame = create<GameState>()(
         const wasAway = now - from > 15 * 60_000
         const completedSpecialActivity =
           s.activity &&
-          (s.activity.kind === 'gather' || s.activity.kind === 'construction' || s.activity.kind === 'study' || s.activity.kind === 'community') &&
+          (
+            s.activity.kind === 'gather' ||
+            s.activity.kind === 'construction' ||
+            s.activity.kind === 'study' ||
+            s.activity.kind === 'community' ||
+            s.activity.kind === 'business-development'
+          ) &&
           now >= s.activity.endsAt
             ? s.activity
             : null
@@ -1131,6 +1185,7 @@ export const useGame = create<GameState>()(
         let constructionProjects = s.constructionProjects
         let educationProgress = s.educationProgress
         let community = resetCommunityWeekIfNeeded(s.community, now)
+        let businessDevelopmentProjects = s.businessDevelopmentProjects
         if (completedSpecialActivity?.kind === 'gather' && completedSpecialActivity.resourceKind && completedSpecialActivity.resourceAmount) {
           const kind = completedSpecialActivity.resourceKind
           const amount = completedSpecialActivity.resourceAmount
@@ -1189,6 +1244,33 @@ export const useGame = create<GameState>()(
             xp = prog.xp
             log = note(log, `${action.title} complete: +${action.rewards.respect} respect, +${action.rewards.friendship} friendship, +${action.rewards.trust} trust.`)
             if (!wasAway) toasts = withToast(toasts, `${action.title} complete +${action.rewards.xp} XP`, 'achieve')
+          }
+        }
+        if (completedSpecialActivity?.kind === 'business-development' && completedSpecialActivity.businessDevelopmentProjectId) {
+          const projectId = completedSpecialActivity.businessDevelopmentProjectId
+          const project = businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+          if (project) {
+            const minutes = completedSpecialActivity.laborMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
+            const worked = addBusinessDevelopmentLabor(project, minutes)
+            const projects = businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? worked : candidate)
+            const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, projectId)
+            businessDevelopmentProjects = completed.businessDevelopmentProjects
+            out.assets = completed.assets
+            if (completed.asset && completed.project) {
+              if (completed.project.levelFrom === 1) track('first_upgrade')
+              if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+              selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+              log = note(log, businessDevelopmentCompleteText(completed.project))
+              if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} developed to L${completed.project.levelTo}!`, 'achieve')
+              if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) {
+                const maxCelebration = { icon: '🏭', title: `${completed.asset.name} — MAX LEVEL!`, detail: `Fully developed. Earning ${formatMoney(completed.asset.incomePerDay)}/day — a true empire pillar.`, tone: 'gold' as const }
+                if (!celebration) celebration = maxCelebration
+                else celebrationQueue = [...celebrationQueue, maxCelebration]
+              }
+            } else {
+              log = note(log, `Interior development labor complete: ${minutes} minutes on ${project.businessName}.`)
+              if (!wasAway) toasts = withToast(toasts, `Interior labor +${minutes}m`, 'gold')
+            }
           }
         }
         // "Earned today" accumulator for the daily challenges — WORK income
@@ -1539,6 +1621,7 @@ export const useGame = create<GameState>()(
           constructionProjects,
           educationProgress,
           community,
+          businessDevelopmentProjects,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
           achievementsClaimed: achievementsClaimed,
@@ -1952,6 +2035,173 @@ export const useGame = create<GameState>()(
         })
       },
 
+      depositBusinessDevelopmentResources: (projectId) => {
+        const s = get()
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const out = depositBusinessDevelopmentResources(project, s.resources)
+        const moved = totalResourceCount(out.deposited)
+        if (moved <= 0) {
+          set({ toasts: withToast(s.toasts, 'No matching interior materials to deposit yet.', 'blocked') })
+          return
+        }
+        const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? out.project : candidate)
+        const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: s.assets }, projectId)
+        set({
+          resources: out.inventory,
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          panel: 'business',
+          log: note(s.log, completed.asset && completed.project
+            ? businessDevelopmentCompleteText(completed.project)
+            : `Deposited ${formatResourceList(out.deposited)} into ${project.businessName}'s interior plan.`),
+          toasts: withToast(
+            s.toasts,
+            completed.asset ? `${project.businessName} developed!` : `Deposited ${formatResourceList(out.deposited)}.`,
+            completed.asset ? 'achieve' : 'gold',
+          ),
+        })
+        if (completed.asset && completed.project) {
+          if (completed.project.levelFrom === 1) track('first_upgrade')
+          if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+        }
+      },
+
+      payBusinessDevelopmentBudget: (projectId) => {
+        const s = get()
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const paid = payBusinessDevelopmentBudget(project, s.money)
+        if (!paid.paid) {
+          set({ toasts: withToast(s.toasts, `Development budget needs ${formatMoney(project.budgetCost)}.`, 'blocked') })
+          return
+        }
+        const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? paid.project : candidate)
+        const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: s.assets }, projectId)
+        set({
+          money: paid.money,
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          panel: 'business',
+          log: note(s.log, completed.asset && completed.project
+            ? businessDevelopmentCompleteText(completed.project, 'budget')
+            : `Development budget paid for ${project.businessName} (${formatMoney(project.budgetCost)}).`),
+          toasts: withToast(s.toasts, completed.asset ? `${project.businessName} developed!` : `Budget paid for ${project.businessName}.`, completed.asset ? 'achieve' : 'gold'),
+        })
+        if (completed.asset && completed.project) {
+          if (completed.project.levelFrom === 1) track('first_upgrade')
+          if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+        }
+      },
+
+      startBusinessDevelopmentWork: (projectId) => {
+        const s = get()
+        if (s.activity) return
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        if (s.needs.energy < 20 || s.health < 20) {
+          set({ toasts: withToast(s.toasts, 'Too worn down for interior work. Rest first.', 'blocked') })
+          return
+        }
+        const progress = businessDevelopmentProgress(project)
+        if (!progress.resourcesComplete) {
+          set({ toasts: withToast(s.toasts, 'Deposit interior materials before work starts.', 'blocked') })
+          return
+        }
+        if (!progress.budgetComplete) {
+          set({ toasts: withToast(s.toasts, 'Pay the development budget before work starts.', 'blocked') })
+          return
+        }
+        const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
+        if (remaining <= 0) {
+          set({ toasts: withToast(s.toasts, 'Interior labor is complete. Finish the upgrade.', 'sky') })
+          return
+        }
+        const laborMinutes = Math.min(60, remaining)
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'business-development',
+            startedAt: now,
+            endsAt: now + laborMinutes * 60_000,
+            title: `Develop ${project.businessName}`,
+            businessDevelopmentProjectId: project.id,
+            laborMinutes,
+          },
+          needs: applyEffects(s.needs, { energy: -8, hygiene: -2 }),
+          panel: null,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          log: note(s.log, `Started ${laborMinutes} minutes of interior work on ${project.businessName}.`),
+        })
+      },
+
+      hireBusinessDevelopmentWorker: (projectId, workerId, hours = 1) => {
+        const s = get()
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const hired = hireBusinessDevelopmentWorkerForProject(project, workerId, s.money, hours)
+        if (!hired.hired) {
+          const reason = hired.reason === 'materials'
+            ? 'Workers need the interior materials deposited first.'
+            : hired.reason === 'budget'
+              ? 'Workers need the development budget paid first.'
+              : hired.reason === 'money'
+                ? `Need ${formatMoney(hired.cost)} to hire that worker.`
+                : hired.reason === 'labor'
+                  ? 'Interior labor is already complete.'
+                  : 'That worker is not available.'
+          set({ toasts: withToast(s.toasts, reason, 'blocked'), selectedMapTarget: { kind: 'asset', id: project.businessId }, panel: 'business' })
+          return
+        }
+        const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate)
+        const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: s.assets }, projectId)
+        set({
+          money: hired.money,
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          panel: 'business',
+          toasts: withToast(
+            s.toasts,
+            completed.asset
+              ? `${project.businessName} developed!`
+              : `Workers added ${hired.laborMinutes}m of interior labor for ${formatMoney(hired.cost)}.`,
+            completed.asset ? 'achieve' : 'gold',
+          ),
+          log: note(
+            s.log,
+            completed.asset && completed.project
+              ? businessDevelopmentCompleteText(completed.project, 'workers')
+              : `Hired workers for ${project.businessName}'s interior: ${hired.laborMinutes} minutes (${formatMoney(hired.cost)}).`,
+          ),
+        })
+        if (completed.asset && completed.project) {
+          if (completed.project.levelFrom === 1) track('first_upgrade')
+          if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+        }
+      },
+
+      completeBusinessDevelopmentIfReady: (projectId) => {
+        const s = get()
+        const completed = completeBusinessDevelopmentForState(s, projectId)
+        if (!completed.asset || !completed.project) {
+          set({ toasts: withToast(s.toasts, 'Interior development still needs materials, budget, or labor.', 'blocked') })
+          return
+        }
+        set({
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: completed.asset.id },
+          panel: 'business',
+          toasts: withToast(s.toasts, `${completed.asset.name} developed to L${completed.project.levelTo}!`, 'achieve'),
+          log: note(s.log, businessDevelopmentCompleteText(completed.project)),
+        })
+        if (completed.project.levelFrom === 1) track('first_upgrade')
+        if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+      },
+
       // One tap, one dollar, half the water bar — hydration without friction
       quickDrink: () => {
         const s = get()
@@ -2168,6 +2418,10 @@ export const useGame = create<GameState>()(
         }
         if (a.kind === 'community') {
           set({ activity: null, log: note(s.log, 'Stopped helping before this block counted.') })
+          return
+        }
+        if (a.kind === 'business-development') {
+          set({ activity: null, log: note(s.log, 'Stopped interior work before this block counted.') })
           return
         }
         // Leaving a shift early: pro-rata pay, no XP
@@ -2398,50 +2652,32 @@ export const useGame = create<GameState>()(
       },
 
       upgradeBusiness: (assetId) => {
-        // The incremental-depth hook: pay cash to multiply a business's
-        // income. baseIncome is derived from current income / level (since
-        // incomePerDay stores the level-adjusted value, the engine reads it
-        // directly with no changes). See businessUpgrades.ts for the curve.
         const s = get()
         const asset = s.assets.find((a) => a.id === assetId)
         if (!asset || asset.kind !== 'business') return
-        const level = asset.level ?? 1
-        const baseIncome = asset.incomePerDay / level
-        const out = upgradeOutcome(baseIncome, level)
-        if (!out) return
-        if (s.money < out.cost) {
-          set({ log: note(s.log, `Upgrade needs ${formatMoney(out.cost)} — you have ${formatMoney(s.money)}.`), toasts: withToast(s.toasts, `Need ${formatMoney(out.cost)} to upgrade — you have ${formatMoney(s.money)}.`, 'blocked') })
+        const existing = s.businessDevelopmentProjects.find((project) => project.businessId === assetId)
+        if (existing) {
+          set({
+            selectedMapTarget: { kind: 'asset', id: assetId },
+            panel: 'business',
+            toasts: withToast(s.toasts, `${asset.name} already has an active interior plan.`, 'sky'),
+          })
           return
         }
-        // Analytics: first upgrade + max-level milestone.
-        if (level === 1) track('first_upgrade')
-        if (out.newLevel >= MAX_BUSINESS_LEVEL) track('business_maxed')
-        // First-upgrade celebration — the moment the player discovers the
-        // upgrade system. A distinct toast so they feel the milestone.
-        const wasFirstUpgrade = level === 1
-        const upgradeToasts = wasFirstUpgrade
-          ? withToast(withToast(s.toasts, `📈 Your first upgrade! Businesses can grow.`, 'achieve'), `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold')
-          : withToast(s.toasts, `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold')
+        const project = createBusinessDevelopmentProject(asset)
+        if (!project) {
+          set({ toasts: withToast(s.toasts, `${asset.name} is already fully developed.`, 'sky') })
+          return
+        }
         set({
-          money: s.money - out.cost,
-          assets: s.assets.map((a) =>
-            a.id === assetId
-              ? { ...a, level: out.newLevel, incomePerDay: out.newIncome }
-              : a,
+          businessDevelopmentProjects: [...s.businessDevelopmentProjects, project],
+          selectedMapTarget: { kind: 'asset', id: assetId },
+          panel: 'business',
+          toasts: withToast(s.toasts, `${asset.name} interior plan started.`, 'gold'),
+          log: note(
+            s.log,
+            `${asset.name} interior plan started: deposit ${formatResourceList(project.required)}, pay ${formatMoney(project.budgetCost)}, and finish ${Math.ceil(project.laborRequiredMinutes / 60)}h of labor for +${formatMoney(project.incomeDelta)}/day.`,
           ),
-          toasts: upgradeToasts,
-          log: note(s.log, `${asset.name} upgraded to level ${out.newLevel} (income ${formatMoney(out.newIncome)}/day) for ${formatMoney(out.cost)}.`),
-          // Maxing a business (L10) is a multi-month achievement — the
-          // geometric cost curve means ~$millions invested. It earns the
-          // gold-tier celebration overlay (queued if another is showing).
-          celebration: out.newLevel >= MAX_BUSINESS_LEVEL
-            ? (!s.celebration
-                ? { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }
-                : s.celebration)
-            : s.celebration,
-          celebrationQueue: out.newLevel >= MAX_BUSINESS_LEVEL && s.celebration
-            ? [...s.celebrationQueue, { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }]
-            : s.celebrationQueue,
         })
       },
 
