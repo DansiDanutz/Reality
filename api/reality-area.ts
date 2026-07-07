@@ -4353,7 +4353,18 @@ async function handleFounderCovenantOperatorReview(
     return
   }
 
-  const state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  let state: FounderAreaState
+  try {
+    state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  } catch {
+    res.status(503).json({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      ...areaPayload(stateForReview),
+    })
+    return
+  }
   res.status(200).json({ ok: true, ...areaPayload(state) })
 }
 
