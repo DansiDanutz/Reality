@@ -166,7 +166,9 @@ export function businessDevelopmentShortfall(project: BusinessDevelopmentProject
   return resourceShortfall(project.deposited, project.required)
 }
 
-export function businessDevelopmentProgress(project: BusinessDevelopmentProject): {
+type BusinessDevelopmentProgressInput = Pick<BusinessDevelopmentProject, 'deposited' | 'required' | 'budgetPaid' | 'laborDoneMinutes' | 'laborRequiredMinutes'>
+
+export function businessDevelopmentProgress(project: BusinessDevelopmentProgressInput): {
   resourcesComplete: boolean
   budgetComplete: boolean
   laborComplete: boolean
@@ -251,7 +253,7 @@ export function businessDevelopmentLaborBreakdown(project: BusinessDevelopmentPr
   }
 }
 
-export function businessDevelopmentWorkerBlocker(project: BusinessDevelopmentProject): 'materials' | 'budget' | 'labor' | null {
+export function businessDevelopmentWorkerBlocker(project: BusinessDevelopmentProgressInput): 'materials' | 'budget' | 'labor' | null {
   const progress = businessDevelopmentProgress(project)
   if (!progress.resourcesComplete) return 'materials'
   if (!progress.budgetComplete) return 'budget'

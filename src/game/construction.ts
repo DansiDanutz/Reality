@@ -298,7 +298,9 @@ export function constructionShortfall(project: ConstructionProject): ResourceInv
   return resourceShortfall(project.deposited, project.required)
 }
 
-export function constructionProgress(project: ConstructionProject): {
+type ConstructionProgressInput = Pick<ConstructionProject, 'deposited' | 'required' | 'permitFeePaid' | 'laborDoneMinutes' | 'laborRequiredMinutes'>
+
+export function constructionProgress(project: ConstructionProgressInput): {
   resourcesComplete: boolean
   laborComplete: boolean
   permitComplete: boolean
@@ -327,7 +329,7 @@ export function workerById(workerId: ConstructionWorkerId): ConstructionWorker |
   return CONSTRUCTION_WORKERS.find((worker) => worker.id === workerId)
 }
 
-export function constructionWorkerBlocker(project: ConstructionProject): 'materials' | 'permit' | 'labor' | null {
+export function constructionWorkerBlocker(project: ConstructionProgressInput): 'materials' | 'permit' | 'labor' | null {
   const progress = constructionProgress(project)
   if (!progress.resourcesComplete) return 'materials'
   if (!progress.permitComplete) return 'permit'

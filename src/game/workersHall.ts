@@ -1,3 +1,5 @@
+import { businessDevelopmentWorkerBlocker, type BusinessDevelopmentProject } from './businessDevelopment'
+import { constructionWorkerBlocker, type ConstructionProject } from './construction'
 import { playableMapAnchorFor } from './mapAnchor'
 import type { ServicePoi } from './mapDiscovery'
 import type { Citizen, PlacedAsset } from './types'
@@ -20,6 +22,58 @@ export type WorkersHallMapTarget =
 export interface WorkersHallAction {
   panel: WorkersHallPanel
   target: WorkersHallMapTarget | null
+}
+
+type ConstructionWorkerTarget = Pick<ConstructionProject, 'id' | 'required' | 'deposited' | 'permitFeePaid' | 'laborRequiredMinutes' | 'laborDoneMinutes'>
+type BusinessWorkerTarget = Pick<BusinessDevelopmentProject, 'businessId' | 'required' | 'deposited' | 'budgetPaid' | 'laborRequiredMinutes' | 'laborDoneMinutes'>
+
+interface WorkersHallConstructionCandidate extends Partial<ConstructionWorkerTarget> {
+  id?: string
+}
+
+interface WorkersHallBusinessCandidate extends Partial<BusinessWorkerTarget> {
+  businessId?: string
+}
+
+interface WorkersHallSnapshot {
+  constructionProjects: readonly WorkersHallConstructionCandidate[]
+  businessDevelopmentProjects: readonly WorkersHallBusinessCandidate[]
+}
+
+function hasConstructionWorkerFields(project: WorkersHallConstructionCandidate): project is ConstructionWorkerTarget {
+  return Boolean(
+    project.id &&
+      project.required &&
+      project.deposited &&
+      typeof project.permitFeePaid === 'boolean' &&
+      Number.isFinite(project.laborRequiredMinutes) &&
+      Number.isFinite(project.laborDoneMinutes),
+  )
+}
+
+function hasBusinessWorkerFields(project: WorkersHallBusinessCandidate): project is BusinessWorkerTarget {
+  return Boolean(
+    project.businessId &&
+      project.required &&
+      project.deposited &&
+      typeof project.budgetPaid === 'boolean' &&
+      Number.isFinite(project.laborRequiredMinutes) &&
+      Number.isFinite(project.laborDoneMinutes),
+  )
+}
+
+function hireReadyConstructionProject(projects: readonly WorkersHallConstructionCandidate[]): WorkersHallConstructionCandidate | null {
+  return projects.find((project) => (
+    hasConstructionWorkerFields(project) &&
+    constructionWorkerBlocker(project) === null
+  )) ?? null
+}
+
+function hireReadyBusinessProject(projects: readonly WorkersHallBusinessCandidate[]): WorkersHallBusinessCandidate | null {
+  return projects.find((project) => (
+    hasBusinessWorkerFields(project) &&
+    businessDevelopmentWorkerBlocker(project) === null
+  )) ?? null
 }
 
 function offsetLatLng(lat: number, lng: number, km: number, bearingDeg: number): { lat: number; lng: number } {
@@ -74,16 +128,29 @@ function squaredDistance(point: { lat: number; lng: number }, anchor: { lat: num
 }
 
 export function workersHallPanelFor(snapshot: {
-  constructionProjects: readonly { id?: string }[]
-  businessDevelopmentProjects: readonly { businessId?: string }[]
+  constructionProjects: readonly WorkersHallConstructionCandidate[]
+  businessDevelopmentProjects: readonly WorkersHallBusinessCandidate[]
 }): WorkersHallPanel {
   return workersHallActionFor(snapshot).panel
 }
 
-export function workersHallActionFor(snapshot: {
-  constructionProjects: readonly { id?: string }[]
-  businessDevelopmentProjects: readonly { businessId?: string }[]
-}): WorkersHallAction {
+export function workersHallActionFor(snapshot: WorkersHallSnapshot): WorkersHallAction {
+  const hireReadyConstruction = hireReadyConstructionProject(snapshot.constructionProjects)
+  if (hireReadyConstruction?.id) {
+    return {
+      panel: 'construction',
+      target: { kind: 'construction', id: hireReadyConstruction.id },
+    }
+  }
+
+  const hireReadyInterior = hireReadyBusinessProject(snapshot.businessDevelopmentProjects)
+  if (hireReadyInterior?.businessId) {
+    return {
+      panel: 'business',
+      target: { kind: 'asset', id: hireReadyInterior.businessId },
+    }
+  }
+
   const construction = snapshot.constructionProjects.find((project) => Boolean(project.id))
   if (construction?.id) {
     return {

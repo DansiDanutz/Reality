@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
+import { createBusinessDevelopmentProject, depositBusinessDevelopmentResources, payBusinessDevelopmentBudget } from './businessDevelopment'
+import { createConstructionProject } from './construction'
 import { DEFAULT_MAP_ANCHOR } from './mapAnchor'
+import { freshResources } from './resources'
 import { workersHallActionFor, workersHallFor, workersHallPanelFor } from './workersHall'
 import type { Citizen, PlacedAsset } from './types'
 
@@ -22,6 +25,19 @@ const home: PlacedAsset = {
   pendingIncome: 0,
   placedAtMinute: 0,
 }
+
+const business = (): PlacedAsset => ({
+  id: 'foodcart-1',
+  itemId: 'foodcart',
+  kind: 'business',
+  name: 'Food Cart',
+  lat: 46,
+  lng: 22,
+  incomePerDay: 200,
+  pendingIncome: 0,
+  placedAtMinute: 0,
+  level: 1,
+})
 
 describe('workersHallFor', () => {
   test('does not show a civic worker building before a citizen exists', () => {
@@ -107,6 +123,52 @@ describe('workersHallActionFor', () => {
     })).toEqual({
       panel: 'construction',
       target: { kind: 'construction', id: 'house-build' },
+    })
+  })
+
+  test('routes the hall to a hire-ready construction site before a blocked earlier site', () => {
+    const blocked = createConstructionProject('starter-house', 1, 1, 1)
+    const readyProject = createConstructionProject('starter-house', 2, 2, 2)
+    const ready = {
+      ...readyProject,
+      deposited: freshResources(readyProject.required),
+      permitFeePaid: true,
+    }
+
+    expect(workersHallActionFor({
+      constructionProjects: [blocked, ready],
+      businessDevelopmentProjects: [],
+    })).toEqual({
+      panel: 'construction',
+      target: { kind: 'construction', id: ready.id },
+    })
+  })
+
+  test('routes the hall to a hire-ready business interior when construction is not worker-ready', () => {
+    const blockedConstruction = createConstructionProject('starter-house', 1, 1, 1)
+    const plan = createBusinessDevelopmentProject(business(), 1_000)
+    if (!plan) throw new Error('business development fixture failed')
+    const deposited = depositBusinessDevelopmentResources(plan, freshResources(plan.required)).project
+    const readyInterior = payBusinessDevelopmentBudget(deposited, deposited.budgetCost).project
+
+    expect(workersHallActionFor({
+      constructionProjects: [blockedConstruction],
+      businessDevelopmentProjects: [readyInterior],
+    })).toEqual({
+      panel: 'business',
+      target: { kind: 'asset', id: readyInterior.businessId },
+    })
+  })
+
+  test('still opens blocked construction when no worker-ready target exists', () => {
+    const blocked = createConstructionProject('starter-house', 1, 1, 1)
+
+    expect(workersHallActionFor({
+      constructionProjects: [blocked],
+      businessDevelopmentProjects: [],
+    })).toEqual({
+      panel: 'construction',
+      target: { kind: 'construction', id: blocked.id },
     })
   })
 
