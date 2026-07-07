@@ -283,7 +283,7 @@ export default function ConstructionPanel() {
                     )}
                   </div>
                   <div className="item-buy asset-actions">
-                    <button className="btn small ghost" onClick={() => selectMapTarget({ kind: 'construction', id: project.id })}>Show map</button>
+                    <button className="btn small ghost" onClick={() => { selectMapTarget({ kind: 'construction', id: project.id }); setPanel(null) }}>Show map</button>
                     <button className="btn small ghost" onClick={() => depositConstructionResources(project.id)}>Deposit</button>
                     <button className="btn small ghost" disabled={project.permitFeePaid} onClick={() => payConstructionPermit(project.id)}>
                       {project.permitFeePaid ? 'Permit paid' : `Permit ${formatMoney(project.permitFee)}`}
