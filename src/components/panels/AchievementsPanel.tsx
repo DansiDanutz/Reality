@@ -299,7 +299,18 @@ function DailyChallengesBlock({
 }: {
   citizenId: string
   day: number
-  counters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number }
+  counters: {
+    mealsToday: number
+    shiftsToday: number
+    earnedToday: number
+    sleptToday: number
+    boughtToday: number
+    studiedToday: number
+    gatheredToday: number
+    constructionMinutesToday: number
+    communityToday: number
+    businessDevelopmentMinutesToday: number
+  }
   claimed: string[]
   bonusClaimed: boolean
 }) {
