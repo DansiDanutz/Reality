@@ -5,7 +5,7 @@ import { businessDevelopmentProgress } from '../../game/businessDevelopment'
 import { constructionProgress } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
-import { workersHallFor, workersHallPanelFor, type WorkersHall } from '../../game/workersHall'
+import { workersHallActionFor, workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
@@ -302,7 +302,9 @@ export default function WorldMap() {
     el.addEventListener('click', (event) => {
       event.stopPropagation()
       const state = useGame.getState()
-      state.setPanel(workersHallPanelFor(state))
+      const action = workersHallActionFor(state)
+      if (action.target) state.selectMapTarget(action.target)
+      state.setPanel(action.panel)
     })
     workersHallMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([workersHall.lng, workersHall.lat]).addTo(map)
   }, [workersHall])

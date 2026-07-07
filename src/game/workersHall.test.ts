@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_MAP_ANCHOR } from './mapAnchor'
-import { workersHallFor, workersHallPanelFor } from './workersHall'
+import { workersHallActionFor, workersHallFor, workersHallPanelFor } from './workersHall'
 import type { Citizen, PlacedAsset } from './types'
 
 const citizen: Citizen = {
@@ -87,14 +87,46 @@ describe('workersHallPanelFor', () => {
   test('opens construction when a construction site is active', () => {
     expect(workersHallPanelFor({
       constructionProjects: [{ id: 'house-build' }],
-      businessDevelopmentProjects: [{ id: 'foodcart-interior' }],
+      businessDevelopmentProjects: [{ businessId: 'foodcart-1' }],
     })).toBe('construction')
   })
 
   test('opens business when the only active worker need is an interior project', () => {
     expect(workersHallPanelFor({
       constructionProjects: [],
-      businessDevelopmentProjects: [{ id: 'foodcart-interior' }],
+      businessDevelopmentProjects: [{ businessId: 'foodcart-1' }],
     })).toBe('business')
+  })
+})
+
+describe('workersHallActionFor', () => {
+  test('routes the hall to the active construction site before interior work', () => {
+    expect(workersHallActionFor({
+      constructionProjects: [{ id: 'house-build' }],
+      businessDevelopmentProjects: [{ businessId: 'foodcart-1' }],
+    })).toEqual({
+      panel: 'construction',
+      target: { kind: 'construction', id: 'house-build' },
+    })
+  })
+
+  test('routes the hall to the business asset when only interior work needs workers', () => {
+    expect(workersHallActionFor({
+      constructionProjects: [],
+      businessDevelopmentProjects: [{ businessId: 'foodcart-1' }],
+    })).toEqual({
+      panel: 'business',
+      target: { kind: 'asset', id: 'foodcart-1' },
+    })
+  })
+
+  test('keeps the hall usable when there is no active worker target yet', () => {
+    expect(workersHallActionFor({
+      constructionProjects: [],
+      businessDevelopmentProjects: [],
+    })).toEqual({
+      panel: 'construction',
+      target: null,
+    })
   })
 })

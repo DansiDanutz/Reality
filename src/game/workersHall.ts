@@ -13,6 +13,15 @@ export interface WorkersHall {
 
 export type WorkersHallPanel = 'construction' | 'business'
 
+export type WorkersHallMapTarget =
+  | { kind: 'construction'; id: string }
+  | { kind: 'asset'; id: string }
+
+export interface WorkersHallAction {
+  panel: WorkersHallPanel
+  target: WorkersHallMapTarget | null
+}
+
 function offsetLatLng(lat: number, lng: number, km: number, bearingDeg: number): { lat: number; lng: number } {
   const earthKm = 6_371
   const bearing = (bearingDeg * Math.PI) / 180
@@ -65,9 +74,35 @@ function squaredDistance(point: { lat: number; lng: number }, anchor: { lat: num
 }
 
 export function workersHallPanelFor(snapshot: {
-  constructionProjects: readonly unknown[]
-  businessDevelopmentProjects: readonly unknown[]
+  constructionProjects: readonly { id?: string }[]
+  businessDevelopmentProjects: readonly { businessId?: string }[]
 }): WorkersHallPanel {
-  if (snapshot.constructionProjects.length === 0 && snapshot.businessDevelopmentProjects.length > 0) return 'business'
-  return 'construction'
+  return workersHallActionFor(snapshot).panel
+}
+
+export function workersHallActionFor(snapshot: {
+  constructionProjects: readonly { id?: string }[]
+  businessDevelopmentProjects: readonly { businessId?: string }[]
+}): WorkersHallAction {
+  const construction = snapshot.constructionProjects.find((project) => Boolean(project.id))
+  if (construction?.id) {
+    return {
+      panel: 'construction',
+      target: { kind: 'construction', id: construction.id },
+    }
+  }
+
+  const interior = snapshot.businessDevelopmentProjects.find((project) => Boolean(project.businessId))
+  if (interior?.businessId) {
+    return {
+      panel: 'business',
+      target: { kind: 'asset', id: interior.businessId },
+    }
+  }
+
+  if (snapshot.businessDevelopmentProjects.length > 0) {
+    return { panel: 'business', target: null }
+  }
+
+  return { panel: 'construction', target: null }
 }
