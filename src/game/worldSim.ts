@@ -2866,6 +2866,13 @@ function buyInsuranceFromIntent(
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
 
+  const context = manualPurchaseContext(area)
+  const used = context.capacityUsed[insurer.id] ?? 0
+  if (used >= serviceCapacity(area, insurer, context.hours)) {
+    return { ok: false, area, error: 'service_not_available' }
+  }
+
+  reserveBusinessCapacity(context, insurer)
   actor.money = roundMoney(actor.money - premium)
   actor.insuranceBusinessId = insurer.id
   actor.insurancePaidUntil = area.now + INSURANCE_POLICY_PERIOD_MS
@@ -2889,13 +2896,7 @@ function buyServiceFromIntent(
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
 
-  const context: StepContext = {
-    at: area.now,
-    hours: 1,
-    servedByKind: zeroKindRecord(),
-    capacityUsed: {},
-    summary: emptyWorldAreaSummary(),
-  }
+  const context = manualPurchaseContext(area)
   const business = chooseBusiness(area, kind, context)
   if (!business) return { ok: false, area, error: 'service_not_available' }
 
@@ -2904,6 +2905,32 @@ function buyServiceFromIntent(
 
   completeServicePurchase(area, actor, business, kind, context)
   return { ok: true, area }
+}
+
+function manualPurchaseContext(area: WorldArea): StepContext {
+  return {
+    at: area.now,
+    hours: 1,
+    servedByKind: zeroKindRecord(),
+    capacityUsed: sameTickCapacityUsed(area, area.now),
+    summary: emptyWorldAreaSummary(),
+  }
+}
+
+function sameTickCapacityUsed(area: WorldArea, at: number): Record<string, number> {
+  const businessIds = new Set(area.businesses.map((business) => business.id))
+  const used: Record<string, number> = {}
+  for (const transaction of area.transactions) {
+    if (
+      transaction.at !== at ||
+      !businessIds.has(transaction.toId) ||
+      (transaction.kind !== 'customer_purchase' && transaction.kind !== 'insurance_premium')
+    ) {
+      continue
+    }
+    used[transaction.toId] = (used[transaction.toId] ?? 0) + 1
+  }
+  return used
 }
 
 function repayDebtFromIntent(

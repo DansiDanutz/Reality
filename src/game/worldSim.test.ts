@@ -626,6 +626,39 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
   })
 
+  test('buyInsurance intents count same-tick premium ledger rows against insurer capacity', () => {
+    const start = claimedArea({
+      now: HOUR,
+      citizens: [
+        sim('first', { kind: 'real', money: 100 }),
+        sim('second', { kind: 'real', money: 100 }),
+      ],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', cash: 0, price: 45, quality: 0.15 })],
+    })
+
+    const first = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'first',
+      insuranceBusinessId: 'ins1',
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error('expected first insurance purchase to succeed')
+
+    const second = applyWorldIntent(first.area, {
+      type: 'buyInsurance',
+      actorCitizenId: 'second',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(second).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(second.area.citizens.find((citizen) => citizen.id === 'second')!.money).toBe(100)
+    expect(second.area.citizens.find((citizen) => citizen.id === 'second')!.insuranceBusinessId).toBeUndefined()
+    expect(second.area.businesses.find((candidate) => candidate.id === 'ins1')!.cash).toBe(45)
+    expect(second.area.transactions).toMatchObject([
+      { at: HOUR, kind: 'insurance_premium', fromId: 'first', toId: 'ins1', amount: 45 },
+    ])
+  })
+
   test('insurance renews monthly with a real premium payment', () => {
     const start = area({
       citizens: [sim('resident', {
@@ -725,6 +758,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.businesses.find((b) => b.id === 'water1')!.cash).toBe(7)
     expect(result.area.transactions).toMatchObject([
       { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
+    ])
+  })
+
+  test('service intents count same-tick purchase ledger rows against local capacity', () => {
+    const start = claimedArea({
+      now: HOUR,
+      citizens: [
+        sim('first', { kind: 'real', money: 100, needs: fullNeeds({ energy: 10 }) }),
+        sim('second', { kind: 'real', money: 100, needs: fullNeeds({ energy: 10 }) }),
+      ],
+      businesses: [business('housing', 'housing1', { ownerId: 'founder', cash: 0, price: 28, quality: 0.15 })],
+    })
+
+    const first = applyWorldIntent(start, { type: 'buyHousing', actorCitizenId: 'first' })
+    expect(first.ok).toBe(true)
+    if (!first.ok) throw new Error('expected first housing purchase to succeed')
+
+    const second = applyWorldIntent(first.area, { type: 'buyHousing', actorCitizenId: 'second' })
+
+    expect(second).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(second.area.citizens.find((citizen) => citizen.id === 'second')!.money).toBe(100)
+    expect(second.area.citizens.find((citizen) => citizen.id === 'second')!.homeBusinessId).toBeUndefined()
+    expect(second.area.businesses.find((candidate) => candidate.id === 'housing1')!.cash).toBe(28)
+    expect(second.area.transactions).toMatchObject([
+      { at: HOUR, kind: 'customer_purchase', fromId: 'first', toId: 'housing1', amount: 28 },
     ])
   })
 
