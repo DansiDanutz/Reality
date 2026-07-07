@@ -361,6 +361,69 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'actor_not_area_founder' })
   })
 
+  test('client economy intents require a claimed area before money or staffing can move', () => {
+    const unclaimed = area({
+      citizens: [
+        sim('founder', {
+          kind: 'real',
+          money: 500,
+          debt: 120,
+          debts: [{
+            id: 'medical-1',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 120,
+            issuedAt: 0,
+            memo: 'Founder owes medical debt to clinic1.',
+          }],
+        }),
+        sim('worker'),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'founder', cash: 5, price: 2 }),
+        business('insurance', 'ins1', { ownerId: 'founder', cash: 10, price: 45 }),
+        business('clinic', 'clinic1', { ownerId: 'founder', cash: 20, price: 90 }),
+      ],
+    })
+
+    expect(applyWorldIntent(unclaimed, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'water1',
+      workerCitizenId: 'worker',
+    })).toMatchObject({ ok: false, error: 'area_not_claimed' })
+    expect(applyWorldIntent(unclaimed, {
+      type: 'buyWater',
+      actorCitizenId: 'founder',
+    })).toMatchObject({ ok: false, error: 'area_not_claimed' })
+    expect(applyWorldIntent(unclaimed, {
+      type: 'buyInsurance',
+      actorCitizenId: 'founder',
+      insuranceBusinessId: 'ins1',
+    })).toMatchObject({ ok: false, error: 'area_not_claimed' })
+    expect(applyWorldIntent(unclaimed, {
+      type: 'repayDebt',
+      actorCitizenId: 'founder',
+      debtId: 'medical-1',
+      amount: 120,
+    })).toMatchObject({ ok: false, error: 'area_not_claimed' })
+
+    const founder = unclaimed.citizens.find((citizen) => citizen.id === 'founder')
+    expect(founder).toMatchObject({
+      money: 500,
+      debt: 120,
+    })
+    expect(founder?.insuranceBusinessId).toBeUndefined()
+    expect(unclaimed.citizens.find((citizen) => citizen.id === 'worker')?.jobBusinessId).toBeUndefined()
+    expect(unclaimed.businesses.find((candidate) => candidate.id === 'water1')).toMatchObject({
+      cash: 5,
+      staffCitizenIds: [],
+    })
+    expect(unclaimed.businesses.find((candidate) => candidate.id === 'ins1')).toMatchObject({ cash: 10 })
+    expect(unclaimed.businesses.find((candidate) => candidate.id === 'clinic1')).toMatchObject({ cash: 20 })
+    expect(unclaimed.transactions).toEqual([])
+  })
+
   test('build intents reject saturated licenses and insufficient founder funds', () => {
     const saturated = claimedArea({
       businesses: [business('water', 'water1', { ownerId: 'founder' })],
@@ -1255,7 +1318,7 @@ describe('advanceWorldArea — local real-time economy', () => {
   })
 
   test('repayDebt intent pays the recorded creditor and reduces the debt line', () => {
-    const start = area({
+    const start = claimedArea({
       now: 2 * HOUR,
       citizens: [sim('c1', {
         money: 200,
@@ -1281,7 +1344,7 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected debt repayment to succeed')
-    const citizen = result.area.citizens[0]
+    const citizen = result.area.citizens.find((candidate) => candidate.id === 'c1')!
     const clinic = result.area.businesses[0]
 
     expect(citizen.money).toBe(80)
@@ -1291,11 +1354,11 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toMatchObject([
       { kind: 'debt_repayment', fromId: 'c1', toId: 'clinic1', amount: 120 },
     ])
-    expect(start.citizens[0].debt).toBe(300)
+    expect(start.citizens.find((candidate) => candidate.id === 'c1')?.debt).toBe(300)
   })
 
   test('repayDebt intent caps overpayment at the debt balance and removes cleared lines', () => {
-    const start = area({
+    const start = claimedArea({
       citizens: [sim('c1', {
         money: 200,
         debt: 75,
@@ -1319,16 +1382,17 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected overpayment to clear debt')
-    expect(result.area.citizens[0].money).toBe(125)
-    expect(result.area.citizens[0].debt).toBe(0)
-    expect(result.area.citizens[0].debts).toEqual([])
+    const citizen = result.area.citizens.find((candidate) => candidate.id === 'c1')!
+    expect(citizen.money).toBe(125)
+    expect(citizen.debt).toBe(0)
+    expect(citizen.debts).toEqual([])
     expect(result.area.transactions).toMatchObject([
       { kind: 'debt_repayment', fromId: 'c1', toId: 'system:hospital', amount: 75 },
     ])
   })
 
   test('repayDebt intent rejects invalid, missing, unavailable, and unaffordable repayments', () => {
-    const start = area({
+    const start = claimedArea({
       citizens: [
         sim('c1', {
           money: 10,
