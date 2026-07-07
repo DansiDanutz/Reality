@@ -31,6 +31,16 @@ export interface LifePlanTask {
   route: LifePlanRoute
 }
 
+export interface LifeRoutineBlock {
+  id: string
+  title: string
+  detail: string
+  value: LifeValue
+  minutes: number
+  route: LifePlanRoute
+  taskId?: string
+}
+
 export interface LifeTimeBudget {
   sleepMinutes: number
   workMinutes: number
@@ -60,6 +70,7 @@ export interface LifePlan {
   primary: LifePlanTask
   agenda: LifePlanTask[]
   support: LifePlanTask[]
+  routine: LifeRoutineBlock[]
   valuesCovered: LifeValue[]
   timeBudget: LifeTimeBudget
   constructionForecast: ConstructionDayForecast | null
@@ -96,6 +107,18 @@ const CASH_SAFETY_FLOOR = 100
 
 function task(id: string, title: string, detail: string, value: LifeValue, route: LifePlanRoute, minutes: number): LifePlanTask {
   return { id, title, detail, value, route, minutes }
+}
+
+function routineBlock(
+  id: string,
+  title: string,
+  detail: string,
+  value: LifeValue,
+  route: LifePlanRoute,
+  minutes: number,
+  taskId?: string,
+): LifeRoutineBlock {
+  return { id, title, detail, value, route, minutes, taskId }
 }
 
 export function lifeDayFromCreatedAt(createdAt: number, now = Date.now()): number {
@@ -256,6 +279,68 @@ function compactAgenda(tasks: (LifePlanTask | null)[]): LifePlanTask[] {
   return agenda
 }
 
+function firstTaskByValue(tasks: LifePlanTask[], values: LifeValue[]): LifePlanTask | null {
+  return tasks.find((item) => values.includes(item.value)) ?? null
+}
+
+function buildDailyRoutine(snapshot: LifeLadderSnapshot, primary: LifePlanTask, agenda: LifePlanTask[], support: LifePlanTask[]): LifeRoutineBlock[] {
+  const taskPool = [primary, ...agenda, ...support]
+  const bodyTask = primary.value === 'body' ? primary : firstTaskByValue(taskPool, ['body'])
+  const workTask = firstTaskByValue(taskPool, ['work'])
+  const growthTask = firstTaskByValue(taskPool, ['school', 'community', 'friendship', 'respect'])
+  const capitalTask = firstTaskByValue(taskPool, ['capital'])
+  const hasActiveBuild = snapshot.constructionProjects.length > 0 || snapshot.businessDevelopmentProjects.length > 0
+
+  return [
+    routineBlock(
+      'sleep-block',
+      'Sleep',
+      'Protect the next day with a full rest window.',
+      'body',
+      { kind: 'panel', panel: snapshot.assets.some((asset) => asset.kind === 'home') ? 'home' : 'assets' },
+      STANDARD_DAY_BUDGET.sleepMinutes,
+    ),
+    routineBlock(
+      'body-block',
+      bodyTask?.title ?? 'Food, water, hygiene',
+      bodyTask?.detail ?? 'Keep hunger, hydration, hygiene, and energy above the danger zone.',
+      'body',
+      bodyTask?.route ?? { kind: 'market', focus: 'food' },
+      STANDARD_DAY_BUDGET.bodyMinutes,
+      bodyTask?.id,
+    ),
+    routineBlock(
+      'work-block',
+      workTask?.title ?? (snapshot.jobId ? 'Work a reliable shift' : 'Find honest work'),
+      workTask?.detail ?? (snapshot.jobId ? 'Income funds food, permits, workers, and ownership.' : 'A job turns the day into a repeatable plan.'),
+      'work',
+      workTask?.route ?? { kind: 'panel', panel: 'work' },
+      snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30,
+      workTask?.id,
+    ),
+    routineBlock(
+      'growth-block',
+      growthTask?.title ?? 'Study or help someone',
+      growthTask?.detail ?? 'School, respect, friendship, and community make the money loop stable.',
+      growthTask?.value ?? 'school',
+      growthTask?.route ?? { kind: 'market', focus: 'education' },
+      STANDARD_DAY_BUDGET.adminCommunityMinutes,
+      growthTask?.id,
+    ),
+    routineBlock(
+      'free-time-block',
+      capitalTask ? `Free time: ${capitalTask.title}` : 'Free time: save toward ownership',
+      hasActiveBuild
+        ? 'Use the hours outside sleep and work to gather, deposit, build, or hire help.'
+        : 'Turn surplus money and time into a house, business, and compounding cashflow.',
+      'capital',
+      capitalTask?.route ?? { kind: 'panel', panel: 'assets' },
+      STANDARD_DAY_BUDGET.flexibleMinutes,
+      capitalTask?.id,
+    ),
+  ]
+}
+
 export function constructionDayForecast(
   project: ConstructionProject = {
     id: 'starter-house-plan',
@@ -342,6 +427,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     primary,
     agenda,
     support,
+    routine: buildDailyRoutine(snapshot, primary, agenda, support),
     valuesCovered,
     timeBudget: STANDARD_DAY_BUDGET,
     constructionForecast: homeProject || !snapshot.assets.some((asset) => asset.kind === 'home')
