@@ -428,6 +428,7 @@ export function constructionDayForecast(
     laborRequiredMinutes: STARTER_HOUSE_RECIPE.laborRequiredMinutes,
     laborDoneMinutes: 0,
     hiredLaborMinutes: 0,
+    workerContracts: [],
     permitFee: STARTER_HOUSE_RECIPE.permitFee,
     permitFeePaid: false,
     incomePerDay: 0,
