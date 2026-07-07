@@ -2273,6 +2273,55 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('buildBusiness returns a structured storage failure when pre-build catch-up cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = {
+      ...fragileFounder,
+      updatedAt: '2026-07-06T04:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T04:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-build-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'water',
+          businessId: 'water-after-collapse',
+          name: 'Too Late Water',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        updatedAt: '2026-07-06T04:00:00.000Z',
+        businesses: [],
+        transactions: stale.transactions,
+      },
+      dashboard: {
+        updatedAt: '2026-07-06T04:00:00.000Z',
+      },
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('service purchases move server money and improve founder needs', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
