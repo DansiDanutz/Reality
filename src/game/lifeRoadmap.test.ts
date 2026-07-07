@@ -77,13 +77,13 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.constructionProjects.length).toBe(1)
   })
 
-  test('projects Workers Hall helper labor into a completed house asset', () => {
+  test('projects routed Workers Hall helper hours into a completed house asset', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
-    const readyForFinalHour = {
+    const readyForFinalHelperBlock = {
       ...project,
       deposited: freshResources(project.required),
       permitFeePaid: true,
-      laborDoneMinutes: project.laborRequiredMinutes - 60,
+      laborDoneMinutes: project.laborRequiredMinutes - 120,
     }
 
     const roadmap = planLifeRoadmap(snap({
@@ -92,10 +92,11 @@ describe('planLifeRoadmap', () => {
       jobId: 'barista',
       shiftsWorked: 5,
       educationActions: 1,
-      constructionProjects: [readyForFinalHour],
+      constructionProjects: [readyForFinalHelperBlock],
     }), 1)
 
     expect(roadmap.days[0].primary.id).toBe('hire-house-worker-hour')
+    expect(roadmap.days[0].primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 2 })
     expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(0)
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
   })
@@ -122,7 +123,8 @@ describe('planLifeRoadmap', () => {
       businessDevelopmentProjects: [readyForFinalHour],
     }), 1)
 
-    expect(roadmap.days[0].primary.id).toBe('develop-business-hour')
+    expect(roadmap.days[0].primary.id).toBe('hire-business-worker-hour')
+    expect(roadmap.days[0].primary.route).toEqual({ kind: 'business-development-action', projectId: readyForFinalHour.id, action: 'hire-helper', hours: 1 })
     expect(roadmap.finalSnapshot.businessDevelopmentProjects).toHaveLength(0)
     expect(roadmap.finalSnapshot.assets.find((candidate) => candidate.id === asset.id)).toMatchObject({
       level: readyForFinalHour.levelTo,

@@ -252,7 +252,7 @@ export default function GoalsCard() {
       if (route.action === 'deposit') depositConstructionResources(route.projectId)
       else if (route.action === 'permit') payConstructionPermit(route.projectId)
       else if (route.action === 'work') startConstructionWork(route.projectId)
-      else if (route.action === 'hire-helper') hireConstructionWorker(route.projectId, 'helper', 1)
+      else if (route.action === 'hire-helper') hireConstructionWorker(route.projectId, 'helper', route.hours ?? 1)
       else completeConstructionIfReady(route.projectId)
       return
     }
@@ -260,7 +260,7 @@ export default function GoalsCard() {
       if (route.action === 'deposit') depositBusinessDevelopmentResources(route.projectId)
       else if (route.action === 'budget') payBusinessDevelopmentBudget(route.projectId)
       else if (route.action === 'work') startBusinessDevelopmentWork(route.projectId)
-      else if (route.action === 'hire-helper') hireBusinessDevelopmentWorker(route.projectId, 'helper', 1)
+      else if (route.action === 'hire-helper') hireBusinessDevelopmentWorker(route.projectId, 'helper', route.hours ?? 1)
       else completeBusinessDevelopmentIfReady(route.projectId)
       return
     }
