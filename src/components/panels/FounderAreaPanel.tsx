@@ -91,6 +91,7 @@ import {
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
 } from './founderAreaPanelView'
+import { founderCitizenIdentityBadge } from './founderCitizenIdentity'
 
 type PanelState =
   | { status: 'loading' }
@@ -864,10 +865,18 @@ export default function FounderAreaPanel() {
                 const survivalAction = survival?.actions.find((action) => action.available && action.canAfford)
                 const debtAction = resident.debts.find((debt) => debt.canRepayNow)
                 const canBuyInsurance = resident.id === profile.founderId && resident.insuranceAction.canBuyNow
+                const identityBadge = founderCitizenIdentityBadge(resident)
                 return (
-                  <li className={`item founder-citizen ${resident.visualTone}`} key={resident.id}>
+                  <li
+                    className={`item founder-citizen ${resident.visualTone}`}
+                    key={resident.id}
+                    aria-label={identityBadge.ariaLabel}
+                  >
                     <div className="item-info">
-                      <span className="item-name">{resident.displayName}</span>
+                      <span className="founder-citizen-heading">
+                        <span className="item-name">{resident.displayName}</span>
+                        <span className={identityBadge.className}>{identityBadge.label}</span>
+                      </span>
                       <span className="item-desc">
                         {resident.state} · health {Math.round(resident.health)} · {resident.participantLabel}
                       </span>
@@ -945,38 +954,48 @@ export default function FounderAreaPanel() {
               <p className="panel-sub">No open staffing needs.</p>
             ) : (
               <ul className="item-list">
-                {dashboard.jobs.candidates.slice(0, 5).map((candidate) => (
-                  <li className={`item founder-citizen ${candidate.visualTone}`} key={candidate.citizenId}>
-                    <div className="item-info">
-                      <span className="item-name">{candidate.displayName}</span>
-                      <span className="item-desc">
-                        {candidate.participantLabel} · {candidate.recommendedBusinessName ?? 'no open business'}
-                      </span>
-                      {candidate.recommendedBusinessKind && (
-                        <span className="item-yield mono">{candidate.recommendedBusinessKind} worker</span>
-                      )}
-                    </div>
-                    <div className="item-buy">
-                      {candidate.clientPayload ? (
-                        <button
-                          className="btn small"
-                          disabled={busy}
-                          onClick={() => void submitPayload(candidate.clientPayload, `Hired ${candidate.displayName}.`)}
-                        >
-                          Hire
-                        </button>
-                      ) : (
-                        <span className="item-locked">
-                          {candidate.action === 'requires_acceptance'
-                            ? 'needs acceptance'
-                            : candidate.action === 'founder_unavailable'
-                              ? 'recover first'
-                              : 'waiting'}
+                {dashboard.jobs.candidates.slice(0, 5).map((candidate) => {
+                  const identityBadge = founderCitizenIdentityBadge(candidate)
+                  return (
+                    <li
+                      className={`item founder-citizen ${candidate.visualTone}`}
+                      key={candidate.citizenId}
+                      aria-label={identityBadge.ariaLabel}
+                    >
+                      <div className="item-info">
+                        <span className="founder-citizen-heading">
+                          <span className="item-name">{candidate.displayName}</span>
+                          <span className={identityBadge.className}>{identityBadge.label}</span>
                         </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                        <span className="item-desc">
+                          {candidate.participantLabel} · {candidate.recommendedBusinessName ?? 'no open business'}
+                        </span>
+                        {candidate.recommendedBusinessKind && (
+                          <span className="item-yield mono">{candidate.recommendedBusinessKind} worker</span>
+                        )}
+                      </div>
+                      <div className="item-buy">
+                        {candidate.clientPayload ? (
+                          <button
+                            className="btn small"
+                            disabled={busy}
+                            onClick={() => void submitPayload(candidate.clientPayload, `Hired ${candidate.displayName}.`)}
+                          >
+                            Hire
+                          </button>
+                        ) : (
+                          <span className="item-locked">
+                            {candidate.action === 'requires_acceptance'
+                              ? 'needs acceptance'
+                              : candidate.action === 'founder_unavailable'
+                                ? 'recover first'
+                                : 'waiting'}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </section>
