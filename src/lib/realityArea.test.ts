@@ -1722,7 +1722,7 @@ describe('Reality area client', () => {
       manualReviewRequired: true,
       namedHeirCitizenId: 'heir-1',
       namedHeirName: 'Ada Heir',
-      protectedByInsurance: true,
+      protectedByInsurance: false,
       status: 'disabled_until_death_enabled',
       blockers: [
         'death_disabled',

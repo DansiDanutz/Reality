@@ -613,6 +613,34 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('buyInsurance intent lets citizens replace stale insurance markers', () => {
+    const staleCoverage = claimedArea({
+      citizens: [sim('resident', {
+        money: 500,
+        insuranceBusinessId: 'missing-insurer',
+        insurancePaidUntil: HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(staleCoverage, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected stale insurance marker not to block replacement')
+    const resident = result.area.citizens.find((c) => c.id === 'resident')!
+    expect(resident.money).toBe(455)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(INSURANCE_POLICY_PERIOD_MS)
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(45)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+  })
+
   test('buyInsurance intent rejects hospitalized citizens', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500, state: { kind: 'hospitalized', until: 10 * HOUR } })],
@@ -673,6 +701,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(summary.insurancePremiumsPaid).toBe(0)
     expect(summary.insurancePoliciesLapsed).toBe(1)
     expect(out.transactions).toEqual([])
+  })
+
+  test('stale insurance providers lapse before Sim Citizens buy valid coverage', () => {
+    const start = area({
+      citizens: [sim('resident', {
+        money: 100,
+        insuranceBusinessId: 'missing-insurer',
+        insurancePaidUntil: 2 * HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { cash: 10, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+    const insurer = out.businesses[0]
+
+    expect(resident.money).toBe(55)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(insurer.cash).toBe(55)
+    expect(summary.insurancePoliciesLapsed).toBe(1)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
   })
 
   test('Sim Citizens buy first insurance policies from local insurers with real premiums', () => {
@@ -2780,6 +2833,37 @@ describe('advanceWorldArea — local real-time economy', () => {
       canAfford: false,
       canBuyNow: false,
       blockers: ['service_unavailable'],
+    })
+  })
+
+  test('dashboard treats stale provider insurance as uninsured demand', () => {
+    const dash = areaNeedsDashboard(area({
+      now: HOUR,
+      citizens: [sim('stale-covered', {
+        money: 50,
+        insuranceBusinessId: 'missing-insurer',
+        insurancePaidUntil: 2 * HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { price: 45 })],
+    }))
+
+    expect(dash.demand.insurance).toBe(1)
+    expect(dash.simDemand.insurance).toBe(1)
+    expect(dash.citizens[0]).toMatchObject({
+      insuranceBusinessId: 'missing-insurer',
+      insuranceActive: false,
+      insuranceAction: {
+        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
+        insuranceBusinessId: 'ins1',
+        premium: 45,
+        available: true,
+        canAfford: true,
+        canBuyNow: true,
+        blockers: [],
+      },
+      estateProtection: {
+        protectedByInsurance: false,
+      },
     })
   })
 
