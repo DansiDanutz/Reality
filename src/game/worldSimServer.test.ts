@@ -1940,6 +1940,37 @@ describe('runWorldServerCommand', () => {
     expect(repo.saveAttempts).toBe(2)
   })
 
+  test('returns a structured error when intent mutations cannot save area state', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo, citizen('founder', { needs: needs({ hydration: 80 }) }))
+    repo.saveArea = async () => {
+      repo.saveAttempts += 1
+      throw new Error('area save unavailable')
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyIntent',
+      areaId: 'area-1',
+      now: 1_000 + HOUR,
+      authenticatedCitizenId: 'founder',
+      intent: {
+        type: 'buildBusiness',
+        actorCitizenId: 'founder',
+        businessId: 'water-a',
+        blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+      },
+    })
+    const saved = await repo.loadArea('area-1')
+
+    expect(result).toMatchObject({ ok: false, error: 'area_repository_unavailable' })
+    expect(result.area?.now).toBe(1_000)
+    expect(result.area?.businesses).toEqual([])
+    expect(saved?.businesses).toEqual([])
+    expect(saved?.transactions.map((transaction) => transaction.kind)).toEqual(['founder_credit'])
+    expect(repo.saves).toBe(1)
+    expect(repo.saveAttempts).toBe(2)
+  })
+
   test('applies survival purchase intents through server-owned state', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 20 }) }))
