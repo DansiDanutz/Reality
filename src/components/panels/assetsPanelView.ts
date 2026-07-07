@@ -26,16 +26,19 @@ export function businessInteriorAssetView(project: BusinessDevelopmentProject) {
   const missing = businessDevelopmentShortfall(project)
   const labor = businessDevelopmentLaborBreakdown(project)
   const missingText = missingResourceText(missing)
+  const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
   return {
     progress,
     missingText,
     labor,
+    activeWorkerCount: activeWorkers.length,
     title: `${project.businessName} interior`,
     levelText: `L${project.levelFrom} to L${project.levelTo}`,
     incomeText: `+${formatMoney(project.incomeDelta)}/day when finished`,
     materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
     budgetText: project.budgetPaid ? 'budget paid' : `${formatMoney(project.budgetCost)} budget`,
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
+    workerText: activeWorkers.length > 0 ? `${activeWorkers.length} worker active` : null,
     percentText: `${progress.percent}% ready`,
   }
 }

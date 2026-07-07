@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   addBusinessDevelopmentLabor,
+  advanceBusinessDevelopmentWorkerContracts,
   businessDevelopmentProgress,
   businessDevelopmentShortfall,
   completeBusinessDevelopmentProject,
@@ -75,9 +76,35 @@ describe('business development projects', () => {
     expect(blockedBudget?.blockedBy).toBe('budget')
 
     const paid = payBusinessDevelopmentBudget(deposited, project.budgetCost).project
-    const hired = hireBusinessDevelopmentWorker(paid, 'helper', 100, 1)
+    const hired = hireBusinessDevelopmentWorker(paid, 'helper', 100, 1, 1_000)
     expect(hired.hired).toBe(true)
     expect(hired.money).toBe(84)
-    expect(hired.project.hiredLaborMinutes).toBe(60)
+    expect(hired.project.laborDoneMinutes).toBe(0)
+    expect(hired.project.hiredLaborMinutes).toBe(0)
+    expect(hired.project.workerContracts).toHaveLength(1)
+    expect(hired.project.workerContracts[0]).toMatchObject({
+      workerId: 'helper',
+      paidMinutes: 60,
+      workedMinutes: 0,
+    })
+  })
+
+  test('worker contracts advance interior labor over elapsed paid minutes', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_000)!
+    const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project
+    const paid = payBusinessDevelopmentBudget(deposited, project.budgetCost).project
+    const hired = hireBusinessDevelopmentWorker(paid, 'helper', 100, 1, 1_000)
+
+    const halfHour = advanceBusinessDevelopmentWorkerContracts(hired.project, 1_000 + 30 * 60_000)
+    expect(halfHour.laborMinutes).toBe(30)
+    expect(halfHour.project.laborDoneMinutes).toBe(30)
+    expect(halfHour.project.hiredLaborMinutes).toBe(30)
+    expect(halfHour.project.workerContracts[0].workedMinutes).toBe(30)
+
+    const finishedContract = advanceBusinessDevelopmentWorkerContracts(halfHour.project, 1_000 + 60 * 60_000)
+    expect(finishedContract.laborMinutes).toBe(30)
+    expect(finishedContract.project.laborDoneMinutes).toBe(60)
+    expect(finishedContract.project.hiredLaborMinutes).toBe(60)
+    expect(finishedContract.project.workerContracts[0].workedMinutes).toBe(60)
   })
 })

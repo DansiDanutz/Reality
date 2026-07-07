@@ -130,7 +130,7 @@ export default function AssetsPanel() {
                           <div style={{ width: `${progress.percent}%` }} />
                         </div>
                         <span className="item-desc">
-                          {view.materialText} · {view.budgetText} · {view.laborText}
+                          {[view.materialText, view.budgetText, view.laborText, view.workerText].filter(Boolean).join(' · ')}
                         </span>
                         <span className="house-stage-list compact" aria-label={`${project.businessName} interior stages`}>
                           <span className={progress.resourcesComplete ? 'chip ok' : 'chip'}>materials</span>
