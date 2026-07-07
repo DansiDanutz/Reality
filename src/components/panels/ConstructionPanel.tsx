@@ -10,6 +10,7 @@ import {
 import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
+import { constructionFinalStageView } from './constructionPanelView'
 
 function pct(current: number, target: number): number {
   if (target <= 0) return 100
@@ -65,6 +66,7 @@ export default function ConstructionPanel() {
   const planPermitFee = activeProject?.permitFee ?? STARTER_HOUSE_RECIPE.permitFee
   const planLaborMinutes = activeProject?.laborRequiredMinutes ?? STARTER_HOUSE_RECIPE.laborRequiredMinutes
   const planPercent = activeProgress?.percent ?? (hasStarterHome ? 100 : 0)
+  const finalStage = constructionFinalStageView(planKind, Boolean(activeProgress?.complete), hasStarterHome)
 
   return (
     <section className="panel construction-panel" aria-label="Construction">
@@ -95,7 +97,7 @@ export default function ConstructionPanel() {
             <span className={activeProgress?.resourcesComplete || (planKind === 'home' && hasStarterHome) ? 'chip ok' : 'chip'}>ingredients</span>
             <span className={activeProgress?.permitComplete || (planKind === 'home' && hasStarterHome) ? 'chip ok' : 'chip'}>permit</span>
             <span className={activeProgress?.laborComplete || (planKind === 'home' && hasStarterHome) ? 'chip ok' : 'chip'}>labor</span>
-            <span className={planKind === 'home' && hasStarterHome ? 'chip gold' : 'chip'}>{planKind === 'business' ? 'open' : 'inside'}</span>
+            <span className={finalStage.className}>{finalStage.label}</span>
           </div>
           <p className="panel-sub">
             {planName} needs {RESOURCE_KINDS.map((kind) => `${planRequired[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`).join(', ')}, {formatMoney(planPermitFee)} permit, and {formatMinutes(planLaborMinutes)} of work.
