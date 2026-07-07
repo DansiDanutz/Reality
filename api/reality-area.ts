@@ -6388,12 +6388,36 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     typeof value.areaId === 'string' &&
     typeof value.founderNumber === 'number' &&
     typeof value.balance === 'number' &&
-    isRecord(value.claim) &&
-    (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
-    (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
+    isFounderAreaClaim(value.claim, citizenId, value.founderNumber) &&
     Array.isArray(value.businesses) &&
     Array.isArray(value.transactions) &&
     (value.areaEvents === undefined || Array.isArray(value.areaEvents))
+}
+
+function isFounderAreaClaim(value: unknown, citizenId: string, founderNumber: number): value is FounderAreaClaim {
+  return isRecord(value) &&
+    value.founderCitizenId === citizenId &&
+    value.founderNumber === founderNumber &&
+    typeof value.label === 'string' &&
+    value.label.trim().length > 0 &&
+    typeof value.centerLat === 'number' &&
+    Number.isFinite(value.centerLat) &&
+    value.centerLat >= -90 &&
+    value.centerLat <= 90 &&
+    typeof value.centerLng === 'number' &&
+    Number.isFinite(value.centerLng) &&
+    value.centerLng >= -180 &&
+    value.centerLng <= 180 &&
+    typeof value.radiusKm === 'number' &&
+    Number.isFinite(value.radiusKm) &&
+    value.radiusKm >= MIN_FOUNDER_AREA_RADIUS_KM &&
+    value.radiusKm <= MAX_FOUNDER_AREA_RADIUS_KM &&
+    typeof value.claimedAt === 'string' &&
+    Number.isFinite(Date.parse(value.claimedAt)) &&
+    typeof value.source === 'string' &&
+    isClaimSource(value.source) &&
+    (value.telegramUserId === undefined || typeof value.telegramUserId === 'string') &&
+    (value.telegramAccountId === undefined || typeof value.telegramAccountId === 'string')
 }
 
 function isFounderAreaEvent(value: unknown): value is FounderAreaEvent {

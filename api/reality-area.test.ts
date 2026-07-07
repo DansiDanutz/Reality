@@ -2914,6 +2914,59 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('tickAreas rejects persisted area states with malformed claim envelopes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const malformedClaim = {
+      ...existingState(),
+      claim: {
+        ...existingState().claim,
+        claimedAt: undefined,
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://malformed-claim-clock-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(malformedClaim), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        intent: { type: 'tickAreas', limit: 1 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; clock: {
+      scanned: number
+      caughtUp: number
+      current: number
+      failed: number
+      results: {
+        citizenId: string | null
+        areaId: string | null
+        status: string
+        updatedAt: string | null
+        transactionsAdded: number
+      }[]
+    } }
+    expect(body.clock).toMatchObject({
+      scanned: 1,
+      caughtUp: 0,
+      current: 0,
+      failed: 1,
+    })
+    expect(body.clock.results).toEqual([{
+      citizenId: CITIZEN_ID,
+      areaId: null,
+      status: 'invalid',
+      updatedAt: null,
+      transactionsAdded: 0,
+    }])
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas accepts cron-style GET with bearer server-clock authority', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
