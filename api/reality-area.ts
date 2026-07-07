@@ -5017,7 +5017,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      const stateForRepayment = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      let stateForRepayment = existing
+      if (existing) {
+        try {
+          stateForRepayment = await catchUpPersistedAreaState(citizen.citizenId, existing, now)
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+          })
+          return
+        }
+      }
       const result = applyRepayDebtIntent(
         stateForRepayment,
         { type: 'repayDebt', debtId: intent.debtId, amount: intent.amount },
