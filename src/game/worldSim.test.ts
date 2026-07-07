@@ -581,6 +581,34 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(start.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
   })
 
+  test('buyInsurance intent falls back to the default premium when stored premiums are invalid', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', 'ins1', {
+        ownerId: 'founder',
+        cash: 10,
+        price: Number.POSITIVE_INFINITY,
+      })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected insurance purchase to succeed with default premium')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(455)
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(55)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+    expect(areaNeedsDashboard(result.area).existingBusinesses.find((b) => b.id === 'ins1')).toMatchObject({
+      price: 45,
+    })
+  })
+
   test('buyInsurance intent rejects duplicate coverage, wrong business type, and insufficient funds', () => {
     const insured = claimedArea({
       citizens: [sim('resident', { money: 500, insuranceBusinessId: 'ins1', insurancePaidUntil: HOUR })],
@@ -726,6 +754,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toMatchObject([
       { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
     ])
+  })
+
+  test('buyWater intent falls back to the default price when stored prices are invalid', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
+      businesses: [business('water', 'water1', {
+        ownerId: 'founder',
+        cash: 5,
+        price: Number.NaN,
+      })],
+    })
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected water purchase to succeed with default price')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(18)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.needs.hydration).toBe(55)
+    expect(result.area.businesses.find((b) => b.id === 'water1')!.cash).toBe(7)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
+    ])
+    expect(areaNeedsDashboard(result.area).existingBusinesses.find((b) => b.id === 'water1')).toMatchObject({
+      price: 2,
+    })
   })
 
   test('buyHousing intent routes rest to a local housing business', () => {
@@ -979,6 +1032,34 @@ describe('advanceWorldArea — local real-time economy', () => {
       fromId: 'food1',
       toId: 'worker',
       amount: 15,
+    })
+  })
+
+  test('worker wages fall back to the default wage when stored wages are invalid', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'food1' })],
+      businesses: [business('food', 'food1', {
+        cash: 100,
+        staffCitizenIds: ['worker'],
+        wagePerHour: Number.NaN,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(115)
+    expect(out.citizens[0].jobBusinessId).toBe('food1')
+    expect(out.businesses[0].cash).toBe(85)
+    expect(out.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(summary.wagesPaid).toBe(15)
+    expect(out.transactions[0]).toMatchObject({
+      kind: 'worker_wage',
+      fromId: 'food1',
+      toId: 'worker',
+      amount: 15,
+    })
+    expect(areaNeedsDashboard(out).existingBusinesses.find((candidate) => candidate.id === 'food1')).toMatchObject({
+      wagePerHour: 15,
     })
   })
 

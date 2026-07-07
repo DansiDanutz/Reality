@@ -1179,6 +1179,20 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
   return clamp((business.quality ?? 1) * unmanagedPenalty, 0.15, 1.5)
 }
 
+function businessPrice(business: Pick<WorldBusiness, 'kind' | 'price'>): number {
+  return finitePositiveMoney(business.price) ?? DEFAULT_PRICES[business.kind]
+}
+
+function businessWage(business: Pick<WorldBusiness, 'kind' | 'wagePerHour'>): number {
+  return finitePositiveMoney(business.wagePerHour) ??
+    DEFAULT_BUSINESS_BLUEPRINTS[business.kind].wagePerHour ??
+    DEFAULT_WORKER_WAGE
+}
+
+function finitePositiveMoney(value: number | undefined): number | null {
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : null
+}
+
 function buildRecommendation(
   kind: WorldBusinessKind,
   input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
@@ -1416,11 +1430,9 @@ function totalDebt(citizen: WorldCitizen): number {
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
   const insurers = area.businesses
     .filter((business) => business.kind === 'insurance')
-    .sort((a, b) =>
-      (a.price ?? DEFAULT_PRICES.insurance) - (b.price ?? DEFAULT_PRICES.insurance) || a.id.localeCompare(b.id),
-    )
+    .sort((a, b) => businessPrice(a) - businessPrice(b) || a.id.localeCompare(b.id))
   const insurer = insurers[0]
-  const premium = insurer ? insurer.price ?? DEFAULT_PRICES.insurance : null
+  const premium = insurer ? businessPrice(insurer) : null
   const activeInsurance = hasActiveInsurance(citizen, at)
   const canAfford = premium !== null && citizen.money >= premium
   const blockers: AreaInsuranceActionBlocker[] = []
@@ -2528,8 +2540,8 @@ function businessDashboard(area: WorldArea, business: WorldBusiness): AreaBusine
     kind: business.kind,
     ownerId: business.ownerId,
     cash: business.cash,
-    price: business.price ?? DEFAULT_PRICES[business.kind],
-    wagePerHour: business.wagePerHour ?? DEFAULT_WORKER_WAGE,
+    price: businessPrice(business),
+    wagePerHour: businessWage(business),
     quality,
     activeStaff,
     targetStaff,
@@ -2559,7 +2571,7 @@ function businessAlerts(
       severity: input.activeStaff === 0 && input.targetStaff > 0 ? 'critical' : 'warning',
     })
   }
-  const nextHourWageDue = (business.wagePerHour ?? DEFAULT_WORKER_WAGE) * input.activeStaff
+  const nextHourWageDue = businessWage(business) * input.activeStaff
   if (input.activeStaff > 0 && business.cash < nextHourWageDue) {
     alerts.push({ kind: 'cash_risk', severity: 'critical' })
   }
@@ -2687,7 +2699,7 @@ function survivalActionForWarning(
   const { intent, serviceKind } = survivalActionTarget(warning)
   const prices = area.businesses
     .filter((business) => business.kind === serviceKind && serviceCapacity(area, business, 1) > 0)
-    .map((business) => business.price ?? DEFAULT_PRICES[serviceKind])
+    .map(businessPrice)
   const lowestPrice = prices.length > 0 ? Math.min(...prices) : null
   const available = lowestPrice !== null
   const canAfford = lowestPrice !== null && citizen.money >= lowestPrice
@@ -2863,7 +2875,7 @@ function buyInsuranceFromIntent(
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
 
-  const premium = insurer.price ?? DEFAULT_PRICES.insurance
+  const premium = businessPrice(insurer)
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
 
   actor.money = roundMoney(actor.money - premium)
@@ -2899,7 +2911,7 @@ function buyServiceFromIntent(
   const business = chooseBusiness(area, kind, context)
   if (!business) return { ok: false, area, error: 'service_not_available' }
 
-  const price = business.price ?? DEFAULT_PRICES[kind]
+  const price = businessPrice(business)
   if (actor.money < price) return { ok: false, area, error: 'insufficient_funds' }
 
   completeServicePurchase(area, actor, business, kind, context)
@@ -3041,7 +3053,7 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
       continue
     }
 
-    const premium = insurer.price ?? DEFAULT_PRICES.insurance
+    const premium = businessPrice(insurer)
     if (citizen.money < premium) {
       lapseInsurance(citizen, context)
       continue
@@ -3073,7 +3085,7 @@ function hasActiveInsurance(citizen: WorldCitizen, at: number): boolean {
 
 function payWorkerWages(area: WorldArea, context: StepContext): void {
   for (const business of area.businesses) {
-    const wage = business.wagePerHour ?? DEFAULT_WORKER_WAGE
+    const wage = businessWage(business)
     const due = roundMoney(wage * context.hours)
     if (due <= 0) continue
     const retainedStaffIds: string[] = []
@@ -3228,7 +3240,7 @@ function purchaseService(
 ): boolean {
   const business = chooseBusiness(area, kind, context)
   if (!business) return false
-  const price = business.price ?? DEFAULT_PRICES[kind]
+  const price = businessPrice(business)
   if (citizen.money < price) return false
 
   completeServicePurchase(area, citizen, business, kind, context)
@@ -3242,7 +3254,7 @@ function completeServicePurchase(
   kind: WorldBusinessKind,
   context: StepContext,
 ): void {
-  const price = business.price ?? DEFAULT_PRICES[kind]
+  const price = businessPrice(business)
   reserveBusinessCapacity(context, business)
   citizen.money = roundMoney(citizen.money - price)
   business.cash = roundMoney(business.cash + price)
@@ -3267,7 +3279,7 @@ function purchaseInsurancePolicy(
 ): boolean {
   const insurer = chooseBusiness(area, 'insurance', context)
   if (!insurer) return false
-  const premium = insurer.price ?? DEFAULT_PRICES.insurance
+  const premium = businessPrice(insurer)
   if (citizen.money < premium) return false
 
   reserveBusinessCapacity(context, insurer)
