@@ -2914,7 +2914,7 @@ function repayDebtFromIntent(
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
 
-  if (!Number.isFinite(intent.amount) || intent.amount <= 0) {
+  if (!Number.isFinite(intent.amount) || intent.amount <= 0 || roundMoney(intent.amount) !== intent.amount) {
     return { ok: false, area, error: 'invalid_debt_payment' }
   }
 
