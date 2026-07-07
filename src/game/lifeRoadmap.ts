@@ -1,5 +1,6 @@
 import {
   addBusinessDevelopmentLabor,
+  advanceBusinessDevelopmentWorkerContracts,
   businessDevelopmentProgress,
   completeBusinessDevelopmentProject,
   createBusinessDevelopmentProject,
@@ -10,6 +11,7 @@ import {
 import { jobById } from './catalog'
 import {
   addConstructionLabor,
+  advanceConstructionWorkerContracts,
   businessConstructionRecipe,
   completeConstructionProject,
   createConstructionProject,
@@ -56,10 +58,15 @@ export interface LifeRoadmap {
 const DEFAULT_ROADMAP_DAYS = 8
 const MAX_ROADMAP_DAYS = 30
 const FOODCART_ITEM = { id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 200 }
+const ROADMAP_DAY_MS = 24 * 60 * 60 * 1000
 
 function clampHorizon(days: number): number {
   if (!Number.isFinite(days)) return DEFAULT_ROADMAP_DAYS
   return Math.min(MAX_ROADMAP_DAYS, Math.max(1, Math.floor(days)))
+}
+
+function roadmapDayStartMs(lifeDay: number): number {
+  return Math.max(0, Math.floor(lifeDay)) * ROADMAP_DAY_MS
 }
 
 function cloneSnapshot(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
@@ -276,16 +283,13 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateConstructionProject(next, route.projectId, (project) => addConstructionLabor(project, 60))
     } else if (route.action === 'hire-helper') {
       next = updateConstructionProject(next, route.projectId, (project, current) => {
-        const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, current.lifeDay)
-        const withLabor = addConstructionLabor(hired.project, hired.laborMinutes)
+        const now = roadmapDayStartMs(current.lifeDay)
+        const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, now)
+        const advanced = hired.contract
+          ? advanceConstructionWorkerContracts(hired.project, hired.contract.paidUntil)
+          : { project: hired.project }
         next = { ...current, money: hired.money }
-        return {
-          ...withLabor,
-          hiredLaborMinutes: Math.min(withLabor.laborDoneMinutes, withLabor.hiredLaborMinutes + hired.laborMinutes),
-          workerContracts: withLabor.workerContracts.map((contract) =>
-            contract.id === hired.contract?.id ? { ...contract, workedMinutes: contract.paidMinutes } : contract
-          ),
-        }
+        return advanced.project
       })
     }
     next = applyConstructionCompletion(next, route.projectId)
@@ -308,16 +312,13 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateBusinessDevelopmentProject(next, route.projectId, (project) => addBusinessDevelopmentLabor(project, 60))
     } else if (route.action === 'hire-helper') {
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
-        const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, current.lifeDay)
-        const withLabor = addBusinessDevelopmentLabor(hired.project, hired.laborMinutes)
+        const now = roadmapDayStartMs(current.lifeDay)
+        const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, now)
+        const advanced = hired.contract
+          ? advanceBusinessDevelopmentWorkerContracts(hired.project, hired.contract.paidUntil)
+          : { project: hired.project }
         next = { ...current, money: hired.money }
-        return {
-          ...withLabor,
-          hiredLaborMinutes: Math.min(withLabor.laborDoneMinutes, withLabor.hiredLaborMinutes + hired.laborMinutes),
-          workerContracts: withLabor.workerContracts.map((contract) =>
-            contract.id === hired.contract?.id ? { ...contract, workedMinutes: contract.paidMinutes } : contract
-          ),
-        }
+        return advanced.project
       })
     }
     next = applyBusinessCompletion(next, route.projectId)

@@ -7,6 +7,7 @@ import { freshResources } from './resources'
 import type { Needs, PlacedAsset } from './types'
 
 const goodNeeds: Needs = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 70 }
+const DAY_MS = 24 * 60 * 60 * 1000
 
 function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
   return {
@@ -153,6 +154,38 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
   })
 
+  test('projects helper house work through the paid worker contract ledger', () => {
+    const project = createConstructionProject('starter-house', 1, 1, 1)
+    const readyForHelperBlock = {
+      ...project,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 180,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 10,
+      money: 1_000,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      constructionProjects: [readyForHelperBlock],
+    }), 1)
+
+    const remainingProject = roadmap.finalSnapshot.constructionProjects[0]
+    expect(roadmap.days[0].primary.id).toBe('hire-house-worker-hour')
+    expect(remainingProject.laborDoneMinutes).toBe(project.laborRequiredMinutes - 60)
+    expect(remainingProject.hiredLaborMinutes).toBe(120)
+    expect(remainingProject.workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
+      workerId: 'helper',
+      hiredAt: 10 * DAY_MS,
+      paidUntil: 10 * DAY_MS + 2 * 60 * 60 * 1000,
+      paidMinutes: 120,
+      workedMinutes: 120,
+    })
+  })
+
   test('projects cash-tight free-time labor into a completed house without hiring help', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const readyForFinalPlayerHour = {
@@ -205,6 +238,44 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.assets.find((candidate) => candidate.id === asset.id)).toMatchObject({
       level: readyForFinalHour.levelTo,
       incomePerDay: readyForFinalHour.incomeAfter,
+    })
+  })
+
+  test('projects helper business interior work through the paid worker contract ledger', () => {
+    const asset = business()
+    const project = createBusinessDevelopmentProject(asset, 1)
+    if (!project) throw new Error('business development fixture failed')
+    const laborRequiredMinutes = project.laborRequiredMinutes + 180
+    const readyForHelperBlock = {
+      ...project,
+      laborRequiredMinutes,
+      deposited: freshResources(project.required),
+      budgetPaid: true,
+      laborDoneMinutes: laborRequiredMinutes - 180,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 20,
+      money: 2_000,
+      jobId: 'barista',
+      shiftsWorked: 10,
+      educationActions: 1,
+      communityActionsThisWeek: 1,
+      assets: [home(), asset],
+      businessDevelopmentProjects: [readyForHelperBlock],
+    }), 1)
+
+    const remainingProject = roadmap.finalSnapshot.businessDevelopmentProjects[0]
+    expect(roadmap.days[0].primary.id).toBe('hire-business-worker-hour')
+    expect(remainingProject.laborDoneMinutes).toBe(laborRequiredMinutes - 60)
+    expect(remainingProject.hiredLaborMinutes).toBe(120)
+    expect(remainingProject.workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
+      workerId: 'helper',
+      hiredAt: 20 * DAY_MS,
+      paidUntil: 20 * DAY_MS + 2 * 60 * 60 * 1000,
+      paidMinutes: 120,
+      workedMinutes: 120,
     })
   })
 
