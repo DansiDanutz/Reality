@@ -69,6 +69,19 @@ export function constructionForecastCards(forecast: ConstructionDayForecast): Fo
     helperTwoHourCashNeeded: forecast.helperTwoHourCashNeeded,
     idleLabel: 'no helper needed',
   }))
+  cards.push(completionForecastCard({
+    remainingLaborMinutes: forecast.remainingLaborMinutes,
+    playerOnlyCompletionLifeDay: forecast.playerOnlyCompletionLifeDay,
+    helperTwoHourCompletionLifeDay: forecast.helperTwoHourCompletionLifeDay,
+    helperTwoHourDays: forecast.helperTwoHourDays,
+    helperTwoHourAffordableToday: forecast.helperTwoHourAffordableToday,
+    playerOnlyDaysAtOneHour: forecast.playerOnlyDaysAtOneHour,
+    activeWorkerCount: forecast.activeWorkerCount,
+    activeWorkerCompletionLifeDay: forecast.activeWorkerCompletionLifeDay,
+    completeDetail: 'All build gates are ready.',
+    setupReady: forecast.upfrontCostRemaining <= 0 && forecast.totalGatherMinutes <= 0 && forecast.permitRemaining <= 0,
+    subject: 'build',
+  }))
   return cards
 }
 
@@ -108,6 +121,19 @@ export function businessDevelopmentForecastCards(forecast: BusinessDevelopmentDa
       helperTwoHourAffordableToday: forecast.helperTwoHourAffordableToday,
       helperTwoHourCashNeeded: forecast.helperTwoHourCashNeeded,
       idleLabel: 'no interior help needed',
+    }),
+    completionForecastCard({
+      remainingLaborMinutes: forecast.remainingLaborMinutes,
+      playerOnlyCompletionLifeDay: forecast.playerOnlyCompletionLifeDay,
+      helperTwoHourCompletionLifeDay: forecast.helperTwoHourCompletionLifeDay,
+      helperTwoHourDays: forecast.helperTwoHourDays,
+      helperTwoHourAffordableToday: forecast.helperTwoHourAffordableToday,
+      playerOnlyDaysAtOneHour: forecast.playerOnlyDaysAtOneHour,
+      activeWorkerCount: forecast.activeWorkerCount,
+      activeWorkerCompletionLifeDay: forecast.activeWorkerCompletionLifeDay,
+      completeDetail: 'Interior labor is ready.',
+      setupReady: forecast.totalGatherMinutes <= 0 && forecast.budgetRemaining <= 0,
+      subject: 'interior',
     }),
   ]
 }
@@ -164,6 +190,57 @@ function workerForecastCard(input: {
     label: 'Workers',
     value: `${input.helperTwoHourDays}d helper plan`,
     detail: `2h helper adds ${formatForecastMinutes(input.helperTwoHourLaborMinutes)} labor/day for ${formatMoney(input.helperTwoHourCost)}${input.helperTwoHourAffordableToday ? '; affordable today.' : `; save ${formatMoney(input.helperTwoHourCashNeeded)}.`}`,
+  }
+}
+
+function completionForecastCard(input: {
+  remainingLaborMinutes: number
+  playerOnlyCompletionLifeDay: number
+  helperTwoHourCompletionLifeDay: number
+  helperTwoHourDays: number
+  helperTwoHourAffordableToday: boolean
+  playerOnlyDaysAtOneHour: number
+  activeWorkerCount: number
+  activeWorkerCompletionLifeDay: number
+  completeDetail: string
+  setupReady: boolean
+  subject: 'build' | 'interior'
+}): ForecastCardView {
+  if (input.remainingLaborMinutes <= 0) {
+    return {
+      label: 'Finish',
+      value: 'ready',
+      detail: input.completeDetail,
+      tone: 'ok',
+    }
+  }
+  if (input.activeWorkerCount > 0 && input.activeWorkerCompletionLifeDay > 0) {
+    return {
+      label: 'Finish',
+      value: `day ${input.activeWorkerCompletionLifeDay}`,
+      detail: `${input.setupReady ? 'Active paid help plus your free hour' : 'Once gates are ready, active paid help plus your free hour'} can finish the ${input.subject} by then.`,
+      tone: 'gold',
+    }
+  }
+  if (input.helperTwoHourDays < input.playerOnlyDaysAtOneHour && input.helperTwoHourAffordableToday) {
+    return {
+      label: 'Finish',
+      value: `day ${input.helperTwoHourCompletionLifeDay}`,
+      detail: `${input.setupReady ? '2h helper plan' : 'After setup, a 2h helper plan'} beats solo day ${input.playerOnlyCompletionLifeDay}.`,
+      tone: 'gold',
+    }
+  }
+  if (input.helperTwoHourDays < input.playerOnlyDaysAtOneHour) {
+    return {
+      label: 'Finish',
+      value: `day ${input.playerOnlyCompletionLifeDay}`,
+      detail: `Solo path; helper can shorten to day ${input.helperTwoHourCompletionLifeDay} after cash is safe.`,
+    }
+  }
+  return {
+    label: 'Finish',
+    value: `day ${input.playerOnlyCompletionLifeDay}`,
+    detail: `${input.setupReady ? 'At' : 'After setup at'} 1h/day after body care and work.`,
   }
 }
 

@@ -85,10 +85,18 @@ function buildEtaSummary(forecast: ConstructionDayForecast | null): string | nul
     if (forecast.activeWorkerCount > 0) {
       parts.push(`${forecast.activeWorkerCount} worker active`)
       parts.push(`${formatPlanMinutes(Math.round(forecast.activeWorkerLaborMinutesRemaining))} paid help left`)
-    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
+      if (forecast.activeWorkerCompletionLifeDay > 0) parts.push(`finish day ${forecast.activeWorkerCompletionLifeDay}`)
+    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour && forecast.helperTwoHourAffordableToday) {
       parts.push(`${forecast.helperTwoHourDays}d with helper`)
+      parts.push(`finish day ${forecast.helperTwoHourCompletionLifeDay}`)
       parts.push(`${formatMoney(forecast.helperTwoHourCost)}/helper day`)
-      parts.push(forecast.helperTwoHourAffordableToday ? 'hire today' : `save ${formatMoney(forecast.helperTwoHourCashNeeded)}`)
+      parts.push('hire today')
+    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
+      parts.push(`finish day ${forecast.playerOnlyCompletionLifeDay} solo`)
+      parts.push(`${forecast.helperTwoHourDays}d with helper after saving`)
+      parts.push(`save ${formatMoney(forecast.helperTwoHourCashNeeded)}`)
+    } else {
+      parts.push(`finish day ${forecast.playerOnlyCompletionLifeDay}`)
     }
   }
   if (parts.length === 0) return 'Build ready to complete'
@@ -108,12 +116,20 @@ function interiorEtaSummary(forecast: BusinessDevelopmentDayForecast | null): st
     if (forecast.activeWorkerCount > 0) {
       parts.push(`${forecast.activeWorkerCount} worker active`)
       parts.push(`${formatPlanMinutes(Math.round(forecast.activeWorkerLaborMinutesRemaining))} paid help left`)
-    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
+      if (forecast.activeWorkerCompletionLifeDay > 0) parts.push(`finish day ${forecast.activeWorkerCompletionLifeDay}`)
+    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour && forecast.helperTwoHourAffordableToday) {
       parts.push(`${forecast.helperTwoHourDays}d with helper`)
+      parts.push(`finish day ${forecast.helperTwoHourCompletionLifeDay}`)
       parts.push(`${formatMoney(forecast.helperTwoHourCost)}/helper day`)
       if (forecast.budgetRemaining <= 0) {
-        parts.push(forecast.helperTwoHourAffordableToday ? 'hire today' : `save ${formatMoney(forecast.helperTwoHourCashNeeded)}`)
+        parts.push('hire today')
       }
+    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
+      parts.push(`finish day ${forecast.playerOnlyCompletionLifeDay} solo`)
+      parts.push(`${forecast.helperTwoHourDays}d with helper after saving`)
+      if (forecast.budgetRemaining <= 0) parts.push(`save ${formatMoney(forecast.helperTwoHourCashNeeded)}`)
+    } else {
+      parts.push(`finish day ${forecast.playerOnlyCompletionLifeDay}`)
     }
   }
   if (parts.length === 0) return 'Interior ready to finish'
