@@ -115,6 +115,37 @@ describe('construction', () => {
     expect(out.project.workerContracts).toHaveLength(1)
   })
 
+  test('hired worker contracts honor selected hours and upfront cost', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const estimate = estimateConstructionWorkerHire(project, 'helper', 2)
+    expect(estimate).toMatchObject({
+      hours: 2,
+      cost: 32,
+      laborMinutes: 120,
+      blockedBy: null,
+    })
+
+    const hired = hireConstructionWorker(project, 'helper', 100, 2, 1_000)
+    expect(hired.hired).toBe(true)
+    expect(hired.money).toBe(68)
+    expect(hired.project.laborDoneMinutes).toBe(0)
+    expect(hired.contract).toMatchObject({
+      paidUntil: 7_201_000,
+      paidMinutes: 120,
+      cost: 32,
+    })
+
+    const finished = advanceConstructionWorkerContracts(hired.project, 7_201_000)
+    expect(finished.laborMinutes).toBe(120)
+    expect(finished.project.laborDoneMinutes).toBe(120)
+    expect(finished.project.workerContracts[0].workedMinutes).toBe(120)
+  })
+
   test('worker contracts add labor as real paid minutes pass', () => {
     const project = {
       ...createConstructionProject('starter-house', 45.7, 21.2, 123),
