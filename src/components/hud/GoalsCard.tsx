@@ -34,6 +34,7 @@ export default function GoalsCard() {
   const resources = useGame((s) => s.resources)
   const constructionProjects = useGame((s) => s.constructionProjects)
   const educationProgress = useGame((s) => s.educationProgress)
+  const community = useGame((s) => s.community)
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
   const setPanel = useGame((s) => s.setPanel)
@@ -74,7 +75,7 @@ export default function GoalsCard() {
     resources,
     constructionProjects,
     educationActions: educationActionCount(educationProgress),
-    communityActionsThisWeek: 0,
+    communityActionsThisWeek: community.actionsThisWeek,
   })
 
   const openPrimary = () => {
