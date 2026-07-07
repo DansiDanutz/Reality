@@ -58,6 +58,17 @@ function routineShortLabel(block: { id: string; value: string; route: LifePlanRo
 function buildEtaSummary(forecast: ConstructionDayForecast | null): string | null {
   if (!forecast) return null
   const parts: string[] = []
+  if (forecast.upfrontCostRemaining > 0) {
+    parts.push(`${formatMoney(forecast.upfrontCostRemaining)} shell`)
+    parts.push(forecast.upfrontAffordableToday ? 'place today' : `save ${formatMoney(forecast.upfrontCashNeeded)}`)
+  }
+  if (forecast.upfrontCostRemaining > 0 && !forecast.upfrontAffordableToday) {
+    return `Build ETA: ${parts.join(' · ')}`
+  }
+  if (forecast.permitRemaining > 0 && forecast.upfrontAffordableToday) {
+    parts.push(`${formatMoney(forecast.permitRemaining)} permit`)
+    parts.push(forecast.permitAffordableToday ? 'permit ready' : `save ${formatMoney(forecast.permitCashNeeded)}`)
+  }
   if (forecast.totalGatherMinutes > 0) parts.push(`${formatPlanMinutes(forecast.totalGatherMinutes)} gather`)
   if (forecast.remainingLaborMinutes > 0) {
     parts.push(`${forecast.playerOnlyDaysAtOneHour}d solo`)
