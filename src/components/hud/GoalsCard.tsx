@@ -1,7 +1,12 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
 import { educationActionCount } from '../../game/education'
 import { formatMoney } from '../../game/engine'
-import { lifeDayFromCreatedAt, planLifeDay, type ConstructionDayForecast } from '../../game/lifeLadder'
+import {
+  lifeDayFromCreatedAt,
+  planLifeDay,
+  type BusinessDevelopmentDayForecast,
+  type ConstructionDayForecast,
+} from '../../game/lifeLadder'
 import { useGame } from '../../store/gameStore'
 
 function formatPlanMinutes(minutes: number): string {
@@ -44,6 +49,31 @@ function buildEtaSummary(forecast: ConstructionDayForecast | null): string | nul
   }
   if (parts.length === 0) return 'Build ready to complete'
   return `Build ETA: ${parts.join(' · ')}`
+}
+
+function interiorEtaSummary(forecast: BusinessDevelopmentDayForecast | null): string | null {
+  if (!forecast) return null
+  const parts: string[] = []
+  if (forecast.totalGatherMinutes > 0) parts.push(`${formatPlanMinutes(forecast.totalGatherMinutes)} gather`)
+  if (forecast.budgetRemaining > 0) {
+    parts.push(`${formatMoney(forecast.budgetRemaining)} budget`)
+    parts.push(forecast.budgetAffordableToday ? 'fund today' : `save ${formatMoney(forecast.budgetCashNeeded)}`)
+  }
+  if (forecast.remainingLaborMinutes > 0) {
+    parts.push(`${forecast.playerOnlyDaysAtOneHour}d solo`)
+    if (forecast.activeWorkerCount > 0) {
+      parts.push(`${forecast.activeWorkerCount} worker active`)
+      parts.push(`${formatPlanMinutes(Math.round(forecast.activeWorkerLaborMinutesRemaining))} paid help left`)
+    } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
+      parts.push(`${forecast.helperTwoHourDays}d with helper`)
+      parts.push(`${formatMoney(forecast.helperTwoHourCost)}/helper day`)
+      if (forecast.budgetRemaining <= 0) {
+        parts.push(forecast.helperTwoHourAffordableToday ? 'hire today' : `save ${formatMoney(forecast.helperTwoHourCashNeeded)}`)
+      }
+    }
+  }
+  if (parts.length === 0) return 'Interior ready to finish'
+  return `Interior ETA: ${parts.join(' · ')}`
 }
 
 /**
@@ -125,6 +155,8 @@ export default function GoalsCard() {
   const openPrimary = () => openRoute(lifePlan.primary.route)
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
   const buildEta = buildEtaSummary(lifePlan.constructionForecast)
+  const interiorEta = interiorEtaSummary(lifePlan.businessDevelopmentForecast)
+  const activeEta = buildEta ?? interiorEta
   const routineSummary = lifePlan.routine
     .map((block) => `${block.title} ${formatPlanMinutes(block.minutes)}`)
     .join(', ')
@@ -163,7 +195,7 @@ export default function GoalsCard() {
   return (
     <section
       className="goals-card"
-      aria-label={`Today plan: ${lifePlan.primary.title}. ${buildEta ? `${buildEta}. ` : ''}Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
+      aria-label={`Today plan: ${lifePlan.primary.title}. ${activeEta ? `${activeEta}. ` : ''}Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
       <button type="button" className="goals-card-main" onClick={openPrimary}>
         <header className="goals-card-head">
@@ -187,7 +219,7 @@ export default function GoalsCard() {
         )}
         <span className="goals-card-primary">{lifePlan.primary.title}</span>
         <span className="goals-card-reason">{lifePlan.primary.detail}</span>
-        {buildEta && <span className="goals-card-forecast">{buildEta}</span>}
+        {activeEta && <span className="goals-card-forecast">{activeEta}</span>}
         <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
         {agenda}
       </button>
