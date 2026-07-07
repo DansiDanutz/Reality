@@ -459,6 +459,25 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toEqual([])
   })
 
+  test('hire intents clear stale job assignments before assigning active Sim workers', () => {
+    const start = claimedArea({
+      citizens: [sim('worker', { jobBusinessId: 'missing-business' })],
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'water1',
+      workerCitizenId: 'worker',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected stale job assignment not to block hiring')
+    expect(result.area.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('water1')
+  })
+
   test('hire intents reject non-owners, unavailable workers, and duplicate hires', () => {
     const start = claimedArea({
       citizens: [
@@ -1031,11 +1050,43 @@ describe('advanceWorldArea — local real-time economy', () => {
       employedCitizens: 0,
       unemployedCitizens: 1,
       hireableSimWorkers: 0,
-      candidates: [],
+      candidates: [
+        {
+          citizenId: 'worker',
+          action: 'waiting_for_position',
+          recommendedBusinessId: null,
+          clientPayload: null,
+        },
+      ],
     })
     expect(out.citizens[0].needs.hunger).toBeCloseTo(90 - 3.8)
     expect(out.citizens[0].needs.hydration).toBeCloseTo(90 - 4.8)
     expect(out.citizens[0].needs.energy).toBeCloseTo(90 - 3)
+  })
+
+  test('stale job ids remain hireable candidates when businesses have open positions', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'missing-business' })],
+      businesses: [business('water', 'water1')],
+    })
+
+    const dashboard = areaNeedsDashboard(start)
+
+    expect(dashboard.jobs).toMatchObject({
+      employedCitizens: 0,
+      unemployedCitizens: 1,
+      hireableSimWorkers: 1,
+      openPositions: 1,
+      understaffedBusinesses: 1,
+    })
+    expect(dashboard.jobs.candidates).toMatchObject([
+      {
+        citizenId: 'worker',
+        action: 'hire_now',
+        recommendedBusinessId: 'water1',
+        clientPayload: { type: 'hireWorker', businessId: 'water1', workerCitizenId: 'worker' },
+      },
+    ])
   })
 
   test('unpaid workers leave before they can boost service capacity', () => {
