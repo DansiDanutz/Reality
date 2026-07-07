@@ -32,6 +32,7 @@ function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
     educationActions: 0,
     educationProgress: [],
     communityActionsThisWeek: 0,
+    communityActionsToday: 0,
     ...overrides,
   }
 }
@@ -532,6 +533,24 @@ describe('planLifeDay', () => {
     })
   })
 
+  test('uses school growth after today already has a community action', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 20,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }, { kind: 'business', incomePerDay: 240 }],
+      communityActionsThisWeek: 1,
+      communityActionsToday: 1,
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'growth-block')).toMatchObject({
+      taskId: 'support-school',
+      value: 'school',
+      route: { kind: 'market', focus: 'education' },
+    })
+  })
+
   test('never invents high-income tasks for a player with no business', () => {
     const plan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, money: 150 }))
     const ids = [plan.primary, ...plan.support].map((item) => item.id)
@@ -554,6 +573,21 @@ describe('planLifeDay', () => {
     expect(plan.primary.id).toBe('help-local-person')
     expect(plan.primary.value).toBe('community')
     expect(plan.primary.route).toEqual({ kind: 'community-action', actionId: 'help-errand' })
+  })
+
+  test('does not surface community help after today already has a local action', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 5,
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      communityActionsThisWeek: 0,
+      communityActionsToday: 1,
+    }))
+
+    expect(plan.primary.id).not.toBe('help-local-person')
+    expect(plan.primary.route).not.toEqual({ kind: 'community-action', actionId: 'help-errand' })
   })
 
   test('routes a house project through materials, permit, worker help, then fallback labor', () => {
