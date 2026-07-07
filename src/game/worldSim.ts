@@ -920,6 +920,8 @@ const MIN_LICENSES: Record<WorldBusinessKind, number> = {
 
 const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
+const MAX_WORLD_ID_LENGTH = 96
+const WORLD_ID_PATTERN = /^[A-Za-z0-9:_-]+$/
 
 export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWorldAreaResult {
   const area = cloneArea(input)
@@ -2786,7 +2788,7 @@ function buildBusinessFromIntent(
   const { actor } = actorCheck
   const blueprint = normalizeBlueprint(intent.blueprint)
   const businessId = intent.businessId.trim()
-  if (!blueprint || !businessId) return { ok: false, area, error: 'invalid_business' }
+  if (!blueprint || !isSafeWorldId(businessId)) return { ok: false, area, error: 'invalid_business' }
   if (area.businesses.some((business) => business.id === businessId)) {
     return { ok: false, area, error: 'business_id_taken' }
   }
@@ -2973,6 +2975,10 @@ function matchesOptionalShopMoney(value: number | undefined, shopValue: number |
 
 function matchesShopMoney(value: number, shopValue: number): boolean {
   return Number.isFinite(value) && value > 0 && roundMoney(value) === roundMoney(shopValue)
+}
+
+function isSafeWorldId(value: string): boolean {
+  return value.length > 0 && value.length <= MAX_WORLD_ID_LENGTH && WORLD_ID_PATTERN.test(value)
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {
