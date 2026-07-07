@@ -69,6 +69,10 @@ function roadmapDayStartMs(lifeDay: number): number {
   return Math.max(0, Math.floor(lifeDay)) * ROADMAP_DAY_MS
 }
 
+function roadmapDayEndMs(lifeDay: number): number {
+  return roadmapDayStartMs(lifeDay) + ROADMAP_DAY_MS
+}
+
 function cloneSnapshot(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
   return {
     ...snapshot,
@@ -170,6 +174,32 @@ function applyConstructionCompletion(snapshot: LifeLadderSnapshot, projectId: st
   return completedAsset
     ? { ...snapshot, constructionProjects: projects, assets: [...snapshot.assets, completedAsset] }
     : { ...snapshot, constructionProjects: projects }
+}
+
+function advanceRoadmapWorkerContracts(snapshot: LifeLadderSnapshot, now: number): LifeLadderSnapshot {
+  return {
+    ...snapshot,
+    constructionProjects: snapshot.constructionProjects.map((project) =>
+      advanceConstructionWorkerContracts(project, now).project
+    ),
+    businessDevelopmentProjects: snapshot.businessDevelopmentProjects.map((project) =>
+      advanceBusinessDevelopmentWorkerContracts(project, now).project
+    ),
+  }
+}
+
+function applyReadyConstructionCompletions(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
+  return snapshot.constructionProjects.reduce(
+    (next, project) => applyConstructionCompletion(next, project.id),
+    snapshot,
+  )
+}
+
+function applyReadyBusinessCompletions(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
+  return snapshot.businessDevelopmentProjects.reduce(
+    (next, project) => applyBusinessCompletion(next, project.id),
+    snapshot,
+  )
 }
 
 function applyBusinessCompletion(snapshot: LifeLadderSnapshot, projectId: string): LifeLadderSnapshot {
@@ -285,11 +315,8 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateConstructionProject(next, route.projectId, (project, current) => {
         const now = roadmapDayStartMs(current.lifeDay)
         const hired = hireConstructionWorker(project, 'helper', current.money, route.hours ?? 1, now)
-        const advanced = hired.contract
-          ? advanceConstructionWorkerContracts(hired.project, hired.contract.paidUntil)
-          : { project: hired.project }
         next = { ...current, money: hired.money }
-        return advanced.project
+        return hired.project
       })
     }
     next = applyConstructionCompletion(next, route.projectId)
@@ -314,15 +341,16 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = updateBusinessDevelopmentProject(next, route.projectId, (project, current) => {
         const now = roadmapDayStartMs(current.lifeDay)
         const hired = hireBusinessDevelopmentWorker(project, 'helper', current.money, route.hours ?? 1, now)
-        const advanced = hired.contract
-          ? advanceBusinessDevelopmentWorkerContracts(hired.project, hired.contract.paidUntil)
-          : { project: hired.project }
         next = { ...current, money: hired.money }
-        return advanced.project
+        return hired.project
       })
     }
     next = applyBusinessCompletion(next, route.projectId)
   }
+
+  next = advanceRoadmapWorkerContracts(next, roadmapDayEndMs(snapshot.lifeDay))
+  next = applyReadyConstructionCompletions(next)
+  next = applyReadyBusinessCompletions(next)
 
   return {
     ...next,

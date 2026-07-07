@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { createBusinessDevelopmentProject } from './businessDevelopment'
-import { createConstructionProject } from './construction'
+import { createBusinessDevelopmentProject, hireBusinessDevelopmentWorker } from './businessDevelopment'
+import { createConstructionProject, hireConstructionWorker } from './construction'
 import { planLifeRoadmap } from './lifeRoadmap'
 import type { LifeLadderSnapshot } from './lifeLadder'
 import { freshResources } from './resources'
@@ -186,6 +186,30 @@ describe('planLifeRoadmap', () => {
     })
   })
 
+  test('lets an active paid house helper finish during a monitor day', () => {
+    const project = createConstructionProject('starter-house', 1, 1, 1)
+    const readyForActiveHelper = {
+      ...project,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 120,
+    }
+    const hired = hireConstructionWorker(readyForActiveHelper, 'helper', 1_000, 2, 10 * DAY_MS)
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 10,
+      money: hired.money,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      constructionProjects: [hired.project],
+    }), 1)
+
+    expect(roadmap.days[0].primary.id).toBe('monitor-house-worker-finish')
+    expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(0)
+    expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
+  })
+
   test('projects cash-tight free-time labor into a completed house without hiring help', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const readyForFinalPlayerHour = {
@@ -276,6 +300,38 @@ describe('planLifeRoadmap', () => {
       paidUntil: 20 * DAY_MS + 2 * 60 * 60 * 1000,
       paidMinutes: 120,
       workedMinutes: 120,
+    })
+  })
+
+  test('lets an active paid business helper finish during a monitor day', () => {
+    const asset = business()
+    const project = createBusinessDevelopmentProject(asset, 1)
+    if (!project) throw new Error('business development fixture failed')
+    const readyForActiveHelper = {
+      ...project,
+      deposited: freshResources(project.required),
+      budgetPaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 60,
+    }
+    const hired = hireBusinessDevelopmentWorker(readyForActiveHelper, 'helper', 2_000, 1, 20 * DAY_MS)
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 20,
+      money: hired.money,
+      jobId: 'barista',
+      shiftsWorked: 10,
+      educationActions: 1,
+      communityActionsThisWeek: 1,
+      assets: [home(), asset],
+      businessDevelopmentProjects: [hired.project],
+    }), 1)
+
+    expect(roadmap.days[0].primary.id).toBe('monitor-business-worker-finish')
+    expect(roadmap.finalSnapshot.businessDevelopmentProjects).toHaveLength(0)
+    expect(roadmap.finalSnapshot.assets.find((candidate) => candidate.id === asset.id)).toMatchObject({
+      kind: 'business',
+      level: project.levelTo,
+      incomePerDay: project.incomeAfter,
     })
   })
 
