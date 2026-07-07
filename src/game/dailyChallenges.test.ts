@@ -2,11 +2,15 @@ import { describe, expect, test } from 'vitest'
 import {
   CHALLENGE_POOL,
   CHALLENGE_REWARD,
+  challengeRewardFor,
   challengesForDay,
   challengeProgress,
   challengeSetSummary,
   DAILY_COMPLETE_BONUS,
+  dailyChallengeCashBudget,
+  dailyCompleteBonusForContext,
   eligibleChallengesForContext,
+  PRE_BUSINESS_DAILY_CASH_FRACTION,
   type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from './dailyChallenges'
@@ -34,6 +38,7 @@ const context = (over: Partial<DailyChallengeContext> = {}): DailyChallengeConte
   canDoConstructionLabor: false,
   canHelpCommunity: false,
   canDevelopBusiness: false,
+  hasBusiness: false,
   ...over,
 })
 
@@ -252,14 +257,54 @@ describe('challenge rewards — balance', () => {
     expect(DAILY_COMPLETE_BONUS.xp).toBeGreaterThan(CHALLENGE_REWARD.hard.xp)
   })
 
-  test('total daily EV (3 challenges + bonus) is meaningful but not economy-breaking', () => {
-    // easy + medium + hard + bonus
-    const total = CHALLENGE_REWARD.easy.cash + CHALLENGE_REWARD.medium.cash + CHALLENGE_REWARD.hard.cash + DAILY_COMPLETE_BONUS.cash
-    // $1,850/day max. For context: a shift pays ~$64, founder balance $200k.
-    // So a fully-completed challenge day ≈ 4 shifts of value — a nice bonus
-    // for active play, not a replacement for the core loop.
-    expect(total).toBeGreaterThan(500)
-    expect(total).toBeLessThan(10_000)
+  test('pre-business cash rewards stay below the configured fraction of a realistic workday', () => {
+    const early = context({ maxEarnedToday: 120 })
+    const easy = challengeRewardFor({ difficulty: 'easy' }, early)
+    const medium = challengeRewardFor({ difficulty: 'medium' }, early)
+    const hard = challengeRewardFor({ difficulty: 'hard' }, early)
+    const bonus = dailyCompleteBonusForContext(early)
+    const total = easy.cash + medium.cash + hard.cash + bonus.cash
+
+    expect(dailyChallengeCashBudget(early)).toBe(Math.floor(120 * PRE_BUSINESS_DAILY_CASH_FRACTION))
+    expect(total).toBeLessThanOrEqual(dailyChallengeCashBudget(early))
+    expect(easy.cash).toBeLessThan(medium.cash)
+    expect(medium.cash).toBeLessThan(hard.cash)
+    expect(hard.cash).toBeLessThan(bonus.cash)
+    expect(easy.xp).toBe(CHALLENGE_REWARD.easy.xp)
+    expect(medium.xp).toBe(CHALLENGE_REWARD.medium.xp)
+    expect(hard.xp).toBe(CHALLENGE_REWARD.hard.xp)
+    expect(bonus.xp).toBe(DAILY_COMPLETE_BONUS.xp)
+  })
+
+  test('pre-business rewards still give a small floor when the first day has no earnings yet', () => {
+    const firstDay = context({ maxEarnedToday: 0 })
+    const total =
+      challengeRewardFor({ difficulty: 'easy' }, firstDay).cash +
+      challengeRewardFor({ difficulty: 'medium' }, firstDay).cash +
+      challengeRewardFor({ difficulty: 'hard' }, firstDay).cash +
+      dailyCompleteBonusForContext(firstDay).cash
+
+    expect(dailyChallengeCashBudget(firstDay)).toBe(20)
+    expect(total).toBe(20)
+  })
+
+  test('business owners and legacy callers keep the full static daily reward curve', () => {
+    const owner = context({ hasBusiness: true, maxEarnedToday: 120 })
+    const ownerTotal =
+      challengeRewardFor({ difficulty: 'easy' }, owner).cash +
+      challengeRewardFor({ difficulty: 'medium' }, owner).cash +
+      challengeRewardFor({ difficulty: 'hard' }, owner).cash +
+      dailyCompleteBonusForContext(owner).cash
+    const staticTotal =
+      CHALLENGE_REWARD.easy.cash +
+      CHALLENGE_REWARD.medium.cash +
+      CHALLENGE_REWARD.hard.cash +
+      DAILY_COMPLETE_BONUS.cash
+
+    expect(ownerTotal).toBe(staticTotal)
+    expect(dailyChallengeCashBudget(owner)).toBe(staticTotal)
+    expect(challengeRewardFor({ difficulty: 'hard' })).toEqual(CHALLENGE_REWARD.hard)
+    expect(dailyCompleteBonusForContext()).toEqual(DAILY_COMPLETE_BONUS)
   })
 
   test('every pool challenge references a valid metric + has positive target', () => {
