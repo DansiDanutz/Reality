@@ -1598,6 +1598,13 @@ export const useGame = create<GameState>()(
       startPlacingConstruction: () => {
         const s = get()
         if (s.activity) return
+        if (s.placing) {
+          set({
+            toasts: withToast(s.toasts, `Place or refund ${s.placing.name} before starting a new foundation.`, 'blocked'),
+            log: note(s.log, `${s.placing.name} is still waiting for a map spot. Place it or refund it before starting construction.`),
+          })
+          return
+        }
         set({
           placingConstruction: 'starter-house',
           placing: null,
