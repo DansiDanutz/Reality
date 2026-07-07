@@ -126,6 +126,40 @@ export type MapTarget =
   | { kind: 'asset'; id: string }
   | { kind: 'construction'; id: string }
 
+type DailyCounters = DailyChallengeSnapshot & { day: number }
+
+function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): DailyCounters {
+  return {
+    mealsToday: 0,
+    shiftsToday: 0,
+    earnedToday: 0,
+    sleptToday: 0,
+    boughtToday: 0,
+    studiedToday: 0,
+    gatheredToday: 0,
+    constructionMinutesToday: 0,
+    communityToday: 0,
+    businessDevelopmentMinutesToday: 0,
+    day,
+    ...overrides,
+  }
+}
+
+function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefined): DailyCounters {
+  return freshDailyCounters(Number.isFinite(counters?.day) ? Math.floor(Number(counters?.day)) : 0, {
+    mealsToday: Math.max(0, Math.floor(Number(counters?.mealsToday ?? 0))),
+    shiftsToday: Math.max(0, Math.floor(Number(counters?.shiftsToday ?? 0))),
+    earnedToday: Math.max(0, Math.floor(Number(counters?.earnedToday ?? 0))),
+    sleptToday: Math.max(0, Math.floor(Number(counters?.sleptToday ?? 0))),
+    boughtToday: Math.max(0, Math.floor(Number(counters?.boughtToday ?? 0))),
+    studiedToday: Math.max(0, Math.floor(Number(counters?.studiedToday ?? 0))),
+    gatheredToday: Math.max(0, Math.floor(Number(counters?.gatheredToday ?? 0))),
+    constructionMinutesToday: Math.max(0, Math.floor(Number(counters?.constructionMinutesToday ?? 0))),
+    communityToday: Math.max(0, Math.floor(Number(counters?.communityToday ?? 0))),
+    businessDevelopmentMinutesToday: Math.max(0, Math.floor(Number(counters?.businessDevelopmentMinutesToday ?? 0))),
+  })
+}
+
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
  * from the original 4 (gold/sky/ok/meal) to give achievements, lucky
@@ -209,9 +243,7 @@ export function migrateSave(persisted: unknown): GameState {
           const claimedCount = state.tutorialClaimed?.length ?? 0
           state.sawStreetMode = claimedCount >= 7
         }
-        if (state && !state.dailyCounters) {
-          state.dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 }
-        }
+        if (state) state.dailyCounters = normalizeDailyCounters(state.dailyCounters)
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
         if (state && !state.resources) state.resources = freshResources()
@@ -318,7 +350,7 @@ function bumpBoughtToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounter
   const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
   return s.dailyCounters.day === todayDay
     ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
-    : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 1, day: todayDay }
+    : freshDailyCounters(todayDay, { boughtToday: 1 })
 }
 
 /**
@@ -422,7 +454,7 @@ interface GameState {
   /** True once the player has entered Street Mode (one-time controls overlay). */
   sawStreetMode: boolean
   /** Daily challenge counters — reset at local midnight. See dailyChallenges.ts */
-  dailyCounters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number; day: number }
+  dailyCounters: DailyCounters
   /** Daily challenge ids already claimed today (idempotent — no double-grant). */
   dailyClaimed: string[]
   /** True once today's all-3-complete bonus has been granted. */
@@ -611,7 +643,7 @@ const FRESH = {
   targetsSeen: false,
   sawAchievementsPanel: false,
   sawStreetMode: false,
-  dailyCounters: { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 },
+  dailyCounters: freshDailyCounters(),
   dailyClaimed: [] as string[],
   dailyBonusClaimed: false,
   activeCourierPackage: null as CourierPackage | null,
@@ -1193,6 +1225,11 @@ export const useGame = create<GameState>()(
         let constructionProjects = s.constructionProjects
         let educationProgress = s.educationProgress
         let community = resetCommunityWeekIfNeeded(s.community, now)
+        let gatheredDelta = 0
+        let constructionMinutesDelta = 0
+        let studiedDelta = 0
+        let communityDelta = 0
+        let businessDevelopmentMinutesDelta = 0
         if (out.shiftsCompleted > 0) {
           const beforeRespect = community.respect
           const beforeTrust = community.trust
@@ -1209,6 +1246,7 @@ export const useGame = create<GameState>()(
           const kind = completedSpecialActivity.resourceKind
           const amount = completedSpecialActivity.resourceAmount
           resources = addResources(resources, kind, amount)
+          if (!wasAway) gatheredDelta += 1
           log = note(log, `Gathered ${amount} ${RESOURCE_META[kind].label.toLowerCase()}.`)
           if (!wasAway) toasts = withToast(toasts, `+${amount} ${RESOURCE_META[kind].label}`, 'gold')
         }
@@ -1218,6 +1256,7 @@ export const useGame = create<GameState>()(
           if (project) {
             const minutes = completedSpecialActivity.laborMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
             const worked = addConstructionLabor(project, minutes)
+            if (!wasAway) constructionMinutesDelta += minutes
             const projects = constructionProjects.map((candidate) => candidate.id === projectId ? worked : candidate)
             const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, projectId)
             constructionProjects = completed.constructionProjects
@@ -1238,6 +1277,7 @@ export const useGame = create<GameState>()(
           if (!constructionProjects.some((candidate) => candidate.id === project.id)) continue
           const advanced = advanceConstructionWorkerContracts(project, now)
           if (advanced.laborMinutes <= 0) continue
+          if (!wasAway) constructionMinutesDelta += advanced.laborMinutes
           const projects = constructionProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
           const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, project.id)
           constructionProjects = completed.constructionProjects
@@ -1256,6 +1296,7 @@ export const useGame = create<GameState>()(
           if (course && current) {
             const minutes = completedSpecialActivity.studyMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
             const studied = addStudyMinutes(course, current, minutes, now)
+            if (!wasAway) studiedDelta += 1
             educationProgress = educationProgress.map((candidate) => candidate.courseId === course.id ? studied.progress : candidate)
             if (studied.xpGained > 0) {
               const prog = applyXp(level, xp, studied.xpGained)
@@ -1277,6 +1318,7 @@ export const useGame = create<GameState>()(
             community = completeCommunityAction(community, action, now)
             const rewardApplied = community.actionsToday > before.actionsToday
             if (rewardApplied) {
+              if (!wasAway) communityDelta += 1
               const prog = applyXp(level, xp, action.rewards.xp)
               level = prog.level
               xp = prog.xp
@@ -1294,6 +1336,7 @@ export const useGame = create<GameState>()(
           if (project) {
             const minutes = completedSpecialActivity.laborMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
             const worked = addBusinessDevelopmentLabor(project, minutes)
+            if (!wasAway) businessDevelopmentMinutesDelta += minutes
             const projects = businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? worked : candidate)
             const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, projectId)
             businessDevelopmentProjects = completed.businessDevelopmentProjects
@@ -1319,6 +1362,7 @@ export const useGame = create<GameState>()(
           if (!businessDevelopmentProjects.some((candidate) => candidate.id === project.id)) continue
           const advanced = advanceBusinessDevelopmentWorkerContracts(project, now)
           if (advanced.laborMinutes <= 0) continue
+          if (!wasAway) businessDevelopmentMinutesDelta += advanced.laborMinutes
           const projects = businessDevelopmentProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
           const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, project.id)
           businessDevelopmentProjects = completed.businessDevelopmentProjects
@@ -1562,7 +1606,7 @@ export const useGame = create<GameState>()(
           // tick), log a day-header to the journal — gives the timeline a
           // temporal rhythm and surfaces the thought-of-the-day in context.
           const wasRollover = dailyCounters.day > 0
-          dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: todayDay }
+          dailyCounters = freshDailyCounters(todayDay)
           dailyClaimed = []
           dailyBonusClaimed = false
           if (wasRollover) {
@@ -1602,13 +1646,28 @@ export const useGame = create<GameState>()(
         const mealsDelta = wasAway ? 0 : out.mealsCooked
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
         const sleptDelta = !wasAway && s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
-        if (mealsDelta || shiftsDelta || cashEarnedThisTick || sleptDelta) {
+        if (
+          mealsDelta ||
+          shiftsDelta ||
+          cashEarnedThisTick ||
+          sleptDelta ||
+          studiedDelta ||
+          gatheredDelta ||
+          constructionMinutesDelta ||
+          communityDelta ||
+          businessDevelopmentMinutesDelta
+        ) {
           dailyCounters = {
             ...dailyCounters,
             mealsToday: dailyCounters.mealsToday + mealsDelta,
             shiftsToday: dailyCounters.shiftsToday + shiftsDelta,
             earnedToday: dailyCounters.earnedToday + cashEarnedThisTick,
             sleptToday: dailyCounters.sleptToday + sleptDelta,
+            studiedToday: dailyCounters.studiedToday + studiedDelta,
+            gatheredToday: dailyCounters.gatheredToday + gatheredDelta,
+            constructionMinutesToday: dailyCounters.constructionMinutesToday + constructionMinutesDelta,
+            communityToday: dailyCounters.communityToday + communityDelta,
+            businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday + businessDevelopmentMinutesDelta,
           }
         }
         // Auto-grant any newly-complete challenges (idempotent via dailyClaimed).
@@ -1620,6 +1679,11 @@ export const useGame = create<GameState>()(
             earnedToday: dailyCounters.earnedToday,
             sleptToday: dailyCounters.sleptToday,
             boughtToday: dailyCounters.boughtToday,
+            studiedToday: dailyCounters.studiedToday,
+            gatheredToday: dailyCounters.gatheredToday,
+            constructionMinutesToday: dailyCounters.constructionMinutesToday,
+            communityToday: dailyCounters.communityToday,
+            businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
           }
           const newlyComplete = dayChallenges.filter((c) => {
             if (dailyClaimed.includes(c.id)) return false
