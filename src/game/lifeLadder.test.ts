@@ -25,6 +25,7 @@ function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
     shiftsWorked: 0,
     activityKind: null,
     assets: [],
+    inventory: {},
     resources: freshResources(),
     constructionProjects: [],
     businessDevelopmentProjects: [],
@@ -160,6 +161,36 @@ describe('planLifeDay', () => {
     expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
       taskId: 'support-body',
       route: { kind: 'market', focus: 'drinks' },
+    })
+  })
+
+  test('makes routine hunger care consume owned food before opening the market', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+      inventory: { noodles: 1, sandwich: 1 },
+    }))
+
+    expect(plan.primary.id).not.toBe('eat-food')
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'consume-action', itemId: 'sandwich' },
+    })
+  })
+
+  test('opens the food market for hunger care when no food is owned', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, hunger: 45 },
+    }))
+
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'market', focus: 'food' },
     })
   })
 
