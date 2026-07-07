@@ -22,8 +22,12 @@ export interface CommunityStats {
   trust: number
   actionsThisWeek: number
   week: number
+  reliableShifts: number
+  workRespectDay: number
+  workRespectToday: number
 }
 
+const DAY_MS = 24 * 3_600_000
 const WEEK_MS = 7 * 24 * 3_600_000
 
 export const COMMUNITY_ACTIONS: CommunityAction[] = [
@@ -57,6 +61,10 @@ export function communityWeek(now = Date.now()): number {
   return Math.floor(now / WEEK_MS)
 }
 
+export function communityDay(now = Date.now()): number {
+  return Math.floor(now / DAY_MS)
+}
+
 export function freshCommunityStats(now = Date.now()): CommunityStats {
   return {
     respect: 0,
@@ -64,6 +72,9 @@ export function freshCommunityStats(now = Date.now()): CommunityStats {
     trust: 0,
     actionsThisWeek: 0,
     week: communityWeek(now),
+    reliableShifts: 0,
+    workRespectDay: communityDay(now),
+    workRespectToday: 0,
   }
 }
 
@@ -75,12 +86,20 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
     trust: Math.max(0, Math.floor(stats.trust ?? 0)),
     actionsThisWeek: Math.max(0, Math.floor(stats.actionsThisWeek ?? 0)),
     week: Number.isFinite(stats.week) ? Math.floor(stats.week ?? communityWeek(now)) : communityWeek(now),
+    reliableShifts: Math.max(0, Math.floor(stats.reliableShifts ?? 0)),
+    workRespectDay: Number.isFinite(stats.workRespectDay) ? Math.floor(stats.workRespectDay ?? communityDay(now)) : communityDay(now),
+    workRespectToday: Math.max(0, Math.floor(stats.workRespectToday ?? 0)),
   }
 }
 
 export function resetCommunityWeekIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
   const week = communityWeek(now)
   return stats.week === week ? stats : { ...stats, actionsThisWeek: 0, week }
+}
+
+export function resetCommunityWorkDayIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
+  const day = communityDay(now)
+  return stats.workRespectDay === day ? stats : { ...stats, workRespectDay: day, workRespectToday: 0 }
 }
 
 export function communityActionById(actionId: CommunityActionId): CommunityAction | null {
@@ -90,10 +109,22 @@ export function communityActionById(actionId: CommunityActionId): CommunityActio
 export function completeCommunityAction(stats: CommunityStats, action: CommunityAction, now = Date.now()): CommunityStats {
   const current = resetCommunityWeekIfNeeded(stats, now)
   return {
+    ...current,
     respect: current.respect + action.rewards.respect,
     friendship: current.friendship + action.rewards.friendship,
     trust: current.trust + action.rewards.trust,
     actionsThisWeek: current.actionsThisWeek + 1,
-    week: current.week,
+  }
+}
+
+export function completeReliableShift(stats: CommunityStats, now = Date.now()): CommunityStats {
+  const current = resetCommunityWorkDayIfNeeded(stats, now)
+  const respectGained = current.workRespectToday > 0 ? 0 : 1
+  return {
+    ...current,
+    respect: current.respect + respectGained,
+    trust: current.trust + respectGained,
+    reliableShifts: current.reliableShifts + 1,
+    workRespectToday: current.workRespectToday + respectGained,
   }
 }
