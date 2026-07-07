@@ -190,10 +190,13 @@ function marketFocusForNeed(need: keyof Needs): ShopCategory {
   return 'health'
 }
 
-function readyRecipe(snapshot: Pick<LifeLadderSnapshot, 'assets' | 'inventory'>): { id: string; hunger: number } | null {
-  const hasKitchen = snapshot.assets.some((asset) => asset.kind === 'home') ||
+function hasCookingAccess(snapshot: Pick<LifeLadderSnapshot, 'assets' | 'inventory'>): boolean {
+  return snapshot.assets.some((asset) => asset.kind === 'home') ||
     ['hotplate', 'kitchen'].some((id) => (snapshot.inventory[id] ?? 0) > 0)
-  if (!hasKitchen) return null
+}
+
+function readyRecipe(snapshot: Pick<LifeLadderSnapshot, 'assets' | 'inventory'>): { id: string; hunger: number } | null {
+  if (!hasCookingAccess(snapshot)) return null
   return RECIPES
     .filter((recipe) => Object.entries(recipe.ingredients).every(([id, qty]) => (snapshot.inventory[id] ?? 0) >= qty))
     .map((recipe) => ({ id: recipe.id, hunger: recipe.effects.hunger ?? 0 }))
@@ -443,6 +446,8 @@ function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
     ? { kind: 'consume-action', itemId: ownedRecovery.id }
     : recipe
       ? { kind: 'cook-action', recipeId: recipe.id }
+    : lowest === 'hunger' && hasCookingAccess(snapshot)
+      ? { kind: 'market', focus: 'groceries' }
     : lowest === 'hydration' && snapshot.money >= 1
       ? { kind: 'survival-action', action: 'drink-water' }
       : lowest === 'energy'
@@ -483,7 +488,7 @@ function strongestOwnedFood(inventory: Record<string, number>): { id: string; hu
 
 function strongestOwnedNeedItem(inventory: Record<string, number>, need: keyof Needs): { id: string; amount: number } | null {
   return SHOP_ITEMS
-    .filter((item) => item.category !== 'groceries' && (inventory[item.id] ?? 0) > 0 && (item.effects?.[need] ?? 0) > 0)
+    .filter((item) => item.category !== 'groceries' && (need !== 'hunger' || item.category !== 'furniture') && (inventory[item.id] ?? 0) > 0 && (item.effects?.[need] ?? 0) > 0)
     .map((item) => ({ id: item.id, amount: item.effects?.[need] ?? 0 }))
     .sort((a, b) => b.amount - a.amount)[0] ?? null
 }
