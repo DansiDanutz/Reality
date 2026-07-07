@@ -189,6 +189,22 @@ describe('planLifeDay', () => {
     })
   })
 
+  test('makes routine energy care start sleep when energy is lowest but not critical', () => {
+    const plan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      needs: { ...goodNeeds, energy: 45 },
+      money: 100,
+    }))
+
+    expect(plan.primary.id).not.toBe('sleep-tonight')
+    expect(plan.routine.find((block) => block.id === 'body-block')).toMatchObject({
+      taskId: 'support-body',
+      route: { kind: 'survival-action', action: 'sleep' },
+    })
+  })
+
   test('makes routine hunger care consume owned food before opening the market', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
