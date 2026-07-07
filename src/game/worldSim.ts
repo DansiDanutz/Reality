@@ -2862,6 +2862,7 @@ function buyInsuranceFromIntent(
   const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
+  if (!hasUsableServiceCapacity(area, insurer, 1)) return { ok: false, area, error: 'service_not_available' }
 
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
@@ -3312,6 +3313,11 @@ function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+}
+
+function hasUsableServiceCapacity(area: WorldArea, business: WorldBusiness, hours: number): boolean {
+  const capacity = serviceCapacity(area, business, hours)
+  return Number.isFinite(capacity) && capacity > 0
 }
 
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {

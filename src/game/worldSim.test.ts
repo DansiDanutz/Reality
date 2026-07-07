@@ -613,6 +613,30 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('buyInsurance intent rejects insurers without usable service capacity', () => {
+    const unavailable = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', 'ins1', {
+        ownerId: 'founder',
+        cash: 25,
+        price: 45,
+        quality: Number.NaN,
+      })],
+    })
+
+    const result = applyWorldIntent(unavailable, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(500)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(25)
+    expect(result.area.transactions).toEqual([])
+  })
+
   test('buyInsurance intent rejects hospitalized citizens', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500, state: { kind: 'hospitalized', until: 10 * HOUR } })],
