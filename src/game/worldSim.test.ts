@@ -2686,7 +2686,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           amount: 40,
           creditorId: 'system:hospital',
           repaymentIntent: 'repayDebt',
-          clientPayload: { type: 'repayDebt', debtId: 'debt-real', amount: 40 },
+          clientPayload: null,
           recommendedPayment: 40,
           maxAffordablePayment: 40,
           canRepayNow: false,

@@ -3971,15 +3971,16 @@ function debtDashboard(citizen: FounderAreaCitizen, debt: FounderAreaDebt): Foun
   const blockers: FounderAreaDebtRepaymentBlocker[] = []
   if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
   if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
+  const canRepayNow = blockers.length === 0
   return {
     ...debt,
     repaymentIntent: 'repayDebt',
-    clientPayload: maxAffordablePayment > 0
+    clientPayload: canRepayNow
       ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
       : null,
     recommendedPayment: maxAffordablePayment,
     maxAffordablePayment,
-    canRepayNow: blockers.length === 0,
+    canRepayNow,
     blockers,
   }
 }

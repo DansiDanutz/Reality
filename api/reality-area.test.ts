@@ -1516,6 +1516,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -1988,7 +1990,7 @@ describe('reality area authority API', () => {
       issuedAt: '2026-07-06T07:00:00.000Z',
       memo: 'Founder #0012 owes medical debt to system:hospital.',
       repaymentIntent: 'repayDebt',
-      clientPayload: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 50 },
+      clientPayload: null,
       recommendedPayment: 50,
       maxAffordablePayment: 50,
       canRepayNow: false,
@@ -2115,6 +2117,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2650,6 +2654,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
