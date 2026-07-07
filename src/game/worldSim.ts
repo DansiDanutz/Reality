@@ -241,6 +241,10 @@ export type WorldClientIntentPayload =
     workerCitizenId: string
   }
   | {
+    type: 'acceptWorkerOffer'
+    businessId: string
+  }
+  | {
     type: 'buyInsurance'
     insuranceBusinessId: string
   }
@@ -767,6 +771,11 @@ export type WorldIntent =
     workerCitizenId: string
   }
   | {
+    type: 'acceptWorkerOffer'
+    actorCitizenId: string
+    businessId: string
+  }
+  | {
     type: 'buyInsurance'
     actorCitizenId: string
     insuranceBusinessId: string
@@ -796,6 +805,7 @@ export type WorldIntentError =
   | 'worker_not_found'
   | 'worker_unavailable'
   | 'worker_already_hired'
+  | 'actor_not_real_worker'
   | 'real_worker_requires_acceptance'
   | 'debt_not_found'
   | 'invalid_debt_payment'
@@ -966,6 +976,8 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
       return buyServiceFromIntent(area, intent, 'clinic')
     case 'hireWorker':
       return hireWorkerFromIntent(area, intent)
+    case 'acceptWorkerOffer':
+      return acceptWorkerOfferFromIntent(area, intent)
     case 'buyInsurance':
       return buyInsuranceFromIntent(area, intent)
     case 'repayDebt':
@@ -2847,6 +2859,34 @@ function hireWorkerFromIntent(
 
   worker.jobBusinessId = business.id
   business.staffCitizenIds.push(worker.id)
+  return { ok: true, area }
+}
+
+function acceptWorkerOfferFromIntent(
+  area: WorldArea,
+  intent: Extract<WorldIntent, { type: 'acceptWorkerOffer' }>,
+): ApplyWorldIntentResult {
+  const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
+  if (!actor) return { ok: false, area, error: 'actor_not_found' }
+  if (actor.kind !== 'real') return { ok: false, area, error: 'actor_not_real_worker' }
+  if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
+
+  const business = area.businesses.find((candidate) => candidate.id === intent.businessId)
+  if (!business) return { ok: false, area, error: 'business_not_found' }
+  if (business.staffCitizenIds.includes(actor.id) || area.businesses.some((candidate) =>
+    candidate.id !== business.id && candidate.staffCitizenIds.includes(actor.id)
+  )) {
+    return { ok: false, area, error: 'worker_already_hired' }
+  }
+  if (actor.jobBusinessId && actor.jobBusinessId !== business.id) {
+    return { ok: false, area, error: 'worker_unavailable' }
+  }
+  if (activeStaffCount(area, business) >= TARGET_STAFF_BY_KIND[business.kind]) {
+    return { ok: false, area, error: 'business_fully_staffed' }
+  }
+
+  actor.jobBusinessId = business.id
+  business.staffCitizenIds.push(actor.id)
   return { ok: true, area }
 }
 

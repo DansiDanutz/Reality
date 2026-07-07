@@ -1261,6 +1261,7 @@ describe('Reality area client', () => {
       businessId: 'water-1',
     })).toBe(true)
     expect(isRealityAreaServerPayload({ type: 'hireWorker', businessId: 'water-1', workerCitizenId: 'sim-1' })).toBe(true)
+    expect(isRealityAreaServerPayload({ type: 'acceptWorkerOffer', businessId: 'water-1' })).toBe(false)
     expect(isRealityAreaServerPayload({ type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 })).toBe(true)
     expect(isRealityAreaServerPayload({ type: 'buyInsurance', insuranceBusinessId: 'ins-1' })).toBe(true)
   })

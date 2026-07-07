@@ -208,6 +208,18 @@ describe('decodeClientWorldIntentPayload', () => {
     })
 
     expect(decodeClientWorldIntentPayload({
+      type: 'acceptWorkerOffer',
+      businessId: ' food-a ',
+    }, ' real-worker ')).toEqual({
+      ok: true,
+      intent: {
+        type: 'acceptWorkerOffer',
+        actorCitizenId: 'real-worker',
+        businessId: 'food-a',
+      },
+    })
+
+    expect(decodeClientWorldIntentPayload({
       type: 'buyInsurance',
       insuranceBusinessId: 'ins-a',
     }, 'founder')).toEqual({
@@ -337,6 +349,17 @@ describe('decodeClientWorldIntentPayload', () => {
       businessId: 'food-a',
       workerCitizenId: 'bad id',
     }, 'founder')).toEqual({ ok: false, error: 'invalid_worker_id' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'acceptWorkerOffer',
+      businessId: 'bad id',
+    }, 'real-worker')).toEqual({ ok: false, error: 'invalid_business_id' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'acceptWorkerOffer',
+      businessId: 'food-a',
+      workerCitizenId: 'someone-else',
+    }, 'real-worker')).toEqual({ ok: false, error: 'client_controlled_server_field' })
 
     expect(decodeClientWorldIntentPayload({
       type: 'buyInsurance',

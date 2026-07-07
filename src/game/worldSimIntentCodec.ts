@@ -65,6 +65,7 @@ const CLIENT_INTENT_TYPES = [
   'buyHousing',
   'visitClinic',
   'hireWorker',
+  'acceptWorkerOffer',
   'buyInsurance',
   'repayDebt',
 ] as const
@@ -165,6 +166,12 @@ const REVIEW_FORBIDDEN_CLIENT_FIELDS = new Set([
   'areaEvents',
   'founderReviewHistory',
 ])
+const ACCEPT_WORKER_OFFER_FORBIDDEN_FIELDS = new Set([
+  'workerCitizenId',
+  'staffCitizenIds',
+  'wagePerHour',
+  'acceptedAt',
+])
 
 const MAX_CLIENT_ID_LENGTH = 96
 const MAX_BUSINESS_NAME_LENGTH = 80
@@ -237,6 +244,8 @@ export function decodeClientWorldIntentPayload(
       return { ok: true, intent: { type, actorCitizenId } }
     case 'hireWorker':
       return decodeHireWorkerIntent(payload, actorCitizenId)
+    case 'acceptWorkerOffer':
+      return decodeAcceptWorkerOfferIntent(payload, actorCitizenId)
     case 'buyInsurance':
       return decodeBuyInsuranceIntent(payload, actorCitizenId)
     case 'repayDebt':
@@ -310,6 +319,18 @@ function decodeHireWorkerIntent(
   const workerCitizenId = readClientId(payload.workerCitizenId)
   if (!workerCitizenId) return { ok: false, error: 'invalid_worker_id' }
   return { ok: true, intent: { type: 'hireWorker', actorCitizenId, businessId, workerCitizenId } }
+}
+
+function decodeAcceptWorkerOfferIntent(
+  payload: Record<string, unknown>,
+  actorCitizenId: string,
+): DecodeClientWorldIntentResult {
+  if (hasForbiddenClientField(payload, ACCEPT_WORKER_OFFER_FORBIDDEN_FIELDS)) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
+  const businessId = readClientId(payload.businessId)
+  if (!businessId) return { ok: false, error: 'invalid_business_id' }
+  return { ok: true, intent: { type: 'acceptWorkerOffer', actorCitizenId, businessId } }
 }
 
 function decodeBuyInsuranceIntent(

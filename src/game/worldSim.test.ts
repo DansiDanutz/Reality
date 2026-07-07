@@ -557,6 +557,52 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.businesses.find((b) => b.id === 'food1')!.staffCitizenIds).toEqual([])
   })
 
+  test('real citizens can accept their own worker offer into an open staff slot', () => {
+    const start = claimedArea({
+      citizens: [sim('real-worker', { kind: 'real' })],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'acceptWorkerOffer',
+      actorCitizenId: 'real-worker',
+      businessId: 'food1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected real worker acceptance to succeed')
+    expect(result.area.citizens.find((c) => c.id === 'real-worker')!.jobBusinessId).toBe('food1')
+    expect(result.area.businesses.find((b) => b.id === 'food1')!.staffCitizenIds).toEqual(['real-worker'])
+    expect(start.citizens.find((c) => c.id === 'real-worker')!.jobBusinessId).toBeUndefined()
+  })
+
+  test('worker offer acceptance rejects simulated citizens and full businesses', () => {
+    const fullBusiness = claimedArea({
+      citizens: [
+        sim('sim-worker'),
+        sim('worker1', { jobBusinessId: 'food1' }),
+        sim('worker2', { jobBusinessId: 'food1' }),
+        sim('real-worker', { kind: 'real' }),
+      ],
+      businesses: [business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['worker1', 'worker2'] })],
+    })
+
+    expect(applyWorldIntent(claimedArea({
+      citizens: [sim('sim-worker')],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    }), {
+      type: 'acceptWorkerOffer',
+      actorCitizenId: 'sim-worker',
+      businessId: 'food1',
+    })).toMatchObject({ ok: false, error: 'actor_not_real_worker' })
+
+    expect(applyWorldIntent(fullBusiness, {
+      type: 'acceptWorkerOffer',
+      actorCitizenId: 'real-worker',
+      businessId: 'food1',
+    })).toMatchObject({ ok: false, error: 'business_fully_staffed' })
+  })
+
   test('buyInsurance intent pays a premium to an insurance business and marks coverage', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500 })],
