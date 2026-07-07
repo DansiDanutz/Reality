@@ -6,7 +6,7 @@ import {
   type EducationCourseId,
   type EducationProgress,
 } from './education'
-import { SHOP_ITEMS } from './catalog'
+import { RECIPES, SHOP_ITEMS } from './catalog'
 import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentProgress,
@@ -41,6 +41,7 @@ export type LifePlanRoute =
   | { kind: 'community-action'; actionId: CommunityActionId }
   | { kind: 'education-action'; courseId: EducationCourseId }
   | { kind: 'consume-action'; itemId: string }
+  | { kind: 'cook-action'; recipeId: string }
   | { kind: 'survival-action'; action: 'drink-water' | 'sleep' }
   | { kind: 'none' }
 
@@ -189,6 +190,17 @@ function marketFocusForNeed(need: keyof Needs): ShopCategory {
   return 'health'
 }
 
+function readyRecipe(snapshot: Pick<LifeLadderSnapshot, 'assets' | 'inventory'>): { id: string; hunger: number } | null {
+  const hasKitchen = snapshot.assets.some((asset) => asset.kind === 'home') ||
+    ['hotplate', 'kitchen'].some((id) => (snapshot.inventory[id] ?? 0) > 0)
+  if (!hasKitchen) return null
+  return RECIPES
+    .filter((recipe) => Object.entries(recipe.ingredients).every(([id, qty]) => (snapshot.inventory[id] ?? 0) >= qty))
+    .map((recipe) => ({ id: recipe.id, hunger: recipe.effects.hunger ?? 0 }))
+    .filter((recipe) => recipe.hunger > 0)
+    .sort((a, b) => b.hunger - a.hunger)[0] ?? null
+}
+
 function bodyRecoveryTask(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   if (snapshot.health < 40) {
     return task('body-recover', 'Recover your body first', 'Health is low. Drink, eat, and rest before chasing money.', 'body', { kind: 'market', focus: 'health' }, 60)
@@ -198,12 +210,17 @@ function bodyRecoveryTask(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   }
   if (snapshot.needs.hunger <= NEED_RECOVERY_FLOOR) {
     const ownedFood = strongestOwnedFood(snapshot.inventory)
+    const recipe = ownedFood ? null : readyRecipe(snapshot)
     return task(
       'eat-food',
       'Eat a real meal',
       'Food keeps the workday and construction day possible.',
       'body',
-      ownedFood ? { kind: 'consume-action', itemId: ownedFood.id } : { kind: 'market', focus: 'food' },
+      ownedFood
+        ? { kind: 'consume-action', itemId: ownedFood.id }
+        : recipe
+          ? { kind: 'cook-action', recipeId: recipe.id }
+          : { kind: 'market', focus: 'food' },
       20,
     )
   }
@@ -421,8 +438,11 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
   const ownedRecovery = lowest === 'energy' ? null : strongestOwnedNeedItem(snapshot.inventory, lowest)
+  const recipe = lowest === 'hunger' && !ownedRecovery ? readyRecipe(snapshot) : null
   const bodyRoute: LifePlanRoute = ownedRecovery
     ? { kind: 'consume-action', itemId: ownedRecovery.id }
+    : recipe
+      ? { kind: 'cook-action', recipeId: recipe.id }
     : lowest === 'hydration' && snapshot.money >= 1
       ? { kind: 'survival-action', action: 'drink-water' }
       : lowest === 'energy'
@@ -463,7 +483,7 @@ function strongestOwnedFood(inventory: Record<string, number>): { id: string; hu
 
 function strongestOwnedNeedItem(inventory: Record<string, number>, need: keyof Needs): { id: string; amount: number } | null {
   return SHOP_ITEMS
-    .filter((item) => (inventory[item.id] ?? 0) > 0 && (item.effects?.[need] ?? 0) > 0)
+    .filter((item) => item.category !== 'groceries' && (inventory[item.id] ?? 0) > 0 && (item.effects?.[need] ?? 0) > 0)
     .map((item) => ({ id: item.id, amount: item.effects?.[need] ?? 0 }))
     .sort((a, b) => b.amount - a.amount)[0] ?? null
 }

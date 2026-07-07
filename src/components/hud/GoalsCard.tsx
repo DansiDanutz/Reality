@@ -49,6 +49,7 @@ function routineShortLabel(block: { id: string; value: string; route: LifePlanRo
   if (block.route.kind === 'community-action') return block.route.actionId === 'check-neighbor' ? 'Friends' : 'Help'
   if (block.route.kind === 'education-action') return 'School'
   if (block.route.kind === 'consume-action') return 'Eat'
+  if (block.route.kind === 'cook-action') return 'Cook'
   if (block.route.kind === 'survival-action') return block.route.action === 'sleep' ? 'Sleep' : 'Drink'
   return 'Own'
 }
@@ -143,6 +144,7 @@ export default function GoalsCard() {
   const startCommunityAction = useGame((s) => s.startCommunityAction)
   const startStudy = useGame((s) => s.startStudy)
   const consume = useGame((s) => s.consume)
+  const cook = useGame((s) => s.cook)
   const quickDrink = useGame((s) => s.quickDrink)
   const startSleep = useGame((s) => s.startSleep)
 
@@ -231,6 +233,10 @@ export default function GoalsCard() {
     }
     if (route.kind === 'consume-action') {
       consume(route.itemId)
+      return
+    }
+    if (route.kind === 'cook-action') {
+      cook(route.recipeId)
       return
     }
     if (route.kind === 'survival-action') {
