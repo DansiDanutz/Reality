@@ -5,6 +5,7 @@ import {
   completeReliableShift,
   freshCommunityStats,
   missedSeriousWorkYesterday,
+  recordBrokenCommitment,
 } from './community'
 import { communityAdvantageOf, millionairePathOf, type MillionairePathInput } from './millionairePath'
 import { rewardForStreakDay } from './streak'
@@ -84,6 +85,38 @@ describe('reputation contract', () => {
       seriousWorkLastDay: communityDay(day5),
     })
     expect(missedSeriousWorkYesterday(recovered, day5 + DAY_MS)).toBe(false)
+  })
+
+  test('a broken commitment is humane and recoverable through reliable work', () => {
+    const today = Date.UTC(2026, 6, 7, 12)
+    const earned = completeReliableShift({
+      ...freshCommunityStats(today),
+      respect: 4,
+      trust: 3,
+      seriousWorkStreak: 3,
+      seriousWorkBest: 3,
+      seriousWorkLastDay: communityDay(today - DAY_MS),
+    }, today)
+
+    const broken = recordBrokenCommitment(earned, today + 2 * 3_600_000)
+    const repeated = recordBrokenCommitment(broken, today + 3 * 3_600_000)
+    const repaired = completeReliableShift(repeated, today + DAY_MS)
+
+    expect(broken).toMatchObject({
+      respect: 4,
+      trust: 3,
+      seriousWorkStreak: 0,
+      seriousWorkBest: 4,
+      brokenCommitments: 1,
+    })
+    expect(repeated.respect).toBe(broken.respect)
+    expect(repeated.trust).toBe(broken.trust)
+    expect(repaired).toMatchObject({
+      respect: 5,
+      trust: 4,
+      seriousWorkStreak: 1,
+      seriousWorkBest: 4,
+    })
   })
 
   test('login streak rewards stay separate from earned reputation', () => {

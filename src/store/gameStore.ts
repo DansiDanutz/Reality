@@ -58,6 +58,7 @@ import {
   freshCommunityStats,
   missedSeriousWorkYesterday,
   normalizeCommunityStats,
+  recordBrokenCommitment,
   resetCommunityActionDayIfNeeded,
   resetCommunityWeekIfNeeded,
   type CommunityActionId,
@@ -2744,13 +2745,24 @@ export const useGame = create<GameState>()(
           set({ activity: null, log: note(s.log, 'Stopped interior work before this block counted.') })
           return
         }
-        // Leaving a shift early: pro-rata pay, no XP
-        const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
+        // Leaving a shift early: pro-rata pay, no XP, and one humane reliability hit per day.
+        const now = Date.now()
+        const beforeRespect = s.community.respect
+        const beforeTrust = s.community.trust
+        const community = recordBrokenCommitment(s.community, now)
+        const respectLost = beforeRespect - community.respect
+        const trustLost = beforeTrust - community.trust
+        const hoursWorked = Math.max(0, (now - a.startedAt) / 3_600_000)
         const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + totalWageBonus(s.inventory, s.educationProgress)))
+        const reputationNote = respectLost > 0 || trustLost > 0
+          ? ` Reliability took a hit: -${respectLost} respect, -${trustLost} trust.`
+          : ' Reliability noted it; no extra respect was lost today.'
         set({
           activity: null,
           money: s.money + pay,
-          log: note(s.log, pay > 0 ? `Left the shift early: +${formatMoney(pay)}, no experience earned.` : 'Left the shift before it started paying.'),
+          community,
+          log: note(s.log, `${pay > 0 ? `Left the shift early: +${formatMoney(pay)}, no experience earned.` : 'Left the shift before it started paying.'}${reputationNote}`),
+          toasts: withToast(s.toasts, respectLost > 0 || trustLost > 0 ? 'Broken commitment: reliability -1' : 'Broken commitment recorded', 'blocked'),
         })
       },
 

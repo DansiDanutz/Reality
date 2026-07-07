@@ -30,6 +30,8 @@ export interface CommunityStats {
   seriousWorkStreak: number
   seriousWorkBest: number
   seriousWorkLastDay: number
+  brokenCommitments: number
+  commitmentPenaltyDay: number
 }
 
 const DAY_MS = 24 * 3_600_000
@@ -85,6 +87,8 @@ export function freshCommunityStats(now = Date.now()): CommunityStats {
     seriousWorkStreak: 0,
     seriousWorkBest: 0,
     seriousWorkLastDay: 0,
+    brokenCommitments: 0,
+    commitmentPenaltyDay: 0,
   }
 }
 
@@ -104,6 +108,8 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
     seriousWorkStreak: Math.max(0, Math.floor(stats.seriousWorkStreak ?? 0)),
     seriousWorkBest: Math.max(0, Math.floor(stats.seriousWorkBest ?? 0)),
     seriousWorkLastDay: Number.isFinite(stats.seriousWorkLastDay) ? Math.max(0, Math.floor(stats.seriousWorkLastDay ?? 0)) : 0,
+    brokenCommitments: Math.max(0, Math.floor(stats.brokenCommitments ?? 0)),
+    commitmentPenaltyDay: Number.isFinite(stats.commitmentPenaltyDay) ? Math.max(0, Math.floor(stats.commitmentPenaltyDay ?? 0)) : 0,
   }
 }
 
@@ -162,6 +168,21 @@ export function completeReliableShift(stats: CommunityStats, now = Date.now()): 
     seriousWorkStreak,
     seriousWorkBest: Math.max(current.seriousWorkBest, seriousWorkStreak),
     seriousWorkLastDay: day,
+  }
+}
+
+export function recordBrokenCommitment(stats: CommunityStats, now = Date.now()): CommunityStats {
+  const day = communityDay(now)
+  const alreadyPenalizedToday = stats.commitmentPenaltyDay === day
+  const respectLost = alreadyPenalizedToday ? 0 : Math.min(1, stats.respect)
+  const trustLost = alreadyPenalizedToday ? 0 : Math.min(1, stats.trust)
+  return {
+    ...stats,
+    respect: stats.respect - respectLost,
+    trust: stats.trust - trustLost,
+    brokenCommitments: stats.brokenCommitments + 1,
+    commitmentPenaltyDay: day,
+    seriousWorkStreak: 0,
   }
 }
 

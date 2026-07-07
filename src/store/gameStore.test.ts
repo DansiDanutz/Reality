@@ -792,6 +792,83 @@ describe('shift reliability loop', () => {
     expect(state.community.seriousWorkBest).toBe(2)
     expect(state.streakLength).toBe(9)
   })
+
+  test('leaving a shift early records a humane reputation hit that reliable work can repair', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T00:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      jobId: 'barista',
+      shiftsWorked: 0,
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: {
+        ...freshCommunityStats(now),
+        respect: 2,
+        trust: 2,
+        seriousWorkStreak: 3,
+        seriousWorkBest: 3,
+        seriousWorkLastDay: communityDay(now - 24 * 3_600_000),
+      },
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startShift()
+    vi.setSystemTime(now + 2 * 3_600_000)
+    useGame.getState().leaveActivity()
+
+    const broken = useGame.getState()
+    expect(broken.money).toBe(30)
+    expect(broken.community).toMatchObject({
+      respect: 1,
+      trust: 1,
+      brokenCommitments: 1,
+      commitmentPenaltyDay: communityDay(now + 2 * 3_600_000),
+      seriousWorkStreak: 0,
+      seriousWorkBest: 3,
+    })
+    expect(broken.log.at(0)).toContain('Reliability took a hit')
+    expect(broken.toasts.at(-1)).toMatchObject({ text: 'Broken commitment: reliability -1', tone: 'blocked' })
+
+    useGame.getState().startShift()
+    vi.setSystemTime(now + 3 * 3_600_000)
+    useGame.getState().leaveActivity()
+    expect(useGame.getState().community).toMatchObject({
+      respect: 1,
+      trust: 1,
+      brokenCommitments: 2,
+    })
+
+    const nextDay = now + 24 * 3_600_000
+    vi.setSystemTime(nextDay)
+    useGame.setState({
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      activity: null,
+      lastSeenAt: nextDay,
+    })
+    useGame.getState().startShift()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    const repaired = useGame.getState()
+    expect(repaired.shiftsWorked).toBe(1)
+    expect(repaired.community).toMatchObject({
+      respect: 2,
+      trust: 2,
+      seriousWorkStreak: 1,
+      seriousWorkBest: 3,
+      brokenCommitments: 2,
+    })
+  })
 })
 
 describe('business interior development', () => {
