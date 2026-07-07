@@ -4321,7 +4321,20 @@ async function handleFounderCovenantOperatorReview(
 
   const now = new Date()
   const existing = await readAreaState(intent.founderCitizenId)
-  const stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
+  let stateForReview = existing
+  if (existing) {
+    try {
+      stateForReview = await catchUpPersistedAreaState(intent.founderCitizenId, existing, now)
+    } catch {
+      res.status(503).json({
+        ok: false,
+        error: 'Reality area storage is briefly unavailable.',
+        code: 'area_storage_unavailable',
+        ...areaPayload(existing),
+      })
+      return
+    }
+  }
   if (stateForReview && stateForReview.areaId !== intent.areaId) {
     res.status(operatorRecordCovenantReviewStatus('area_mismatch')).json({
       ok: false,
