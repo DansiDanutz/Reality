@@ -402,7 +402,10 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
-  const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }, 30)
+  const bodyRoute: LifePlanRoute = lowest === 'hydration' && snapshot.money >= 1
+    ? { kind: 'survival-action', action: 'drink-water' }
+    : { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }
+  const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', bodyRoute, 30)
   const activeCourse = activeEducationCourse(snapshot.educationProgress)
   const school = activeCourse
     ? task(
