@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { freshCommunityStats } from '../game/community'
+import { STARTER_HOUSE_RECIPE, createConstructionProject } from '../game/construction'
 import { freshResources } from '../game/resources'
 import type { PlacedAsset, ShopItem } from '../game/types'
 import { useGame } from './gameStore'
@@ -49,6 +50,60 @@ describe('construction placement guard', () => {
     expect(state.placingConstruction).toBeNull()
     expect(state.log.at(-1)).toContain('waiting for a map spot')
     expect(state.toasts.at(-1)?.tone).toBe('blocked')
+  })
+})
+
+describe('construction worker contracts', () => {
+  test('hired workers advance construction over real time without occupying the player activity slot', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, now),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      money: 1_000,
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      constructionProjects: [project],
+      assets: [],
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().hireConstructionWorker(project.id, 'helper', 1)
+    let hired = useGame.getState()
+    expect(hired.money).toBe(984)
+    expect(hired.activity).toBeNull()
+    expect(hired.constructionProjects[0].laborDoneMinutes).toBe(0)
+    expect(hired.constructionProjects[0].workerContracts).toHaveLength(1)
+    expect(hired.constructionProjects[0].workerContracts[0]).toMatchObject({
+      workerId: 'helper',
+      paidMinutes: 60,
+      workedMinutes: 0,
+    })
+
+    vi.setSystemTime(now + 30 * 60_000)
+    useGame.getState().tick()
+    hired = useGame.getState()
+    expect(hired.constructionProjects[0].laborDoneMinutes).toBe(30)
+    expect(hired.constructionProjects[0].hiredLaborMinutes).toBe(30)
+    expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(30)
+    expect(hired.activity).toBeNull()
+
+    vi.setSystemTime(now + 60 * 60_000)
+    useGame.getState().tick()
+    hired = useGame.getState()
+    expect(hired.constructionProjects[0].laborDoneMinutes).toBe(60)
+    expect(hired.constructionProjects[0].hiredLaborMinutes).toBe(60)
+    expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(60)
   })
 })
 
