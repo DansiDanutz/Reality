@@ -16,9 +16,11 @@ import {
 import {
   CONSTRUCTION_WORKERS,
   STARTER_HOUSE_RECIPE,
+  businessConstructionRecipe,
   constructionLaborBreakdown,
   constructionProgress,
   constructionShortfall,
+  createConstructionProjectFromRecipe,
   estimateConstructionWorkerHire,
   type ConstructionProject,
 } from './construction'
@@ -81,6 +83,12 @@ export interface ResourceTripForecast {
 }
 
 export interface ConstructionDayForecast {
+  upfrontCostRemaining: number
+  upfrontCashNeeded: number
+  upfrontAffordableToday: boolean
+  permitRemaining: number
+  permitCashNeeded: number
+  permitAffordableToday: boolean
   remainingLaborMinutes: number
   playerOnlyDaysAtOneHour: number
   playerOnlyDaysAtTwoHours: number
@@ -164,6 +172,21 @@ export const STANDARD_DAY_BUDGET: LifeTimeBudget = {
 
 const NEED_RECOVERY_FLOOR = 35
 const CASH_SAFETY_FLOOR = 100
+
+function firstBusinessItem() {
+  return SHOP_ITEMS
+    .filter((item) => item.category === 'business' && item.placeable && (item.incomePerDay ?? 0) > 0)
+    .sort((a, b) => a.price - b.price)[0] ?? null
+}
+
+function firstBusinessShellProject(now = 0): { item: NonNullable<ReturnType<typeof firstBusinessItem>>; project: ConstructionProject } | null {
+  const item = firstBusinessItem()
+  if (!item) return null
+  return {
+    item,
+    project: createConstructionProjectFromRecipe(businessConstructionRecipe(item), 0, 0, now),
+  }
+}
 
 function task(id: string, title: string, detail: string, value: LifeValue, route: LifePlanRoute, minutes: number): LifePlanTask {
   return { id, title, detail, value, route, minutes }
@@ -475,7 +498,29 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   if (business) {
     return task('plan-business-development', 'Plan the next business upgrade', 'Turn profit into layout, tools, and service quality before chasing a second business.', 'capital', { kind: 'panel', panel: 'business' }, 20)
   }
-  return task('build-first-business', 'Build the first business', 'Use stable home life to start an earning building, not instant magic income.', 'capital', { kind: 'market', focus: 'business' }, 45)
+  const shell = firstBusinessShellProject()
+  if (!shell) {
+    return task('build-first-business', 'Build the first business', 'Use stable home life to start an earning building, not instant magic income.', 'capital', { kind: 'market', focus: 'business' }, 45)
+  }
+  const cashNeeded = Math.max(0, shell.item.price + CASH_SAFETY_FLOOR - snapshot.money)
+  if (cashNeeded > 0) {
+    return task(
+      'build-first-business',
+      `Save for ${shell.item.name} foundation`,
+      `${shell.item.name} costs $${shell.item.price.toLocaleString()} before the map shell. Save $${cashNeeded.toLocaleString()} more, then place it and build through materials, permit, and labor.`,
+      'work',
+      snapshot.jobId ? { kind: 'work-action', action: 'shift' } : { kind: 'panel', panel: 'work' },
+      snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30,
+    )
+  }
+  return task(
+    'build-first-business',
+    `Place ${shell.item.name} foundation`,
+    `Buy ${shell.item.name} from Market > Businesses, place the map shell, then gather ingredients, pay the permit, and build it before it earns.`,
+    'capital',
+    { kind: 'market', focus: 'business' },
+    45,
+  )
 }
 
 function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
@@ -755,15 +800,26 @@ export function constructionDayForecast(
   resources: ResourceInventory = freshResources(),
   money = 0,
   cashSafetyFloor = CASH_SAFETY_FLOOR,
+  upfrontCost = 0,
 ): ConstructionDayForecast {
   const { resourceTrips, totalGatherMinutes } = resourceTripForecasts(constructionShortfall(project), resources)
   const remainingLaborMinutes = constructionLaborBreakdown(project).remainingMinutes
+  const upfrontCostRemaining = Math.max(0, Math.floor(upfrontCost))
+  const upfrontCashNeeded = Math.max(0, upfrontCostRemaining + cashSafetyFloor - money)
+  const permitRemaining = project.permitFeePaid ? 0 : Math.max(0, project.permitFee)
+  const permitCashNeeded = Math.max(0, permitRemaining + cashSafetyFloor - money)
   const helper = CONSTRUCTION_WORKERS.find((worker) => worker.id === 'helper')
   const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
   const helperCost = helper ? helper.ratePerHour * 2 : 0
   const helperCashNeeded = Math.max(0, helperCost + cashSafetyFloor - money)
   const activeWorkers = activeWorkerForecast(remainingLaborMinutes, project.workerContracts)
   return {
+    upfrontCostRemaining,
+    upfrontCashNeeded,
+    upfrontAffordableToday: upfrontCashNeeded <= 0,
+    permitRemaining,
+    permitCashNeeded,
+    permitAffordableToday: permitCashNeeded <= 0,
     remainingLaborMinutes,
     playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
     playerOnlyDaysAtTwoHours: Math.ceil(remainingLaborMinutes / 120),
@@ -862,6 +918,10 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const activeProject = activeConstructionProject(snapshot)
   const activeBusinessDevelopmentProject = snapshot.businessDevelopmentProjects[0] ?? null
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
+  const hasBusiness = snapshot.assets.some((asset) => asset.kind === 'business')
+  const firstBusinessShell = hasHome && !hasBusiness && !activeProject
+    ? firstBusinessShellProject(snapshot.lifeDay)
+    : null
   return {
     lifeDay: snapshot.lifeDay,
     primary,
@@ -872,6 +932,8 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     timeBudget: STANDARD_DAY_BUDGET,
     constructionForecast: activeProject || !hasHome
       ? constructionDayForecast(activeProject ?? undefined, snapshot.resources, snapshot.money)
+      : firstBusinessShell
+        ? constructionDayForecast(firstBusinessShell.project, snapshot.resources, snapshot.money, CASH_SAFETY_FLOOR, firstBusinessShell.item.price)
       : null,
     businessDevelopmentForecast: activeBusinessDevelopmentProject
       ? businessDevelopmentDayForecast(activeBusinessDevelopmentProject, snapshot.resources, snapshot.money)
