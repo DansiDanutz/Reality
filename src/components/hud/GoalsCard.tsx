@@ -45,6 +45,8 @@ function routineShortLabel(block: { id: string; value: string; route: LifePlanRo
     if (block.route.action === 'complete') return 'Finish'
     return 'Work'
   }
+  if (block.route.kind === 'work-action') return 'Work'
+  if (block.route.kind === 'community-action') return block.route.actionId === 'check-neighbor' ? 'Friends' : 'Help'
   return 'Own'
 }
 
@@ -133,6 +135,8 @@ export default function GoalsCard() {
   const startBusinessDevelopmentWork = useGame((s) => s.startBusinessDevelopmentWork)
   const hireBusinessDevelopmentWorker = useGame((s) => s.hireBusinessDevelopmentWorker)
   const completeBusinessDevelopmentIfReady = useGame((s) => s.completeBusinessDevelopmentIfReady)
+  const startShift = useGame((s) => s.startShift)
+  const startCommunityAction = useGame((s) => s.startCommunityAction)
 
   if (!citizen) return null
 
@@ -201,6 +205,14 @@ export default function GoalsCard() {
       else if (route.action === 'work') startBusinessDevelopmentWork(route.projectId)
       else if (route.action === 'hire-helper') hireBusinessDevelopmentWorker(route.projectId, 'helper', 1)
       else completeBusinessDevelopmentIfReady(route.projectId)
+      return
+    }
+    if (route.kind === 'work-action') {
+      startShift()
+      return
+    }
+    if (route.kind === 'community-action') {
+      startCommunityAction(route.actionId)
       return
     }
     if (route.kind === 'panel') setPanel(route.panel)
