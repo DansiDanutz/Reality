@@ -117,6 +117,7 @@ export default function App() {
     if (mapAnchorLat === undefined || mapAnchorLng === undefined) return
     const timer = window.setTimeout(() => {
       useGame.getState().setResourceNodes(fallbackResourceNodes(mapAnchorLat, mapAnchorLng))
+      useGame.getState().setServicePois([])
       if (streetAnchorLat !== undefined && streetAnchorLng !== undefined) {
         preloadWeather(streetAnchorLat, streetAnchorLng)
         preloadNeighborhood(streetAnchorLat, streetAnchorLng)
@@ -124,6 +125,7 @@ export default function App() {
       preloadMapDiscovery(mapAnchorLat, mapAnchorLng)
       void fetchMapDiscovery(mapAnchorLat, mapAnchorLng).then((discovery) => {
         useGame.getState().setResourceNodes(discovery.resourceNodes)
+        useGame.getState().setServicePois(discovery.servicePois)
       }).catch(() => {})
     }, 1_500)
     return () => window.clearTimeout(timer)

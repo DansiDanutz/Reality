@@ -7,6 +7,8 @@ describe('mapDiscovery', () => {
     expect(query).toContain('landuse"="forest')
     expect(query).toContain('landuse"="quarry')
     expect(query).toContain('amenity"~"restaurant|cafe|fast_food')
+    expect(query).toContain('office"="employment_agency')
+    expect(query).toContain('amenity"~"community_centre|townhall')
     expect(query).toContain('office"="insurance')
   })
 
@@ -32,10 +34,28 @@ describe('mapDiscovery', () => {
         lon: 21.203,
         tags: { amenity: 'hospital' },
       },
+      {
+        type: 'way',
+        id: 4,
+        center: { lat: 45.704, lon: 21.204 },
+        tags: { office: 'employment_agency', name: 'Local Labor Office' },
+      },
+      {
+        type: 'node',
+        id: 5,
+        lat: 45.705,
+        lon: 21.205,
+        tags: { amenity: 'community_centre' },
+      },
     ], 45.7, 21.2)
 
     expect(out.resourceNodes.map((node) => node.kind).sort()).toEqual(['glass', 'metal', 'stone', 'wood'])
     expect(out.resourceNodes.find((node) => node.label === 'Old oak')?.source).toBe('osm')
-    expect(out.servicePois.map((poi) => poi.kind).sort()).toEqual(['bank', 'health'])
+    expect(out.servicePois.map((poi) => poi.kind).sort()).toEqual(['bank', 'health', 'workers-hall', 'workers-hall'])
+    expect(out.servicePois.find((poi) => poi.kind === 'workers-hall')).toMatchObject({
+      label: 'Local Labor Office',
+      source: 'osm',
+    })
+    expect(out.servicePois.find((poi) => poi.id === 'osm-workers-hall-45.7050-21.2050')?.label).toBe('Workers Hall')
   })
 })

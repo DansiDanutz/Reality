@@ -16,7 +16,7 @@ interface OverpassElement {
 
 export interface ServicePoi {
   id: string
-  kind: 'restaurant' | 'bank' | 'health' | 'school' | 'insurance' | 'grocery'
+  kind: 'restaurant' | 'bank' | 'health' | 'school' | 'insurance' | 'grocery' | 'workers-hall'
   label: string
   lat: number
   lng: number
@@ -101,6 +101,9 @@ export function buildDiscoveryQuery(lat: number, lng: number): string {
     `node["shop"~"hardware|doityourself"]${around};way["shop"~"hardware|doityourself"]${around};` +
     `node["amenity"~"restaurant|cafe|fast_food|bank|atm|hospital|clinic|pharmacy|school|college|university"]${around};` +
     `way["amenity"~"restaurant|cafe|fast_food|bank|atm|hospital|clinic|pharmacy|school|college|university"]${around};` +
+    `node["office"="employment_agency"]${around};way["office"="employment_agency"]${around};` +
+    `node["amenity"~"community_centre|townhall"]${around};way["amenity"~"community_centre|townhall"]${around};` +
+    `node["building"="commercial"]${around};way["building"="commercial"]${around};` +
     `node["office"="insurance"]${around};way["office"="insurance"]${around};` +
     `node["shop"~"supermarket|convenience|grocery"]${around};way["shop"~"supermarket|convenience|grocery"]${around};` +
     `);out center;`
@@ -168,11 +171,18 @@ function serviceKindFromTags(tags: Record<string, string>): ServicePoi['kind'] |
   if (['school', 'college', 'university'].includes(tags.amenity ?? '')) return 'school'
   if (tags.office === 'insurance') return 'insurance'
   if (['supermarket', 'convenience', 'grocery'].includes(tags.shop ?? '')) return 'grocery'
+  if (
+    tags.office === 'employment_agency' ||
+    tags.amenity === 'community_centre' ||
+    tags.amenity === 'townhall' ||
+    tags.building === 'commercial'
+  ) return 'workers-hall'
   return null
 }
 
 function labelFromTags(tags: Record<string, string>, fallback: string): string {
   if (tags.name) return tags.name
+  if (fallback === 'workers-hall') return 'Workers Hall'
   const label = fallback.replace(/-/g, ' ')
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
