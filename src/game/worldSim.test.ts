@@ -2335,6 +2335,75 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(new Set(second.area.founderReviewHistory?.map((entry) => entry.id)).size).toBe(2)
   })
 
+  test('advanceWorldArea clones founder covenant review history without sharing manual evidence', () => {
+    const reviewAt = 2 * HOUR
+    const start = area({
+      now: reviewAt,
+      founderReviewHistory: [{
+        id: 'review-1',
+        at: reviewAt,
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        summary: 'Manual review recorded.',
+        authorityGate: areaReviewerEvidenceGate(),
+        decision: covenantDecisionSnapshot(),
+        signals: [{
+          kind: 'essential_shortage',
+          severity: 'warning',
+          message: 'Water demand remains unserved.',
+          businessKinds: ['water'],
+          businessIds: ['water1'],
+        }],
+        activityReview: covenantActivitySnapshot(),
+        reviewQueue: covenantReviewQueueSnapshot(),
+        reviewInputs: covenantReviewInputSnapshot(),
+        stages: covenantStageSnapshot(),
+        reviewChecklist: covenantChecklistSnapshot(),
+        manualActions: covenantManualActionSnapshot(),
+        approvalRequests: covenantApprovalRequestSnapshot(),
+        reviewSchedule: {
+          lastReviewAt: reviewAt,
+          nextWeeklyReviewAt: reviewAt + 7 * 24 * HOUR,
+          nextMonthlyReviewAt: reviewAt + 30 * 24 * HOUR,
+          weeklyReviewDue: false,
+          monthlyReviewDue: false,
+          overdue: false,
+          automationEnabled: false,
+        },
+      }],
+    })
+
+    const result = advanceWorldArea(start, reviewAt)
+    const sourceEntry = start.founderReviewHistory?.[0]
+    const clonedEntry = result.area.founderReviewHistory?.[0]
+
+    expect(clonedEntry).toEqual(sourceEntry)
+    expect(clonedEntry).not.toBe(sourceEntry)
+    expect(clonedEntry?.authorityGate).not.toBe(sourceEntry?.authorityGate)
+    expect(clonedEntry?.decision).not.toBe(sourceEntry?.decision)
+    expect(clonedEntry?.signals).not.toBe(sourceEntry?.signals)
+    expect(clonedEntry?.signals[0]).not.toBe(sourceEntry?.signals[0])
+    expect(clonedEntry?.signals[0]?.businessKinds).not.toBe(sourceEntry?.signals[0]?.businessKinds)
+    expect(clonedEntry?.signals[0]?.businessIds).not.toBe(sourceEntry?.signals[0]?.businessIds)
+    expect(clonedEntry?.activityReview).not.toBe(sourceEntry?.activityReview)
+    expect(clonedEntry?.reviewQueue).not.toBe(sourceEntry?.reviewQueue)
+    expect(clonedEntry?.reviewQueue.recommendedActionKinds).not.toBe(sourceEntry?.reviewQueue.recommendedActionKinds)
+    expect(clonedEntry?.reviewInputs).not.toBe(sourceEntry?.reviewInputs)
+    expect(clonedEntry?.reviewInputs[0]).not.toBe(sourceEntry?.reviewInputs[0])
+    expect(clonedEntry?.stages).not.toBe(sourceEntry?.stages)
+    expect(clonedEntry?.stages[0]).not.toBe(sourceEntry?.stages[0])
+    expect(clonedEntry?.reviewChecklist).not.toBe(sourceEntry?.reviewChecklist)
+    expect(clonedEntry?.reviewChecklist[0]).not.toBe(sourceEntry?.reviewChecklist[0])
+    expect(clonedEntry?.manualActions).not.toBe(sourceEntry?.manualActions)
+    expect(clonedEntry?.manualActions[0]).not.toBe(sourceEntry?.manualActions[0])
+    expect(clonedEntry?.manualActions[0]?.authorityGate).not.toBe(sourceEntry?.manualActions[0]?.authorityGate)
+    expect(clonedEntry?.approvalRequests).not.toBe(sourceEntry?.approvalRequests)
+    expect(clonedEntry?.approvalRequests[0]).not.toBe(sourceEntry?.approvalRequests[0])
+    expect(clonedEntry?.approvalRequests[0]?.authorityGate).not.toBe(sourceEntry?.approvalRequests[0]?.authorityGate)
+    expect(clonedEntry?.approvalRequests[0]?.blockers).not.toBe(sourceEntry?.approvalRequests[0]?.blockers)
+    expect(clonedEntry?.reviewSchedule).not.toBe(sourceEntry?.reviewSchedule)
+  })
+
   test('dashboard turns overdue covenant review into a manual-review signal only', () => {
     const lastReviewAt = 2 * 24 * HOUR
     const start = claimedArea({
