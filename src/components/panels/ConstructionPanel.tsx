@@ -8,9 +8,10 @@ import {
   estimateConstructionWorkerHire,
 } from '../../game/construction'
 import { formatMoney } from '../../game/engine'
+import { constructionDayForecast } from '../../game/lifeLadder'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
-import { constructionFinalStageView } from './constructionPanelView'
+import { constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
 import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
@@ -69,6 +70,9 @@ export default function ConstructionPanel() {
   const planLaborMinutes = activeProject?.laborRequiredMinutes ?? STARTER_HOUSE_RECIPE.laborRequiredMinutes
   const planPercent = activeProgress?.percent ?? (hasStarterHome ? 100 : 0)
   const finalStage = constructionFinalStageView(planKind, Boolean(activeProgress?.complete), hasStarterHome)
+  const buildForecast = activeProject || !hasStarterHome
+    ? constructionDayForecast(activeProject ?? undefined, resources, money)
+    : null
 
   return (
     <section className="panel construction-panel" aria-label="Construction">
@@ -121,6 +125,24 @@ export default function ConstructionPanel() {
           </div>
         ))}
       </div>
+
+      {buildForecast && (
+        <section className="founder-section" aria-label={`${planName} forecast`}>
+          <div className="founder-section-head">
+            <h3 className="founder-section-title">Build forecast</h3>
+            <span className="item-desc">materials · permit · labor · workers</span>
+          </div>
+          <div className="build-forecast-grid">
+            {constructionForecastCards(buildForecast).map((card) => (
+              <div className={`forecast-card ${card.tone ?? ''}`} key={card.label}>
+                <span className="stat-label">{card.label}</span>
+                <strong className="stat-value mono">{card.value}</strong>
+                <span className="item-desc">{card.detail}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="founder-section">
         <div className="founder-section-head">

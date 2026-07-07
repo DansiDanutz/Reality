@@ -11,8 +11,10 @@ import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import { CONSTRUCTION_WORKERS } from '../../game/construction'
 import { educationBusinessLaborMultiplier } from '../../game/education'
 import { formatMoney } from '../../game/engine'
+import { businessDevelopmentDayForecast } from '../../game/lifeLadder'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
+import { businessDevelopmentForecastCards } from './constructionPanelView'
 import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
 function formatMinutes(minutes: number): string {
@@ -33,6 +35,7 @@ export default function BusinessPanel() {
   const assets = useGame((s) => s.assets)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const money = useGame((s) => s.money)
+  const resources = useGame((s) => s.resources)
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const educationProgress = useGame((s) => s.educationProgress)
   const collectIncome = useGame((s) => s.collectIncome)
@@ -68,6 +71,7 @@ export default function BusinessPanel() {
   const projectLabor = project ? businessDevelopmentLaborBreakdown(project) : null
   const shortfall = project ? businessDevelopmentShortfall(project) : null
   const activeWorkerContracts = project?.workerContracts?.filter((contract) => contract.workedMinutes < contract.paidMinutes) ?? []
+  const interiorForecast = project ? businessDevelopmentDayForecast(project, resources, money) : null
   const studyLaborMultiplier = educationBusinessLaborMultiplier(educationProgress)
   const studyLaborBonus = Math.max(0, Math.round((studyLaborMultiplier - 1) * 100))
   const atCap = level >= MAX_BUSINESS_LEVEL || !plan
@@ -153,6 +157,17 @@ export default function BusinessPanel() {
               <p className="item-desc">
                 Missing {RESOURCE_KINDS.filter((kind) => shortfall[kind] > 0).map((kind) => `${shortfall[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`).join(', ')}.
               </p>
+            )}
+            {interiorForecast && (
+              <div className="build-forecast-grid" aria-label={`${project.businessName} interior forecast`}>
+                {businessDevelopmentForecastCards(interiorForecast).map((card) => (
+                  <div className={`forecast-card ${card.tone ?? ''}`} key={card.label}>
+                    <span className="stat-label">{card.label}</span>
+                    <strong className="stat-value mono">{card.value}</strong>
+                    <span className="item-desc">{card.detail}</span>
+                  </div>
+                ))}
+              </div>
             )}
             <div className="labor-ledger">
               <div className="stat">
