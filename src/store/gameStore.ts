@@ -58,6 +58,7 @@ import {
 } from '../game/community'
 import {
   addBusinessDevelopmentLabor,
+  advanceBusinessDevelopmentWorkerContracts,
   businessDevelopmentProgress,
   completeBusinessDevelopmentProject,
   createBusinessDevelopmentProject,
@@ -138,7 +139,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 13
+export const SAVE_VERSION = 14
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -157,6 +158,7 @@ export const SAVE_VERSION = 13
  *   v10 → v11: community respect/friendship/trust progression
  *   v11 → v12: business interior development project ledger
  *   v12 → v13: real-time construction worker contract ledger
+ *   v13 → v14: real-time business interior worker contract ledger
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -1292,6 +1294,27 @@ export const useGame = create<GameState>()(
             }
           }
         }
+        for (const project of [...businessDevelopmentProjects]) {
+          if (!businessDevelopmentProjects.some((candidate) => candidate.id === project.id)) continue
+          const advanced = advanceBusinessDevelopmentWorkerContracts(project, now)
+          if (advanced.laborMinutes <= 0) continue
+          const projects = businessDevelopmentProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
+          const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, project.id)
+          businessDevelopmentProjects = completed.businessDevelopmentProjects
+          out.assets = completed.assets
+          if (completed.asset && completed.project) {
+            if (completed.project.levelFrom === 1) track('first_upgrade')
+            if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+            selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+            log = note(log, businessDevelopmentCompleteText(completed.project, 'workers'))
+            if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} developed to L${completed.project.levelTo}!`, 'achieve')
+            if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) {
+              const maxCelebration = { icon: '🏭', title: `${completed.asset.name} — MAX LEVEL!`, detail: `Fully developed. Earning ${formatMoney(completed.asset.incomePerDay)}/day — a true empire pillar.`, tone: 'gold' as const }
+              if (!celebration) celebration = maxCelebration
+              else celebrationQueue = [...celebrationQueue, maxCelebration]
+            }
+          }
+        }
         // "Earned today" accumulator for the daily challenges — WORK income
         // only (wages + business income), not windfalls. Streak cash, lucky
         // moments, achievement bounties, and challenge rewards used to feed
@@ -2149,7 +2172,8 @@ export const useGame = create<GameState>()(
         const s = get()
         const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
         if (!project) return
-        const hired = hireBusinessDevelopmentWorkerForProject(project, workerId, s.money, hours)
+        const now = Date.now()
+        const hired = hireBusinessDevelopmentWorkerForProject(project, workerId, s.money, hours, now)
         if (!hired.hired) {
           const reason = hired.reason === 'materials'
             ? 'Workers need the interior materials deposited first.'
@@ -2164,31 +2188,21 @@ export const useGame = create<GameState>()(
           return
         }
         const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate)
-        const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: s.assets }, projectId)
         set({
           money: hired.money,
-          businessDevelopmentProjects: completed.businessDevelopmentProjects,
-          assets: completed.assets,
+          businessDevelopmentProjects: projects,
           selectedMapTarget: { kind: 'asset', id: project.businessId },
           panel: 'business',
           toasts: withToast(
             s.toasts,
-            completed.asset
-              ? `${project.businessName} developed!`
-              : `Workers added ${hired.laborMinutes}m of interior labor for ${formatMoney(hired.cost)}.`,
-            completed.asset ? 'achieve' : 'gold',
+            `Booked ${hired.contract?.workerName ?? 'worker'} for ${Math.round(hired.contract?.paidMinutes ?? hours * 60)}m on ${project.businessName}.`,
+            'gold',
           ),
           log: note(
             s.log,
-            completed.asset && completed.project
-              ? businessDevelopmentCompleteText(completed.project, 'workers')
-              : `Hired workers for ${project.businessName}'s interior: ${hired.laborMinutes} minutes (${formatMoney(hired.cost)}).`,
+            `Booked ${hired.contract?.workerName ?? 'worker'} for ${project.businessName}'s interior: ${Math.round(hired.contract?.paidMinutes ?? hours * 60)} paid minutes, up to ${Math.round(hired.laborMinutes)}m labor (${formatMoney(hired.cost)}).`,
           ),
         })
-        if (completed.asset && completed.project) {
-          if (completed.project.levelFrom === 1) track('first_upgrade')
-          if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
-        }
       },
 
       completeBusinessDevelopmentIfReady: (projectId) => {

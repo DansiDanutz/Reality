@@ -62,6 +62,7 @@ export default function BusinessPanel() {
   const projectProgress = project ? businessDevelopmentProgress(project) : null
   const projectLabor = project ? businessDevelopmentLaborBreakdown(project) : null
   const shortfall = project ? businessDevelopmentShortfall(project) : null
+  const activeWorkerContracts = project?.workerContracts?.filter((contract) => contract.workedMinutes < contract.paidMinutes) ?? []
   const atCap = level >= MAX_BUSINESS_LEVEL || !plan
 
   return (
@@ -156,6 +157,10 @@ export default function BusinessPanel() {
                 <span className="stat-value mono">{formatMinutes(projectLabor.hiredMinutes)}</span>
               </div>
               <div className="stat">
+                <span className="stat-label">active workers</span>
+                <span className="stat-value mono">{activeWorkerContracts.length}</span>
+              </div>
+              <div className="stat">
                 <span className="stat-label">remaining</span>
                 <span className="stat-value mono gold">{formatMinutes(projectLabor.remainingMinutes)}</span>
               </div>
@@ -192,9 +197,9 @@ export default function BusinessPanel() {
                       <span className="mono">{formatMoney(worker.ratePerHour)}/h</span>
                     </div>
                     <p className="item-desc">{worker.description}</p>
-                    <span className="item-desc mono">1h = {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} interior labor</span>
+                    <span className="item-desc mono">1h contract = up to {formatMinutes(estimate?.laborMinutes ?? Math.round(60 * worker.laborMultiplier))} interior labor</span>
                     <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, 1)}>
-                      {blocker ?? `Hire 1h · ${formatMoney(worker.ratePerHour)}`}
+                      {blocker ?? `Book 1h · ${formatMoney(worker.ratePerHour)}`}
                     </button>
                   </article>
                 )
