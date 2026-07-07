@@ -1016,6 +1016,38 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('GET returns a structured storage failure when elapsed catch-up cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const stale = {
+      ...existingState(),
+      updatedAt: '2026-07-06T05:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      founderNumber: 12,
+      state: {
+        updatedAt: '2026-07-06T05:00:00.000Z',
+      },
+      dashboard: {
+        updatedAt: '2026-07-06T05:00:00.000Z',
+      },
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('hydrates older empty-roster area states with server-owned Sim Citizens', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
