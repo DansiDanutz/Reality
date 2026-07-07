@@ -13,6 +13,7 @@ import {
   estimateConstructionWorkerHire,
   type ConstructionProject,
 } from './construction'
+import type { CommunityActionId } from './community'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceInventory, type ResourceKind, freshResources } from './resources'
 import type { AssetKind, Needs, ShopCategory } from './types'
 
@@ -27,6 +28,8 @@ export type LifePlanRoute =
   | { kind: 'gather'; resourceKind: ResourceKind }
   | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction }
   | { kind: 'business-development-action'; projectId: string; action: BusinessDevelopmentPlanAction }
+  | { kind: 'work-action'; action: 'shift' }
+  | { kind: 'community-action'; actionId: CommunityActionId }
   | { kind: 'none' }
 
 export interface LifePlanTask {
@@ -250,7 +253,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       isBusinessBuild ? `Work for ${project.name}'s permit` : 'Work for permit money',
       'Earn before paying the permit so food and water stay safe.',
       'work',
-      { kind: 'panel', panel: 'work' },
+      { kind: 'work-action', action: 'shift' },
       STANDARD_DAY_BUDGET.workMinutes,
     )
   }
@@ -303,10 +306,10 @@ function workPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     return task('find-job', 'Find honest work', 'Choose a job before chasing bigger capital. Work funds food, permits, and the first build.', 'work', { kind: 'panel', panel: 'work' }, 30)
   }
   if (snapshot.shiftsWorked <= 0) {
-    return task('first-shift', 'Complete your first shift', 'The first paycheck turns the life plan from idea into habit.', 'work', { kind: 'panel', panel: 'work' }, STANDARD_DAY_BUDGET.workMinutes)
+    return task('first-shift', 'Complete your first shift', 'The first paycheck turns the life plan from idea into habit.', 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
   }
   if (snapshot.money < CASH_SAFETY_FLOOR) {
-    return task('cash-floor-shift', 'Rebuild your cash floor', 'Work before spending. Keep food, water, and permits funded.', 'work', { kind: 'panel', panel: 'work' }, STANDARD_DAY_BUDGET.workMinutes)
+    return task('cash-floor-shift', 'Rebuild your cash floor', 'Work before spending. Keep food, water, and permits funded.', 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
   }
   return null
 }
@@ -335,7 +338,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       if (snapshot.money >= project.budgetCost + CASH_SAFETY_FLOOR) {
         return task('pay-business-budget', `Pay ${project.businessName} budget`, `Pay ${project.budgetCost} to unlock interior labor for level ${project.levelTo}.`, 'respect', { kind: 'business-development-action', projectId: project.id, action: 'budget' }, 10)
       }
-      return task('work-for-business-budget', `Work for ${project.businessName}'s budget`, 'Earn before funding the upgrade so food and water stay safe.', 'work', { kind: 'panel', panel: 'work' }, STANDARD_DAY_BUDGET.workMinutes)
+      return task('work-for-business-budget', `Work for ${project.businessName}'s budget`, 'Earn before funding the upgrade so food and water stay safe.', 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
     }
     if (!progress.laborComplete) {
       const labor = businessDevelopmentLaborBreakdown(project)
@@ -361,17 +364,17 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
 function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   if (snapshot.lifeDay < 2) return null
   if (snapshot.communityActionsThisWeek > 0) return null
-  return task('help-local-person', 'Help one local person', 'Respect and friendship grow from showing up before anyone owes you.', 'community', { kind: 'panel', panel: 'achievements' }, 35)
+  return task('help-local-person', 'Help one local person', 'Respect and friendship grow from showing up before anyone owes you.', 'community', { kind: 'community-action', actionId: 'help-errand' }, 35)
 }
 
 function supportTasks(snapshot: LifeLadderSnapshot): LifePlanTask[] {
   const lowest = lowestNeed(snapshot.needs)
   const body = task('support-body', `Protect ${lowest}`, 'Drink, eat, clean up, or sleep before the day gets expensive.', 'body', { kind: 'market', focus: lowest === 'hydration' ? 'drinks' : lowest === 'hunger' ? 'food' : 'health' }, 30)
   const school = task('support-school', 'Learn one small thing', 'A course, certification, or focused practice makes future work easier.', 'school', { kind: 'market', focus: 'education' }, 45)
-  const work = task(snapshot.jobId ? 'support-shift' : 'support-job', snapshot.jobId ? 'Keep work reliable' : 'Choose a job', 'Respect starts with showing up when you said you would.', 'work', { kind: 'panel', panel: 'work' }, snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30)
+  const work = task(snapshot.jobId ? 'support-shift' : 'support-job', snapshot.jobId ? 'Keep work reliable' : 'Choose a job', 'Respect starts with showing up when you said you would.', 'work', snapshot.jobId ? { kind: 'work-action', action: 'shift' } : { kind: 'panel', panel: 'work' }, snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30)
   const respect = task('support-respect', 'Keep one commitment', 'Finish the shift, build hour, or study block you start today.', 'respect', { kind: 'panel', panel: 'achievements' }, 10)
-  const friendship = task('support-friendship', 'Check on one friend', 'Friendship is not decoration. It keeps life stable when the grind gets hard.', 'friendship', { kind: 'panel', panel: 'achievements' }, 15)
-  const community = task('support-community', 'Help one local person', 'Community grows trust first, rewards second.', 'community', { kind: 'panel', panel: 'achievements' }, 30)
+  const friendship = task('support-friendship', 'Check on one friend', 'Friendship is not decoration. It keeps life stable when the grind gets hard.', 'friendship', { kind: 'community-action', actionId: 'check-neighbor' }, 20)
+  const community = task('support-community', 'Help one local person', 'Community grows trust first, rewards second.', 'community', { kind: 'community-action', actionId: 'help-errand' }, 35)
   const hasBusinessProject = snapshot.businessDevelopmentProjects.length > 0
   const capital = task(
     'support-capital',
