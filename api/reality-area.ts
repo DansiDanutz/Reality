@@ -1098,6 +1098,19 @@ type FounderCovenantReviewQueueIntentError =
 type FounderCovenantReviewQueueError =
   | FounderCovenantReviewQueueIntentError
   | 'server_clock_unauthorized'
+  | 'area_list_unavailable'
+
+class FounderCovenantReviewQueueListFailure extends Error {
+  constructor() {
+    super('Founder covenant review queue area list is unavailable.')
+    this.name = 'FounderCovenantReviewQueueListFailure'
+  }
+}
+
+function isFounderCovenantReviewQueueListFailure(error: unknown): boolean {
+  return error instanceof FounderCovenantReviewQueueListFailure ||
+    (error instanceof Error && error.name === 'FounderCovenantReviewQueueListFailure')
+}
 
 interface FounderCovenantReviewQueueSignalCounts {
   total: number
@@ -4277,12 +4290,25 @@ async function handleFounderCovenantReviewQueue(
     return
   }
 
-  const founderCovenantReviewQueue = await scanFounderCovenantReviewQueue(
-    new Date(),
-    intent.limit,
-    intent.pages,
-    intent.cursor,
-  )
+  let founderCovenantReviewQueue: FounderCovenantReviewQueueDashboard
+  try {
+    founderCovenantReviewQueue = await scanFounderCovenantReviewQueue(
+      new Date(),
+      intent.limit,
+      intent.pages,
+      intent.cursor,
+    )
+  } catch (error) {
+    if (isFounderCovenantReviewQueueListFailure(error)) {
+      res.status(founderCovenantReviewQueueStatus('area_list_unavailable')).json({
+        ok: false,
+        error: founderCovenantReviewQueueMessage('area_list_unavailable'),
+        code: 'area_list_unavailable',
+      })
+      return
+    }
+    throw error
+  }
   res.status(200).json({ ok: true, founderCovenantReviewQueue })
 }
 
@@ -4415,11 +4441,16 @@ async function scanFounderCovenantReviewQueue(
   let nextCursor: string | undefined = cursor
 
   for (let page = 0; page < pages; page += 1) {
-    const batch = await list({
-      prefix: 'reality-areas/',
-      limit,
-      ...(nextCursor ? { cursor: nextCursor } : {}),
-    })
+    let batch: Awaited<ReturnType<typeof list>>
+    try {
+      batch = await list({
+        prefix: 'reality-areas/',
+        limit,
+        ...(nextCursor ? { cursor: nextCursor } : {}),
+      })
+    } catch {
+      throw new FounderCovenantReviewQueueListFailure()
+    }
     pagesScanned += 1
     for (const blob of batch.blobs) {
       const result = await founderCovenantReviewQueueAreaBlob(blob, now)
@@ -6120,6 +6151,7 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
 
 function founderCovenantReviewQueueStatus(error: FounderCovenantReviewQueueError): number {
   if (error === 'server_clock_unauthorized') return 403
+  if (error === 'area_list_unavailable') return 503
   return error === 'unsupported_intent' ? 400 : 422
 }
 
@@ -6133,6 +6165,8 @@ function founderCovenantReviewQueueMessage(error: FounderCovenantReviewQueueErro
       return 'Founder covenant review queue pages must be between 1 and 5.'
     case 'invalid_cursor':
       return 'Founder covenant review queue cursor is invalid.'
+    case 'area_list_unavailable':
+      return 'Founder covenant review queue could not list Reality areas.'
     default:
       return 'Invalid founder covenant review queue intent.'
   }

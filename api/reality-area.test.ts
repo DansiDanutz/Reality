@@ -1516,6 +1516,8 @@ describe('reality area authority API', () => {
   })
 
   test('surfaces disabled payout readiness without real withdrawal eligibility', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = {
       ...existingState(),
       balance: 197_500,
@@ -2115,6 +2117,8 @@ describe('reality area authority API', () => {
   })
 
   test('buildBusiness requires a claimed area and available starter license', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -2650,6 +2654,8 @@ describe('reality area authority API', () => {
   })
 
   test('hireWorker requires a claimed area, real business, and open staffing slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
@@ -3130,6 +3136,26 @@ describe('reality area authority API', () => {
       error: 'Founder covenant review queue is reserved for server operators.',
     })
     expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('founder covenant review queue returns structured storage failure when area listing is unavailable', async () => {
+    vi.mocked(list).mockRejectedValueOnce(new Error('blob list failed'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'area_list_unavailable',
+      error: 'Founder covenant review queue could not list Reality areas.',
+    })
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
     expect(put).not.toHaveBeenCalled()
   })
 
