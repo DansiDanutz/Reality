@@ -204,7 +204,7 @@ function parseTelegramMiniAppUser(rawUser: string): TelegramMiniAppUser | null {
   if (!isRecord(value)) return null
   const id = value.id
   const firstName = optionalText(value.first_name)
-  if (!Number.isSafeInteger(id) || id < 0 || !firstName) return null
+  if (!Number.isSafeInteger(id) || id <= 0 || !firstName) return null
 
   return {
     id: String(id),

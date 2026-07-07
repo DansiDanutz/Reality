@@ -97,6 +97,18 @@ describe('telegram Mini App auth', () => {
       { nowSeconds: NOW_SECONDS },
     )).toEqual({ ok: false, error: 'invalid_user' })
 
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: 0, first_name: 'Zero' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: -1, first_name: 'Negative' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+
     const duplicateUser = signedInitData({
       auth_date: String(NOW_SECONDS),
       user: JSON.stringify({ id: 9, first_name: 'Founder' }),
