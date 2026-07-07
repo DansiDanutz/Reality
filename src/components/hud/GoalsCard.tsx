@@ -11,6 +11,21 @@ function formatPlanMinutes(minutes: number): string {
   return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`
 }
 
+function routineShortLabel(block: { id: string; value: string; route: { kind: string; panel?: string } }): string {
+  if (block.id === 'sleep-block') return 'Sleep'
+  if (block.id === 'body-block') return 'Body'
+  if (block.id === 'work-block') return 'Work'
+  if (block.id === 'growth-block') {
+    if (block.value === 'school') return 'School'
+    if (block.value === 'friendship') return 'Friends'
+    if (block.value === 'community') return 'Help'
+    return 'Respect'
+  }
+  if (block.route.kind === 'panel' && block.route.panel === 'business') return 'Biz'
+  if (block.route.kind === 'panel' && block.route.panel === 'construction') return 'Build'
+  return 'Own'
+}
+
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
  * onboarding completes. Shows the player's streak + daily-challenge progress
@@ -89,6 +104,23 @@ export default function GoalsCard() {
     if (route.kind === 'panel') setPanel(route.panel)
   }
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
+  const routineSummary = lifePlan.routine
+    .map((block) => `${block.title} ${formatPlanMinutes(block.minutes)}`)
+    .join(', ')
+  const routine = (
+    <span className="goals-card-routine" aria-label={`Daily routine: ${routineSummary}`}>
+      {lifePlan.routine.map((block) => (
+        <span
+          className={`goals-card-routine-item ${block.value}${block.taskId === lifePlan.primary.id ? ' active' : ''}`}
+          key={block.id}
+          title={block.title}
+        >
+          <span className="goals-card-routine-time">{formatPlanMinutes(block.minutes)}</span>
+          <span className="goals-card-routine-title">{routineShortLabel(block)}</span>
+        </span>
+      ))}
+    </span>
+  )
   const agenda = agendaPreview.length > 0
     ? (
         <span className="goals-card-agenda">
@@ -107,7 +139,7 @@ export default function GoalsCard() {
     <button
       className="goals-card"
       onClick={openPrimary}
-      aria-label={`Today plan: ${lifePlan.primary.title}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
+      aria-label={`Today plan: ${lifePlan.primary.title}. Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
       <header className="goals-card-head">
         <span className="goals-card-title">🎯 Today</span>
@@ -129,6 +161,7 @@ export default function GoalsCard() {
           <span className="goals-card-primary">{lifePlan.primary.title}</span>
           <span className="goals-card-reason">{lifePlan.primary.detail}</span>
           <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
+          {routine}
           {agenda}
         </>
       ) : (
@@ -136,6 +169,7 @@ export default function GoalsCard() {
           <span className="goals-card-primary">{lifePlan.primary.title}</span>
           <span className="goals-card-reason">{lifePlan.primary.detail}</span>
           <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
+          {routine}
           {agenda}
         </>
       )}
