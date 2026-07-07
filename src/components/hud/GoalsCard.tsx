@@ -1,4 +1,5 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
+import { lifeDayFromCreatedAt, planLifeDay } from '../../game/lifeLadder'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -12,9 +13,21 @@ import { useGame } from '../../store/gameStore'
  */
 export default function GoalsCard() {
   const citizen = useGame((s) => s.citizen)
+  const money = useGame((s) => s.money)
+  const needs = useGame((s) => s.needs)
+  const health = useGame((s) => s.health)
+  const level = useGame((s) => s.level)
+  const xp = useGame((s) => s.xp)
+  const jobId = useGame((s) => s.jobId)
+  const shiftsWorked = useGame((s) => s.shiftsWorked)
+  const activity = useGame((s) => s.activity)
+  const assets = useGame((s) => s.assets)
+  const resources = useGame((s) => s.resources)
+  const constructionProjects = useGame((s) => s.constructionProjects)
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
   const setPanel = useGame((s) => s.setPanel)
+  const openMarket = useGame((s) => s.openMarket)
 
   if (!citizen) return null
 
@@ -37,12 +50,37 @@ export default function GoalsCard() {
   // "1 to go!" — the near-completion nudge. A player at 2/3 is one action
   // away from the bonus; this makes that concrete and tappable.
   const oneLeft = !allDone && total > 0 && done === total - 1
+  const lifePlan = planLifeDay({
+    lifeDay: lifeDayFromCreatedAt(citizen.createdAt),
+    money,
+    needs,
+    health,
+    level,
+    xp,
+    jobId,
+    shiftsWorked,
+    activityKind: activity?.kind ?? null,
+    assets,
+    resources,
+    constructionProjects,
+    educationActions: level > 1 || xp >= 40 ? 1 : 0,
+    communityActionsThisWeek: 0,
+  })
+
+  const openPrimary = () => {
+    const route = lifePlan.primary.route
+    if (route.kind === 'market') {
+      openMarket(route.focus)
+      return
+    }
+    if (route.kind === 'panel') setPanel(route.panel)
+  }
 
   return (
     <button
       className="goals-card"
-      onClick={() => setPanel('achievements')}
-      aria-label={`Goals: ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}. Open for details.`}
+      onClick={openPrimary}
+      aria-label={`Today plan: ${lifePlan.primary.title}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
       <header className="goals-card-head">
         <span className="goals-card-title">🎯 Today</span>
@@ -61,9 +99,14 @@ export default function GoalsCard() {
           <span className={`goals-card-count mono ${allDone ? 'done' : oneLeft ? 'near' : ''}`}>
             {allDone ? 'All done! 🎉' : oneLeft ? '1 to go!' : `${done}/${total} challenges`}
           </span>
+          <span className="goals-card-primary">{lifePlan.primary.title}</span>
+          <span className="goals-card-detail">{lifePlan.primary.value} · day {lifePlan.lifeDay}</span>
         </>
       ) : (
-        <span className="goals-card-count mono">Tap to see your goals</span>
+        <>
+          <span className="goals-card-primary">{lifePlan.primary.title}</span>
+          <span className="goals-card-detail">{lifePlan.primary.value} · day {lifePlan.lifeDay}</span>
+        </>
       )}
     </button>
   )
