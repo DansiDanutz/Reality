@@ -3046,7 +3046,12 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
       lapseInsurance(citizen, context)
       continue
     }
+    if (!hasRemainingBusinessCapacity(area, insurer, context)) {
+      lapseInsurance(citizen, context)
+      continue
+    }
 
+    reserveBusinessCapacity(context, insurer)
     citizen.money = roundMoney(citizen.money - premium)
     citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
     insurer.cash = roundMoney(insurer.cash + premium)
@@ -3295,11 +3300,15 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
   const start = context.servedByKind[kind] % candidates.length
   for (let offset = 0; offset < candidates.length; offset++) {
     const business = candidates[(start + offset) % candidates.length]
-    const capacity = serviceCapacity(area, business, context.hours)
-    const used = context.capacityUsed[business.id] ?? 0
-    if (used < capacity) return business
+    if (hasRemainingBusinessCapacity(area, business, context)) return business
   }
   return null
+}
+
+function hasRemainingBusinessCapacity(area: WorldArea, business: WorldBusiness, context: StepContext): boolean {
+  const capacity = serviceCapacity(area, business, context.hours)
+  const used = context.capacityUsed[business.id] ?? 0
+  return used < capacity
 }
 
 function reserveBusinessCapacity(context: StepContext, business: WorldBusiness): void {
