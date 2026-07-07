@@ -434,6 +434,55 @@ describe('construction worker contracts', () => {
     expect(hired.constructionProjects[0].hiredLaborMinutes).toBe(60)
     expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(60)
   })
+
+  test('completed construction stays a permanent map asset after duplicate completion attempts', () => {
+    const now = Date.now()
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, now),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: STARTER_HOUSE_RECIPE.laborRequiredMinutes,
+    }
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      constructionProjects: [project],
+      assets: [],
+      selectedMapTarget: { kind: 'construction', id: project.id },
+      panel: 'construction',
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().completeConstructionIfReady(project.id)
+
+    let state = useGame.getState()
+    const builtHome = state.assets.find((asset) => asset.kind === 'home')
+    expect(state.constructionProjects).toEqual([])
+    expect(builtHome).toMatchObject({
+      itemId: 'microstudio',
+      kind: 'home',
+      name: 'Starter House',
+      lat: 45.7,
+      lng: 21.2,
+    })
+    expect(builtHome?.id).toMatch(/^starter-house-home-\d+$/)
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: builtHome!.id })
+    expect(state.panel).toBe('home')
+
+    useGame.getState().completeConstructionIfReady(project.id)
+
+    state = useGame.getState()
+    expect(state.constructionProjects).toEqual([])
+    expect(state.assets.filter((asset) => asset.id === builtHome!.id)).toHaveLength(1)
+    expect(state.assets.find((asset) => asset.id === builtHome!.id)).toMatchObject(builtHome!)
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: builtHome!.id })
+    expect(state.panel).toBe('home')
+    expect(state.toasts.at(-1)).toMatchObject({
+      text: 'Construction still needs materials, labor, or the permit.',
+      tone: 'blocked',
+    })
+  })
 })
 
 describe('resource gathering loop', () => {
@@ -1105,5 +1154,56 @@ describe('business interior development', () => {
     advanceLiveTo(activity!.endsAt)
 
     expect(useGame.getState().businessDevelopmentProjects[0].laborDoneMinutes).toBe(63)
+  })
+
+  test('completed business interior stays upgraded after duplicate completion attempts', () => {
+    const now = Date.now()
+    const plan = createBusinessDevelopmentProject(business(), now)!
+    const deposited = depositBusinessDevelopmentResources(plan, freshResources(plan.required)).project
+    const ready = {
+      ...payBusinessDevelopmentBudget(deposited, deposited.budgetCost).project,
+      laborDoneMinutes: deposited.laborRequiredMinutes,
+    }
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      assets: [business()],
+      businessDevelopmentProjects: [ready],
+      selectedMapTarget: { kind: 'asset', id: ready.businessId },
+      panel: 'business',
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().completeBusinessDevelopmentIfReady(ready.id)
+
+    let state = useGame.getState()
+    expect(state.businessDevelopmentProjects).toEqual([])
+    expect(state.assets.find((asset) => asset.id === ready.businessId)).toMatchObject({
+      id: ready.businessId,
+      kind: 'business',
+      level: ready.levelTo,
+      incomePerDay: ready.incomeAfter,
+    })
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: ready.businessId })
+    expect(state.panel).toBe('business')
+
+    useGame.getState().completeBusinessDevelopmentIfReady(ready.id)
+
+    state = useGame.getState()
+    expect(state.businessDevelopmentProjects).toEqual([])
+    expect(state.assets.filter((asset) => asset.id === ready.businessId)).toHaveLength(1)
+    expect(state.assets.find((asset) => asset.id === ready.businessId)).toMatchObject({
+      id: ready.businessId,
+      kind: 'business',
+      level: ready.levelTo,
+      incomePerDay: ready.incomeAfter,
+    })
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: ready.businessId })
+    expect(state.panel).toBe('business')
+    expect(state.toasts.at(-1)).toMatchObject({
+      text: 'Interior development still needs materials, budget, or labor.',
+      tone: 'blocked',
+    })
   })
 })
