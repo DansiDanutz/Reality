@@ -161,12 +161,23 @@ describe('planLifeDay', () => {
       expect(gatherPlan.primary.route).toEqual({ kind: 'gather', resourceKind: 'wood' })
     }
 
+    const depositPlan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      resources: freshResources(project.required),
+      constructionProjects: [project],
+    }))
+    expect(depositPlan.primary.id).toBe('deposit-house-materials')
+    expect(depositPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'deposit' })
+
     const readyForPermit = {
       ...project,
       deposited: freshResources(project.required),
     }
     const permitPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 1_000, constructionProjects: [readyForPermit] }))
     expect(permitPlan.primary.id).toBe('pay-house-permit')
+    expect(permitPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'permit' })
 
     const readyForLabor = {
       ...readyForPermit,
@@ -175,17 +186,18 @@ describe('planLifeDay', () => {
     const workerPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [readyForLabor] }))
     expect(workerPlan.primary.id).toBe('hire-house-worker-hour')
     expect(workerPlan.primary.detail).toContain('$16/hour')
+    expect(workerPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper' })
     expect(workerPlan.agenda[0].id).toBe('hire-house-worker-hour')
     expect(workerPlan.agenda.map((item) => item.id)).toContain('support-body')
     expect(workerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'construction' },
+      route: { kind: 'construction-action', projectId: project.id, action: 'hire-helper' },
       taskId: 'hire-house-worker-hour',
     })
 
     const selfLaborPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 100, constructionProjects: [readyForLabor] }))
     expect(selfLaborPlan.primary.id).toBe('build-house-hour')
     expect(selfLaborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'construction' },
+      route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-house-hour',
     })
 
@@ -208,7 +220,7 @@ describe('planLifeDay', () => {
     expect(activeWorkerPlan.primary.id).toBe('build-house-with-worker-hour')
     expect(activeWorkerPlan.primary.detail).toContain('already paid and active')
     expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'construction' },
+      route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-house-with-worker-hour',
     })
   })
@@ -232,6 +244,14 @@ describe('planLifeDay', () => {
     expect(gatherPlan.agenda.map((item) => item.id)).toContain(gatherPlan.primary.id)
     expect(gatherPlan.constructionForecast?.remainingLaborMinutes).toBe(project.laborRequiredMinutes)
 
+    const depositPlan = planLifeDay(snap({
+      ...base,
+      resources: freshResources(project.required),
+      constructionProjects: [project],
+    }))
+    expect(depositPlan.primary.id).toBe('deposit-business-building-materials')
+    expect(depositPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'deposit' })
+
     const readyForPermit = {
       ...project,
       deposited: freshResources(project.required),
@@ -239,6 +259,7 @@ describe('planLifeDay', () => {
     const permitPlan = planLifeDay(snap({ ...base, money: 1_000, constructionProjects: [readyForPermit] }))
     expect(permitPlan.primary.id).toBe('pay-business-building-permit')
     expect(permitPlan.primary.value).toBe('respect')
+    expect(permitPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'permit' })
 
     const readyForLabor = {
       ...readyForPermit,
@@ -248,14 +269,14 @@ describe('planLifeDay', () => {
     expect(laborPlan.primary.id).toBe('hire-business-building-worker-hour')
     expect(laborPlan.primary.title).toBe('Hire 1h helper for Food Cart')
     expect(laborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'construction' },
+      route: { kind: 'construction-action', projectId: project.id, action: 'hire-helper' },
       taskId: 'hire-business-building-worker-hour',
     })
 
     const cashTightLaborPlan = planLifeDay(snap({ ...base, money: 100, constructionProjects: [readyForLabor] }))
     expect(cashTightLaborPlan.primary.id).toBe('build-business-building-hour')
     expect(cashTightLaborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'construction' },
+      route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-business-building-hour',
     })
 
@@ -266,6 +287,7 @@ describe('planLifeDay', () => {
     const finishPlan = planLifeDay(snap({ ...base, constructionProjects: [completeReady] }))
     expect(finishPlan.primary.id).toBe('complete-business-building')
     expect(finishPlan.primary.title).toBe('Open Food Cart')
+    expect(finishPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'complete' })
   })
 
   test('routes active business development through materials, budget, worker, and completion', () => {
@@ -293,12 +315,13 @@ describe('planLifeDay', () => {
       businessDevelopmentProjects: [project],
     }))
     expect(depositPlan.primary.id).toBe('deposit-business-materials')
-    expect(depositPlan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
+    expect(depositPlan.primary.route).toEqual({ kind: 'business-development-action', projectId: project.id, action: 'deposit' })
 
     const resourcesReady = businessProject({ deposited: freshResources(project.required) })
     const budgetPlan = planLifeDay(snap({ ...base, money: resourcesReady.budgetCost + 500, businessDevelopmentProjects: [resourcesReady] }))
     expect(budgetPlan.primary.id).toBe('pay-business-budget')
     expect(budgetPlan.primary.value).toBe('respect')
+    expect(budgetPlan.primary.route).toEqual({ kind: 'business-development-action', projectId: resourcesReady.id, action: 'budget' })
 
     const workForBudgetPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [resourcesReady] }))
     expect(workForBudgetPlan.primary.id).toBe('work-for-business-budget')
@@ -307,9 +330,9 @@ describe('planLifeDay', () => {
     const laborReady = businessProject({ deposited: freshResources(project.required), budgetPaid: true })
     const hirePlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [laborReady] }))
     expect(hirePlan.primary.id).toBe('hire-business-worker-hour')
-    expect(hirePlan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
+    expect(hirePlan.primary.route).toEqual({ kind: 'business-development-action', projectId: laborReady.id, action: 'hire-helper' })
     expect(hirePlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'business' },
+      route: { kind: 'business-development-action', projectId: laborReady.id, action: 'hire-helper' },
       taskId: 'hire-business-worker-hour',
     })
 
@@ -333,12 +356,13 @@ describe('planLifeDay', () => {
     expect(activeWorkerPlan.primary.id).toBe('develop-business-with-worker-hour')
     expect(activeWorkerPlan.primary.detail).toContain('already paid and active')
     expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'business' },
+      route: { kind: 'business-development-action', projectId: withActiveWorker.id, action: 'work' },
       taskId: 'develop-business-with-worker-hour',
     })
 
     const selfWorkPlan = planLifeDay(snap({ ...base, money: 100, businessDevelopmentProjects: [laborReady] }))
     expect(selfWorkPlan.primary.id).toBe('develop-business-hour')
+    expect(selfWorkPlan.primary.route).toEqual({ kind: 'business-development-action', projectId: laborReady.id, action: 'work' })
 
     const completeReady = businessProject({
       deposited: freshResources(project.required),
@@ -347,6 +371,7 @@ describe('planLifeDay', () => {
     })
     const finishPlan = planLifeDay(snap({ ...base, businessDevelopmentProjects: [completeReady] }))
     expect(finishPlan.primary.id).toBe('finish-business-development')
+    expect(finishPlan.primary.route).toEqual({ kind: 'business-development-action', projectId: completeReady.id, action: 'complete' })
   })
 
   test('plans the next business upgrade before generic community help when ownership is stable', () => {
