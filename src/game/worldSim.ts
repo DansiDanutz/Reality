@@ -2114,6 +2114,7 @@ function founderCovenantReviewQueue(input: {
 
 function founderCovenantReviewHistory(area: WorldArea): FounderCovenantReviewHistoryItem[] {
   return [...(area.founderReviewHistory ?? [])]
+    .filter((entry) => Number.isFinite(entry.at))
     .sort((left, right) => right.at - left.at)
     .slice(0, 5)
     .map(founderCovenantReviewHistoryItem)

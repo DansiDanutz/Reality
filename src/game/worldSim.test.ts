@@ -2306,6 +2306,53 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('dashboard ignores malformed founder review timestamps when selecting latest evidence', () => {
+    const lastReviewAt = 2 * 24 * HOUR
+    const reviewEntry = (
+      id: string,
+      at: number,
+      summary: string,
+    ): NonNullable<WorldArea['founderReviewHistory']>[number] => ({
+      id,
+      at,
+      reviewerId: 'reviewer-1',
+      actionKind: 'record_review',
+      summary,
+      authorityGate: areaReviewerEvidenceGate(),
+      decision: covenantDecisionSnapshot(),
+      signals: [],
+      activityReview: covenantActivitySnapshot(),
+      reviewQueue: covenantReviewQueueSnapshot(),
+      reviewInputs: covenantReviewInputSnapshot(),
+      stages: covenantStageSnapshot(),
+      reviewChecklist: covenantChecklistSnapshot(),
+      manualActions: covenantManualActionSnapshot(),
+      approvalRequests: covenantApprovalRequestSnapshot(),
+      reviewSchedule: null,
+    })
+    const start = claimedArea({
+      now: 10 * 24 * HOUR,
+      founderReviewHistory: [
+        reviewEntry('review-malformed', Number.POSITIVE_INFINITY, 'Malformed review should not count.'),
+        reviewEntry('review-valid', lastReviewAt, 'Valid weekly review recorded.'),
+      ],
+    })
+
+    const dash = areaNeedsDashboard(start)
+
+    expect(dash.founderCovenant.latestReview).toMatchObject({
+      id: 'review-valid',
+      reviewedAt: lastReviewAt,
+      summary: 'Valid weekly review recorded.',
+    })
+    expect(dash.founderCovenant.reviewHistory.map((entry) => entry.id)).toEqual(['review-valid'])
+    expect(dash.founderCovenant.reviewSchedule).toMatchObject({
+      lastReviewAt,
+      weeklyReviewDue: true,
+      automationEnabled: false,
+    })
+  })
+
   test('records same-time founder covenant reviews with unique evidence ids', () => {
     const reviewAt = 2 * HOUR
     const start = claimedArea({ now: reviewAt })
