@@ -33,6 +33,8 @@ function snap(overrides: Partial<LifeLadderSnapshot> = {}): LifeLadderSnapshot {
     educationProgress: [],
     communityActionsThisWeek: 0,
     communityActionsToday: 0,
+    communityRespect: 0,
+    communityTrust: 0,
     ...overrides,
   }
 }
@@ -573,6 +575,40 @@ describe('planLifeDay', () => {
     expect(plan.primary.id).toBe('help-local-person')
     expect(plan.primary.value).toBe('community')
     expect(plan.primary.route).toEqual({ kind: 'community-action', actionId: 'help-errand' })
+  })
+
+  test('keeps community primary while keeping the millionaire path visible', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 5,
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      communityActionsThisWeek: 0,
+    }))
+
+    expect(plan.primary.id).toBe('help-local-person')
+    expect(plan.millionairePath.nextAction).toBe('buy-business')
+    expect(plan.millionaireTask.id).toBe('build-first-business')
+    expect(plan.agenda.map((item) => item.id)).toContain('build-first-business')
+  })
+
+  test('returns millionaire forecast data from the daily plan', () => {
+    const plan = planLifeDay(snap({
+      lifeDay: 30,
+      money: 1_000_000,
+      jobId: 'barista',
+      shiftsWorked: 10,
+      educationActions: 1,
+      communityActionsThisWeek: 1,
+      communityRespect: 6,
+      communityTrust: 6,
+    }))
+
+    expect(plan.millionairePath.stage).toBe('millionaire')
+    expect(plan.millionairePath.daysToMillionaire).toBe(0)
+    expect(plan.millionairePath.reach.label).toBe('your continent')
+    expect(plan.millionaireTask.id).toBe('millionaire-keep-growing')
   })
 
   test('does not surface community help after today already has a local action', () => {
