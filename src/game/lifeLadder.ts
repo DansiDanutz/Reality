@@ -21,6 +21,7 @@ export type LifeValue = 'body' | 'school' | 'work' | 'respect' | 'friendship' | 
 export type LifePlanRoute =
   | { kind: 'panel'; panel: 'work' | 'construction' | 'assets' | 'home' | 'business' | 'achievements' }
   | { kind: 'market'; focus: ShopCategory }
+  | { kind: 'gather'; resourceKind: ResourceKind }
   | { kind: 'none' }
 
 export interface LifePlanTask {
@@ -224,7 +225,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       isBusinessBuild ? `Gather ${meta.label.toLowerCase()} for ${project.name}` : `Gather ${meta.label.toLowerCase()}`,
       `${project.name} still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`,
       'capital',
-      { kind: 'panel', panel: 'construction' },
+      { kind: 'gather', resourceKind: kind },
       meta.gatherMinutes,
     )
   }
@@ -323,7 +324,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
         return task('deposit-business-materials', `Deposit ${project.businessName} materials`, 'Move gathered ingredients into the interior plan so the upgrade can advance.', 'capital', { kind: 'panel', panel: 'business' }, 15)
       }
       const meta = RESOURCE_META[kind]
-      return task(`gather-business-${kind}`, `Gather ${meta.label.toLowerCase()} for ${project.businessName}`, `${project.businessName}'s interior still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`, 'capital', { kind: 'panel', panel: 'construction' }, meta.gatherMinutes)
+      return task(`gather-business-${kind}`, `Gather ${meta.label.toLowerCase()} for ${project.businessName}`, `${project.businessName}'s interior still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`, 'capital', { kind: 'gather', resourceKind: kind }, meta.gatherMinutes)
     }
     if (!progress.budgetComplete) {
       if (snapshot.money >= project.budgetCost + CASH_SAFETY_FLOOR) {
