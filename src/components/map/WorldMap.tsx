@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { businessDevelopmentProgress } from '../../game/businessDevelopment'
 import { constructionProgress } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
@@ -59,16 +60,26 @@ function greatCircle(from: [number, number], to: [number, number], steps = 64): 
   return points
 }
 
-function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0): HTMLButtonElement {
+function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0, developmentPercent: number | null = null): HTMLButtonElement {
   const el = document.createElement('button')
   el.type = 'button'
   // 'ready' modifier lights up business beacons with a ring when they have
   // collectable income — surfaces the economy loop on the map so the player
   // sees which holdings need attention at a glance.
   const ready = own && kind === 'business' && pendingIncome >= 1 ? ' ready' : ''
-  el.className = `map-beacon ${own ? (kind === 'home' ? 'home map-house-marker' : 'biz map-business-marker') : 'other'}${ready}`
-  el.title = ready ? `${name} — ${Math.floor(pendingIncome)} ready to collect` : name
-  el.setAttribute('aria-label', ready ? `${name}, ${Math.floor(pendingIncome)} ready to collect` : name)
+  const developing = own && kind === 'business' && developmentPercent !== null ? ' developing' : ''
+  const clampedDevelopment = developmentPercent === null ? null : Math.max(0, Math.min(100, developmentPercent))
+  el.className = `map-beacon ${own ? (kind === 'home' ? 'home map-house-marker' : 'biz map-business-marker') : 'other'}${ready}${developing}`
+  const labelParts = [
+    name,
+    ...(ready ? [`${Math.floor(pendingIncome)} ready to collect`] : []),
+    ...(clampedDevelopment !== null ? [`interior ${clampedDevelopment}% ready`] : []),
+  ]
+  el.title = labelParts.join(' — ')
+  el.setAttribute('aria-label', labelParts.join(', '))
+  if (clampedDevelopment !== null) {
+    el.style.setProperty('--business-development-progress', `${clampedDevelopment}%`)
+  }
   if (own && kind === 'home') el.textContent = '⌂'
   if (own && kind === 'business') el.textContent = '◆'
   return el
@@ -119,6 +130,7 @@ export default function WorldMap() {
   const placingConstruction = useGame((s) => s.placingConstruction)
   const resourceNodes = useGame((s) => s.resourceNodes)
   const constructionProjects = useGame((s) => s.constructionProjects)
+  const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
   const hasCitizen = useGame((s) => Boolean(s.citizen))
   const citizenId = useGame((s) => s.citizen?.citizenId)
@@ -236,7 +248,11 @@ export default function WorldMap() {
     if (!map) return
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = assets.map((a) => {
-      const el = beaconElement(a.kind, a.name, true, a.pendingIncome)
+      const development = a.kind === 'business'
+        ? businessDevelopmentProjects.find((project) => project.businessId === a.id) ?? null
+        : null
+      const developmentPercent = development ? businessDevelopmentProgress(development).percent : null
+      const el = beaconElement(a.kind, a.name, true, a.pendingIncome, developmentPercent)
       el.addEventListener('click', (event) => {
         event.stopPropagation()
         useGame.getState().selectMapTarget({ kind: 'asset', id: a.id })
@@ -244,7 +260,7 @@ export default function WorldMap() {
       })
       return new maplibregl.Marker({ element: el }).setLngLat([a.lng, a.lat]).addTo(map)
     })
-  }, [assets])
+  }, [assets, businessDevelopmentProjects])
 
   useEffect(() => {
     const map = mapRef.current
