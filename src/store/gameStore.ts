@@ -229,7 +229,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 14
+export const SAVE_VERSION = 15
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -249,6 +249,7 @@ export const SAVE_VERSION = 14
  *   v11 → v12: business interior development project ledger
  *   v12 → v13: real-time construction worker contract ledger
  *   v13 → v14: real-time business interior worker contract ledger
+ *   v14 → v15: serious work streak fields in community progression
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
