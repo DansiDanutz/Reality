@@ -326,4 +326,59 @@ describe('business interior development', () => {
     expect(state.assets[0]).toMatchObject({ level: 2, incomePerDay: 480 })
     expect(state.businessDevelopmentProjects).toEqual([])
   })
+
+  test('hired interior workers advance over real time without occupying the player activity slot', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      assets: [business()],
+      businessDevelopmentProjects: [],
+      money: 2_000,
+      resources: freshResources({ wood: 100, stone: 100, metal: 100, glass: 100 }),
+      needs: { hunger: 80, hydration: 80, energy: 90, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().upgradeBusiness('foodcart-1')
+    let project = useGame.getState().businessDevelopmentProjects[0]
+    useGame.getState().depositBusinessDevelopmentResources(project.id)
+    project = useGame.getState().businessDevelopmentProjects[0]
+    useGame.getState().payBusinessDevelopmentBudget(project.id)
+    project = useGame.getState().businessDevelopmentProjects[0]
+
+    useGame.getState().hireBusinessDevelopmentWorker(project.id, 'helper', 1)
+    let state = useGame.getState()
+    expect(state.money).toBe(1_024)
+    expect(state.activity).toBeNull()
+    expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(0)
+    expect(state.businessDevelopmentProjects[0].workerContracts).toHaveLength(1)
+    expect(state.businessDevelopmentProjects[0].workerContracts[0]).toMatchObject({
+      workerId: 'helper',
+      paidMinutes: 60,
+      workedMinutes: 0,
+    })
+
+    vi.setSystemTime(now + 30 * 60_000)
+    useGame.getState().tick()
+    state = useGame.getState()
+    expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(30)
+    expect(state.businessDevelopmentProjects[0].hiredLaborMinutes).toBe(30)
+    expect(state.businessDevelopmentProjects[0].workerContracts[0].workedMinutes).toBe(30)
+    expect(state.activity).toBeNull()
+
+    vi.setSystemTime(now + 60 * 60_000)
+    useGame.getState().tick()
+    state = useGame.getState()
+    expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(60)
+    expect(state.businessDevelopmentProjects[0].hiredLaborMinutes).toBe(60)
+    expect(state.businessDevelopmentProjects[0].workerContracts[0].workedMinutes).toBe(60)
+  })
 })
