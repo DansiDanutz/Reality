@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import {
   STARTER_HOUSE_RECIPE,
+  advanceConstructionWorkerContracts,
   addConstructionLabor,
   businessConstructionRecipe,
   constructionLaborBreakdown,
@@ -24,6 +25,7 @@ describe('construction', () => {
     expect(project.incomePerDay).toBe(0)
     expect(project.laborRequiredMinutes).toBe(480)
     expect(project.hiredLaborMinutes).toBe(0)
+    expect(project.workerContracts).toEqual([])
     expect(project.permitFee).toBe(500)
     expect(project.status).toBe('planned')
   })
@@ -85,28 +87,62 @@ describe('construction', () => {
     expect(estimateConstructionWorkerHire(withMaterials, 'helper')?.blockedBy).toBe('permit')
   })
 
-  test('hired workers add paid labor to the permanent construction ledger', () => {
+  test('hired workers create prepaid real-time contracts before adding labor', () => {
     const project = {
       ...createConstructionProject('starter-house', 45.7, 21.2, 123),
       deposited: freshResources(STARTER_HOUSE_RECIPE.required),
       permitFeePaid: true,
     }
 
-    const out = hireConstructionWorker(project, 'builder', 100, 1)
+    const out = hireConstructionWorker(project, 'builder', 100, 1, 1_000)
     expect(out.hired).toBe(true)
     expect(out.money).toBe(72)
     expect(out.cost).toBe(28)
     expect(out.laborMinutes).toBe(90)
-    expect(out.project.laborDoneMinutes).toBe(90)
-    expect(out.project.hiredLaborMinutes).toBe(90)
-    expect(constructionLaborBreakdown(out.project)).toMatchObject({
+    expect(out.project.laborDoneMinutes).toBe(0)
+    expect(out.project.hiredLaborMinutes).toBe(0)
+    expect(out.contract).toMatchObject({
+      workerId: 'builder',
+      workerName: 'Skilled builder',
+      hiredAt: 1_000,
+      paidUntil: 3_601_000,
+      paidMinutes: 60,
+      workedMinutes: 0,
+      laborMultiplier: 1.5,
+      ratePerHour: 28,
+      cost: 28,
+    })
+    expect(out.project.workerContracts).toHaveLength(1)
+  })
+
+  test('worker contracts add labor as real paid minutes pass', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const hired = hireConstructionWorker(project, 'builder', 100, 1, 1_000)
+    const halfHour = advanceConstructionWorkerContracts(hired.project, 1_801_000)
+
+    expect(halfHour.laborMinutes).toBe(45)
+    expect(halfHour.project.laborDoneMinutes).toBe(45)
+    expect(halfHour.project.hiredLaborMinutes).toBe(45)
+    expect(halfHour.project.workerContracts[0].workedMinutes).toBe(30)
+
+    const finishedContract = advanceConstructionWorkerContracts(halfHour.project, 3_601_000)
+    expect(finishedContract.laborMinutes).toBe(45)
+    expect(finishedContract.project.laborDoneMinutes).toBe(90)
+    expect(finishedContract.project.hiredLaborMinutes).toBe(90)
+    expect(finishedContract.project.workerContracts[0].workedMinutes).toBe(60)
+    expect(constructionLaborBreakdown(finishedContract.project)).toMatchObject({
       playerMinutes: 0,
       hiredMinutes: 90,
       remainingMinutes: 390,
     })
   })
 
-  test('worker labor caps at the remaining house work', () => {
+  test('worker contract labor caps at the remaining house work', () => {
     const project = {
       ...createConstructionProject('starter-house', 45.7, 21.2, 123),
       deposited: freshResources(STARTER_HOUSE_RECIPE.required),
@@ -114,11 +150,14 @@ describe('construction', () => {
       laborDoneMinutes: 420,
     }
 
-    const out = hireConstructionWorker(project, 'crew', 1_000, 8)
-    expect(out.hired).toBe(true)
+    const hired = hireConstructionWorker(project, 'crew', 1_000, 8, 1_000)
+    expect(hired.hired).toBe(true)
+    expect(hired.laborMinutes).toBe(60)
+    const out = advanceConstructionWorkerContracts(hired.project, 16 * 60_000)
     expect(out.laborMinutes).toBe(60)
     expect(out.project.laborDoneMinutes).toBe(480)
     expect(out.project.hiredLaborMinutes).toBe(60)
+    expect(out.project.workerContracts[0].workedMinutes).toBe(15)
     expect(constructionProgress(out.project).complete).toBe(true)
   })
 
