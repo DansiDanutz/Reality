@@ -66,6 +66,9 @@ export interface ConstructionDayForecast {
   helperTwoHourCost: number
   helperTwoHourAffordableToday: boolean
   helperTwoHourCashNeeded: number
+  activeWorkerCount: number
+  activeWorkerPaidMinutesRemaining: number
+  activeWorkerLaborMinutesRemaining: number
   resourceTrips: ResourceTripForecast[]
   totalGatherMinutes: number
 }
@@ -226,6 +229,17 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
     )
   }
   if (!progress.laborComplete) {
+    const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
+    if (activeWorkers.length > 0) {
+      return task(
+        isBusinessBuild ? 'build-business-building-with-worker-hour' : 'build-house-with-worker-hour',
+        isBusinessBuild ? `Work beside the helper on ${project.name}` : 'Work beside the house helper',
+        `A Workers Hall helper is already paid and active. Use your free hour to build alongside them instead of hiring again.`,
+        'capital',
+        { kind: 'panel', panel: 'construction' },
+        60,
+      )
+    }
     const helperEstimate = estimateConstructionWorkerHire(project, 'helper', 1)
     if (helperEstimate && helperEstimate.blockedBy === null && helperEstimate.laborMinutes > 0 && snapshot.money >= helperEstimate.cost + CASH_SAFETY_FLOOR) {
       return task(
@@ -452,6 +466,12 @@ export function constructionDayForecast(
   const helperDailyMinutes = helper ? Math.round(2 * 60 * helper.laborMultiplier) : 0
   const helperCost = helper ? helper.ratePerHour * 2 : 0
   const helperCashNeeded = Math.max(0, helperCost + cashSafetyFloor - money)
+  const activeContracts = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
+  const activeWorkerPaidMinutesRemaining = activeContracts.reduce((sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes), 0)
+  const activeWorkerLaborMinutesRemaining = Math.min(
+    remainingLaborMinutes,
+    activeContracts.reduce((sum, contract) => sum + Math.max(0, contract.paidMinutes - contract.workedMinutes) * Math.max(0, contract.laborMultiplier), 0),
+  )
   return {
     remainingLaborMinutes,
     playerOnlyDaysAtOneHour: Math.ceil(remainingLaborMinutes / 60),
@@ -461,6 +481,9 @@ export function constructionDayForecast(
     helperTwoHourCost: helperCost,
     helperTwoHourAffordableToday: helperCashNeeded <= 0,
     helperTwoHourCashNeeded: helperCashNeeded,
+    activeWorkerCount: activeContracts.length,
+    activeWorkerPaidMinutesRemaining,
+    activeWorkerLaborMinutesRemaining,
     resourceTrips,
     totalGatherMinutes,
   }
