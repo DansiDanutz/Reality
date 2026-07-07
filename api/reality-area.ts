@@ -6391,6 +6391,7 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     isRecord(value.claim) &&
     (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
     (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
+    Array.isArray(value.citizens) &&
     Array.isArray(value.businesses) &&
     Array.isArray(value.transactions) &&
     (value.areaEvents === undefined || Array.isArray(value.areaEvents))
