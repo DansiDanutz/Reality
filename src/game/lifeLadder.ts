@@ -10,6 +10,7 @@ import {
   constructionLaborBreakdown,
   constructionProgress,
   constructionShortfall,
+  estimateConstructionWorkerHire,
   type ConstructionProject,
 } from './construction'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceInventory, type ResourceKind, freshResources } from './resources'
@@ -221,6 +222,17 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
     )
   }
   if (!progress.laborComplete) {
+    const helperEstimate = estimateConstructionWorkerHire(project, 'helper', 1)
+    if (helperEstimate && helperEstimate.blockedBy === null && helperEstimate.laborMinutes > 0 && snapshot.money >= helperEstimate.cost + CASH_SAFETY_FLOOR) {
+      return task(
+        isBusinessBuild ? 'hire-business-building-worker-hour' : 'hire-house-worker-hour',
+        isBusinessBuild ? `Hire 1h helper for ${project.name}` : 'Hire 1h helper for the house',
+        `Workers Hall help costs $${helperEstimate.worker.ratePerHour}/hour and adds ${helperEstimate.laborMinutes}m of labor while your day stays balanced.`,
+        'capital',
+        { kind: 'panel', panel: 'construction' },
+        5,
+      )
+    }
     return task(
       isBusinessBuild ? 'build-business-building-hour' : 'build-house-hour',
       isBusinessBuild ? `Work 60m on ${project.name}` : 'Work 60m on your house',
