@@ -127,6 +127,32 @@ describe('register API Telegram identity bridge', () => {
       createdAt: expect.any(String),
     })
   })
+
+  test('uses a deterministic fallback name key when the display name has no ASCII slug', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([]))
+      .mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+    const name = '李雷'
+    const nameHash = createHash('sha256').update(name).digest('hex').slice(0, 24)
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': '203.0.113.42' },
+      body: { name },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const namePut = vi.mocked(put).mock.calls.find(([pathname]) =>
+      typeof pathname === 'string' && pathname.startsWith('names/')
+    )
+    expect(namePut?.[0]).toBe(`names/u-${nameHash}.json`)
+    expect(vi.mocked(put).mock.calls.some(([pathname]) => pathname === 'names/.json')).toBe(false)
+    const citizenPut = vi.mocked(put).mock.calls.find(([pathname]) =>
+      typeof pathname === 'string' && pathname.startsWith('citizens/')
+    )
+    expect(JSON.parse(String(citizenPut?.[1]))).toMatchObject({ name })
+  })
 })
 
 function signedInitData(fields: Record<string, string>, botToken = BOT_TOKEN): string {

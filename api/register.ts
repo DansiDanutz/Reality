@@ -77,9 +77,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
 
     // Every citizen name in Reality is unique — a name is an identity claim
-    const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    const nameKey = citizenNameKey(clean)
     try {
-      await put(`names/${slug}.json`, JSON.stringify({ at: registeredAt.toISOString() }), {
+      await put(`names/${nameKey}.json`, JSON.stringify({ at: registeredAt.toISOString() }), {
         access: 'private',
         addRandomSuffix: false,
         allowOverwrite: false,
@@ -180,6 +180,12 @@ function citizenRecord(name: string, createdAt: Date, telegram: TelegramRealityA
       telegramLinkedAt: createdAt.toISOString(),
     } : {}),
   }
+}
+
+function citizenNameKey(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  if (slug) return slug
+  return `u-${createHash('sha256').update(name).digest('hex').slice(0, 24)}`
 }
 
 function telegramDisplayName(telegram: Pick<TelegramRealityAccountRecord, 'firstName' | 'lastName' | 'username'>): string {
