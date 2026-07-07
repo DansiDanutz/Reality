@@ -248,6 +248,7 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
       next = {
         ...next,
         communityRespect: next.communityRespect + action.rewards.respect,
+        communityFriendship: next.communityFriendship + action.rewards.friendship,
         communityTrust: next.communityTrust + action.rewards.trust,
         communityActionsThisWeek: next.communityActionsThisWeek + 1,
         communityActionsToday: 1,

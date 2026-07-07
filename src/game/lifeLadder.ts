@@ -159,6 +159,7 @@ export interface LifeLadderSnapshot {
   communityActionsThisWeek: number
   communityActionsToday: number
   communityRespect: number
+  communityFriendship: number
   communityTrust: number
 }
 
@@ -561,6 +562,7 @@ function millionairePathFor(snapshot: LifeLadderSnapshot): MillionairePath {
     educationActions: snapshot.educationActions,
     educationProgress: snapshot.educationProgress,
     communityRespect: snapshot.communityRespect,
+    communityFriendship: snapshot.communityFriendship,
     communityTrust: snapshot.communityTrust,
   })
 }
