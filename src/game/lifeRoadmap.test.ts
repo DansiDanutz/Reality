@@ -155,4 +155,91 @@ describe('planLifeRoadmap', () => {
       incomePerDay: readyForFinalHour.incomeAfter,
     })
   })
+
+  test('projects the first business from map shell into interior development', () => {
+    const launchSnapshot = snap({
+      lifeDay: 8,
+      money: 30_000,
+      level: 2,
+      xp: 40,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      assets: [home()],
+      resources: freshResources({ wood: 500, stone: 500, metal: 500, glass: 500 }),
+      communityActionsThisWeek: 1,
+      communityRespect: 5,
+      communityFriendship: 5,
+      communityTrust: 5,
+    })
+
+    const shell = planLifeRoadmap(launchSnapshot, 1)
+    expect(shell.days[0].primary).toMatchObject({
+      id: 'build-first-business',
+      route: { kind: 'market', focus: 'business' },
+    })
+    expect(shell.finalSnapshot.assets.filter((asset) => asset.kind === 'business')).toEqual([])
+    expect(shell.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    expect(shell.finalSnapshot.constructionProjects).toHaveLength(1)
+    expect(shell.finalSnapshot.constructionProjects[0]).toMatchObject({
+      name: 'Food Cart',
+      resultKind: 'business',
+      incomePerDay: 200,
+      permitFeePaid: false,
+      laborDoneMinutes: 0,
+    })
+
+    const built = planLifeRoadmap(launchSnapshot, 7)
+    expect(built.days.map((day) => day.primary.id)).toEqual([
+      'build-first-business',
+      'deposit-business-building-materials',
+      'pay-business-building-permit',
+      'hire-business-building-worker-hour',
+      'hire-business-building-worker-hour',
+      'hire-business-building-worker-hour',
+      'hire-business-building-worker-hour',
+    ])
+    expect(built.finalSnapshot.constructionProjects).toEqual([])
+    expect(built.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    const builtBusiness = built.finalSnapshot.assets.find((asset) => asset.kind === 'business')
+    expect(builtBusiness).toMatchObject({
+      name: 'Food Cart',
+      kind: 'business',
+      incomePerDay: 200,
+    })
+    expect(builtBusiness?.level ?? 1).toBe(1)
+
+    const interiorPlanned = planLifeRoadmap(launchSnapshot, 8)
+    expect(interiorPlanned.days[7].primary).toMatchObject({
+      id: 'plan-business-development',
+      route: { kind: 'panel', panel: 'business' },
+    })
+    expect(interiorPlanned.finalSnapshot.constructionProjects).toEqual([])
+    expect(interiorPlanned.finalSnapshot.businessDevelopmentProjects).toHaveLength(1)
+    expect(interiorPlanned.finalSnapshot.businessDevelopmentProjects[0]).toMatchObject({
+      businessId: builtBusiness?.id,
+      businessName: 'Food Cart',
+      levelFrom: 1,
+      levelTo: 2,
+      incomeBefore: 200,
+      incomeAfter: 400,
+    })
+
+    const upgraded = planLifeRoadmap(launchSnapshot, 12)
+    expect(upgraded.days.slice(7).map((day) => day.primary.id)).toEqual([
+      'plan-business-development',
+      'deposit-business-materials',
+      'pay-business-budget',
+      'hire-business-worker-hour',
+      'hire-business-worker-hour',
+    ])
+    expect(upgraded.finalSnapshot.constructionProjects).toEqual([])
+    expect(upgraded.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    expect(upgraded.finalSnapshot.assets.find((asset) => asset.id === builtBusiness?.id)).toMatchObject({
+      kind: 'business',
+      name: 'Food Cart',
+      level: 2,
+      incomePerDay: 400,
+    })
+  })
 })
