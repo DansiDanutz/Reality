@@ -142,6 +142,25 @@ describe('construction', () => {
     })
   })
 
+  test('worker contracts wait for whole paid minutes before adding labor', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const hired = hireConstructionWorker(project, 'helper', 100, 1, 1_000)
+    const subMinute = advanceConstructionWorkerContracts(hired.project, 60_999)
+    expect(subMinute.laborMinutes).toBe(0)
+    expect(subMinute.project.laborDoneMinutes).toBe(0)
+    expect(subMinute.project.workerContracts[0].workedMinutes).toBe(0)
+
+    const oneMinute = advanceConstructionWorkerContracts(subMinute.project, 61_000)
+    expect(oneMinute.laborMinutes).toBe(1)
+    expect(oneMinute.project.laborDoneMinutes).toBe(1)
+    expect(oneMinute.project.workerContracts[0].workedMinutes).toBe(1)
+  })
+
   test('worker contract labor caps at the remaining house work', () => {
     const project = {
       ...createConstructionProject('starter-house', 45.7, 21.2, 123),
