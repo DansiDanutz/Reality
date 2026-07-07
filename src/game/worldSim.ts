@@ -1155,7 +1155,8 @@ function areaEventsDashboard(area: WorldArea): AreaEventsDashboard {
 
 function founderMoneyForArea(area: WorldArea): number | undefined {
   if (!area.claim) return undefined
-  return area.citizens.find((citizen) => citizen.id === area.claim?.founderCitizenId)?.money
+  const founder = area.citizens.find((citizen) => citizen.id === area.claim?.founderCitizenId)
+  return founder ? citizenWalletBalance(founder) : undefined
 }
 
 function founderCanActForArea(area: WorldArea): boolean | undefined {
@@ -1351,7 +1352,7 @@ function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): A
     state: citizen.state.kind,
     health: citizen.health,
     needs: { ...citizen.needs },
-    money: citizen.money,
+    money: citizenWalletBalance(citizen),
     debt: citizen.debt,
     debts: debtDashboard(citizen),
     homeBusinessId: citizen.homeBusinessId,
@@ -1390,7 +1391,7 @@ function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: n
 
 function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
   return (citizen.debts ?? []).map((debt) => {
-    const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
+    const maxAffordablePayment = roundMoney(Math.min(citizenWalletBalance(citizen), debt.amount))
     const blockers: AreaDebtRepaymentBlocker[] = []
     if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
     if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
@@ -1413,6 +1414,10 @@ function totalDebt(citizen: WorldCitizen): number {
   return roundMoney(Math.max(citizen.debt, itemizedDebt))
 }
 
+function citizenWalletBalance(citizen: Pick<WorldCitizen, 'money'>): number {
+  return Number.isFinite(citizen.money) && citizen.money > 0 ? roundMoney(citizen.money) : 0
+}
+
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
   const insurers = area.businesses
     .filter((business) => business.kind === 'insurance')
@@ -1422,7 +1427,7 @@ function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: nu
   const insurer = insurers[0]
   const premium = insurer ? insurer.price ?? DEFAULT_PRICES.insurance : null
   const activeInsurance = hasActiveInsurance(citizen, at)
-  const canAfford = premium !== null && citizen.money >= premium
+  const canAfford = premium !== null && citizenWalletBalance(citizen) >= premium
   const blockers: AreaInsuranceActionBlocker[] = []
 
   if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
@@ -2690,7 +2695,7 @@ function survivalActionForWarning(
     .map((business) => business.price ?? DEFAULT_PRICES[serviceKind])
   const lowestPrice = prices.length > 0 ? Math.min(...prices) : null
   const available = lowestPrice !== null
-  const canAfford = lowestPrice !== null && citizen.money >= lowestPrice
+  const canAfford = lowestPrice !== null && citizenWalletBalance(citizen) >= lowestPrice
   const blockers: WorldSurvivalActionBlocker[] = []
   if (!available) blockers.push('service_unavailable')
   if (available && !canAfford) blockers.push('insufficient_funds')
@@ -2795,9 +2800,10 @@ function buildBusinessFromIntent(
   if (dashboard.supply[blueprint.kind] >= dashboard.licenseSlots[blueprint.kind]) {
     return { ok: false, area, error: 'business_saturated' }
   }
-  if (actor.money < blueprint.buildCost) return { ok: false, area, error: 'insufficient_funds' }
+  const actorMoney = citizenWalletBalance(actor)
+  if (actorMoney < blueprint.buildCost) return { ok: false, area, error: 'insufficient_funds' }
 
-  actor.money = roundMoney(actor.money - blueprint.buildCost)
+  actor.money = roundMoney(actorMoney - blueprint.buildCost)
   area.businesses.push({
     id: businessId,
     name: blueprint.name,
@@ -2864,9 +2870,10 @@ function buyInsuranceFromIntent(
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
 
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
-  if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
+  const actorMoney = citizenWalletBalance(actor)
+  if (actorMoney < premium) return { ok: false, area, error: 'insufficient_funds' }
 
-  actor.money = roundMoney(actor.money - premium)
+  actor.money = roundMoney(actorMoney - premium)
   actor.insuranceBusinessId = insurer.id
   actor.insurancePaidUntil = area.now + INSURANCE_POLICY_PERIOD_MS
   insurer.cash = roundMoney(insurer.cash + premium)
@@ -2900,7 +2907,7 @@ function buyServiceFromIntent(
   if (!business) return { ok: false, area, error: 'service_not_available' }
 
   const price = business.price ?? DEFAULT_PRICES[kind]
-  if (actor.money < price) return { ok: false, area, error: 'insufficient_funds' }
+  if (citizenWalletBalance(actor) < price) return { ok: false, area, error: 'insufficient_funds' }
 
   completeServicePurchase(area, actor, business, kind, context)
   return { ok: true, area }
@@ -2923,9 +2930,10 @@ function repayDebtFromIntent(
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, area, error: 'invalid_debt_payment' }
-  if (actor.money < payment) return { ok: false, area, error: 'insufficient_funds' }
+  const actorMoney = citizenWalletBalance(actor)
+  if (actorMoney < payment) return { ok: false, area, error: 'insufficient_funds' }
 
-  actor.money = roundMoney(actor.money - payment)
+  actor.money = roundMoney(actorMoney - payment)
   actor.debt = roundMoney(Math.max(0, actor.debt - payment))
   debt.amount = roundMoney(debt.amount - payment)
   if (debt.amount <= 0) actor.debts = actor.debts?.filter((candidate) => candidate.id !== debt.id)
@@ -3042,12 +3050,13 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
     }
 
     const premium = insurer.price ?? DEFAULT_PRICES.insurance
-    if (citizen.money < premium) {
+    const citizenMoney = citizenWalletBalance(citizen)
+    if (citizenMoney < premium) {
       lapseInsurance(citizen, context)
       continue
     }
 
-    citizen.money = roundMoney(citizen.money - premium)
+    citizen.money = roundMoney(citizenMoney - premium)
     citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
     insurer.cash = roundMoney(insurer.cash + premium)
     context.summary.insurancePremiumsPaid = roundMoney(context.summary.insurancePremiumsPaid + premium)
@@ -3088,7 +3097,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       const paid = Math.min(due, business.cash)
       if (paid <= 0) continue
       business.cash = roundMoney(business.cash - paid)
-      worker.money = roundMoney(worker.money + paid)
+      worker.money = roundMoney(citizenWalletBalance(worker) + paid)
       context.summary.wagesPaid = roundMoney(context.summary.wagesPaid + paid)
       recordTransaction(area, context.at, {
         kind: 'worker_wage',
@@ -3229,7 +3238,7 @@ function purchaseService(
   const business = chooseBusiness(area, kind, context)
   if (!business) return false
   const price = business.price ?? DEFAULT_PRICES[kind]
-  if (citizen.money < price) return false
+  if (citizenWalletBalance(citizen) < price) return false
 
   completeServicePurchase(area, citizen, business, kind, context)
   return true
@@ -3244,7 +3253,7 @@ function completeServicePurchase(
 ): void {
   const price = business.price ?? DEFAULT_PRICES[kind]
   reserveBusinessCapacity(context, business)
-  citizen.money = roundMoney(citizen.money - price)
+  citizen.money = roundMoney(citizenWalletBalance(citizen) - price)
   business.cash = roundMoney(business.cash + price)
   context.summary.purchases += 1
   context.summary.revenueByBusiness[business.id] = roundMoney((context.summary.revenueByBusiness[business.id] ?? 0) + price)
@@ -3268,10 +3277,10 @@ function purchaseInsurancePolicy(
   const insurer = chooseBusiness(area, 'insurance', context)
   if (!insurer) return false
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
-  if (citizen.money < premium) return false
+  if (citizenWalletBalance(citizen) < premium) return false
 
   reserveBusinessCapacity(context, insurer)
-  citizen.money = roundMoney(citizen.money - premium)
+  citizen.money = roundMoney(citizenWalletBalance(citizen) - premium)
   citizen.insuranceBusinessId = insurer.id
   citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
   insurer.cash = roundMoney(insurer.cash + premium)
@@ -3331,7 +3340,8 @@ function applyServiceEffect(citizen: WorldCitizen, effect: ServiceEffect, qualit
 }
 
 function shouldHospitalize(citizen: WorldCitizen): boolean {
-  return citizen.health <= COLLAPSE_HEALTH || (citizen.needs.hydration <= 0 && citizen.money < DEFAULT_PRICES.water)
+  return citizen.health <= COLLAPSE_HEALTH ||
+    (citizen.needs.hydration <= 0 && citizenWalletBalance(citizen) < DEFAULT_PRICES.water)
 }
 
 function hospitalize(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
@@ -3368,9 +3378,9 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
     }
   }
 
-  const citizenPaid = Math.min(remaining, citizen.money)
+  const citizenPaid = Math.min(remaining, citizenWalletBalance(citizen))
   if (citizenPaid > 0) {
-    citizen.money = roundMoney(citizen.money - citizenPaid)
+    citizen.money = roundMoney(citizenWalletBalance(citizen) - citizenPaid)
     if (clinic) clinic.cash = roundMoney(clinic.cash + citizenPaid)
     remaining = roundMoney(remaining - citizenPaid)
     recordTransaction(area, context.at, {

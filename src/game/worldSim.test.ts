@@ -613,6 +613,23 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('buyInsurance intent rejects non-finite buyer wallets as insufficient funds', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: Number.POSITIVE_INFINITY })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', cash: 10, price: 45 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'insufficient_funds' })
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(10)
+    expect(result.area.transactions).toEqual([])
+  })
+
   test('buyInsurance intent rejects hospitalized citizens', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500, state: { kind: 'hospitalized', until: 10 * HOUR } })],
@@ -675,6 +692,28 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('insurance renewal treats non-finite wallets as unable to pay premiums', () => {
+    const start = area({
+      citizens: [sim('resident', {
+        kind: 'real',
+        money: Number.POSITIVE_INFINITY,
+        insuranceBusinessId: 'ins1',
+        insurancePaidUntil: HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { cash: 45, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+
+    expect(resident.insuranceBusinessId).toBeUndefined()
+    expect(resident.insurancePaidUntil).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(45)
+    expect(summary.insurancePremiumsPaid).toBe(0)
+    expect(summary.insurancePoliciesLapsed).toBe(1)
+    expect(out.transactions).toEqual([])
+  })
+
   test('Sim Citizens buy first insurance policies from local insurers with real premiums', () => {
     const start = area({
       citizens: [sim('resident', { money: 100 })],
@@ -726,6 +765,23 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toMatchObject([
       { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
     ])
+  })
+
+  test('buyWater intent rejects non-finite buyer wallets as insufficient funds', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', {
+        kind: 'real',
+        money: Number.NaN,
+        needs: fullNeeds({ hydration: 20 }),
+      })],
+      businesses: [business('water', 'water1', { ownerId: 'founder', cash: 5, price: 2 })],
+    })
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result).toMatchObject({ ok: false, error: 'insufficient_funds' })
+    expect(result.area.businesses.find((b) => b.id === 'water1')!.cash).toBe(5)
+    expect(result.area.transactions).toEqual([])
   })
 
   test('buyHousing intent routes rest to a local housing business', () => {
@@ -973,6 +1029,26 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.citizens[0].jobBusinessId).toBe('food1')
     expect(out.businesses[0].cash).toBe(85)
     expect(out.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(summary.wagesPaid).toBe(15)
+    expect(out.transactions[0]).toMatchObject({
+      kind: 'worker_wage',
+      fromId: 'food1',
+      toId: 'worker',
+      amount: 15,
+    })
+  })
+
+  test('worker wages normalize malformed worker wallets before deposit', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'food1', money: Number.NaN })],
+      businesses: [business('food', 'food1', { cash: 100, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens[0].money).toBe(15)
+    expect(out.citizens[0].jobBusinessId).toBe('food1')
+    expect(out.businesses[0].cash).toBe(85)
     expect(summary.wagesPaid).toBe(15)
     expect(out.transactions[0]).toMatchObject({
       kind: 'worker_wage',
@@ -1386,6 +1462,49 @@ describe('advanceWorldArea — local real-time economy', () => {
       debtId: 'debt2',
       amount: 10,
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+  })
+
+  test('debt dashboards and repayments treat malformed wallets as unavailable funds', () => {
+    const start = area({
+      citizens: [
+        sim('c1', {
+          money: Number.POSITIVE_INFINITY,
+          debt: 75,
+          debts: [{
+            id: 'debt1',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 75,
+            issuedAt: HOUR,
+            memo: 'Sim c1 owes medical debt to clinic1.',
+          }],
+        }),
+        sim('negative-wallet', { money: -25 }),
+      ],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    const dashboard = areaNeedsDashboard(start)
+    expect(dashboard.citizens.find((citizen) => citizen.id === 'c1')!.money).toBe(0)
+    expect(dashboard.citizens.find((citizen) => citizen.id === 'negative-wallet')!.money).toBe(0)
+    expect(dashboard.citizens.find((citizen) => citizen.id === 'c1')!.debts[0]).toMatchObject({
+      maxAffordablePayment: 0,
+      recommendedPayment: 0,
+      canRepayNow: false,
+      blockers: ['insufficient_funds'],
+      clientPayload: null,
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 75,
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'insufficient_funds' })
+    expect(result.area.businesses[0].cash).toBe(50)
+    expect(result.area.transactions).toEqual([])
   })
 
   test('Sim Citizens can leave when severe local needs stay unserved', () => {
