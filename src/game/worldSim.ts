@@ -253,7 +253,7 @@ export type WorldClientIntentPayload =
 export interface CitizenSurvivalAction {
   warning: WorldSurvivalWarningKind
   intent: WorldSurvivalActionIntent
-  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }> | null
   serviceKind: Exclude<WorldBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -2694,10 +2694,11 @@ function survivalActionForWarning(
   const blockers: WorldSurvivalActionBlocker[] = []
   if (!available) blockers.push('service_unavailable')
   if (available && !canAfford) blockers.push('insufficient_funds')
+  const canActNow = blockers.length === 0
   return {
     warning,
     intent,
-    clientPayload: { type: intent },
+    clientPayload: canActNow ? { type: intent } : null,
     serviceKind,
     available,
     lowestPrice,

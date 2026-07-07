@@ -853,6 +853,35 @@ describe('Reality area client', () => {
     })
   })
 
+  test('accepts blocked server survival actions without client payloads', async () => {
+    const dashboard = serverDashboard()
+    const survivalSignal = dashboard.survival.signals[1]!
+    const survivalAction = survivalSignal.actions[0]!
+    dashboard.survival.signals[1] = {
+      ...survivalSignal,
+      actions: [{
+        ...survivalAction,
+        clientPayload: null,
+        available: false,
+        lowestPrice: null,
+        canAfford: false,
+        blockers: ['service_unavailable'],
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard }))
+
+    await expect(refreshRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard,
+    })
+  })
+
   test('sends founder covenant review evidence through the server area authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))

@@ -666,7 +666,7 @@ type FounderAreaSurvivalActionBlocker = 'service_unavailable' | 'insufficient_fu
 interface FounderAreaSurvivalAction {
   warning: FounderAreaSurvivalWarningKind
   intent: FounderAreaSurvivalActionIntent
-  clientPayload: { type: FounderAreaSurvivalActionIntent }
+  clientPayload: { type: FounderAreaSurvivalActionIntent } | null
   serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -4109,10 +4109,11 @@ function survivalActionForWarning(
   const blockers: FounderAreaSurvivalActionBlocker[] = []
   if (!available) blockers.push('service_unavailable')
   if (available && !canAfford) blockers.push('insufficient_funds')
+  const canActNow = blockers.length === 0
   return {
     warning,
     intent,
-    clientPayload: { type: intent },
+    clientPayload: canActNow ? { type: intent } : null,
     serviceKind,
     available,
     lowestPrice,
