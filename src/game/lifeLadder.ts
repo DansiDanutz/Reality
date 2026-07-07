@@ -514,6 +514,7 @@ function millionairePathFor(snapshot: LifeLadderSnapshot): MillionairePath {
     jobWage: snapshot.jobId ? jobById(snapshot.jobId)?.wage ?? 0 : 0,
     shiftsWorked: snapshot.shiftsWorked,
     educationActions: snapshot.educationActions,
+    educationProgress: snapshot.educationProgress,
     communityRespect: snapshot.communityRespect,
     communityTrust: snapshot.communityTrust,
   })
