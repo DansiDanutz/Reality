@@ -1500,7 +1500,7 @@ describe('Reality area client', () => {
     })
     expect(founder?.insuranceAction).toMatchObject({
       intent: 'buyInsurance',
-      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      clientPayload: null,
       insuranceBusinessId: 'insurance-1',
       premium: 45,
       available: true,
@@ -2582,7 +2582,7 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceActive: false,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
@@ -2627,7 +2627,7 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceActive: true,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
