@@ -101,6 +101,30 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
   })
 
+  test('projects cash-tight free-time labor into a completed house without hiring help', () => {
+    const project = createConstructionProject('starter-house', 1, 1, 1)
+    const readyForFinalPlayerHour = {
+      ...project,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 60,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 10,
+      money: 100,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      constructionProjects: [readyForFinalPlayerHour],
+    }), 1)
+
+    expect(roadmap.days[0].primary.id).toBe('build-house-hour')
+    expect(roadmap.days[0].primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'work' })
+    expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(0)
+    expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
+  })
+
   test('projects business interior labor into an upgraded earning asset', () => {
     const asset = business()
     const project = createBusinessDevelopmentProject(asset, 1)
