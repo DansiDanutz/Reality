@@ -148,7 +148,22 @@ function dayIndexOf(now: number, lat?: number, lng?: number): number {
  * because it needs the live store's dailyCounters, which the engine module
  * can't import without a cycle.
  */
-function countDailyDone(s: { citizen: { citizenId?: string } | null; dailyCounters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number }; dailyClaimed: string[] }, todayDay: number): number {
+function countDailyDone(s: {
+  citizen: { citizenId?: string } | null
+  dailyCounters: {
+    mealsToday: number
+    shiftsToday: number
+    earnedToday: number
+    sleptToday: number
+    boughtToday: number
+    studiedToday: number
+    gatheredToday: number
+    constructionMinutesToday: number
+    communityToday: number
+    businessDevelopmentMinutesToday: number
+  }
+  dailyClaimed: string[]
+}, todayDay: number): number {
   if (!s.citizen) return 0
   const challenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay)
   const snap = {
@@ -157,6 +172,11 @@ function countDailyDone(s: { citizen: { citizenId?: string } | null; dailyCounte
     earnedToday: s.dailyCounters.earnedToday,
     sleptToday: s.dailyCounters.sleptToday,
     boughtToday: s.dailyCounters.boughtToday,
+    studiedToday: s.dailyCounters.studiedToday,
+    gatheredToday: s.dailyCounters.gatheredToday,
+    constructionMinutesToday: s.dailyCounters.constructionMinutesToday,
+    communityToday: s.dailyCounters.communityToday,
+    businessDevelopmentMinutesToday: s.dailyCounters.businessDevelopmentMinutesToday,
   }
   return challenges.filter((c) => s.dailyClaimed.includes(c.id) || challengeProgress(c, snap).complete).length
 }

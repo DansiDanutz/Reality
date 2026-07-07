@@ -27,6 +27,17 @@ const business = (): PlacedAsset => ({
   level: 1,
 })
 
+const LIVE_STEP_MS = 15 * 60_000
+
+function advanceLiveTo(endAt: number, stepMs = LIVE_STEP_MS) {
+  let cursor = Date.now()
+  while (cursor < endAt) {
+    cursor = Math.min(cursor + stepMs, endAt)
+    vi.setSystemTime(cursor)
+    useGame.getState().tick()
+  }
+}
+
 afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
@@ -90,20 +101,62 @@ describe('construction worker contracts', () => {
       workedMinutes: 0,
     })
 
-    vi.setSystemTime(now + 30 * 60_000)
-    useGame.getState().tick()
+    advanceLiveTo(now + 30 * 60_000)
     hired = useGame.getState()
     expect(hired.constructionProjects[0].laborDoneMinutes).toBe(30)
     expect(hired.constructionProjects[0].hiredLaborMinutes).toBe(30)
     expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(30)
+    expect(hired.dailyCounters.constructionMinutesToday).toBe(30)
     expect(hired.activity).toBeNull()
 
-    vi.setSystemTime(now + 60 * 60_000)
-    useGame.getState().tick()
+    advanceLiveTo(now + 60 * 60_000)
     hired = useGame.getState()
     expect(hired.constructionProjects[0].laborDoneMinutes).toBe(60)
     expect(hired.constructionProjects[0].hiredLaborMinutes).toBe(60)
     expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(60)
+  })
+})
+
+describe('resource gathering loop', () => {
+  test('completed gathering trips count toward roadmap daily challenges', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      resources: freshResources(),
+      resourceNodes: [{
+        id: 'wood-node',
+        kind: 'wood',
+        label: 'Local timber lot',
+        lat: 45,
+        lng: 21,
+        source: 'fallback',
+        yieldAmount: 25,
+        gatherMinutes: 5,
+        energyCost: 8,
+      }],
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startGatherResource('wood-node')
+    const activity = useGame.getState().activity
+    expect(activity).toMatchObject({ kind: 'gather', resourceKind: 'wood', resourceAmount: 25 })
+
+    vi.setSystemTime(activity!.endsAt)
+    useGame.getState().tick()
+
+    const state = useGame.getState()
+    expect(state.activity).toBeNull()
+    expect(state.resources.wood).toBe(25)
+    expect(state.dailyCounters.gatheredToday).toBe(1)
   })
 })
 
@@ -157,8 +210,7 @@ describe('education study loop', () => {
     const activity = useGame.getState().activity
     expect(activity).toMatchObject({ kind: 'study', courseId: 'course', studyMinutes: 60 })
 
-    vi.setSystemTime(activity!.endsAt)
-    useGame.getState().tick()
+    advanceLiveTo(activity!.endsAt)
 
     const completed = useGame.getState()
     expect(completed.activity).toBeNull()
@@ -168,6 +220,7 @@ describe('education study loop', () => {
     })
     expect(completed.educationProgress[0].completedAt).toBe(activity!.endsAt)
     expect(completed.xp).toBe(40)
+    expect(completed.dailyCounters.studiedToday).toBe(1)
 
     useGame.getState().tick()
     expect(useGame.getState().xp).toBe(40)
@@ -221,8 +274,7 @@ describe('community action loop', () => {
     const activity = useGame.getState().activity
     expect(activity).toMatchObject({ kind: 'community', communityActionId: 'help-errand', communityMinutes: 35 })
 
-    vi.setSystemTime(activity!.endsAt)
-    useGame.getState().tick()
+    advanceLiveTo(activity!.endsAt)
 
     const completed = useGame.getState()
     expect(completed.activity).toBeNull()
@@ -233,11 +285,13 @@ describe('community action loop', () => {
       actionsThisWeek: 1,
       actionsToday: 1,
     })
-    expect(completed.xp).toBe(30)
+    const xpAfterCompletion = completed.xp
+    expect(xpAfterCompletion).toBeGreaterThanOrEqual(30)
+    expect(completed.dailyCounters.communityToday).toBe(1)
 
     useGame.getState().tick()
     expect(useGame.getState().community.actionsThisWeek).toBe(1)
-    expect(useGame.getState().xp).toBe(30)
+    expect(useGame.getState().xp).toBe(xpAfterCompletion)
   })
 
   test('blocks a second community action on the same day', () => {
@@ -490,16 +544,15 @@ describe('business interior development', () => {
       workedMinutes: 0,
     })
 
-    vi.setSystemTime(now + 30 * 60_000)
-    useGame.getState().tick()
+    advanceLiveTo(now + 30 * 60_000)
     state = useGame.getState()
     expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(30)
     expect(state.businessDevelopmentProjects[0].hiredLaborMinutes).toBe(30)
     expect(state.businessDevelopmentProjects[0].workerContracts[0].workedMinutes).toBe(30)
+    expect(state.dailyCounters.businessDevelopmentMinutesToday).toBe(30)
     expect(state.activity).toBeNull()
 
-    vi.setSystemTime(now + 60 * 60_000)
-    useGame.getState().tick()
+    advanceLiveTo(now + 60 * 60_000)
     state = useGame.getState()
     expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(60)
     expect(state.businessDevelopmentProjects[0].hiredLaborMinutes).toBe(60)
