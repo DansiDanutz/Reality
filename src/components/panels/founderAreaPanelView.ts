@@ -1313,7 +1313,7 @@ export function founderCovenantOperatorQueueSignalText(
 export function founderCovenantOperatorQueueSignalCountText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'signalCounts'>,
 ): string {
-  return `${item.signalCounts.total} total · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical`
+  return `${item.signalCounts.total} total · ${item.signalCounts.info} info · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical`
 }
 
 export function founderCovenantOperatorQueueUpdatedAtText(
