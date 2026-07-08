@@ -2561,7 +2561,16 @@ function parseRealityFounderCovenantReviewQueueItem(
   if (!areaId || !areaLabel || !founderCitizenId) return null
   const activitySignals = value.activitySignals.map(parseRealityFounderCovenantActivitySignal)
   const reviewReadiness = parseRealityFounderCovenantReviewReadiness(value.reviewReadiness)
-  if (activitySignals.some((signal) => signal === null) || !reviewReadiness) return null
+  const pendingApprovalRequests = value.pendingApprovalRequests.map(parseRealityAreaCovenantReviewApprovalRequestSnapshot)
+  const pendingNotificationDrafts = value.pendingNotificationDrafts.map(parseRealityAreaCovenantNotificationDraft)
+  if (
+    activitySignals.some((signal) => signal === null) ||
+    !reviewReadiness ||
+    pendingApprovalRequests.some((request) => request === null) ||
+    pendingNotificationDrafts.some((draft) => draft === null)
+  ) {
+    return null
+  }
 
   if (value.latestReview === null) {
     return {
@@ -2571,6 +2580,8 @@ function parseRealityFounderCovenantReviewQueueItem(
       founderCitizenId,
       activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
       reviewReadiness,
+      pendingApprovalRequests: pendingApprovalRequests as RealityAreaCovenantApprovalRequest[],
+      pendingNotificationDrafts: pendingNotificationDrafts as RealityAreaCovenantNotificationDraft[],
     }
   }
 
@@ -2584,6 +2595,8 @@ function parseRealityFounderCovenantReviewQueueItem(
     founderCitizenId,
     activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
     reviewReadiness,
+    pendingApprovalRequests: pendingApprovalRequests as RealityAreaCovenantApprovalRequest[],
+    pendingNotificationDrafts: pendingNotificationDrafts as RealityAreaCovenantNotificationDraft[],
     latestReview,
   }
 }
@@ -2875,6 +2888,20 @@ function isRealityAreaCovenantReviewApprovalRequestSnapshot(
     value.authorityGate.executionEnabled === false
 }
 
+function parseRealityAreaCovenantReviewApprovalRequestSnapshot(
+  value: RealityAreaCovenantApprovalRequest,
+): RealityAreaCovenantApprovalRequest | null {
+  const label = value.label.trim()
+  const reason = value.reason.trim()
+  if (!label || !reason) return null
+
+  return {
+    ...value,
+    label,
+    reason,
+  }
+}
+
 function isRealityAreaCovenantNotificationDraft(value: unknown): value is RealityAreaCovenantNotificationDraft {
   return isRecord(value) &&
     typeof value.id === 'string' &&
@@ -2887,6 +2914,20 @@ function isRealityAreaCovenantNotificationDraft(value: unknown): value is Realit
     value.requiresApproval === true &&
     value.sendEnabled === false &&
     isRealityAreaCovenantAuthorityGate(value.authorityGate)
+}
+
+function parseRealityAreaCovenantNotificationDraft(
+  value: RealityAreaCovenantNotificationDraft,
+): RealityAreaCovenantNotificationDraft | null {
+  const title = value.title.trim()
+  const body = value.body.trim()
+  if (!title || !body) return null
+
+  return {
+    ...value,
+    title,
+    body,
+  }
 }
 
 function isRealityAreaCovenantSignal(value: unknown): value is RealityAreaCovenantSignal {

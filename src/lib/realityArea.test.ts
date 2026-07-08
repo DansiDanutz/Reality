@@ -1607,6 +1607,16 @@ describe('Reality area client', () => {
           label: ` ${serverFounderCovenantReviewQueue().items[0].reviewReadiness.label} `,
           summary: ` ${serverFounderCovenantReviewQueue().items[0].reviewReadiness.summary} `,
         },
+        pendingApprovalRequests: serverFounderCovenantReviewQueue().items[0].pendingApprovalRequests.map((request) => ({
+          ...request,
+          label: ` ${request.label} `,
+          reason: ` ${request.reason} `,
+        })),
+        pendingNotificationDrafts: serverFounderCovenantReviewQueue().items[0].pendingNotificationDrafts.map((draft) => ({
+          ...draft,
+          title: ` ${draft.title} `,
+          body: ` ${draft.body} `,
+        })),
         latestReview: null,
       }],
     }
@@ -1626,6 +1636,8 @@ describe('Reality area client', () => {
           founderCitizenId: 'citizen-1',
           activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals,
           reviewReadiness: serverFounderCovenantReviewQueue().items[0].reviewReadiness,
+          pendingApprovalRequests: serverFounderCovenantReviewQueue().items[0].pendingApprovalRequests,
+          pendingNotificationDrafts: serverFounderCovenantReviewQueue().items[0].pendingNotificationDrafts,
           latestReview: null,
         }],
       },
@@ -1712,6 +1724,52 @@ describe('Reality area client', () => {
         ...serverFounderCovenantReviewQueue().items[0],
         activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals.map((signal, index) =>
           index === 0 ? { ...signal, label: '   ' } : signal
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank approval-request text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        pendingApprovalRequests: serverFounderCovenantReviewQueue().items[0].pendingApprovalRequests.map((request, index) =>
+          index === 0 ? { ...request, label: '   ' } : request
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank notification-draft text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        pendingNotificationDrafts: serverFounderCovenantReviewQueue().items[0].pendingNotificationDrafts.map((draft, index) =>
+          index === 0 ? { ...draft, body: '   ' } : draft
         ),
       }],
     }
