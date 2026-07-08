@@ -13,6 +13,7 @@ import {
   millionaireEtaSummary,
   routineShortLabel,
 } from './goalsCardView'
+import { dispatchLifePlanRoute } from './goalsCardActions'
 
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
@@ -133,63 +134,29 @@ export default function GoalsCard() {
     seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
   })
 
-  const openRoute = (route: typeof lifePlan.primary.route) => {
-    if (route.kind === 'market') {
-      openMarket(route.focus)
-      return
-    }
-    if (route.kind === 'gather') {
-      const node = resourceNodes.find((candidate) => candidate.kind === route.resourceKind)
-      if (node) {
-        startGatherResource(node.id)
-        return
-      }
-      setPanel('construction')
-      return
-    }
-    if (route.kind === 'construction-action') {
-      if (route.action === 'deposit') depositConstructionResources(route.projectId)
-      else if (route.action === 'permit') payConstructionPermit(route.projectId)
-      else if (route.action === 'work') startConstructionWork(route.projectId)
-      else if (route.action === 'hire-helper') hireConstructionWorker(route.projectId, 'helper', route.hours ?? 1)
-      else completeConstructionIfReady(route.projectId)
-      return
-    }
-    if (route.kind === 'business-development-action') {
-      if (route.action === 'deposit') depositBusinessDevelopmentResources(route.projectId)
-      else if (route.action === 'budget') payBusinessDevelopmentBudget(route.projectId)
-      else if (route.action === 'work') startBusinessDevelopmentWork(route.projectId)
-      else if (route.action === 'hire-helper') hireBusinessDevelopmentWorker(route.projectId, 'helper', route.hours ?? 1)
-      else completeBusinessDevelopmentIfReady(route.projectId)
-      return
-    }
-    if (route.kind === 'work-action') {
-      startShift()
-      return
-    }
-    if (route.kind === 'community-action') {
-      startCommunityAction(route.actionId)
-      return
-    }
-    if (route.kind === 'education-action') {
-      startStudy(route.courseId)
-      return
-    }
-    if (route.kind === 'consume-action') {
-      consume(route.itemId)
-      return
-    }
-    if (route.kind === 'cook-action') {
-      cook(route.recipeId)
-      return
-    }
-    if (route.kind === 'survival-action') {
-      if (route.action === 'drink-water') quickDrink()
-      else startSleep()
-      return
-    }
-    if (route.kind === 'panel') setPanel(route.panel)
-  }
+  const openRoute = (route: typeof lifePlan.primary.route) => dispatchLifePlanRoute(route, {
+    resourceNodes,
+    openMarket,
+    setPanel,
+    startGatherResource,
+    depositConstructionResources,
+    payConstructionPermit,
+    startConstructionWork,
+    hireConstructionWorker,
+    completeConstructionIfReady,
+    depositBusinessDevelopmentResources,
+    payBusinessDevelopmentBudget,
+    startBusinessDevelopmentWork,
+    hireBusinessDevelopmentWorker,
+    completeBusinessDevelopmentIfReady,
+    startShift,
+    startCommunityAction,
+    startStudy,
+    consume,
+    cook,
+    quickDrink,
+    startSleep,
+  })
   const openPrimary = () => openRoute(lifePlan.primary.route)
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
   const buildEta = buildEtaSummary(lifePlan.constructionForecast)
