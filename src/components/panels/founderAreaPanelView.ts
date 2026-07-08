@@ -824,16 +824,20 @@ export function founderCovenantOperatorQueuePrimaryWorkloadText(
 ): string {
   const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
   const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const overdueFounders = queue.items.filter((item) => item.overdue).length
+  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review').length
+  const overdueFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
 
-  if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0) {
+  if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0 && recordFounders === 0) {
     return 'Primary workload: monitor'
   }
-  if (evidenceGaps >= blockedFounders && evidenceGaps >= overdueFounders) {
+  if (evidenceGaps >= blockedFounders && evidenceGaps >= overdueFounders && evidenceGaps >= recordFounders) {
     return 'Primary workload: collect evidence'
   }
-  if (blockedFounders >= overdueFounders) {
+  if (blockedFounders >= overdueFounders && blockedFounders >= recordFounders) {
     return 'Primary workload: clear blockers'
+  }
+  if (recordFounders >= overdueFounders) {
+    return 'Primary workload: record due reviews'
   }
   return 'Primary workload: clear overdue reviews'
 }
@@ -843,16 +847,20 @@ export function founderCovenantOperatorQueueRecommendedActionText(
 ): string {
   const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
   const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const overdueFounders = queue.items.filter((item) => item.overdue).length
+  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review').length
+  const overdueFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
 
-  if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0) {
+  if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0 && recordFounders === 0) {
     return 'Recommended next: monitor current founders'
   }
-  if (evidenceGaps >= blockedFounders && evidenceGaps >= overdueFounders) {
+  if (evidenceGaps >= blockedFounders && evidenceGaps >= overdueFounders && evidenceGaps >= recordFounders) {
     return 'Recommended next: attach missing manual evidence'
   }
-  if (blockedFounders >= overdueFounders) {
+  if (blockedFounders >= overdueFounders && blockedFounders >= recordFounders) {
     return 'Recommended next: review blocked approvals'
+  }
+  if (recordFounders >= overdueFounders) {
+    return 'Recommended next: record due founder reviews'
   }
   return 'Recommended next: clear overdue founder reviews'
 }
@@ -1325,12 +1333,12 @@ export function founderCovenantOperatorQueueRecommendedNextText(
   if (item.pendingApprovalRequests.some((request) => request.blockers.length > 0)) {
     return 'Review blocked approvals'
   }
-  if (item.overdue) {
-    return 'Clear overdue review'
-  }
   const suggested = item.manualActions.find((action) => action.recommended)
   if (suggested) {
     return founderCovenantManualActionKindLabel(suggested.kind)
+  }
+  if (item.overdue) {
+    return 'Clear overdue review'
   }
   return 'Monitor founder'
 }

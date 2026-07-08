@@ -235,7 +235,7 @@ describe('FounderCovenantQueuePanel', () => {
         approvalRequestCount: 0,
       },
       pendingApprovalRequests: [],
-    })).toBe('Clear overdue review')
+    })).toBe('Record review')
     expect(founderCovenantOperatorQueueRecommendedNextTone({
       ...manual,
       reviewReadiness: {
@@ -332,6 +332,7 @@ describe('FounderCovenantQueuePanel', () => {
         },
         pendingApprovalRequests: [],
         overdue: false,
+        manualActions: [],
       }],
     })).toBe('Primary workload: monitor')
     expect(founderCovenantOperatorQueueRecommendedActionText({
@@ -344,6 +345,7 @@ describe('FounderCovenantQueuePanel', () => {
         },
         pendingApprovalRequests: [],
         overdue: false,
+        manualActions: [],
       }],
     })).toBe('Recommended next: monitor current founders')
     expect(founderCovenantOperatorQueuePrimaryWorkloadText({
@@ -374,6 +376,7 @@ describe('FounderCovenantQueuePanel', () => {
           blockerCount: 0,
         },
         pendingApprovalRequests: [],
+        manualActions: [],
       }],
     })).toBe('Primary workload: clear overdue reviews')
     expect(founderCovenantOperatorQueueRecommendedActionText({
@@ -386,8 +389,45 @@ describe('FounderCovenantQueuePanel', () => {
           blockerCount: 0,
         },
         pendingApprovalRequests: [],
+        manualActions: [],
       }],
     })).toBe('Recommended next: clear overdue founder reviews')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadText({
+      items: [{
+        ...manual,
+        reviewReadiness: {
+          ...manual.reviewReadiness,
+          evidenceRequiredCount: 0,
+          approvalRequestCount: 0,
+          blockerCount: 0,
+          overdue: true,
+        },
+        pendingApprovalRequests: [],
+        overdue: true,
+        manualActions: [{
+          ...manual.manualActions[0],
+          recommended: true,
+        }],
+      }],
+    })).toBe('Primary workload: record due reviews')
+    expect(founderCovenantOperatorQueueRecommendedActionText({
+      items: [{
+        ...manual,
+        reviewReadiness: {
+          ...manual.reviewReadiness,
+          evidenceRequiredCount: 0,
+          approvalRequestCount: 0,
+          blockerCount: 0,
+          overdue: true,
+        },
+        pendingApprovalRequests: [],
+        overdue: true,
+        manualActions: [{
+          ...manual.manualActions[0],
+          recommended: true,
+        }],
+      }],
+    })).toBe('Recommended next: record due founder reviews')
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]?.summary).toContain('Attach missing manual evidence')
@@ -1103,7 +1143,11 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 2 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 3 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 1 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 4 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 2 · Next record 0 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCadence, 'action_overdue')).toEqual([])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCadence, 'action_record').map((row) => row.founderCitizenId)).toEqual(['founder-18', 'founder-17'])
+    expect(founderCovenantOperatorQueueFilterSummary(queueWithCadence, 'action_overdue')).toBe('0 founders next need overdue cleanup · 0 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queueWithCadence, 'action_record')).toBe('2 founders next need record review · 0 never · 1 stale · 1 fresh')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 2 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'never_reviewed')).toMatchObject({
       founders: 3,
       neverReviewed: 3,
