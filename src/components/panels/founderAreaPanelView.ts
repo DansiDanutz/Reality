@@ -1532,6 +1532,9 @@ export function founderCovenantOperatorQueuePriorityScore(
   if (!item.activityReview.building) score += 50
   if (!item.activityReview.staffed) score += 40
   score += Math.min(120, item.reviewReadiness.evidenceRequiredCount * 20)
+  if (item.reviewReadiness.blockerCount > 0 && item.reviewReadiness.evidenceRequiredCount === 0) {
+    score += 90
+  }
   if (item.economicExposure.outstandingDebt > 0) {
     score += Math.min(140, Math.ceil(item.economicExposure.outstandingDebt / 50))
   }
@@ -1571,6 +1574,9 @@ export function founderCovenantOperatorQueuePriorityReasons(
   if (!item.activityReview.staffed) reasons.push('staffing gap')
   if (item.reviewReadiness.evidenceRequiredCount > 0) {
     reasons.push(`${item.reviewReadiness.evidenceRequiredCount} evidence gap${item.reviewReadiness.evidenceRequiredCount === 1 ? '' : 's'}`)
+  }
+  if (item.reviewReadiness.blockerCount > 0 && item.reviewReadiness.evidenceRequiredCount === 0) {
+    reasons.push('approval blockers')
   }
   if (item.economicExposure.outstandingDebt > 0) {
     reasons.push(`${formatMoney(item.economicExposure.outstandingDebt)} debt`)

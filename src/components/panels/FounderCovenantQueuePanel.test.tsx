@@ -970,6 +970,100 @@ describe('FounderCovenantQueuePanel', () => {
     ])
   })
 
+  test('prioritizes approval-blocked founders ahead of healthy record-ready founders', () => {
+    const blockedReady = founderQueueItem({
+      areaId: 'founder-area-0025',
+      areaLabel: 'Blocked Ready Founder Block',
+      founderCitizenId: 'founder-25',
+      founderNumber: 25,
+      manualReviewRequired: false,
+      covenantStatus: 'watch',
+      overdue: false,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-06T05:00:00.000Z',
+      activityReview: {
+        checkedAt: '2026-07-06T05:00:00.000Z',
+        active: true,
+        useful: true,
+        building: true,
+        staffed: true,
+        indebted: false,
+        hospitalized: false,
+        atRisk: false,
+        score: 91,
+      },
+      economicExposure: {
+        founderCash: 199_900,
+        outstandingDebt: 0,
+        debtCount: 0,
+        businessCash: 30,
+        businessCount: 1,
+        unstaffedBusinessCount: 0,
+        insured: true,
+        hospitalized: false,
+        gameCreditsOnly: true,
+        payoutEligibleCredits: 0,
+        manualPayoutReviewRequired: true,
+      },
+      reviewReadiness: {
+        status: 'blocked',
+        label: 'Blocked',
+        summary: 'Approval routing is blocked even though review evidence is ready.',
+        evidenceRequiredCount: 0,
+        approvalRequestCount: 1,
+        blockerCount: 3,
+        overdue: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      },
+      reviewQueue: {
+        evidenceOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+        nextStep: 'main_founder_approval',
+        recordReviewEnabled: true,
+        recommendedActionKinds: ['send_warning'],
+        pendingApprovalKinds: ['send_warning'],
+        pendingApprovalCount: 1,
+        pendingNotificationKinds: [],
+        pendingNotificationCount: 0,
+        blockerCount: 3,
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled', 'replacement_disabled'],
+      },
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      pendingApprovalRequests: [founderApprovalRequest()],
+      pendingApprovalKinds: ['send_warning'],
+      pendingNotificationDrafts: [],
+      pendingNotificationKinds: [],
+      blockerCount: 3,
+      transactionsAdded: 0,
+    })
+    const recordReady = withRecordReadyCadenceFounder(founderQueueItem(), {
+      cadence: 'weekly',
+      areaId: 'founder-area-0026',
+      areaLabel: 'Record Ready Founder Block',
+      founderCitizenId: 'founder-26',
+      founderNumber: 26,
+      reviewFreshness: 'fresh',
+      score: 90,
+      summary: 'Weekly review is due and ready to be recorded with no blockers.',
+      reason: 'Weekly covenant review is due and ready to be recorded.',
+    })
+
+    const rows = founderCovenantOperatorQueueReviewRows({
+      items: [recordReady, blockedReady],
+    })
+
+    expect(rows.map((row) => row.founderCitizenId)).toEqual(['founder-25', 'founder-26'])
+    expect(founderCovenantOperatorQueuePriorityScore(blockedReady)).toBeGreaterThan(
+      founderCovenantOperatorQueuePriorityScore(recordReady),
+    )
+    expect(founderCovenantOperatorQueuePriorityReasons(blockedReady)).toContain('approval blockers')
+    expect(founderCovenantOperatorQueuePriorityReasons(recordReady)).not.toContain('approval blockers')
+  })
+
   test('filters queue rows for manual review, evidence gaps, action queues, overdue, blocked, hospitalization, and scan anomalies', () => {
     const invalid = founderQueueItem({
       areaId: 'founder-area-0014',
