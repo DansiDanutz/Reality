@@ -1237,6 +1237,7 @@ export function founderCovenantOperatorQueuePriorityScore(
     | 'scanStatus'
     | 'activityReview'
     | 'economicExposure'
+    | 'reviewReadiness'
     | 'signalCounts'
     | 'blockerCount'
   >,
@@ -1254,6 +1255,7 @@ export function founderCovenantOperatorQueuePriorityScore(
   if (!item.activityReview.useful) score += 50
   if (!item.activityReview.building) score += 50
   if (!item.activityReview.staffed) score += 40
+  score += Math.min(120, item.reviewReadiness.evidenceRequiredCount * 20)
   if (item.economicExposure.outstandingDebt > 0) {
     score += Math.min(140, Math.ceil(item.economicExposure.outstandingDebt / 50))
   }
@@ -1275,6 +1277,7 @@ export function founderCovenantOperatorQueuePriorityReasons(
     | 'scanStatus'
     | 'activityReview'
     | 'economicExposure'
+    | 'reviewReadiness'
     | 'signalCounts'
     | 'blockerCount'
   >,
@@ -1290,6 +1293,9 @@ export function founderCovenantOperatorQueuePriorityReasons(
   if (!item.activityReview.useful) reasons.push('usefulness missing')
   if (!item.activityReview.building) reasons.push('no build evidence')
   if (!item.activityReview.staffed) reasons.push('staffing gap')
+  if (item.reviewReadiness.evidenceRequiredCount > 0) {
+    reasons.push(`${item.reviewReadiness.evidenceRequiredCount} evidence gap${item.reviewReadiness.evidenceRequiredCount === 1 ? '' : 's'}`)
+  }
   if (item.economicExposure.outstandingDebt > 0) {
     reasons.push(`${formatMoney(item.economicExposure.outstandingDebt)} debt`)
   }

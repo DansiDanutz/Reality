@@ -223,6 +223,18 @@ describe('FounderCovenantQueuePanel', () => {
         unstaffedBusinessCount: 0,
         hospitalized: false,
       },
+      reviewReadiness: {
+        status: 'monitoring',
+        label: 'Monitoring',
+        summary: 'No evidence debt is queued for this founder.',
+        evidenceRequiredCount: 0,
+        approvalRequestCount: 0,
+        blockerCount: 0,
+        overdue: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      },
       signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
       signalKinds: [],
       blockerCount: 0,
@@ -253,6 +265,18 @@ describe('FounderCovenantQueuePanel', () => {
         debtCount: 0,
         unstaffedBusinessCount: 0,
         hospitalized: false,
+      },
+      reviewReadiness: {
+        status: 'ready',
+        label: 'Ready',
+        summary: 'No evidence debt is queued for this founder.',
+        evidenceRequiredCount: 0,
+        approvalRequestCount: 0,
+        blockerCount: 0,
+        overdue: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
       },
       signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
       signalKinds: [],
@@ -299,8 +323,57 @@ describe('FounderCovenantQueuePanel', () => {
       founderCovenantOperatorQueuePriorityScore(tracked),
     )
     expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('never reviewed')
+    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('3 evidence gaps')
     expect(founderCovenantOperatorQueuePriorityReasons(staleTracked)).toContain('stale review')
     expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
+
+    const evidenceHeavy = founderQueueItem({
+      areaId: 'founder-area-0020',
+      areaLabel: 'Galati Founder Block',
+      founderCitizenId: 'founder-20',
+      founderNumber: 20,
+      manualReviewRequired: false,
+      covenantStatus: 'active',
+      overdue: false,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-06T03:30:00.000Z',
+      activityReview: {
+        ...manual.activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 84,
+      },
+      economicExposure: {
+        ...manual.economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      reviewReadiness: {
+        status: 'needs_evidence',
+        label: 'Needs evidence',
+        summary: 'Manual proof is still missing.',
+        evidenceRequiredCount: 4,
+        approvalRequestCount: 0,
+        blockerCount: 0,
+        overdue: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      },
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      blockerCount: 0,
+    })
+    expect(founderCovenantOperatorQueuePriorityScore(evidenceHeavy)).toBeGreaterThan(
+      founderCovenantOperatorQueuePriorityScore(tracked),
+    )
+    expect(founderCovenantOperatorQueuePriorityReasons(evidenceHeavy)).toContain('4 evidence gaps')
   })
 
   test('orders founder covenant review rows by coverage risk', () => {
