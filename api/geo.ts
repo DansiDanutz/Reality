@@ -15,9 +15,17 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   // Per-visitor data — must never be cached by the CDN
   res.setHeader('Cache-Control', 'private, no-store')
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+  if (!isLatitude(lat) || !isLongitude(lng)) {
     res.status(200).json({ ok: false })
     return
   }
   res.status(200).json({ ok: true, city, country, lat, lng })
+}
+
+function isLatitude(value: number): boolean {
+  return Number.isFinite(value) && value >= -90 && value <= 90
+}
+
+function isLongitude(value: number): boolean {
+  return Number.isFinite(value) && value >= -180 && value <= 180
 }
