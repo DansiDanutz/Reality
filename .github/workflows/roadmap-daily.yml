@@ -1,0 +1,87 @@
+name: Daily Roadmap
+
+on:
+  schedule:
+    - cron: "15 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: tests
+        continue-on-error: true
+        run: npx vitest run
+      - id: build
+        continue-on-error: true
+        run: npm run build
+      - name: Generate roadmap page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROADMAP_FETCH_GITHUB: "1"
+          ROADMAP_TEST_STATUS: ${{ steps.tests.outcome }}
+          ROADMAP_BUILD_STATUS: ${{ steps.build.outcome }}
+        run: npm run roadmap
+      - name: Open or update roadmap PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_STATUS: ${{ steps.tests.outcome }}
+          BUILD_STATUS: ${{ steps.build.outcome }}
+        run: |
+          if git diff --quiet -- public/roadmap.html; then
+            echo "Roadmap page is already current."
+            exit 0
+          fi
+
+          branch="automation/daily-roadmap"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add public/roadmap.html
+          git commit -m "$(cat <<MSG
+Refresh the public roadmap snapshot
+
+Daily automation refreshes the roadmap page from repository source, tests, build status, git history, and open pull requests.
+
+Constraint: Main is protected, so automation publishes through a PR branch.
+Confidence: high
+Scope-risk: narrow
+Directive: Keep generated roadmap content deterministic and sourced from repo/GitHub state.
+Tested: vitest outcome: ${TEST_STATUS}; build outcome: ${BUILD_STATUS}
+Not-tested: Manual visual review of the generated page
+MSG
+)"
+          git push --force-with-lease origin "$branch"
+
+          cat > /tmp/roadmap-pr-body.md <<BODY
+          Daily roadmap refresh.
+
+          - Tests: ${TEST_STATUS}
+          - Build: ${BUILD_STATUS}
+          - Generated page: \`public/roadmap.html\`
+
+          This PR is opened by the scheduled roadmap workflow instead of committing directly to protected \`main\`.
+BODY
+
+          if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh pr edit "$branch" --repo "$GITHUB_REPOSITORY" --body-file /tmp/roadmap-pr-body.md
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "Refresh daily roadmap status" --body-file /tmp/roadmap-pr-body.md
+          fi
+      - name: Fail if verification failed
+        if: steps.tests.outcome != 'success' || steps.build.outcome != 'success'
+        run: |
+          echo "Roadmap was generated, but verification failed."
+          exit 1
