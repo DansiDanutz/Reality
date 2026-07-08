@@ -1236,6 +1236,27 @@ export default function FounderCovenantOperatorPanel({
               <strong>{activityRisk?.atRisk ?? 0}</strong>
             </span>
             <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.usefulnessGaps > 0 ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>Useful gaps</span>
+              <strong>{activityRisk?.usefulnessGaps ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.buildGaps > 0 ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>Build gaps</span>
+              <strong>{activityRisk?.buildGaps ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.staffingGaps > 0 ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>Staff gaps</span>
+              <strong>{activityRisk?.staffingGaps ?? 0}</strong>
+            </span>
+            <span
               className={`founder-ledger-chip ${
                 queue.items.some((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review')
                   ? 'critical'
