@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest'
 import {
   areaNeedsDashboard,
   DEFAULT_BUSINESS_BLUEPRINTS,
+  MAX_FOUNDER_AREA_RADIUS_KM,
+  MIN_FOUNDER_AREA_RADIUS_KM,
   WORLD_SIM_HOUR_MS,
   type WorldArea,
   type WorldBusiness,
@@ -82,7 +84,27 @@ describe('decodeClientWorldAreaClaimPayload', () => {
   })
 
   test('rejects client-controlled claim server fields', () => {
-    for (const field of ['founderCitizenId', 'authenticatedFounderId', 'claimedAt', 'source', 'now', 'founder', 'simCitizens', 'money', 'transactions']) {
+    for (const field of [
+      'founderCitizenId',
+      'authenticatedFounderId',
+      'claimedAt',
+      'source',
+      'now',
+      'founder',
+      'simCitizens',
+      'money',
+      'cash',
+      'debt',
+      'debts',
+      'needs',
+      'health',
+      'state',
+      'jobBusinessId',
+      'homeBusinessId',
+      'insurancePaidUntil',
+      'heirCitizenId',
+      'transactions',
+    ]) {
       expect(decodeClientWorldAreaClaimPayload({
         label: 'Founder District',
         centerLat: 44.45,
@@ -132,6 +154,20 @@ describe('decodeClientWorldAreaClaimPayload', () => {
       centerLat: 44.45,
       centerLng: 26.08,
       radiusKm: 0,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
+
+    expect(decodeClientWorldAreaClaimPayload({
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: MIN_FOUNDER_AREA_RADIUS_KM - 0.01,
+    }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
+
+    expect(decodeClientWorldAreaClaimPayload({
+      label: 'Founder District',
+      centerLat: 44.45,
+      centerLng: 26.08,
+      radiusKm: MAX_FOUNDER_AREA_RADIUS_KM + 0.01,
     }, 'founder', 1_000, 'manual')).toEqual({ ok: false, error: 'invalid_area_radius' })
   })
 })
@@ -209,7 +245,7 @@ describe('decodeClientWorldIntentPayload', () => {
 
     expect(decodeClientWorldIntentPayload({
       type: 'buyInsurance',
-      insuranceBusinessId: 'ins-a',
+      insuranceBusinessId: ' ins-a ',
     }, 'founder')).toEqual({
       ok: true,
       intent: {
@@ -221,7 +257,7 @@ describe('decodeClientWorldIntentPayload', () => {
 
     expect(decodeClientWorldIntentPayload({
       type: 'repayDebt',
-      debtId: 'founder:1000:1:medical',
+      debtId: ' founder:1000:1:medical ',
       amount: 12.345,
     }, 'founder')).toEqual({
       ok: true,
@@ -247,7 +283,7 @@ describe('decodeClientWorldIntentPayload', () => {
       },
       citizens: [
         citizen('founder', {
-          money: 75,
+          money: 20_000,
           needs: needs({ hydration: 45 }),
           debt: 20,
           debts: [{
@@ -294,7 +330,27 @@ describe('decodeClientWorldIntentPayload', () => {
   })
 
   test('rejects client-controlled server identity, state, and economy fields', () => {
-    for (const field of ['actorCitizenId', 'authenticatedCitizenId', 'authenticatedFounderId', 'areaId', 'now', 'claim', 'blueprint', 'money', 'transactions']) {
+    for (const field of [
+      'actorCitizenId',
+      'authenticatedCitizenId',
+      'authenticatedFounderId',
+      'areaId',
+      'now',
+      'claim',
+      'blueprint',
+      'money',
+      'cash',
+      'debt',
+      'debts',
+      'needs',
+      'health',
+      'state',
+      'jobBusinessId',
+      'homeBusinessId',
+      'insurancePaidUntil',
+      'heirCitizenId',
+      'transactions',
+    ]) {
       expect(decodeClientWorldIntentPayload({
         type: 'buyWater',
         [field]: field === 'now' ? 1_000 : 'client-value',
@@ -351,6 +407,12 @@ describe('decodeClientWorldIntentPayload', () => {
 
     expect(decodeClientWorldIntentPayload({
       type: 'repayDebt',
+      debtId: 'debt-a',
+      amount: 0.004,
+    }, 'founder')).toEqual({ ok: false, error: 'invalid_amount' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'repayDebt',
       debtId: '../debt',
       amount: 10,
     }, 'founder')).toEqual({ ok: false, error: 'invalid_debt_id' })
@@ -389,7 +451,26 @@ describe('decodeClientFounderCovenantReviewPayload', () => {
   })
 
   test('rejects client-controlled review state', () => {
-    for (const field of ['reviewerId', 'now', 'status', 'signals', 'reviewQueue', 'manualActions', 'transactions']) {
+    for (const field of [
+      'reviewerId',
+      'now',
+      'status',
+      'signals',
+      'reviewQueue',
+      'manualActions',
+      'money',
+      'cash',
+      'debt',
+      'debts',
+      'needs',
+      'health',
+      'state',
+      'jobBusinessId',
+      'homeBusinessId',
+      'insurancePaidUntil',
+      'heirCitizenId',
+      'transactions',
+    ]) {
       expect(decodeClientFounderCovenantReviewPayload({
         type: 'recordCovenantReview',
         actionKind: 'record_review',

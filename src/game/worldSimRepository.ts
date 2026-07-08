@@ -51,10 +51,10 @@ export function createMemoryWorldAreaRepository(initialAreas: WorldArea[] = []):
     async listAreaRecords(options: ListWorldAreaRecordsOptions = {}): Promise<WorldAreaRecordPage> {
       const sortedAreaIds = [...snapshots.keys()].sort((a, b) => a.localeCompare(b))
       const cursor = options.cursor?.trim() || null
-      const limit = options.limit ?? sortedAreaIds.length
+      const limit = normalizeRecordLimit(options.limit, sortedAreaIds.length)
       const startIndex = cursor ? nextAreaIndexAfterCursor(sortedAreaIds, cursor) : 0
-      const selectedAreaIds = sortedAreaIds.slice(startIndex, startIndex + limit)
-      const hasMore = startIndex + selectedAreaIds.length < sortedAreaIds.length
+      const selectedAreaIds = limit > 0 ? sortedAreaIds.slice(startIndex, startIndex + limit) : []
+      const hasMore = limit > 0 && startIndex + selectedAreaIds.length < sortedAreaIds.length
       return {
         records: selectedAreaIds
           .map((areaId) => {
@@ -116,6 +116,12 @@ export function createMemoryWorldAreaRepository(initialAreas: WorldArea[] = []):
 
   for (const area of initialAreas) storeArea(area)
   return repo
+}
+
+function normalizeRecordLimit(limit: number | undefined, fallback: number): number {
+  if (limit === undefined) return fallback
+  if (!Number.isFinite(limit) || limit <= 0) return 0
+  return Math.floor(limit)
 }
 
 function nextAreaIndexAfterCursor(sortedAreaIds: readonly string[], cursor: string): number {

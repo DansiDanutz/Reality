@@ -76,6 +76,39 @@ describe('Reality area client', () => {
     expect(body.transactions).toBeUndefined()
   })
 
+  test('trims founder area claim labels before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      ...profile,
+      areaLabel: '  Bucharest Founder Area  ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: {
+        type: 'claimArea',
+        label: 'Bucharest Founder Area',
+        centerLat: 44.4268,
+        centerLng: 26.1025,
+        radiusKm: 1,
+        source: 'telegram',
+      },
+    })
+  })
+
   test('treats an existing server area as a successful restored claim', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(409, {
       ok: false,
@@ -130,6 +163,29 @@ describe('Reality area client', () => {
     const malformedDashboard = {
       ...serverDashboard(),
       founderCovenant: { status: 'watch' },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
+  test('ignores dashboards with mismatched founder Telegram identity', async () => {
+    const malformedDashboard = {
+      ...serverDashboard(),
+      founderIdentity: {
+        ...serverDashboard().founderIdentity,
+        telegramAccountId: 'telegram:777',
+      },
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
@@ -747,6 +803,41 @@ describe('Reality area client', () => {
     expect(body.transactions).toBeUndefined()
   })
 
+  test('strips client-owned state from buildBusiness payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      name: 'Founder Water',
+      money: 999_999,
+      debt: 120,
+      reviewQueue: 'client-value',
+    } as unknown as Parameters<typeof applyRealityFounderAreaIntent>[1], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: {
+        type: 'buildBusiness',
+        businessKind: 'water',
+        businessId: 'water-1',
+        name: 'Founder Water',
+      },
+    })
+  })
+
   test('sends survival service purchases through the server area authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
@@ -787,6 +878,35 @@ describe('Reality area client', () => {
         token: 'token-1',
         intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
       }),
+    })
+  })
+
+  test('strips client-owned state from repayDebt payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120,
+      money: 999_999,
+      state: { kind: 'active' },
+      signals: ['client-value'],
+    } as unknown as Parameters<typeof applyRealityFounderAreaIntent>[1], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
     })
   })
 
@@ -853,6 +973,35 @@ describe('Reality area client', () => {
     })
   })
 
+  test('accepts blocked server survival actions without client payloads', async () => {
+    const dashboard = serverDashboard()
+    const survivalSignal = dashboard.survival.signals[1]!
+    const survivalAction = survivalSignal.actions[0]!
+    dashboard.survival.signals[1] = {
+      ...survivalSignal,
+      actions: [{
+        ...survivalAction,
+        clientPayload: null,
+        available: false,
+        lowestPrice: null,
+        canAfford: false,
+        blockers: ['service_unavailable'],
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard }))
+
+    await expect(refreshRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard,
+    })
+  })
+
   test('sends founder covenant review evidence through the server area authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
@@ -885,6 +1034,43 @@ describe('Reality area client', () => {
           evidenceKinds: ['external_contribution', 'ideas_feedback'],
         },
       }),
+    })
+  })
+
+  test('strips client-owned state from founder covenant review payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantReview({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Weekly review: founder needs staffing follow-up.',
+      evidenceKinds: ['external_contribution'],
+      money: 999_999,
+      debt: 120,
+      reviewQueue: 'client-value',
+      signals: ['client-value'],
+    } as unknown as Parameters<typeof recordRealityFounderCovenantReview>[1], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        note: 'Weekly review: founder needs staffing follow-up.',
+        evidenceKinds: ['external_contribution'],
+      },
     })
   })
 
@@ -995,6 +1181,41 @@ describe('Reality area client', () => {
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body.citizenId).toBeUndefined()
     expect(body.token).toBeUndefined()
+  })
+
+  test('strips client-owned state from operator review payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: ' operator-token ',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      note: 'Reviewed external contribution evidence.',
+      evidenceKinds: ['external_contribution'],
+      money: 999_999,
+      debt: 120,
+      reviewQueue: 'client-value',
+      signals: ['client-value'],
+    } as unknown as Parameters<typeof recordRealityFounderCovenantOperatorReview>[0], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      intent: {
+        type: 'recordFounderCovenantOperatorReview',
+        founderCitizenId: 'citizen-1',
+        areaId: 'founder-area-0012',
+        actionKind: 'record_review',
+        note: 'Reviewed external contribution evidence.',
+        evidenceKinds: ['external_contribution'],
+      },
+    })
   })
 
   test('keeps operator review evidence blocked without operator authority', async () => {
@@ -1210,6 +1431,30 @@ describe('Reality area client', () => {
         activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals.map((signal, index) =>
           index === 0 ? { ...signal, executionEnabled: true } : signal
         ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with automated review schedules', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewSchedule: {
+          ...serverFounderCovenantReviewQueue().items[0].reviewSchedule,
+          automationEnabled: true,
+        },
       }],
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -1492,7 +1737,7 @@ describe('Reality area client', () => {
       issuedAt: Date.parse('2026-07-06T03:30:00.000Z'),
       memo: 'David owes medical debt to clinic-1.',
       repaymentIntent: 'repayDebt',
-      clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+      clientPayload: null,
       recommendedPayment: 300,
       maxAffordablePayment: 300,
       canRepayNow: false,
@@ -1500,7 +1745,7 @@ describe('Reality area client', () => {
     })
     expect(founder?.insuranceAction).toMatchObject({
       intent: 'buyInsurance',
-      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      clientPayload: null,
       insuranceBusinessId: 'insurance-1',
       premium: 45,
       available: true,
@@ -1635,6 +1880,8 @@ describe('Reality area client', () => {
       action: 'build_now',
       cashShortfall: 0,
       currentDemand: 2,
+      simDemand: 1,
+      realDemand: 1,
       licenseSlots: 1,
       licensesRemaining: 1,
       canBuildNow: true,
@@ -1722,7 +1969,7 @@ describe('Reality area client', () => {
       manualReviewRequired: true,
       namedHeirCitizenId: 'heir-1',
       namedHeirName: 'Ada Heir',
-      protectedByInsurance: true,
+      protectedByInsurance: false,
       status: 'disabled_until_death_enabled',
       blockers: [
         'death_disabled',
@@ -2573,7 +2820,7 @@ function serverDashboard(): RealityAreaDashboard {
         issuedAt: '2026-07-06T03:30:00.000Z',
         memo: 'David owes medical debt to clinic-1.',
         repaymentIntent: 'repayDebt',
-        clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+        clientPayload: null,
         recommendedPayment: 300,
         maxAffordablePayment: 300,
         canRepayNow: false,
@@ -2582,7 +2829,7 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceActive: false,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
@@ -2627,7 +2874,7 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceActive: true,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
@@ -2814,6 +3061,8 @@ function serverDashboard(): RealityAreaDashboard {
       buildCost: 12_000,
       cashShortfall: 0,
       currentDemand: 2,
+      simDemand: 1,
+      realDemand: 1,
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
@@ -2846,6 +3095,8 @@ function serverDashboard(): RealityAreaDashboard {
       buildCost: 8_000,
       cashShortfall: 0,
       currentDemand: 1,
+      simDemand: 1,
+      realDemand: 0,
       currentSupply: 1,
       licenseSlots: 1,
       licensesRemaining: 0,
@@ -2873,6 +3124,8 @@ function serverDashboard(): RealityAreaDashboard {
       buildCost: 25_000,
       cashShortfall: 0,
       currentDemand: 0,
+      simDemand: 0,
+      realDemand: 0,
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
@@ -2905,6 +3158,8 @@ function serverDashboard(): RealityAreaDashboard {
       buildCost: 60_000,
       cashShortfall: 0,
       currentDemand: 2,
+      simDemand: 1,
+      realDemand: 1,
       currentSupply: 0,
       licenseSlots: 0,
       licensesRemaining: 0,
@@ -2932,6 +3187,8 @@ function serverDashboard(): RealityAreaDashboard {
       buildCost: 75_000,
       cashShortfall: 0,
       currentDemand: 0,
+      simDemand: 0,
+      realDemand: 0,
       currentSupply: 0,
       licenseSlots: 0,
       licensesRemaining: 0,
@@ -2994,6 +3251,12 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      signalCounts: {
+        total: review.signals.length,
+        info: review.signals.filter((signal) => signal.severity === 'info').length,
+        warning: review.signals.filter((signal) => signal.severity === 'warning').length,
+        critical: review.signals.filter((signal) => signal.severity === 'critical').length,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3004,6 +3267,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       checkedAt: review.activityReview.checkedAt,
       lastReviewAt: review.reviewSchedule.lastReviewAt,
       latestReview: null,
+      reviewSchedule: review.reviewSchedule,
       nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
       nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
       overdue: review.reviewSchedule.overdue,
