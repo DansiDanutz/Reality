@@ -767,9 +767,9 @@ export function founderCovenantOperatorQueueSummary(
 }
 
 export function founderCovenantOperatorQueuePageSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'scanned' | 'caughtUp' | 'current' | 'failed' | 'hasMore'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'scanned' | 'caughtUp' | 'current' | 'failed' | 'hasMore' | 'totals'>,
 ): string {
-  return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed${queue.hasMore ? ' · next page ready' : ''}`
+  return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed · ${founderCovenantOperatorQueueFreshnessCoverageText(queue.totals)}${queue.hasMore ? ' · next page ready' : ''}`
 }
 
 export function founderCovenantOperatorQueueItemSummary(
@@ -900,15 +900,17 @@ export function founderCovenantOperatorQueueFilterSummary(
   sort: FounderCovenantOperatorQueueSort = 'priority',
 ): string {
   const count = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort).length
+  const sliceTotals = founderCovenantOperatorQueueSliceTotals(queue, filter)
+  const freshness = founderCovenantOperatorQueueFreshnessCoverageText(sliceTotals)
   switch (filter) {
     case 'all':
-      return `${count} founder${count === 1 ? '' : 's'} in current page`
+      return `${count} founder${count === 1 ? '' : 's'} in current page · ${freshness}`
     case 'manual_review':
-      return `${count} founder${count === 1 ? '' : 's'} need manual review`
+      return `${count} founder${count === 1 ? '' : 's'} need manual review · ${freshness}`
     case 'hospitalized':
-      return `${count} founder${count === 1 ? '' : 's'} hospitalized`
+      return `${count} founder${count === 1 ? '' : 's'} hospitalized · ${freshness}`
     case 'scan_anomaly':
-      return `${count} founder${count === 1 ? '' : 's'} with scan anomalies`
+      return `${count} founder${count === 1 ? '' : 's'} with scan anomalies · ${freshness}`
   }
 }
 
@@ -971,6 +973,12 @@ function founderCovenantOperatorQueueReviewFreshnessLabel(
     case 'stale':
       return 'stale review'
   }
+}
+
+function founderCovenantOperatorQueueFreshnessCoverageText(
+  totals: Pick<FounderCovenantOperatorQueueSliceTotals, 'neverReviewed' | 'freshReviewed' | 'staleReviewed'>,
+): string {
+  return `${totals.neverReviewed} never · ${totals.staleReviewed} stale · ${totals.freshReviewed} fresh`
 }
 
 export function founderCovenantOperatorQueueLatestReviewText(

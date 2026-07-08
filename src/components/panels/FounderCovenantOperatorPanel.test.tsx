@@ -38,7 +38,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, never reviewed, overdue, hospitalized, at risk')
     expect(html).toContain('Filter: All')
-    expect(html).toContain('1 founder in current page')
+    expect(html).toContain('1 founder in current page · 1 never · 0 stale · 0 fresh')
     expect(html).toContain('All 1 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('<span>Never</span><strong>1</strong>')

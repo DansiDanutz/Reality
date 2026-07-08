@@ -642,7 +642,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       '2 founders · 1 manual review · 1 never reviewed · 1 freshly reviewed · 0 stale reviews · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 1 probation approval · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available',
     )
     expect(founderCovenantOperatorQueuePageSummary(queue)).toBe(
-      '2 scanned · 1 caught up · 0 current · 1 failed · next page ready',
+      '2 scanned · 1 caught up · 0 current · 1 failed · 1 never · 0 stale · 1 fresh · next page ready',
     )
     expect(founderCovenantOperatorQueueItemSummary(item)).toBe(
       'Manual review · manual review · stale review · score 35/100 · $350 debt · 2 warnings · 1 critical · 5 blockers · 1 tx',

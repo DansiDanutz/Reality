@@ -40,7 +40,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
     expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
-    expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
+    expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
     expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
@@ -326,9 +326,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly', 'founder').map((row) => row.founderCitizenId)).toEqual(['founder-14'])
-    expect(founderCovenantOperatorQueueFilterSummary(queue, 'manual_review')).toBe('1 founder need manual review')
-    expect(founderCovenantOperatorQueueFilterSummary(queue, 'hospitalized')).toBe('1 founder hospitalized')
-    expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'manual_review')).toBe('1 founder need manual review · 1 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'hospitalized')).toBe('1 founder hospitalized · 1 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Manual 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'manual_review')).toMatchObject({
       founders: 1,
