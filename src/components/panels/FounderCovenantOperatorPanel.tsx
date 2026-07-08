@@ -235,13 +235,14 @@ export default function FounderCovenantOperatorPanel({
   const copyQueueViewContext = async () => {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
     const context = queueContextText(queueFilter, queueSort, scanCursor)
+    const handoff = `${context} · ${queueCursorContextText(scanCursor, queue?.nextCursor ?? null)}`
     if (!clipboard?.writeText) {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
       return
     }
     try {
-      await clipboard.writeText(context)
-      setOperatorReviewMessage(`Queue view copied: ${context}`)
+      await clipboard.writeText(handoff)
+      setOperatorReviewMessage(`Queue view copied: ${handoff}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
     }
@@ -475,6 +476,16 @@ function queueContextText(
   scanCursor: string | null,
 ): string {
   return `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}`
+}
+
+function queueCursorContextText(
+  scanCursor: string | null,
+  nextCursor: string | null,
+): string {
+  if (scanCursor) {
+    return `Cursor: ${scanCursor}${nextCursor ? ` -> ${nextCursor}` : ' -> end'}`
+  }
+  return nextCursor ? `Cursor: start -> ${nextCursor}` : 'Cursor: start -> end'
 }
 
 function formatOperatorAuthExpiry(expiresAt: number): string {
