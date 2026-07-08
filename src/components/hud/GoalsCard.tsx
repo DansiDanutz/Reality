@@ -12,6 +12,7 @@ import {
   formatPlanMinutes,
   interiorEtaSummary,
   millionaireEtaSummary,
+  roadmapPreviewHeading,
   roadmapPreviewSummary,
   routineShortLabel,
 } from './goalsCardView'
@@ -221,7 +222,12 @@ export default function GoalsCard() {
     : null
   const nextDays = roadmapPreview.days.length > 1
     ? (
-        <span className="goals-card-agenda">
+        <span className="goals-card-agenda" aria-label={roadmapPreviewHeading(roadmapPreview.days.length - 1)}>
+          <span className="goals-card-agenda-item" aria-hidden>
+            <span className="goals-card-agenda-index">{roadmapPreviewHeading(roadmapPreview.days.length - 1)}</span>
+            <span>Plan</span>
+            <span className="goals-card-agenda-time">{formatPlanMinutes(roadmapPreview.days[1].primary.minutes)}</span>
+          </span>
           {roadmapPreview.days.slice(1).map((day) => (
             <button
               type="button"

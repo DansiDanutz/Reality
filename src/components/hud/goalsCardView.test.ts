@@ -15,6 +15,7 @@ import {
   formatPlanMinutes,
   interiorEtaSummary,
   millionaireEtaSummary,
+  roadmapPreviewHeading,
   roadmapPreviewSummary,
   routineShortLabel,
 } from './goalsCardView'
@@ -70,6 +71,13 @@ describe('formatPlanMinutes', () => {
 describe('roadmapPreviewSummary', () => {
   test('summarizes the next-day forecast in one readable line', () => {
     expect(roadmapPreviewSummary('Day 2', 'Study Course', 60)).toBe('Day 2: Study Course (1h)')
+  })
+})
+
+describe('roadmapPreviewHeading', () => {
+  test('labels the number of upcoming days clearly', () => {
+    expect(roadmapPreviewHeading(1)).toBe('Next day')
+    expect(roadmapPreviewHeading(2)).toBe('Next 2 days')
   })
 })
 

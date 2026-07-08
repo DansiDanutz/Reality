@@ -15,6 +15,10 @@ export function roadmapPreviewSummary(dayLabel: string, title: string, minutes: 
   return `${dayLabel}: ${title} (${formatPlanMinutes(minutes)})`
 }
 
+export function roadmapPreviewHeading(dayCount: number): string {
+  return dayCount === 1 ? 'Next day' : `Next ${dayCount} days`
+}
+
 export function routineShortLabel(block: { id: string; value: string; route: LifePlanRoute }): string {
   if (block.id === 'sleep-block') return 'Sleep'
   if (block.id === 'body-block') return 'Body'
