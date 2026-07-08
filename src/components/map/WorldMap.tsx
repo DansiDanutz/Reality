@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { businessDevelopmentProgress } from '../../game/businessDevelopment'
 import { constructionProgress } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
-import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
+import { fetchMapDiscovery } from '../../game/mapDiscovery'
+import { DEFAULT_MAP_ANCHOR, playableMapAnchorFor } from '../../game/mapAnchor'
 import type { AssetKind } from '../../game/types'
 import { workersHallActionFor, workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
@@ -136,6 +137,8 @@ export default function WorldMap() {
   const constructionProjects = useGame((s) => s.constructionProjects)
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const selectedMapTarget = useGame((s) => s.selectedMapTarget)
+  const setResourceNodes = useGame((s) => s.setResourceNodes)
+  const setServicePois = useGame((s) => s.setServicePois)
   const hasCitizen = useGame((s) => Boolean(s.citizen))
   const citizenId = useGame((s) => s.citizen?.citizenId)
   const spawnLat = useGame((s) => s.citizen?.spawnLat)
@@ -144,6 +147,8 @@ export default function WorldMap() {
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
   const workersHall = useMemo(() => workersHallFor(citizen, assets, servicePois), [citizen, assets, servicePois])
+  const discoveryAnchor = useMemo(() => playableMapAnchorFor(citizen, assets), [citizen, assets])
+  const discoveryKey = discoveryAnchor ? `${discoveryAnchor.lat.toFixed(3)},${discoveryAnchor.lng.toFixed(3)}` : null
   const [world, setWorld] = useState<WorldAsset[]>([])
   const introDone = useRef(false)
   const lastTargetRef = useRef<string | null>(null)
@@ -161,6 +166,23 @@ export default function WorldMap() {
     const id = setInterval(load, 60_000)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    if (!discoveryAnchor || !discoveryKey) return
+    let cancelled = false
+    fetchMapDiscovery(discoveryAnchor.lat, discoveryAnchor.lng)
+      .then((discovery) => {
+        if (cancelled) return
+        setResourceNodes(discovery.resourceNodes)
+        setServicePois(discovery.servicePois)
+      })
+      .catch(() => {
+        // Discovery already has endpoint fallbacks; map play should never block on OSM.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [discoveryAnchor, discoveryKey, setResourceNodes, setServicePois])
 
   // The map: a globe from space that becomes a tilted 3D city up close
   useEffect(() => {

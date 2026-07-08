@@ -1,5 +1,10 @@
-import { describe, expect, test } from 'vitest'
-import { buildDiscoveryQuery, parseMapDiscovery } from './mapDiscovery'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { buildDiscoveryQuery, clearMapDiscoveryCacheForTest, fetchMapDiscovery, parseMapDiscovery } from './mapDiscovery'
+
+afterEach(() => {
+  clearMapDiscoveryCacheForTest()
+  vi.unstubAllGlobals()
+})
 
 describe('mapDiscovery', () => {
   test('builds an Overpass query for resources and city services', () => {
@@ -9,6 +14,7 @@ describe('mapDiscovery', () => {
     expect(query).toContain('amenity"~"restaurant|cafe|fast_food')
     expect(query).toContain('office"="employment_agency')
     expect(query).toContain('amenity"~"community_centre|townhall')
+    expect(query).toContain('building"="commercial')
     expect(query).toContain('office"="insurance')
   })
 
@@ -57,5 +63,17 @@ describe('mapDiscovery', () => {
       source: 'osm',
     })
     expect(out.servicePois.find((poi) => poi.id === 'osm-workers-hall-45.7050-21.2050')?.label).toBe('Workers Hall')
+  })
+
+  test('keeps resource gathering playable when Overpass discovery is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('offline')
+    }))
+
+    const out = await fetchMapDiscovery(45.7, 21.2)
+
+    expect(out.resourceNodes.map((node) => node.kind).sort()).toEqual(['glass', 'metal', 'stone', 'wood'])
+    expect(out.resourceNodes.every((node) => node.source === 'fallback')).toBe(true)
+    expect(out.servicePois).toEqual([])
   })
 })
