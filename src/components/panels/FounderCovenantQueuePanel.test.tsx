@@ -10,6 +10,7 @@ import {
   founderCovenantOperatorQueueApprovalBlockerText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueItemDateSummary,
+  founderCovenantOperatorQueueLatestReviewText,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
@@ -79,7 +80,7 @@ describe('FounderCovenantQueuePanel', () => {
       />,
     )
 
-    expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).toContain('Latest review 2026-07-06 · Record review · Evidence only · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
     expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
@@ -153,6 +154,16 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueApprovalBlockerText(manual)).toBe('approval workflow, Telegram delivery')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
+    expect(founderCovenantOperatorQueueLatestReviewText({
+      latestReview: {
+        reviewedAt: '2026-07-06T08:00:00.000Z',
+        reviewerId: 'telegram-operator:42424242',
+        actionKind: 'record_review',
+        summary: 'Reviewed contribution and ideas evidence.',
+        evidenceOnly: true,
+        automationEnabled: false,
+      },
+    })).toBe('Latest review 2026-07-06 · Record review · Evidence only · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',

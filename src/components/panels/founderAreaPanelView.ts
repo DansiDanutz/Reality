@@ -1223,7 +1223,9 @@ export function founderCovenantOperatorQueueLatestReviewText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
 ): string | null {
   if (!item.latestReview) return null
-  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+  const action = founderCovenantManualActionKindLabel(item.latestReview.actionKind)
+  const mode = item.latestReview.evidenceOnly && !item.latestReview.automationEnabled ? 'Evidence only' : 'Automation'
+  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${action} · ${mode} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
 }
 
 export function founderCovenantOperatorQueueActivitySignalText(
