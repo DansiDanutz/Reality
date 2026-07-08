@@ -57,6 +57,28 @@ export function FounderCovenantQueuePanel({
           value={queue.totals.blockers}
         />
       </div>
+      <div className="founder-ledger-summary" aria-label="Founder operator queue coverage">
+        <QueueTotalChip label="Active" tone={queue.totals.active === queue.totals.founders ? 'stable' : 'warning'} value={queue.totals.active} />
+        <QueueTotalChip label="Useful" tone={queue.totals.useful === queue.totals.founders ? 'stable' : 'warning'} value={queue.totals.useful} />
+        <QueueTotalChip
+          label="Building"
+          tone={queue.totals.building === queue.totals.founders ? 'stable' : 'warning'}
+          value={queue.totals.building}
+        />
+        <QueueTotalChip label="Staffed" tone={queue.totals.staffed === queue.totals.founders ? 'stable' : 'warning'} value={queue.totals.staffed} />
+        <QueueTotalChip label="At risk" tone={queue.totals.atRisk > 0 ? 'critical' : 'stable'} value={queue.totals.atRisk} />
+        <QueueTotalChip label="Insured" tone={queue.totals.insuredFounders === 0 ? 'warning' : 'stable'} value={queue.totals.insuredFounders} />
+        <QueueTotalChip
+          label="Approvals"
+          tone={queue.totals.pendingApprovals > 0 ? 'warning' : 'stable'}
+          value={queue.totals.pendingApprovals}
+        />
+        <QueueTotalChip
+          label="Drafts"
+          tone={queue.totals.pendingNotifications > 0 ? 'warning' : 'stable'}
+          value={queue.totals.pendingNotifications}
+        />
+      </div>
       {reviewRows.length === 0 ? (
         <p className="panel-sub">No founders in this review page.</p>
       ) : (

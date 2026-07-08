@@ -64,6 +64,15 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('waitlist disabled')
     expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
+    expect(html).toContain('aria-label="Founder operator queue coverage"')
+    expect(html).toContain('<span>Active</span><strong>1</strong>')
+    expect(html).toContain('<span>Useful</span><strong>1</strong>')
+    expect(html).toContain('<span>Building</span><strong>1</strong>')
+    expect(html).toContain('<span>Staffed</span><strong>1</strong>')
+    expect(html).toContain('<span>At risk</span><strong>1</strong>')
+    expect(html).toContain('<span>Insured</span><strong>1</strong>')
+    expect(html).toContain('<span>Approvals</span><strong>1</strong>')
+    expect(html).toContain('<span>Drafts</span><strong>1</strong>')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Updated: 2026-07-06 · 1 tx')
@@ -404,11 +413,19 @@ describe('FounderCovenantQueuePanel', () => {
       totals: {
         ...founderQueue().totals,
         founders: 0,
+        active: 0,
+        useful: 0,
+        building: 0,
+        staffed: 0,
+        atRisk: 0,
         manualReviewRequired: 0,
         overdue: 0,
         hospitalized: 0,
         indebted: 0,
         totalOutstandingDebt: 0,
+        insuredFounders: 0,
+        pendingApprovals: 0,
+        pendingNotifications: 0,
         blockers: 0,
       },
     }
@@ -416,6 +433,8 @@ describe('FounderCovenantQueuePanel', () => {
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
     expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('<span>Active</span><strong>0</strong>')
+    expect(html).toContain('<span>At risk</span><strong>0</strong>')
     expect(html).toContain('No founders in this review page.')
   })
 })
