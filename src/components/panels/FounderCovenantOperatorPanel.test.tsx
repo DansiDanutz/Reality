@@ -271,6 +271,7 @@ describe('FounderCovenantOperatorPanel', () => {
           ...operatorQueue(),
           totals: {
             ...operatorQueue().totals,
+            founders: 1,
             active: 1,
             useful: 1,
             building: 1,

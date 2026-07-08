@@ -1420,6 +1420,14 @@ describe('FounderCovenantQueuePanel', () => {
     })
     const queueWithCoverage = {
       ...queueWithStale,
+      totals: {
+        ...queueWithStale.totals,
+        founders: 5,
+        active: 4,
+        useful: 4,
+        building: 5,
+        staffed: 4,
+      },
       items: [...queueWithStale.items, fresh],
     }
     const weeklyDue = withRecordReadyCadenceFounder(founderQueueItem(), {
@@ -1440,6 +1448,11 @@ describe('FounderCovenantQueuePanel', () => {
       ...queueWithCoverage,
       totals: {
         ...queueWithCoverage.totals,
+        founders: 7,
+        active: 6,
+        useful: 6,
+        building: 7,
+        staffed: 6,
         recordReadyFounders: 2,
         recordReadyWeekly: 2,
         recordReadyMonthly: 1,
