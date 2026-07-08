@@ -101,7 +101,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
-    expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
+    expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · evidence 3, approvals 1, blockers 3, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Evidence next: Next: Population growth, External contribution · 1 more')
@@ -187,18 +187,18 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemStatusClass(tracked)).toBe('met')
     expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
-      'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
+      'caught up · seen 2026-07-06 · review none · weekly 2026-07-12 · monthly 2026-08-05',
     )
     expect(founderCovenantOperatorQueueItemDateSummary({
       ...manual,
       lastReviewAt: '2026-06-20T04:00:00.000Z',
       reviewFreshness: 'stale',
-    })).toBe('caught up · checked 2026-07-06 · last 2026-06-20 (stale review) · weekly 2026-07-12 · monthly 2026-08-05')
+    })).toBe('caught up · seen 2026-07-06 · review 2026-06-20 stale · weekly 2026-07-12 · monthly 2026-08-05')
     expect(founderCovenantOperatorQueueItemDateSummary({
       ...manual,
       weeklyReviewDue: true,
       monthlyReviewDue: false,
-    })).toBe('caught up · checked 2026-07-06 · last none · weekly due · monthly 2026-08-05')
+    })).toBe('caught up · seen 2026-07-06 · review none · weekly due · monthly 2026-08-05')
     expect(founderCovenantOperatorQueueItemSummary(manual)).toBe(
       'Manual review · manual queue · never reviewed · score 35/100 · $350 debt · 1 warning · 1 critical · 3 blockers · 1 tx · Attach missing manual evidence',
     )
@@ -216,7 +216,7 @@ describe('FounderCovenantQueuePanel', () => {
       'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
     )
     expect(founderCovenantOperatorQueueReviewReadinessText(manual)).toBe(
-      'Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue',
+      'Blocked: 3 approval blockers before enforcement. · evidence 3, approvals 1, blockers 3, overdue',
     )
     expect(founderCovenantOperatorQueueChecklistText(manual)).toBe(
       'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',

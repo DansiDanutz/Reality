@@ -1355,11 +1355,11 @@ export function founderCovenantOperatorQueueItemDateSummary(
   >,
 ): string {
   const lastReview = item.lastReviewAt
-    ? `${shortDate(item.lastReviewAt)} (${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)})`
+    ? `${shortDate(item.lastReviewAt)} ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness).replace(' review', '')}`
     : 'none'
   const weekly = item.weeklyReviewDue ? 'weekly due' : `weekly ${shortDate(item.nextWeeklyReviewAt)}`
   const monthly = item.monthlyReviewDue ? 'monthly due' : `monthly ${shortDate(item.nextMonthlyReviewAt)}`
-  return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · ${weekly} · ${monthly}`
+  return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · seen ${shortDate(item.checkedAt)} · review ${lastReview} · ${weekly} · ${monthly}`
 }
 
 export function founderCovenantOperatorQueueSignalText(
@@ -1871,13 +1871,13 @@ export function founderCovenantOperatorQueueReviewReadinessText(
   const readiness = item.reviewReadiness
   const details: string[] = []
   if (readiness.evidenceRequiredCount > 0) {
-    details.push(`${readiness.evidenceRequiredCount} evidence gap${readiness.evidenceRequiredCount === 1 ? '' : 's'}`)
+    details.push(`evidence ${readiness.evidenceRequiredCount}`)
   }
   if (readiness.approvalRequestCount > 0) {
-    details.push(`${readiness.approvalRequestCount} approval request${readiness.approvalRequestCount === 1 ? '' : 's'}`)
+    details.push(`approvals ${readiness.approvalRequestCount}`)
   }
   if (readiness.blockerCount > 0) {
-    details.push(`${readiness.blockerCount} blocker${readiness.blockerCount === 1 ? '' : 's'}`)
+    details.push(`blockers ${readiness.blockerCount}`)
   }
   if (readiness.overdue) details.push('overdue')
   const detailText = details.length > 0 ? ` · ${details.join(', ')}` : ''
