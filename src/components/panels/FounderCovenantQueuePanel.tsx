@@ -9,6 +9,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueResultAnomalyText,
   founderCovenantOperatorQueueResultText,
+  founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
   founderCovenantOperatorQueueWindowText,
 } from './founderAreaPanelView'
@@ -35,6 +36,7 @@ export function FounderCovenantQueuePanel({
   sort = 'priority',
 }: FounderCovenantQueuePanelProps) {
   const reviewRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
+  const sliceTotals = founderCovenantOperatorQueueSliceTotals(queue, filter)
 
   return (
     <section className="founder-section founder-covenant-operator-queue" aria-label="Founder covenant operator queue">
@@ -91,20 +93,20 @@ export function FounderCovenantQueuePanel({
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip
           label="Manual"
-          tone={queue.totals.manualReviewRequired > 0 ? 'critical' : 'stable'}
-          value={queue.totals.manualReviewRequired}
+          tone={sliceTotals.manualReviewRequired > 0 ? 'critical' : 'stable'}
+          value={sliceTotals.manualReviewRequired}
         />
-        <QueueTotalChip label="Overdue" tone={queue.totals.overdue > 0 ? 'warning' : 'stable'} value={queue.totals.overdue} />
+        <QueueTotalChip label="Overdue" tone={sliceTotals.overdue > 0 ? 'warning' : 'stable'} value={sliceTotals.overdue} />
         <QueueTotalChip
           label="Hospital"
-          tone={queue.totals.hospitalized > 0 ? 'critical' : 'stable'}
-          value={queue.totals.hospitalized}
+          tone={sliceTotals.hospitalized > 0 ? 'critical' : 'stable'}
+          value={sliceTotals.hospitalized}
         />
-        <QueueTotalChip label="Debt" tone={queue.totals.indebted > 0 ? 'warning' : 'stable'} value={queue.totals.indebted} />
+        <QueueTotalChip label="Debt" tone={sliceTotals.indebted > 0 ? 'warning' : 'stable'} value={sliceTotals.indebted} />
         <QueueTotalChip
           label="Blockers"
-          tone={queue.totals.blockers > 0 ? 'warning' : 'stable'}
-          value={queue.totals.blockers}
+          tone={sliceTotals.blockers > 0 ? 'warning' : 'stable'}
+          value={sliceTotals.blockers}
         />
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue coverage">

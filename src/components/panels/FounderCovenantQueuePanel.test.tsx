@@ -27,6 +27,7 @@ import {
   founderCovenantOperatorQueueResultAnomalyText,
   founderCovenantOperatorQueueResultText,
   founderCovenantOperatorQueueFilteredReviewRows,
+  founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSignalText,
@@ -511,6 +512,22 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilterCountsSummary(founderFilterQueue())).toBe(
       'All 3 · Manual 1 · Hospital 1 · Scan 1',
     )
+    expect(founderCovenantOperatorQueueSliceTotals(founderFilterQueue(), 'manual_review')).toEqual({
+      founders: 1,
+      manualReviewRequired: 1,
+      overdue: 1,
+      hospitalized: 1,
+      indebted: 1,
+      blockers: 3,
+    })
+    expect(founderCovenantOperatorQueueSliceTotals(founderFilterQueue(), 'scan_anomaly')).toEqual({
+      founders: 1,
+      manualReviewRequired: 0,
+      overdue: 0,
+      hospitalized: 0,
+      indebted: 0,
+      blockers: 0,
+    })
   })
 
   test('can sort filtered review rows by founder number instead of priority', () => {
@@ -534,6 +551,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Filter: Scan')
     expect(html).toContain('0 founders with scan anomalies')
     expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('<span>Manual</span><strong>0</strong>')
+    expect(html).toContain('<span>Hospital</span><strong>0</strong>')
+    expect(html).toContain('<span>Blockers</span><strong>0</strong>')
     expect(html).toContain('No founders match this filter.')
   })
 })
