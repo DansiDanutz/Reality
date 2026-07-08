@@ -3573,6 +3573,7 @@ function cloneArea(area: WorldArea): WorldArea {
       ...event,
       needs: { ...event.needs },
     })),
+    founderReviewHistory: area.founderReviewHistory?.map(founderCovenantReviewHistoryItem),
   }
 }
 
