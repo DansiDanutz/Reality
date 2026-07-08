@@ -17,7 +17,7 @@ import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/re
 import { useGame } from '../../store/gameStore'
 import { businessPanelView } from './businessPanelView'
 import { businessDevelopmentForecastCards } from './constructionPanelView'
-import { selectedWorkerHours, workerHourChoices } from './workerContractView'
+import { selectedWorkerHours, workerCommunityCreditText, workerHourChoices } from './workerContractView'
 
 function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60)
@@ -254,6 +254,7 @@ export default function BusinessPanel() {
                         : null
                 const cost = estimate?.cost ?? worker.ratePerHour * hours
                 const laborMinutes = estimate?.laborMinutes ?? Math.round(hours * 60 * worker.laborMultiplier)
+                const communityCreditText = workerCommunityCreditText(estimate?.communityCreditMinutes, estimate?.communityCreditValue)
                 return (
                   <article className="worker-card" key={worker.id}>
                     <div className="worker-card-head">
@@ -276,7 +277,7 @@ export default function BusinessPanel() {
                     </div>
                     <span className="item-desc mono">
                       {hours}h contract = up to {formatMinutes(laborMinutes)} interior labor · {formatMoney(cost)} total
-                      {(estimate?.communityCreditMinutes ?? 0) > 0 ? ` · ${estimate?.communityCreditMinutes}m community help` : ''}
+                      {communityCreditText ? ` · ${communityCreditText}` : ''}
                     </span>
                     <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireBusinessDevelopmentWorker(project.id, worker.id, hours)}>
                       {blocker ?? `Book ${hours}h · ${formatMoney(cost)}`}

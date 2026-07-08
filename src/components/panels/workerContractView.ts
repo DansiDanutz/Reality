@@ -32,6 +32,11 @@ export function selectedWorkerHours(selection: Record<string, number>, workerId:
   return choices.includes(selected) ? selected : choices[0]
 }
 
+export function workerCommunityCreditText(creditMinutes = 0, creditValue = 0): string {
+  if (creditMinutes <= 0 || creditValue <= 0) return ''
+  return `${formatMinutes(creditMinutes)} community help (${formatMoney(creditValue)})`
+}
+
 function formatMinutes(minutes: number): string {
   const rounded = Math.max(0, Math.round(minutes))
   const h = Math.floor(rounded / 60)
