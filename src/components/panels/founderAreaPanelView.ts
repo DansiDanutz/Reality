@@ -166,6 +166,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   evidenceInputText: string
   evidenceNextText: string
   recommendedNextText: string
+  recommendedNextTone: FounderCovenantReviewTone
   manualActionText: string
   approvalRequestText: string
   notificationDraftText: string
@@ -946,6 +947,7 @@ export function founderCovenantOperatorQueueReviewRows(
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       evidenceNextText: founderCovenantOperatorQueueEvidenceNextText(item),
       recommendedNextText: founderCovenantOperatorQueueRecommendedNextText(item),
+      recommendedNextTone: founderCovenantOperatorQueueRecommendedNextTone(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
@@ -1276,6 +1278,27 @@ export function founderCovenantOperatorQueueRecommendedNextText(
     return founderCovenantManualActionKindLabel(suggested.kind)
   }
   return 'Monitor founder'
+}
+
+export function founderCovenantOperatorQueueRecommendedNextTone(
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions'
+  >,
+): FounderCovenantReviewTone {
+  if (item.reviewReadiness.evidenceRequiredCount > 0) {
+    return 'critical'
+  }
+  if (item.pendingApprovalRequests.some((request) => request.blockers.length > 0)) {
+    return 'critical'
+  }
+  if (item.overdue) {
+    return 'warning'
+  }
+  if (item.manualActions.some((action) => action.recommended)) {
+    return 'warning'
+  }
+  return 'stable'
 }
 
 export function founderCovenantOperatorQueueManualActionText(

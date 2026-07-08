@@ -149,6 +149,10 @@ export function FounderCovenantQueuePanel({
                 <span className="item-desc">Signals: {row.signalText}</span>
               </div>
               <div className="item-buy">
+                <span className={`founder-ledger-chip ${row.recommendedNextTone}`}>
+                  <span>Next</span>
+                  <strong>{row.recommendedNextText}</strong>
+                </span>
                 <span className={`founder-covenant-checklist-status mono ${row.statusClass}`}>
                   {row.statusLabel}
                 </span>
