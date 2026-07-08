@@ -55,6 +55,7 @@ export interface TonSettlementLedgerEntry {
 
 export type TonLedgerSettlementDecisionReason =
   | 'gameplay_transactions_stay_off_chain'
+  | 'not_payout_eligible'
   | 'settlement_execution_disabled'
   | 'invalid_ledger_amount'
 
@@ -129,6 +130,9 @@ export function tonSettlementFlowGate(
 export function tonLedgerSettlementDecision(entry: TonSettlementLedgerEntry): TonLedgerSettlementDecision {
   if (!Number.isFinite(entry.amount) || entry.amount <= 0) {
     return disabledLedgerDecision('invalid_ledger_amount')
+  }
+  if (entry.payoutEligibility !== 'payout_eligible') {
+    return disabledLedgerDecision('not_payout_eligible')
   }
   if (isGameplayLedgerKind(entry.kind)) {
     return disabledLedgerDecision('gameplay_transactions_stay_off_chain')

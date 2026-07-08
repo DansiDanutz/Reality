@@ -110,6 +110,20 @@ describe('TON settlement policy', () => {
     })
   })
 
+  test('rejects game-only settlement entries before TON settlement review', () => {
+    expect(tonLedgerSettlementDecision({
+      kind: 'ton_deposit_settlement',
+      amount: 120,
+      payoutEligibility: 'game_only',
+    })).toEqual({
+      allowedOnChain: false,
+      rail: 'ton',
+      reason: 'not_payout_eligible',
+      sourceOfTruth: 'reality_server_ledger',
+      manualReviewRequired: true,
+    })
+  })
+
   test('rejects invalid ledger amounts before settlement review', () => {
     expect(tonLedgerSettlementDecision({
       kind: 'ton_deposit_settlement',
