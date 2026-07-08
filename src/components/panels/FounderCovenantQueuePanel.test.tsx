@@ -30,6 +30,7 @@ import {
   founderCovenantOperatorQueueNotificationDraftGateText,
   founderCovenantOperatorQueueNotificationDraftStatusText,
   founderCovenantOperatorQueueNotificationDraftText,
+  founderCovenantOperatorQueueNotificationDraftBodyText,
   founderCovenantOperatorQueueNotificationDraftTitleText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageText,
@@ -73,14 +74,15 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Approval blockers: approval workflow, Telegram delivery')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Draft titles: Founder covenant manual review required')
+    expect(html).toContain('Draft body: Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.')
     expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Draft status: Disabled')
     expect(html).toContain('Signal counts: 2 total · 0 info · 1 warning · 1 critical')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: Founder debt, Review due')
     expect(html).toContain('manual only')
-    expect(html).not.toContain('Approve')
-    expect(html).not.toContain('Replace')
+    expect(html).not.toContain('>Approve<')
+    expect(html).not.toContain('>Replace<')
   })
 
   test('renders latest review evidence for previously reviewed founders', () => {
@@ -107,8 +109,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Latest review 2026-07-06 · Record review · Evidence only · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
     expect(html).toContain('Authority: Area reviewer / Evidence only')
     expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
-    expect(html).not.toContain('Approve')
-    expect(html).not.toContain('Replace')
+    expect(html).not.toContain('>Approve<')
+    expect(html).not.toContain('>Replace<')
   })
 
   test('renders evidence recording controls only when an operator handler is provided', () => {
@@ -117,8 +119,8 @@ describe('FounderCovenantQueuePanel', () => {
     )
 
     expect(html).toContain('Record evidence')
-    expect(html).not.toContain('Approve')
-    expect(html).not.toContain('Replace')
+    expect(html).not.toContain('>Approve<')
+    expect(html).not.toContain('>Replace<')
   })
 
   test('labels founder covenant queue row status and dates for manual review', () => {
@@ -186,6 +188,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueNotificationDraftTitleText(manual)).toBe(
       'Founder covenant manual review required',
     )
+    expect(founderCovenantOperatorQueueNotificationDraftBodyText(manual)).toBe(
+      'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
+    )
     expect(founderCovenantOperatorQueueNotificationDraftGateText(manual)).toBe(
       'Main founder approval required / Delivery disabled',
     )
@@ -233,6 +238,7 @@ describe('FounderCovenantQueuePanel', () => {
       approvalGateText: 'Main founder approval · 2 blockers',
       approvalBlockerText: 'approval workflow, Telegram delivery',
       notificationDraftTitleText: 'Founder covenant manual review required',
+      notificationDraftBodyText: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
       signalCountText: '2 total · 0 info · 1 warning · 1 critical',
