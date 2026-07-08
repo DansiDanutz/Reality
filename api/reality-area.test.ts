@@ -3386,6 +3386,7 @@ describe('reality area authority API', () => {
       dashboard: {
         founderCovenant: {
           latestReview: {
+            id: expect.stringContaining('founder-review:telegram-operator:42424242'),
             reviewerId: 'telegram-operator:42424242',
             evidenceOnly: true,
             automationEnabled: false,
@@ -3885,6 +3886,7 @@ describe('reality area authority API', () => {
         items: {
           lastReviewAt: string
           latestReview: {
+            id: string
             reviewedAt: string
             reviewerId: string
             actionKind: string
@@ -3898,6 +3900,7 @@ describe('reality area authority API', () => {
     expect(queue.items[0]).toMatchObject({
       lastReviewAt: checkedAt,
       latestReview: {
+        id: `founder-area-0012:${Date.parse(checkedAt)}:founder-review:telegram-operator:42424242`,
         reviewedAt: checkedAt,
         reviewerId: 'telegram-operator:42424242',
         actionKind: 'record_review',

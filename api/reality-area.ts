@@ -1126,6 +1126,7 @@ interface FounderCovenantReviewQueueEconomicExposure {
 }
 
 interface FounderCovenantReviewQueueLatestReview {
+  id: string
   reviewedAt: string
   reviewerId: string
   actionKind: 'record_review'
@@ -4663,6 +4664,7 @@ function founderCovenantReviewQueueLatestReview(
 ): FounderCovenantReviewQueueLatestReview | null {
   if (!review) return null
   return {
+    id: review.id,
     reviewedAt: review.reviewedAt,
     reviewerId: review.reviewerId,
     actionKind: 'record_review',

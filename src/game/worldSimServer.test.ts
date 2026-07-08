@@ -1564,6 +1564,7 @@ describe('runWorldServerCommand', () => {
       lastReviewAt: reviewAt,
       reviewFreshness: 'fresh',
       latestReview: {
+        id: `area-1:${reviewAt}:founder-review:reviewer-1`,
         reviewedAt: reviewAt,
         reviewerId: 'reviewer-1',
         actionKind: 'record_review',

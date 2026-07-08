@@ -198,6 +198,7 @@ export interface WorldFounderCovenantReviewQueueEconomicExposure {
 }
 
 export interface WorldFounderCovenantReviewQueueLatestReview {
+  id: string
   reviewedAt: number
   reviewerId: string
   actionKind: 'record_review'
@@ -944,6 +945,7 @@ function founderCovenantReviewQueueLatestReview(
 ): WorldFounderCovenantReviewQueueLatestReview | null {
   if (!review) return null
   return {
+    id: review.id,
     reviewedAt: review.reviewedAt,
     reviewerId: review.reviewerId,
     actionKind: 'record_review',
