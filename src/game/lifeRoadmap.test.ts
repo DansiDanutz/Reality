@@ -456,6 +456,21 @@ describe('planLifeRoadmap', () => {
     expect(businessBuild?.laborDoneMinutes ?? 0).toBeGreaterThanOrEqual(0)
   })
 
+  test('exposes the first business saving step before the shell purchase becomes affordable', () => {
+    const roadmap = planLifeRoadmap(snap({
+      money: 12_000,
+      assets: [home()],
+      communityActionsThisWeek: 1,
+      communityRespect: 3,
+      communityFriendship: 3,
+      communityTrust: 3,
+    }), 20)
+    const primaryIds = roadmap.days.map((day) => day.primary.id)
+
+    expect(primaryIds).toContain('work-for-first-business-foundation')
+    expect(primaryIds.indexOf('work-for-first-business-foundation')).toBeGreaterThanOrEqual(0)
+  })
+
   test('projects the second month through business shell labor and interior upgrade', () => {
     const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 54)
     const primaryIds = roadmap.days.map((day) => day.primary.id)
