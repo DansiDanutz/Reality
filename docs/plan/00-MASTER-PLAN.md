@@ -46,6 +46,8 @@ Reality is a society, and like every society, it is built by its citizens.
 | 07 | [TECHNICAL-ROADMAP](07-TECHNICAL-ROADMAP.md) | From client beta to server-authoritative world: phases, architecture, scaling by city, anti-cheat, costs |
 | 08 | [CONTENT-ROADMAP](08-CONTENT-ROADMAP.md) | From 78 items to thousands: catalog expansion system, careers, education, events, seasons — all buildable by contributors |
 | 09 | [RISKS-LEGAL](09-RISKS-LEGAL.md) | Data licenses, privacy (IP geolocation), moderation, economy exploits, platform risks — and mitigations |
+| 10 | [CRITIQUE](10-CRITIQUE.md) | Ongoing critique loop: contradictions, missing assumptions, and corrections that keep the plan honest |
+| 11 | [ASSET-GENERATION](11-ASSET-GENERATION.md) | Nano Banana asset generation plan: prompt system, inventory source of truth, quality gate, and storage structure |
 
 ## Where we are today (shipped and live)
 
@@ -55,7 +57,7 @@ Everything below is deployed at reality-gamma.vercel.app and in the repo:
 - Rule #1 realtime engine: real clocks per home timezone, 8h shifts, real-night sleep,
   away-simulation with cost of living
 - Health 2.0: five needs led by Water, physiology-calibrated, with the in-game guide
-- The Market: 78 real-priced items with product photography, built for hundreds
+- The Market: 115 real-priced catalog items, 78 current product photos, built for hundreds
 - Online layer: real founder registry (2,000, atomic), shared world map, leaderboard,
   Google cloud saves, IP hometown spawn, AI Avatar Studio
 - 42 automated tests guarding the economy and the body
@@ -72,7 +74,7 @@ Everything in this plan serves one of those two numbers.
 ## Reading order for a new team member
 
 Read 01 (what the player feels) → 03 (how the society works) → 06 (how it gets built) →
-05 (how it makes money). Chapters 02, 07, 08, 09 are reference depth.
+05 (how it makes money). Chapters 02, 07, 08, 09, 10, 11 are reference depth.
 
 *Each chapter is a living document. Expand any chapter on demand — the plan grows with
 the world.*

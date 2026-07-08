@@ -152,13 +152,22 @@ export default function App() {
   const dialogOpen = drawerOpen || panel === 'shop'
 
   return (
-    <div className="app" id="main-content" role="main" tabIndex={-1}>
-      <StarfieldBackground />
+    <div className="app">
+      {/* The skip link must be the FIRST focusable element and point at the
+          real main content — nesting it inside its own target made it a
+          circular no-op. */}
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
+      <StarfieldBackground />
       <OfflineBanner />
-      <div inert={dialogOpen || undefined} aria-hidden={dialogOpen || undefined}>
+      <div
+        id="main-content"
+        role="main"
+        tabIndex={-1}
+        inert={dialogOpen || undefined}
+        aria-hidden={dialogOpen || undefined}
+      >
         <Suspense fallback={<div className="globe-loading" aria-hidden />}>
           <WorldMap />
         </Suspense>
