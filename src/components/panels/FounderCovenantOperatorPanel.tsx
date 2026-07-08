@@ -379,6 +379,9 @@ export default function FounderCovenantOperatorPanel({
               Next page
             </button>
             <span className="item-desc">
+              View: {queueViewLabel(queueFilter)} / {queueSortLabel(queueSort)} / {scanCursor ?? 'start'}
+            </span>
+            <span className="item-desc">
               {scanCursor
                 ? `Resumed after ${scanCursor}${queue.nextCursor ? ' · more founders available' : ' · end of current queue'}`
                 : queue.nextCursor
@@ -409,6 +412,28 @@ function operatorAuthStatusLabel(state: FounderCovenantOperatorAuthState): strin
       return state.message
     case 'idle':
       return 'Telegram operator auth idle'
+  }
+}
+
+function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): string {
+  switch (filter) {
+    case 'all':
+      return 'All'
+    case 'manual_review':
+      return 'Manual'
+    case 'hospitalized':
+      return 'Hospital'
+    case 'scan_anomaly':
+      return 'Scan'
+  }
+}
+
+function queueSortLabel(sort: FounderCovenantOperatorQueueSort): string {
+  switch (sort) {
+    case 'priority':
+      return 'Priority'
+    case 'founder':
+      return 'Founder #'
   }
 }
 
