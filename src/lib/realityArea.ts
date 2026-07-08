@@ -868,6 +868,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: RealityFounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: RealityAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -2253,6 +2254,7 @@ function isRealityFounderCovenantReviewQueueItem(
     typeof value.checkedAt === 'string' &&
     isNullableString(value.lastReviewAt) &&
     (value.latestReview === null || isRealityFounderCovenantReviewQueueLatestReview(value.latestReview)) &&
+    isRealityAreaCovenantReviewSchedule(value.reviewSchedule) &&
     typeof value.nextWeeklyReviewAt === 'string' &&
     typeof value.nextMonthlyReviewAt === 'string' &&
     typeof value.overdue === 'boolean' &&
