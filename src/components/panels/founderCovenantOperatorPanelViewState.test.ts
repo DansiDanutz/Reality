@@ -17,6 +17,8 @@ describe('founderCovenantOperatorPanelViewState', () => {
       lastCopiedAt: null,
       lastCopiedText: null,
       lastCopiedQueueView: null,
+      draftReviewNote: '',
+      draftReviewEvidenceKinds: [],
     })
   })
 
@@ -40,6 +42,8 @@ describe('founderCovenantOperatorPanelViewState', () => {
         telegramSummary: 'Founder warning Telegram draft',
         telegramRationale: 'Blocked by approval workflow, Telegram delivery',
       },
+      draftReviewNote: 'Need proof of local hiring.',
+      draftReviewEvidenceKinds: ['population_growth', 'ideas_feedback'],
     })
 
     expect(readOperatorQueueViewState()).toEqual({
@@ -62,6 +66,8 @@ describe('founderCovenantOperatorPanelViewState', () => {
         activitySummary: null,
         actionSummary: null,
       },
+      draftReviewNote: 'Need proof of local hiring.',
+      draftReviewEvidenceKinds: ['population_growth', 'ideas_feedback'],
     })
   })
 
@@ -77,6 +83,8 @@ describe('founderCovenantOperatorPanelViewState', () => {
       lastCopiedAt: null,
       lastCopiedText: null,
       lastCopiedQueueView: null,
+      draftReviewNote: '',
+      draftReviewEvidenceKinds: [],
     })
   })
 
@@ -95,6 +103,8 @@ describe('founderCovenantOperatorPanelViewState', () => {
           sort: 'priority',
           scanCursor: 'review-cursor-8',
         },
+        draftReviewNote: 'Follow up on staffing.',
+        draftReviewEvidenceKinds: ['external_contribution', 'bad-kind'],
       }),
     )
     ;(globalThis as { window?: { localStorage: Storage } }).window = { localStorage: storage }
@@ -106,6 +116,8 @@ describe('founderCovenantOperatorPanelViewState', () => {
       lastCopiedAt: '2026-07-08T14:30:00.000Z',
       lastCopiedText: 'Manual review copied',
       lastCopiedQueueView: null,
+      draftReviewNote: 'Follow up on staffing.',
+      draftReviewEvidenceKinds: ['external_contribution'],
     })
   })
 })

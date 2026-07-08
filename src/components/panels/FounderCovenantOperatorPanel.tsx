@@ -121,8 +121,10 @@ export default function FounderCovenantOperatorPanel({
   )
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
-  const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
-  const [reviewNote, setReviewNote] = useState('')
+  const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>(
+    initialQueueView.current.draftReviewEvidenceKinds,
+  )
+  const [reviewNote, setReviewNote] = useState(initialQueueView.current.draftReviewNote)
   const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>(() => initialQueueView.current.filter)
   const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>(() => initialQueueView.current.sort)
   const [limit, setLimit] = useState(10)
@@ -264,8 +266,10 @@ export default function FounderCovenantOperatorPanel({
       lastCopiedAt,
       lastCopiedText,
       lastCopiedQueueView,
+      draftReviewNote: reviewNote,
+      draftReviewEvidenceKinds: reviewEvidenceKinds,
     })
-  }, [lastCopiedAt, lastCopiedQueueView, lastCopiedText, queueFilter, queueSort, scanCursor])
+  }, [lastCopiedAt, lastCopiedQueueView, lastCopiedText, queueFilter, queueSort, reviewEvidenceKinds, reviewNote, scanCursor])
 
   const loadQueue = async (cursor: string | null = null) => {
     if (!operatorToken) {

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
@@ -22,6 +22,27 @@ import {
 } from './founderCovenantOperatorQueueView'
 
 describe('FounderCovenantOperatorPanel', () => {
+  afterEach(() => {
+    delete (globalThis as { window?: unknown }).window
+  })
+
+  test('restores locally persisted review drafts for operator evidence work', () => {
+    const storage = createStorage()
+    storage.setItem('reality-founder-covenant-operator-view-v1', JSON.stringify({
+      cursor: 'review-cursor-4',
+      filter: 'manual_review',
+      sort: 'priority',
+      draftReviewNote: 'Need a clearer proof of activity.',
+      draftReviewEvidenceKinds: ['population_growth', 'ideas_feedback'],
+    }))
+    ;(globalThis as { window?: { localStorage: Storage } }).window = { localStorage: storage }
+
+    const html = renderToStaticMarkup(<FounderCovenantOperatorPanel />)
+
+    expect(html).toContain('Need a clearer proof of activity.')
+    expect(html).toContain('checked=""')
+  })
+
   test('renders an isolated operator queue shell without a loaded token', () => {
     const html = renderToStaticMarkup(<FounderCovenantOperatorPanel />)
 
@@ -424,6 +445,30 @@ describe('FounderCovenantOperatorPanel', () => {
     })).toBe('Telegram outputs: none')
   })
 })
+
+function createStorage(): Storage {
+  const store = new Map<string, string>()
+  return {
+    get length() {
+      return store.size
+    },
+    clear() {
+      store.clear()
+    },
+    getItem(key: string) {
+      return store.get(key) ?? null
+    },
+    key(index: number) {
+      return [...store.keys()][index] ?? null
+    },
+    removeItem(key: string) {
+      store.delete(key)
+    },
+    setItem(key: string, value: string) {
+      store.set(key, value)
+    },
+  }
+}
 
 function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
   return {

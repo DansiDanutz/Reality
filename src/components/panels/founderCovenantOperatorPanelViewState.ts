@@ -3,6 +3,7 @@ import type {
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
 import type { CopiedQueueViewState } from './founderCovenantOperatorQueueView'
+import type { RealityAreaCovenantManualEvidenceKind } from '../../lib/realityArea'
 
 const OPERATOR_QUEUE_VIEW_KEY = 'reality-founder-covenant-operator-view-v1'
 
@@ -13,6 +14,8 @@ export function readOperatorQueueViewState(): {
   lastCopiedAt: string | null
   lastCopiedText: string | null
   lastCopiedQueueView: CopiedQueueViewState | null
+  draftReviewNote: string
+  draftReviewEvidenceKinds: RealityAreaCovenantManualEvidenceKind[]
 } {
   const storage = browserStorage()
   if (!storage) {
@@ -28,6 +31,8 @@ export function readOperatorQueueViewState(): {
       lastCopiedAt?: string | null
       lastCopiedText?: string | null
       lastCopiedQueueView?: unknown
+      draftReviewNote?: unknown
+      draftReviewEvidenceKinds?: unknown
     }
     return {
       ...defaultOperatorQueueViewState(),
@@ -37,6 +42,8 @@ export function readOperatorQueueViewState(): {
       lastCopiedAt: typeof parsed.lastCopiedAt === 'string' || parsed.lastCopiedAt === null ? parsed.lastCopiedAt : null,
       lastCopiedText: typeof parsed.lastCopiedText === 'string' || parsed.lastCopiedText === null ? parsed.lastCopiedText : null,
       lastCopiedQueueView: parseCopiedQueueViewState(parsed.lastCopiedQueueView),
+      draftReviewNote: typeof parsed.draftReviewNote === 'string' ? parsed.draftReviewNote : '',
+      draftReviewEvidenceKinds: parseDraftReviewEvidenceKinds(parsed.draftReviewEvidenceKinds),
     }
   } catch {
     return defaultOperatorQueueViewState()
@@ -50,6 +57,8 @@ export function writeOperatorQueueViewState(state: {
   lastCopiedAt?: string | null
   lastCopiedText?: string | null
   lastCopiedQueueView?: CopiedQueueViewState | null
+  draftReviewNote?: string
+  draftReviewEvidenceKinds?: RealityAreaCovenantManualEvidenceKind[]
 }): void {
   const storage = browserStorage()
   if (!storage) return
@@ -67,6 +76,8 @@ function defaultOperatorQueueViewState(): {
   lastCopiedAt: string | null
   lastCopiedText: string | null
   lastCopiedQueueView: CopiedQueueViewState | null
+  draftReviewNote: string
+  draftReviewEvidenceKinds: RealityAreaCovenantManualEvidenceKind[]
 } {
   return {
     cursor: null,
@@ -75,6 +86,8 @@ function defaultOperatorQueueViewState(): {
     lastCopiedAt: null,
     lastCopiedText: null,
     lastCopiedQueueView: null,
+    draftReviewNote: '',
+    draftReviewEvidenceKinds: [],
   }
 }
 
@@ -153,4 +166,15 @@ function parseCopiedQueueViewState(value: unknown): CopiedQueueViewState | null 
 
 function optionalStringOrNull(value: unknown): string | null {
   return typeof value === 'string' || value === null ? value : null
+}
+
+function parseDraftReviewEvidenceKinds(value: unknown): RealityAreaCovenantManualEvidenceKind[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(isManualEvidenceKind)
+}
+
+function isManualEvidenceKind(value: unknown): value is RealityAreaCovenantManualEvidenceKind {
+  return value === 'population_growth' ||
+    value === 'external_contribution' ||
+    value === 'ideas_feedback'
 }
