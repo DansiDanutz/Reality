@@ -140,6 +140,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   approvalBlockerText: string
   notificationDraftText: string
   notificationDraftGateText: string
+  notificationDraftStatusText: string
   signalText: string
   priorityScore: number
   priorityReasons: string[]
@@ -1333,6 +1334,7 @@ export function founderCovenantOperatorQueueReviewRows(
       approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       notificationDraftGateText: founderCovenantOperatorQueueNotificationDraftGateText(item),
+      notificationDraftStatusText: founderCovenantOperatorQueueNotificationDraftStatusText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
@@ -1501,6 +1503,15 @@ export function founderCovenantOperatorQueueNotificationDraftGateText(
   return item.pendingNotificationDrafts
     .map((draft) => founderCovenantNotificationDraftGateText(draft))
     .join(' · ')
+}
+
+export function founderCovenantOperatorQueueNotificationDraftStatusText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
+): string {
+  if (item.pendingNotificationDrafts.length === 0) return 'none'
+  return item.pendingNotificationDrafts
+    .map((draft) => founderCovenantNotificationDraftStatusLabel(draft))
+    .join(', ')
 }
 
 export function founderCovenantOperatorQueuePriorityScore(
