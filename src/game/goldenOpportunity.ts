@@ -20,8 +20,8 @@
  *     not the amount.
  *   - Variety: 7 opportunity types so they don't feel repetitive.
  *
- * Pure: takes a snapshot + RNG, returns whether to spawn one. The store
- * owns the timer + reward side effects.
+ * Pure: takes caller-owned time + RNG, returns whether to spawn one. The
+ * store/server owns the timer + reward side effects.
  */
 
 export interface GoldenOpportunity {
@@ -57,8 +57,9 @@ export const OPPORTUNITY_WINDOW_MS = 15_000
  * returns a fully-formed opportunity. The store sets a timer to auto-expire
  * if not tapped.
  */
-export function rollOpportunity(rng: () => number = Math.random): GoldenOpportunity | null {
+export function rollOpportunity(now: number, rng: () => number = Math.random): GoldenOpportunity | null {
+  if (!Number.isFinite(now) || now < 0) return null
   if (rng() > OPPORTUNITY_CHANCE) return null
   const def = OPPORTUNITY_POOL[Math.floor(rng() * OPPORTUNITY_POOL.length)]
-  return { ...def, id: `opp-${Date.now()}` }
+  return { ...def, id: `opp-${Math.floor(now)}` }
 }
