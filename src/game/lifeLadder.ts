@@ -287,6 +287,17 @@ function firstMissingBusinessResource(project: BusinessDevelopmentProject, resou
     ?? null
 }
 
+function gatherResourceDetail(subject: string, kind: ResourceKind, missing: number, owned: number): string {
+  const label = RESOURCE_META[kind].label.toLowerCase()
+  const needed = Math.max(0, missing)
+  const available = Math.max(0, owned)
+  const remaining = Math.max(0, needed - available)
+  if (available > 0) {
+    return `${subject} still needs ${needed} ${label}. You have ${available}; gather ${remaining} more locally, then deposit it.`
+  }
+  return `${subject} still needs ${needed} ${label}. Gather ${remaining} locally, then deposit it.`
+}
+
 function activeWorkerLaborRemaining(
   remainingLaborMinutes: number,
   contracts: { paidMinutes: number; workedMinutes: number; laborMultiplier: number }[] = [],
@@ -364,10 +375,11 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       )
     }
     const meta = RESOURCE_META[kind]
+    const missing = constructionShortfall(project)[kind]
     return task(
       isBusinessBuild ? `gather-business-building-${kind}` : `gather-${kind}`,
       isBusinessBuild ? `Gather ${meta.label.toLowerCase()} for ${project.name}` : `Gather ${meta.label.toLowerCase()}`,
-      `${project.name} still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`,
+      gatherResourceDetail(project.name, kind, missing, snapshot.resources[kind] ?? 0),
       'capital',
       { kind: 'gather', resourceKind: kind },
       meta.gatherMinutes,
@@ -514,7 +526,15 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
         return task('deposit-business-materials', `Deposit ${project.businessName} materials`, 'Move gathered ingredients into the interior plan so the upgrade can advance.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'deposit' }, 15)
       }
       const meta = RESOURCE_META[kind]
-      return task(`gather-business-${kind}`, `Gather ${meta.label.toLowerCase()} for ${project.businessName}`, `${project.businessName}'s interior still needs ${meta.label.toLowerCase()}. Gather locally, then deposit it.`, 'capital', { kind: 'gather', resourceKind: kind }, meta.gatherMinutes)
+      const missing = businessDevelopmentShortfall(project)[kind]
+      return task(
+        `gather-business-${kind}`,
+        `Gather ${meta.label.toLowerCase()} for ${project.businessName}`,
+        gatherResourceDetail(`${project.businessName}'s interior`, kind, missing, snapshot.resources[kind] ?? 0),
+        'capital',
+        { kind: 'gather', resourceKind: kind },
+        meta.gatherMinutes,
+      )
     }
     if (!progress.budgetComplete) {
       if (snapshot.money >= project.budgetCost + CASH_SAFETY_FLOOR) {
