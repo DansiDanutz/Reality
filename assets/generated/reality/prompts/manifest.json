@@ -1,0 +1,377 @@
+{
+  "version": 1,
+  "template": "docs/plan/11-ASSET-GENERATION.md master prompt",
+  "count": 74,
+  "prompts": [
+    {
+      "assetId": "dashboard-objectives",
+      "sourcePng": "assets/generated/reality/dashboard-icons/objectives.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "dashboard-citizen",
+      "sourcePng": "assets/generated/reality/dashboard-icons/citizen.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "dashboard-vitals",
+      "sourcePng": "assets/generated/reality/dashboard-icons/vitals.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "dashboard-guide",
+      "sourcePng": "assets/generated/reality/dashboard-icons/guide.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "dashboard-finance",
+      "sourcePng": "assets/generated/reality/dashboard-icons/finance.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-food",
+      "sourcePng": "assets/generated/reality/category-icons/food.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-groceries",
+      "sourcePng": "assets/generated/reality/category-icons/groceries.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-drinks",
+      "sourcePng": "assets/generated/reality/category-icons/drinks.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-clothing",
+      "sourcePng": "assets/generated/reality/category-icons/clothing.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-electronics",
+      "sourcePng": "assets/generated/reality/category-icons/electronics.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-furniture",
+      "sourcePng": "assets/generated/reality/category-icons/furniture.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-vehicles",
+      "sourcePng": "assets/generated/reality/category-icons/vehicles.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-education",
+      "sourcePng": "assets/generated/reality/category-icons/education.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-leisure",
+      "sourcePng": "assets/generated/reality/category-icons/leisure.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-pets",
+      "sourcePng": "assets/generated/reality/category-icons/pets.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-health",
+      "sourcePng": "assets/generated/reality/category-icons/health.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-home",
+      "sourcePng": "assets/generated/reality/category-icons/home.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "category-business",
+      "sourcePng": "assets/generated/reality/category-icons/business.png",
+      "sourceSize": "1024x1024"
+    },
+    {
+      "assetId": "shawarma",
+      "sourcePng": "assets/generated/reality/market-items/shawarma.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "banhmi",
+      "sourcePng": "assets/generated/reality/market-items/banhmi.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "arepa",
+      "sourcePng": "assets/generated/reality/market-items/arepa.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "pierogi",
+      "sourcePng": "assets/generated/reality/market-items/pierogi.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "samosa",
+      "sourcePng": "assets/generated/reality/market-items/samosa.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "taiyaki",
+      "sourcePng": "assets/generated/reality/market-items/taiyaki.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "poutine",
+      "sourcePng": "assets/generated/reality/market-items/poutine.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "currywurst",
+      "sourcePng": "assets/generated/reality/market-items/currywurst.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "padthai",
+      "sourcePng": "assets/generated/reality/market-items/padthai.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "mamaliga",
+      "sourcePng": "assets/generated/reality/market-items/mamaliga.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "alpastor",
+      "sourcePng": "assets/generated/reality/market-items/alpastor.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "injera",
+      "sourcePng": "assets/generated/reality/market-items/injera.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "jianbing",
+      "sourcePng": "assets/generated/reality/market-items/jianbing.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "tteokbokki",
+      "sourcePng": "assets/generated/reality/market-items/tteokbokki.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "simit",
+      "sourcePng": "assets/generated/reality/market-items/simit.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "rice",
+      "sourcePng": "assets/generated/reality/market-items/rice.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "pasta",
+      "sourcePng": "assets/generated/reality/market-items/pasta.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "bread",
+      "sourcePng": "assets/generated/reality/market-items/bread.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "eggs",
+      "sourcePng": "assets/generated/reality/market-items/eggs.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "tomato",
+      "sourcePng": "assets/generated/reality/market-items/tomato.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "veggies",
+      "sourcePng": "assets/generated/reality/market-items/veggies.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "cheese",
+      "sourcePng": "assets/generated/reality/market-items/cheese.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "chicken",
+      "sourcePng": "assets/generated/reality/market-items/chicken.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "water",
+      "sourcePng": "assets/generated/reality/market-items/water.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "hotchocolate",
+      "sourcePng": "assets/generated/reality/market-items/hotchocolate.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "spicedchai",
+      "sourcePng": "assets/generated/reality/market-items/spicedchai.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "icedlemonade",
+      "sourcePng": "assets/generated/reality/market-items/icedlemonade.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "icedcoffee",
+      "sourcePng": "assets/generated/reality/market-items/icedcoffee.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "hotplate",
+      "sourcePng": "assets/generated/reality/market-items/hotplate.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "goldfish",
+      "sourcePng": "assets/generated/reality/market-items/goldfish.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "cat",
+      "sourcePng": "assets/generated/reality/market-items/cat.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "dog",
+      "sourcePng": "assets/generated/reality/market-items/dog.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "coldmeds",
+      "sourcePng": "assets/generated/reality/market-items/coldmeds.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "flumeds",
+      "sourcePng": "assets/generated/reality/market-items/flumeds.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "microstudio",
+      "sourcePng": "assets/generated/reality/homes/microstudio.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "studio",
+      "sourcePng": "assets/generated/reality/homes/studio.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "apartment",
+      "sourcePng": "assets/generated/reality/homes/apartment.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "penthouse",
+      "sourcePng": "assets/generated/reality/homes/penthouse.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "villa",
+      "sourcePng": "assets/generated/reality/homes/villa.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "island",
+      "sourcePng": "assets/generated/reality/homes/island.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "foodcart",
+      "sourcePng": "assets/generated/reality/businesses/foodcart.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "barbershop",
+      "sourcePng": "assets/generated/reality/businesses/barbershop.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "bakery",
+      "sourcePng": "assets/generated/reality/businesses/bakery.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "startup",
+      "sourcePng": "assets/generated/reality/businesses/startup.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "coffeeshop",
+      "sourcePng": "assets/generated/reality/businesses/coffeeshop.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "bookcafe",
+      "sourcePng": "assets/generated/reality/businesses/bookcafe.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "fitness",
+      "sourcePng": "assets/generated/reality/businesses/fitness.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "restaurant_biz",
+      "sourcePng": "assets/generated/reality/businesses/restaurant_biz.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "nightclub",
+      "sourcePng": "assets/generated/reality/businesses/nightclub.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "boutiquehotel",
+      "sourcePng": "assets/generated/reality/businesses/boutiquehotel.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "laundromat",
+      "sourcePng": "assets/generated/reality/businesses/laundromat.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "gallery",
+      "sourcePng": "assets/generated/reality/businesses/gallery.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "vineyard",
+      "sourcePng": "assets/generated/reality/businesses/vineyard.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "solarfarm",
+      "sourcePng": "assets/generated/reality/businesses/solarfarm.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "skyhotel",
+      "sourcePng": "assets/generated/reality/businesses/skyhotel.png",
+      "sourceSize": "2048x2048"
+    },
+    {
+      "assetId": "airline",
+      "sourcePng": "assets/generated/reality/businesses/airline.png",
+      "sourceSize": "2048x2048"
+    }
+  ]
+}
