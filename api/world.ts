@@ -3,6 +3,7 @@ import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const WORLD_PLACEMENT_FIELDS = new Set(['citizenId', 'token', 'assetId', 'itemId', 'kind', 'lat', 'lng'])
 
 /**
  * Per-citizen daily placement cap. A citizen can place at most this many assets
@@ -54,7 +55,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { citizenId, token, assetId, itemId, kind, lat, lng } = (req.body ?? {}) as Record<string, unknown>
+  const body = req.body ?? {}
+  if (!isRecord(body)) {
+    res.status(400).json({ ok: false, error: 'Invalid asset.' })
+    return
+  }
+  if (hasUnexpectedWorldPlacementField(body)) {
+    res.status(422).json({
+      ok: false,
+      error: 'Client-controlled world fields are not allowed.',
+      code: 'client_controlled_server_field',
+    })
+    return
+  }
+
+  const { citizenId, token, assetId, itemId, kind, lat, lng } = body
   const cleanAssetId = String(assetId ?? '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 60)
   const cleanItemId = String(itemId ?? '').replace(/[^a-z_]/g, '').slice(0, 30)
   const nLat = Number(lat)
@@ -102,4 +117,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch {
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function hasUnexpectedWorldPlacementField(body: Record<string, unknown>): boolean {
+  return Object.keys(body).some((key) => !WORLD_PLACEMENT_FIELDS.has(key))
 }

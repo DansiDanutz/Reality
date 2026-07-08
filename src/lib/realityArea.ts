@@ -140,6 +140,7 @@ export type RealityAreaCovenantManualEvidenceKind =
   | 'ideas_feedback'
 export type RealityAreaCovenantSignalKind =
   | 'founder_unavailable'
+  | 'stale_founder_activity'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -372,6 +373,8 @@ export interface RealityAreaFirstBuildRecommendation {
   buildCost: number
   cashShortfall: number
   currentDemand: number
+  simDemand: number
+  realDemand: number
   currentSupply: number
   licenseSlots: number
   licensesRemaining: number
@@ -717,7 +720,7 @@ export interface RealityAreaCitizenDashboard {
 export interface RealityAreaSurvivalAction {
   warning: WorldSurvivalWarningKind
   intent: WorldSurvivalActionIntent
-  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }> | null
   serviceKind: Exclude<WorldBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -868,6 +871,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: RealityFounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: RealityAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -942,6 +946,7 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    signalCounts: RealityFounderCovenantReviewQueueSignalCounts
   }
   items: RealityFounderCovenantReviewQueueItem[]
   results: RealityFounderCovenantReviewQueueScanResult[]
@@ -1124,7 +1129,12 @@ export async function recordRealityFounderCovenantReview(
   payload: RealityAreaCovenantReviewPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
-  return applyRealityAreaPayload(citizen, payload, fetchImpl)
+  return applyRealityAreaPayload(citizen, {
+    type: 'recordCovenantReview',
+    actionKind: payload.actionKind,
+    ...(payload.note ? { note: payload.note } : {}),
+    ...(payload.evidenceKinds ? { evidenceKinds: payload.evidenceKinds } : {}),
+  }, fetchImpl)
 }
 
 export async function readRealityFounderCovenantReviewQueue(
@@ -1669,7 +1679,7 @@ function mergeRealityAreaSurvivalSignal(signal: RealityAreaSurvivalSignal): Citi
     actions: signal.actions.map((action) => ({
       ...action,
       blockers: [...action.blockers],
-      clientPayload: { ...action.clientPayload },
+      clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
     warnings: [...signal.warnings],
     hospitalizedUntil: signal.hospitalizedUntil ? parseInstant(signal.hospitalizedUntil) : undefined,
@@ -1800,6 +1810,8 @@ function mergeFirstBuildRecommendation(
     buildCost: recommendation.buildCost,
     cashShortfall: recommendation.cashShortfall,
     currentDemand: recommendation.currentDemand,
+    simDemand: recommendation.simDemand,
+    realDemand: recommendation.realDemand,
     currentSupply: recommendation.currentSupply,
     licenseSlots: recommendation.licenseSlots,
     licensesRemaining: recommendation.licensesRemaining,
@@ -1855,12 +1867,19 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
 }
 
 function isRealityAreaFounderIdentity(value: unknown): value is RealityAreaDashboard['founderIdentity'] {
-  return isRecord(value) &&
-    typeof value.citizenId === 'string' &&
-    typeof value.founderNumber === 'number' &&
-    isClaimSource(value.claimSource) &&
-    (value.telegramUserId === null || typeof value.telegramUserId === 'string') &&
-    (value.telegramAccountId === null || typeof value.telegramAccountId === 'string')
+  if (!isRecord(value) ||
+    typeof value.citizenId !== 'string' ||
+    typeof value.founderNumber !== 'number' ||
+    !isClaimSource(value.claimSource) ||
+    (value.telegramUserId !== null && typeof value.telegramUserId !== 'string') ||
+    (value.telegramAccountId !== null && typeof value.telegramAccountId !== 'string')) {
+    return false
+  }
+  if (value.telegramAccountId !== null) {
+    return typeof value.telegramUserId === 'string' &&
+      value.telegramAccountId === `telegram:${value.telegramUserId}`
+  }
+  return true
 }
 
 function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedgerDashboard {
@@ -2272,7 +2291,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.insuredFounders === 'number' &&
     typeof value.pendingApprovals === 'number' &&
     typeof value.pendingNotifications === 'number' &&
-    typeof value.blockers === 'number'
+    typeof value.blockers === 'number' &&
+    isRealityFounderCovenantReviewQueueSignalCounts(value.signalCounts)
 }
 
 function isRealityFounderCovenantReviewQueueItem(
@@ -2287,6 +2307,7 @@ function isRealityFounderCovenantReviewQueueItem(
     typeof value.checkedAt === 'string' &&
     isNullableString(value.lastReviewAt) &&
     (value.latestReview === null || isRealityFounderCovenantReviewQueueLatestReview(value.latestReview)) &&
+    isRealityAreaCovenantReviewSchedule(value.reviewSchedule) &&
     typeof value.nextWeeklyReviewAt === 'string' &&
     typeof value.nextMonthlyReviewAt === 'string' &&
     typeof value.overdue === 'boolean' &&
@@ -2718,6 +2739,7 @@ function isRealityAreaCovenantAuthorityStatus(value: unknown): value is RealityA
 
 function isRealityAreaCovenantSignalKind(value: unknown): value is RealityAreaCovenantSignalKind {
   return value === 'founder_unavailable' ||
+    value === 'stale_founder_activity' ||
     value === 'no_business_built' ||
     value === 'understaffed_businesses' ||
     value === 'essential_shortage' ||
@@ -2921,7 +2943,7 @@ function isRealityAreaSurvivalAction(value: unknown): value is RealityAreaSurviv
   return isRecord(value) &&
     isSurvivalWarning(value.warning) &&
     isSurvivalActionIntent(value.intent) &&
-    isRealityAreaSurvivalPayload(value.clientPayload) &&
+    (isRealityAreaSurvivalPayload(value.clientPayload) || value.clientPayload === null) &&
     isBusinessKind(value.serviceKind) &&
     value.serviceKind !== 'insurance' &&
     typeof value.available === 'boolean' &&
@@ -2970,6 +2992,8 @@ function isRealityAreaFirstBuildRecommendation(value: unknown): value is Reality
     typeof value.buildCost === 'number' &&
     typeof value.cashShortfall === 'number' &&
     typeof value.currentDemand === 'number' &&
+    typeof value.simDemand === 'number' &&
+    typeof value.realDemand === 'number' &&
     typeof value.currentSupply === 'number' &&
     typeof value.licenseSlots === 'number' &&
     typeof value.licensesRemaining === 'number' &&
