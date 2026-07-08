@@ -63,6 +63,8 @@ function isQueueFilter(value: string | undefined): value is FounderCovenantOpera
     value === 'action_evidence' ||
     value === 'action_blocked' ||
     value === 'action_overdue' ||
+    value === 'action_record' ||
+    value === 'action_monitor' ||
     value === 'overdue' ||
     value === 'blocked' ||
     value === 'hospitalized' ||

@@ -210,6 +210,10 @@ function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
       return 'Next blocked'
     case 'action_overdue':
       return 'Next overdue'
+    case 'action_record':
+      return 'Next record'
+    case 'action_monitor':
+      return 'Next monitor'
     case 'overdue':
       return 'Overdue'
     case 'blocked':

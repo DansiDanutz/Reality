@@ -148,6 +148,8 @@ export default function FounderCovenantOperatorPanel({
       queueFilter === 'action_evidence' ||
       queueFilter === 'action_blocked' ||
       queueFilter === 'action_overdue' ||
+      queueFilter === 'action_record' ||
+      queueFilter === 'action_monitor' ||
       queueFilter === 'overdue' ||
       queueFilter === 'blocked' ||
       queueFilter === 'hospitalized' ||
@@ -510,6 +512,22 @@ export default function FounderCovenantOperatorPanel({
               Next overdue
             </button>
             <button
+              className={`btn small ${queueFilter === 'action_record' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('action_record')}
+              type="button"
+            >
+              Next record
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'action_monitor' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('action_monitor')}
+              type="button"
+            >
+              Next monitor
+            </button>
+            <button
               className={`btn small ${queueFilter === 'overdue' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('overdue')}
@@ -640,6 +658,22 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Triage Next Overdue
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'action_record' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('action_record')}
+              type="button"
+            >
+              Triage Next Record
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'action_monitor' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('action_monitor')}
+              type="button"
+            >
+              Triage Next Monitor
             </button>
             <button
               className={`btn small ${activePriorityPreset === 'overdue' ? 'primary' : 'ghost'}`}

@@ -29,6 +29,10 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'Next blocked'
     case 'action_overdue':
       return 'Next overdue'
+    case 'action_record':
+      return 'Next record'
+    case 'action_monitor':
+      return 'Next monitor'
     case 'overdue':
       return 'Overdue'
     case 'blocked':
@@ -122,6 +126,10 @@ export function queuePriorityPresetLabel(
       return 'Triage Next Blocked'
     case 'action_overdue':
       return 'Triage Next Overdue'
+    case 'action_record':
+      return 'Triage Next Record'
+    case 'action_monitor':
+      return 'Triage Next Monitor'
     case 'overdue':
       return 'Triage Overdue'
     case 'blocked':

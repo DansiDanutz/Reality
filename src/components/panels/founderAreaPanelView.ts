@@ -121,6 +121,8 @@ export type FounderCovenantOperatorQueueFilter =
   | 'action_evidence'
   | 'action_blocked'
   | 'action_overdue'
+  | 'action_record'
+  | 'action_monitor'
   | 'overdue'
   | 'blocked'
   | 'hospitalized'
@@ -1018,6 +1020,10 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
         return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
       case 'action_overdue':
         return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+      case 'action_record':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review'
+      case 'action_monitor':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor founder'
       case 'overdue':
         return item.overdue
       case 'blocked':
@@ -1079,6 +1085,10 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} next need approval review · ${freshness}`
     case 'action_overdue':
       return `${count} founder${count === 1 ? '' : 's'} next need overdue cleanup · ${freshness}`
+    case 'action_record':
+      return `${count} founder${count === 1 ? '' : 's'} next need record review · ${freshness}`
+    case 'action_monitor':
+      return `${count} founder${count === 1 ? '' : 's'} next need monitoring only · ${freshness}`
     case 'overdue':
       return `${count} founder${count === 1 ? '' : 's'} overdue · ${freshness}`
     case 'blocked':
@@ -1104,11 +1114,13 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const nextEvidence = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_evidence').length
   const nextBlocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_blocked').length
   const nextOverdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_overdue').length
+  const nextRecord = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_record').length
+  const nextMonitor = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_monitor').length
   const overdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'overdue').length
   const blocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -1139,6 +1151,10 @@ export function founderCovenantOperatorQueueSliceTotals(
         return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
       case 'action_overdue':
         return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+      case 'action_record':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review'
+      case 'action_monitor':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor founder'
       case 'overdue':
         return item.overdue
       case 'blocked':
