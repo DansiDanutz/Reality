@@ -96,6 +96,7 @@ import {
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
   founderPayoutReadinessSummaryItems,
+  founderRecoverySummaryText,
   founderSurvivalActionText,
   founderSurvivalWarningText,
   founderSettlementBlockerText,
@@ -169,6 +170,7 @@ export default function FounderAreaPanel() {
   const landRightsDashboard = dashboard ? getFounderLandRightsDashboard(dashboard) : null
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
+  const founderSurvival = dashboard?.survival.signals.find((signal) => signal.citizenId === profile.founderId)
   const transactions = result?.transactions ?? []
   const businessNamesById = new Map(
     dashboard?.existingBusinesses.map((business) => [business.id, business.name]) ?? [],
@@ -278,6 +280,9 @@ export default function FounderAreaPanel() {
                 </div>
               </>
             )}
+          </div>
+          <div className="founder-covenant-meta" aria-label="Founder recovery summary">
+            <span>{founderRecoverySummaryText(founder, founderSurvival)}</span>
           </div>
 
           <section

@@ -185,6 +185,33 @@ export function founderCitizenNeedText(
   ].join(' · ')
 }
 
+export function founderRecoverySummaryText(
+  citizen: Pick<AreaCitizenDashboard, 'state' | 'debt' | 'insuranceActive' | 'insurancePaidUntil' | 'needs' | 'health'> | undefined,
+  survival?: Pick<CitizenSurvivalSignal, 'risk' | 'hospitalizedUntil' | 'warnings'>,
+): string {
+  if (!citizen) return 'Founder status unavailable'
+  const parts: string[] = []
+  if (survival?.hospitalizedUntil || citizen.state === 'hospitalized') {
+    parts.push(`Hospital until ${founderUtcMinuteText(survival?.hospitalizedUntil ?? Date.now())}`)
+  } else if (survival?.risk === 'danger') {
+    parts.push('Founder in danger')
+  } else if (survival?.risk === 'warning') {
+    parts.push('Founder under watch')
+  } else {
+    parts.push('Founder active')
+  }
+  parts.push(citizen.insuranceActive ? 'insured' : 'uninsured')
+  if (citizen.debt > 0) parts.push(`debt ${formatMoney(citizen.debt)}`)
+  const urgentNeeds = [
+    citizen.needs.hydration <= 50 ? `water ${Math.round(citizen.needs.hydration)}` : null,
+    citizen.needs.hunger <= 50 ? `food ${Math.round(citizen.needs.hunger)}` : null,
+    citizen.needs.energy <= 40 ? `rest ${Math.round(citizen.needs.energy)}` : null,
+    citizen.health <= 65 ? `health ${Math.round(citizen.health)}` : null,
+  ].filter(Boolean)
+  if (urgentNeeds.length > 0) parts.push(`urgent ${urgentNeeds.join(', ')}`)
+  return parts.join(' · ')
+}
+
 export function founderCitizenProtectionText(
   citizen: Pick<AreaCitizenDashboard, 'insuranceActive' | 'insurancePaidUntil' | 'insuranceBusinessId' | 'insuranceAction'>,
   survival?: Pick<CitizenSurvivalSignal, 'hospitalizedUntil'>,

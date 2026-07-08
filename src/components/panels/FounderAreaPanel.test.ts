@@ -70,6 +70,7 @@ import {
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
   founderPayoutReadinessSummaryItems,
+  founderRecoverySummaryText,
   founderSurvivalActionText,
   founderSurvivalWarningText,
   founderSettlementBlockerText,
@@ -119,6 +120,43 @@ describe('FounderAreaPanel covenant presenters', () => {
         fun: 90,
       },
     } as never)).toBe('water 42 · food 56 · rest 31 · health 90')
+
+    expect(founderRecoverySummaryText({
+      state: 'hospitalized',
+      debt: 300,
+      insuranceActive: false,
+      insurancePaidUntil: undefined,
+      health: 30,
+      needs: {
+        hydration: 45,
+        hunger: 82,
+        energy: 35,
+        hygiene: 88,
+        fun: 88,
+      },
+    } as never, {
+      risk: 'hospitalized',
+      hospitalizedUntil: Date.parse('2026-07-06T11:45:00.000Z'),
+      warnings: ['health'],
+    })).toBe('Hospital until 2026-07-06 11:45 UTC · uninsured · debt $300 · urgent water 45, rest 35, health 30')
+
+    expect(founderRecoverySummaryText({
+      state: 'active',
+      debt: 0,
+      insuranceActive: true,
+      insurancePaidUntil: Date.parse('2026-08-06T03:30:00.000Z'),
+      health: 90,
+      needs: {
+        hydration: 84,
+        hunger: 91,
+        energy: 76,
+        hygiene: 88,
+        fun: 90,
+      },
+    } as never, {
+      risk: 'stable',
+      warnings: [],
+    })).toBe('Founder active · insured')
 
     expect(founderCitizenProtectionText({
       insuranceActive: true,
