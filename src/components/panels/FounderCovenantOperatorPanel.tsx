@@ -399,11 +399,16 @@ export default function FounderCovenantOperatorPanel({
       {queue && (
         <>
           <div className="founder-operator-actions" aria-label="Founder operator queue filters">
-            <button className="btn small ghost" disabled={loading} onClick={() => setQueueFilter('all')} type="button">
+            <button
+              className={`btn small ${queueFilter === 'all' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('all')}
+              type="button"
+            >
               All
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueFilter === 'never_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('never_reviewed')}
               type="button"
@@ -411,7 +416,7 @@ export default function FounderCovenantOperatorPanel({
               Never
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueFilter === 'stale_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('stale_reviewed')}
               type="button"
@@ -419,7 +424,7 @@ export default function FounderCovenantOperatorPanel({
               Stale
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueFilter === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('fresh_reviewed')}
               type="button"
@@ -427,7 +432,7 @@ export default function FounderCovenantOperatorPanel({
               Fresh
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueFilter === 'manual_review' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('manual_review')}
               type="button"
@@ -435,7 +440,7 @@ export default function FounderCovenantOperatorPanel({
               Manual
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueFilter === 'hospitalized' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('hospitalized')}
               type="button"
@@ -443,7 +448,7 @@ export default function FounderCovenantOperatorPanel({
               Hospital
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueFilter === 'scan_anomaly' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('scan_anomaly')}
               type="button"
@@ -495,7 +500,7 @@ export default function FounderCovenantOperatorPanel({
           </div>
           <div className="founder-operator-actions" aria-label="Founder operator queue sort">
             <button
-              className="btn small ghost"
+              className={`btn small ${queueSort === 'priority' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueSort('priority')}
               type="button"
@@ -503,7 +508,7 @@ export default function FounderCovenantOperatorPanel({
               Priority
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueSort === 'coverage' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueSort('coverage')}
               type="button"
@@ -511,7 +516,7 @@ export default function FounderCovenantOperatorPanel({
               Coverage
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${queueSort === 'founder' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueSort('founder')}
               type="button"
