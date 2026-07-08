@@ -1850,6 +1850,10 @@ describe('reality area authority API', () => {
       clientPayload: null,
       reason: 'No starter license remains for this business kind.',
     })
+    expect(dashboard.firstBuild.find((recommendation) => recommendation.kind === 'food')).toMatchObject({
+      canBuildNow: true,
+      reason: 'Current businesses need staff before expansion, even though local demand is waiting for this service.',
+    })
     expect(dashboard.jobs).toMatchObject({
       openPositions: 1,
       understaffedBusinesses: 1,

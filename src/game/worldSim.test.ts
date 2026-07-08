@@ -3086,6 +3086,20 @@ describe('advanceWorldArea — local real-time economy', () => {
     })
   })
 
+  test('first-build guidance warns founders to staff current businesses before expansion', () => {
+    const start = claimedArea({
+      citizens: [sim('hungry', { needs: fullNeeds({ hunger: 45 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+
+    const food = areaNeedsDashboard(start).firstBuild.find((rec) => rec.kind === 'food')!
+
+    expect(food).toMatchObject({
+      canBuildNow: true,
+      reason: 'Current businesses need staff before expansion, even though 1 citizens still need more food.',
+    })
+  })
+
   test('first-build guidance recommends missing essentials and demotes saturated services', () => {
     const thirstyHungryCitizens = Array.from({ length: 4 }, (_, i) => sim(`c${i}`, {
       needs: fullNeeds({ hydration: 45, hunger: 45 }),

@@ -1031,6 +1031,13 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     saturation[kind] = license.saturation
   }
 
+  const existingBusinesses = area.businesses.map((business) => businessDashboard(area, business))
+  const founderUnderstaffedBusinesses = area.claim
+    ? existingBusinesses.filter((business) =>
+      business.ownerId === area.claim?.founderCitizenId && business.activeStaff < business.targetStaff
+    ).length
+    : 0
+
   return {
     population: area.citizens.length,
     simPopulation: area.citizens.filter((c) => c.kind === 'sim').length,
@@ -1045,7 +1052,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     licenses,
     saturation,
     citizens: area.citizens.map((citizen) => citizenDashboard(area, citizen, area.now)),
-    existingBusinesses: area.businesses.map((business) => businessDashboard(area, business)),
+    existingBusinesses,
     areaEvents: areaEventsDashboard(area),
     ledger: ledgerDashboard(area),
     jobs: jobsDashboard(area, activeCitizens, founderCanAct !== false),
@@ -1059,6 +1066,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
       saturation,
       founderMoney,
       founderCanAct,
+      founderUnderstaffedBusinesses,
       population,
     }),
   }
@@ -1126,6 +1134,7 @@ export function firstBuildGuidance(
     areaId?: string
     founderMoney?: number
     founderCanAct?: boolean
+    founderUnderstaffedBusinesses?: number
     population?: number
   },
 ): FirstBuildRecommendation[] {
@@ -1186,6 +1195,7 @@ function buildRecommendation(
     areaId?: string
     founderMoney?: number
     founderCanAct?: boolean
+    founderUnderstaffedBusinesses?: number
     population?: number
   },
 ): FirstBuildRecommendation {
@@ -1259,7 +1269,13 @@ function buildRecommendation(
     estimatedPaybackHours: estimate.estimatedHourlyProfit > 0
       ? roundMoney(blueprint.buildCost / estimate.estimatedHourlyProfit)
       : null,
-    reason: recommendationReason(kind, { demand, supply, licensed, saturated }),
+    reason: recommendationReason(kind, {
+      demand,
+      supply,
+      licensed,
+      saturated,
+      founderUnderstaffedBusinesses: input.founderUnderstaffedBusinesses ?? 0,
+    }),
   }
 }
 
@@ -2770,9 +2786,20 @@ function firstBuildAction(input: {
 
 function recommendationReason(
   kind: WorldBusinessKind,
-  input: { demand: number; supply: number; licensed: boolean; saturated: boolean },
+  input: {
+    demand: number
+    supply: number
+    licensed: boolean
+    saturated: boolean
+    founderUnderstaffedBusinesses: number
+  },
 ): string {
   if (!input.licensed) return `${kind} is saturated for the current population. Grow demand before adding another.`
+  if (input.founderUnderstaffedBusinesses > 0) {
+    return input.demand > input.supply
+      ? `Current businesses need staff before expansion, even though ${input.demand} citizens still need more ${kind}.`
+      : 'Current businesses need staff before expansion.'
+  }
   if (input.supply === 0 && input.demand > 0) return `No ${kind} service exists yet, and ${input.demand} citizens need it.`
   if (input.demand > 0) return `${input.demand} citizens currently need more ${kind} capacity.`
   if (input.saturated) return `${kind} supply is already at the current license limit.`

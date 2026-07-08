@@ -3568,6 +3568,10 @@ function firstBuildRecommendations(
   const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const founderActive = founder?.state.kind === 'active'
   const population = activePopulation(state)
+  const founderUnderstaffedBusinesses = state.businesses.filter((business) =>
+    business.ownerId === state.founderCitizenId &&
+    activeStaffCount(state.citizens, business) < TARGET_STAFF_BY_KIND[business.kind]
+  ).length
 
   return BUSINESS_KINDS.map((kind) => {
     const blueprint = BUSINESS_BLUEPRINTS[kind]
@@ -3640,6 +3644,7 @@ function firstBuildRecommendations(
         licensesRemaining: license.remaining,
         demand: input.demand[kind],
         supply: input.supply[kind],
+        founderUnderstaffedBusinesses,
       }),
     }
   }).sort((left, right) => {
@@ -3737,10 +3742,16 @@ function firstBuildReason(input: {
   licensesRemaining: number
   demand: number
   supply: number
+  founderUnderstaffedBusinesses: number
 }): string {
   if (!input.founderActive) return 'Founder must recover before building.'
   if (input.licensesRemaining <= 0) return 'No starter license remains for this business kind.'
   if (!input.founderCanAfford) return 'Founder balance is too low for this build.'
+  if (input.founderUnderstaffedBusinesses > 0) {
+    return input.demand > input.supply
+      ? 'Current businesses need staff before expansion, even though local demand is waiting for this service.'
+      : 'Current businesses need staff before expansion.'
+  }
   if (input.demand > input.supply) return 'Local demand is waiting for this service.'
   return 'Low current demand; consider it after the area grows.'
 }
