@@ -72,6 +72,7 @@ export function FounderCovenantQueuePanel({
                 <span className="item-desc">Queue: {row.reviewQueueSummaryText}</span>
                 <span className="item-desc">Queue detail: {row.reviewQueueDetailText}</span>
                 <span className="item-desc">Queue status: {row.reviewQueueStatusText}</span>
+                <span className="item-desc">Next: {row.nextActionText}</span>
                 <span className="item-desc">Activity: {row.activitySignalText}</span>
                 <span className="item-desc">Exposure: {row.economicExposureText}</span>
                 <span className="item-desc">Stages: {row.stageText}</span>

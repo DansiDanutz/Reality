@@ -13,6 +13,7 @@ import {
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueLatestReviewAuthorityText,
   founderCovenantOperatorQueueLatestReviewText,
+  founderCovenantOperatorQueueNextActionText,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
@@ -48,6 +49,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
     expect(html).toContain('Queue detail: Approvals: Send warning · Drafts: Manual review')
     expect(html).toContain('Queue status: Evidence only')
+    expect(html).toContain('Next: Manual review')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -191,7 +193,9 @@ describe('FounderCovenantQueuePanel', () => {
         automationEnabled: false,
       },
     })).toBe('Area reviewer / Evidence only')
+    expect(founderCovenantOperatorQueueNextActionText(manual)).toBe('Manual review')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
+      nextActionText: 'Manual review',
       latestReviewAuthorityText: null,
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
