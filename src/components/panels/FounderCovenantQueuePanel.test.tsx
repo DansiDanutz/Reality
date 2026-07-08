@@ -12,6 +12,7 @@ import {
   founderCovenantOperatorQueueFilterCountsSummary,
   founderCovenantOperatorQueueFilteredReviewRows,
   founderCovenantOperatorQueueFilterSummary,
+  founderCovenantOperatorQueueTelegramWorkNextSummary,
   founderCovenantOperatorQueueTelegramWorkSummary,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueItemStatusClass,
@@ -65,6 +66,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
     expect(html).toContain('Telegram work: 1 review update · 1 manual draft · 1 warning draft')
+    expect(html).toContain('Telegram work next: copy manual review drafts')
     expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 1 · Overdue 1 · Blocked 1 · Hospital 1 · Inactive 1 · Debt 1 · Risk 1 · Telegram 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('<span>Never</span><strong>2</strong>')
@@ -1485,6 +1487,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueTelegramWorkSummary(queue, 'all')).toBe('Telegram work: 1 review update · 1 manual draft · 1 warning draft')
     expect(founderCovenantOperatorQueueTelegramWorkSummary(queue, 'telegram_ready')).toBe('Telegram work: 1 review update · 1 manual draft · 1 warning draft')
     expect(founderCovenantOperatorQueueTelegramWorkSummary(queueWithCoverage, 'fresh_reviewed')).toBe('Telegram work: 0 review updates · 0 manual drafts · 0 warning drafts')
+    expect(founderCovenantOperatorQueueTelegramWorkNextSummary(queue, 'all')).toBe('Telegram work next: copy manual review drafts')
+    expect(founderCovenantOperatorQueueTelegramWorkNextSummary(queue, 'telegram_ready')).toBe('Telegram work next: copy manual review drafts')
+    expect(founderCovenantOperatorQueueTelegramWorkNextSummary(queueWithCoverage, 'fresh_reviewed')).toBe('Telegram work next: none')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 2 · Overdue 1 · Blocked 1 · Hospital 1 · Inactive 1 · Debt 1 · Risk 1 · Telegram 1 · Scan 1')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 3 · Overdue 1 · Blocked 1 · Hospital 1 · Inactive 1 · Debt 1 · Risk 1 · Telegram 1 · Scan 1')

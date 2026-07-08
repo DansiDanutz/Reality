@@ -1252,6 +1252,21 @@ export function founderCovenantOperatorQueueTelegramWorkSummary(
   return `Telegram work: ${update} review update${update === 1 ? '' : 's'} · ${manual} manual draft${manual === 1 ? '' : 's'} · ${warning} warning draft${warning === 1 ? '' : 's'}`
 }
 
+export function founderCovenantOperatorQueueTelegramWorkNextSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
+): string {
+  const rows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
+  const manual = rows.filter((row) => row.telegramOutputText === 'Telegram manual + warning' || row.telegramOutputText === 'Telegram manual').length
+  const warning = rows.filter((row) => row.telegramOutputText === 'Telegram manual + warning' || row.telegramOutputText === 'Telegram warning').length
+  const update = rows.filter((row) => row.telegramOutputText !== 'Telegram none').length
+  if (update === 0) return 'Telegram work next: none'
+  if (manual >= warning && manual >= update) return 'Telegram work next: copy manual review drafts'
+  if (warning >= manual && warning >= update) return 'Telegram work next: copy warning drafts'
+  return 'Telegram work next: copy review updates'
+}
+
 export function founderCovenantOperatorQueueSliceTotals(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,
