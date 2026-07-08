@@ -236,6 +236,7 @@ function isWorldDebt(value: unknown): value is WorldDebt {
     isNonEmptyString(value.creditorId) &&
     isPositiveMoney(value.amount) &&
     isFiniteNumber(value.issuedAt) &&
+    value.issuedAt >= 0 &&
     isNonEmptyString(value.memo)
 }
 
