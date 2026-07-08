@@ -1031,6 +1031,7 @@ export function founderCovenantOperatorQueuePriorityScore(
     | 'economicExposure'
     | 'signalCounts'
     | 'blockerCount'
+    | 'reviewInputs'
   >,
 ): number {
   let score = 0
@@ -1051,6 +1052,7 @@ export function founderCovenantOperatorQueuePriorityScore(
   score += item.signalCounts.critical * 70
   score += item.signalCounts.warning * 25
   score += Math.min(120, item.blockerCount * 15)
+  score += founderCovenantManualEvidencePriorityReasons(item.reviewInputs).length * 20
   if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') score += 80
   return score
 }
@@ -1066,6 +1068,7 @@ export function founderCovenantOperatorQueuePriorityReasons(
     | 'economicExposure'
     | 'signalCounts'
     | 'blockerCount'
+    | 'reviewInputs'
   >,
 ): string[] {
   const reasons: string[] = []
@@ -1086,8 +1089,26 @@ export function founderCovenantOperatorQueuePriorityReasons(
   if (item.signalCounts.critical > 0) reasons.push(`${item.signalCounts.critical} critical signal${item.signalCounts.critical === 1 ? '' : 's'}`)
   if (item.signalCounts.warning > 0) reasons.push(`${item.signalCounts.warning} warning signal${item.signalCounts.warning === 1 ? '' : 's'}`)
   if (item.blockerCount > 0) reasons.push(`${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'}`)
+  reasons.push(...founderCovenantManualEvidencePriorityReasons(item.reviewInputs))
   if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') reasons.push(`scan ${item.scanStatus}`)
   return reasons.length > 0 ? reasons : ['tracked']
+}
+
+function founderCovenantManualEvidencePriorityReasons(
+  reviewInputs: readonly RealityFounderCovenantReviewQueueItem['reviewInputs'][number][],
+): string[] {
+  const reasons: string[] = []
+  if (founderCovenantManualEvidenceGap(reviewInputs, 'population_growth')) reasons.push('population proof missing')
+  if (founderCovenantManualEvidenceGap(reviewInputs, 'external_contribution')) reasons.push('contribution proof missing')
+  if (founderCovenantManualEvidenceGap(reviewInputs, 'ideas_feedback')) reasons.push('ideas proof missing')
+  return reasons
+}
+
+function founderCovenantManualEvidenceGap(
+  reviewInputs: readonly RealityFounderCovenantReviewQueueItem['reviewInputs'][number][],
+  kind: 'population_growth' | 'external_contribution' | 'ideas_feedback',
+): boolean {
+  return reviewInputs.some((input) => input.kind === kind && (input.manualEvidenceRequired || input.status === 'manual_needed'))
 }
 
 function founderCovenantOperatorQueueScanStatusLabel(

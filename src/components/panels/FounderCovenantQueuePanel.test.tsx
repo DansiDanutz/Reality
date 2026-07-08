@@ -183,6 +183,25 @@ describe('FounderCovenantQueuePanel', () => {
       signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
       signalKinds: [],
       blockerCount: 0,
+      reviewInputs: [{
+        kind: 'population_growth',
+        label: 'Population growth',
+        status: 'captured',
+        evidence: 'Real participants are visible in the area.',
+        manualEvidenceRequired: false,
+      }, {
+        kind: 'external_contribution',
+        label: 'External contribution',
+        status: 'captured',
+        evidence: 'Contribution evidence was attached manually.',
+        manualEvidenceRequired: false,
+      }, {
+        kind: 'ideas_feedback',
+        label: 'Ideas and feedback',
+        status: 'captured',
+        evidence: 'Ideas evidence was attached manually.',
+        manualEvidenceRequired: false,
+      }],
     })
     const watch = founderQueueItem({
       areaId: 'founder-area-0013',
@@ -221,6 +240,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueuePriorityScore(manual)).toBeGreaterThan(
       founderCovenantOperatorQueuePriorityScore(watch),
     )
+    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('population proof missing')
+    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('contribution proof missing')
+    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('ideas proof missing')
     expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
   })
 
