@@ -5,6 +5,12 @@ import { netWorthOf, reachOf } from '../../game/engine'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
+import type { PlacedAsset } from '../../game/types'
+import { itemById } from '../../game/catalog'
+import BuildingInterior from './buildings/BuildingInterior'
+import { resolveArchetype } from './buildings/registry'
+import { buildingSpriteSVG } from './buildings/sprites'
+import './buildings/buildings.css'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -56,15 +62,30 @@ function greatCircle(from: [number, number], to: [number, number], steps = 64): 
   return points
 }
 
-function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0): HTMLDivElement {
-  const el = document.createElement('div')
-  // 'ready' modifier lights up business beacons with a ring when they have
-  // collectable income — surfaces the economy loop on the map so the player
-  // sees which holdings need attention at a glance.
-  const ready = own && kind === 'business' && pendingIncome >= 1 ? ' ready' : ''
-  el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}${ready}`
-  el.title = ready ? `${name} — ${Math.floor(pendingIncome)} ready to collect` : name
-  return el
+/**
+ * The player's own holdings render as HoMM-style building sprites (see
+ * buildings/sprites.ts). The sprite is keyed by archetype+level so the
+ * diff-by-id marker effect can update innerHTML only when the building
+ * actually changes — never per tick. The 'ready' modifier keeps the old
+ * beacons' collectable-income language: a pulsing gold ring at the base.
+ */
+function syncBuildingElement(el: HTMLDivElement, asset: PlacedAsset): void {
+  const ready = asset.kind === 'business' && asset.pendingIncome >= 1
+  const item = itemById(asset.itemId)
+  const archetype = resolveArchetype(asset, item)
+  const level = asset.level ?? 1
+  const spriteKey = `${archetype}:${level}`
+  if (el.dataset.sprite !== spriteKey) {
+    el.dataset.sprite = spriteKey
+    el.innerHTML = buildingSpriteSVG(archetype, { level })
+  }
+  // classList, not className: after construction MapLibre owns classes on
+  // this element too (maplibregl-marker + anchor class carry the absolute
+  // positioning) — a wholesale className assignment on a later sync wipes
+  // them and the sprite degrades to a full-width static block.
+  el.classList.add('map-building')
+  el.classList.toggle('ready', ready)
+  el.title = ready ? `${asset.name} — ${Math.floor(asset.pendingIncome)} ready to collect` : asset.name
 }
 
 export default function WorldMap() {
@@ -72,6 +93,8 @@ export default function WorldMap() {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const [styleReady, setStyleReady] = useState(false)
+  /** Your own building the interior overlay is open for (null = closed). */
+  const [enteredAssetId, setEnteredAssetId] = useState<string | null>(null)
 
   const assets = useGame((s) => s.assets)
   const placing = useGame((s) => s.placing)
@@ -190,6 +213,12 @@ export default function WorldMap() {
     return () => {
       cancelAnimationFrame(raf)
       document.removeEventListener('visibilitychange', onVisibility)
+      // Building markers are diffed by id against markersRef, which outlives
+      // this map instance (StrictMode remount, future map re-creation). Drop
+      // them with the map or the diff keeps "existing" markers bound to the
+      // destroyed instance and they never reattach to the next one.
+      for (const marker of markersRef.current.values()) marker.remove()
+      markersRef.current.clear()
       map.remove()
       mapRef.current = null
     }
@@ -209,11 +238,14 @@ export default function WorldMap() {
     }
   }, [styleReady])
 
-  // Your holdings: gold/sky pulsing beacons (DOM markers — few, always visible).
-  // Diffed by asset id: `assets` changes identity on every tick (pendingIncome
-  // accrues), so recreating every Marker each time would churn the DOM at
-  // 1Hz. Markers are created/removed only when the id set changes; existing
-  // ones just get their className/title (the 'ready' ring) updated in place.
+  // Your holdings: illustrated building sprites (DOM markers — few, always
+  // visible). Diffed by asset id: `assets` changes identity on every tick
+  // (pendingIncome accrues), so recreating every Marker each time would churn
+  // the DOM at 1Hz. Markers are created/removed only when the id set changes;
+  // existing ones just get their className/title/sprite updated in place
+  // (syncBuildingElement swaps innerHTML only when archetype/level changes).
+  // Clicking your own building opens its interior; other players' assets
+  // live in the cluster layer below and stay non-clickable.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -221,15 +253,21 @@ export default function WorldMap() {
     const seen = new Set<string>()
     for (const a of assets) {
       seen.add(a.id)
-      const fresh = beaconElement(a.kind, a.name, true, a.pendingIncome)
       const existing = markers.get(a.id)
       if (existing) {
-        const el = existing.getElement()
-        el.className = fresh.className
-        el.title = fresh.title
+        syncBuildingElement(existing.getElement() as HTMLDivElement, a)
         existing.setLngLat([a.lng, a.lat])
       } else {
-        markers.set(a.id, new maplibregl.Marker({ element: fresh }).setLngLat([a.lng, a.lat]).addTo(map))
+        const el = document.createElement('div')
+        syncBuildingElement(el, a)
+        el.addEventListener('click', (e) => {
+          // Don't let the click reach the map's click-to-place handler.
+          e.stopPropagation()
+          // Placement mode wins — a map click while placing must place.
+          if (useGame.getState().placing) return
+          setEnteredAssetId(a.id)
+        })
+        markers.set(a.id, new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([a.lng, a.lat]).addTo(map))
       }
     }
     for (const [id, marker] of markers) {
@@ -490,6 +528,10 @@ export default function WorldMap() {
           🎯 My holdings
         </button>
       )}
+      {(() => {
+        const entered = enteredAssetId ? assets.find((a) => a.id === enteredAssetId) : undefined
+        return entered ? <BuildingInterior asset={entered} onClose={() => setEnteredAssetId(null)} /> : null
+      })()}
     </>
   )
 }
