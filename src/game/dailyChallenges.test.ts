@@ -8,6 +8,7 @@ import {
   challengeSetSummary,
   DAILY_COMPLETE_BONUS,
   dailyChallengeCashBudget,
+  dailyChallengeBonusCountLabel,
   dailyCompleteBonusForContext,
   eligibleChallengesForContext,
   PRE_BUSINESS_DAILY_CASH_FRACTION,
@@ -310,6 +311,13 @@ describe('challengeSetSummary — completion', () => {
     const summary = challengeSetSummary(defs, fullSnap)
     expect(summary.done).toBe(3)
     expect(summary.allComplete).toBe(true)
+  })
+})
+
+describe('dailyChallengeBonusCountLabel', () => {
+  test('uses the generated challenge count instead of a fixed three', () => {
+    expect(dailyChallengeBonusCountLabel(3)).toBe('All 3 daily challenges')
+    expect(dailyChallengeBonusCountLabel(4)).toBe('All 4 daily challenges')
   })
 })
 

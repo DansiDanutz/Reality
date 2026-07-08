@@ -118,6 +118,7 @@ import type { ServicePoi } from '../game/mapDiscovery'
 import { DEFAULT_MAP_ANCHOR } from '../game/mapAnchor'
 import {
   challengesForDay,
+  dailyChallengeBonusCountLabel,
   challengeProgress,
   challengeSetSummary,
   challengeRewardFor,
@@ -2082,10 +2083,11 @@ export const useGame = create<GameState>()(
             xp = prog.xp
             money += totalCash
             dailyClaimed = [...dailyClaimed, ...newlyComplete.map((c) => c.id)]
-            // All-3-complete bonus
+            // All-complete bonus
             if (!dailyBonusClaimed) {
               const summary = challengeSetSummary(dayChallenges, csnap)
               if (summary.allComplete) {
+                const bonusLabel = dailyChallengeBonusCountLabel(summary.total)
                 const bonus = dailyCompleteBonusForContext(challengeContext)
                 const bprog = applyXp(level, xp, bonus.xp)
                 level = bprog.level
@@ -2094,11 +2096,11 @@ export const useGame = create<GameState>()(
                 dailyBonusClaimed = true
                 mysteryBoxCredits = { ...mysteryBoxCredits, standard: mysteryBoxCredits.standard + 1 }
                 track('daily_complete')
-                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(bonus.cash)}, +${bonus.xp} XP`, 'achieve')
-                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(bonus.cash)} and ${bonus.xp} XP.`)
+                toasts = withToast(toasts, `🎯 ${bonusLabel}! Bonus +${formatMoney(bonus.cash)}, +${bonus.xp} XP`, 'achieve')
+                log = note(log, `🎯 A perfect day — ${bonusLabel.toLowerCase()} done. Bonus: ${formatMoney(bonus.cash)} and ${bonus.xp} XP.`)
                 celebrate({
                   icon: '🎯',
-                  title: 'All 3 daily challenges!',
+                  title: `${bonusLabel}!`,
                   detail: 'A perfect day. Come back tomorrow for a fresh set.',
                   reward: `+${formatMoney(bonus.cash)} · +${bonus.xp} XP`,
                   tone: 'daily',

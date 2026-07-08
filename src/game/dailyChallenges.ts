@@ -285,13 +285,15 @@ function hashSeed(s: string): number {
   return Math.abs(h)
 }
 
-/**
- * Human-readable summary for the UI: "2/3 complete · bonus $1,000 + 200 XP".
- */
+/** Human-readable summary for the UI: "2/3 complete · bonus $1,000 + 200 XP". */
 export function challengeSetSummary(
   defs: ChallengeDef[],
   snap: DailyChallengeSnapshot,
 ): { done: number; total: number; allComplete: boolean } {
   const done = defs.filter((d) => challengeProgress(d, snap).complete).length
   return { done, total: defs.length, allComplete: done === defs.length }
+}
+
+export function dailyChallengeBonusCountLabel(total: number): string {
+  return `All ${Math.max(0, Math.floor(total))} daily challenges`
 }
