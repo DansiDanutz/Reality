@@ -12,6 +12,8 @@ import type { LifePlanTask } from './lifeLadder'
 export type CourierRequirement =
   | { kind: 'none' }
   | { kind: 'food'; timesEaten: number }
+  | { kind: 'drink'; drinksToday: number }
+  | { kind: 'sleep'; timesSlept: number }
   | { kind: 'job' }
   | { kind: 'shift'; shiftsWorked: number }
   | { kind: 'education-enrolled'; courseId: EducationCourseId }
@@ -43,6 +45,8 @@ export interface CourierPackage {
 
 export interface CourierSnapshot {
   timesEaten: number
+  drinksToday?: number
+  timesSlept?: number
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
@@ -175,6 +179,10 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return true
     case 'food':
       return snapshot.timesEaten >= requirement.timesEaten
+    case 'drink':
+      return (snapshot.drinksToday ?? 0) >= requirement.drinksToday
+    case 'sleep':
+      return (snapshot.timesSlept ?? 0) >= requirement.timesSlept
     case 'job':
       return Boolean(snapshot.jobId)
     case 'shift':
@@ -297,6 +305,8 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     }
     if (route.action === 'complete') return { kind: 'business-development-labor', minutes: project?.laborDoneMinutes ?? 0 }
   }
+  if (route.kind === 'survival-action' && route.action === 'drink-water') return { kind: 'drink', drinksToday: (snapshot.drinksToday ?? 0) + 1 }
+  if (route.kind === 'survival-action' && route.action === 'sleep') return { kind: 'sleep', timesSlept: (snapshot.timesSlept ?? 0) + 1 }
   if (route.kind === 'consume-action' || route.kind === 'cook-action' || (route.kind === 'market' && route.focus === 'food')) {
     return { kind: 'food', timesEaten: snapshot.timesEaten + 1 }
   }

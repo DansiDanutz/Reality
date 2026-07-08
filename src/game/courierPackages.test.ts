@@ -208,6 +208,41 @@ describe('courierPackages', () => {
     })).toBe(true)
   })
 
+  test('checks survival drink and sleep requirements', () => {
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'drink', drinksToday: 1 } }, {
+      timesEaten: 0,
+      drinksToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'drink', drinksToday: 1 } }, {
+      timesEaten: 0,
+      drinksToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'sleep', timesSlept: 3 } }, {
+      timesEaten: 0,
+      timesSlept: 2,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'sleep', timesSlept: 3 } }, {
+      timesEaten: 0,
+      timesSlept: 3,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
+  })
+
   test('checks business development requirements', () => {
     const project = createBusinessDevelopmentProject(business(), 1_000)!
     const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project
@@ -379,6 +414,48 @@ describe('courierPackages', () => {
     expect(permit).toMatchObject({
       day: 13,
       requirement: { kind: 'construction-permit' },
+    })
+  })
+
+  test('wraps generated survival tasks with clearable drink and sleep requirements', () => {
+    const drink = courierPackageForLifePlan(14, {
+      id: 'drink-water',
+      title: 'Drink water',
+      detail: 'Hydration is the fastest survival risk. Fix it before work or construction.',
+      value: 'body',
+      minutes: 5,
+      route: { kind: 'survival-action', action: 'drink-water' },
+    }, {
+      timesEaten: 0,
+      drinksToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })
+    const sleep = courierPackageForLifePlan(15, {
+      id: 'sleep-tonight',
+      title: 'Sleep before pushing harder',
+      detail: 'Energy is too low for serious work. Rest protects tomorrow.',
+      value: 'body',
+      minutes: 480,
+      route: { kind: 'survival-action', action: 'sleep' },
+    }, {
+      timesEaten: 0,
+      timesSlept: 2,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })
+
+    expect(drink).toMatchObject({
+      day: 14,
+      requirement: { kind: 'drink', drinksToday: 2 },
+    })
+    expect(sleep).toMatchObject({
+      day: 15,
+      requirement: { kind: 'sleep', timesSlept: 3 },
     })
   })
 

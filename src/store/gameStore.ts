@@ -987,9 +987,11 @@ function communityWorkerCreditMinutes(community: CommunityStats, shiftsWorked: n
   return availableCommunityHelperMinutes(community, advantage.weeklyHelperMinutes, now)
 }
 
-function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'businessDevelopmentProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
+function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dailyCounters' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'businessDevelopmentProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
   return {
     timesEaten: s.timesEaten,
+    drinksToday: s.dailyCounters.drinksToday,
+    timesSlept: s.timesSlept,
     sawStreetMode: s.sawStreetMode,
     resources: s.resources,
     constructionProjects: s.constructionProjects,
@@ -1857,6 +1859,8 @@ export const useGame = create<GameState>()(
         })
         const courierSnapshot = {
           timesEaten,
+          drinksToday: s.dailyCounters.drinksToday,
+          timesSlept: s.timesSlept,
           sawStreetMode: s.sawStreetMode,
           resources,
           constructionProjects,
