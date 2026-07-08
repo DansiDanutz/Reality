@@ -110,16 +110,16 @@ export function FounderCovenantQueuePanel({
         />
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue coverage">
-        <QueueTotalChip label="Active" tone={queue.totals.active === queue.totals.founders ? 'stable' : 'warning'} value={queue.totals.active} />
-        <QueueTotalChip label="Useful" tone={queue.totals.useful === queue.totals.founders ? 'stable' : 'warning'} value={queue.totals.useful} />
+        <QueueTotalChip label="Active" tone={sliceTotals.active === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.active} />
+        <QueueTotalChip label="Useful" tone={sliceTotals.useful === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.useful} />
         <QueueTotalChip
           label="Building"
-          tone={queue.totals.building === queue.totals.founders ? 'stable' : 'warning'}
-          value={queue.totals.building}
+          tone={sliceTotals.building === sliceTotals.founders ? 'stable' : 'warning'}
+          value={sliceTotals.building}
         />
-        <QueueTotalChip label="Staffed" tone={queue.totals.staffed === queue.totals.founders ? 'stable' : 'warning'} value={queue.totals.staffed} />
-        <QueueTotalChip label="At risk" tone={queue.totals.atRisk > 0 ? 'critical' : 'stable'} value={queue.totals.atRisk} />
-        <QueueTotalChip label="Insured" tone={queue.totals.insuredFounders === 0 ? 'warning' : 'stable'} value={queue.totals.insuredFounders} />
+        <QueueTotalChip label="Staffed" tone={sliceTotals.staffed === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.staffed} />
+        <QueueTotalChip label="At risk" tone={sliceTotals.atRisk > 0 ? 'critical' : 'stable'} value={sliceTotals.atRisk} />
+        <QueueTotalChip label="Insured" tone={sliceTotals.insured === 0 ? 'warning' : 'stable'} value={sliceTotals.insured} />
         <QueueTotalChip
           label="Approvals"
           tone={queue.totals.pendingApprovals > 0 ? 'warning' : 'stable'}

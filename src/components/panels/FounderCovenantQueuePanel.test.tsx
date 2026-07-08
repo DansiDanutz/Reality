@@ -83,7 +83,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
-    expect(html).toContain('<span>Building</span><strong>1</strong>')
+    expect(html).toContain('<span>Building</span><strong>2</strong>')
     expect(html).toContain('<span>Staffed</span><strong>1</strong>')
     expect(html).toContain('<span>At risk</span><strong>1</strong>')
     expect(html).toContain('<span>Insured</span><strong>1</strong>')
@@ -519,6 +519,12 @@ describe('FounderCovenantQueuePanel', () => {
       hospitalized: 1,
       indebted: 1,
       blockers: 3,
+      active: 0,
+      useful: 0,
+      building: 1,
+      staffed: 0,
+      atRisk: 1,
+      insured: 0,
     })
     expect(founderCovenantOperatorQueueSliceTotals(founderFilterQueue(), 'scan_anomaly')).toEqual({
       founders: 1,
@@ -527,6 +533,12 @@ describe('FounderCovenantQueuePanel', () => {
       hospitalized: 0,
       indebted: 0,
       blockers: 0,
+      active: 1,
+      useful: 1,
+      building: 1,
+      staffed: 1,
+      atRisk: 0,
+      insured: 1,
     })
   })
 
@@ -552,7 +564,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('0 founders with scan anomalies')
     expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('<span>Manual</span><strong>0</strong>')
+    expect(html).toContain('<span>Active</span><strong>0</strong>')
     expect(html).toContain('<span>Hospital</span><strong>0</strong>')
+    expect(html).toContain('<span>Insured</span><strong>0</strong>')
     expect(html).toContain('<span>Blockers</span><strong>0</strong>')
     expect(html).toContain('No founders match this filter.')
   })

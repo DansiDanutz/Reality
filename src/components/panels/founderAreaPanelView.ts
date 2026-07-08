@@ -122,6 +122,12 @@ export interface FounderCovenantOperatorQueueSliceTotals {
   hospitalized: number
   indebted: number
   blockers: number
+  active: number
+  useful: number
+  building: number
+  staffed: number
+  atRisk: number
+  insured: number
 }
 
 export interface FounderCovenantOperatorQueueReviewRow {
@@ -1512,6 +1518,12 @@ export function founderCovenantOperatorQueueSliceTotals(
     hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
     indebted: items.filter((item) => item.economicExposure.outstandingDebt > 0).length,
     blockers: items.reduce((sum, item) => sum + item.blockerCount, 0),
+    active: items.filter((item) => item.activityReview.active).length,
+    useful: items.filter((item) => item.activityReview.useful).length,
+    building: items.filter((item) => item.activityReview.building).length,
+    staffed: items.filter((item) => item.activityReview.staffed).length,
+    atRisk: items.filter((item) => item.activityReview.atRisk).length,
+    insured: items.filter((item) => item.economicExposure.insured).length,
   }
 }
 
