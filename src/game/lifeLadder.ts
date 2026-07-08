@@ -642,16 +642,16 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       : { kind: 'panel', panel: 'business' }
     return task('plan-business-development', 'Plan the next business upgrade', 'Turn profit into layout, tools, and service quality before chasing a second business.', 'capital', route, 20)
   }
-  const shell = firstBusinessShellProject()
-  if (!shell) {
+  const foundationProject = firstBusinessShellProject()
+  if (!foundationProject) {
     return task('build-first-business', 'Build the first business', 'Use stable home life to start an earning building, not instant magic income.', 'capital', { kind: 'market', focus: 'business' }, 45)
   }
-  const cashNeeded = Math.max(0, shell.item.price + CASH_SAFETY_FLOOR - snapshot.money)
+  const cashNeeded = Math.max(0, foundationProject.item.price + CASH_SAFETY_FLOOR - snapshot.money)
   if (cashNeeded > 0) {
     return task(
       'work-for-first-business-foundation',
-      `Save for ${shell.item.name} foundation`,
-      `${shell.item.name} costs $${shell.item.price.toLocaleString()} before placement. Save $${cashNeeded.toLocaleString()} more, then place the foundation and build through materials, permit, and labor.`,
+      `Save for ${foundationProject.item.name} foundation`,
+      `${foundationProject.item.name} costs $${foundationProject.item.price.toLocaleString()} before placement. Save $${cashNeeded.toLocaleString()} more, then place the foundation and build through materials, permit, and labor.`,
       'work',
       snapshot.jobId ? { kind: 'work-action', action: 'shift' } : { kind: 'panel', panel: 'work' },
       snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30,
@@ -659,8 +659,8 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   }
   return task(
     'build-first-business',
-    `Place ${shell.item.name} foundation`,
-    `Buy ${shell.item.name} from Market > Businesses, place the foundation on the map, then gather ingredients, pay the permit, and build it before it earns.`,
+    `Place ${foundationProject.item.name} foundation`,
+    `Buy ${foundationProject.item.name} from Market > Businesses, place the foundation on the map, then gather ingredients, pay the permit, and build it before it earns.`,
     'capital',
     { kind: 'market', focus: 'business' },
     45,
