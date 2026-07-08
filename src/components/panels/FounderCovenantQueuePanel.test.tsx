@@ -26,6 +26,7 @@ import {
   founderCovenantOperatorQueueStageText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
+  founderCovenantOperatorQueuePrimaryWorkloadText,
   founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueWorkloadSummary,
 } from './founderAreaPanelView'
@@ -44,6 +45,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 stale weekly · 0 stale monthly · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
     expect(html).toContain('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 1 overdue')
+    expect(html).toContain('Primary workload: collect evidence')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
     expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
@@ -195,6 +197,42 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueWorkloadSummary({
       items: [manual],
     })).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 1 overdue')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadText({
+      items: [manual],
+    })).toBe('Primary workload: collect evidence')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadText({
+      items: [{
+        ...manual,
+        reviewReadiness: {
+          ...manual.reviewReadiness,
+          evidenceRequiredCount: 0,
+          overdue: false,
+        },
+        pendingApprovalRequests: [],
+        overdue: false,
+      }],
+    })).toBe('Primary workload: monitor')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadText({
+      items: [{
+        ...manual,
+        reviewReadiness: {
+          ...manual.reviewReadiness,
+          evidenceRequiredCount: 0,
+        },
+      }],
+    })).toBe('Primary workload: clear blockers')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadText({
+      items: [{
+        ...manual,
+        reviewReadiness: {
+          ...manual.reviewReadiness,
+          evidenceRequiredCount: 0,
+          approvalRequestCount: 0,
+          blockerCount: 0,
+        },
+        pendingApprovalRequests: [],
+      }],
+    })).toBe('Primary workload: clear overdue reviews')
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
   })

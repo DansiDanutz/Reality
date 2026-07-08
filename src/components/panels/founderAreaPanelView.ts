@@ -802,6 +802,25 @@ export function founderCovenantOperatorQueueWorkloadSummary(
   return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${overdueFounders} overdue`
 }
 
+export function founderCovenantOperatorQueuePrimaryWorkloadText(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
+  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const overdueFounders = queue.items.filter((item) => item.overdue).length
+
+  if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0) {
+    return 'Primary workload: monitor'
+  }
+  if (evidenceGaps >= blockedFounders && evidenceGaps >= overdueFounders) {
+    return 'Primary workload: collect evidence'
+  }
+  if (blockedFounders >= overdueFounders) {
+    return 'Primary workload: clear blockers'
+  }
+  return 'Primary workload: clear overdue reviews'
+}
+
 export function founderCovenantOperatorQueueItemSummary(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
