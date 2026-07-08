@@ -140,6 +140,7 @@ const TRANSACTION_KINDS: WorldTransactionKind[] = [
   'insurance_payout',
   'medical_debt',
   'debt_repayment',
+  'workers_hall_build',
 ]
 
 export function encodeWorldAreaSnapshot(area: WorldArea): string {
@@ -254,6 +255,7 @@ function isWorldBusiness(value: unknown): value is WorldBusiness {
   if (value.quality !== undefined && (!isFiniteNumber(value.quality) || value.quality <= 0)) return false
   if (value.createdBy !== undefined && !isNonEmptyString(value.createdBy)) return false
   if (value.inheritedFrom !== undefined && !isNonEmptyString(value.inheritedFrom)) return false
+  if (value.constructionEndsAt !== undefined && !isFiniteNumber(value.constructionEndsAt)) return false
   return true
 }
 

@@ -49,6 +49,7 @@ export interface WorldBusiness {
   quality?: number
   createdBy?: string
   inheritedFrom?: string
+  constructionEndsAt?: number
 }
 
 export interface WorldAreaClaim {

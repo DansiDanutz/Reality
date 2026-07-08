@@ -65,6 +65,7 @@ const area = (): WorldArea => ({
     wagePerHour: 20,
     quality: 1,
     createdBy: 'founder',
+    constructionEndsAt: 5_000,
   }],
   transactions: [
     {
@@ -106,6 +107,16 @@ const area = (): WorldArea => ({
       toId: 'system:hospital',
       amount: 25,
       memo: 'Founder repaid debt to system:hospital.',
+    },
+    {
+      id: 'tx5',
+      at: 2_500,
+      kind: 'workers_hall_build',
+      payoutEligibility: 'game_only',
+      fromId: 'founder',
+      toId: 'system:builders',
+      amount: 18_000,
+      memo: 'Founder built a Workers Hall.',
     },
   ],
   areaEvents: [{
@@ -393,6 +404,10 @@ describe('worldSim snapshot codec', () => {
     const badBusiness = area()
     badBusiness.businesses[0].staffCitizenIds = ['']
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badBusiness }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const badConstructionDate = area()
+    badConstructionDate.businesses[0].constructionEndsAt = Number.NaN
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badConstructionDate }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const freeBusiness = area()
     freeBusiness.businesses[0].price = 0
