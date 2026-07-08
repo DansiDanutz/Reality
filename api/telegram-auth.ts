@@ -6,6 +6,7 @@ const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
 const CLOCK_SKEW_SECONDS = 60
 const HASH_RE = /^[a-f0-9]{64}$/i
+const TELEGRAM_AUTH_ALLOWED_BODY_FIELDS = new Set(['initData'])
 
 export interface TelegramMiniAppUser {
   id: string
@@ -29,6 +30,7 @@ export type VerifyTelegramMiniAppInitDataError =
   | 'auth_date_from_future'
   | 'missing_user'
   | 'invalid_user'
+  | 'bot_user'
 
 export type VerifyTelegramMiniAppInitDataResult =
   | {
@@ -86,6 +88,7 @@ export function verifyTelegramMiniAppInitData(
   if (!rawUser) return { ok: false, error: 'missing_user' }
   const user = parseTelegramMiniAppUser(rawUser)
   if (!user) return { ok: false, error: 'invalid_user' }
+  if (user.isBot) return { ok: false, error: 'bot_user' }
 
   return {
     ok: true,
@@ -204,7 +207,7 @@ function parseTelegramMiniAppUser(rawUser: string): TelegramMiniAppUser | null {
   if (!isRecord(value)) return null
   const id = value.id
   const firstName = optionalText(value.first_name)
-  if (!Number.isSafeInteger(id) || id < 0 || !firstName) return null
+  if (!Number.isSafeInteger(id) || id <= 0 || !firstName) return null
 
   return {
     id: String(id),
@@ -248,9 +251,19 @@ function isTelegramRealityAccountRecord(
   return true
 }
 
-function readInitData(req: VercelRequest): string | null {
-  const body = req.body as { initData?: unknown } | undefined
-  return typeof body?.initData === 'string' ? body.initData : null
+type ReadInitDataResult =
+  | { ok: true; initData: string }
+  | { ok: false; error: 'missing_init_data' | 'client_owned_body_field' }
+
+function readInitData(req: VercelRequest): ReadInitDataResult {
+  const body = req.body
+  if (!isRecord(body)) return { ok: false, error: 'missing_init_data' }
+  if (Object.keys(body).some((key) => !TELEGRAM_AUTH_ALLOWED_BODY_FIELDS.has(key))) {
+    return { ok: false, error: 'client_owned_body_field' }
+  }
+  return typeof body.initData === 'string' && body.initData.trim().length > 0
+    ? { ok: true, initData: body.initData }
+    : { ok: false, error: 'missing_init_data' }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -262,12 +275,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const initData = readInitData(req)
-  if (!initData) {
-    res.status(400).json({ ok: false, error: 'Missing Telegram initData.' })
+  if (!initData.ok) {
+    res.status(400).json(initData.error === 'client_owned_body_field'
+      ? { ok: false, error: 'Telegram auth only accepts initData.', code: initData.error }
+      : { ok: false, error: 'Missing Telegram initData.' })
     return
   }
 
-  const verified = verifyTelegramMiniAppInitData(initData, process.env.TELEGRAM_BOT_TOKEN)
+  const verified = verifyTelegramMiniAppInitData(initData.initData, process.env.TELEGRAM_BOT_TOKEN)
   if (!verified.ok) {
     const status = verified.error === 'missing_bot_token' ? 503 : 401
     res.status(status).json({
@@ -290,7 +305,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
   } catch {
-    res.status(500).json({ ok: false, error: 'Telegram identity is briefly unavailable.' })
+    res.status(503).json({
+      ok: false,
+      error: 'Telegram identity is briefly unavailable.',
+      code: 'telegram_identity_unavailable',
+    })
     return
   }
 
