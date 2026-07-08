@@ -113,6 +113,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActorText')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(dashboard.founderCovenant.latestReview.reviewQueue)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(entry.reviewQueue)')
+    expect(founderAreaPanelSource).toContain('Queue status: {founderCovenantReviewQueueStatusLabel(dashboard.founderCovenant.latestReview.reviewQueue)}')
+    expect(founderAreaPanelSource).toContain('Queue status: {founderCovenantReviewQueueStatusLabel(entry.reviewQueue)}')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(dashboard.founderCovenant.latestReview)')

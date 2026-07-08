@@ -518,6 +518,9 @@ export default function FounderAreaPanel() {
                     {founderCovenantReviewQueueDetailText(dashboard.founderCovenant.latestReview.reviewQueue)}
                   </span>
                   <span className="item-desc">
+                    Queue status: {founderCovenantReviewQueueStatusLabel(dashboard.founderCovenant.latestReview.reviewQueue)}
+                  </span>
+                  <span className="item-desc">
                     {founderCovenantReviewCadenceSummary(dashboard.founderCovenant.latestReview)}
                   </span>
                   <span className="item-desc">
@@ -639,6 +642,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">{founderCovenantStageDetailText(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewQueueSnapshotSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewQueueDetailText(entry.reviewQueue)}</span>
+                      <span className="item-desc">Queue status: {founderCovenantReviewQueueStatusLabel(entry.reviewQueue)}</span>
                       <span className="item-desc">{founderCovenantReviewCadenceSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewCadenceDetailText(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewActionSummary(entry)}</span>
