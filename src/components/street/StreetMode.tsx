@@ -176,15 +176,21 @@ export default function StreetMode() {
       .catch((error: unknown) =>
         setStatus(error instanceof Error && error.message === 'empty-neighborhood' ? 'empty' : 'error'),
       )
-    const fpsId = setInterval(() => setFps(sceneRef.current?.getFps() ?? 0), 1000)
     return () => {
       disposed = true
-      clearInterval(fpsId)
       sceneRef.current?.dispose()
       sceneRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retryKey])
+
+  // The fps read only makes sense against a live scene — don't poll during
+  // the loading/empty/error states (there's nothing to measure).
+  useEffect(() => {
+    if (status !== 'ready') return
+    const fpsId = setInterval(() => setFps(sceneRef.current?.getFps() ?? 0), 1000)
+    return () => clearInterval(fpsId)
+  }, [status])
 
   // The street hums — day or night shaped appropriately when sound is on.
   // Night: deep rumble (320Hz cutoff). Day: brighter city-air (480Hz, louder).
