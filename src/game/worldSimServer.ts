@@ -174,6 +174,7 @@ export type WorldFounderCovenantReviewQueueScanStatus =
   | 'caught_up'
   | 'time_moved_backward'
   | 'write_conflict'
+  | 'duplicate_founder_claim'
 
 export interface WorldFounderCovenantReviewQueueSignalCounts {
   total: number
@@ -462,6 +463,7 @@ export async function readWorldFounderCovenantReviewQueue(
 
   const items: WorldFounderCovenantReviewQueueItem[] = []
   const results: WorldFounderCovenantReviewQueueScanResult[] = []
+  const scannedFounderAreaIds = new Map<string, string>()
   let nextCursor: string | null = null
   let hasMore = false
   let pagesScanned = 0
@@ -474,7 +476,7 @@ export async function readWorldFounderCovenantReviewQueue(
     hasMore = page.hasMore
 
     for (const record of page.records) {
-      const result = await founderCovenantReviewQueueRecord(repo, record, now)
+      const result = await founderCovenantReviewQueueRecord(repo, record, now, scannedFounderAreaIds)
       results.push(result.result)
       if (result.item) items.push(result.item)
     }
@@ -504,7 +506,9 @@ export async function readWorldFounderCovenantReviewQueue(
       caughtUp: results.filter((result) => result.status === 'caught_up').length,
       current: results.filter((result) => result.status === 'current').length,
       failed: results.filter((result) =>
-        result.status === 'time_moved_backward' || result.status === 'write_conflict'
+        result.status === 'time_moved_backward' ||
+        result.status === 'write_conflict' ||
+        result.status === 'duplicate_founder_claim'
       ).length,
       totals: founderCovenantReviewQueueTotals(sortedItems, results),
       items: sortedItems,
@@ -690,16 +694,35 @@ async function founderCovenantReviewQueueRecord(
   repo: WorldAreaRepository,
   record: WorldAreaRecord,
   now: number,
+  scannedFounderAreaIds: Map<string, string>,
 ): Promise<{
   result: WorldFounderCovenantReviewQueueScanResult
   item: WorldFounderCovenantReviewQueueItem | null
 }> {
   const { area } = record
+  const founderCitizenId = area.claim?.founderCitizenId ?? null
+  if (founderCitizenId) {
+    const firstAreaId = scannedFounderAreaIds.get(founderCitizenId)
+    if (firstAreaId && firstAreaId !== area.id) {
+      return {
+        result: {
+          areaId: area.id,
+          founderCitizenId,
+          status: 'duplicate_founder_claim',
+          checkedAt: area.now,
+          transactionsAdded: 0,
+        },
+        item: null,
+      }
+    }
+    scannedFounderAreaIds.set(founderCitizenId, area.id)
+  }
+
   if (now < area.now) {
     return {
       result: {
         areaId: area.id,
-        founderCitizenId: area.claim?.founderCitizenId ?? null,
+        founderCitizenId,
         status: 'time_moved_backward',
         checkedAt: area.now,
         transactionsAdded: 0,
@@ -719,7 +742,7 @@ async function founderCovenantReviewQueueRecord(
       return {
         result: {
           areaId: area.id,
-          founderCitizenId: area.claim?.founderCitizenId ?? null,
+          founderCitizenId,
           status: 'write_conflict',
           checkedAt: area.now,
           transactionsAdded: 0,
@@ -730,12 +753,12 @@ async function founderCovenantReviewQueueRecord(
   }
 
   const dashboard = areaNeedsDashboard(reviewArea)
-  const founderCitizenId = reviewArea.claim?.founderCitizenId
-  if (!founderCitizenId || !dashboard.founderCovenant.founderCitizenId) {
+  const reviewFounderCitizenId = reviewArea.claim?.founderCitizenId
+  if (!reviewFounderCitizenId || !dashboard.founderCovenant.founderCitizenId) {
     return {
       result: {
         areaId: reviewArea.id,
-        founderCitizenId: reviewArea.claim?.founderCitizenId ?? null,
+        founderCitizenId: reviewFounderCitizenId ?? null,
         status: scanStatus,
         checkedAt: reviewArea.now,
         transactionsAdded,
@@ -747,7 +770,7 @@ async function founderCovenantReviewQueueRecord(
   return {
     result: {
       areaId: reviewArea.id,
-      founderCitizenId,
+      founderCitizenId: reviewFounderCitizenId,
       status: scanStatus,
       checkedAt: reviewArea.now,
       transactionsAdded,
@@ -1006,7 +1029,9 @@ function founderCovenantReviewQueueTotals(
     staleWeeklyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue).length,
     staleMonthlyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.monthlyReviewDue).length,
     scanAnomalies: results.filter((result) =>
-      result.status === 'write_conflict' || result.status === 'time_moved_backward'
+      result.status === 'write_conflict' ||
+      result.status === 'time_moved_backward' ||
+      result.status === 'duplicate_founder_claim'
     ).length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,

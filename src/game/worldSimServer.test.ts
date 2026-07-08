@@ -1739,6 +1739,79 @@ describe('runWorldServerCommand', () => {
     expect(result.founderCovenantReviewQueue.items).toEqual([])
   })
 
+  test('surfaces duplicate founder seat claims as queue anomalies instead of double-counting founders', async () => {
+    const baseRepo = new MemoryWorldRepo()
+    const repo: WorldAreaRepository = {
+      loadArea: baseRepo.loadArea.bind(baseRepo),
+      loadAreaRecord: baseRepo.loadAreaRecord.bind(baseRepo),
+      listAreaRecords: baseRepo.listAreaRecords.bind(baseRepo),
+      loadAreaByFounder: async () => null,
+      saveArea: (area, options) => baseRepo.saveArea(area, options ? { ...options, expectedFounderAreaEmpty: undefined } : options),
+    }
+    const now = 1_000
+
+    const first = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Area 1',
+      now,
+      authenticatedFounderId: 'founder-1',
+      founder: citizen('founder-1'),
+      simCitizens: [],
+      claim: {
+        founderCitizenId: 'founder-1',
+        label: 'Area 1',
+        centerLat: 45.45,
+        centerLng: 27.08,
+        radiusKm: 2,
+        claimedAt: now,
+        source: 'manual',
+      },
+    })
+    if (!first.ok) throw new Error(`expected first area creation to succeed: ${first.error}`)
+
+    const duplicate = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-2',
+      name: 'Area 2',
+      now,
+      authenticatedFounderId: 'founder-1',
+      founder: citizen('founder-1'),
+      simCitizens: [],
+      claim: {
+        founderCitizenId: 'founder-1',
+        label: 'Area 2',
+        centerLat: 46.45,
+        centerLng: 28.08,
+        radiusKm: 2,
+        claimedAt: now,
+        source: 'manual',
+      },
+    })
+    if (!duplicate.ok) throw new Error(`expected duplicate founder area to persist in corrupt repo fixture: ${duplicate.error}`)
+
+    const result = await readWorldFounderCovenantReviewQueue(baseRepo, now)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.items.map((item) => item.areaId)).toEqual(['area-1'])
+    expect(result.founderCovenantReviewQueue.totals).toMatchObject({
+      founders: 1,
+      neverReviewed: 1,
+      scanAnomalies: 1,
+    })
+    expect(result.founderCovenantReviewQueue).toMatchObject({
+      scanned: 2,
+      current: 1,
+      caughtUp: 0,
+      failed: 1,
+    })
+    expect(result.founderCovenantReviewQueue.results).toEqual([
+      { areaId: 'area-1', founderCitizenId: 'founder-1', status: 'current', checkedAt: now, transactionsAdded: 0 },
+      { areaId: 'area-2', founderCitizenId: 'founder-1', status: 'duplicate_founder_claim', checkedAt: now, transactionsAdded: 0 },
+    ])
+  })
+
   test('rejects founder area reads without a claimed area', async () => {
     const blankRepo = new MemoryWorldRepo()
     const blankFounder = await runWorldServerCommand(blankRepo, {
