@@ -163,7 +163,7 @@ export function decodeWorldAreaSnapshot(raw: string): DecodeWorldAreaSnapshotRes
 
 function isWorldArea(value: unknown): value is WorldArea {
   if (!isRecord(value)) return false
-  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now)) return false
+  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now) || value.now < 0) return false
   if (value.claim !== undefined && !isAreaClaim(value.claim)) return false
   if (!Array.isArray(value.citizens) || !value.citizens.every(isWorldCitizen) || !hasUniqueIds(value.citizens)) {
     return false
