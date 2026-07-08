@@ -22,9 +22,9 @@ import type {
 import {
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
+  founderCovenantOperatorQueueActionSummary,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
-  founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSummary,
 } from './founderAreaPanelView'
 import {
@@ -303,7 +303,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
-    const recommendedAction = queue ? founderCovenantOperatorQueueRecommendedActionText(queue) : null
+    const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     const handoff = queueHandoffText({
       filter: queueFilter,
       sort: queueSort,
@@ -311,7 +311,7 @@ export default function FounderCovenantOperatorPanel({
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
       focusSummary,
-      recommendedAction,
+      actionSummary,
     })
     if (!clipboard?.writeText) {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
@@ -325,7 +325,7 @@ export default function FounderCovenantOperatorPanel({
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
         focusSummary,
-        recommendedAction,
+        actionSummary,
       })
       setLastCopiedAt(new Date().toISOString())
       setLastCopiedText(handoff)
