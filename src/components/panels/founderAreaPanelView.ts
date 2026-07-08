@@ -19,6 +19,7 @@ import type {
   WorldTransactionKind,
 } from '../../game/worldSim'
 import type {
+  RealityAreaCovenantManualEvidenceKind,
   RealityAreaDashboard,
   RealityAreaGrowthBlocker,
   RealityAreaGrowthDashboard,
@@ -633,7 +634,9 @@ export function founderCovenantReviewInputSummary(
   const captured = review.reviewInputs.filter((input) => input.status === 'captured').length
   const manual = review.reviewInputs.filter((input) => input.status === 'manual_needed').length
   const watch = review.reviewInputs.filter((input) => input.status === 'watch').length
-  return `Inputs snapshot · ${captured} captured · ${manual} manual · ${watch} watch`
+  const capturedEvidence = founderCovenantCapturedManualEvidenceLabels(review.reviewInputs)
+  const evidenceText = capturedEvidence.length > 0 ? ` · evidence ${capturedEvidence.join(', ')}` : ''
+  return `Inputs snapshot · ${captured} captured · ${manual} manual · ${watch} watch${evidenceText}`
 }
 
 export function founderCovenantStageSnapshotSummary(
@@ -914,12 +917,44 @@ export function founderCovenantOperatorQueueChecklistText(
 }
 
 export function founderCovenantOperatorQueueEvidenceInputText(
-  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewInputs'>,
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewInputs' | 'latestReview'>,
 ): string {
-  const manual = item.reviewInputs.filter((input) => input.manualEvidenceRequired || input.status === 'manual_needed')
-  if (manual.length > 0) return manual.map((input) => input.label).join(', ')
+  const capturedKinds = new Set(item.latestReview?.manualEvidenceKinds ?? [])
+  const captured = (item.latestReview?.manualEvidenceKinds ?? []).map(founderCovenantManualEvidenceKindLabel)
+  const manual = item.reviewInputs.filter((input) =>
+    (input.manualEvidenceRequired || input.status === 'manual_needed') &&
+    !capturedKinds.has(input.kind as RealityAreaCovenantManualEvidenceKind),
+  )
   const watch = item.reviewInputs.filter((input) => input.status === 'watch')
-  return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'complete'
+  const parts: string[] = []
+  if (captured.length > 0) parts.push(`Captured: ${captured.join(', ')}`)
+  if (manual.length > 0) parts.push(`Manual: ${manual.map((input) => input.label).join(', ')}`)
+  if (watch.length > 0) parts.push(`Watch: ${watch.map((input) => input.label).join(', ')}`)
+  return parts.length > 0 ? parts.join(' · ') : 'complete'
+}
+
+function founderCovenantCapturedManualEvidenceLabels(
+  reviewInputs: readonly Pick<FounderCovenantReviewHistoryItem['reviewInputs'][number], 'kind' | 'status'>[],
+): string[] {
+  const labels: string[] = []
+  for (const input of reviewInputs) {
+    if (input.status !== 'captured') continue
+    if (!isFounderCovenantManualEvidenceKind(input.kind)) continue
+    labels.push(founderCovenantManualEvidenceKindLabel(input.kind))
+  }
+  return labels
+}
+
+function isFounderCovenantManualEvidenceKind(
+  kind: FounderCovenantReviewHistoryItem['reviewInputs'][number]['kind'],
+): kind is RealityAreaCovenantManualEvidenceKind {
+  return kind === 'population_growth' || kind === 'external_contribution' || kind === 'ideas_feedback'
+}
+
+function founderCovenantManualEvidenceKindLabel(kind: RealityAreaCovenantManualEvidenceKind): string {
+  if (kind === 'population_growth') return 'Population growth'
+  if (kind === 'external_contribution') return 'External contribution'
+  return 'Ideas and feedback'
 }
 
 export function founderCovenantOperatorQueueManualActionText(

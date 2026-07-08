@@ -901,7 +901,21 @@ describe('Reality area client', () => {
   })
 
   test('reads and validates the operator founder covenant review queue', async () => {
-    const queue = serverFounderCovenantReviewQueue()
+    const queue = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        latestReview: {
+          reviewedAt: '2026-07-06T08:00:00.000Z',
+          reviewerId: 'telegram-operator:42424242',
+          actionKind: 'record_review',
+          summary: 'Reviewed contribution evidence.',
+          manualEvidenceKinds: ['external_contribution'],
+          evidenceOnly: true,
+          automationEnabled: false,
+        },
+      }],
+    }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
 

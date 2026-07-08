@@ -198,6 +198,7 @@ export interface WorldFounderCovenantReviewQueueLatestReview {
   reviewerId: string
   actionKind: 'record_review'
   summary: string
+  manualEvidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -831,14 +832,34 @@ function founderCovenantReviewQueueLatestReview(
   review: AreaNeedsDashboard['founderCovenant']['latestReview'],
 ): WorldFounderCovenantReviewQueueLatestReview | null {
   if (!review) return null
+  const manualEvidenceKinds = founderCovenantCapturedManualEvidenceKinds(review.reviewInputs)
   return {
     reviewedAt: review.reviewedAt,
     reviewerId: review.reviewerId,
     actionKind: 'record_review',
     summary: review.summary,
+    ...(manualEvidenceKinds.length > 0 ? { manualEvidenceKinds } : {}),
     evidenceOnly: true,
     automationEnabled: false,
   }
+}
+
+function founderCovenantCapturedManualEvidenceKinds(
+  reviewInputs: readonly FounderCovenantReviewInput[],
+): FounderCovenantManualEvidenceKind[] {
+  const allowed: readonly FounderCovenantManualEvidenceKind[] = [
+    'population_growth',
+    'external_contribution',
+    'ideas_feedback',
+  ]
+  const captured = new Set<FounderCovenantManualEvidenceKind>()
+  for (const input of reviewInputs) {
+    if (input.status !== 'captured') continue
+    if (input.kind === 'population_growth' || input.kind === 'external_contribution' || input.kind === 'ideas_feedback') {
+      captured.add(input.kind)
+    }
+  }
+  return allowed.filter((kind) => captured.has(kind))
 }
 
 function founderCovenantReviewQueueTotals(

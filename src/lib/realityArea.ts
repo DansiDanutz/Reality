@@ -813,6 +813,7 @@ export interface RealityFounderCovenantReviewQueueLatestReview {
   reviewerId: string
   actionKind: 'record_review'
   summary: string
+  manualEvidenceKinds?: readonly RealityAreaCovenantManualEvidenceKind[]
   evidenceOnly: true
   automationEnabled: false
 }
@@ -2301,6 +2302,9 @@ function isRealityFounderCovenantReviewQueueLatestReview(
     typeof value.reviewerId === 'string' &&
     value.actionKind === 'record_review' &&
     typeof value.summary === 'string' &&
+    (value.manualEvidenceKinds === undefined ||
+      (Array.isArray(value.manualEvidenceKinds) &&
+        value.manualEvidenceKinds.every(isRealityAreaCovenantManualEvidenceKind))) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
 }

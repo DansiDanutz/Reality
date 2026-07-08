@@ -16,6 +16,7 @@ import {
   founderCovenantOperatorQueueItemSummary,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
+  founderCovenantOperatorQueueEvidenceInputText,
   founderCovenantReviewActionSummary,
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewCadenceSummary,
@@ -440,9 +441,9 @@ describe('FounderAreaPanel covenant presenters', () => {
       }, {
         kind: 'external_contribution',
         label: 'External contribution',
-        status: 'manual_needed',
-        evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
-        manualEvidenceRequired: true,
+        status: 'captured',
+        evidence: 'External contribution evidence was attached by the reviewer.',
+        manualEvidenceRequired: false,
       }, {
         kind: 'area_health',
         label: 'Area health',
@@ -450,7 +451,46 @@ describe('FounderAreaPanel covenant presenters', () => {
         evidence: 'Area health has service or staffing issues to review.',
         manualEvidenceRequired: false,
       }],
-    })).toBe('Inputs snapshot · 1 captured · 1 manual · 1 watch')
+    })).toBe('Inputs snapshot · 2 captured · 0 manual · 1 watch · evidence External contribution')
+  })
+
+  test('summarizes operator queue evidence with captured manual proof from the latest review', () => {
+    expect(founderCovenantOperatorQueueEvidenceInputText({
+      reviewInputs: [{
+        kind: 'population_growth',
+        label: 'Population growth',
+        status: 'manual_needed',
+        evidence: 'Invite quality and local population growth need manual proof until invite tracking exists.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'external_contribution',
+        label: 'External contribution',
+        status: 'manual_needed',
+        evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'ideas_feedback',
+        label: 'Ideas and feedback',
+        status: 'manual_needed',
+        evidence: 'Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'review_consistency',
+        label: 'Review consistency',
+        status: 'watch',
+        evidence: 'Weekly/monthly review cadence is due or overdue.',
+        manualEvidenceRequired: false,
+      }],
+      latestReview: {
+        reviewedAt: '2026-07-06T08:00:00.000Z',
+        reviewerId: 'reviewer-1',
+        actionKind: 'record_review',
+        summary: 'Reviewed contribution evidence.',
+        manualEvidenceKinds: ['external_contribution'],
+        evidenceOnly: true,
+        automationEnabled: false,
+      },
+    })).toBe('Captured: External contribution · Manual: Population growth, Ideas and feedback · Watch: Review consistency')
   })
 
   test('summarizes captured covenant stage snapshots', () => {

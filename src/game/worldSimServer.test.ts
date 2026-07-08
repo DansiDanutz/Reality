@@ -1496,6 +1496,7 @@ describe('runWorldServerCommand', () => {
         reviewedAt: reviewAt,
         reviewerId: 'reviewer-1',
         actionKind: 'record_review',
+        manualEvidenceKinds: ['external_contribution'],
         evidenceOnly: true,
         automationEnabled: false,
       },

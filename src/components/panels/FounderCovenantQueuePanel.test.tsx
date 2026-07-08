@@ -44,7 +44,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
-    expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('Evidence: Manual: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -67,6 +67,7 @@ describe('FounderCovenantQueuePanel', () => {
               reviewerId: 'telegram-operator:42424242',
               actionKind: 'record_review',
               summary: 'Reviewed contribution and ideas evidence.',
+              manualEvidenceKinds: ['external_contribution', 'ideas_feedback'],
               evidenceOnly: true,
               automationEnabled: false,
             },
@@ -76,6 +77,7 @@ describe('FounderCovenantQueuePanel', () => {
     )
 
     expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).toContain('Evidence: Captured: External contribution, Ideas and feedback · Manual: Population growth')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
   })
@@ -140,7 +142,7 @@ describe('FounderCovenantQueuePanel', () => {
       'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',
     )
     expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
-      'Population growth, External contribution, Ideas and feedback',
+      'Manual: Population growth, External contribution, Ideas and feedback · Watch: In-game activity, Area health, Review consistency',
     )
     expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
       'Record review evidence-only, Send warning locked',
