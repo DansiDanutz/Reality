@@ -584,6 +584,8 @@ describe('FounderAreaPanel covenant presenters', () => {
         signalWarningCount: 1,
         signalCriticalCount: 1,
         signalFlaggedFounders: 2,
+        evidenceQueuedFounders: 0,
+        evidenceRequiredGaps: 0,
         recordReadyFounders: 0,
         recordReadyWeekly: 0,
         recordReadyMonthly: 0,

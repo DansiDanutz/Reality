@@ -1464,6 +1464,8 @@ describe('runWorldServerCommand', () => {
       signalWarningCount: 3,
       signalCriticalCount: 1,
       signalFlaggedFounders: 2,
+      evidenceQueuedFounders: 2,
+      evidenceRequiredGaps: 6,
       recordReadyFounders: 0,
       recordReadyWeekly: 0,
       recordReadyMonthly: 0,

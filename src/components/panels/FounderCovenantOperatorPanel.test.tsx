@@ -377,7 +377,7 @@ describe('FounderCovenantOperatorPanel', () => {
       },
     })).toBe('Escalation work: 4 approvals · 3 drafts · 2 blockers')
     expect(founderCovenantOperatorQueueEvidenceSummary({
-      items: operatorQueue().items,
+      totals: operatorQueue().totals,
     })).toBe('Evidence: 1 founder queued · 3 gaps · 0 record ready')
     expect(founderCovenantOperatorQueueRecordReadySummary({
       totals: operatorQueue().totals,
@@ -708,6 +708,8 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       signalWarningCount: 1,
       signalCriticalCount: 1,
       signalFlaggedFounders: 1,
+      evidenceQueuedFounders: 1,
+      evidenceRequiredGaps: 3,
       recordReadyFounders: 0,
       recordReadyWeekly: 0,
       recordReadyMonthly: 0,

@@ -846,14 +846,10 @@ export function founderCovenantOperatorQueueWorkloadSummary(
 }
 
 export function founderCovenantOperatorQueueEvidenceSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
 ): string {
-  const evidenceFounders = queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0).length
-  const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
-  const recordReadyFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
-  ).length
-  return `Evidence: ${evidenceFounders} founder${evidenceFounders === 1 ? '' : 's'} queued · ${evidenceGaps} gap${evidenceGaps === 1 ? '' : 's'} · ${recordReadyFounders} record ready`
+  const { totals } = queue
+  return `Evidence: ${totals.evidenceQueuedFounders} founder${totals.evidenceQueuedFounders === 1 ? '' : 's'} queued · ${totals.evidenceRequiredGaps} gap${totals.evidenceRequiredGaps === 1 ? '' : 's'} · ${totals.recordReadyFounders} record ready`
 }
 
 export function founderCovenantOperatorQueueRecordReadySummary(

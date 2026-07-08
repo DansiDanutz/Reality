@@ -325,6 +325,8 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     signalWarningCount: number
     signalCriticalCount: number
     signalFlaggedFounders: number
+    evidenceQueuedFounders: number
+    evidenceRequiredGaps: number
     recordReadyFounders: number
     recordReadyWeekly: number
     recordReadyMonthly: number
@@ -882,6 +884,7 @@ function founderCovenantReviewQueueLatestReview(
 function founderCovenantReviewQueueTotals(
   items: WorldFounderCovenantReviewQueueItem[],
 ): WorldFounderCovenantReviewQueueDashboard['totals'] {
+  const evidenceItems = items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0)
   const recordReadyItems = items.filter((item) => item.reviewReadiness.status === 'ready')
   const monitorItems = items.filter((item) => item.reviewReadiness.status === 'monitoring')
   const overdueCleanupItems = items.filter((item) => item.reviewReadiness.overdue && item.reviewFreshness === 'stale')
@@ -901,6 +904,8 @@ function founderCovenantReviewQueueTotals(
     signalWarningCount: items.reduce((sum, item) => sum + item.signalCounts.warning, 0),
     signalCriticalCount: items.reduce((sum, item) => sum + item.signalCounts.critical, 0),
     signalFlaggedFounders: items.filter((item) => item.signalCounts.warning > 0 || item.signalCounts.critical > 0).length,
+    evidenceQueuedFounders: evidenceItems.length,
+    evidenceRequiredGaps: evidenceItems.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0),
     recordReadyFounders: recordReadyItems.length,
     recordReadyWeekly: recordReadyItems.filter((item) => item.weeklyReviewDue).length,
     recordReadyMonthly: recordReadyItems.filter((item) => item.monthlyReviewDue).length,

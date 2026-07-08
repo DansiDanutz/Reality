@@ -3057,6 +3057,8 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       signalWarningCount: 1,
       signalCriticalCount: 0,
       signalFlaggedFounders: 1,
+      evidenceQueuedFounders: 0,
+      evidenceRequiredGaps: 0,
       recordReadyFounders: 0,
       recordReadyWeekly: 0,
       recordReadyMonthly: 0,

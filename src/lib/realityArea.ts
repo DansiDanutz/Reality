@@ -942,6 +942,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     signalWarningCount: number
     signalCriticalCount: number
     signalFlaggedFounders: number
+    evidenceQueuedFounders: number
+    evidenceRequiredGaps: number
     recordReadyFounders: number
     recordReadyWeekly: number
     recordReadyMonthly: number
@@ -2315,6 +2317,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.signalWarningCount === 'number' &&
     typeof value.signalCriticalCount === 'number' &&
     typeof value.signalFlaggedFounders === 'number' &&
+    typeof value.evidenceQueuedFounders === 'number' &&
+    typeof value.evidenceRequiredGaps === 'number' &&
     typeof value.recordReadyFounders === 'number' &&
     typeof value.recordReadyWeekly === 'number' &&
     typeof value.recordReadyMonthly === 'number' &&

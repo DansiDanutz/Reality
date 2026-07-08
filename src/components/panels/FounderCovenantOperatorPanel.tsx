@@ -1359,11 +1359,11 @@ export default function FounderCovenantOperatorPanel({
               <strong>{cadenceReady?.monthly ?? 0}</strong>
             </span>
             <span
-              className={`founder-ledger-chip ${queue.items.some((item) => item.reviewReadiness.evidenceRequiredCount > 0) ? 'warning' : 'stable'}`}
+              className={`founder-ledger-chip ${queue.totals.evidenceQueuedFounders > 0 ? 'warning' : 'stable'}`}
               title={founderCovenantOperatorQueueEvidenceSummary(queue)}
             >
               <span>Evidence</span>
-              <strong>{queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)}</strong>
+              <strong>{queue.totals.evidenceRequiredGaps}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
