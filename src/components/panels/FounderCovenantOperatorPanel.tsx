@@ -13,6 +13,10 @@ import {
   type RealityFounderCovenantReviewQueueDashboard,
   type RealityFounderCovenantReviewQueueResult,
 } from '../../lib/realityArea'
+import {
+  founderCovenantOperatorQueueRefreshCursor,
+  founderCovenantOperatorQueueRequest,
+} from './founderCovenantOperatorPanelState'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import type { FounderCovenantOperatorQueueReviewRow } from './founderAreaPanelView'
 
@@ -73,6 +77,7 @@ export default function FounderCovenantOperatorPanel({
   const [reviewNote, setReviewNote] = useState('')
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
+  const [scanCursor, setScanCursor] = useState<string | null>(initialQueue?.cursor ?? null)
   const [panelState, setPanelState] = useState<OperatorQueuePanelState>(() => {
     if (initialQueue) return { status: 'ready', queue: initialQueue }
     if (initialError) return { status: 'error', message: initialError, queue: null }
@@ -147,13 +152,9 @@ export default function FounderCovenantOperatorPanel({
       return
     }
     setPanelState({ status: 'loading', queue })
-    const result = await readQueue({
-      operatorToken,
-      limit,
-      pages,
-      ...(cursor ? { cursor } : {}),
-    })
+    const result = await readQueue(founderCovenantOperatorQueueRequest(operatorToken, limit, pages, cursor))
     if (result.ok) {
+      setScanCursor(cursor)
       setPanelState({ status: 'ready', queue: result.founderCovenantReviewQueue })
     } else {
       setPanelState({ status: 'error', message: result.error, queue })
@@ -162,7 +163,7 @@ export default function FounderCovenantOperatorPanel({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void loadQueue()
+    void loadQueue(null)
   }
 
   const recordOperatorReview = async (row: FounderCovenantOperatorQueueReviewRow) => {
@@ -190,7 +191,14 @@ export default function FounderCovenantOperatorPanel({
       setReviewNote('')
       setReviewEvidenceKinds([])
       setOperatorReviewMessage(`Review evidence recorded for ${row.title}.`)
-      const refreshed = await readQueue({ operatorToken, limit, pages })
+      const refreshed = await readQueue(
+        founderCovenantOperatorQueueRequest(
+          operatorToken,
+          limit,
+          pages,
+          founderCovenantOperatorQueueRefreshCursor(queue),
+        ),
+      )
       if (refreshed.ok) {
         setPanelState({ status: 'ready', queue: refreshed.founderCovenantReviewQueue })
       } else {
@@ -272,6 +280,7 @@ export default function FounderCovenantOperatorPanel({
               setManualOperatorToken('')
               setTelegramOperatorToken('')
               setOperatorAuthState({ status: 'idle' })
+              setScanCursor(null)
               setPanelState({ status: 'idle' })
             }}
             type="button"
@@ -326,6 +335,22 @@ export default function FounderCovenantOperatorPanel({
           <div className="founder-operator-actions">
             <button
               className="btn small ghost"
+              disabled={loading || operatorToken.length === 0}
+              onClick={() => void loadQueue(scanCursor)}
+              type="button"
+            >
+              Refresh page
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading || operatorToken.length === 0 || scanCursor === null}
+              onClick={() => void loadQueue(null)}
+              type="button"
+            >
+              Restart scan
+            </button>
+            <button
+              className="btn small ghost"
               disabled={loading || !queue.nextCursor || operatorToken.length === 0}
               onClick={() => void loadQueue(queue.nextCursor)}
               type="button"
@@ -333,7 +358,11 @@ export default function FounderCovenantOperatorPanel({
               Next page
             </button>
             <span className="item-desc">
-              {queue.nextCursor ? 'More founders available' : 'End of current queue'}
+              {scanCursor
+                ? `Resumed after ${scanCursor}${queue.nextCursor ? ' · more founders available' : ' · end of current queue'}`
+                : queue.nextCursor
+                  ? 'Start of queue · more founders available'
+                  : 'Start of queue · end of current queue'}
             </span>
           </div>
         </>

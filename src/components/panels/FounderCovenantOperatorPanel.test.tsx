@@ -2,6 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
+import {
+  founderCovenantOperatorQueueRefreshCursor,
+  founderCovenantOperatorQueueRequest,
+} from './founderCovenantOperatorPanelState'
 
 describe('FounderCovenantOperatorPanel', () => {
   test('renders an isolated operator queue shell without a loaded token', () => {
@@ -38,8 +42,10 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
     expect(html).toContain('Record evidence')
+    expect(html).toContain('Refresh page')
+    expect(html).toContain('Restart scan')
     expect(html).toContain('Next page')
-    expect(html).toContain('More founders available')
+    expect(html).toContain('Start of queue · more founders available')
     expect(html).not.toContain('operator-token')
   })
 
@@ -78,6 +84,26 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Telegram Mini App session not detected. Manual operator token remains available.')
     expect(html).toContain('Operator token')
     expect(html).toContain('Scan')
+  })
+
+  test('builds queue scan requests without leaking empty cursors and refreshes the current page cursor', () => {
+    expect(founderCovenantOperatorQueueRequest('operator-token', 10, 2)).toEqual({
+      operatorToken: 'operator-token',
+      limit: 10,
+      pages: 2,
+    })
+    expect(founderCovenantOperatorQueueRequest('operator-token', 10, 2, 'page-cursor-2')).toEqual({
+      operatorToken: 'operator-token',
+      limit: 10,
+      pages: 2,
+      cursor: 'page-cursor-2',
+    })
+    expect(founderCovenantOperatorQueueRefreshCursor(null)).toBeNull()
+    expect(founderCovenantOperatorQueueRefreshCursor({
+      ...operatorQueue(),
+      cursor: 'page-cursor-2',
+      nextCursor: 'page-cursor-3',
+    })).toBe('page-cursor-2')
   })
 })
 
