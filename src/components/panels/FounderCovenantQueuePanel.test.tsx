@@ -24,6 +24,7 @@ import {
   founderCovenantOperatorQueueNextActionText,
   founderCovenantOperatorQueueResultAnomalyText,
   founderCovenantOperatorQueueResultText,
+  founderCovenantOperatorQueueFilteredReviewRows,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSignalText,
@@ -70,6 +71,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor review-cursor-1 · next review-cursor-2')
     expect(html).toContain('founder-12: caught up · 1 tx · 2026-07-06 · founder-13: current · 0 tx · 2026-07-06')
     expect(html).toContain('Scan anomalies: none')
+    expect(html).toContain('aria-label="Founder operator queue filters"')
+    expect(html).toContain('Filter: All')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -474,6 +477,30 @@ describe('FounderCovenantQueuePanel', () => {
       'Scan anomalies: founder-12 invalid · founder-13 unavailable',
     )
   })
+
+  test('filters queue rows for manual review, hospitalization, and scan anomalies', () => {
+    expect(founderCovenantOperatorQueueFilteredReviewRows(founderFilterQueue(), 'all').map(founderId)).toEqual([
+      'founder-12',
+      'founder-14',
+      'founder-13',
+    ])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(founderFilterQueue(), 'manual_review').map(founderId)).toEqual([
+      'founder-12',
+    ])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(founderFilterQueue(), 'hospitalized').map(founderId)).toEqual([
+      'founder-12',
+    ])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(founderFilterQueue(), 'scan_anomaly').map(founderId)).toEqual([
+      'founder-14',
+    ])
+  })
+
+  test('renders filtered empty-state messaging when no founders match', () => {
+    const html = renderToStaticMarkup(<FounderCovenantQueuePanel filter="scan_anomaly" queue={founderQueue()} />)
+
+    expect(html).toContain('Filter: Scan')
+    expect(html).toContain('No founders match this filter.')
+  })
 })
 
 function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
@@ -557,6 +584,83 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       transactionsAdded: 0,
     }],
   }
+}
+
+function founderFilterQueue(): RealityFounderCovenantReviewQueueDashboard {
+  const manual = founderQueueItem()
+  const anomaly = founderQueueItem({
+    areaId: 'founder-area-0014',
+    areaLabel: 'Timisoara Founder Block',
+    founderCitizenId: 'founder-14',
+    founderNumber: 14,
+    manualReviewRequired: false,
+    covenantStatus: 'watch',
+    overdue: false,
+    activityReview: {
+      ...manual.activityReview,
+      active: true,
+      useful: true,
+      building: true,
+      staffed: true,
+      hospitalized: false,
+      atRisk: false,
+      score: 79,
+    },
+    economicExposure: {
+      ...manual.economicExposure,
+      outstandingDebt: 0,
+      debtCount: 0,
+      unstaffedBusinessCount: 0,
+      hospitalized: false,
+      insured: true,
+    },
+    signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+    signalKinds: [],
+    blockerCount: 0,
+    scanStatus: 'invalid',
+    transactionsAdded: 0,
+  })
+  const tracked = founderQueueItem({
+    areaId: 'founder-area-0013',
+    areaLabel: 'Cluj Founder Block',
+    founderCitizenId: 'founder-13',
+    founderNumber: 13,
+    manualReviewRequired: false,
+    covenantStatus: 'active',
+    overdue: false,
+    activityReview: {
+      ...manual.activityReview,
+      active: true,
+      useful: true,
+      building: true,
+      staffed: true,
+      hospitalized: false,
+      atRisk: false,
+      score: 91,
+    },
+    economicExposure: {
+      ...manual.economicExposure,
+      outstandingDebt: 0,
+      debtCount: 0,
+      unstaffedBusinessCount: 0,
+      hospitalized: false,
+      insured: true,
+    },
+    signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+    signalKinds: [],
+    blockerCount: 0,
+    scanStatus: 'current',
+    transactionsAdded: 0,
+  })
+
+  return {
+    ...founderQueue(),
+    items: [manual, anomaly, tracked],
+  }
+}
+
+function founderId(row: { founderCitizenId: string }): string {
+  return row.founderCitizenId
 }
 
 function founderQueueItem(

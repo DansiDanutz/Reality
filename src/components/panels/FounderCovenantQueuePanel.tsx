@@ -1,16 +1,19 @@
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import {
+  type FounderCovenantOperatorQueueFilter,
   type FounderCovenantOperatorQueueReviewRow,
+  founderCovenantOperatorQueueFilteredReviewRows,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueResultAnomalyText,
   founderCovenantOperatorQueueResultText,
-  founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueSummary,
   founderCovenantOperatorQueueWindowText,
 } from './founderAreaPanelView'
 
 export interface FounderCovenantQueuePanelProps {
   canRecordReview?: boolean
+  filter?: FounderCovenantOperatorQueueFilter
+  onFilterChange?: (filter: FounderCovenantOperatorQueueFilter) => void
   onRecordReview?: (row: FounderCovenantOperatorQueueReviewRow) => void
   queue: RealityFounderCovenantReviewQueueDashboard
   recordingReviewKey?: string | null
@@ -18,11 +21,13 @@ export interface FounderCovenantQueuePanelProps {
 
 export function FounderCovenantQueuePanel({
   canRecordReview = false,
+  filter = 'all',
+  onFilterChange,
   onRecordReview,
   queue,
   recordingReviewKey = null,
 }: FounderCovenantQueuePanelProps) {
-  const reviewRows = founderCovenantOperatorQueueReviewRows(queue)
+  const reviewRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter)
 
   return (
     <section className="founder-section founder-covenant-operator-queue" aria-label="Founder covenant operator queue">
@@ -45,6 +50,20 @@ export function FounderCovenantQueuePanel({
         <span>{founderCovenantOperatorQueueWindowText(queue)}</span>
         <span>{founderCovenantOperatorQueueResultText(queue)}</span>
         <span>{founderCovenantOperatorQueueResultAnomalyText(queue)}</span>
+      </div>
+      <div className="founder-operator-actions" aria-label="Founder operator queue filters">
+        {FILTER_OPTIONS.map((option) => (
+          <button
+            className="btn small ghost"
+            disabled={filter === option.value}
+            key={option.value}
+            onClick={() => onFilterChange?.(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+        <span className="item-desc">Filter: {FILTER_OPTIONS.find((option) => option.value === filter)?.label ?? 'All'}</span>
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip
@@ -88,7 +107,7 @@ export function FounderCovenantQueuePanel({
         />
       </div>
       {reviewRows.length === 0 ? (
-        <p className="panel-sub">No founders in this review page.</p>
+        <p className="panel-sub">{filter === 'all' ? 'No founders in this review page.' : 'No founders match this filter.'}</p>
       ) : (
         <ul className="item-list founder-covenant-operator-items" aria-label="Founder covenant operator rows">
           {reviewRows.map((row) => (
@@ -163,6 +182,13 @@ export function FounderCovenantQueuePanel({
     </section>
   )
 }
+
+const FILTER_OPTIONS: { value: FounderCovenantOperatorQueueFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'manual_review', label: 'Manual' },
+  { value: 'hospitalized', label: 'Hospital' },
+  { value: 'scan_anomaly', label: 'Scan' },
+]
 
 function QueueTotalChip({
   label,

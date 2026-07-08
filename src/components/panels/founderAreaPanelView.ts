@@ -113,6 +113,7 @@ export interface FounderCovenantScheduleItem {
 }
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
+export type FounderCovenantOperatorQueueFilter = 'all' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
 
 export interface FounderCovenantOperatorQueueReviewRow {
   key: string
@@ -1426,6 +1427,25 @@ export function founderCovenantOperatorQueueReviewRows(
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
     }))
     .sort((a, b) => b.priorityScore - a.priorityScore || a.title.localeCompare(b.title))
+}
+
+export function founderCovenantOperatorQueueFilteredReviewRows(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+): FounderCovenantOperatorQueueReviewRow[] {
+  const items = queue.items.filter((item) => {
+    switch (filter) {
+      case 'all':
+        return true
+      case 'manual_review':
+        return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'hospitalized':
+        return item.activityReview.hospitalized
+      case 'scan_anomaly':
+        return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
+    }
+  })
+  return founderCovenantOperatorQueueReviewRows({ items })
 }
 
 export function founderCovenantOperatorQueueLatestReviewText(

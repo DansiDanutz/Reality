@@ -18,7 +18,7 @@ import {
   founderCovenantOperatorQueueRequest,
 } from './founderCovenantOperatorPanelState'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
-import type { FounderCovenantOperatorQueueReviewRow } from './founderAreaPanelView'
+import type { FounderCovenantOperatorQueueFilter, FounderCovenantOperatorQueueReviewRow } from './founderAreaPanelView'
 
 const OPERATOR_REVIEW_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; label: string }[] = [
   { kind: 'population_growth', label: 'Population' },
@@ -75,6 +75,7 @@ export default function FounderCovenantOperatorPanel({
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
   const [reviewNote, setReviewNote] = useState('')
+  const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>('all')
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
   const [scanCursor, setScanCursor] = useState<string | null>(initialQueue?.cursor ?? null)
@@ -328,6 +329,8 @@ export default function FounderCovenantOperatorPanel({
         <>
           <FounderCovenantQueuePanel
             canRecordReview={operatorToken.length > 0 && !loading && !recordingReviewKey}
+            filter={queueFilter}
+            onFilterChange={setQueueFilter}
             onRecordReview={(row) => void recordOperatorReview(row)}
             queue={queue}
             recordingReviewKey={recordingReviewKey}
