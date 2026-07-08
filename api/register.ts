@@ -46,8 +46,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const verifiedTelegram = typeof telegramInitData === 'string' && telegramInitData.trim().length > 0
-    ? verifyTelegramMiniAppInitData(telegramInitData, process.env.TELEGRAM_BOT_TOKEN)
+  const telegramInitDataInput = readOptionalTelegramInitData(telegramInitData)
+  if (telegramInitDataInput === false) {
+    res.status(400).json({
+      ok: false,
+      error: 'Telegram initData must be a signed Mini App string.',
+      code: 'invalid_telegram_init_data',
+    })
+    return
+  }
+
+  const verifiedTelegram = telegramInitDataInput
+    ? verifyTelegramMiniAppInitData(telegramInitDataInput, process.env.TELEGRAM_BOT_TOKEN)
     : null
   if (verifiedTelegram && !verifiedTelegram.ok) {
     const status = verifiedTelegram.error === 'missing_bot_token' ? 503 : 401
@@ -197,6 +207,13 @@ function citizenRecord(name: string, createdAt: Date, telegram: TelegramRealityA
       telegramLinkedAt: createdAt.toISOString(),
     } : {}),
   }
+}
+
+function readOptionalTelegramInitData(value: unknown): string | null | false {
+  if (value === undefined) return null
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : false
 }
 
 function telegramDisplayName(telegram: Pick<TelegramRealityAccountRecord, 'firstName' | 'lastName' | 'username'>): string {
