@@ -1295,8 +1295,8 @@ export function founderCovenantOperatorQueueItemSummary(
   >>,
 ): string {
   const status = founderCovenantStatusLabel(item.covenantStatus)
-  const review = item.manualReviewRequired ? 'manual review' : 'watch'
-  const base = `${status} · ${review} · ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
+  const reviewMode = founderCovenantOperatorQueueReviewModeText(item)
+  const base = `${status} · ${reviewMode} · ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
   if (
     !item.reviewReadiness ||
     !item.pendingApprovalRequests ||
@@ -1688,6 +1688,21 @@ function founderCovenantOperatorQueueReviewFreshnessLabel(
     case 'stale':
       return 'stale review'
   }
+}
+
+function founderCovenantOperatorQueueReviewModeText(
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    'manualReviewRequired' | 'covenantStatus' | 'reviewFreshness'
+  > & Partial<Pick<RealityFounderCovenantReviewQueueItem, 'weeklyReviewDue' | 'monthlyReviewDue'>>,
+): string {
+  if (item.weeklyReviewDue && item.monthlyReviewDue) return 'weekly+monthly due'
+  if (item.monthlyReviewDue) return 'monthly due'
+  if (item.weeklyReviewDue) return 'weekly due'
+  if (item.manualReviewRequired || item.covenantStatus === 'manual_review') return 'manual queue'
+  if (item.reviewFreshness === 'stale') return 'stale cadence'
+  if (item.reviewFreshness === 'fresh') return 'covered'
+  return 'open'
 }
 
 function founderCovenantOperatorQueueMatchesFilter(

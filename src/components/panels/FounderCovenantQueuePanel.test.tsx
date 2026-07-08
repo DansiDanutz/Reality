@@ -15,6 +15,7 @@ import {
   founderCovenantOperatorQueueTelegramWorkNextSummary,
   founderCovenantOperatorQueueTelegramWorkSummary,
   founderCovenantOperatorQueueItemDateSummary,
+  founderCovenantOperatorQueueItemSummary,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
@@ -95,7 +96,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('<span>Record next</span><strong>0</strong>')
     expect(html).toContain('<span>Monitor next</span><strong>1</strong>')
     expect(html).toContain('#0012 · Bucharest Founder Block')
-    expect(html).toContain('founder-12 · Manual review · manual review · never reviewed · score 35/100 · $350 debt')
+    expect(html).toContain('founder-12 · Manual review · manual queue · never reviewed · score 35/100 · $350 debt')
     expect(html).toContain('1 tx · Attach missing manual evidence')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
@@ -198,6 +199,13 @@ describe('FounderCovenantQueuePanel', () => {
       weeklyReviewDue: true,
       monthlyReviewDue: false,
     })).toBe('caught up · checked 2026-07-06 · last none · weekly due · monthly 2026-08-05')
+    expect(founderCovenantOperatorQueueItemSummary(manual)).toBe(
+      'Manual review · manual queue · never reviewed · score 35/100 · $350 debt · 1 warning · 1 critical · 3 blockers · 1 tx · Attach missing manual evidence',
+    )
+    expect(founderCovenantOperatorQueueItemSummary(withRecordReadyCadenceFounder(manual, {
+      cadence: 'monthly',
+      reviewFreshness: 'fresh',
+    }))).toContain('Watch · weekly+monthly due · fresh review')
     expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
     )
