@@ -114,6 +114,17 @@ describe('telegram Mini App auth', () => {
       .toEqual({ ok: false, error: 'invalid_init_data' })
   })
 
+  test('rejects bot accounts even when the Telegram session is otherwise valid', () => {
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({
+        auth_date: String(NOW_SECONDS),
+        user: JSON.stringify({ id: 9, first_name: 'FounderBot', is_bot: true }),
+      }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'bot_user_not_allowed' })
+  })
+
   test('server handler stays disabled until a bot token is configured', async () => {
     const res = responseRecorder()
     await handler({
@@ -132,6 +143,31 @@ describe('telegram Mini App auth', () => {
       ok: false,
       error: 'Telegram auth is not configured.',
       code: 'missing_bot_token',
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('server handler rejects verified bot accounts as invalid Telegram sessions', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        initData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 7, first_name: 'FounderBot', is_bot: true }),
+        }),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Invalid Telegram session.',
+      code: 'bot_user_not_allowed',
     })
     expect(put).not.toHaveBeenCalled()
   })

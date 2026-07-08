@@ -28,6 +28,7 @@ export type VerifyTelegramMiniAppInitDataError =
   | 'auth_date_expired'
   | 'auth_date_from_future'
   | 'missing_user'
+  | 'bot_user_not_allowed'
   | 'invalid_user'
 
 export type VerifyTelegramMiniAppInitDataResult =
@@ -86,6 +87,7 @@ export function verifyTelegramMiniAppInitData(
   if (!rawUser) return { ok: false, error: 'missing_user' }
   const user = parseTelegramMiniAppUser(rawUser)
   if (!user) return { ok: false, error: 'invalid_user' }
+  if (user.isBot) return { ok: false, error: 'bot_user_not_allowed' }
 
   return {
     ok: true,
