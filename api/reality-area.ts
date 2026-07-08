@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token'
+import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const FOUNDER_STARTER_CREDIT = 200_000

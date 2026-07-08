@@ -3,8 +3,8 @@ import {
   isRealityOperatorTelegramUser,
   realityOperatorQueueTokenClaims,
   signRealityOperatorQueueToken,
-} from './reality-operator-token'
-import { verifyTelegramMiniAppInitData } from './telegram-auth'
+} from './reality-operator-token.js'
+import { verifyTelegramMiniAppInitData } from './telegram-auth.js'
 
 const OPERATOR_QUEUE_TOKEN_TTL_MS = 15 * 60 * 1000
 const OPERATOR_AUTH_REQUEST_FIELDS = new Set(['initData'])
