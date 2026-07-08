@@ -15,7 +15,7 @@ export async function detectLocation(): Promise<SpawnLocation | null> {
   try {
     const res = await fetch('/api/geo')
     const d = (await res.json()) as { ok: boolean; city?: string; country?: string; lat?: number; lng?: number }
-    if (d.ok && Number.isFinite(d.lat) && Number.isFinite(d.lng)) {
+    if (d.ok && isLatitude(d.lat) && isLongitude(d.lng)) {
       return { city: d.city, country: d.country, lat: d.lat!, lng: d.lng! }
     }
   } catch {
@@ -24,11 +24,19 @@ export async function detectLocation(): Promise<SpawnLocation | null> {
   try {
     const res = await fetch('https://ipwho.is/')
     const d = (await res.json()) as { success: boolean; city?: string; country?: string; latitude?: number; longitude?: number }
-    if (d.success && Number.isFinite(d.latitude) && Number.isFinite(d.longitude)) {
+    if (d.success && isLatitude(d.latitude) && isLongitude(d.longitude)) {
       return { city: d.city, country: d.country, lat: d.latitude!, lng: d.longitude! }
     }
   } catch {
     /* offline */
   }
   return null
+}
+
+function isLatitude(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90
+}
+
+function isLongitude(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180
 }
