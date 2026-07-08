@@ -116,6 +116,11 @@ export default function FounderCovenantOperatorPanel({
   const loading = panelState.status === 'loading'
   const operatorToken = manualOperatorToken.trim() || telegramOperatorToken.trim()
 
+  const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
+    setQueueFilter(filter)
+    setQueueSort('coverage')
+  }, [])
+
   const applyOperatorAuthResult = useCallback((result: RealityOperatorQueueAuthResult) => {
     if (result.ok) {
       setTelegramOperatorToken(result.operatorToken)
@@ -431,6 +436,32 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Scan
+            </button>
+          </div>
+          <div className="founder-operator-actions" aria-label="Founder operator coverage presets">
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => applyCoveragePreset('never_reviewed')}
+              type="button"
+            >
+              Cleanup Never
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => applyCoveragePreset('stale_reviewed')}
+              type="button"
+            >
+              Cleanup Stale
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => applyCoveragePreset('fresh_reviewed')}
+              type="button"
+            >
+              Audit Fresh
             </button>
           </div>
           <div className="founder-operator-actions" aria-label="Founder operator queue sort">
