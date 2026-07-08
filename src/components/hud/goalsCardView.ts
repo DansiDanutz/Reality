@@ -87,6 +87,8 @@ export function buildEtaSummary(forecast: ConstructionDayForecast | null): strin
       parts.push(`${forecast.helperTwoHourDays}d with helper`)
       parts.push(`finish day ${forecast.helperTwoHourCompletionLifeDay}`)
       parts.push(`${formatMoney(forecast.helperTwoHourCost)}/helper day`)
+      const credit = helperCreditSummary(forecast.helperTwoHourCommunityCreditValue)
+      if (credit) parts.push(credit)
       parts.push('hire today')
     } else if (forecast.helperTwoHourDays < forecast.playerOnlyDaysAtOneHour) {
       parts.push(`finish day ${forecast.playerOnlyCompletionLifeDay} solo`)
@@ -118,6 +120,8 @@ export function interiorEtaSummary(forecast: BusinessDevelopmentDayForecast | nu
       parts.push(`${forecast.helperTwoHourDays}d with helper`)
       parts.push(`finish day ${forecast.helperTwoHourCompletionLifeDay}`)
       parts.push(`${formatMoney(forecast.helperTwoHourCost)}/helper day`)
+      const credit = helperCreditSummary(forecast.helperTwoHourCommunityCreditValue)
+      if (credit) parts.push(credit)
       if (forecast.budgetRemaining <= 0) {
         parts.push('hire today')
       }
@@ -131,6 +135,11 @@ export function interiorEtaSummary(forecast: BusinessDevelopmentDayForecast | nu
   }
   if (parts.length === 0) return 'Interior ready to finish'
   return `Interior ETA: ${parts.join(' · ')}`
+}
+
+function helperCreditSummary(value: number): string | null {
+  if (value <= 0) return null
+  return `community -${formatMoney(value)}`
 }
 
 export function millionaireEtaSummary(path: MillionairePath): string | null {
