@@ -39,6 +39,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
+    expect(html).toContain('Queue detail: Approvals: Send warning · Drafts: Manual review')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -76,6 +78,7 @@ describe('FounderCovenantQueuePanel', () => {
     )
 
     expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
   })
@@ -147,6 +150,10 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
+    expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
+      reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
+      reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
+    })
   })
 
   test('orders founder covenant review rows by manual triage priority', () => {

@@ -125,6 +125,8 @@ export interface FounderCovenantOperatorQueueReviewRow {
   summary: string
   dateSummary: string
   latestReviewText: string | null
+  reviewQueueSummaryText: string
+  reviewQueueDetailText: string
   activitySignalText: string
   economicExposureText: string
   stageText: string
@@ -1179,6 +1181,8 @@ export function founderCovenantOperatorQueueReviewRows(
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
+      reviewQueueSummaryText: founderCovenantReviewQueueSummary(item.reviewQueue),
+      reviewQueueDetailText: founderCovenantReviewQueueDetailText(item.reviewQueue),
       activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
       economicExposureText: founderCovenantOperatorQueueEconomicExposureText(item),
       stageText: founderCovenantOperatorQueueStageText(item),
