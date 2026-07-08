@@ -43,6 +43,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
     expect(html).toContain('Queue detail: Approvals: Send warning · Drafts: Manual review')
+    expect(html).toContain('Queue status: Evidence only')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -167,6 +168,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
+      reviewQueueStatusText: 'Evidence only',
       approvalBlockerText: 'approval workflow, Telegram delivery',
     })
   })
