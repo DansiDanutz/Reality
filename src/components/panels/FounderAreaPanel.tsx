@@ -959,6 +959,19 @@ export default function FounderAreaPanel() {
                 {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready
               </span>
             </div>
+            {dashboard.jobs.candidates.find((candidate) => candidate.clientPayload) && (
+              <button
+                className="btn small primary"
+                disabled={busy}
+                onClick={() => {
+                  const candidate = dashboard.jobs.candidates.find((item) => item.clientPayload)
+                  if (!candidate?.clientPayload) return
+                  void submitPayload(candidate.clientPayload, `Hired ${candidate.displayName}.`)
+                }}
+              >
+                Hire next
+              </button>
+            )}
             {dashboard.jobs.workersHallRequired && (
               <p className="panel-sub">Build a Workers Hall first. It unlocks AI hiring, then open roles can be filled one by one.</p>
             )}
