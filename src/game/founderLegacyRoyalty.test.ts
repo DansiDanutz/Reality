@@ -134,6 +134,64 @@ describe('founder legacy royalty policy', () => {
     expect(assessment.ledgerDraft).toBeNull()
   })
 
+  test('requires explicit predecessor and successor founder identities before modeling royalties', () => {
+    const assessment = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: ' ',
+      successorCitizenId: 'founder-new',
+      assets: [{
+        id: 'business-water',
+        currentOwnerCitizenId: 'founder-new',
+        createdByCitizenId: '',
+        periodBaseNetRevenue: 1_000,
+      }],
+    })
+
+    expect(assessment.previousFounderCitizenId).toBe('')
+    expect(assessment.eligibleAssets).toEqual([])
+    expect(assessment.excludedAssets).toEqual([{
+      id: 'business-water',
+      reason: 'invalid_founder_identity',
+      excludedNetRevenue: 1_000,
+    }])
+    expect(assessment.totals).toEqual({
+      inheritedBaseNetRevenue: 0,
+      successorUpgradeNetRevenue: 0,
+      excludedNetRevenue: 1_000,
+      modeledRoyaltyAmount: 0,
+    })
+    expect(assessment.ledgerDraft).toBeNull()
+    expect(assessment.blockers).toEqual([
+      'replacement_workflow_disabled',
+      'waitlist_handoff_disabled',
+      'treasury_payout_disabled',
+      'manual_review_required',
+      'compliance_review_required',
+      'previous_founder_required',
+    ])
+  })
+
+  test('does not model a legacy royalty when the successor is the same founder', () => {
+    const assessment = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: 'founder-same',
+      successorCitizenId: 'founder-same',
+      assets: [{
+        id: 'business-food',
+        currentOwnerCitizenId: 'founder-same',
+        createdByCitizenId: 'founder-same',
+        periodBaseNetRevenue: 700,
+      }],
+    })
+
+    expect(assessment.eligibleAssets).toEqual([])
+    expect(assessment.excludedAssets).toEqual([{
+      id: 'business-food',
+      reason: 'invalid_founder_identity',
+      excludedNetRevenue: 700,
+    }])
+    expect(assessment.ledgerDraft).toBeNull()
+    expect(assessment.blockers).toContain('successor_must_be_distinct')
+  })
+
   test('normalizes invalid money and royalty rates without creating executable drafts', () => {
     const assessment = assessFounderLegacyRoyalty({
       previousFounderCitizenId: 'founder-old',
