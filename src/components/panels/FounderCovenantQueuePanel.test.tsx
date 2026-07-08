@@ -68,6 +68,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('<span>At risk</span><strong>1</strong>')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · never reviewed · score 35/100 · $350 debt')
+    expect(html).toContain('1 tx · Attach missing manual evidence')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -324,6 +325,7 @@ describe('FounderCovenantQueuePanel', () => {
     })).toBe('Recommended next: clear overdue founder reviews')
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
+    expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]?.summary).toContain('Attach missing manual evidence')
   })
 
   test('orders founder covenant review rows by manual triage priority', () => {

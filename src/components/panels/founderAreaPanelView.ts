@@ -852,11 +852,24 @@ export function founderCovenantOperatorQueueItemSummary(
     | 'signalCounts'
     | 'blockerCount'
     | 'transactionsAdded'
-  >,
+  > & Partial<Pick<
+    RealityFounderCovenantReviewQueueItem,
+    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions'
+  >>,
 ): string {
   const status = founderCovenantStatusLabel(item.covenantStatus)
   const review = item.manualReviewRequired ? 'manual review' : 'watch'
-  return `${status} · ${review} · ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
+  const base = `${status} · ${review} · ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
+  if (!item.reviewReadiness || !item.pendingApprovalRequests || item.overdue === undefined || !item.manualActions) {
+    return base
+  }
+  const recommended = founderCovenantOperatorQueueRecommendedNextText({
+    reviewReadiness: item.reviewReadiness,
+    pendingApprovalRequests: item.pendingApprovalRequests,
+    overdue: item.overdue,
+    manualActions: item.manualActions,
+  })
+  return `${base} · ${recommended}`
 }
 
 export function founderCovenantOperatorQueueItemTitle(
