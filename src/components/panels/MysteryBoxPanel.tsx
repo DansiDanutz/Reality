@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { formatMoney } from '../../game/engine'
 import { boxEV, MYSTERY_BOXES, type BoxTier } from '../../game/mysteryBox'
 import { useGame } from '../../store/gameStore'
+import { MysteryBoxRevealOverlay } from './MysteryBoxRevealOverlay'
 
 /**
  * Mystery Boxes — the gacha "just one more" loop.
@@ -17,8 +18,6 @@ import { useGame } from '../../store/gameStore'
  * more." The jackpot on a first box hooks them for life.
  */
 const TIERS: BoxTier[] = ['standard', 'premium', 'legendary']
-const RARITY_LABEL: Record<string, string> = { dud: 'Common', common: 'Good', rare: 'Rare!', jackpot: 'JACKPOT!' }
-const RARITY_TONE: Record<string, string> = { dud: 'common', common: 'common', rare: 'rare', jackpot: 'jackpot' }
 
 export default function MysteryBoxPanel() {
   const money = useGame((s) => s.money)
@@ -26,15 +25,15 @@ export default function MysteryBoxPanel() {
   const lastReward = useGame((s) => s.lastBoxReward)
   const clearBoxReward = useGame((s) => s.clearBoxReward)
   const boxesOpened = useGame((s) => s.mysteryBoxesOpened)
-  const [opening, setOpening] = useState(false)
+  const [revealed, setRevealed] = useState(false)
 
   // The reveal: when openMysteryBox fires, show a brief "opening" animation
   // (~1s of box shaking), then reveal the reward. Clearing the store at the
   // end means a panel remount has nothing to replay.
   useEffect(() => {
     if (!lastReward) return
-    setOpening(true)
-    const revealTimer = setTimeout(() => setOpening(false), 1_000)
+    setRevealed(false)
+    const revealTimer = setTimeout(() => setRevealed(true), 1_000)
     const clearTimer = setTimeout(() => {
       clearBoxReward()
     }, 2_700)
@@ -61,26 +60,7 @@ export default function MysteryBoxPanel() {
       {/* Reveal animation overlay — portaled to <body>: it's position:fixed,
           and the drawer's backdrop-filter would otherwise clip it. */}
       {lastReward && createPortal(
-        <div className={`box-reveal box-reveal-${RARITY_TONE[lastReward.rarity]}`} role="alert" aria-live="assertive">
-          <div className="box-reveal-card">
-            <span className={`box-reveal-icon ${opening ? 'shaking' : ''}`}>{MYSTERY_BOXES[lastReward.tier].emoji}</span>
-            {opening ? (
-              <>
-                <span className="box-reveal-rarity">Opening...</span>
-                <span className="box-reveal-label muted">Hold on</span>
-              </>
-            ) : (
-              <>
-                <span className="box-reveal-rarity">{RARITY_LABEL[lastReward.rarity]}</span>
-                <span className="box-reveal-label">{lastReward.label}</span>
-                <span className="box-reveal-reward mono">
-                  +{formatMoney(lastReward.cash)} · +{lastReward.xp} XP
-                </span>
-                <span className="box-reveal-icon-big">{lastReward.icon}</span>
-              </>
-            )}
-          </div>
-        </div>,
+        <MysteryBoxRevealOverlay revealed={revealed} reward={lastReward} />,
         document.body,
       )}
 
