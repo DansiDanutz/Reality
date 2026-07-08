@@ -1294,6 +1294,106 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(start.citizens[0].debt).toBe(300)
   })
 
+  test('repayDebt intent normalizes requested debt ids before lookup', () => {
+    const start = area({
+      now: 2 * HOUR,
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 300,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 300,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to clinic1.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: ' debt1 ',
+      amount: 120,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected debt repayment to succeed')
+    expect(result.area.citizens[0].money).toBe(80)
+    expect(result.area.citizens[0].debt).toBe(180)
+    expect(result.area.citizens[0].debts).toMatchObject([{ id: 'debt1', amount: 180 }])
+    expect(result.area.businesses[0].cash).toBe(170)
+  })
+
+  test('repayDebt intent matches trimmed imported debt ids without rewriting them', () => {
+    const start = area({
+      now: 2 * HOUR,
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 300,
+        debts: [{
+          id: ' debt1 ',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 300,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to clinic1.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 120,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected debt repayment to succeed')
+    expect(result.area.citizens[0].money).toBe(80)
+    expect(result.area.citizens[0].debt).toBe(180)
+    expect(result.area.citizens[0].debts).toMatchObject([{ id: ' debt1 ', amount: 180 }])
+    expect(result.area.businesses[0].cash).toBe(170)
+    expect(start.citizens[0].debts?.[0]?.id).toBe(' debt1 ')
+  })
+
+  test('repayDebt intent rejects blank normalized debt ids without moving money', () => {
+    const start = area({
+      now: 2 * HOUR,
+      citizens: [sim('c1', {
+        money: 200,
+        debt: 300,
+        debts: [{
+          id: '   ',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 300,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to clinic1.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 50 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: '   ',
+      amount: 120,
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'debt_not_found' })
+    expect(result.area.citizens[0].money).toBe(200)
+    expect(result.area.citizens[0].debt).toBe(300)
+    expect(result.area.citizens[0].debts).toMatchObject([{ id: '   ', amount: 300 }])
+    expect(result.area.businesses[0].cash).toBe(50)
+    expect(result.area.transactions).toEqual([])
+  })
+
   test('repayDebt intent caps overpayment at the debt balance and removes cleared lines', () => {
     const start = area({
       citizens: [sim('c1', {
