@@ -307,6 +307,27 @@ function cashGapDetail(costLabel: string, cost: number, money: number, purpose: 
   return `${costLabel} costs ${moneyText(cost)} plus ${moneyText(CASH_SAFETY_FLOOR)} safety cash. You have ${moneyText(money)}, so earn ${moneyText(needed)} before ${purpose}.`
 }
 
+function minutesText(minutes: number): string {
+  const whole = Math.max(0, Math.ceil(minutes))
+  const h = Math.floor(whole / 60)
+  const m = whole % 60
+  if (h <= 0) return `${m}m`
+  if (m <= 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
+function workerHireDetail(input: {
+  ratePerHour: number
+  cost: number
+  hours: number
+  laborMinutes: number
+  remainingMinutes: number
+  place: 'site' | 'interior'
+}): string {
+  const placeText = input.place === 'interior' ? 'inside' : 'on site'
+  return `Workers Hall help costs ${moneyText(input.cost)} total for ${input.hours}h (${moneyText(input.ratePerHour)}/hour) and adds ${minutesText(input.laborMinutes)} ${placeText} against ${minutesText(input.remainingMinutes)} remaining.`
+}
+
 function activeWorkerLaborRemaining(
   remainingLaborMinutes: number,
   contracts: { paidMinutes: number; workedMinutes: number; laborMultiplier: number }[] = [],
@@ -421,7 +442,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       return task(
         isBusinessBuild ? 'monitor-business-building-worker-finish' : 'monitor-house-worker-finish',
         isBusinessBuild ? `Let the helper finish ${project.name}` : 'Let the helper finish the house',
-        `Paid Workers Hall time can cover the remaining ${labor.remainingMinutes}m. Check the site and finish when the worker ledger turns ready.`,
+        `Paid Workers Hall time can cover the remaining ${minutesText(labor.remainingMinutes)}. Check the site and finish when the worker ledger turns ready.`,
         'capital',
         { kind: 'panel', panel: 'construction' },
         5,
@@ -432,7 +453,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       return task(
         isBusinessBuild ? 'build-business-building-with-worker-hour' : 'build-house-with-worker-hour',
         isBusinessBuild ? `Work beside the helper on ${project.name}` : 'Work beside the house helper',
-        `A Workers Hall helper is already paid and active. Use your free hour to build alongside them instead of hiring again.`,
+        `A Workers Hall helper is already paid and active. Add 1h yourself while they continue; ${minutesText(labor.remainingMinutes)} remains before this hour.`,
         'capital',
         { kind: 'construction-action', projectId: project.id, action: 'work' },
         60,
@@ -443,7 +464,14 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       return task(
         isBusinessBuild ? 'hire-business-building-worker-hour' : 'hire-house-worker-hour',
         isBusinessBuild ? `Hire ${helperEstimate.hours}h helper for ${project.name}` : `Hire ${helperEstimate.hours}h helper for the house`,
-        `Workers Hall help costs $${helperEstimate.worker.ratePerHour}/hour and adds ${helperEstimate.laborMinutes}m of labor while your day stays balanced.`,
+        workerHireDetail({
+          ratePerHour: helperEstimate.worker.ratePerHour,
+          cost: helperEstimate.cost,
+          hours: helperEstimate.hours,
+          laborMinutes: helperEstimate.laborMinutes,
+          remainingMinutes: labor.remainingMinutes,
+          place: 'site',
+        }),
         'capital',
         { kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: helperEstimate.hours },
         5,
@@ -452,7 +480,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
     return task(
       isBusinessBuild ? 'build-business-building-hour' : 'build-house-hour',
       isBusinessBuild ? `Work 60m on ${project.name}` : 'Work 60m on your house',
-      `Use free time after work and body care to move the ${target} forward.`,
+      `Use free time after work and body care to add 1h yourself; ${minutesText(labor.remainingMinutes)} remains before this hour.`,
       'capital',
       { kind: 'construction-action', projectId: project.id, action: 'work' },
       60,
@@ -558,7 +586,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
         return task(
           'monitor-business-worker-finish',
           `Let the helper finish ${project.businessName}`,
-          `Paid Workers Hall time can cover the remaining ${labor.remainingMinutes}m inside. Check the business and finish when the worker ledger turns ready.`,
+          `Paid Workers Hall time can cover the remaining ${minutesText(labor.remainingMinutes)} inside. Check the business and finish when the worker ledger turns ready.`,
           'capital',
           { kind: 'panel', panel: 'business' },
           5,
@@ -566,20 +594,27 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       }
       const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
       if (activeWorkers.length > 0) {
-        return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, 'A Workers Hall helper is already paid and active. Use your free hour to push the interior forward with them.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
+        return task('develop-business-with-worker-hour', `Work beside the helper inside ${project.businessName}`, `A Workers Hall helper is already paid and active. Add 1h inside while they continue; ${minutesText(labor.remainingMinutes)} remains before this hour.`, 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
       }
       const helperEstimate = affordableBusinessHelperEstimate(project, snapshot.money, communityHelperCreditMinutes(snapshot))
       if (helperEstimate) {
         return task(
           'hire-business-worker-hour',
           `Hire ${helperEstimate.hours}h worker for ${project.businessName}`,
-          `Workers Hall help costs $${helperEstimate.worker.ratePerHour}/hour and adds ${helperEstimate.laborMinutes}m inside while your own day stays balanced.`,
+          workerHireDetail({
+            ratePerHour: helperEstimate.worker.ratePerHour,
+            cost: helperEstimate.cost,
+            hours: helperEstimate.hours,
+            laborMinutes: helperEstimate.laborMinutes,
+            remainingMinutes: labor.remainingMinutes,
+            place: 'interior',
+          }),
           'capital',
           { kind: 'business-development-action', projectId: project.id, action: 'hire-helper', hours: helperEstimate.hours },
           5,
         )
       }
-      return task('develop-business-hour', `Work 60m inside ${project.businessName}`, 'Use free time after work and body care to build the business from the inside.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
+      return task('develop-business-hour', `Work 60m inside ${project.businessName}`, `Use free time after work and body care to add 1h inside; ${minutesText(labor.remainingMinutes)} remains before this hour.`, 'capital', { kind: 'business-development-action', projectId: project.id, action: 'work' }, 60)
     }
     return task('finish-business-development', `Finish ${project.businessName} L${project.levelTo}`, 'Materials, budget, and labor are ready. Make the interior upgrade permanent.', 'capital', { kind: 'business-development-action', projectId: project.id, action: 'complete' }, 10)
   }

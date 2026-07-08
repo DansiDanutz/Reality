@@ -776,7 +776,7 @@ describe('planLifeDay', () => {
     const workerPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [readyForLabor] }))
     expect(workerPlan.primary.id).toBe('hire-house-worker-hour')
     expect(workerPlan.primary.title).toBe('Hire 2h helper for the house')
-    expect(workerPlan.primary.detail).toContain('$16/hour')
+    expect(workerPlan.primary.detail).toBe('Workers Hall help costs $32 total for 2h ($16/hour) and adds 2h on site against 8h remaining.')
     expect(workerPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 2 })
     expect(workerPlan.agenda[0].id).toBe('hire-house-worker-hour')
     expect(workerPlan.agenda.map((item) => item.id)).toContain('support-body')
@@ -795,6 +795,7 @@ describe('planLifeDay', () => {
       }],
     }))
     expect(finalHourPlan.primary.title).toBe('Hire 1h helper for the house')
+    expect(finalHourPlan.primary.detail).toBe('Workers Hall help costs $16 total for 1h ($16/hour) and adds 1h on site against 1h remaining.')
     expect(finalHourPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 1 })
 
     const oneHourBudgetPlan = planLifeDay(snap({
@@ -805,10 +806,12 @@ describe('planLifeDay', () => {
       constructionProjects: [readyForLabor],
     }))
     expect(oneHourBudgetPlan.primary.title).toBe('Hire 1h helper for the house')
+    expect(oneHourBudgetPlan.primary.detail).toBe('Workers Hall help costs $16 total for 1h ($16/hour) and adds 1h on site against 8h remaining.')
     expect(oneHourBudgetPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 1 })
 
     const selfLaborPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 100, constructionProjects: [readyForLabor] }))
     expect(selfLaborPlan.primary.id).toBe('build-house-hour')
+    expect(selfLaborPlan.primary.detail).toBe('Use free time after work and body care to add 1h yourself; 8h remains before this hour.')
     expect(selfLaborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-house-hour',
@@ -832,7 +835,7 @@ describe('planLifeDay', () => {
     }
     const activeWorkerPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [withActiveWorker] }))
     expect(activeWorkerPlan.primary.id).toBe('build-house-with-worker-hour')
-    expect(activeWorkerPlan.primary.detail).toContain('already paid and active')
+    expect(activeWorkerPlan.primary.detail).toBe('A Workers Hall helper is already paid and active. Add 1h yourself while they continue; 8h remains before this hour.')
     expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-house-with-worker-hour',
@@ -858,7 +861,7 @@ describe('planLifeDay', () => {
     }
     const workerFinishPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [activeWorkerCanFinish] }))
     expect(workerFinishPlan.primary.id).toBe('monitor-house-worker-finish')
-    expect(workerFinishPlan.primary.detail).toContain('remaining 50m')
+    expect(workerFinishPlan.primary.detail).toBe('Paid Workers Hall time can cover the remaining 50m. Check the site and finish when the worker ledger turns ready.')
     expect(workerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
     expect(workerFinishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'panel', panel: 'construction' },
@@ -935,6 +938,7 @@ describe('planLifeDay', () => {
     const laborPlan = planLifeDay(snap({ ...base, constructionProjects: [readyForLabor] }))
     expect(laborPlan.primary.id).toBe('hire-business-building-worker-hour')
     expect(laborPlan.primary.title).toBe('Hire 2h helper for Food Cart')
+    expect(laborPlan.primary.detail).toBe('Workers Hall help costs $32 total for 2h ($16/hour) and adds 2h on site against 8h remaining.')
     expect(laborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 2 },
       taskId: 'hire-business-building-worker-hour',
@@ -942,6 +946,7 @@ describe('planLifeDay', () => {
 
     const cashTightLaborPlan = planLifeDay(snap({ ...base, money: 100, constructionProjects: [readyForLabor] }))
     expect(cashTightLaborPlan.primary.id).toBe('build-business-building-hour')
+    expect(cashTightLaborPlan.primary.detail).toBe('Use free time after work and body care to add 1h yourself; 8h remains before this hour.')
     expect(cashTightLaborPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'construction-action', projectId: project.id, action: 'work' },
       taskId: 'build-business-building-hour',
@@ -1006,6 +1011,7 @@ describe('planLifeDay', () => {
     const hirePlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [laborReady] }))
     expect(hirePlan.primary.id).toBe('hire-business-worker-hour')
     expect(hirePlan.primary.title).toBe('Hire 2h worker for Food Cart')
+    expect(hirePlan.primary.detail).toBe('Workers Hall help costs $32 total for 2h ($16/hour) and adds 2h inside against 2h 30m remaining.')
     expect(hirePlan.primary.route).toEqual({ kind: 'business-development-action', projectId: laborReady.id, action: 'hire-helper', hours: 2 })
     expect(hirePlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'business-development-action', projectId: laborReady.id, action: 'hire-helper', hours: 2 },
@@ -1031,7 +1037,7 @@ describe('planLifeDay', () => {
     })
     const activeWorkerPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [withActiveWorker] }))
     expect(activeWorkerPlan.primary.id).toBe('develop-business-with-worker-hour')
-    expect(activeWorkerPlan.primary.detail).toContain('already paid and active')
+    expect(activeWorkerPlan.primary.detail).toBe('A Workers Hall helper is already paid and active. Add 1h inside while they continue; 2h 30m remains before this hour.')
     expect(activeWorkerPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'business-development-action', projectId: withActiveWorker.id, action: 'work' },
       taskId: 'develop-business-with-worker-hour',
@@ -1058,7 +1064,7 @@ describe('planLifeDay', () => {
     })
     const interiorWorkerFinishPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [activeInteriorWorkerCanFinish] }))
     expect(interiorWorkerFinishPlan.primary.id).toBe('monitor-business-worker-finish')
-    expect(interiorWorkerFinishPlan.primary.detail).toContain('remaining 45m')
+    expect(interiorWorkerFinishPlan.primary.detail).toBe('Paid Workers Hall time can cover the remaining 45m inside. Check the business and finish when the worker ledger turns ready.')
     expect(interiorWorkerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
     expect(interiorWorkerFinishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       route: { kind: 'panel', panel: 'business' },
@@ -1067,6 +1073,7 @@ describe('planLifeDay', () => {
 
     const selfWorkPlan = planLifeDay(snap({ ...base, money: 100, businessDevelopmentProjects: [laborReady] }))
     expect(selfWorkPlan.primary.id).toBe('develop-business-hour')
+    expect(selfWorkPlan.primary.detail).toBe('Use free time after work and body care to add 1h inside; 2h 30m remains before this hour.')
     expect(selfWorkPlan.primary.route).toEqual({ kind: 'business-development-action', projectId: laborReady.id, action: 'work' })
 
     const completeReady = businessProject({
