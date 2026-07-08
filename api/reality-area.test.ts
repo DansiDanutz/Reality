@@ -339,6 +339,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       payoutEligibility: 'payout_eligible',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      clientMemo: 'please attach my area to this private note',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -362,6 +366,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeBuildBusinessIntent({
       type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      estimatedProfit: 999_999,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
       businessKind: 'luxury',
       businessId: 'water-1',
     })).toEqual({ ok: false, error: 'invalid_business_kind' })
@@ -379,6 +389,8 @@ describe('reality area authority API', () => {
       serviceKind: 'water',
     })
     expect(normalizeServicePurchaseIntent({ type: 'buyFood', price: 0 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeServicePurchaseIntent({ type: 'buyWater', serviceBusinessId: 'water-1' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeServicePurchaseIntent({ type: 'buyInsurance' }))
       .toEqual({ ok: false, error: 'unsupported_intent' })
@@ -404,6 +416,11 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeBuyInsuranceIntent({
       type: 'buyInsurance',
+      insuranceBusinessId: 'insurance-1',
+      policyLimit: 1_000_000,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
       insuranceBusinessId: '../insurance',
     })).toEqual({ ok: false, error: 'invalid_business_id' })
   })
@@ -426,6 +443,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeHireWorkerIntent({
       type: 'hireWorker',
+      businessId: 'water-1',
+      workerCitizenId: 'sim-worker-1',
+      shiftId: 'night-shift',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeHireWorkerIntent({
+      type: 'hireWorker',
       businessId: '../water',
       workerCitizenId: 'sim-worker-1',
     })).toEqual({ ok: false, error: 'invalid_business_id' })
@@ -436,6 +459,8 @@ describe('reality area authority API', () => {
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', cash: 999 }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', hours: 24 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeAdvanceHourIntent({ type: 'advanceHour', note: 'advance five hours please' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
@@ -517,6 +542,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRepayDebtIntent({
       type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120,
+      memo: 'client-picked repayment memo',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
       debtId: '../debt',
       amount: 120,
     })).toEqual({ ok: false, error: 'invalid_debt_id' })
@@ -554,6 +585,12 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       note: 'Looks good.',
       reviewerId: 'spoofed-reviewer',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Looks good.',
+      clientMemo: 'only the server decides review metadata',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
@@ -906,7 +943,7 @@ describe('reality area authority API', () => {
       actions: [{
         warning: 'water',
         intent: 'buyWater',
-        clientPayload: { type: 'buyWater' },
+        clientPayload: null,
         serviceKind: 'water',
         available: false,
         lowestPrice: null,
@@ -953,6 +990,11 @@ describe('reality area authority API', () => {
     })
     expect(dashboard.founderCovenant.signals).toEqual(expect.arrayContaining([
       {
+        kind: 'stale_founder_activity',
+        severity: 'warning',
+        message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
+      },
+      {
         kind: 'review_due',
         severity: 'warning',
         message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
@@ -982,6 +1024,53 @@ describe('reality area authority API', () => {
         blockers: ['approval_workflow_disabled', 'probation_execution_disabled'],
       }),
     ])
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('GET suppresses stale founder activity when recent server-owned business activity exists', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T04:00:00.000Z'))
+    const withWater = withBusiness({
+      ...existingState(),
+      updatedAt: '2026-07-14T04:00:00.000Z',
+    }, {
+      id: 'water-recent',
+      name: 'Recent Water',
+      kind: 'water',
+      price: 2,
+      cash: 12,
+    })
+    const existing = {
+      ...withWater,
+      transactions: [...withWater.transactions, {
+        id: 'founder-area-0012:1783999800000:recent-water-sale',
+        at: '2026-07-14T03:30:00.000Z',
+        kind: 'customer_purchase',
+        payoutEligibility: 'game_only',
+        fromId: 'founder-area-0012:sim-water',
+        toId: 'water-recent',
+        amount: 2,
+        memo: 'Demo Water Resident bought water from Recent Water.',
+      }],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recent-activity-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const dashboard = (res.body as { dashboard: ReturnType<typeof serverDashboard> }).dashboard
+    expect(dashboard.founderCovenant.reviewSchedule.overdue).toBe(true)
+    expect(dashboard.founderCovenant.signals.map((signal) => signal.kind)).not.toContain('stale_founder_activity')
+    expect(dashboard.founderCovenant.signals).toEqual(expect.arrayContaining([{
+      kind: 'review_due',
+      severity: 'warning',
+      message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+    }]))
+    expect(dashboard.founderCovenant.reviewQueue.executionEnabled).toBe(false)
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -1370,6 +1459,20 @@ describe('reality area authority API', () => {
             amount: 125,
             issuedAt: '2026-07-06T02:30:00.000Z',
             memo: 'Founder owes hospital debt.',
+          }, {
+            id: 'settled-medical-debt',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: 0,
+            issuedAt: '2026-07-05T02:30:00.000Z',
+            memo: 'Settled founder hospital debt.',
+          }, {
+            id: 'void-medical-debt',
+            kind: 'medical',
+            creditorId: 'system:hospital',
+            amount: -50,
+            issuedAt: '2026-07-05T03:30:00.000Z',
+            memo: 'Voided founder hospital debt.',
           }],
         },
         ...built.citizens.slice(1),
@@ -1905,6 +2008,7 @@ describe('reality area authority API', () => {
       actions: [{
         warning: 'water',
         intent: 'buyWater',
+        clientPayload: { type: 'buyWater' },
         serviceKind: 'water',
         available: true,
         lowestPrice: 2,
@@ -1990,7 +2094,7 @@ describe('reality area authority API', () => {
       issuedAt: '2026-07-06T07:00:00.000Z',
       memo: 'Founder #0012 owes medical debt to system:hospital.',
       repaymentIntent: 'repayDebt',
-      clientPayload: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 50 },
+      clientPayload: null,
       recommendedPayment: 50,
       maxAffordablePayment: 50,
       canRepayNow: false,
@@ -2175,6 +2279,36 @@ describe('reality area authority API', () => {
       ok: false,
       code: 'business_saturated',
     })
+  })
+
+  test('buildBusiness rejects drifted founder money even when area balance can pay', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const driftedFounderState = withCitizen({ ...existingState(), updatedAt: '2026-07-06T03:30:00.000Z' }, CITIZEN_ID, {
+      money: 1,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-build-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'water',
+          businessId: 'water-1',
+          name: 'Founder Water',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(402)
+    expect(res.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('buildBusiness unlocks another same-kind license as active population grows', async () => {
@@ -2394,6 +2528,43 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('service purchases require usable provider capacity', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      health: 55,
+    })
+    const existing = withBusiness({ ...fragileFounder, updatedAt: '2026-07-06T05:00:00.000Z' }, {
+      id: 'clinic-1',
+      name: 'Exhausted Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 5,
+      quality: 0.15,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://zero-capacity-clinic-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'visitClinic' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    const body = res.body as { ok: false; state: ReturnType<typeof withBusiness> }
+    expect(body).toMatchObject({ ok: false, code: 'service_not_available' })
+    expect(body.state.businesses[0]).toMatchObject({ id: 'clinic-1', cash: 5, quality: 0.15 })
+    expect(body.state.transactions.some((transaction) => transaction.kind === 'customer_purchase')).toBe(false)
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('service purchases catch up stale area state and reject a hospitalized founder', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
@@ -2488,7 +2659,7 @@ describe('reality area authority API', () => {
     expect(unavailable.statusCode).toBe(409)
     expect(unavailable.body).toMatchObject({ ok: false, code: 'service_not_available' })
 
-    const brokeState = withBusiness({ ...existingState(), balance: 1 }, {
+    const brokeState = withBusiness({ ...existingState(), balance: 1, updatedAt: '2026-07-06T08:00:00.000Z' }, {
       id: 'water-1',
       name: 'Founder Water',
       kind: 'water',
@@ -2512,6 +2683,34 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const driftedFounderState = withBusiness(
+      withCitizen({ ...existingState(), updatedAt: '2026-07-06T08:00:00.000Z' }, CITIZEN_ID, { money: 1 }),
+      {
+        id: 'water-1',
+        name: 'Founder Water',
+        kind: 'water',
+        price: 2,
+        cash: 0,
+      },
+    )
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-service-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
+    const driftedFounder = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyWater' },
+      },
+    } as never, driftedFounder as never)
+
+    expect(driftedFounder.statusCode).toBe(402)
+    expect(driftedFounder.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
 
     const hospitalizedState = withBusiness(withCitizen(existingState(), CITIZEN_ID, {
       state: { kind: 'hospitalized', until: '2026-07-06T15:00:00.000Z' },
@@ -2835,6 +3034,28 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('tickAreas returns structured storage failure when area listing is unavailable', async () => {
+    vi.mocked(list).mockRejectedValueOnce(new Error('blob list failed'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        intent: { type: 'tickAreas', limit: 1 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'area_list_unavailable',
+      error: 'Server clock could not list Reality areas.',
+    })
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas scans area blobs and persists caught-up server-clock state', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
@@ -2912,6 +3133,88 @@ describe('reality area authority API', () => {
       toId: 'system:hospital',
       amount: 350,
     })
+  })
+
+  test('tickAreas reports failure reasons for invalid and unavailable area ticks', async () => {
+    vi.mocked(list).mockResolvedValueOnce({
+      blobs: [
+        { pathname: 'reality-areas/not-a-citizen.txt', downloadUrl: 'blob://bad-path' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: '' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://invalid-state' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://not-ok' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://throws' },
+      ],
+      hasMore: false,
+    })
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+      const url = String(input)
+      if (url === 'blob://invalid-state') {
+        return new Response(JSON.stringify({ areaId: 'wrong-area' }), { status: 200 })
+      }
+      if (url === 'blob://not-ok') return new Response('offline', { status: 503 })
+      throw new Error('network unavailable')
+    }))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '5' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        scanned: 5,
+        caughtUp: 0,
+        current: 0,
+        failed: 5,
+        results: [
+          {
+            citizenId: null,
+            areaId: null,
+            status: 'invalid',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'invalid_area_path',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'invalid',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'missing_download_url',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'invalid',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'invalid_area_state',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'unavailable',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'area_fetch_unavailable',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'unavailable',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'area_fetch_failed',
+          },
+        ],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('tickAreas accepts cron-style GET with bearer server-clock authority', async () => {
@@ -3317,6 +3620,48 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('operator founder covenant review returns a structured storage failure when accepted evidence cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://operator-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          note: 'Weekly operator evidence reviewed.',
+          evidenceKinds: ['external_contribution', 'ideas_feedback'],
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        areaId: 'founder-area-0012',
+      },
+    })
+    expect((res.body as { state: { founderReviewHistory?: unknown[] } }).state.founderReviewHistory ?? []).toHaveLength(0)
+    expect((res.body as { state: { transactions: unknown[] } }).state.transactions).toHaveLength(existing.transactions.length)
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('operator founder covenant review rejects disabled enforcement actions before loading areas', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
@@ -3421,6 +3766,20 @@ describe('reality area authority API', () => {
         amount: 120,
         issuedAt: '2026-07-13T08:00:00.000Z',
         memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }, {
+        id: 'founder-settled-review-debt',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 0,
+        issuedAt: '2026-07-12T08:00:00.000Z',
+        memo: 'Founder #0012 settled this medical debt.',
+      }, {
+        id: 'founder-void-review-debt',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: -25,
+        issuedAt: '2026-07-12T09:00:00.000Z',
+        memo: 'Founder #0012 voided this medical debt.',
       }],
     })
     const stale = {
@@ -3448,6 +3807,15 @@ describe('reality area authority API', () => {
             automationEnabled: boolean
             executionEnabled: boolean
             recommendedActionKinds: string[]
+          }
+          reviewSchedule: {
+            lastReviewAt: string | null
+            nextWeeklyReviewAt: string
+            nextMonthlyReviewAt: string
+            weeklyReviewDue: boolean
+            monthlyReviewDue: boolean
+            overdue: boolean
+            automationEnabled: boolean
           }
           reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
           activitySignals: {
@@ -3537,6 +3905,12 @@ describe('reality area authority API', () => {
         pendingApprovals: 2,
         pendingNotifications: 1,
         blockers: 5,
+        signalCounts: {
+          total: 5,
+          info: 1,
+          warning: 3,
+          critical: 1,
+        },
       },
       results: [{
         citizenId: CITIZEN_ID,
@@ -3607,6 +3981,14 @@ describe('reality area authority API', () => {
       blockerCount: 5,
       scanStatus: 'caught_up',
       transactionsAdded: 1,
+    })
+    expect(queue.items[0].reviewSchedule).toMatchObject({
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-13T03:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
     })
     expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
@@ -5504,7 +5886,7 @@ describe('reality area authority API', () => {
       insuranceActive: true,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
@@ -5706,7 +6088,7 @@ describe('reality area authority API', () => {
     expect(alreadyInsured.statusCode).toBe(409)
     expect(alreadyInsured.body).toMatchObject({ ok: false, code: 'already_insured' })
 
-    const brokeState = withBusiness({ ...existingState(), balance: 20 }, {
+    const brokeState = withBusiness({ ...existingState(), balance: 20, updatedAt: '2026-07-06T08:00:00.000Z' }, {
       id: 'insurance-1',
       name: 'Founder Insurance',
       kind: 'insurance',
@@ -5730,6 +6112,34 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const driftedFounderState = withBusiness(
+      withCitizen({ ...existingState(), updatedAt: '2026-07-06T08:00:00.000Z' }, CITIZEN_ID, { money: 20 }),
+      {
+        id: 'insurance-1',
+        name: 'Founder Insurance',
+        kind: 'insurance',
+        price: 45,
+        cash: 0,
+      },
+    )
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
+    const driftedFounder = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, driftedFounder as never)
+
+    expect(driftedFounder.statusCode).toBe(402)
+    expect(driftedFounder.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('repayDebt requires a server debt, active founder, and funds', async () => {
@@ -5812,6 +6222,35 @@ describe('reality area authority API', () => {
 
     expect(broke.statusCode).toBe(402)
     expect(broke.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
+
+    const lowAreaBalanceState = withCitizen({ ...existingState(), balance: 50 }, CITIZEN_ID, {
+      debt: 120,
+      debts: [{
+        id: 'founder-medical-1',
+        kind: 'medical',
+        creditorId: 'system:hospital',
+        amount: 120,
+        issuedAt: '2026-07-06T07:00:00.000Z',
+        memo: 'Founder #0012 owes medical debt to system:hospital.',
+      }],
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://low-area-balance-debt-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(lowAreaBalanceState), { status: 200 })))
+    const lowAreaBalance = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
+      },
+    } as never, lowAreaBalance as never)
+
+    expect(lowAreaBalance.statusCode).toBe(402)
+    expect(lowAreaBalance.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('advanceHour pays staffed workers from business cash and records wage ledger events', async () => {
