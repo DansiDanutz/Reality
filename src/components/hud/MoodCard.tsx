@@ -65,6 +65,9 @@ export default function MoodCard() {
       case 'eat':
         s.openMarket('food')
         break
+      case 'cook':
+        s.setPanel('cook')
+        break
       case 'sleep':
         s.startSleep()
         break

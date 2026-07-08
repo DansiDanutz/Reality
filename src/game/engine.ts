@@ -765,6 +765,7 @@ export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: numbe
 export type AdviceAction =
   | 'drink'
   | 'eat'
+  | 'cook'
   | 'sleep'
   | 'find-job'
   | 'start-shift'
@@ -830,6 +831,8 @@ export function adviceOf(i: AdviceInput): Advice {
     return { text: "I'm thirsty. One dollar, one bottle — easiest fix in the world.", action: 'drink', cta: 'Drink $1' }
   if (i.needs.hunger < 30)
     return { text: "My stomach is growling. Let's eat something real.", action: 'eat', cta: 'Open the food market' }
+  if (i.hasHome && i.money >= 8 && i.needs.hunger < 70)
+    return { text: 'We have a kitchen. Gather groceries and cook at home — cheaper, calmer, better.', action: 'cook', cta: 'Cook at home' }
   if (i.activity?.kind === 'sleep')
     return { text: 'Recharging… wake me early if you need me.', action: 'none' }
   if (i.activity?.kind === 'shift')
@@ -906,7 +909,9 @@ export function dailyStepsOf(i: AdviceInput): DailyStep[] {
         ? i.workersHall
           ? 'Build: hire a worker and improve the business'
           : 'Build: staff and improve the business'
-        : 'Build: make the home feel real',
+        : hasHome
+          ? 'Build: cook at home and gather groceries'
+          : 'Build: make the home feel real',
     })
   }
 

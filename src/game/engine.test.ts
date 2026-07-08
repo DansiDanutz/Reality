@@ -227,6 +227,23 @@ describe('liveRealtime — the single simulation path', () => {
     ])
   })
 
+  test('the build step names cooking once the home loop is available', () => {
+    const steps = dailyStepsOf({
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      money: 60,
+      jobId: 'barista',
+      respect: 2,
+      activity: null,
+      hasHome: true,
+      businesses: 0,
+      workersHall: false,
+      pendingIncome: 0,
+    })
+
+    expect(steps.find((step) => step.phase === 'build')?.label).toBe('Build: cook at home and gather groceries')
+  })
+
   test('placeable build times are explicit and shared by homes and businesses', () => {
     expect(buildHoursFor(SHOP_ITEMS.find((item) => item.id === 'microstudio')!)).toBe(4)
     expect(buildHoursFor(SHOP_ITEMS.find((item) => item.id === 'foodcart')!)).toBe(8)
