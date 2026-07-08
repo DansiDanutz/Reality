@@ -386,7 +386,7 @@ describe('FounderCovenantOperatorPanel', () => {
       totals: operatorQueue().totals,
     })).toBe(0)
     expect(founderCovenantOperatorQueueOverdueCleanupSummary({
-      items: operatorQueue().items,
+      totals: operatorQueue().totals,
     })).toBe('Overdue cleanup: 0 founders · 1 overdue · 0 stale')
     expect(founderCovenantOperatorQueueMonitorSummary({
       totals: operatorQueue().totals,
@@ -713,6 +713,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       recordReadyMonthly: 0,
       monitorFounders: 0,
       freshReviewedActiveFounders: 0,
+      overdueCleanupFounders: 0,
       probationRiskFounders: 1,
       replacementRiskFounders: 1,
       neverReviewed: 1,

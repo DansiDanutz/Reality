@@ -864,14 +864,10 @@ export function founderCovenantOperatorQueueRecordReadySummary(
 }
 
 export function founderCovenantOperatorQueueOverdueCleanupSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
 ): string {
-  const overdueCleanupFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
-  ).length
-  const overdueFounders = queue.items.filter((item) => item.reviewReadiness.overdue).length
-  const staleFounders = queue.items.filter((item) => item.reviewFreshness === 'stale').length
-  return `Overdue cleanup: ${overdueCleanupFounders} founder${overdueCleanupFounders === 1 ? '' : 's'} · ${overdueFounders} overdue · ${staleFounders} stale`
+  const { totals } = queue
+  return `Overdue cleanup: ${totals.overdueCleanupFounders} founder${totals.overdueCleanupFounders === 1 ? '' : 's'} · ${totals.overdue} overdue · ${totals.staleReviewed} stale`
 }
 
 export function founderCovenantOperatorQueueMonitorSummary(

@@ -3062,6 +3062,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       recordReadyMonthly: 0,
       monitorFounders: 0,
       freshReviewedActiveFounders: 0,
+      overdueCleanupFounders: 0,
       probationRiskFounders: 1,
       replacementRiskFounders: 0,
       neverReviewed: 1,
