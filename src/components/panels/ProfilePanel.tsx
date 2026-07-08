@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayOfLife } from '../../game/clock'
-import { formatMoney, growthStageOf, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
+import { formatMoney, growthRoadmapOf, growthStageOf, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
 import { BOOSTERS, BOOSTER_LIST, boosterRemaining, isBoosterActive } from '../../game/boosters'
 import {
   NOTIFICATION_REASONS,
@@ -153,6 +153,14 @@ export default function ProfilePanel() {
     homes,
     workersHall: assets.some((a) => a.itemId === 'workers_hall'),
   })
+  const growthRoadmap = growthRoadmapOf({
+    money,
+    netWorth,
+    respect,
+    businesses,
+    homes,
+    workersHall: assets.some((a) => a.itemId === 'workers_hall'),
+  })
 
   const reach = reachOf(level, businesses, homes > 0, netWorth)
   const stats: { label: string; value: string }[] = [
@@ -201,6 +209,12 @@ export default function ProfilePanel() {
       <div className="profile-level">
         <span className="stat-label">{growthStage.title}</span>
         <span className="stat-value mono">{growthStage.detail}</span>
+      </div>
+
+      <div className="profile-level">
+        <span className="stat-label">{growthRoadmap.title}</span>
+        <span className="stat-value mono">{growthRoadmap.detail}</span>
+        <span className="stat-value mono">{growthRoadmap.targets.join(' · ')}</span>
       </div>
 
       <dl className="profile-stats">

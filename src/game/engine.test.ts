@@ -553,6 +553,23 @@ describe('growthStageOf', async () => {
   })
 })
 
+describe('growthRoadmapOf', async () => {
+  const { growthRoadmapOf } = await import('./engine')
+
+  test('turns the current growth stage into concrete next targets', () => {
+    expect(growthRoadmapOf({ money: 400, netWorth: 400, respect: 0, businesses: 0, homes: 0, workersHall: false })).toEqual({
+      title: 'Roadmap: survive and save',
+      detail: 'The climb starts with making tomorrow easier than today.',
+      targets: ['Eat, drink, sleep', 'Hold a job', 'Save for the first foothold'],
+    })
+    expect(growthRoadmapOf({ money: 50_000, netWorth: 50_000, respect: 3, businesses: 1, homes: 1, workersHall: false })).toEqual({
+      title: 'Roadmap: turn one foothold into two',
+      detail: 'Use the home and first business to stabilize sleep, work, and cash flow.',
+      targets: ['Keep the home active', 'Collect income daily', 'Prepare for the Workers Hall'],
+    })
+  })
+})
+
 describe('mood & tiers', async () => {
   const { moodOf, tierOf } = await import('./engine')
   const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }

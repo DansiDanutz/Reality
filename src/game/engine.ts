@@ -798,6 +798,12 @@ export interface GrowthStage {
   detail: string
 }
 
+export interface GrowthRoadmap {
+  title: string
+  detail: string
+  targets: string[]
+}
+
 export interface AdviceInput {
   needs: Needs
   health: number
@@ -1000,6 +1006,57 @@ export function growthStageOf(i: {
   return {
     title: 'Survival tier',
     detail: 'Stay alive first, hold a job, and save for the first foothold.',
+  }
+}
+
+export function growthRoadmapOf(i: {
+  money: number
+  netWorth: number
+  respect: number
+  businesses: number
+  homes: number
+  workersHall: boolean
+}): GrowthRoadmap {
+  const stage = growthStageOf(i)
+  if (stage.title === 'Millionaire tier') {
+    return {
+      title: 'Roadmap: protect the machine',
+      detail: 'At this stage the game is about keeping the engine healthy while compounding the next wins.',
+      targets: ['Keep staff hired', 'Reinvest into new businesses', 'Protect liquidity and respect'],
+    }
+  }
+  if (stage.title === 'Scale tier') {
+    return {
+      title: 'Roadmap: multiply what works',
+      detail: 'The next move is more staff, more reach, and steadier repeat income.',
+      targets: ['Hire through the Workers Hall', 'Upgrade the highest-yield business', 'Stack another asset'],
+    }
+  }
+  if (stage.title === 'Build tier') {
+    return {
+      title: 'Roadmap: turn one foothold into two',
+      detail: 'Use the home and first business to stabilize sleep, work, and cash flow.',
+      targets: ['Keep the home active', 'Collect income daily', 'Prepare for the Workers Hall'],
+    }
+  }
+  if (stage.title === 'Stability tier') {
+    return {
+      title: 'Roadmap: build the first base',
+      detail: 'A stable home gives the time and energy needed to start scaling.',
+      targets: ['Sleep properly', 'Hold a job', 'Save for the first business'],
+    }
+  }
+  if (stage.title === 'Starter capital tier') {
+    return {
+      title: 'Roadmap: buy the first business',
+      detail: 'The first real step from wages into ownership is already on the table.',
+      targets: ['Keep cash untouched', 'Open the first business', 'Start collecting income'],
+    }
+  }
+  return {
+    title: 'Roadmap: survive and save',
+    detail: 'The climb starts with making tomorrow easier than today.',
+    targets: ['Eat, drink, sleep', 'Hold a job', 'Save for the first foothold'],
   }
 }
 
