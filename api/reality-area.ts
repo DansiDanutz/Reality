@@ -5138,7 +5138,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      const stateForService = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      let stateForService = existing
+      if (existing) {
+        try {
+          stateForService = await catchUpPersistedAreaState(citizen.citizenId, existing, now)
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+          })
+          return
+        }
+      }
       const result = applyServicePurchaseIntent(stateForService, { type: intent.type }, now)
       if (!result.ok) {
         res.status(servicePurchaseStatus(result.error)).json({
