@@ -63,9 +63,11 @@ import {
   founderLegacyRoyaltyBlockerText,
   founderLegacyRoyaltyStatusLabel,
   founderLegacyRoyaltySummaryItems,
+  founderJobsMetricDetailText,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
   founderFirstBuildReasonText,
+  founderNeedMetricDetailText,
   founderPayoutReadinessBlockerText,
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
@@ -157,6 +159,21 @@ describe('FounderAreaPanel covenant presenters', () => {
       risk: 'stable',
       warnings: [],
     })).toBe('Founder active · insured')
+
+    expect(founderNeedMetricDetailText({
+      simDemand: 1,
+      realDemand: 0,
+      shortage: 2,
+      remainingLicenses: 0,
+      licenseSlots: 1,
+      saturation: 1,
+    })).toBe('sim 1 · real 0 · short 2 · licenses 0/1 · sat 100%')
+
+    expect(founderJobsMetricDetailText({
+      hireableSimWorkers: 1,
+      openPositions: 2,
+      understaffedBusinesses: 1,
+    })).toBe('hireable 1 · open 2 · unstaffed 1')
 
     expect(founderCitizenProtectionText({
       insuranceActive: true,

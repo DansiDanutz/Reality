@@ -212,6 +212,33 @@ export function founderRecoverySummaryText(
   return parts.join(' · ')
 }
 
+export function founderNeedMetricDetailText(input: {
+  simDemand: number
+  realDemand: number
+  shortage: number
+  remainingLicenses: number
+  licenseSlots: number
+  saturation: number
+}): string {
+  return [
+    `sim ${input.simDemand}`,
+    `real ${input.realDemand}`,
+    `short ${input.shortage}`,
+    `licenses ${input.remainingLicenses}/${input.licenseSlots}`,
+    `sat ${Math.round(input.saturation * 100)}%`,
+  ].join(' · ')
+}
+
+export function founderJobsMetricDetailText(
+  jobs: Pick<AreaJobsDashboard, 'hireableSimWorkers' | 'openPositions' | 'understaffedBusinesses'>,
+): string {
+  return [
+    `hireable ${jobs.hireableSimWorkers}`,
+    `open ${jobs.openPositions}`,
+    `unstaffed ${jobs.understaffedBusinesses}`,
+  ].join(' · ')
+}
+
 export function founderCitizenProtectionText(
   citizen: Pick<AreaCitizenDashboard, 'insuranceActive' | 'insurancePaidUntil' | 'insuranceBusinessId' | 'insuranceAction'>,
   survival?: Pick<CitizenSurvivalSignal, 'hospitalizedUntil'>,
