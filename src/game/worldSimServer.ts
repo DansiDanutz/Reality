@@ -338,6 +338,9 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     nextOverdueFounders: number
     nextRecordFounders: number
     nextMonitorFounders: number
+    lowScoreFounders: number
+    inactiveFounders: number
+    manualReviewQueueFounders: number
     probationRiskFounders: number
     replacementRiskFounders: number
     neverReviewed: number
@@ -915,6 +918,9 @@ function founderCovenantReviewQueueTotals(
     !item.manualActions.some((action) => action.recommended) &&
     !item.overdue
   )
+  const manualReviewQueueItems = items.filter((item) =>
+    item.manualReviewRequired || item.covenantStatus === 'manual_review'
+  )
   return {
     founders: items.length,
     active: items.filter((item) => item.activityReview.active).length,
@@ -944,6 +950,9 @@ function founderCovenantReviewQueueTotals(
     nextOverdueFounders: nextOverdueItems.length,
     nextRecordFounders: nextRecordItems.length,
     nextMonitorFounders: nextMonitorItems.length,
+    lowScoreFounders: items.filter((item) => item.activityReview.score < 60).length,
+    inactiveFounders: items.filter((item) => !item.activityReview.active).length,
+    manualReviewQueueFounders: manualReviewQueueItems.length,
     probationRiskFounders: items.filter((item) =>
       item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
     ).length,

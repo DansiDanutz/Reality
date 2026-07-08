@@ -910,7 +910,8 @@ export function founderCovenantOperatorQueueManualReviewSummary(
 
 export function founderCovenantOperatorQueueProbationRiskSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
-    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'], 'probationRiskFounders'>
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'probationRiskFounders' | 'lowScoreFounders' | 'manualReviewQueueFounders'>
   },
 ): string {
   const probationRiskFounders = 'totals' in queue && queue.totals
@@ -918,14 +919,19 @@ export function founderCovenantOperatorQueueProbationRiskSummary(
     : queue.items.filter((item) =>
       item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
     ).length
-  const lowScoreFounders = queue.items.filter((item) => item.activityReview.score < 60).length
-  const manualReviewFounders = queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
+  const lowScoreFounders = 'totals' in queue && queue.totals
+    ? queue.totals.lowScoreFounders
+    : queue.items.filter((item) => item.activityReview.score < 60).length
+  const manualReviewFounders = 'totals' in queue && queue.totals
+    ? queue.totals.manualReviewQueueFounders
+    : queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
   return `Probation risk: ${probationRiskFounders} founder${probationRiskFounders === 1 ? '' : 's'} · ${lowScoreFounders} low score · ${manualReviewFounders} manual review`
 }
 
 export function founderCovenantOperatorQueueReplacementRiskSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
-    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'], 'replacementRiskFounders'>
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'replacementRiskFounders' | 'inactiveFounders' | 'manualReviewQueueFounders'>
   },
 ): string {
   const replacementRiskFounders = 'totals' in queue && queue.totals
@@ -933,8 +939,12 @@ export function founderCovenantOperatorQueueReplacementRiskSummary(
     : queue.items.filter((item) =>
       (item.manualReviewRequired || item.covenantStatus === 'manual_review') && !item.activityReview.active
     ).length
-  const inactiveFounders = queue.items.filter((item) => !item.activityReview.active).length
-  const manualReviewFounders = queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
+  const inactiveFounders = 'totals' in queue && queue.totals
+    ? queue.totals.inactiveFounders
+    : queue.items.filter((item) => !item.activityReview.active).length
+  const manualReviewFounders = 'totals' in queue && queue.totals
+    ? queue.totals.manualReviewQueueFounders
+    : queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
   return `Replacement risk: ${replacementRiskFounders} founder${replacementRiskFounders === 1 ? '' : 's'} · ${inactiveFounders} inactive · ${manualReviewFounders} manual review`
 }
 
