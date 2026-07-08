@@ -46,6 +46,7 @@ Reality is a society, and like every society, it is built by its citizens.
 | 07 | [TECHNICAL-ROADMAP](07-TECHNICAL-ROADMAP.md) | From client beta to server-authoritative world: phases, architecture, scaling by city, anti-cheat, costs |
 | 08 | [CONTENT-ROADMAP](08-CONTENT-ROADMAP.md) | From 78 items to thousands: catalog expansion system, careers, education, events, seasons — all buildable by contributors |
 | 09 | [RISKS-LEGAL](09-RISKS-LEGAL.md) | Data licenses, privacy (IP geolocation), moderation, economy exploits, platform risks — and mitigations |
+| 11 | [DAY-LOOP-IMPLEMENTATION](11-DAY-LOOP-IMPLEMENTATION.md) | The active Codex/Zcode execution plan for survival, work, school, community, house/business construction, Workers Hall, and daily task clarity |
 
 ## Where we are today (shipped and live)
 
