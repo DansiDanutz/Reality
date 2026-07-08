@@ -15,6 +15,7 @@ import {
   formatPlanMinutes,
   interiorEtaSummary,
   millionaireEtaSummary,
+  roadmapPreviewSummary,
   routineShortLabel,
 } from './goalsCardView'
 
@@ -63,6 +64,12 @@ describe('formatPlanMinutes', () => {
     expect(formatPlanMinutes(45)).toBe('45m')
     expect(formatPlanMinutes(60)).toBe('1h')
     expect(formatPlanMinutes(75)).toBe('1h 15m')
+  })
+})
+
+describe('roadmapPreviewSummary', () => {
+  test('summarizes the next-day forecast in one readable line', () => {
+    expect(roadmapPreviewSummary('Day 2', 'Study Course', 60)).toBe('Day 2: Study Course (1h)')
   })
 })
 
