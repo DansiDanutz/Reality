@@ -3,6 +3,7 @@ import { newlyUnlocked } from '../../game/achievements'
 import { streakLabel } from '../../game/streak'
 import { achievementSnapshotOf, useGame } from '../../store/gameStore'
 import AnimatedMoney from './AnimatedMoney'
+import { TOPBAR_NAV_ITEMS, type TopBarNavPanelId } from './topBarNav'
 
 export default function TopBar() {
   const citizen = useGame((s) => s.citizen)
@@ -35,7 +36,7 @@ export default function TopBar() {
   const placeName = home ? clock.place : (citizen.homeCity ?? clock.place)
   const day = dayOfLife(citizen.createdAt)
 
-  const toggle = (id: 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'achievements' | 'boxes') => setPanel(panel === id ? null : id)
+  const toggle = (id: TopBarNavPanelId) => setPanel(panel === id ? null : id)
 
   return (
     <header className="topbar">
@@ -78,28 +79,26 @@ export default function TopBar() {
       </div>
 
       <nav className="topbar-nav" aria-label="Game menus">
-        <button className={panel === 'shop' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('shop')}>Shop</button>
-        <button className={panel === 'work' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('work')}>Work</button>
-        <button className={panel === 'assets' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('assets')}>Assets</button>
-        <button className={panel === 'founder' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('founder')}>Area</button>
-        <button className={panel === 'operator' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('operator')}>Ops</button>
-        <button className={panel === 'top' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('top')}>Top</button>
-        <button
-          className={panel === 'boxes' ? 'nav-btn active' : 'nav-btn'}
-          onClick={() => toggle('boxes')}
-          title="Mystery Boxes"
-          aria-label="Mystery Boxes"
-        >🎁</button>
-        <button
-          className={panel === 'achievements' ? 'nav-btn active nav-badge' : 'nav-btn nav-badge'}
-          onClick={() => toggle('achievements')}
-          title="Achievements"
-          aria-label={`Achievements${readyCount > 0 ? `, ${readyCount} ready to claim` : ''}`}
-        >
-          🏆
-          {readyCount > 0 && <span className="nav-dot" aria-hidden />}
-        </button>
-        <button className={panel === 'profile' ? 'nav-btn active' : 'nav-btn'} onClick={() => toggle('profile')}>Profile</button>
+        {TOPBAR_NAV_ITEMS.map((item) => {
+          const active = panel === item.id
+          const badgeClass = item.badge ? ' nav-badge' : ''
+          const title = item.title ?? item.label
+          const ariaLabel = item.id === 'achievements'
+            ? `Achievements${readyCount > 0 ? `, ${readyCount} ready to claim` : ''}`
+            : title
+          return (
+            <button
+              className={`${active ? 'nav-btn active' : 'nav-btn'}${badgeClass}`}
+              key={item.id}
+              onClick={() => toggle(item.id)}
+              title={title}
+              aria-label={ariaLabel}
+            >
+              {item.label}
+              {item.badge && readyCount > 0 && <span className="nav-dot" aria-hidden />}
+            </button>
+          )
+        })}
         <button
           className="nav-btn nav-sound"
           aria-label={soundOn ? 'Mute sounds' : 'Unmute sounds'}

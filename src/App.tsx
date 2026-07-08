@@ -3,6 +3,7 @@ import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
+import CourierPackagePrompt from './components/hud/CourierPackagePrompt'
 import GoalsCard from './components/hud/GoalsCard'
 import GoldenOpportunityPrompt from './components/hud/GoldenOpportunityPrompt'
 import InstallBanner from './components/hud/InstallBanner'
@@ -22,11 +23,14 @@ import TutorialPanel from './components/hud/TutorialPanel'
 import Market from './components/market/Market'
 import AchievementsPanel from './components/panels/AchievementsPanel'
 import AssetsPanel from './components/panels/AssetsPanel'
+import BusinessPanel from './components/panels/BusinessPanel'
 import HealthGuide from './components/panels/HealthGuide'
+import HousePanel from './components/panels/HousePanel'
 import JournalPanel from './components/panels/JournalPanel'
 import KitchenPanel from './components/panels/KitchenPanel'
 import LeaderboardPanel from './components/panels/LeaderboardPanel'
 import MysteryBoxPanel from './components/panels/MysteryBoxPanel'
+import ConstructionPanel from './components/panels/ConstructionPanel'
 import TargetsIntro from './components/panels/TargetsIntro'
 import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
@@ -39,11 +43,16 @@ import { loadStreetMode, preloadStreetMode } from './components/street/loadStree
 import { preloadNeighborhood } from './components/street/osm'
 import { streetAnchorFor } from './components/street/streetAnchor'
 import { preloadWeather } from './components/street/weather'
+import { playableMapAnchorFor } from './game/mapAnchor'
+import { fetchMapDiscovery, preloadMapDiscovery } from './game/mapDiscovery'
+import { fallbackResourceNodes } from './game/resources'
 
 // Human-readable dialog labels so screen readers announce the drawer's purpose.
 const PANEL_LABELS: Record<string, string> = {
   work: 'Work',
   assets: 'Your assets',
+  home: 'House',
+  business: 'Business',
   founder: 'Founder area',
   operator: 'Founder operations',
   top: 'Leaderboard',
@@ -53,6 +62,7 @@ const PANEL_LABELS: Record<string, string> = {
   achievements: 'Achievements',
   journal: 'Your life so far',
   boxes: 'Mystery Boxes',
+  construction: 'Build',
 }
 
 // MapLibre is heavy — split it out so the shell paints instantly
@@ -68,10 +78,13 @@ export default function App() {
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
   const streetAnchor = streetAnchorFor(citizen, assets)
+  const mapAnchor = playableMapAnchorFor(citizen, assets)
   const streetAnchorLat = streetAnchor?.lat
   const streetAnchorLng = streetAnchor?.lng
+  const mapAnchorLat = mapAnchor?.lat
+  const mapAnchorLng = mapAnchor?.lng
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'home' || panel === 'business' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes' || panel === 'construction'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // Web notifications — fires system notifications when the tab is hidden
@@ -101,13 +114,22 @@ export default function App() {
   useEffect(() => {
     if (!citizen) return
     preloadStreetMode()
-    if (streetAnchorLat === undefined || streetAnchorLng === undefined) return
+    if (mapAnchorLat === undefined || mapAnchorLng === undefined) return
     const timer = window.setTimeout(() => {
-      preloadWeather(streetAnchorLat, streetAnchorLng)
-      preloadNeighborhood(streetAnchorLat, streetAnchorLng)
+      useGame.getState().setResourceNodes(fallbackResourceNodes(mapAnchorLat, mapAnchorLng))
+      useGame.getState().setServicePois([])
+      if (streetAnchorLat !== undefined && streetAnchorLng !== undefined) {
+        preloadWeather(streetAnchorLat, streetAnchorLng)
+        preloadNeighborhood(streetAnchorLat, streetAnchorLng)
+      }
+      preloadMapDiscovery(mapAnchorLat, mapAnchorLng)
+      void fetchMapDiscovery(mapAnchorLat, mapAnchorLng).then((discovery) => {
+        useGame.getState().setResourceNodes(discovery.resourceNodes)
+        useGame.getState().setServicePois(discovery.servicePois)
+      }).catch(() => {})
     }, 1_500)
     return () => window.clearTimeout(timer)
-  }, [citizen, streetAnchorLat, streetAnchorLng])
+  }, [citizen, streetAnchorLat, streetAnchorLng, mapAnchorLat, mapAnchorLng])
 
   // Escape closes any open panel; single-key shortcuts fire the core actions
   // when the player isn't typing in an input. Power-user convenience that
@@ -218,6 +240,7 @@ export default function App() {
           <Toasts />
           <CelebrationOverlay />
           <GoldenOpportunityPrompt />
+          <CourierPackagePrompt />
           <InstallBanner />
         </>
       )}
@@ -227,6 +250,8 @@ export default function App() {
           <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
           {panel === 'work' && <WorkPanel />}
           {panel === 'assets' && <AssetsPanel />}
+          {panel === 'home' && <HousePanel />}
+          {panel === 'business' && <BusinessPanel />}
           {panel === 'founder' && <FounderAreaPanel />}
           {panel === 'operator' && <FounderCovenantOperatorPanel />}
           {panel === 'top' && <LeaderboardPanel />}
@@ -236,6 +261,7 @@ export default function App() {
           {panel === 'achievements' && <AchievementsPanel />}
           {panel === 'journal' && <JournalPanel />}
           {panel === 'boxes' && <MysteryBoxPanel />}
+          {panel === 'construction' && <ConstructionPanel />}
         </div>
       )}
     </div>

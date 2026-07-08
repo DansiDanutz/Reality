@@ -2,19 +2,51 @@ import { describe, expect, test } from 'vitest'
 import {
   CHALLENGE_POOL,
   CHALLENGE_REWARD,
+  challengeRewardFor,
   challengesForDay,
   challengeProgress,
   challengeSetSummary,
   DAILY_COMPLETE_BONUS,
+  dailyChallengeCashBudget,
+  dailyChallengeBonusCountLabel,
+  dailyCompleteBonusForContext,
+  eligibleChallengesForContext,
+  PRE_BUSINESS_DAILY_CASH_FRACTION,
+  type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from './dailyChallenges'
 
 const snap = (over: Partial<DailyChallengeSnapshot> = {}): DailyChallengeSnapshot => ({
   mealsToday: 0,
+  drinksToday: 0,
+  hygieneToday: 0,
   shiftsToday: 0,
   earnedToday: 0,
   sleptToday: 0,
   boughtToday: 0,
+  studiedToday: 0,
+  gatheredToday: 0,
+  constructionMinutesToday: 0,
+  workersHiredToday: 0,
+  communityToday: 0,
+  businessDevelopmentMinutesToday: 0,
+  ...over,
+})
+
+const context = (over: Partial<DailyChallengeContext> = {}): DailyChallengeContext => ({
+  maxEarnedToday: 0,
+  maxShiftsToday: 0,
+  maxPurchasesToday: 0,
+  maxMealsToday: 3,
+  maxDrinksToday: 2,
+  maxHygieneToday: 1,
+  hasStudyBlock: false,
+  canGatherResources: false,
+  canDoConstructionLabor: false,
+  canHireWorkers: false,
+  canHelpCommunity: false,
+  canDevelopBusiness: false,
+  hasBusiness: false,
   ...over,
 })
 
@@ -57,6 +89,163 @@ describe('challengesForDay — generation', () => {
       }
     }
   })
+
+  test('filters impossible early hard tasks for low-capacity citizens', () => {
+    const early = context({
+      maxEarnedToday: 120,
+      maxShiftsToday: 1,
+      maxPurchasesToday: 2,
+    })
+
+    for (let d = 19_000; d < 19_365; d++) {
+      const ids = challengesForDay('new-citizen', d, early).map((c) => c.id)
+      expect(ids).toHaveLength(3)
+      expect(ids).not.toContain('shift-2')
+      expect(ids).not.toContain('earn-1000')
+      expect(ids).not.toContain('earn-2000')
+      expect(ids).not.toContain('build-60')
+      expect(ids).not.toContain('business-dev-60')
+      expect(ids).not.toContain('study-1')
+    }
+  })
+
+  test('backfills from reachable tasks when a difficulty band has no fair option', () => {
+    const out = challengesForDay('bare-citizen', 19_000, context())
+    expect(out).toHaveLength(3)
+    expect(out.every((challenge) => ['mealsToday', 'drinksToday', 'hygieneToday', 'sleptToday'].includes(challenge.metric))).toBe(true)
+  })
+
+  test('unlocks roadmap action challenges only when their systems are ready', () => {
+    const locked = eligibleChallengesForContext(context()).map((c) => c.id)
+    expect(locked).not.toContain('study-1')
+    expect(locked).not.toContain('community-1')
+    expect(locked).not.toContain('build-60')
+    expect(locked).not.toContain('business-dev-60')
+
+    const ready = eligibleChallengesForContext(context({
+      maxEarnedToday: 2_500,
+      maxShiftsToday: 2,
+      maxPurchasesToday: 5,
+      hasStudyBlock: true,
+      canGatherResources: true,
+      canDoConstructionLabor: true,
+      canHireWorkers: true,
+      canHelpCommunity: true,
+      canDevelopBusiness: true,
+    })).map((c) => c.id)
+
+    expect(ready).toContain('study-1')
+    expect(ready).toContain('hire-worker-1')
+    expect(ready).toContain('community-1')
+    expect(ready).toContain('build-60')
+    expect(ready).toContain('business-dev-60')
+    expect(ready).toContain('shift-2')
+    expect(ready).toContain('earn-2000')
+  })
+
+  test('meal challenges only appear when the player can finish that many meals today', () => {
+    const noFood = eligibleChallengesForContext(context({ maxMealsToday: 0 })).map((c) => c.id)
+    expect(noFood).not.toContain('eat-2')
+    expect(noFood).not.toContain('eat-3')
+    expect(noFood).not.toContain('eat-5')
+
+    const twoMeals = eligibleChallengesForContext(context({ maxMealsToday: 2 })).map((c) => c.id)
+    expect(twoMeals).toContain('eat-2')
+    expect(twoMeals).not.toContain('eat-3')
+    expect(twoMeals).not.toContain('eat-5')
+
+    const fiveMeals = eligibleChallengesForContext(context({ maxMealsToday: 5 })).map((c) => c.id)
+    expect(fiveMeals).toContain('eat-2')
+    expect(fiveMeals).toContain('eat-3')
+    expect(fiveMeals).toContain('eat-5')
+  })
+
+  test('drink challenges only appear when the player can finish that many drinks today', () => {
+    const noDrinks = eligibleChallengesForContext(context({ maxDrinksToday: 0 })).map((c) => c.id)
+    expect(noDrinks).not.toContain('drink-2')
+    expect(noDrinks).not.toContain('drink-4')
+
+    const twoDrinks = eligibleChallengesForContext(context({ maxDrinksToday: 2 })).map((c) => c.id)
+    expect(twoDrinks).toContain('drink-2')
+    expect(twoDrinks).not.toContain('drink-4')
+
+    const fourDrinks = eligibleChallengesForContext(context({ maxDrinksToday: 4 })).map((c) => c.id)
+    expect(fourDrinks).toContain('drink-2')
+    expect(fourDrinks).toContain('drink-4')
+  })
+
+  test('hygiene challenges only appear when the player can clean up today', () => {
+    const noCleanups = eligibleChallengesForContext(context({ maxHygieneToday: 0 })).map((c) => c.id)
+    expect(noCleanups).not.toContain('clean-1')
+
+    const oneCleanup = eligibleChallengesForContext(context({ maxHygieneToday: 1 })).map((c) => c.id)
+    expect(oneCleanup).toContain('clean-1')
+  })
+
+  test('keeps progressed tasks eligible for the rest of the day', () => {
+    const progressed = eligibleChallengesForContext(context({
+      mealsToday: 1,
+      drinksToday: 1,
+      hygieneToday: 1,
+      maxMealsToday: 0,
+      maxDrinksToday: 0,
+      maxHygieneToday: 0,
+      communityToday: 1,
+      constructionMinutesToday: 30,
+      workersHiredToday: 1,
+      businessDevelopmentMinutesToday: 30,
+      studiedToday: 1,
+      canHelpCommunity: false,
+      canDoConstructionLabor: false,
+      canHireWorkers: false,
+      canDevelopBusiness: false,
+      hasStudyBlock: false,
+    })).map((c) => c.id)
+
+    expect(progressed).toContain('eat-2')
+    expect(progressed).toContain('eat-3')
+    expect(progressed).toContain('eat-5')
+    expect(progressed).toContain('drink-2')
+    expect(progressed).toContain('drink-4')
+    expect(progressed).toContain('clean-1')
+    expect(progressed).toContain('community-1')
+    expect(progressed).toContain('build-60')
+    expect(progressed).toContain('hire-worker-1')
+    expect(progressed).toContain('business-dev-60')
+    expect(progressed).toContain('study-1')
+  })
+
+  test('guarantees a community task at least once in each eligible week', () => {
+    const ready = context({
+      maxEarnedToday: 500,
+      maxShiftsToday: 1,
+      maxPurchasesToday: 3,
+      canHelpCommunity: true,
+    })
+
+    for (let week = 2_700; week < 2_710; week++) {
+      const weeklyIds = new Set<string>()
+      for (let offset = 0; offset < 7; offset++) {
+        for (const challenge of challengesForDay('neighborly-citizen', week * 7 + offset, ready)) {
+          weeklyIds.add(challenge.id)
+        }
+      }
+      expect(weeklyIds.has('community-1'), `missing community task for week ${week}`).toBe(true)
+    }
+  })
+
+  test('does not force community tasks before community help is available', () => {
+    const locked = context({
+      maxEarnedToday: 500,
+      maxShiftsToday: 1,
+      maxPurchasesToday: 3,
+      canHelpCommunity: false,
+    })
+
+    for (let d = 19_000; d < 19_070; d++) {
+      expect(challengesForDay('locked-community', d, locked).map((c) => c.id)).not.toContain('community-1')
+    }
+  })
 })
 
 describe('challengeProgress — tracking', () => {
@@ -74,10 +263,18 @@ describe('challengeProgress — tracking', () => {
   test('each metric is reachable by some challenge', () => {
     const metrics = new Set(CHALLENGE_POOL.map((c) => c.metric))
     expect(metrics.has('mealsToday')).toBe(true)
+    expect(metrics.has('drinksToday')).toBe(true)
+    expect(metrics.has('hygieneToday')).toBe(true)
     expect(metrics.has('shiftsToday')).toBe(true)
     expect(metrics.has('earnedToday')).toBe(true)
     expect(metrics.has('sleptToday')).toBe(true)
     expect(metrics.has('boughtToday')).toBe(true)
+    expect(metrics.has('studiedToday')).toBe(true)
+    expect(metrics.has('gatheredToday')).toBe(true)
+    expect(metrics.has('constructionMinutesToday')).toBe(true)
+    expect(metrics.has('workersHiredToday')).toBe(true)
+    expect(metrics.has('communityToday')).toBe(true)
+    expect(metrics.has('businessDevelopmentMinutesToday')).toBe(true)
   })
 })
 
@@ -98,14 +295,29 @@ describe('challengeSetSummary — completion', () => {
     const defs = challengesForDay('citizen-1', 19_000)
     const fullSnap = snap({
       mealsToday: 10,
+      drinksToday: 10,
+      hygieneToday: 10,
       shiftsToday: 5,
       earnedToday: 5000,
       sleptToday: 3,
       boughtToday: 5,
+      studiedToday: 5,
+      gatheredToday: 5,
+      constructionMinutesToday: 180,
+      workersHiredToday: 1,
+      communityToday: 2,
+      businessDevelopmentMinutesToday: 180,
     })
     const summary = challengeSetSummary(defs, fullSnap)
     expect(summary.done).toBe(3)
     expect(summary.allComplete).toBe(true)
+  })
+})
+
+describe('dailyChallengeBonusCountLabel', () => {
+  test('uses the generated challenge count instead of a fixed three', () => {
+    expect(dailyChallengeBonusCountLabel(3)).toBe('All 3 daily challenges')
+    expect(dailyChallengeBonusCountLabel(4)).toBe('All 4 daily challenges')
   })
 })
 
@@ -122,21 +334,75 @@ describe('challenge rewards — balance', () => {
     expect(DAILY_COMPLETE_BONUS.xp).toBeGreaterThan(CHALLENGE_REWARD.hard.xp)
   })
 
-  test('total daily EV (3 challenges + bonus) is meaningful but not economy-breaking', () => {
-    // easy + medium + hard + bonus
-    const total = CHALLENGE_REWARD.easy.cash + CHALLENGE_REWARD.medium.cash + CHALLENGE_REWARD.hard.cash + DAILY_COMPLETE_BONUS.cash
-    // $1,850/day max. For context: a shift pays ~$64, founder balance $200k.
-    // So a fully-completed challenge day ≈ 4 shifts of value — a nice bonus
-    // for active play, not a replacement for the core loop.
-    expect(total).toBeGreaterThan(500)
-    expect(total).toBeLessThan(10_000)
+  test('pre-business cash rewards stay below the configured fraction of a realistic workday', () => {
+    const early = context({ maxEarnedToday: 120 })
+    const easy = challengeRewardFor({ difficulty: 'easy' }, early)
+    const medium = challengeRewardFor({ difficulty: 'medium' }, early)
+    const hard = challengeRewardFor({ difficulty: 'hard' }, early)
+    const bonus = dailyCompleteBonusForContext(early)
+    const total = easy.cash + medium.cash + hard.cash + bonus.cash
+
+    expect(dailyChallengeCashBudget(early)).toBe(Math.floor(120 * PRE_BUSINESS_DAILY_CASH_FRACTION))
+    expect(total).toBeLessThanOrEqual(dailyChallengeCashBudget(early))
+    expect(easy.cash).toBeLessThan(medium.cash)
+    expect(medium.cash).toBeLessThan(hard.cash)
+    expect(hard.cash).toBeLessThan(bonus.cash)
+    expect(easy.xp).toBe(CHALLENGE_REWARD.easy.xp)
+    expect(medium.xp).toBe(CHALLENGE_REWARD.medium.xp)
+    expect(hard.xp).toBe(CHALLENGE_REWARD.hard.xp)
+    expect(bonus.xp).toBe(DAILY_COMPLETE_BONUS.xp)
+  })
+
+  test('pre-business rewards still give a small floor when the first day has no earnings yet', () => {
+    const firstDay = context({ maxEarnedToday: 0 })
+    const total =
+      challengeRewardFor({ difficulty: 'easy' }, firstDay).cash +
+      challengeRewardFor({ difficulty: 'medium' }, firstDay).cash +
+      challengeRewardFor({ difficulty: 'hard' }, firstDay).cash +
+      dailyCompleteBonusForContext(firstDay).cash
+
+    expect(dailyChallengeCashBudget(firstDay)).toBe(20)
+    expect(total).toBe(20)
+  })
+
+  test('business owners and legacy callers keep the full static daily reward curve', () => {
+    const owner = context({ hasBusiness: true, maxEarnedToday: 120 })
+    const ownerTotal =
+      challengeRewardFor({ difficulty: 'easy' }, owner).cash +
+      challengeRewardFor({ difficulty: 'medium' }, owner).cash +
+      challengeRewardFor({ difficulty: 'hard' }, owner).cash +
+      dailyCompleteBonusForContext(owner).cash
+    const staticTotal =
+      CHALLENGE_REWARD.easy.cash +
+      CHALLENGE_REWARD.medium.cash +
+      CHALLENGE_REWARD.hard.cash +
+      DAILY_COMPLETE_BONUS.cash
+
+    expect(ownerTotal).toBe(staticTotal)
+    expect(dailyChallengeCashBudget(owner)).toBe(staticTotal)
+    expect(challengeRewardFor({ difficulty: 'hard' })).toEqual(CHALLENGE_REWARD.hard)
+    expect(dailyCompleteBonusForContext()).toEqual(DAILY_COMPLETE_BONUS)
   })
 
   test('every pool challenge references a valid metric + has positive target', () => {
     for (const c of CHALLENGE_POOL) {
       expect(c.target, c.id).toBeGreaterThan(0)
       // metric must be a key of the snapshot
-      expect(['mealsToday', 'shiftsToday', 'earnedToday', 'sleptToday', 'boughtToday']).toContain(c.metric)
+      expect([
+        'mealsToday',
+        'drinksToday',
+        'hygieneToday',
+        'shiftsToday',
+        'earnedToday',
+        'sleptToday',
+        'boughtToday',
+        'studiedToday',
+        'gatheredToday',
+        'constructionMinutesToday',
+        'workersHiredToday',
+        'communityToday',
+        'businessDevelopmentMinutesToday',
+      ]).toContain(c.metric)
     }
   })
 

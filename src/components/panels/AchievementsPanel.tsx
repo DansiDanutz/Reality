@@ -10,14 +10,17 @@ import {
 } from '../../game/achievements'
 import {
   challengesForDay,
+  dailyChallengeBonusCountLabel,
   challengeProgress,
-  CHALLENGE_REWARD,
-  DAILY_COMPLETE_BONUS,
+  challengeRewardFor,
+  dailyCompleteBonusForContext,
   type ChallengeDef,
+  type DailyChallengeContext,
 } from '../../game/dailyChallenges'
+import { COMMUNITY_ACTIONS, type CommunityActionId, type CommunityStats } from '../../game/community'
 import { LUCKY_MOMENT_DEFS, RARITY_META } from '../../game/luckyMoments'
 import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
-import { achievementSnapshotOf, useGame } from '../../store/gameStore'
+import { achievementSnapshotOf, dailyChallengeContextOf, useGame } from '../../store/gameStore'
 
 /**
  * Format a progress counter for the achievement bar. Money thresholds
@@ -53,7 +56,14 @@ export default function AchievementsPanel() {
   useGame((s) => s.timesSlept)
   useGame((s) => s.shiftsWorked)
   useGame((s) => s.totalCollected)
-  useGame((s) => s.assets.length)
+  useGame((s) => s.assets)
+  useGame((s) => s.money)
+  useGame((s) => s.jobId)
+  useGame((s) => s.inventory)
+  useGame((s) => s.resourceNodes.length)
+  useGame((s) => s.constructionProjects)
+  useGame((s) => s.businessDevelopmentProjects)
+  useGame((s) => s.educationProgress)
   const claimAchievement = useGame((s) => s.claimAchievement)
   const streakLength = useGame((s) => s.streakLength)
   const streakBest = useGame((s) => s.streakBest)
@@ -62,6 +72,9 @@ export default function AchievementsPanel() {
   const dailyCounters = useGame((s) => s.dailyCounters)
   const dailyClaimed = useGame((s) => s.dailyClaimed)
   const dailyBonusClaimed = useGame((s) => s.dailyBonusClaimed)
+  const community = useGame((s) => s.community)
+  const activity = useGame((s) => s.activity)
+  const startCommunityAction = useGame((s) => s.startCommunityAction)
   const citizen = useGame((s) => s.citizen)
 
   // On mount: mark the achievements panel as seen (drives the tutorial
@@ -71,7 +84,9 @@ export default function AchievementsPanel() {
   }, [])
 
   // Read the full snapshot once per render from the live store
-  const snapshot = achievementSnapshotOf(useGame.getState())
+  const state = useGame.getState()
+  const snapshot = achievementSnapshotOf(state)
+  const challengeContext = dailyChallengeContextOf(state)
 
   // Group by category, preserve definition order within each
   const byCategory = new Map<AchievementCategory, Achievement[]>()
@@ -131,8 +146,16 @@ export default function AchievementsPanel() {
               counters={dailyCounters}
               claimed={dailyClaimed}
               bonusClaimed={dailyBonusClaimed}
+              context={challengeContext}
             />
           )}
+
+          <CommunityBoard
+            community={community}
+            busy={activity !== null}
+            active={activity?.kind === 'community'}
+            onStart={startCommunityAction}
+          />
 
           {/* Next goals — the "what should I do right now?" hook. Combats choice
               paralysis by surfacing the closest career rank, the next streak
@@ -219,6 +242,65 @@ export default function AchievementsPanel() {
   )
 }
 
+function CommunityBoard({
+  community,
+  busy,
+  active,
+  onStart,
+}: {
+  community: CommunityStats
+  busy: boolean
+  active: boolean
+  onStart: (actionId: CommunityActionId) => void
+}) {
+  return (
+    <div className="daily-challenges community-board" aria-label="Community board">
+      <header className="daily-head">
+        <span className="daily-title">🤝 Community board</span>
+        <span className="daily-count mono">{community.actionsThisWeek}/3 this week</span>
+      </header>
+      <div className="labor-ledger">
+        <div className="stat">
+          <span className="stat-label">respect</span>
+          <span className="stat-value mono">{community.respect}</span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">friendship</span>
+          <span className="stat-value mono">{community.friendship}</span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">trust</span>
+          <span className="stat-value mono gold">{community.trust}</span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">work streak</span>
+          <span className="stat-value mono">{community.seriousWorkStreak}</span>
+        </div>
+      </div>
+      <ul className="daily-list">
+        {COMMUNITY_ACTIONS.map((action) => (
+          <li className="daily-item" key={action.id}>
+            <div className="daily-item-label">
+              <span className="daily-item-mark" aria-hidden>•</span>
+              <span className="daily-item-text">{action.title}</span>
+              <span className="daily-item-difficulty">{action.minutes}m</span>
+            </div>
+            <p className="ach-detail">{action.detail}</p>
+            <div className="ach-foot">
+              <span className="ach-reward mono">
+                +{action.rewards.respect} respect · +{action.rewards.friendship} friendship · +{action.rewards.trust} trust · +{action.rewards.xp} XP
+              </span>
+              <button className={busy ? 'btn small ghost' : 'btn small primary'} disabled={busy} onClick={() => onStart(action.id)}>
+                {active ? 'Helping now' : busy ? 'Busy' : 'Start'}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 /**
  * Daily challenges — 3 fresh goals every real day, reset at local midnight.
  * Distinct from the streak (rewards showing up) and achievements (permanent):
@@ -230,20 +312,38 @@ function DailyChallengesBlock({
   counters,
   claimed,
   bonusClaimed,
+  context,
 }: {
   citizenId: string
   day: number
-  counters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number }
+  counters: {
+    mealsToday: number
+    drinksToday: number
+    hygieneToday: number
+    shiftsToday: number
+    earnedToday: number
+    sleptToday: number
+    boughtToday: number
+    studiedToday: number
+    gatheredToday: number
+    constructionMinutesToday: number
+    workersHiredToday: number
+    communityToday: number
+    businessDevelopmentMinutesToday: number
+  }
   claimed: string[]
   bonusClaimed: boolean
+  context: DailyChallengeContext
 }) {
   // Only show challenges once the day has been seeded (day > 0). Before the
   // first midnight the citizen hasn't been assigned a day yet.
   if (day <= 0) return null
-  const challenges: ChallengeDef[] = challengesForDay(citizenId, day)
+  const challenges: ChallengeDef[] = challengesForDay(citizenId, day, context)
   const snap = { ...counters }
   const done = challenges.filter((c) => claimed.includes(c.id) || challengeProgress(c, snap).complete).length
   const allDone = done === challenges.length
+  const bonusReward = dailyCompleteBonusForContext(context)
+  const bonusLabel = dailyChallengeBonusCountLabel(challenges.length)
 
   return (
     <div className="daily-challenges" aria-label="Daily challenges">
@@ -256,7 +356,7 @@ function DailyChallengesBlock({
           const isClaimed = claimed.includes(c.id)
           const prog = challengeProgress(c, snap)
           const pct = Math.min(100, Math.round((prog.current / prog.target) * 100))
-          const r = CHALLENGE_REWARD[c.difficulty]
+          const r = challengeRewardFor(c, context)
           return (
             <li key={c.id} className={`daily-item${isClaimed || prog.complete ? ' complete' : ''}`}>
               <div className="daily-item-label">
@@ -279,8 +379,8 @@ function DailyChallengesBlock({
       {allDone && (
         <div className="daily-bonus">
           {bonusClaimed
-            ? <span className="daily-bonus-claimed">🎯 All 3 complete — bonus claimed!</span>
-            : <span className="daily-bonus-pending">🎯 All 3 complete — bonus +{formatMoney(DAILY_COMPLETE_BONUS.cash)}, +{DAILY_COMPLETE_BONUS.xp} XP incoming!</span>}
+            ? <span className="daily-bonus-claimed">🎯 {bonusLabel} complete — bonus claimed!</span>
+            : <span className="daily-bonus-pending">🎯 {bonusLabel} complete — bonus +{formatMoney(bonusReward.cash)}, +{bonusReward.xp} XP incoming!</span>}
         </div>
       )}
     </div>

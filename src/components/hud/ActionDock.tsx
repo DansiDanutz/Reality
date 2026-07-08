@@ -13,6 +13,7 @@ export default function ActionDock() {
   const citizen = useGame((s) => s.citizen)
   const jobId = useGame((s) => s.jobId)
   const placing = useGame((s) => s.placing)
+  const placingConstruction = useGame((s) => s.placingConstruction)
   const activity = useGame((s) => s.activity)
   const startSleep = useGame((s) => s.startSleep)
   const startShift = useGame((s) => s.startShift)
@@ -20,17 +21,24 @@ export default function ActionDock() {
   const setStreetMode = useGame((s) => s.setStreetMode)
   const setPanel = useGame((s) => s.setPanel)
   const cancelPlacing = useGame((s) => s.cancelPlacing)
+  const cancelPlacingConstruction = useGame((s) => s.cancelPlacingConstruction)
   const log = useGame((s) => s.log)
   useGame((s) => s.lastSeenAt) // live countdown
 
   if (!citizen) return null
 
-  if (placing) {
+  if (placing || placingConstruction) {
     return (
       <div className="dock placing-banner">
         <span className="placing-pulse" />
-        <span>Click anywhere on Earth to place your <strong>{placing.name}</strong></span>
-        <button className="btn ghost" onClick={cancelPlacing}>Cancel &amp; refund</button>
+        <span>
+          {placing
+            ? <>Click the map inside your highlighted reach to place <strong>{placing.name}</strong></>
+            : <>Click the map inside your highlighted reach to place your <strong>Starter House foundation</strong></>}
+        </span>
+        <button className="btn ghost" onClick={placing ? cancelPlacing : cancelPlacingConstruction}>
+          {placing ? 'Cancel & refund' : 'Cancel'}
+        </button>
       </div>
     )
   }
@@ -39,7 +47,20 @@ export default function ActionDock() {
   if (activity) {
     const isSleep = activity.kind === 'sleep'
     const isCook = activity.kind === 'cook'
-    const label = isSleep ? 'Sleeping' : isCook ? `Cooking · ${activity.title}` : `On shift · ${activity.title}`
+    const isGather = activity.kind === 'gather'
+    const isConstruction = activity.kind === 'construction'
+    const isCommunity = activity.kind === 'community'
+    const label = isSleep
+      ? 'Sleeping'
+      : isCook
+        ? `Cooking · ${activity.title}`
+        : isGather
+          ? `Gathering · ${activity.title}`
+          : isConstruction
+            ? `Building · ${activity.title}`
+            : isCommunity
+              ? `Helping · ${activity.title}`
+              : `On shift · ${activity.title}`
     // Live progress bar: how far through the activity we are. Re-renders
     // every tick via the lastSeenAt subscription above, so the bar fills
     // smoothly in real time. A text countdown is data; a filling bar is felt.
@@ -59,7 +80,7 @@ export default function ActionDock() {
           </div>
         </div>
         <button className="btn ghost" onClick={leaveActivity}>
-          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : 'Leave early'}
+          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : isGather || isConstruction || isCommunity ? 'Stop' : 'Leave early'}
         </button>
       </div>
     )

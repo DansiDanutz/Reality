@@ -26,25 +26,108 @@ import {
   type Activity,
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, RECIPES, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
 import { dayOfLife, zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, pickFirstLuckyMoment, RARITY_META } from '../game/luckyMoments'
-import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../game/businessUpgrades'
-import { MYSTERY_BOXES, openBox, type BoxReward, type BoxTier } from '../game/mysteryBox'
+import { MAX_BUSINESS_LEVEL } from '../game/businessUpgrades'
+import { MYSTERY_BOXES, creditTierForSeriousWorkStreak, freshMysteryBoxCredits, openBox, type BoxReward, type BoxTier, type MysteryBoxCredits } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
 import {
+  addStudyMinutes,
+  createEducationProgress,
+  educationActionCount,
+  educationCourseById,
+  educationCourseForItem,
+  educationBusinessLaborMultiplier,
+  educationRemainingMinutes,
+  educationWageBonusFrom,
+  nextStudyBlockMinutes,
+  normalizeEducationProgress,
+  type EducationCourseId,
+  type EducationProgress,
+} from '../game/education'
+import {
+  canStartCommunityAction,
+  communityActionById,
+  availableCommunityHelperMinutes,
+  completeCommunityAction,
+  completeReliableShift,
+  freshCommunityStats,
+  missedSeriousWorkYesterday,
+  normalizeCommunityStats,
+  recordBrokenCommitment,
+  resetCommunityActionDayIfNeeded,
+  resetCommunityWeekIfNeeded,
+  spendCommunityHelperMinutes,
+  type CommunityActionId,
+  type CommunityStats,
+} from '../game/community'
+import { communityAdvantageOf } from '../game/millionairePath'
+import {
+  addBusinessDevelopmentLabor,
+  advanceBusinessDevelopmentWorkerContracts,
+  businessDevelopmentProgress,
+  completeBusinessDevelopmentProject,
+  createBusinessDevelopmentProject,
+  depositBusinessDevelopmentResources,
+  estimateBusinessDevelopmentWorkerHire,
+  hireBusinessDevelopmentWorker as hireBusinessDevelopmentWorkerForProject,
+  normalizeBusinessDevelopmentProject,
+  payBusinessDevelopmentBudget,
+  type BusinessDevelopmentWorkerContract,
+  type BusinessDevelopmentProject,
+} from '../game/businessDevelopment'
+import {
+  type ConstructionProject,
+  type ConstructionWorkerContract,
+  type ConstructionWorkerId,
+  STARTER_HOUSE_RECIPE,
+  businessConstructionRecipe,
+  completeConstructionProject,
+  createConstructionProject,
+  createConstructionProjectFromRecipe,
+  depositResources,
+  estimateConstructionWorkerHire,
+  hireConstructionWorker as hireConstructionWorkerForProject,
+  advanceConstructionWorkerContracts,
+  payPermit,
+  addConstructionLabor,
+  constructionProgress,
+  totalResourceCount,
+} from '../game/construction'
+import {
+  type CourierPackage,
+  courierPackageForLifePlan,
+  courierRequirementMet,
+  shouldCreateCourierPackage,
+} from '../game/courierPackages'
+import { planLifeDay } from '../game/lifeLadder'
+import {
+  type ResourceInventory,
+  type ResourceNode,
+  RESOURCE_META,
+  addResources,
+  formatResourceList,
+  freshResources,
+} from '../game/resources'
+import type { ServicePoi } from '../game/mapDiscovery'
+import { DEFAULT_MAP_ANCHOR } from '../game/mapAnchor'
+import {
   challengesForDay,
+  dailyChallengeBonusCountLabel,
   challengeProgress,
   challengeSetSummary,
-  CHALLENGE_REWARD,
-  DAILY_COMPLETE_BONUS,
+  challengeRewardFor,
+  dailyCompleteBonusForContext,
+  type DailyChallengeContext,
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
+import { millionairePathOf } from '../game/millionairePath'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessages'
@@ -58,7 +141,169 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | null
+
+export type MapTarget =
+  | { kind: 'asset'; id: string }
+  | { kind: 'construction'; id: string }
+
+type DailyCounters = DailyChallengeSnapshot & { day: number }
+
+function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): DailyCounters {
+  return {
+    mealsToday: 0,
+    drinksToday: 0,
+    hygieneToday: 0,
+    shiftsToday: 0,
+    earnedToday: 0,
+    sleptToday: 0,
+    boughtToday: 0,
+    studiedToday: 0,
+    gatheredToday: 0,
+    constructionMinutesToday: 0,
+    workersHiredToday: 0,
+    communityToday: 0,
+    businessDevelopmentMinutesToday: 0,
+    day,
+    ...overrides,
+  }
+}
+
+function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefined): DailyCounters {
+  return freshDailyCounters(Number.isFinite(counters?.day) ? Math.floor(Number(counters?.day)) : 0, {
+    mealsToday: Math.max(0, Math.floor(Number(counters?.mealsToday ?? 0))),
+    drinksToday: Math.max(0, Math.floor(Number(counters?.drinksToday ?? 0))),
+    hygieneToday: Math.max(0, Math.floor(Number(counters?.hygieneToday ?? 0))),
+    shiftsToday: Math.max(0, Math.floor(Number(counters?.shiftsToday ?? 0))),
+    earnedToday: Math.max(0, Math.floor(Number(counters?.earnedToday ?? 0))),
+    sleptToday: Math.max(0, Math.floor(Number(counters?.sleptToday ?? 0))),
+    boughtToday: Math.max(0, Math.floor(Number(counters?.boughtToday ?? 0))),
+    studiedToday: Math.max(0, Math.floor(Number(counters?.studiedToday ?? 0))),
+    gatheredToday: Math.max(0, Math.floor(Number(counters?.gatheredToday ?? 0))),
+    constructionMinutesToday: Math.max(0, Math.floor(Number(counters?.constructionMinutesToday ?? 0))),
+    workersHiredToday: Math.max(0, Math.floor(Number(counters?.workersHiredToday ?? 0))),
+    communityToday: Math.max(0, Math.floor(Number(counters?.communityToday ?? 0))),
+    businessDevelopmentMinutesToday: Math.max(0, Math.floor(Number(counters?.businessDevelopmentMinutesToday ?? 0))),
+  })
+}
+
+type DailyChallengeContextState = {
+  money: number
+  needs: Needs
+  health: number
+  jobId: string | null
+  shiftsWorked: number
+  inventory: Record<string, number>
+  assets: PlacedAsset[]
+  resourceNodes: ResourceNode[]
+  constructionProjects: ConstructionProject[]
+  businessDevelopmentProjects: BusinessDevelopmentProject[]
+  educationProgress: EducationProgress[]
+  community: CommunityStats
+  dailyCounters: DailyCounters
+}
+
+const CHEAPEST_SHOP_PRICE = Math.max(1, Math.min(...SHOP_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+const EDIBLE_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && (item.effects?.hunger ?? 0) > 0)
+const CHEAPEST_EDIBLE_PRICE = Math.max(1, Math.min(...EDIBLE_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+const DRINK_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && item.category === 'drinks' && (item.effects?.hydration ?? 0) > 0)
+const CHEAPEST_DRINK_PRICE = Math.max(1, Math.min(...DRINK_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+const HYGIENE_ITEMS = SHOP_ITEMS.filter((item) => (item.effects?.hygiene ?? 0) > 0)
+const CHEAPEST_HYGIENE_PRICE = Math.max(1, Math.min(...HYGIENE_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+
+function totalWageBonus(inventory: Record<string, number>, educationProgress: EducationProgress[]): number {
+  return wageBonusFrom(inventory) + educationWageBonusFrom(educationProgress)
+}
+
+function edibleInventoryCount(inventory: Record<string, number>): number {
+  return EDIBLE_ITEMS.reduce((sum, item) => sum + Math.max(0, Math.floor(inventory[item.id] ?? 0)), 0)
+}
+
+function drinkInventoryCount(inventory: Record<string, number>): number {
+  return DRINK_ITEMS.reduce((sum, item) => sum + Math.max(0, Math.floor(inventory[item.id] ?? 0)), 0)
+}
+
+function hygieneInventoryCount(inventory: Record<string, number>): number {
+  return HYGIENE_ITEMS.reduce((sum, item) => {
+    const owned = Math.max(0, Math.floor(inventory[item.id] ?? 0))
+    return sum + (item.durable && owned > 0 ? 1 : owned)
+  }, 0)
+}
+
+function cookableMealCount(inventory: Record<string, number>, assets: PlacedAsset[]): number {
+  if (!hasKitchen(inventory, assets)) return 0
+  const stock = { ...inventory }
+  let meals = 0
+  for (;;) {
+    const recipe = RECIPES.find((candidate) => canCook(candidate, stock))
+    if (!recipe) return meals
+    for (const [id, qty] of Object.entries(recipe.ingredients)) stock[id] = (stock[id] ?? 0) - qty
+    meals += 1
+  }
+}
+
+export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyChallengeContext {
+  const job = s.jobId ? jobById(s.jobId) : undefined
+  const canStartShift = !bodyWorkBlocker(s.needs, s.health, { energy: 25 })
+  const wageBonus = totalWageBonus(s.inventory, s.educationProgress)
+  const rank = careerRankOf(s.shiftsWorked)
+  const shiftPay = job ? Math.round(job.wage * rank.wageMultiplier * (1 + wageBonus) * SHIFT_HOURS) : 0
+  const advancedEnoughForTwoShifts = Boolean(job) && s.shiftsWorked >= 35
+  const maxShiftsToday = job && canStartShift ? (advancedEnoughForTwoShifts ? 2 : 1) : 0
+  const pendingIncome = s.assets.reduce((sum, asset) => sum + Math.max(0, asset.pendingIncome ?? 0), 0)
+  const activeStudy = s.educationProgress.some((progress) => {
+    if (progress.completedAt !== null) return false
+    const course = educationCourseById(progress.courseId)
+    return Boolean(course && educationRemainingMinutes(course, progress) > 0)
+  })
+  const canStartLightCareAction = !bodyWorkBlocker(s.needs, s.health, { energy: 15, hunger: 10, hydration: 10 })
+  const constructionLaborReady = s.constructionProjects.some((project) => {
+    const progress = constructionProgress(project)
+    return progress.resourcesComplete && progress.permitComplete && !progress.laborComplete &&
+      !bodyWorkBlocker(s.needs, s.health, { energy: 20 })
+  })
+  const businessLaborReady = s.businessDevelopmentProjects.some((project) => {
+    const progress = businessDevelopmentProgress(project)
+    return progress.resourcesComplete && progress.budgetComplete && !progress.laborComplete &&
+      !bodyWorkBlocker(s.needs, s.health, { energy: 20 })
+  })
+  const helperCreditMinutes = communityWorkerCreditMinutes(s.community, s.shiftsWorked)
+  const constructionWorkerHireReady = s.constructionProjects.some((project) => {
+    const estimate = estimateConstructionWorkerHire(project, 'helper', 1, helperCreditMinutes)
+    return Boolean(estimate && estimate.blockedBy === null && s.money >= estimate.cost)
+  })
+  const businessWorkerHireReady = s.businessDevelopmentProjects.some((project) => {
+    const estimate = estimateBusinessDevelopmentWorkerHire(project, 'helper', 1, helperCreditMinutes)
+    return Boolean(estimate && estimate.blockedBy === null && s.money >= estimate.cost)
+  })
+  const maxEarnedToday = pendingIncome + shiftPay * maxShiftsToday
+  const spendableMealBudget = s.money + maxEarnedToday
+  const stockedMealActions = Math.max(edibleInventoryCount(s.inventory), cookableMealCount(s.inventory, s.assets))
+  const affordableMealActions = Math.floor(spendableMealBudget / CHEAPEST_EDIBLE_PRICE)
+  const spendableDrinkBudget = s.money + maxEarnedToday
+  const stockedDrinkActions = drinkInventoryCount(s.inventory)
+  const affordableDrinkActions = Math.floor(spendableDrinkBudget / CHEAPEST_DRINK_PRICE)
+  const spendableHygieneBudget = s.money + maxEarnedToday
+  const stockedHygieneActions = hygieneInventoryCount(s.inventory)
+  const affordableHygieneActions = Math.floor(spendableHygieneBudget / CHEAPEST_HYGIENE_PRICE)
+
+  return {
+    ...s.dailyCounters,
+    maxEarnedToday,
+    maxShiftsToday: Math.max(s.dailyCounters.shiftsToday, maxShiftsToday),
+    maxPurchasesToday: Math.max(s.dailyCounters.boughtToday, Math.floor(s.money / CHEAPEST_SHOP_PRICE)),
+    maxMealsToday: Math.max(s.dailyCounters.mealsToday, s.dailyCounters.mealsToday + stockedMealActions + affordableMealActions),
+    maxDrinksToday: Math.max(s.dailyCounters.drinksToday, s.dailyCounters.drinksToday + stockedDrinkActions + affordableDrinkActions),
+    maxHygieneToday: Math.max(s.dailyCounters.hygieneToday, s.dailyCounters.hygieneToday + stockedHygieneActions + affordableHygieneActions),
+    hasStudyBlock: activeStudy && canStartLightCareAction,
+    canGatherResources: s.resourceNodes.some((node) => !bodyWorkBlocker(s.needs, s.health, { energy: node.energyCost + 5 })),
+    canDoConstructionLabor: constructionLaborReady,
+    canHireWorkers: constructionWorkerHireReady || businessWorkerHireReady,
+    canHelpCommunity: canStartLightCareAction && canStartCommunityAction(s.community),
+    canDevelopBusiness: businessLaborReady,
+    hasBusiness: s.assets.some((asset) => asset.kind === 'business'),
+  }
+}
 
 /**
  * Toast tone — drives both the visual toast color and the chime. Widened
@@ -76,7 +321,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 7
+export const SAVE_VERSION = 20
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -89,6 +334,13 @@ export const SAVE_VERSION = 7
  *   v3 → v4: illness + lastIllnessRollAt
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
  *   v6 → v7: itemLastUsedAt (per-item use cooldown for durable effects)
+ *   v7 → v20: day-loop integration (one bump; every backfill below is
+ *     presence-based and idempotent, so one version covers them all):
+ *     courier packages, resource inventory, construction projects + worker
+ *     labor/contract ledgers, education progress, community progression,
+ *     business interior development, service POIs / Workers Hall, Mystery
+ *     Box credit ledger. Versions 8–19 were burned on a parallel branch
+ *     that never shipped to production — 20 is strictly above both chains.
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -116,6 +368,8 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
         if (state && state.mysteryBoxesOpened === undefined) state.mysteryBoxesOpened = 0
+        if (state) state.mysteryBoxCredits = freshMysteryBoxCredits(state.mysteryBoxCredits)
+        if (state?.panel === 'boxes') state.panel = null
         if (state && !state.activeBoosters) state.activeBoosters = []
         if (state && state.combo === undefined) state.combo = 0
         if (state && state.comboLastActionAt === undefined) state.comboLastActionAt = 0
@@ -136,13 +390,52 @@ export function migrateSave(persisted: unknown): GameState {
           const claimedCount = state.tutorialClaimed?.length ?? 0
           state.sawStreetMode = claimedCount >= 7
         }
-        if (state && !state.dailyCounters) {
-          state.dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 }
-        }
+        if (state) state.dailyCounters = normalizeDailyCounters(state.dailyCounters)
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
         // v7: per-item use cooldown clock (durable-effects exploit fix)
         if (state && !state.itemLastUsedAt) state.itemLastUsedAt = {}
+        if (state && !state.resources) state.resources = freshResources()
+        if (state && !state.resourceNodes) state.resourceNodes = []
+        if (state && !state.servicePois) state.servicePois = []
+        if (state && !state.constructionProjects) state.constructionProjects = []
+        if (state && state.constructionProjects) {
+          state.constructionProjects = state.constructionProjects.map((project) => ({
+            ...project,
+            itemId: project.itemId ?? STARTER_HOUSE_RECIPE.itemId,
+            resultKind: project.resultKind ?? 'home',
+            incomePerDay: project.incomePerDay ?? 0,
+            hiredLaborMinutes: project.hiredLaborMinutes ?? 0,
+            workerContracts: Array.isArray(project.workerContracts)
+              ? project.workerContracts.map((contract) => ({
+                  ...contract,
+                  source: 'workers-hall' as const,
+                  communityCreditMinutes: contract.communityCreditMinutes ?? 0,
+                  communityCreditValue: contract.communityCreditValue ?? 0,
+                }))
+              : [],
+          }))
+        }
+        if (state && state.placingConstruction === undefined) state.placingConstruction = null
+        if (state && state.selectedMapTarget === undefined) state.selectedMapTarget = null
+        if (state && !state.educationProgress) state.educationProgress = []
+        if (state && state.educationProgress) {
+          state.educationProgress = state.educationProgress
+            .map((progress) => normalizeEducationProgress(progress))
+            .filter((progress): progress is EducationProgress => progress !== null)
+        }
+        if (state && !state.community) state.community = freshCommunityStats()
+        if (state && state.community) state.community = normalizeCommunityStats(state.community)
+        if (state && !state.businessDevelopmentProjects) state.businessDevelopmentProjects = []
+        if (state && state.businessDevelopmentProjects) {
+          state.businessDevelopmentProjects = state.businessDevelopmentProjects
+            .map((project) => normalizeBusinessDevelopmentProject(project))
+            .filter((project): project is BusinessDevelopmentProject => project !== null)
+        }
+        if (state && state.activeCourierPackage === undefined) state.activeCourierPackage = null
+        if (state && state.courierLastDay === undefined) state.courierLastDay = 0
+        if (state && !state.courierOpenedDays) state.courierOpenedDays = []
+        if (state && !state.completedCourierDays) state.completedCourierDays = []
         return state
 }
 
@@ -206,19 +499,24 @@ export function msToLocalMidnight(now: number, lat?: number, lng?: number): numb
   }
 }
 
-/** Today's dailyCounters with the given deltas applied — day-rollover aware. */
+function dailyCounterDayFor(s: Pick<GameState, 'assets' | 'citizen'>): number {
+  const home = s.assets.find((a) => a.kind === 'home')
+  const anchorLat = home ? home.lat : s.citizen?.spawnLat
+  const anchorLng = home ? home.lng : s.citizen?.spawnLng
+  return dayIndexOf(Date.now(), anchorLat, anchorLng)
+}
+
+/**
+ * Today's dailyCounters with the given deltas applied — day-rollover aware.
+ * Rollover resets via freshDailyCounters so the full counter shape (study,
+ * gather, construction, community, …) survives the day boundary intact.
+ */
 function bumpDailyCounters(
   s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>,
   deltas: Partial<Omit<GameState['dailyCounters'], 'day'>>,
 ): GameState['dailyCounters'] {
-  const home = s.assets.find((a) => a.kind === 'home')
-  const anchorLat = home ? home.lat : s.citizen?.spawnLat
-  const anchorLng = home ? home.lng : s.citizen?.spawnLng
-  const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
-  const base =
-    s.dailyCounters.day === todayDay
-      ? s.dailyCounters
-      : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: todayDay }
+  const todayDay = dailyCounterDayFor(s)
+  const base = s.dailyCounters.day === todayDay ? s.dailyCounters : freshDailyCounters(todayDay)
   return {
     ...base,
     mealsToday: base.mealsToday + (deltas.mealsToday ?? 0),
@@ -229,10 +527,6 @@ function bumpDailyCounters(
   }
 }
 
-/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
-const bumpBoughtToday = (s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] =>
-  bumpDailyCounters(s, { boughtToday: 1 })
-
 /**
  * The central XP-grant chokepoint for player-facing XP outside the engine:
  * applies the active "2x all XP" booster to a base amount. Every discrete
@@ -242,6 +536,54 @@ const bumpBoughtToday = (s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounter
  */
 function boostedXp(activeBoosters: { type: BoosterType; expiresAt: number }[], base: number, now: number = Date.now()): number {
   return Math.round(base * boosterMultiplier(activeBoosters, 'xp', now))
+}
+
+/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
+function bumpBoughtToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
+    : freshDailyCounters(todayDay, { boughtToday: 1 })
+}
+
+/** Today's dailyCounters with sleptToday bumped when intentional sleep starts. */
+function bumpSleptToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, sleptToday: s.dailyCounters.sleptToday + 1 }
+    : freshDailyCounters(todayDay, { sleptToday: 1 })
+}
+
+/** Today's dailyCounters with mealsToday bumped when food is eaten. */
+function bumpMealsToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, mealsToday: s.dailyCounters.mealsToday + 1 }
+    : freshDailyCounters(todayDay, { mealsToday: 1 })
+}
+
+/** Today's dailyCounters with drinksToday bumped when hydration is handled intentionally. */
+function bumpDrinksToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, drinksToday: s.dailyCounters.drinksToday + 1 }
+    : freshDailyCounters(todayDay, { drinksToday: 1 })
+}
+
+/** Today's dailyCounters with hygieneToday bumped when a cleanup action is used. */
+function bumpHygieneToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, hygieneToday: s.dailyCounters.hygieneToday + 1 }
+    : freshDailyCounters(todayDay, { hygieneToday: 1 })
+}
+
+/** Today's dailyCounters with Workers Hall hires bumped — day-rollover aware. */
+function bumpWorkersHiredToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, workersHiredToday: s.dailyCounters.workersHiredToday + 1 }
+    : freshDailyCounters(todayDay, { workersHiredToday: 1 })
 }
 
 /**
@@ -263,6 +605,19 @@ async function tryPost(path: string, body: unknown): Promise<Record<string, unkn
     useGame.getState().markApiOffline()
     return null
   }
+}
+
+function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
+  if (!citizen?.token) return
+  void tryPost('/api/world', {
+    citizenId: citizen.citizenId,
+    token: citizen.token,
+    assetId: asset.id,
+    itemId: asset.itemId,
+    kind: asset.kind,
+    lat: asset.lat,
+    lng: asset.lng,
+  })
 }
 
 interface GameState {
@@ -300,12 +655,32 @@ interface GameState {
   lastSeenAt: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
+  /** Construction resources gathered from the map. */
+  resources: ResourceInventory
+  /** Resource nodes discovered around the citizen's anchor. */
+  resourceNodes: ResourceNode[]
+  setResourceNodes: (nodes: ResourceNode[]) => void
+  /** City services discovered around the citizen's anchor. */
+  servicePois: ServicePoi[]
+  setServicePois: (pois: ServicePoi[]) => void
+  /** Active build projects placed on the map before they become assets. */
+  constructionProjects: ConstructionProject[]
+  /** Real study progress. Buying education enrolls here; XP arrives after study time. */
+  educationProgress: EducationProgress[]
+  /** Respect/friendship/community trust earned through real helpful actions. */
+  community: CommunityStats
+  /** Active inside-the-business development projects before an upgrade is permanent. */
+  businessDevelopmentProjects: BusinessDevelopmentProject[]
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
   pets: Pet[]
   /** ms timestamp each grocery id was last restocked — the spoilage clock */
   groceryRestockedAt: Record<string, number>
   /** Item awaiting a map click for placement */
   placing: ShopItem | null
+  /** Construction recipe awaiting a map click for placement. */
+  placingConstruction: 'starter-house' | null
+  /** Map target selected from menus/markers. Drives camera focus. */
+  selectedMapTarget: MapTarget | null
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
@@ -329,11 +704,19 @@ interface GameState {
   /** True once the player has entered Street Mode (one-time controls overlay). */
   sawStreetMode: boolean
   /** Daily challenge counters — reset at local midnight. See dailyChallenges.ts */
-  dailyCounters: { mealsToday: number; shiftsToday: number; earnedToday: number; sleptToday: number; boughtToday: number; day: number }
+  dailyCounters: DailyCounters
   /** Daily challenge ids already claimed today (idempotent — no double-grant). */
   dailyClaimed: string[]
   /** True once today's all-3-complete bonus has been granted. */
   dailyBonusClaimed: boolean
+  /** Daily courier package campaign state — one package per local day. */
+  activeCourierPackage: CourierPackage | null
+  courierLastDay: number
+  courierOpenedDays: number[]
+  completedCourierDays: number[]
+  openCourierPackage: () => void
+  completeCourierPackage: () => void
+  dismissCourierPackage: () => void
   /** Territorial progression: highest reach tier celebrated so far */
   reachTier: number
   /** Daily streak length (days). 0 before the first claim. See src/game/streak.ts */
@@ -391,6 +774,22 @@ interface GameState {
   openMarket: (focus?: ShopCategory) => void
   /** Open the Market filtered to items that restore a specific vital */
   openMarketForNeed: (need: NeedKey) => void
+  startGatherResource: (nodeId: string) => void
+  startPlacingConstruction: () => void
+  placeConstructionAt: (lat: number, lng: number) => void
+  cancelPlacingConstruction: () => void
+  depositConstructionResources: (projectId: string) => void
+  payConstructionPermit: (projectId: string) => void
+  startConstructionWork: (projectId: string) => void
+  hireConstructionWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
+  completeConstructionIfReady: (projectId: string) => void
+  startStudy: (courseId: EducationCourseId) => void
+  startCommunityAction: (actionId: CommunityActionId) => void
+  depositBusinessDevelopmentResources: (projectId: string) => void
+  payBusinessDevelopmentBudget: (projectId: string) => void
+  startBusinessDevelopmentWork: (projectId: string) => void
+  hireBusinessDevelopmentWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
+  completeBusinessDevelopmentIfReady: (projectId: string) => void
   quickDrink: () => void
   startGig: () => void
   markTargetsSeen: () => void
@@ -418,9 +817,11 @@ interface GameState {
   leaveActivity: () => void
   takeJob: (jobId: string) => void
   buy: (itemId: string) => void
-  /** Upgrade a business to the next level — multiplies its income. */
+  /** Start an interior development plan for the next business level. */
   upgradeBusiness: (assetId: string) => void
-  /** Open a mystery box — the gacha loop. Returns the reward for reveal. */
+  /** Earned Mystery Box credits from real daily/community behavior. */
+  mysteryBoxCredits: MysteryBoxCredits
+  /** Open an earned mystery box credit. Returns the reward for reveal. */
   openMysteryBox: (tier: BoxTier) => void
   /** The most recent mystery box result (transient — for the reveal animation). */
   lastBoxReward: (BoxReward & { tier: BoxTier }) | null
@@ -447,6 +848,7 @@ interface GameState {
   /** Claim one achievement's XP + cash bounty (idempotent by id) */
   claimAchievement: (achievementId: string) => void
   toggleTutorial: () => void
+  selectMapTarget: (target: MapTarget | null) => void
   setPanel: (panel: PanelId) => void
   reset: () => void
 }
@@ -471,9 +873,18 @@ const FRESH = {
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
+  resources: freshResources(),
+  resourceNodes: [] as ResourceNode[],
+  servicePois: [] as ServicePoi[],
+  constructionProjects: [] as ConstructionProject[],
+  educationProgress: [] as EducationProgress[],
+  community: freshCommunityStats(),
+  businessDevelopmentProjects: [] as BusinessDevelopmentProject[],
   pets: [] as Pet[],
   groceryRestockedAt: {} as Record<string, number>,
   placing: null as ShopItem | null,
+  placingConstruction: null as 'starter-house' | null,
+  selectedMapTarget: null as MapTarget | null,
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
@@ -487,9 +898,13 @@ const FRESH = {
   targetsSeen: false,
   sawAchievementsPanel: false,
   sawStreetMode: false,
-  dailyCounters: { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: 0 },
+  dailyCounters: freshDailyCounters(),
   dailyClaimed: [] as string[],
   dailyBonusClaimed: false,
+  activeCourierPackage: null as CourierPackage | null,
+  courierLastDay: 0,
+  courierOpenedDays: [] as number[],
+  completedCourierDays: [] as number[],
   reachTier: 1,
   streakLength: 0,
   streakLastClaimDay: 0,
@@ -497,6 +912,7 @@ const FRESH = {
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
   mysteryBoxesOpened: 0,
+  mysteryBoxCredits: freshMysteryBoxCredits(),
   activeBoosters: [] as { type: BoosterType; expiresAt: number }[],
   combo: 0,
   comboLastActionAt: 0,
@@ -546,6 +962,27 @@ function comboXP(s: GameState, baseXP: number): { bonusXP: number; comboToast: s
   return { bonusXP, comboToast, newCombo }
 }
 
+type BodyWorkBlocker = 'health' | 'energy' | 'hunger' | 'hydration'
+
+function bodyWorkBlocker(
+  needs: Needs,
+  health: number,
+  floors: { energy: number; hunger?: number; hydration?: number },
+): BodyWorkBlocker | null {
+  if (health < 20) return 'health'
+  if (needs.energy < floors.energy) return 'energy'
+  if (needs.hunger < (floors.hunger ?? 15)) return 'hunger'
+  if (needs.hydration < (floors.hydration ?? 15)) return 'hydration'
+  return null
+}
+
+function bodyWorkBlockerText(blocker: BodyWorkBlocker, action: string): string {
+  if (blocker === 'hydration') return `Drink water before ${action}.`
+  if (blocker === 'hunger') return `Eat before ${action}.`
+  if (blocker === 'energy') return `Rest before ${action}.`
+  return `Recover before ${action}.`
+}
+
 /**
  * Build the achievement snapshot from live game state. Centralised here so the
  * panel and the auto-claimer see the exact same view. `distinctItemsOwned`
@@ -559,7 +996,9 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   const distinctItemsOwned = new Set([...inventoryKinds, ...assetKinds, ...petKinds]).size
   // Day-1-based, matching the UI's dayOfLife (TopBar/Profile show "Day 1" on
   // spawn day) — achievements must agree with the day the player is shown.
-  const daysLived = s.citizen ? dayOfLife(s.citizen.createdAt) : 0
+  // FULL days survived (0 on day one), not the 1-based day-of-life index —
+  // "Survivor: stay alive your first full real day" must take 24 real hours.
+  const daysLived = s.citizen ? dayOfLife(s.citizen.createdAt) - 1 : 0
   return {
     timesEaten: s.timesEaten,
     timesSlept: s.timesSlept,
@@ -579,6 +1018,138 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
     activity: s.activity,
     needs: s.needs,
   }
+}
+
+function citizenCourierDay(citizen: Citizen, todayDay: number, anchorLat?: number, anchorLng?: number): number {
+  const createdDay = dayIndexOf(citizen.createdAt, anchorLat, anchorLng)
+  return Math.max(1, todayDay - createdDay + 1)
+}
+
+function communityWorkerCreditMinutes(community: CommunityStats, shiftsWorked: number, now = Date.now()): number {
+  const advantage = communityAdvantageOf({
+    communityRespect: community.respect,
+    communityFriendship: community.friendship,
+    communityTrust: community.trust,
+    brokenCommitments: community.brokenCommitments,
+    shiftsWorked,
+  })
+  return availableCommunityHelperMinutes(community, advantage.weeklyHelperMinutes, now)
+}
+
+function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
+  return {
+    timesEaten: s.timesEaten,
+    sawStreetMode: s.sawStreetMode,
+    resources: s.resources,
+    constructionProjects: s.constructionProjects,
+    hasHome: s.assets.some((asset) => asset.kind === 'home'),
+    jobId: s.jobId,
+    shiftsWorked: s.shiftsWorked,
+    educationProgress: s.educationProgress,
+    educationActions: educationActionCount(s.educationProgress),
+    communityActionsThisWeek: s.community.actionsThisWeek,
+  }
+}
+
+function completeConstructionForState(
+  s: Pick<GameState, 'constructionProjects' | 'assets'>,
+  projectId: string,
+): { constructionProjects: ConstructionProject[]; assets: PlacedAsset[]; asset: PlacedAsset | null } {
+  const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+  if (!project) return { constructionProjects: s.constructionProjects, assets: s.assets, asset: null }
+  const existingAsset = s.assets.find((asset) =>
+    asset.kind === project.resultKind &&
+    asset.itemId === project.itemId &&
+    asset.lat === project.lat &&
+    asset.lng === project.lng &&
+    asset.name === project.name
+  )
+  if (existingAsset) {
+    return {
+      constructionProjects: s.constructionProjects.filter((candidate) => candidate.id !== projectId),
+      assets: s.assets,
+      asset: existingAsset,
+    }
+  }
+  const completed = completeConstructionProject(project)
+  if (!completed.asset) return { constructionProjects: s.constructionProjects, assets: s.assets, asset: null }
+  return {
+    constructionProjects: s.constructionProjects.filter((candidate) => candidate.id !== projectId),
+    assets: [...s.assets, completed.asset],
+    asset: completed.asset,
+  }
+}
+
+function completeBusinessDevelopmentForState(
+  s: Pick<GameState, 'businessDevelopmentProjects' | 'assets'>,
+  projectId: string,
+): { businessDevelopmentProjects: BusinessDevelopmentProject[]; assets: PlacedAsset[]; asset: PlacedAsset | null; project: BusinessDevelopmentProject | null } {
+  const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+  if (!project) return { businessDevelopmentProjects: s.businessDevelopmentProjects, assets: s.assets, asset: null, project: null }
+  const asset = s.assets.find((candidate) => candidate.id === project.businessId)
+  const completed = completeBusinessDevelopmentProject(project, asset)
+  if (!completed) return { businessDevelopmentProjects: s.businessDevelopmentProjects, assets: s.assets, asset: null, project }
+  return {
+    businessDevelopmentProjects: s.businessDevelopmentProjects.filter((candidate) => candidate.id !== projectId),
+    assets: s.assets.map((candidate) => candidate.id === completed.id ? completed : candidate),
+    asset: completed,
+    project,
+  }
+}
+
+function panelForCompletedAsset(asset: PlacedAsset | null): PanelId {
+  if (!asset) return null
+  return asset.kind === 'business' ? 'business' : 'home'
+}
+
+function trackPlacedAsset(asset: PlacedAsset): void {
+  track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
+}
+
+function constructionCompleteText(asset: PlacedAsset, mode: 'materials' | 'permit' | 'workers' = 'materials'): string {
+  if (asset.kind === 'business') {
+    return mode === 'workers'
+      ? `${asset.name} opened with hired help. Customers can find it on the map.`
+      : `${asset.name} opened from local materials. The business is live on the map.`
+  }
+  if (mode === 'workers') return `${asset.name} completed with hired help. The map is updated.`
+  if (mode === 'permit') return `${asset.name} completed after the permit cleared.`
+  return `${asset.name} completed from local materials. You have a door of your own.`
+}
+
+function businessDevelopmentCompleteText(project: BusinessDevelopmentProject, mode: 'labor' | 'workers' | 'budget' = 'labor'): string {
+  const source = mode === 'workers' ? 'with hired help' : mode === 'budget' ? 'after the budget cleared' : 'from interior work'
+  return `${project.businessName} developed to level ${project.levelTo} ${source}. Income is now ${formatMoney(project.incomeAfter)}/day.`
+}
+
+type WorkerContractLike = Pick<ConstructionWorkerContract | BusinessDevelopmentWorkerContract, 'id' | 'workerName' | 'paidMinutes' | 'workedMinutes'>
+
+function finishedWorkerContractNames(
+  before: readonly WorkerContractLike[] = [],
+  after: readonly WorkerContractLike[] = [],
+): string[] {
+  const activeBefore = new Set(
+    before
+      .filter((contract) => contract.workedMinutes < contract.paidMinutes)
+      .map((contract) => contract.id),
+  )
+  return after
+    .filter((contract) => activeBefore.has(contract.id) && contract.workedMinutes >= contract.paidMinutes)
+    .map((contract) => contract.workerName)
+}
+
+function formatLaborMinutes(minutes: number): string {
+  const whole = Math.max(0, Math.ceil(minutes))
+  const hours = Math.floor(whole / 60)
+  const mins = whole % 60
+  if (hours <= 0) return `${mins}m`
+  if (mins <= 0) return `${hours}h`
+  return `${hours}h ${mins}m`
+}
+
+function workerContractFinishedText(names: string[], subject: string, remainingMinutes: number, kind: 'labor' | 'interior labor'): string {
+  const who = names.length === 1 ? names[0] : `${names.length} workers`
+  return `${who} finished paid Workers Hall time on ${subject}; ${formatLaborMinutes(remainingMinutes)} ${kind} remains.`
 }
 
 export const useGame = create<GameState>()(
@@ -719,15 +1290,7 @@ export const useGame = create<GameState>()(
 
         const { citizen, assets } = get()
         for (const a of assets) {
-          void tryPost('/api/world', {
-            citizenId: citizen?.citizenId,
-            token: citizen?.token,
-            assetId: a.id,
-            itemId: a.itemId,
-            kind: a.kind,
-            lat: a.lat,
-            lng: a.lng,
-          })
+          publishPlacedAsset(citizen, a)
         }
         void get().reportScore()
       },
@@ -822,6 +1385,18 @@ export const useGame = create<GameState>()(
         }
 
         const wasAway = now - from > 15 * 60_000
+        const completedSpecialActivity =
+          s.activity &&
+          (
+            s.activity.kind === 'gather' ||
+            s.activity.kind === 'construction' ||
+            s.activity.kind === 'study' ||
+            s.activity.kind === 'community' ||
+            s.activity.kind === 'business-development'
+          ) &&
+          now >= s.activity.endsAt
+            ? s.activity
+            : null
         const out = liveRealtime(
           {
             needs: s.needs,
@@ -830,7 +1405,7 @@ export const useGame = create<GameState>()(
             money: s.money,
             activity: s.activity,
             hasHome: s.assets.some((a) => a.kind === 'home'),
-            wageBonus: wageBonusFrom(s.inventory),
+            wageBonus: totalWageBonus(s.inventory, s.educationProgress),
             lastFountainAt: s.lastFountainAt,
             lastFoodBankAt: s.lastFoodBankAt,
             pets: s.pets,
@@ -863,6 +1438,7 @@ export const useGame = create<GameState>()(
         let achievementsClaimed = s.achievementsClaimed
         let streakBest = s.streakBest
         let savingsGoalReached = s.savingsGoalReached
+        let selectedMapTarget = s.selectedMapTarget
         // Show-or-queue a celebration. Declared early so every celebration
         // site (milestone, lucky, achievement, level, daily, savings) can use
         // it regardless of order in the tick. If none is showing, show
@@ -945,6 +1521,7 @@ export const useGame = create<GameState>()(
         // Territorial progression: celebrate when the citizen's reach grows
         let reachTier = s.reachTier
         // The habit metric: still living this life a week later (Rule of retention)
+        if (now - s.citizen.createdAt >= 24 * 3_600_000) track('d1_return')
         if (now - s.citizen.createdAt >= 7 * 24 * 3_600_000) track('d7_return')
 
         // Weekly milestone celebration — fires once when the citizen crosses
@@ -1001,6 +1578,194 @@ export const useGame = create<GameState>()(
         // A little chaos, only during live play
         let needs = out.needs
         let money = out.money + wageBonusEarned
+        let resources = s.resources
+        let constructionProjects = s.constructionProjects
+        let educationProgress = s.educationProgress
+        let mysteryBoxCredits = freshMysteryBoxCredits(s.mysteryBoxCredits)
+        let community = resetCommunityWeekIfNeeded(s.community, now)
+        let gatheredDelta = 0
+        let constructionMinutesDelta = 0
+        let studiedDelta = 0
+        let communityDelta = 0
+        let businessDevelopmentMinutesDelta = 0
+        if (out.shiftsCompleted > 0) {
+          const beforeRespect = community.respect
+          const beforeTrust = community.trust
+          const beforeSeriousWorkStreak = community.seriousWorkStreak
+          community = completeReliableShift(community, now)
+          const respectGained = community.respect - beforeRespect
+          const trustGained = community.trust - beforeTrust
+          const earnedMilestoneTier = community.seriousWorkStreak > beforeSeriousWorkStreak
+            ? creditTierForSeriousWorkStreak(community.seriousWorkStreak)
+            : null
+          if (earnedMilestoneTier) {
+            mysteryBoxCredits = { ...mysteryBoxCredits, [earnedMilestoneTier]: mysteryBoxCredits[earnedMilestoneTier] + 1 }
+          }
+          if (respectGained > 0) track('respect_gained')
+          if (!wasAway && (respectGained > 0 || trustGained > 0)) {
+            log = note(log, `Reliable shift complete: +${respectGained} respect, +${trustGained} trust.`)
+            toasts = withToast(toasts, `Reliable shift +${respectGained} respect`, 'sky')
+          }
+          if (!wasAway && earnedMilestoneTier) {
+            const def = MYSTERY_BOXES[earnedMilestoneTier]
+            log = note(log, `Serious work streak ${community.seriousWorkStreak} days: earned a ${def.name} credit.`)
+            toasts = withToast(toasts, `Serious work ${community.seriousWorkStreak} days: ${def.name} credit`, earnedMilestoneTier === 'legendary' ? 'legendary' : 'gold')
+          }
+        }
+        let businessDevelopmentProjects = s.businessDevelopmentProjects
+        if (completedSpecialActivity?.kind === 'gather' && completedSpecialActivity.resourceKind && completedSpecialActivity.resourceAmount) {
+          const kind = completedSpecialActivity.resourceKind
+          const amount = completedSpecialActivity.resourceAmount
+          resources = addResources(resources, kind, amount)
+          if (!wasAway) gatheredDelta += 1
+          log = note(log, `Gathered ${amount} ${RESOURCE_META[kind].label.toLowerCase()}.`)
+          if (!wasAway) toasts = withToast(toasts, `+${amount} ${RESOURCE_META[kind].label}`, 'gold')
+        }
+        if (completedSpecialActivity?.kind === 'construction' && completedSpecialActivity.projectId) {
+          const projectId = completedSpecialActivity.projectId
+          const project = constructionProjects.find((candidate) => candidate.id === projectId)
+          if (project) {
+            const minutes = completedSpecialActivity.laborMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
+            const worked = addConstructionLabor(project, minutes)
+            if (!wasAway) constructionMinutesDelta += minutes
+            const projects = constructionProjects.map((candidate) => candidate.id === projectId ? worked : candidate)
+            const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, projectId)
+            constructionProjects = completed.constructionProjects
+            out.assets = completed.assets
+            if (completed.asset) {
+              trackPlacedAsset(completed.asset)
+              publishPlacedAsset(s.citizen, completed.asset)
+              selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+              log = note(log, constructionCompleteText(completed.asset))
+              if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} complete!`, 'achieve')
+            } else {
+              log = note(log, `Construction labor complete: ${minutes} minutes on ${project.name}.`)
+              if (!wasAway) toasts = withToast(toasts, `Construction labor +${minutes}m`, 'gold')
+            }
+          }
+        }
+        for (const project of [...constructionProjects]) {
+          if (!constructionProjects.some((candidate) => candidate.id === project.id)) continue
+          const advanced = advanceConstructionWorkerContracts(project, now)
+          if (advanced.laborMinutes <= 0) continue
+          const finishedWorkerNames = finishedWorkerContractNames(project.workerContracts, advanced.project.workerContracts)
+          if (!wasAway) constructionMinutesDelta += advanced.laborMinutes
+          const projects = constructionProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
+          const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, project.id)
+          constructionProjects = completed.constructionProjects
+          out.assets = completed.assets
+          if (completed.asset) {
+            trackPlacedAsset(completed.asset)
+            publishPlacedAsset(s.citizen, completed.asset)
+            selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+            log = note(log, constructionCompleteText(completed.asset, 'workers'))
+            if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} complete!`, 'achieve')
+          } else if (finishedWorkerNames.length > 0) {
+            const remaining = Math.max(0, advanced.project.laborRequiredMinutes - advanced.project.laborDoneMinutes)
+            log = note(log, workerContractFinishedText(finishedWorkerNames, project.name, remaining, 'labor'))
+            if (!wasAway) toasts = withToast(toasts, `Workers Hall time ended: ${formatLaborMinutes(remaining)} left`, 'sky')
+          }
+        }
+        if (completedSpecialActivity?.kind === 'study' && completedSpecialActivity.courseId) {
+          const course = educationCourseById(completedSpecialActivity.courseId)
+          const current = educationProgress.find((candidate) => candidate.courseId === completedSpecialActivity.courseId) ?? null
+          if (course && current) {
+            const minutes = completedSpecialActivity.studyMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
+            const studied = addStudyMinutes(course, current, minutes, now)
+            if (!wasAway) studiedDelta += 1
+            educationProgress = educationProgress.map((candidate) => candidate.courseId === course.id ? studied.progress : candidate)
+            if (studied.xpGained > 0) {
+              track('education_completed')
+              const prog = applyXp(level, xp, studied.xpGained)
+              level = prog.level
+              xp = prog.xp
+              log = note(log, `${course.name} complete: +${studied.xpGained} XP.`)
+              if (!wasAway) toasts = withToast(toasts, `${course.name} complete +${studied.xpGained} XP`, 'achieve')
+            } else {
+              const remaining = educationRemainingMinutes(course, studied.progress)
+              log = note(log, `Studied ${course.name} for ${minutes} minutes. ${remaining} minutes left.`)
+              if (!wasAway) toasts = withToast(toasts, `Study block complete: ${course.name}`, 'sky')
+            }
+          }
+        }
+        if (completedSpecialActivity?.kind === 'community' && completedSpecialActivity.communityActionId) {
+          const action = communityActionById(completedSpecialActivity.communityActionId)
+          if (action) {
+            const before = resetCommunityActionDayIfNeeded(resetCommunityWeekIfNeeded(community, now), now)
+            community = completeCommunityAction(community, action, now)
+            const rewardApplied = community.actionsToday > before.actionsToday
+            if (rewardApplied) {
+              track('community_action_completed')
+              if (action.rewards.respect > 0) track('respect_gained')
+              if (action.rewards.friendship > 0) track('friendship_gained')
+              if (!wasAway) communityDelta += 1
+              mysteryBoxCredits = { ...mysteryBoxCredits, standard: mysteryBoxCredits.standard + 1 }
+              const prog = applyXp(level, xp, action.rewards.xp)
+              level = prog.level
+              xp = prog.xp
+              log = note(log, `${action.title} complete: +${action.rewards.respect} respect, +${action.rewards.friendship} friendship, +${action.rewards.trust} trust.`)
+              if (!wasAway) toasts = withToast(toasts, `${action.title} complete +${action.rewards.xp} XP`, 'achieve')
+            } else {
+              log = note(log, `${action.title} complete, but community rewards are already done for today.`)
+              if (!wasAway) toasts = withToast(toasts, 'Community reward already claimed today.', 'blocked')
+            }
+          }
+        }
+        if (completedSpecialActivity?.kind === 'business-development' && completedSpecialActivity.businessDevelopmentProjectId) {
+          const projectId = completedSpecialActivity.businessDevelopmentProjectId
+          const project = businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+          if (project) {
+            const minutes = completedSpecialActivity.laborMinutes ?? Math.round((completedSpecialActivity.endsAt - completedSpecialActivity.startedAt) / 60_000)
+            const worked = addBusinessDevelopmentLabor(project, minutes)
+            if (!wasAway) businessDevelopmentMinutesDelta += minutes
+            const projects = businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? worked : candidate)
+            const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, projectId)
+            businessDevelopmentProjects = completed.businessDevelopmentProjects
+            out.assets = completed.assets
+            if (completed.asset && completed.project) {
+              if (completed.project.levelFrom === 1) track('first_upgrade')
+              if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+              selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+              log = note(log, businessDevelopmentCompleteText(completed.project))
+              if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} developed to L${completed.project.levelTo}!`, 'achieve')
+              if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) {
+                const maxCelebration = { icon: '🏭', title: `${completed.asset.name} — MAX LEVEL!`, detail: `Fully developed. Earning ${formatMoney(completed.asset.incomePerDay)}/day — a true empire pillar.`, tone: 'gold' as const }
+                if (!celebration) celebration = maxCelebration
+                else celebrationQueue = [...celebrationQueue, maxCelebration]
+              }
+            } else {
+              log = note(log, `Interior development labor complete: ${minutes} minutes on ${project.businessName}.`)
+              if (!wasAway) toasts = withToast(toasts, `Interior labor +${minutes}m`, 'gold')
+            }
+          }
+        }
+        for (const project of [...businessDevelopmentProjects]) {
+          if (!businessDevelopmentProjects.some((candidate) => candidate.id === project.id)) continue
+          const advanced = advanceBusinessDevelopmentWorkerContracts(project, now)
+          if (advanced.laborMinutes <= 0) continue
+          const finishedWorkerNames = finishedWorkerContractNames(project.workerContracts, advanced.project.workerContracts)
+          if (!wasAway) businessDevelopmentMinutesDelta += advanced.laborMinutes
+          const projects = businessDevelopmentProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
+          const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, project.id)
+          businessDevelopmentProjects = completed.businessDevelopmentProjects
+          out.assets = completed.assets
+          if (completed.asset && completed.project) {
+            if (completed.project.levelFrom === 1) track('first_upgrade')
+            if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+            selectedMapTarget = { kind: 'asset', id: completed.asset.id }
+            log = note(log, businessDevelopmentCompleteText(completed.project, 'workers'))
+            if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} developed to L${completed.project.levelTo}!`, 'achieve')
+            if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) {
+              const maxCelebration = { icon: '🏭', title: `${completed.asset.name} — MAX LEVEL!`, detail: `Fully developed. Earning ${formatMoney(completed.asset.incomePerDay)}/day — a true empire pillar.`, tone: 'gold' as const }
+              if (!celebration) celebration = maxCelebration
+              else celebrationQueue = [...celebrationQueue, maxCelebration]
+            }
+          } else if (finishedWorkerNames.length > 0) {
+            const remaining = Math.max(0, advanced.project.laborRequiredMinutes - advanced.project.laborDoneMinutes)
+            log = note(log, workerContractFinishedText(finishedWorkerNames, project.businessName, remaining, 'interior labor'))
+            if (!wasAway) toasts = withToast(toasts, `Workers Hall time ended: ${formatLaborMinutes(remaining)} left`, 'sky')
+          }
+        }
         // "Earned today" accumulator for the daily challenges — WORK income
         // only (wages + business income), not windfalls. Streak cash, lucky
         // moments, achievement bounties, and challenge rewards used to feed
@@ -1156,6 +1921,61 @@ export const useGame = create<GameState>()(
         const anchorLat = home ? home.lat : s.citizen.spawnLat
         const anchorLng = home ? home.lng : s.citizen.spawnLng
         const todayDay = dayIndexOf(now, anchorLat, anchorLng)
+        let activeCourierPackage = s.activeCourierPackage
+        let courierLastDay = s.courierLastDay
+        const courierDay = citizenCourierDay(s.citizen, todayDay, anchorLat, anchorLng)
+        const baseCourierPackage = shouldCreateCourierPackage({
+          citizenAgeDay: courierDay,
+          localDay: todayDay,
+          courierLastDay,
+          completedDays: s.completedCourierDays,
+        })
+        const courierSnapshot = {
+          timesEaten,
+          sawStreetMode: s.sawStreetMode,
+          resources,
+          constructionProjects,
+          hasHome: out.assets.some((asset) => asset.kind === 'home'),
+          jobId: s.jobId,
+          shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+          educationActions: educationActionCount(educationProgress),
+          communityActionsThisWeek: community.actionsThisWeek,
+        }
+        const nextPackage = baseCourierPackage
+          ? courierPackageForLifePlan(courierDay, planLifeDay({
+              lifeDay: courierDay,
+              money,
+              needs,
+              health: out.health,
+              level,
+              xp,
+              jobId: s.jobId,
+              shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+              activityKind: out.activity?.kind ?? null,
+              assets: out.assets,
+              inventory: out.inventory,
+              resources,
+              constructionProjects,
+              businessDevelopmentProjects,
+              educationActions: educationActionCount(educationProgress),
+              educationProgress,
+              communityActionsThisWeek: community.actionsThisWeek,
+              communityActionsToday: community.actionsToday,
+              communityRespect: community.respect,
+              communityFriendship: community.friendship,
+              communityTrust: community.trust,
+              seriousWorkMissedYesterday: missedSeriousWorkYesterday(community, now),
+            }).primary, courierSnapshot) ?? baseCourierPackage
+          : null
+        if (nextPackage) {
+          activeCourierPackage = nextPackage
+          courierLastDay = todayDay
+          toasts = withToast(toasts, `Courier package day ${nextPackage.day} arrived.`, 'gold')
+          log = note(log, `Courier package arrived: ${nextPackage.title}.`)
+        } else if (courierLastDay !== todayDay && courierDay <= 10) {
+          courierLastDay = todayDay
+          activeCourierPackage = null
+        }
         const streakPrev: StreakState = { length: s.streakLength, lastClaimDay: s.streakLastClaimDay }
         const streakOut = computeStreakClaim(streakPrev, todayDay)
         if (streakOut) {
@@ -1220,12 +2040,15 @@ export const useGame = create<GameState>()(
           // tick), log a day-header to the journal — gives the timeline a
           // temporal rhythm and surfaces the thought-of-the-day in context.
           const wasRollover = dailyCounters.day > 0
-          dailyCounters = { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: todayDay }
+          dailyCounters = freshDailyCounters(todayDay)
           dailyClaimed = []
           dailyBonusClaimed = false
           if (wasRollover) {
             const thought = thoughtForDay(todayDay)
             log = note(log, `━ A new day. "${thought}"`)
+            if (missedSeriousWorkYesterday(community, now)) {
+              log = note(log, 'Serious work rhythm slipped yesterday. One reliable shift today repairs the streak and rebuilds respect.')
+            }
           }
         }
         // Savings goal — celebrate once when net worth crosses the player's
@@ -1253,32 +2076,71 @@ export const useGame = create<GameState>()(
         // precise sum of every positive inflow (wages, lucky, bounty, streak,
         // daily, bonus, business pending) -- replacing the old imprecise
         // approximation that double-counted wages and clamped spending.
-        // Sleeps are inferred from activity kind transitions.
+        // Sleep is counted when it starts (same timing as lifetime timesSlept),
+        // so leaving early does not create a confusing daily/lifetime mismatch.
         // Away spans never feed the challenge counters: challenges reward
         // TODAY'S engagement, and a multi-day absence compressed into one
         // tick would auto-complete "eat 2 meals" / "work a shift" on return.
         const mealsDelta = wasAway ? 0 : out.mealsCooked
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
-        const sleptDelta = !wasAway && s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
-        if (mealsDelta || shiftsDelta || cashEarnedThisTick || sleptDelta) {
+        const sleptDelta = 0
+        if (
+          mealsDelta ||
+          shiftsDelta ||
+          cashEarnedThisTick ||
+          sleptDelta ||
+          studiedDelta ||
+          gatheredDelta ||
+          constructionMinutesDelta ||
+          communityDelta ||
+          businessDevelopmentMinutesDelta
+        ) {
           dailyCounters = {
             ...dailyCounters,
             mealsToday: dailyCounters.mealsToday + mealsDelta,
             shiftsToday: dailyCounters.shiftsToday + shiftsDelta,
             earnedToday: dailyCounters.earnedToday + cashEarnedThisTick,
             sleptToday: dailyCounters.sleptToday + sleptDelta,
+            studiedToday: dailyCounters.studiedToday + studiedDelta,
+            gatheredToday: dailyCounters.gatheredToday + gatheredDelta,
+            constructionMinutesToday: dailyCounters.constructionMinutesToday + constructionMinutesDelta,
+            communityToday: dailyCounters.communityToday + communityDelta,
+            businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday + businessDevelopmentMinutesDelta,
           }
         }
         // Auto-grant any newly-complete challenges (idempotent via dailyClaimed).
         if (s.citizen) {
-          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay)
           const csnap: DailyChallengeSnapshot = {
             mealsToday: dailyCounters.mealsToday,
+            drinksToday: dailyCounters.drinksToday,
+            hygieneToday: dailyCounters.hygieneToday,
             shiftsToday: dailyCounters.shiftsToday,
             earnedToday: dailyCounters.earnedToday,
             sleptToday: dailyCounters.sleptToday,
             boughtToday: dailyCounters.boughtToday,
+            studiedToday: dailyCounters.studiedToday,
+            gatheredToday: dailyCounters.gatheredToday,
+            constructionMinutesToday: dailyCounters.constructionMinutesToday,
+            workersHiredToday: dailyCounters.workersHiredToday,
+            communityToday: dailyCounters.communityToday,
+            businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
           }
+          const challengeContext = dailyChallengeContextOf({
+            money,
+            needs,
+            health: out.health,
+            jobId: s.jobId,
+            shiftsWorked: s.shiftsWorked,
+            inventory: s.inventory,
+            assets: out.assets,
+            resourceNodes: s.resourceNodes,
+            constructionProjects,
+            businessDevelopmentProjects,
+            educationProgress,
+            community,
+            dailyCounters,
+          })
+          const dayChallenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, challengeContext)
           const newlyComplete = dayChallenges.filter((c) => {
             if (dailyClaimed.includes(c.id)) return false
             return challengeProgress(c, csnap).complete
@@ -1287,7 +2149,7 @@ export const useGame = create<GameState>()(
             let totalXp = 0
             let totalCash = 0
             for (const c of newlyComplete) {
-              const r = CHALLENGE_REWARD[c.difficulty]
+              const r = challengeRewardFor(c, challengeContext)
               totalXp += r.xp
               totalCash += r.cash
               toasts = withToast(toasts, `✅ Daily: ${c.label} complete! +${formatMoney(r.cash)}, +${r.xp} XP`, 'ok')
@@ -1298,28 +2160,54 @@ export const useGame = create<GameState>()(
             xp = prog.xp
             money += totalCash
             dailyClaimed = [...dailyClaimed, ...newlyComplete.map((c) => c.id)]
-            // All-3-complete bonus
+            // All-complete bonus
             if (!dailyBonusClaimed) {
               const summary = challengeSetSummary(dayChallenges, csnap)
               if (summary.allComplete) {
-                const bprog = applyXp(level, xp, boostedXp(cleanBoosters, DAILY_COMPLETE_BONUS.xp, now))
+                const bonusLabel = dailyChallengeBonusCountLabel(summary.total)
+                const bonus = dailyCompleteBonusForContext(challengeContext)
+                // Stack's context-aware bonus, routed through main's booster
+                // chokepoint so "2x all XP" honestly covers the daily bonus.
+                const bprog = applyXp(level, xp, boostedXp(cleanBoosters, bonus.xp, now))
                 level = bprog.level
                 xp = bprog.xp
-                money += DAILY_COMPLETE_BONUS.cash
+                money += bonus.cash
                 dailyBonusClaimed = true
+                mysteryBoxCredits = { ...mysteryBoxCredits, standard: mysteryBoxCredits.standard + 1 }
                 track('daily_complete')
-                toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(DAILY_COMPLETE_BONUS.cash)}, +${DAILY_COMPLETE_BONUS.xp} XP`, 'achieve')
-                log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(DAILY_COMPLETE_BONUS.cash)} and ${DAILY_COMPLETE_BONUS.xp} XP.`)
+                toasts = withToast(toasts, `🎯 ${bonusLabel}! Bonus +${formatMoney(bonus.cash)}, +${bonus.xp} XP`, 'achieve')
+                log = note(log, `🎯 A perfect day — ${bonusLabel.toLowerCase()} done. Bonus: ${formatMoney(bonus.cash)} and ${bonus.xp} XP.`)
                 celebrate({
                   icon: '🎯',
-                  title: 'All 3 daily challenges!',
+                  title: `${bonusLabel}!`,
                   detail: 'A perfect day. Come back tomorrow for a fresh set.',
-                  reward: `+${formatMoney(DAILY_COMPLETE_BONUS.cash)} · +${DAILY_COMPLETE_BONUS.xp} XP`,
+                  reward: `+${formatMoney(bonus.cash)} · +${bonus.xp} XP`,
                   tone: 'daily',
                 })
               }
             }
           }
+        }
+
+        const ladderStage = millionairePathOf({
+          money,
+          inventory: out.inventory,
+          assets: out.assets,
+          needs,
+          health: out.health,
+          level,
+          jobWage: s.jobId ? jobById(s.jobId)?.wage ?? 0 : 0,
+          shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
+          educationActions: educationActionCount(educationProgress),
+          educationProgress,
+          communityRespect: community.respect,
+          communityFriendship: community.friendship,
+          communityTrust: community.trust,
+          brokenCommitments: community.brokenCommitments,
+        }).stage
+        if (ladderStage !== 'survival') {
+          track('life_ladder_stage_progress')
+          track('millionaire_path_milestone')
         }
 
         set({
@@ -1346,6 +2234,11 @@ export const useGame = create<GameState>()(
           lastIllnessRollAt: out.lastIllnessRollAt,
           pets: out.pets,
           inventory: out.inventory,
+          resources,
+          constructionProjects,
+          educationProgress,
+          community,
+          businessDevelopmentProjects,
           groceryRestockedAt: out.groceryRestockedAt,
           timesEaten,
           achievementsClaimed: achievementsClaimed,
@@ -1361,6 +2254,9 @@ export const useGame = create<GameState>()(
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
+          mysteryBoxCredits,
+          activeCourierPackage,
+          courierLastDay,
           awayReport,
           celebration: celebration,
           celebrationQueue: celebrationQueue,
@@ -1368,6 +2264,7 @@ export const useGame = create<GameState>()(
           activeBoosters: activeBoosters,
           combo: combo,
           comboLastActionAt: s.comboLastActionAt,
+          selectedMapTarget,
           toasts,
           log,
         })
@@ -1402,11 +2299,622 @@ export const useGame = create<GameState>()(
         set({ hudLayout: { ...get().hudLayout, [id]: { ...get().hudLayout[id], ...patch } } }),
       setDockOrder: (order) => set({ hudDockOrder: order }),
       resetHudLayout: () => set({ hudLayout: {} }),
+      setResourceNodes: (nodes) => set({ resourceNodes: nodes }),
+      setServicePois: (pois) => set({ servicePois: pois }),
 
       setSavingsGoal: (target) => set({ savingsGoal: Math.max(0, Math.floor(target)), savingsGoalReached: false }),
 
       openMarket: (focus) => set({ marketFocus: focus ?? null, marketNeed: null, panel: 'shop' }),
       openMarketForNeed: (need) => set({ marketNeed: need, marketFocus: null, panel: 'shop' }),
+
+      openCourierPackage: () => {
+        const s = get()
+        const pkg = s.activeCourierPackage
+        if (!pkg || s.courierOpenedDays.includes(pkg.day)) return
+        set({
+          courierOpenedDays: [...s.courierOpenedDays, pkg.day],
+          log: note(s.log, `Courier package day ${pkg.day}: ${pkg.objective}`),
+        })
+        track('courier_package_opened')
+      },
+
+      dismissCourierPackage: () => {
+        const s = get()
+        const pkg = s.activeCourierPackage
+        if (!pkg || s.courierOpenedDays.includes(pkg.day)) return
+        set({ courierOpenedDays: [...s.courierOpenedDays, pkg.day] })
+      },
+
+      completeCourierPackage: () => {
+        const s = get()
+        const pkg = s.activeCourierPackage
+        if (!pkg || s.completedCourierDays.includes(pkg.day)) return
+        if (!courierRequirementMet(pkg, courierSnapshotOf(s))) {
+          set({ toasts: withToast(s.toasts, `Package day ${pkg.day} is not ready yet.`, 'blocked') })
+          return
+        }
+        const prog = applyXp(s.level, s.xp, pkg.rewardXp)
+        set({
+          activeCourierPackage: null,
+          completedCourierDays: [...s.completedCourierDays, pkg.day],
+          courierOpenedDays: s.courierOpenedDays.includes(pkg.day) ? s.courierOpenedDays : [...s.courierOpenedDays, pkg.day],
+          money: s.money + pkg.rewardCash,
+          level: prog.level,
+          xp: prog.xp,
+          toasts: withToast(s.toasts, `Courier day ${pkg.day} complete: +${formatMoney(pkg.rewardCash)}, +${pkg.rewardXp} XP`, 'achieve'),
+          log: note(s.log, `Courier package complete: ${pkg.title} (+${formatMoney(pkg.rewardCash)}, +${pkg.rewardXp} XP).`),
+        })
+        track('courier_package_completed')
+        track('today_plan_completed')
+      },
+
+      startGatherResource: (nodeId) => {
+        const s = get()
+        if (s.activity) return
+        const node = s.resourceNodes.find((candidate) => candidate.id === nodeId)
+        if (!node) return
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: node.energyCost + 5 })
+        if (blocker) {
+          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, `gathering ${RESOURCE_META[node.kind].label.toLowerCase()}`), 'blocked') })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'gather',
+            startedAt: now,
+            endsAt: now + node.gatherMinutes * 60_000,
+            title: `Gather ${RESOURCE_META[node.kind].label}`,
+            resourceKind: node.kind,
+            resourceAmount: node.yieldAmount,
+          },
+          needs: applyEffects(s.needs, { energy: -node.energyCost, hygiene: -2 }),
+          panel: null,
+          log: note(s.log, `Started gathering ${RESOURCE_META[node.kind].label.toLowerCase()} at ${node.label}.`),
+        })
+      },
+
+      startPlacingConstruction: () => {
+        const s = get()
+        if (s.activity) return
+        if (s.placing) {
+          set({
+            toasts: withToast(s.toasts, `Place or refund ${s.placing.name} before starting a new foundation.`, 'blocked'),
+            log: note(s.log, `${s.placing.name} is still waiting for a map spot. Place it or refund it before starting construction.`),
+          })
+          return
+        }
+        set({
+          placingConstruction: 'starter-house',
+          placing: null,
+          panel: null,
+          log: note(s.log, 'Choose a spot on the map for your Starter House foundation.'),
+        })
+      },
+
+      placeConstructionAt: (lat, lng) => {
+        const s = get()
+        if (!s.placingConstruction) return
+        const center =
+          s.citizen?.spawnLat !== undefined
+            ? { lat: s.citizen.spawnLat, lng: s.citizen.spawnLng! }
+            : s.assets[0] ?? (s.citizen ? DEFAULT_MAP_ANCHOR : null)
+        if (center) {
+          const reach = reachOf(
+            s.level,
+            s.assets.filter((a) => a.kind === 'business').length,
+            s.assets.some((a) => a.kind === 'home'),
+            netWorthOf(s.money, s.inventory, s.assets),
+          )
+          const d = distanceKm(center.lat, center.lng, lat, lng)
+          if (d > reach.km) {
+            set({
+              toasts: withToast(s.toasts, `Beyond your reach — build in ${reach.label} first`, 'sky'),
+              log: note(s.log, `That foundation spot is ${Math.round(d)} km away — your reach is ${reach.label} (${reach.km} km).`),
+            })
+            return
+          }
+        }
+        const project = createConstructionProject(s.placingConstruction, lat, lng)
+        set({
+          constructionProjects: [...s.constructionProjects, project],
+          placingConstruction: null,
+          selectedMapTarget: { kind: 'construction', id: project.id },
+          panel: 'construction',
+          log: note(s.log, `${project.name} foundation placed at ${lat.toFixed(2)}°, ${lng.toFixed(2)}°.`),
+          toasts: withToast(s.toasts, `${project.name} foundation placed. Gather materials to build it.`, 'gold'),
+        })
+      },
+
+      cancelPlacingConstruction: () => {
+        if (!get().placingConstruction) return
+        set({ placingConstruction: null, log: note(get().log, 'Construction placement cancelled.') })
+      },
+
+      depositConstructionResources: (projectId) => {
+        const s = get()
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const out = depositResources(project, s.resources)
+        const moved = totalResourceCount(out.deposited)
+        if (moved <= 0) {
+          set({
+            toasts: withToast(s.toasts, 'No matching construction materials to deposit yet.', 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
+          return
+        }
+        const completed = completeConstructionForState({
+          constructionProjects: s.constructionProjects.map((candidate) => candidate.id === projectId ? out.project : candidate),
+          assets: s.assets,
+        }, projectId)
+        set({
+          resources: out.inventory,
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          selectedMapTarget: completed.asset ? { kind: 'asset', id: completed.asset.id } : { kind: 'construction', id: projectId },
+          panel: completed.asset ? panelForCompletedAsset(completed.asset) : s.panel,
+          log: note(s.log, completed.asset
+            ? constructionCompleteText(completed.asset)
+            : `Deposited ${formatResourceList(out.deposited)} into ${project.name}.`),
+          toasts: withToast(s.toasts, completed.asset ? `${completed.asset.name} complete!` : `Deposited ${formatResourceList(out.deposited)}.`, completed.asset ? 'achieve' : 'gold'),
+        })
+        if (completed.asset) {
+          trackPlacedAsset(completed.asset)
+          publishPlacedAsset(s.citizen, completed.asset)
+        }
+      },
+
+      payConstructionPermit: (projectId) => {
+        const s = get()
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const paid = payPermit(project, s.money)
+        if (!paid.paid) {
+          set({
+            toasts: withToast(s.toasts, `Permit needs ${formatMoney(project.permitFee)}.`, 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
+          return
+        }
+        const projects = s.constructionProjects.map((candidate) => candidate.id === projectId ? paid.project : candidate)
+        const completed = completeConstructionForState({ constructionProjects: projects, assets: s.assets }, projectId)
+        set({
+          money: paid.money,
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          selectedMapTarget: completed.asset ? { kind: 'asset', id: completed.asset.id } : { kind: 'construction', id: projectId },
+          panel: completed.asset ? panelForCompletedAsset(completed.asset) : s.panel,
+          log: note(s.log, completed.asset
+            ? constructionCompleteText(completed.asset, 'permit')
+            : `Permit paid for ${project.name} (${formatMoney(project.permitFee)}).`),
+          toasts: withToast(s.toasts, completed.asset ? `${completed.asset.name} complete!` : `Permit paid for ${project.name}.`, completed.asset ? 'achieve' : 'gold'),
+        })
+        if (completed.asset) {
+          trackPlacedAsset(completed.asset)
+          publishPlacedAsset(s.citizen, completed.asset)
+        }
+      },
+
+      startConstructionWork: (projectId) => {
+        const s = get()
+        if (s.activity) return
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
+        if (blocker) {
+          set({
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'construction work'), 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
+          return
+        }
+        const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
+        if (remaining <= 0) {
+          set({
+            toasts: withToast(s.toasts, 'Labor is already complete. Finish the remaining requirements.', 'sky'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
+          return
+        }
+        const progress = constructionProgress(project)
+        if (!progress.resourcesComplete) {
+          set({
+            toasts: withToast(s.toasts, 'Deposit construction materials before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
+          return
+        }
+        if (!progress.permitComplete) {
+          set({
+            toasts: withToast(s.toasts, 'Pay the building permit before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
+          return
+        }
+        const laborMinutes = Math.min(60, remaining)
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'construction',
+            startedAt: now,
+            endsAt: now + laborMinutes * 60_000,
+            title: `Build ${project.name}`,
+            projectId,
+            laborMinutes,
+          },
+          needs: applyEffects(s.needs, { energy: -10, hygiene: -4 }),
+          panel: null,
+          selectedMapTarget: { kind: 'construction', id: projectId },
+          log: note(s.log, `Started ${laborMinutes} minutes of construction labor on ${project.name}.`),
+        })
+      },
+
+      hireConstructionWorker: (projectId, workerId, hours = 1) => {
+        const s = get()
+        const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const now = Date.now()
+        const community = resetCommunityWeekIfNeeded(s.community, now)
+        const helperCreditMinutes = communityWorkerCreditMinutes(community, s.shiftsWorked, now)
+        const hired = hireConstructionWorkerForProject(project, workerId, s.money, hours, now, helperCreditMinutes)
+        if (!hired.hired) {
+          const reason = hired.reason === 'materials'
+            ? 'Workers need the materials deposited first.'
+            : hired.reason === 'permit'
+              ? 'Workers need the permit paid before they build.'
+              : hired.reason === 'money'
+                ? `Need ${formatMoney(hired.cost)} to hire that worker.`
+                : hired.reason === 'labor'
+                  ? 'Labor is already complete.'
+                  : 'That worker is not available.'
+          set({ toasts: withToast(s.toasts, reason, 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
+          return
+        }
+        const communityCreditMinutes = hired.contract?.communityCreditMinutes ?? 0
+        const creditedCommunity = communityCreditMinutes > 0
+          ? spendCommunityHelperMinutes(community, communityCreditMinutes, now)
+          : community
+        set({
+          money: hired.money,
+          constructionProjects: s.constructionProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate),
+          community: creditedCommunity,
+          dailyCounters: bumpWorkersHiredToday(s),
+          selectedMapTarget: { kind: 'construction', id: projectId },
+          panel: s.panel,
+          toasts: withToast(
+            s.toasts,
+            communityCreditMinutes > 0
+              ? `Worker booked ${Math.round((hired.contract?.paidMinutes ?? 0) / 60)}h with ${communityCreditMinutes}m community help.`
+              : `Worker booked ${Math.round((hired.contract?.paidMinutes ?? 0) / 60)}h for ${formatMoney(hired.cost)}.`,
+            'gold',
+          ),
+          log: note(
+            s.log,
+            communityCreditMinutes > 0
+              ? `Hired ${hired.contract?.workerName ?? 'worker'} for ${project.name}: ${hired.laborMinutes} minutes of labor, ${formatMoney(hired.cost)} cash, ${communityCreditMinutes}m community-backed help.`
+              : `Hired ${hired.contract?.workerName ?? 'worker'} for ${project.name}: ${hired.laborMinutes} minutes of labor over ${hired.contract?.paidMinutes ?? 0} paid minutes (${formatMoney(hired.cost)}).`,
+          ),
+        })
+      },
+
+      completeConstructionIfReady: (projectId) => {
+        const s = get()
+        const completed = completeConstructionForState(s, projectId)
+        if (!completed.asset) {
+          const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+          set({
+            toasts: withToast(s.toasts, 'Construction still needs materials, labor, or the permit.', 'blocked'),
+            selectedMapTarget: project ? { kind: 'construction', id: projectId } : s.selectedMapTarget,
+            panel: project ? 'construction' : s.panel,
+          })
+          return
+        }
+        set({
+          constructionProjects: completed.constructionProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: completed.asset.id },
+          panel: panelForCompletedAsset(completed.asset),
+          toasts: withToast(s.toasts, `${completed.asset.name} complete!`, 'achieve'),
+          log: note(s.log, constructionCompleteText(completed.asset)),
+        })
+        trackPlacedAsset(completed.asset)
+        publishPlacedAsset(s.citizen, completed.asset)
+      },
+
+      startStudy: (courseId) => {
+        const s = get()
+        if (s.activity) return
+        const course = educationCourseById(courseId)
+        if (!course) return
+        const progress = s.educationProgress.find((candidate) => candidate.courseId === course.id) ?? null
+        if (!progress) {
+          set({
+            panel: 'shop',
+            toasts: withToast(s.toasts, `Enroll in ${course.name} before studying it.`, 'blocked'),
+          })
+          return
+        }
+        if (progress.completedAt !== null) {
+          set({ toasts: withToast(s.toasts, `${course.name} is already complete.`, 'sky') })
+          return
+        }
+        if (s.needs.energy < 15 || s.needs.hunger < 10 || s.needs.hydration < 10 || s.health < 20) {
+          set({
+            toasts: withToast(s.toasts, 'Too worn down to study. Eat, drink, and rest first.', 'blocked'),
+            log: note(s.log, 'Study blocked: your body needs food, water, or rest first.'),
+          })
+          return
+        }
+        const minutes = nextStudyBlockMinutes(course, progress)
+        if (minutes <= 0) return
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'study',
+            startedAt: now,
+            endsAt: now + minutes * 60_000,
+            title: `Study ${course.name}`,
+            courseId: course.id,
+            studyMinutes: minutes,
+          },
+          needs: applyEffects(s.needs, { energy: -4, fun: -2 }),
+          panel: null,
+          log: note(s.log, `Started studying ${course.name} for ${minutes} minutes.`),
+        })
+        track('education_started')
+      },
+
+      startCommunityAction: (actionId) => {
+        const s = get()
+        if (s.activity) return
+        const action = communityActionById(actionId)
+        if (!action) return
+        if (s.needs.energy < 15 || s.needs.hunger < 10 || s.needs.hydration < 10 || s.health < 20) {
+          set({
+            toasts: withToast(s.toasts, 'Too worn down to help well. Eat, drink, and rest first.', 'blocked'),
+            log: note(s.log, 'Community action blocked: your body needs food, water, or rest first.'),
+          })
+          return
+        }
+        const now = Date.now()
+        const community = resetCommunityActionDayIfNeeded(resetCommunityWeekIfNeeded(s.community, now), now)
+        if (!canStartCommunityAction(community, now)) {
+          set({
+            community,
+            toasts: withToast(s.toasts, 'You already helped locally today. Come back tomorrow so trust stays real.', 'blocked'),
+            log: note(s.log, 'Community action blocked: today already has a completed local help action.'),
+          })
+          return
+        }
+        set({
+          activity: {
+            kind: 'community',
+            startedAt: now,
+            endsAt: now + action.minutes * 60_000,
+            title: action.title,
+            communityActionId: action.id,
+            communityMinutes: action.minutes,
+          },
+          community,
+          needs: applyEffects(s.needs, action.effects),
+          panel: null,
+          log: note(s.log, `Started community work: ${action.title}.`),
+        })
+      },
+
+      depositBusinessDevelopmentResources: (projectId) => {
+        const s = get()
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const out = depositBusinessDevelopmentResources(project, s.resources)
+        const moved = totalResourceCount(out.deposited)
+        if (moved <= 0) {
+          set({
+            toasts: withToast(s.toasts, 'No matching interior materials to deposit yet.', 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
+          return
+        }
+        const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? out.project : candidate)
+        const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: s.assets }, projectId)
+        set({
+          resources: out.inventory,
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          panel: 'business',
+          log: note(s.log, completed.asset && completed.project
+            ? businessDevelopmentCompleteText(completed.project)
+            : `Deposited ${formatResourceList(out.deposited)} into ${project.businessName}'s interior plan.`),
+          toasts: withToast(
+            s.toasts,
+            completed.asset ? `${project.businessName} developed!` : `Deposited ${formatResourceList(out.deposited)}.`,
+            completed.asset ? 'achieve' : 'gold',
+          ),
+        })
+        if (completed.asset && completed.project) {
+          if (completed.project.levelFrom === 1) track('first_upgrade')
+          if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+        }
+      },
+
+      payBusinessDevelopmentBudget: (projectId) => {
+        const s = get()
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const paid = payBusinessDevelopmentBudget(project, s.money)
+        if (!paid.paid) {
+          set({
+            toasts: withToast(s.toasts, `Development budget needs ${formatMoney(project.budgetCost)}.`, 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
+          return
+        }
+        const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? paid.project : candidate)
+        const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: s.assets }, projectId)
+        set({
+          money: paid.money,
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          panel: 'business',
+          log: note(s.log, completed.asset && completed.project
+            ? businessDevelopmentCompleteText(completed.project, 'budget')
+            : `Development budget paid for ${project.businessName} (${formatMoney(project.budgetCost)}).`),
+          toasts: withToast(s.toasts, completed.asset ? `${project.businessName} developed!` : `Budget paid for ${project.businessName}.`, completed.asset ? 'achieve' : 'gold'),
+        })
+        if (completed.asset && completed.project) {
+          if (completed.project.levelFrom === 1) track('first_upgrade')
+          if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+        }
+      },
+
+      startBusinessDevelopmentWork: (projectId) => {
+        const s = get()
+        if (s.activity) return
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
+        if (blocker) {
+          set({
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'interior work'), 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
+          return
+        }
+        const progress = businessDevelopmentProgress(project)
+        if (!progress.resourcesComplete) {
+          set({
+            toasts: withToast(s.toasts, 'Deposit interior materials before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
+          return
+        }
+        if (!progress.budgetComplete) {
+          set({
+            toasts: withToast(s.toasts, 'Pay the development budget before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
+          return
+        }
+        const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
+        if (remaining <= 0) {
+          set({
+            toasts: withToast(s.toasts, 'Interior labor is complete. Finish the upgrade.', 'sky'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
+          return
+        }
+        const laborMultiplier = educationBusinessLaborMultiplier(s.educationProgress)
+        const laborMinutes = Math.min(Math.round(60 * laborMultiplier), remaining)
+        const workMinutes = Math.min(60, Math.ceil(laborMinutes / laborMultiplier))
+        const now = Date.now()
+        set({
+          activity: {
+            kind: 'business-development',
+            startedAt: now,
+            endsAt: now + workMinutes * 60_000,
+            title: `Develop ${project.businessName}`,
+            businessDevelopmentProjectId: project.id,
+            laborMinutes,
+          },
+          needs: applyEffects(s.needs, { energy: -8, hygiene: -2 }),
+          panel: null,
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          log: note(
+            s.log,
+            laborMinutes > workMinutes
+              ? `Started ${workMinutes} real minutes on ${project.businessName}; school efficiency counts as ${laborMinutes} minutes of interior work.`
+              : `Started ${workMinutes} minutes of interior work on ${project.businessName}.`,
+          ),
+        })
+      },
+
+      hireBusinessDevelopmentWorker: (projectId, workerId, hours = 1) => {
+        const s = get()
+        const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+        if (!project) return
+        const now = Date.now()
+        const community = resetCommunityWeekIfNeeded(s.community, now)
+        const helperCreditMinutes = communityWorkerCreditMinutes(community, s.shiftsWorked, now)
+        const hired = hireBusinessDevelopmentWorkerForProject(project, workerId, s.money, hours, now, helperCreditMinutes)
+        if (!hired.hired) {
+          const reason = hired.reason === 'materials'
+            ? 'Workers need the interior materials deposited first.'
+            : hired.reason === 'budget'
+              ? 'Workers need the development budget paid first.'
+              : hired.reason === 'money'
+                ? `Need ${formatMoney(hired.cost)} to hire that worker.`
+                : hired.reason === 'labor'
+                  ? 'Interior labor is already complete.'
+                  : 'That worker is not available.'
+          set({ toasts: withToast(s.toasts, reason, 'blocked'), selectedMapTarget: { kind: 'asset', id: project.businessId }, panel: 'business' })
+          return
+        }
+        const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate)
+        const communityCreditMinutes = hired.contract?.communityCreditMinutes ?? 0
+        const creditedCommunity = communityCreditMinutes > 0
+          ? spendCommunityHelperMinutes(community, communityCreditMinutes, now)
+          : community
+        set({
+          money: hired.money,
+          businessDevelopmentProjects: projects,
+          community: creditedCommunity,
+          dailyCounters: bumpWorkersHiredToday(s),
+          selectedMapTarget: { kind: 'asset', id: project.businessId },
+          panel: 'business',
+          toasts: withToast(
+            s.toasts,
+            communityCreditMinutes > 0
+              ? `Booked ${hired.contract?.workerName ?? 'worker'} with ${communityCreditMinutes}m community help.`
+              : `Booked ${hired.contract?.workerName ?? 'worker'} for ${Math.round(hired.contract?.paidMinutes ?? hours * 60)}m on ${project.businessName}.`,
+            'gold',
+          ),
+          log: note(
+            s.log,
+            communityCreditMinutes > 0
+              ? `Booked ${hired.contract?.workerName ?? 'worker'} for ${project.businessName}'s interior: ${Math.round(hired.laborMinutes)}m labor, ${formatMoney(hired.cost)} cash, ${communityCreditMinutes}m community-backed help.`
+              : `Booked ${hired.contract?.workerName ?? 'worker'} for ${project.businessName}'s interior: ${Math.round(hired.contract?.paidMinutes ?? hours * 60)} paid minutes, up to ${Math.round(hired.laborMinutes)}m labor (${formatMoney(hired.cost)}).`,
+          ),
+        })
+      },
+
+      completeBusinessDevelopmentIfReady: (projectId) => {
+        const s = get()
+        const completed = completeBusinessDevelopmentForState(s, projectId)
+        if (!completed.asset || !completed.project) {
+          const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+          set({
+            toasts: withToast(s.toasts, 'Interior development still needs materials, budget, or labor.', 'blocked'),
+            selectedMapTarget: project ? { kind: 'asset', id: project.businessId } : s.selectedMapTarget,
+            panel: project ? 'business' : s.panel,
+          })
+          return
+        }
+        set({
+          businessDevelopmentProjects: completed.businessDevelopmentProjects,
+          assets: completed.assets,
+          selectedMapTarget: { kind: 'asset', id: completed.asset.id },
+          panel: 'business',
+          toasts: withToast(s.toasts, `${completed.asset.name} developed to L${completed.project.levelTo}!`, 'achieve'),
+          log: note(s.log, businessDevelopmentCompleteText(completed.project)),
+        })
+        if (completed.project.levelFrom === 1) track('first_upgrade')
+        if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+      },
 
       // One tap, one dollar, half the water bar — hydration without friction
       quickDrink: () => {
@@ -1422,6 +2930,7 @@ export const useGame = create<GameState>()(
           needs: applyEffects(s.needs, water.effects),
           level: prog.level,
           xp: prog.xp,
+          dailyCounters: bumpDrinksToday(s),
           combo: newCombo,
           comboLastActionAt: Date.now(),
           toasts: comboToast ? withToast(s.toasts, comboToast, 'gold') : s.toasts,
@@ -1437,11 +2946,12 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.'), toasts: withToast(s.toasts, 'Down with the flu — no shifts until it passes 🤒', 'blocked') })
           return
         }
-        // A gig is lighter than a full shift (lower energy floor), but a
-        // starving citizen still can't work — matches the shift gate and the
-        // HealthGuide's "below 15 you are too weak to start a shift."
-        if (s.needs.energy < 15 || s.needs.hunger < 15 || s.health < 20) {
-          set({ log: note(s.log, 'Too worn down even for a gig. Drink, eat, rest.'), toasts: withToast(s.toasts, 'Too worn down for a gig — drink, eat, rest.', 'blocked') })
+        // A gig is lighter than a full shift, but food and water still gate
+        // work. The daily loop should make body care non-optional.
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 15 })
+        if (blocker) {
+          const text = bodyWorkBlockerText(blocker, 'taking a gig')
+          set({ log: note(s.log, text), toasts: withToast(s.toasts, text, 'blocked') })
           return
         }
         track('first_shift_started')
@@ -1510,18 +3020,27 @@ export const useGame = create<GameState>()(
             return
           }
         }
-        const isMeal = (item.effects.hunger ?? 0) > 0
         // Medicine cures instantly when it matches the active illness;
         // otherwise it's just its (weak) effects — an underwhelming espresso.
         const cures = item.cures !== undefined && s.illness?.kind === item.cures
+        const ate = (item.effects.hunger ?? 0) > 0
+        const drank = item.category === 'drinks' && (item.effects.hydration ?? 0) > 0
+        const cleaned = (item.effects.hygiene ?? 0) > 0
+        const dailyCounters = ate
+          ? bumpMealsToday(s)
+          : drank
+            ? bumpDrinksToday(s)
+            : cleaned
+              ? bumpHygieneToday(s)
+              : s.dailyCounters
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
           itemLastUsedAt: item.durable && (item.hours ?? 0) > 0 ? { ...s.itemLastUsedAt, [itemId]: now } : s.itemLastUsedAt,
-          timesEaten: isMeal ? s.timesEaten + 1 : s.timesEaten,
-          // "Eat N meals" daily challenges count EVERY meal, not just cooked
-          // ones — mirror the timesEaten rule (day-rollover aware).
-          dailyCounters: isMeal ? bumpDailyCounters(s, { mealsToday: 1 }) : s.dailyCounters,
+          timesEaten: ate ? s.timesEaten + 1 : s.timesEaten,
+          // Meals/drinks/hygiene daily challenges count EVERY qualifying use —
+          // the precomputed dailyCounters local above is day-rollover aware.
+          dailyCounters,
           illness: cures ? null : s.illness,
           log: note(s.log, cures ? `${item.name} — the ${item.cures} is gone. Like new.` : `${item.name} — done.`),
         })
@@ -1593,6 +3112,7 @@ export const useGame = create<GameState>()(
         set({
           activity: { kind: 'sleep', startedAt: now, endsAt: now + SLEEP_HOURS * 3_600_000 },
           timesSlept: s.timesSlept + 1,
+          dailyCounters: bumpSleptToday(s),
           log: note(s.log, hasHome ? 'Lights out at home. Energy refills through the night.' : 'Sleeping rough. A home would make this count for more.'),
         })
       },
@@ -1606,8 +3126,10 @@ export const useGame = create<GameState>()(
           set({ log: note(s.log, 'Down with the flu — rest it out, or Flu Medicine ($35) is on the Health shelf.') })
           return
         }
-        if (s.needs.energy < 25 || s.needs.hunger < 15 || s.health < 20) {
-          set({ log: note(s.log, 'Too worn down to work. Eat and sleep first.') })
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 25 })
+        if (blocker) {
+          const text = bodyWorkBlockerText(blocker, 'starting a shift')
+          set({ log: note(s.log, text), toasts: withToast(s.toasts, text, 'blocked') })
           return
         }
         track('first_shift_started')
@@ -1638,12 +3160,11 @@ export const useGame = create<GameState>()(
         const a = s.activity
         if (!a) return
         if (a.kind === 'sleep') {
-          // A manual wake-up still counts as today's sleep — the tick's
-          // sleep→null transition detector never sees this (the activity is
-          // cleared here, outside the tick), so bump sleptToday directly.
+          // sleptToday was already counted when the sleep STARTED (see
+          // bumpSleptToday in the sleep action) — bumping again here would
+          // double-count a manual early wake-up.
           set({
             activity: null,
-            dailyCounters: bumpDailyCounters(s, { sleptToday: 1 }),
             log: note(s.log, 'Up early. The day is yours.'),
           })
           return
@@ -1653,17 +3174,49 @@ export const useGame = create<GameState>()(
           set({ activity: null, log: note(s.log, `Left the stove — ${a.title ?? 'the meal'} went to waste.`) })
           return
         }
-        // Leaving a shift early: pro-rata pay, no XP. The stamped wage
-        // booster still applies to the hours actually worked.
-        const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
-        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)) * (a.wageMult ?? 1))
+        if (a.kind === 'gather') {
+          set({ activity: null, log: note(s.log, 'Stopped gathering before anything useful was carried back.') })
+          return
+        }
+        if (a.kind === 'construction') {
+          set({ activity: null, log: note(s.log, 'Stopped construction before this work block counted.') })
+          return
+        }
+        if (a.kind === 'study') {
+          set({ activity: null, log: note(s.log, 'Stopped studying before this block counted.') })
+          return
+        }
+        if (a.kind === 'community') {
+          set({ activity: null, log: note(s.log, 'Stopped helping before this block counted.') })
+          return
+        }
+        if (a.kind === 'business-development') {
+          set({ activity: null, log: note(s.log, 'Stopped interior work before this block counted.') })
+          return
+        }
+        // Leaving a shift early: pro-rata pay, no XP, and one humane reliability hit per day.
+        // The stamped wage booster still applies to the hours actually worked.
+        const now = Date.now()
+        const beforeRespect = s.community.respect
+        const beforeTrust = s.community.trust
+        const community = recordBrokenCommitment(s.community, now)
+        const respectLost = beforeRespect - community.respect
+        const trustLost = beforeTrust - community.trust
+        if (respectLost > 0 || trustLost > 0) track('respect_lost')
+        const hoursWorked = Math.max(0, (now - a.startedAt) / 3_600_000)
+        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + totalWageBonus(s.inventory, s.educationProgress)) * (a.wageMult ?? 1))
+        const reputationNote = respectLost > 0 || trustLost > 0
+          ? ` Reliability took a hit: -${respectLost} respect, -${trustLost} trust.`
+          : ' Reliability noted it; no extra respect was lost today.'
         set({
           activity: null,
           money: s.money + pay,
+          community,
           // Pro-rata wages are WORK income — they feed the "Earn $X today"
           // challenge exactly like a completed shift's wages do in the tick.
           dailyCounters: pay > 0 ? bumpDailyCounters(s, { earnedToday: pay }) : s.dailyCounters,
-          log: note(s.log, pay > 0 ? `Left the shift early: +${formatMoney(pay)}, no experience earned.` : 'Left the shift before it started paying.'),
+          log: note(s.log, `${pay > 0 ? `Left the shift early: +${formatMoney(pay)}, no experience earned.` : 'Left the shift before it started paying.'}${reputationNote}`),
+          toasts: withToast(s.toasts, respectLost > 0 || trustLost > 0 ? 'Broken commitment: reliability -1' : 'Broken commitment recorded', 'blocked'),
         })
       },
 
@@ -1692,6 +3245,32 @@ export const useGame = create<GameState>()(
             placing: item,
             panel: null,
             log: note(s.log, `${item.name} purchased. Click anywhere on Earth to place it.`),
+          })
+          return
+        }
+
+        const course = educationCourseForItem(item.id)
+        if (course) {
+          const existing = s.educationProgress.find((progress) => progress.courseId === course.id)
+          if (existing?.completedAt !== null && existing?.completedAt !== undefined) {
+            set({ toasts: withToast(s.toasts, `${course.name} is already complete.`, 'sky') })
+            return
+          }
+          if (existing) {
+            set({
+              panel: 'shop',
+              toasts: withToast(s.toasts, `${course.name} is already enrolled. Study the next block.`, 'sky'),
+              log: note(s.log, `${course.name} is already enrolled. ${educationRemainingMinutes(course, existing)} minutes of study remain.`),
+            })
+            return
+          }
+          const progress = createEducationProgress(course)
+          set({
+            ...dailyCountersPatch,
+            money: s.money - item.price,
+            educationProgress: [...s.educationProgress, progress],
+            log: note(s.log, `Enrolled in ${course.name}. Study ${course.studyMinutesRequired} minutes to earn ${course.xpReward} XP.`),
+            toasts: withToast(s.toasts, `${course.name} enrolled`, 'sky'),
           })
           return
         }
@@ -1768,7 +3347,7 @@ export const useGame = create<GameState>()(
         const center =
           s.citizen?.spawnLat !== undefined
             ? { lat: s.citizen.spawnLat, lng: s.citizen.spawnLng! }
-            : s.assets[0] ?? null
+            : s.assets[0] ?? (s.citizen ? DEFAULT_MAP_ANCHOR : null)
         if (center) {
           const reach = reachOf(
             s.level,
@@ -1789,10 +3368,27 @@ export const useGame = create<GameState>()(
             return
           }
         }
+        if (item.category === 'business') {
+          const recipe = businessConstructionRecipe(item)
+          const project = createConstructionProjectFromRecipe(recipe, lat, lng)
+          set({
+            constructionProjects: [...s.constructionProjects, project],
+            placing: null,
+            selectedMapTarget: { kind: 'construction', id: project.id },
+            panel: 'construction',
+            // The business purchase becomes irreversible once its foundation is
+            // placed; it only starts earning after construction completes.
+            dailyCounters: bumpBoughtToday(s),
+            log: note(s.log, `${item.name} foundation placed at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°. Build it before it can open.`),
+            toasts: withToast(s.toasts, `${item.name} foundation placed. Gather materials, pay the permit, and build it.`, 'gold'),
+          })
+          return
+        }
+
         const asset: PlacedAsset = {
           id: `${item.id}-${Date.now()}`,
           itemId: item.id,
-          kind: item.category === 'home' ? 'home' : 'business',
+          kind: 'home',
           name: item.name,
           lat,
           lng,
@@ -1803,23 +3399,14 @@ export const useGame = create<GameState>()(
         set({
           assets: [...s.assets, asset],
           placing: null,
+          selectedMapTarget: { kind: 'asset', id: asset.id },
           // The placeable purchase COMPLETES here (buy was refundable until
           // placement) — this is where it counts for "Buy N items" challenges.
           dailyCounters: bumpBoughtToday(s),
           log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
         track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
-        if (s.citizen?.token) {
-          void tryPost('/api/world', {
-            citizenId: s.citizen.citizenId,
-            token: s.citizen.token,
-            assetId: asset.id,
-            itemId: asset.itemId,
-            kind: asset.kind,
-            lat: asset.lat,
-            lng: asset.lng,
-          })
-        }
+        publishPlacedAsset(s.citizen, asset)
       },
 
       cancelPlacing: () => {
@@ -1859,50 +3446,32 @@ export const useGame = create<GameState>()(
       },
 
       upgradeBusiness: (assetId) => {
-        // The incremental-depth hook: pay cash to multiply a business's
-        // income. baseIncome is derived from current income / level (since
-        // incomePerDay stores the level-adjusted value, the engine reads it
-        // directly with no changes). See businessUpgrades.ts for the curve.
         const s = get()
         const asset = s.assets.find((a) => a.id === assetId)
         if (!asset || asset.kind !== 'business') return
-        const level = asset.level ?? 1
-        const baseIncome = asset.incomePerDay / level
-        const out = upgradeOutcome(baseIncome, level)
-        if (!out) return
-        if (s.money < out.cost) {
-          set({ log: note(s.log, `Upgrade needs ${formatMoney(out.cost)} — you have ${formatMoney(s.money)}.`), toasts: withToast(s.toasts, `Need ${formatMoney(out.cost)} to upgrade — you have ${formatMoney(s.money)}.`, 'blocked') })
+        const existing = s.businessDevelopmentProjects.find((project) => project.businessId === assetId)
+        if (existing) {
+          set({
+            selectedMapTarget: { kind: 'asset', id: assetId },
+            panel: 'business',
+            toasts: withToast(s.toasts, `${asset.name} already has an active interior plan.`, 'sky'),
+          })
           return
         }
-        // Analytics: first upgrade + max-level milestone.
-        if (level === 1) track('first_upgrade')
-        if (out.newLevel >= MAX_BUSINESS_LEVEL) track('business_maxed')
-        // First-upgrade celebration — the moment the player discovers the
-        // upgrade system. A distinct toast so they feel the milestone.
-        const wasFirstUpgrade = level === 1
-        const upgradeToasts = wasFirstUpgrade
-          ? withToast(withToast(s.toasts, `📈 Your first upgrade! Businesses can grow.`, 'achieve'), `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold')
-          : withToast(s.toasts, `📈 ${asset.name} upgraded to L${out.newLevel}! +${formatMoney(out.incomeDelta)}/day`, 'gold')
+        const project = createBusinessDevelopmentProject(asset)
+        if (!project) {
+          set({ toasts: withToast(s.toasts, `${asset.name} is already fully developed.`, 'sky') })
+          return
+        }
         set({
-          money: s.money - out.cost,
-          assets: s.assets.map((a) =>
-            a.id === assetId
-              ? { ...a, level: out.newLevel, incomePerDay: out.newIncome }
-              : a,
+          businessDevelopmentProjects: [...s.businessDevelopmentProjects, project],
+          selectedMapTarget: { kind: 'asset', id: assetId },
+          panel: 'business',
+          toasts: withToast(s.toasts, `${asset.name} interior plan started.`, 'gold'),
+          log: note(
+            s.log,
+            `${asset.name} interior plan started: deposit ${formatResourceList(project.required)}, pay ${formatMoney(project.budgetCost)}, and finish ${Math.ceil(project.laborRequiredMinutes / 60)}h of labor for +${formatMoney(project.incomeDelta)}/day.`,
           ),
-          toasts: upgradeToasts,
-          log: note(s.log, `${asset.name} upgraded to level ${out.newLevel} (income ${formatMoney(out.newIncome)}/day) for ${formatMoney(out.cost)}.`),
-          // Maxing a business (L10) is a multi-month achievement — the
-          // geometric cost curve means ~$millions invested. It earns the
-          // gold-tier celebration overlay (queued if another is showing).
-          celebration: out.newLevel >= MAX_BUSINESS_LEVEL
-            ? (!s.celebration
-                ? { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }
-                : s.celebration)
-            : s.celebration,
-          celebrationQueue: out.newLevel >= MAX_BUSINESS_LEVEL && s.celebration
-            ? [...s.celebrationQueue, { icon: '🏭', title: `${asset.name} — MAX LEVEL!`, detail: `Fully upgraded. Earning ${formatMoney(out.newIncome)}/day — a true empire pillar.`, tone: 'gold' as const }]
-            : s.celebrationQueue,
         })
       },
 
@@ -1987,20 +3556,22 @@ export const useGame = create<GameState>()(
       openMysteryBox: (tier) => {
         const s = get()
         const def = MYSTERY_BOXES[tier]
-        if (s.money < def.cost) {
-          set({ toasts: withToast(s.toasts, `Need ${formatMoney(def.cost)} for a ${def.name}.`, 'blocked') })
+        const credits = freshMysteryBoxCredits(s.mysteryBoxCredits)
+        if (credits[tier] < def.creditsRequired) {
+          set({ toasts: withToast(s.toasts, `Earn a ${def.name} credit through daily tasks or community help first.`, 'blocked') })
           return
         }
         const reward = openBox(tier)
         const prog = applyXp(s.level, s.xp, boostedXp(s.activeBoosters, reward.xp))
         set({
-          money: s.money - def.cost + reward.cash,
+          money: s.money + reward.cash,
           level: prog.level,
           xp: prog.xp,
+          mysteryBoxCredits: { ...credits, [tier]: credits[tier] - def.creditsRequired },
           mysteryBoxesOpened: s.mysteryBoxesOpened + 1,
           lastBoxReward: { ...reward, tier },
           toasts: withToast(s.toasts, `${reward.icon} ${def.name}: ${reward.label} +${formatMoney(reward.cash)}, +${reward.xp} XP`, reward.rarity === 'jackpot' ? 'legendary' : reward.rarity === 'rare' ? 'lucky' : 'gold'),
-          log: note(s.log, `Opened a ${def.name} (${formatMoney(def.cost)}): ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
+          log: note(s.log, `Opened an earned ${def.name}: ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
         })
       },
 
@@ -2057,6 +3628,7 @@ export const useGame = create<GameState>()(
         if (on) track('walk_mode_entered')
         set({ streetMode: on, panel: null })
       },
+      selectMapTarget: (target) => set({ selectedMapTarget: target }),
       setPanel: (panel) => set({ panel }),
       reset: () => set({ citizen: null, ...FRESH }),
     }),
@@ -2090,6 +3662,7 @@ export const useGame = create<GameState>()(
               key !== 'goldenOpportunity' &&
               key !== 'toasts' &&
               key !== 'marketNeed' &&
+              key !== 'selectedMapTarget' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
           ),
