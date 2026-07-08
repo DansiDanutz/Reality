@@ -691,6 +691,7 @@ describe('construction worker contracts', () => {
     expect(hired.constructionProjects[0].laborDoneMinutes).toBe(60)
     expect(hired.constructionProjects[0].hiredLaborMinutes).toBe(60)
     expect(hired.constructionProjects[0].workerContracts[0].workedMinutes).toBe(60)
+    expect(hired.log.some((entry) => entry === 'Local helper finished paid Workers Hall time on Starter House; 7h labor remains.')).toBe(true)
   })
 
   test('community backing pays part of a Workers Hall construction contract once per weekly ledger', () => {
@@ -1578,6 +1579,7 @@ describe('business interior development', () => {
     expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(60)
     expect(state.businessDevelopmentProjects[0].hiredLaborMinutes).toBe(60)
     expect(state.businessDevelopmentProjects[0].workerContracts[0].workedMinutes).toBe(60)
+    expect(state.log.some((entry) => entry === 'Local helper finished paid Workers Hall time on Food Cart; 1h 30m interior labor remains.')).toBe(true)
   })
 
   test('completed education makes owner interior work more efficient', () => {

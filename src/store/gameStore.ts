@@ -78,10 +78,12 @@ import {
   hireBusinessDevelopmentWorker as hireBusinessDevelopmentWorkerForProject,
   normalizeBusinessDevelopmentProject,
   payBusinessDevelopmentBudget,
+  type BusinessDevelopmentWorkerContract,
   type BusinessDevelopmentProject,
 } from '../game/businessDevelopment'
 import {
   type ConstructionProject,
+  type ConstructionWorkerContract,
   type ConstructionWorkerId,
   STARTER_HOUSE_RECIPE,
   businessConstructionRecipe,
@@ -974,6 +976,36 @@ function businessDevelopmentCompleteText(project: BusinessDevelopmentProject, mo
   return `${project.businessName} developed to level ${project.levelTo} ${source}. Income is now ${formatMoney(project.incomeAfter)}/day.`
 }
 
+type WorkerContractLike = Pick<ConstructionWorkerContract | BusinessDevelopmentWorkerContract, 'id' | 'workerName' | 'paidMinutes' | 'workedMinutes'>
+
+function finishedWorkerContractNames(
+  before: readonly WorkerContractLike[] = [],
+  after: readonly WorkerContractLike[] = [],
+): string[] {
+  const activeBefore = new Set(
+    before
+      .filter((contract) => contract.workedMinutes < contract.paidMinutes)
+      .map((contract) => contract.id),
+  )
+  return after
+    .filter((contract) => activeBefore.has(contract.id) && contract.workedMinutes >= contract.paidMinutes)
+    .map((contract) => contract.workerName)
+}
+
+function formatLaborMinutes(minutes: number): string {
+  const whole = Math.max(0, Math.ceil(minutes))
+  const hours = Math.floor(whole / 60)
+  const mins = whole % 60
+  if (hours <= 0) return `${mins}m`
+  if (mins <= 0) return `${hours}h`
+  return `${hours}h ${mins}m`
+}
+
+function workerContractFinishedText(names: string[], subject: string, remainingMinutes: number, kind: 'labor' | 'interior labor'): string {
+  const who = names.length === 1 ? names[0] : `${names.length} workers`
+  return `${who} finished paid Workers Hall time on ${subject}; ${formatLaborMinutes(remainingMinutes)} ${kind} remains.`
+}
+
 export const useGame = create<GameState>()(
   persist(
     (set, get) => ({
@@ -1454,6 +1486,7 @@ export const useGame = create<GameState>()(
           if (!constructionProjects.some((candidate) => candidate.id === project.id)) continue
           const advanced = advanceConstructionWorkerContracts(project, now)
           if (advanced.laborMinutes <= 0) continue
+          const finishedWorkerNames = finishedWorkerContractNames(project.workerContracts, advanced.project.workerContracts)
           if (!wasAway) constructionMinutesDelta += advanced.laborMinutes
           const projects = constructionProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
           const completed = completeConstructionForState({ constructionProjects: projects, assets: out.assets }, project.id)
@@ -1465,6 +1498,10 @@ export const useGame = create<GameState>()(
             selectedMapTarget = { kind: 'asset', id: completed.asset.id }
             log = note(log, constructionCompleteText(completed.asset, 'workers'))
             if (!wasAway) toasts = withToast(toasts, `${completed.asset.name} complete!`, 'achieve')
+          } else if (finishedWorkerNames.length > 0) {
+            const remaining = Math.max(0, advanced.project.laborRequiredMinutes - advanced.project.laborDoneMinutes)
+            log = note(log, workerContractFinishedText(finishedWorkerNames, project.name, remaining, 'labor'))
+            if (!wasAway) toasts = withToast(toasts, `Workers Hall time ended: ${formatLaborMinutes(remaining)} left`, 'sky')
           }
         }
         if (completedSpecialActivity?.kind === 'study' && completedSpecialActivity.courseId) {
@@ -1544,6 +1581,7 @@ export const useGame = create<GameState>()(
           if (!businessDevelopmentProjects.some((candidate) => candidate.id === project.id)) continue
           const advanced = advanceBusinessDevelopmentWorkerContracts(project, now)
           if (advanced.laborMinutes <= 0) continue
+          const finishedWorkerNames = finishedWorkerContractNames(project.workerContracts, advanced.project.workerContracts)
           if (!wasAway) businessDevelopmentMinutesDelta += advanced.laborMinutes
           const projects = businessDevelopmentProjects.map((candidate) => candidate.id === project.id ? advanced.project : candidate)
           const completed = completeBusinessDevelopmentForState({ businessDevelopmentProjects: projects, assets: out.assets }, project.id)
@@ -1560,6 +1598,10 @@ export const useGame = create<GameState>()(
               if (!celebration) celebration = maxCelebration
               else celebrationQueue = [...celebrationQueue, maxCelebration]
             }
+          } else if (finishedWorkerNames.length > 0) {
+            const remaining = Math.max(0, advanced.project.laborRequiredMinutes - advanced.project.laborDoneMinutes)
+            log = note(log, workerContractFinishedText(finishedWorkerNames, project.businessName, remaining, 'interior labor'))
+            if (!wasAway) toasts = withToast(toasts, `Workers Hall time ended: ${formatLaborMinutes(remaining)} left`, 'sky')
           }
         }
         // "Earned today" accumulator for the daily challenges — WORK income
