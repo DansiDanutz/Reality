@@ -316,6 +316,14 @@ export function founderSurvivalActionText(
   return `${founderSurvivalIntentLabel(action.intent)} pending`
 }
 
+export function founderSurvivalWarningText(
+  survival: Pick<CitizenSurvivalSignal, 'risk' | 'warnings'> | undefined,
+): string | null {
+  if (!survival || survival.warnings.length === 0) return null
+  const prefix = survival.risk === 'danger' || survival.risk === 'hospitalized' ? 'Critical' : 'Watch'
+  return `${prefix}: ${survival.warnings.map(founderSurvivalWarningLabel).join(', ')}`
+}
+
 export function founderGrowthStatusLabel(
   growth: Pick<RealityAreaGrowthDashboard, 'manualEvidenceRequired'>,
 ): string {
@@ -1216,6 +1224,21 @@ function founderSurvivalIntentLabel(
       return 'Rest'
     case 'visitClinic':
       return 'Clinic'
+  }
+}
+
+function founderSurvivalWarningLabel(
+  warning: CitizenSurvivalSignal['warnings'][number],
+): string {
+  switch (warning) {
+    case 'water':
+      return 'water'
+    case 'food':
+      return 'food'
+    case 'rest':
+      return 'rest'
+    case 'health':
+      return 'health'
   }
 }
 

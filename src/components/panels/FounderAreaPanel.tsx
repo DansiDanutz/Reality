@@ -96,6 +96,7 @@ import {
   founderPayoutReadinessStatusLabel,
   founderPayoutReadinessSummaryItems,
   founderSurvivalActionText,
+  founderSurvivalWarningText,
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
@@ -876,6 +877,9 @@ export default function FounderAreaPanel() {
                 const founderSurvivalDetail = resident.id === profile.founderId
                   ? founderSurvivalActionText(survival?.actions[0])
                   : null
+                const founderWarningDetail = resident.id === profile.founderId
+                  ? founderSurvivalWarningText(survival)
+                  : null
                 const debtAction = resident.debts.find((debt) => debt.canRepayNow)
                 const canBuyInsurance = resident.id === profile.founderId && resident.insuranceAction.canBuyNow
                 const founderDebtDetail = resident.id === profile.founderId
@@ -892,6 +896,7 @@ export default function FounderAreaPanel() {
                         {founderCitizenConditionText(resident)}
                       </span>
                       <span className="item-desc">{founderCitizenProtectionText(resident, survival)}</span>
+                      {founderWarningDetail && <span className="item-desc">{founderWarningDetail}</span>}
                       {founderSurvivalDetail && <span className="item-desc">{founderSurvivalDetail}</span>}
                       {founderInsuranceDetail && <span className="item-desc">{founderInsuranceDetail}</span>}
                       {founderDebtDetail && <span className="item-desc">{founderDebtDetail}</span>}

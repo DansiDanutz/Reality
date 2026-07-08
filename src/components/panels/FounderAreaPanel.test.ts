@@ -70,6 +70,7 @@ import {
   founderPayoutReadinessStatusLabel,
   founderPayoutReadinessSummaryItems,
   founderSurvivalActionText,
+  founderSurvivalWarningText,
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
@@ -291,6 +292,16 @@ describe('FounderAreaPanel covenant presenters', () => {
       canAfford: false,
       blockers: ['insufficient_funds'],
     })).toBe('Food blocked · need $14')
+
+    expect(founderSurvivalWarningText({
+      risk: 'warning',
+      warnings: ['water', 'food'],
+    })).toBe('Watch: water, food')
+
+    expect(founderSurvivalWarningText({
+      risk: 'danger',
+      warnings: ['health'],
+    })).toBe('Critical: health')
   })
 
   test('summarizes disabled Telegram growth tracking for founder review', () => {
