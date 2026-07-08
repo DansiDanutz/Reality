@@ -10,6 +10,7 @@ import {
   founderCovenantOperatorQueuePrimaryWorkloadText,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueActionMix,
+  founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
   founderCovenantOperatorQueueWorkloadSummary,
@@ -53,6 +54,7 @@ export function FounderCovenantQueuePanel({
         <span>{founderCovenantOperatorQueueSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
         <span>{founderCovenantOperatorQueueWorkloadSummary(queue)}</span>
+        <span>{founderCovenantOperatorQueueCadenceReadySummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePrimaryWorkloadText(queue)}</span>
         <span>{founderCovenantOperatorQueueRecommendedActionText(queue)}</span>
       </div>

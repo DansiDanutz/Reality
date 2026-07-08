@@ -190,6 +190,11 @@ export interface FounderCovenantOperatorQueueActionMix {
   monitor: number
 }
 
+export interface FounderCovenantOperatorQueueCadenceReadyMix {
+  weekly: number
+  monthly: number
+}
+
 export function founderIdentitySeatLabel(
   identity: Pick<RealityAreaDashboard['founderIdentity'], 'founderNumber'>,
 ): string {
@@ -817,6 +822,27 @@ export function founderCovenantOperatorQueueWorkloadSummary(
   const overdueFounders = queue.items.filter((item) => item.overdue).length
 
   return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${overdueFounders} overdue`
+}
+
+export function founderCovenantOperatorQueueCadenceReadyMix(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): FounderCovenantOperatorQueueCadenceReadyMix {
+  return queue.items.reduce<FounderCovenantOperatorQueueCadenceReadyMix>((totals, item) => {
+    if (founderCovenantOperatorQueueRecommendedNextText(item) !== 'Record review') return totals
+    if (item.weeklyReviewDue) totals.weekly += 1
+    if (item.monthlyReviewDue) totals.monthly += 1
+    return totals
+  }, {
+    weekly: 0,
+    monthly: 0,
+  })
+}
+
+export function founderCovenantOperatorQueueCadenceReadySummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const cadence = founderCovenantOperatorQueueCadenceReadyMix(queue)
+  return `Cadence ready: ${cadence.weekly} weekly · ${cadence.monthly} monthly`
 }
 
 export function founderCovenantOperatorQueuePrimaryWorkloadText(

@@ -30,6 +30,8 @@ import {
   founderCovenantOperatorQueuePrimaryWorkloadText,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueActionMix,
+  founderCovenantOperatorQueueCadenceReadyMix,
+  founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueRecommendedNextTone,
   founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueWorkloadSummary,
@@ -49,6 +51,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 stale weekly · 0 stale monthly · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
     expect(html).toContain('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 1 overdue')
+    expect(html).toContain('Cadence ready: 0 weekly · 0 monthly')
     expect(html).toContain('Primary workload: collect evidence')
     expect(html).toContain('Recommended next: attach missing manual evidence')
     expect(html).toContain('Filter: All')
@@ -313,9 +316,18 @@ describe('FounderCovenantQueuePanel', () => {
       record: 0,
       monitor: 0,
     })
+    expect(founderCovenantOperatorQueueCadenceReadyMix({
+      items: [manual],
+    })).toEqual({
+      weekly: 0,
+      monthly: 0,
+    })
     expect(founderCovenantOperatorQueueWorkloadSummary({
       items: [manual],
     })).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 1 overdue')
+    expect(founderCovenantOperatorQueueCadenceReadySummary({
+      items: [manual],
+    })).toBe('Cadence ready: 0 weekly · 0 monthly')
     expect(founderCovenantOperatorQueuePrimaryWorkloadText({
       items: [manual],
     })).toBe('Primary workload: collect evidence')
@@ -1147,6 +1159,11 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCadence, 'action_record').map((row) => row.founderCitizenId)).toEqual(['founder-18', 'founder-17'])
     expect(founderCovenantOperatorQueueFilterSummary(queueWithCadence, 'action_overdue')).toBe('0 founders next need overdue cleanup · 0 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queueWithCadence, 'action_record')).toBe('2 founders next need record review · 0 never · 1 stale · 1 fresh')
+    expect(founderCovenantOperatorQueueCadenceReadyMix(queueWithCadence)).toEqual({
+      weekly: 2,
+      monthly: 1,
+    })
+    expect(founderCovenantOperatorQueueCadenceReadySummary(queueWithCadence)).toBe('Cadence ready: 2 weekly · 1 monthly')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 2 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'never_reviewed')).toMatchObject({
       founders: 3,
