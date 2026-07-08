@@ -5385,7 +5385,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      const stateForReview = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
+      let stateForReview = existing
+      if (existing) {
+        try {
+          stateForReview = await catchUpPersistedAreaState(citizen.citizenId, existing, now)
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+          })
+          return
+        }
+      }
       const result = applyRecordCovenantReviewIntent(
         stateForReview,
         {
