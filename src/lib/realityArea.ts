@@ -718,7 +718,7 @@ export interface RealityAreaCitizenDashboard {
 export interface RealityAreaSurvivalAction {
   warning: WorldSurvivalWarningKind
   intent: WorldSurvivalActionIntent
-  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }> | null
   serviceKind: Exclude<WorldBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -869,6 +869,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: RealityFounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: RealityAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -1636,7 +1637,7 @@ function mergeRealityAreaSurvivalSignal(signal: RealityAreaSurvivalSignal): Citi
     actions: signal.actions.map((action) => ({
       ...action,
       blockers: [...action.blockers],
-      clientPayload: { ...action.clientPayload },
+      clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
     warnings: [...signal.warnings],
     hospitalizedUntil: signal.hospitalizedUntil ? parseInstant(signal.hospitalizedUntil) : undefined,
@@ -2254,6 +2255,7 @@ function isRealityFounderCovenantReviewQueueItem(
     typeof value.checkedAt === 'string' &&
     isNullableString(value.lastReviewAt) &&
     (value.latestReview === null || isRealityFounderCovenantReviewQueueLatestReview(value.latestReview)) &&
+    isRealityAreaCovenantReviewSchedule(value.reviewSchedule) &&
     typeof value.nextWeeklyReviewAt === 'string' &&
     typeof value.nextMonthlyReviewAt === 'string' &&
     typeof value.overdue === 'boolean' &&
@@ -2889,7 +2891,7 @@ function isRealityAreaSurvivalAction(value: unknown): value is RealityAreaSurviv
   return isRecord(value) &&
     isSurvivalWarning(value.warning) &&
     isSurvivalActionIntent(value.intent) &&
-    isRealityAreaSurvivalPayload(value.clientPayload) &&
+    (isRealityAreaSurvivalPayload(value.clientPayload) || value.clientPayload === null) &&
     isBusinessKind(value.serviceKind) &&
     value.serviceKind !== 'insurance' &&
     typeof value.available === 'boolean' &&
