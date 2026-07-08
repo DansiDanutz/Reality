@@ -672,6 +672,7 @@ describe('tutorial', async () => {
     const ids = TUTORIAL_STEPS.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(ids).toContain('cook')
+    expect(ids).toContain('hall')
     for (const step of TUTORIAL_STEPS) {
       expect(step.isDone(fresh), step.id).toBe(false)
       expect(step.xp, step.id).toBeGreaterThan(0)
@@ -694,8 +695,9 @@ describe('tutorial', async () => {
       shiftsWorked: 2,
       activity: null,
       assets: [
-        { id: 'h', itemId: 'studio', kind: 'home' as const, name: 'Studio', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 },
-        { id: 'b', itemId: 'foodcart', kind: 'business' as const, name: 'Cart', lat: 0, lng: 0, incomePerDay: 230, pendingIncome: 0, placedAtMinute: 0 },
+      { id: 'h', itemId: 'studio', kind: 'home' as const, name: 'Studio', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 },
+      { id: 'b', itemId: 'foodcart', kind: 'business' as const, name: 'Cart', lat: 0, lng: 0, incomePerDay: 230, pendingIncome: 0, placedAtMinute: 0 },
+      { id: 'w', itemId: 'workers_hall', kind: 'business' as const, name: 'Workers Hall', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 },
       ],
       groceryRestockedAt: { pasta: 0 },
       totalCollected: 120,

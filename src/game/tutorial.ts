@@ -104,6 +104,13 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     isDone: (s) => s.assets.some((a) => a.kind === 'business'),
   },
   {
+    id: 'hall',
+    title: 'Build a Workers Hall',
+    detail: 'Open the Workers Hall so open roles can turn into real staff.',
+    xp: 75,
+    isDone: (s) => s.assets.some((a) => a.itemId === 'workers_hall'),
+  },
+  {
     id: 'collect',
     title: 'Collect your first profits',
     detail: 'Open Assets and press Collect.',
