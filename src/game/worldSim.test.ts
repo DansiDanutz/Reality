@@ -672,6 +672,45 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('insurance renewals reserve insurer capacity before later policy sales', () => {
+    const start = area({
+      citizens: [
+        sim('renewing', {
+          money: 100,
+          insuranceBusinessId: 'ins1',
+          insurancePaidUntil: HOUR,
+        }),
+        sim('capacity-blocked', {
+          money: 100,
+          insuranceBusinessId: 'ins1',
+          insurancePaidUntil: HOUR,
+        }),
+        sim('new-buyer', { money: 100 }),
+      ],
+      businesses: [business('insurance', 'ins1', { cash: 0, price: 45, quality: 0.2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const renewing = out.citizens.find((citizen) => citizen.id === 'renewing')!
+    const capacityBlocked = out.citizens.find((citizen) => citizen.id === 'capacity-blocked')!
+    const newBuyer = out.citizens.find((citizen) => citizen.id === 'new-buyer')!
+
+    expect(renewing.money).toBe(55)
+    expect(renewing.insuranceBusinessId).toBe('ins1')
+    expect(renewing.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(capacityBlocked.money).toBe(100)
+    expect(capacityBlocked.insuranceBusinessId).toBeUndefined()
+    expect(capacityBlocked.insurancePaidUntil).toBeUndefined()
+    expect(newBuyer.money).toBe(100)
+    expect(newBuyer.insuranceBusinessId).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(45)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(summary.insurancePoliciesLapsed).toBe(1)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'renewing', toId: 'ins1', amount: 45 },
+    ])
+  })
+
   test('insurance lapses when the monthly premium cannot be paid', () => {
     const start = area({
       citizens: [sim('resident', {
