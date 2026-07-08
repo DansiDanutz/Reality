@@ -1149,13 +1149,33 @@ function areaEventsDashboard(area: WorldArea): AreaEventsDashboard {
       const simulated = event.simulated
       return {
         ...event,
-        needs: { ...event.needs },
+        at: areaEventDashboardTime(event.at),
+        health: areaEventDashboardPercent(event.health, 100),
+        needs: areaEventDashboardNeeds(event.needs),
         displayName: simulated ? `${event.citizenName} (Sim)` : event.citizenName,
         participantLabel: simulated ? 'Sim Citizen' : 'Real Citizen',
         visualTone: simulated ? 'simulated' : 'real',
       }
     }),
   }
+}
+
+function areaEventDashboardTime(at: number): number | string {
+  return Number.isFinite(at) && at >= 0 ? at : 'invalid_event_time'
+}
+
+function areaEventDashboardNeeds(needs: Needs): Needs {
+  return {
+    hunger: areaEventDashboardPercent(needs.hunger, 90),
+    hydration: areaEventDashboardPercent(needs.hydration, 90),
+    energy: areaEventDashboardPercent(needs.energy, 90),
+    hygiene: areaEventDashboardPercent(needs.hygiene, 90),
+    fun: areaEventDashboardPercent(needs.fun, 90),
+  }
+}
+
+function areaEventDashboardPercent(value: number, fallback: number): number {
+  return Number.isFinite(value) ? clamp(value) : fallback
 }
 
 function founderMoneyForArea(area: WorldArea): number | undefined {
