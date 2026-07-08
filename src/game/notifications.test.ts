@@ -258,3 +258,48 @@ describe('markNotified + NOTIFICATION_REASONS', () => {
     }
   })
 })
+
+describe('decideNotifications — activity completion via transition record', () => {
+  test('fires from lastCompletedActivity even when activity is null (post-tick state)', () => {
+    const ended = 19_000 * DAY_MS + 60 * 60_000
+    const s = base({
+      now: ended + 1000,
+      activity: null, // the tick already resolved it to null
+      lastCompletedActivity: { kind: 'shift', startedAt: ended - 8 * 3_600_000, endsAt: ended },
+    })
+    const out = ok(s)
+    expect(out).toHaveLength(1)
+    expect(out[0].tag).toBe('activity')
+    expect(out[0].id).toBe(`activity-complete:${ended - 8 * 3_600_000}`)
+    expect(out[0].title).toContain('Shift done')
+  })
+
+  test('dedupes per activity instance — the same completion never fires twice', () => {
+    const ended = 19_000 * DAY_MS + 60 * 60_000
+    const startedAt = ended - 8 * 3_600_000
+    const s = base({
+      now: ended + 1000,
+      activity: null,
+      lastCompletedActivity: { kind: 'shift', startedAt, endsAt: ended },
+    })
+    const first = ok(s)
+    expect(first).toHaveLength(1)
+    const log = markNotified({}, first[0].id, s.now)
+    // Same completion on a later tick → suppressed by the instance id.
+    expect(ok(base({ ...s, now: s.now + 1000 }), log)).toHaveLength(0)
+  })
+
+  test('a NEW activity instance fires despite an earlier one in the log', () => {
+    const firstStart = 19_000 * DAY_MS
+    const log = markNotified({}, `activity-complete:${firstStart}`, firstStart + 3_600_000)
+    const secondStart = firstStart + 2 * 3_600_000
+    const s = base({
+      now: secondStart + 30 * 60_000 + 1000,
+      activity: null,
+      lastCompletedActivity: { kind: 'cook', startedAt: secondStart, endsAt: secondStart + 30 * 60_000 },
+    })
+    const out = ok(s, log)
+    expect(out).toHaveLength(1)
+    expect(out[0].title).toContain('meal is ready')
+  })
+})
