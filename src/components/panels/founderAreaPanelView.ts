@@ -819,9 +819,14 @@ export function founderCovenantOperatorQueueWorkloadSummary(
   const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
   const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
   const approvalRequests = queue.items.reduce((sum, item) => sum + item.reviewReadiness.approvalRequestCount, 0)
-  const overdueFounders = queue.items.filter((item) => item.overdue).length
+  const recordReadyFounders = queue.items.filter((item) =>
+    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
+  ).length
+  const overdueCleanupFounders = queue.items.filter((item) =>
+    founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+  ).length
 
-  return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${overdueFounders} overdue`
+  return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${recordReadyFounders} record ready · ${overdueCleanupFounders} overdue cleanup`
 }
 
 export function founderCovenantOperatorQueueCadenceReadyMix(
