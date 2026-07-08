@@ -41,7 +41,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
       res.status(200).json({ ok: true, top: rows.slice(0, 20), citizens: rows.length })
     } catch {
-      res.status(200).json({ ok: true, top: [], citizens: 0 })
+      res.status(503).json({
+        ok: false,
+        error: 'The leaderboard is briefly unavailable.',
+        code: 'leaderboard_unavailable',
+      })
     }
     return
   }

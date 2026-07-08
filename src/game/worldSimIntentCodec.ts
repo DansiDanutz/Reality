@@ -1,5 +1,7 @@
 import {
   DEFAULT_BUSINESS_BLUEPRINTS,
+  MAX_FOUNDER_AREA_RADIUS_KM,
+  MIN_FOUNDER_AREA_RADIUS_KM,
   type AreaClaimSource,
   type FounderCovenantManualActionKind,
   type FounderCovenantManualEvidenceKind,
@@ -202,7 +204,7 @@ export function decodeClientWorldAreaClaimPayload(
   if (!isLatitude(payload.centerLat) || !isLongitude(payload.centerLng)) {
     return { ok: false, error: 'invalid_location' }
   }
-  if (!isPositiveNumber(payload.radiusKm)) return { ok: false, error: 'invalid_area_radius' }
+  if (!isFounderAreaRadius(payload.radiusKm)) return { ok: false, error: 'invalid_area_radius' }
 
   return {
     ok: true,
@@ -337,7 +339,9 @@ function decodeRepayDebtIntent(
   const debtId = readClientId(payload.debtId)
   if (!debtId) return { ok: false, error: 'invalid_debt_id' }
   if (!isPositiveMoney(payload.amount)) return { ok: false, error: 'invalid_amount' }
-  return { ok: true, intent: { type: 'repayDebt', actorCitizenId, debtId, amount: roundMoney(payload.amount) } }
+  const amount = roundMoney(payload.amount)
+  if (amount <= 0) return { ok: false, error: 'invalid_amount' }
+  return { ok: true, intent: { type: 'repayDebt', actorCitizenId, debtId, amount } }
 }
 
 function readReviewActionKind(value: unknown): FounderCovenantManualActionKind | null {
@@ -416,8 +420,11 @@ function isFiniteNonNegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
-function isPositiveNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
+function isFounderAreaRadius(value: unknown): value is number {
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_FOUNDER_AREA_RADIUS_KM &&
+    value <= MAX_FOUNDER_AREA_RADIUS_KM
 }
 
 function isLatitude(value: unknown): value is number {
