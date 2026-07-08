@@ -3932,6 +3932,98 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('founder covenant review queue surfaces duplicate founder seat numbers without double-counting items', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    const otherFounderId = '22222222-2222-4222-8222-222222222222'
+    const duplicateSeatState = {
+      ...existingState(),
+      areaId: 'founder-area-0012-shadow',
+      founderCitizenId: otherFounderId,
+      claim: {
+        ...existingState().claim,
+        founderCitizenId: otherFounderId,
+        label: 'Shadow Founder Block',
+      },
+      citizens: existingState().citizens.map((citizen) =>
+        citizen.id === CITIZEN_ID
+          ? {
+            ...citizen,
+            id: otherFounderId,
+            name: 'Shadow Founder',
+          }
+          : citizen
+      ),
+      transactions: existingState().transactions.map((transaction) => ({
+        ...transaction,
+        id: transaction.id.replaceAll('founder-area-0012', 'founder-area-0012-shadow'),
+        fromId: transaction.fromId === CITIZEN_ID ? otherFounderId : transaction.fromId,
+        toId: transaction.toId === CITIZEN_ID ? otherFounderId : transaction.toId,
+        memo: transaction.memo.replaceAll('Founder #0012', 'Founder #0012'),
+      })),
+      founderCovenant: {
+        ...baseFounderCovenant('2026-07-06T03:00:00.000Z'),
+        founderCitizenId: otherFounderId,
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce({
+        blobs: [
+          { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://duplicate-seat-primary' },
+          { pathname: areaStatePath(otherFounderId), downloadUrl: 'blob://duplicate-seat-shadow' },
+        ],
+        hasMore: false,
+      })
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      const body = url.includes('shadow') ? duplicateSeatState : existingState()
+      return new Response(JSON.stringify(body), { status: 200 })
+    }))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '2' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      founderCovenantReviewQueue: {
+        scanned: 2,
+        caughtUp: 0,
+        current: 1,
+        failed: 1,
+        totals: {
+          founders: 1,
+          scanAnomalies: 1,
+        },
+        items: [{
+          founderCitizenId: CITIZEN_ID,
+          founderNumber: 12,
+        }],
+        results: [
+          {
+            citizenId: CITIZEN_ID,
+            areaId: 'founder-area-0012',
+            status: 'current',
+            updatedAt: '2026-07-06T03:00:00.000Z',
+            transactionsAdded: 0,
+          },
+          {
+            citizenId: otherFounderId,
+            areaId: 'founder-area-0012-shadow',
+            status: 'duplicate_founder_number',
+            updatedAt: '2026-07-06T03:00:00.000Z',
+            transactionsAdded: 0,
+          },
+        ],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('refreshArea catches up stale area state through the authenticated server path', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))

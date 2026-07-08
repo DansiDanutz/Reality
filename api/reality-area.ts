@@ -1059,7 +1059,12 @@ type ServerClockTickAreasError =
   | ServerClockTickAreasIntentError
   | 'server_clock_unauthorized'
 
-type ServerClockAreaTickStatus = 'caught_up' | 'current' | 'invalid' | 'unavailable'
+type ServerClockAreaTickStatus =
+  | 'caught_up'
+  | 'current'
+  | 'invalid'
+  | 'unavailable'
+  | 'duplicate_founder_number'
 
 interface ServerClockAreaTickResult {
   citizenId: string | null
@@ -4433,6 +4438,7 @@ async function scanFounderCovenantReviewQueue(
 ): Promise<FounderCovenantReviewQueueDashboard> {
   const items: FounderCovenantReviewQueueItem[] = []
   const results: FounderCovenantReviewQueueScanResult[] = []
+  const scannedFounderNumbers = new Map<number, string>()
   let pagesScanned = 0
   let hasMore = false
   let nextCursor: string | undefined = cursor
@@ -4446,14 +4452,29 @@ async function scanFounderCovenantReviewQueue(
     pagesScanned += 1
     for (const blob of batch.blobs) {
       const result = await founderCovenantReviewQueueAreaBlob(blob, now)
-      results.push({
+      let queueResult: FounderCovenantReviewQueueScanResult = {
         citizenId: result.citizenId,
         areaId: result.areaId,
         status: result.status,
         updatedAt: result.updatedAt,
         transactionsAdded: result.transactionsAdded,
-      })
-      if (result.item) items.push(result.item)
+      }
+      if (result.item) {
+        const firstCitizenId = scannedFounderNumbers.get(result.item.founderNumber)
+        if (firstCitizenId && firstCitizenId !== result.item.founderCitizenId) {
+          queueResult = {
+            citizenId: result.citizenId,
+            areaId: result.areaId,
+            status: 'duplicate_founder_number',
+            updatedAt: result.updatedAt,
+            transactionsAdded: 0,
+          }
+        } else {
+          scannedFounderNumbers.set(result.item.founderNumber, result.item.founderCitizenId)
+          items.push(result.item)
+        }
+      }
+      results.push(queueResult)
     }
 
     hasMore = Boolean(batch.hasMore)
@@ -4656,7 +4677,11 @@ function founderCovenantReviewQueueTotals(
     staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
     staleWeeklyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue).length,
     staleMonthlyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.monthlyReviewDue).length,
-    scanAnomalies: results.filter((result) => result.status === 'invalid' || result.status === 'unavailable').length,
+    scanAnomalies: results.filter((result) =>
+      result.status === 'invalid' ||
+      result.status === 'unavailable' ||
+      result.status === 'duplicate_founder_number'
+    ).length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     warningApprovals: items.reduce((total, item) =>
