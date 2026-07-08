@@ -904,6 +904,13 @@ export function founderCovenantOperatorQueueSignalSummary(
   return `Signals: ${criticalSignals} critical · ${warningSignals} warning · ${signalFounders} founder${signalFounders === 1 ? '' : 's'} flagged`
 }
 
+export function founderCovenantOperatorQueueFreshnessSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
+): string {
+  const { totals } = queue
+  return `Review freshness: ${totals.neverReviewed} never · ${totals.staleReviewed} stale · ${totals.freshReviewed} fresh`
+}
+
 export function founderCovenantOperatorQueueManualReviewSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {

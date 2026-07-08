@@ -6,6 +6,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueFreshnessSummary,
   founderCovenantOperatorQueueManualReviewSummary,
   founderCovenantOperatorQueueProbationRiskSummary,
   founderCovenantOperatorQueueReplacementRiskSummary,
@@ -287,6 +288,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip stable" title="Probation risk: 0 founders · 0 low score · 0 manual review"><span>Probation risk</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Replacement risk: 0 founders · 0 inactive · 0 manual review"><span>Replacement risk</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip warning" title="Action: record due reviews · record due founder reviews"><span>Next</span><strong>record due reviews</strong>')
+    expect(html).toContain('class="founder-ledger-chip critical" title="Review freshness: 1 never · 0 stale · 0 fresh"><span>Never reviewed</span><strong>1</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Review freshness: 1 never · 0 stale · 0 fresh"><span>Stale reviewed</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Manual review: 0 founders · 0 never · 0 stale · 0 fresh"><span>Manual review</span><strong>0</strong>')
     expect(html).toContain('title="Signals: 0 critical · 1 warning · 1 founder flagged"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Signals: 0 critical · 1 warning · 1 founder flagged"><span>Signals</span><strong>1</strong>')
@@ -370,6 +373,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(founderCovenantOperatorQueueManualReviewSummary({
       items: operatorQueue().items,
     })).toBe('Manual review: 1 founder · 1 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFreshnessSummary({
+      totals: operatorQueue().totals,
+    })).toBe('Review freshness: 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueProbationRiskSummary({
       items: operatorQueue().items,
     })).toBe('Probation risk: 1 founder · 1 low score · 1 manual review')
