@@ -147,6 +147,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   manualActionReasonText: string
   approvalRequestText: string
   approvalReasonText: string
+  approvalStatusText: string
   approvalAuthorityText: string
   approvalGateText: string
   approvalBlockerText: string
@@ -1370,6 +1371,7 @@ export function founderCovenantOperatorQueueReviewRows(
       manualActionReasonText: founderCovenantOperatorQueueManualActionReasonText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       approvalReasonText: founderCovenantOperatorQueueApprovalReasonText(item),
+      approvalStatusText: founderCovenantOperatorQueueApprovalStatusText(item),
       approvalAuthorityText: founderCovenantOperatorQueueApprovalAuthorityText(item),
       approvalGateText: founderCovenantOperatorQueueApprovalGateText(item),
       approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
@@ -1587,6 +1589,15 @@ export function founderCovenantOperatorQueueApprovalReasonText(
   if (item.pendingApprovalRequests.length === 0) return 'none'
   return item.pendingApprovalRequests
     .map((request) => `${founderCovenantManualActionKindLabel(request.kind)}: ${request.reason}`)
+    .join(' · ')
+}
+
+export function founderCovenantOperatorQueueApprovalStatusText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => `${founderCovenantManualActionKindLabel(request.kind)}: ${founderCovenantApprovalRequestStatusLabel(request)}`)
     .join(' · ')
 }
 
