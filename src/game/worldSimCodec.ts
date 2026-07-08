@@ -290,7 +290,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
 function isFounderCovenantReviewHistoryItem(value: unknown): value is FounderCovenantReviewHistoryItem {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
-    isFiniteNumber(value.at) &&
+    isNonNegativeFiniteNumber(value.at) &&
     isNonEmptyString(value.reviewerId) &&
     isOneOf(value.actionKind, COVENANT_MANUAL_ACTION_KINDS) &&
     isNonEmptyString(value.summary) &&
@@ -611,6 +611,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0
 }
 
 function isMoney(value: unknown): value is number {
