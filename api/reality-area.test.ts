@@ -2914,6 +2914,52 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('tickAreas preserves area identity when catch-up persistence fails', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = {
+      ...fragileFounder,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://clock-area'))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob write failed'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        intent: { type: 'tickAreas', limit: 1 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        checkedAt: '2026-07-06T08:00:00.000Z',
+        scanned: 1,
+        caughtUp: 0,
+        current: 0,
+        failed: 1,
+        results: [{
+          citizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          status: 'unavailable',
+          updatedAt: '2026-07-06T07:00:00.000Z',
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('tickAreas accepts cron-style GET with bearer server-clock authority', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))

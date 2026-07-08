@@ -4691,7 +4691,12 @@ async function tickServerClockAreaBlob(
     const state = normalizeAreaCitizens(value)
     const previousUpdatedAt = state.updatedAt
     const previousTransactionCount = state.transactions.length
-    const next = await catchUpPersistedAreaState(citizenId, state, now)
+    let next: FounderAreaState
+    try {
+      next = await catchUpPersistedAreaState(citizenId, state, now)
+    } catch {
+      return serverClockAreaTickResult(citizenId, state.areaId, 'unavailable', previousUpdatedAt, 0)
+    }
     const transactionsAdded = Math.max(0, next.transactions.length - previousTransactionCount)
     const status: ServerClockAreaTickStatus = next.updatedAt === previousUpdatedAt && transactionsAdded === 0
       ? 'current'
