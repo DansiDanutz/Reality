@@ -48,6 +48,13 @@ export interface NotificationSnapshot {
   streakLength: number
   /** Active activity (shift/sleep/cook), or null. */
   activity: Activity | null
+  /**
+   * The activity that COMPLETED on the most recent tick, if any. The tick
+   * resolves a finished activity to null before the notification hook ever
+   * sees it, so `activity` alone can never satisfy "ended but still set" —
+   * the store records the completion transition here (transient).
+   */
+  lastCompletedActivity?: Pick<Activity, 'kind' | 'startedAt' | 'endsAt'> | null
   /** Current needs. */
   needs: Needs
   /** Current money — used for the "broke" notification guard. */
@@ -80,7 +87,9 @@ export interface NotificationDecision {
 
 /** Cooldowns in ms. Tuned so no type fires more than once per window. */
 const COOLDOWN_MS: Record<string, number> = {
-  'activity-complete': 0, // fires once per activity end (cleared on new activity)
+  // activity-complete has no time cooldown — it dedupes per activity
+  // INSTANCE (the decision id embeds startedAt), so one completion fires
+  // exactly once and a new activity gets a fresh id.
   'streak-at-risk': 3 * 60 * 60_000, // at most every 3 hours
   'needs-critical': 30 * 60_000, // at most every 30 minutes
   'daily-incomplete': 6 * 60 * 60_000, // at most once per evening
@@ -113,24 +122,44 @@ export function decideNotifications(
 
   // 1. Activity completion — the highest-value notification. The player
   //    started a shift/sleep/cook and walked away; this brings them back to
-  //    collect and chain into the next action.
-  if (snap.activity && snap.now >= snap.activity.endsAt && cooled('activity-complete')) {
-    const verb =
-      snap.activity.kind === 'shift' ? 'Shift done — collect your wages'
-      : snap.activity.kind === 'sleep' ? 'You\'re rested — back to the world'
-      : 'Your meal is ready 🍽️'
-    out.push({
-      id: 'activity-complete',
-      title: verb,
-      body: 'Tap to continue your life.',
-      tag: 'activity',
-    })
+  //    collect and chain into the next action. The tick nulls a finished
+  //    activity before this runs, so completion is detected via the
+  //    transition record (lastCompletedActivity), falling back to a still-set
+  //    activity past its end for callers that pass one (e.g. push infra).
+  const completed =
+    snap.lastCompletedActivity ??
+    (snap.activity && snap.now >= snap.activity.endsAt ? snap.activity : null)
+  if (completed) {
+    // Dedupe per activity INSTANCE, not per time window: the id embeds the
+    // start timestamp, so one completion fires exactly once, never on repeat
+    // ticks, and never suppresses the next activity's completion.
+    const id = `activity-complete:${completed.startedAt}`
+    if (log[id] === undefined) {
+      const verb =
+        completed.kind === 'shift' ? 'Shift done — collect your wages'
+        : completed.kind === 'sleep' ? 'You\'re rested — back to the world'
+        : 'Your meal is ready 🍽️'
+      out.push({
+        id,
+        title: verb,
+        body: 'Tap to continue your life.',
+        tag: 'activity',
+      })
+    }
   }
 
   // 2. Streak at risk — the single most retention-critical notification.
   //    Fires in the final hours before local midnight if today's streak
   //    hasn't been claimed. Losing a 14-day streak because you forgot is
   //    the #1 quit trigger; this prevents it.
+  //
+  //    TODO(push-infra): this branch is UNREACHABLE from the in-tab hook
+  //    (useNotifications). The hook only runs while the game is ticking, and
+  //    the store auto-claims the streak on the first tick of each local day —
+  //    so whenever this code runs, today is already claimed. It can only fire
+  //    once notifications are delivered by a service worker / push backend
+  //    that runs while the tab is CLOSED. The logic is kept (pure + tested)
+  //    as the decision layer for that infra; do not expect it to fire today.
   if (snap.streakLength >= 2 && snap.todayDay > snap.streakLastClaimDay && cooled('streak-at-risk')) {
     // Distance to local midnight comes from the snapshot — computed by the
     // caller in the citizen's real timezone (see the field's doc comment).
