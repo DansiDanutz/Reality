@@ -3189,6 +3189,69 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('hireWorker returns a structured storage failure when pre-hire catch-up cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stableWorker = withCitizen(fragileFounder, 'founder-area-0012:sim-water', {
+      needs: { hydration: 90 },
+    })
+    const stale = withBusiness({
+      ...stableWorker,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }, {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-hire-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'hireWorker',
+          businessId: 'water-1',
+          workerCitizenId: 'founder-area-0012:sim-water',
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        updatedAt: '2026-07-06T07:00:00.000Z',
+        transactions: stale.transactions,
+      },
+      dashboard: {
+        updatedAt: '2026-07-06T07:00:00.000Z',
+      },
+    })
+    const state = (res.body as { state: ReturnType<typeof withBusiness> }).state
+    const worker = state.citizens.find((citizen) => citizen.id === 'founder-area-0012:sim-water')
+    expect(worker?.jobBusinessId).toBeUndefined()
+    expect(state.businesses.find((business) => business.id === 'water-1')).toMatchObject({
+      cash: 5,
+      staffCitizenIds: [],
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('tickAreas rejects requests without server-clock authority before scanning blobs', async () => {
     const res = responseRecorder()
 
