@@ -1,3 +1,4 @@
+import { MAX_FOUNDER_AREA_RADIUS_KM, MIN_FOUNDER_AREA_RADIUS_KM } from './worldSim'
 import type {
   AreaClaimSource,
   FounderCovenantApprovalBlocker,
@@ -67,6 +68,7 @@ const COVENANT_NEXT_ACTIONS: FounderCovenantNextAction[] = ['claim_area', 'none'
 const COVENANT_SIGNAL_SEVERITIES: FounderCovenantSignalSeverity[] = ['info', 'warning', 'critical']
 const COVENANT_SIGNAL_KINDS: FounderCovenantSignalKind[] = [
   'founder_unavailable',
+  'stale_founder_activity',
   'no_business_built',
   'understaffed_businesses',
   'essential_shortage',
@@ -163,7 +165,7 @@ export function decodeWorldAreaSnapshot(raw: string): DecodeWorldAreaSnapshotRes
 
 function isWorldArea(value: unknown): value is WorldArea {
   if (!isRecord(value)) return false
-  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now)) return false
+  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now) || value.now < 0) return false
   if (value.claim !== undefined && !isAreaClaim(value.claim)) return false
   if (!Array.isArray(value.citizens) || !value.citizens.every(isWorldCitizen) || !hasUniqueIds(value.citizens)) {
     return false
@@ -204,8 +206,10 @@ function isAreaClaim(value: unknown): value is WorldArea['claim'] {
     isLatitude(value.centerLat) &&
     isLongitude(value.centerLng) &&
     isFiniteNumber(value.radiusKm) &&
-    value.radiusKm > 0 &&
+    value.radiusKm >= MIN_FOUNDER_AREA_RADIUS_KM &&
+    value.radiusKm <= MAX_FOUNDER_AREA_RADIUS_KM &&
     isFiniteNumber(value.claimedAt) &&
+    value.claimedAt >= 0 &&
     isOneOf(value.source, CLAIM_SOURCES)
 }
 
@@ -235,13 +239,14 @@ function isWorldDebt(value: unknown): value is WorldDebt {
     isNonEmptyString(value.creditorId) &&
     isPositiveMoney(value.amount) &&
     isFiniteNumber(value.issuedAt) &&
+    value.issuedAt >= 0 &&
     isNonEmptyString(value.memo)
 }
 
 function isCitizenState(value: unknown): value is WorldCitizenState {
   if (!isRecord(value)) return false
   if (value.kind === 'active') return true
-  return value.kind === 'hospitalized' && isFiniteNumber(value.until)
+  return value.kind === 'hospitalized' && isFiniteNumber(value.until) && value.until >= 0
 }
 
 function isWorldBusiness(value: unknown): value is WorldBusiness {
@@ -261,6 +266,7 @@ function isWorldTransaction(value: unknown): value is WorldTransaction {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, TRANSACTION_KINDS) &&
     value.payoutEligibility === 'game_only' &&
     isNonEmptyString(value.fromId) &&
@@ -273,6 +279,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, AREA_EVENT_KINDS) &&
     isOneOf(value.severity, AREA_EVENT_SEVERITIES) &&
     isNonEmptyString(value.citizenId) &&
@@ -289,7 +296,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
 function isFounderCovenantReviewHistoryItem(value: unknown): value is FounderCovenantReviewHistoryItem {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
-    isFiniteNumber(value.at) &&
+    isNonNegativeFiniteNumber(value.at) &&
     isNonEmptyString(value.reviewerId) &&
     isOneOf(value.actionKind, COVENANT_MANUAL_ACTION_KINDS) &&
     isNonEmptyString(value.summary) &&
@@ -442,9 +449,9 @@ function isFounderCovenantApprovalRequest(value: unknown): value is FounderCoven
 
 function isFounderCovenantReviewSchedule(value: unknown): boolean {
   return isRecord(value) &&
-    (value.lastReviewAt === null || isFiniteNumber(value.lastReviewAt)) &&
-    isFiniteNumber(value.nextWeeklyReviewAt) &&
-    isFiniteNumber(value.nextMonthlyReviewAt) &&
+    (value.lastReviewAt === null || isNonNegativeFiniteNumber(value.lastReviewAt)) &&
+    isNonNegativeFiniteNumber(value.nextWeeklyReviewAt) &&
+    isNonNegativeFiniteNumber(value.nextMonthlyReviewAt) &&
     typeof value.weeklyReviewDue === 'boolean' &&
     typeof value.monthlyReviewDue === 'boolean' &&
     typeof value.overdue === 'boolean' &&
@@ -469,6 +476,7 @@ function hasValidAreaReferences(area: WorldArea): boolean {
   const departedCitizens = new Map((area.areaEvents ?? [])
     .filter((event) => event.kind === 'sim_citizen_departure')
     .map((event) => [event.citizenId, event]))
+  if (!hasUniqueLedgerAccountIds(citizens, businesses, departedCitizens)) return false
 
   if (area.claim && citizens.get(area.claim.founderCitizenId)?.kind !== 'real') return false
 
@@ -511,6 +519,27 @@ function hasValidAreaReferences(area: WorldArea): boolean {
     if (!isValidTransactionReferences(transaction, area, citizens, businesses, departedCitizens)) return false
   }
 
+  return true
+}
+
+function hasUniqueLedgerAccountIds(
+  citizens: Map<string, WorldCitizen>,
+  businesses: Map<string, WorldBusiness>,
+  departedCitizens: Map<string, WorldAreaEvent>,
+): boolean {
+  const accounts = new Set<string>(SYSTEM_LEDGER_ACCOUNTS)
+  for (const accountId of citizens.keys()) {
+    if (accounts.has(accountId)) return false
+    accounts.add(accountId)
+  }
+  for (const accountId of businesses.keys()) {
+    if (accounts.has(accountId)) return false
+    accounts.add(accountId)
+  }
+  for (const accountId of departedCitizens.keys()) {
+    if (accounts.has(accountId)) return false
+    accounts.add(accountId)
+  }
   return true
 }
 
@@ -613,12 +642,16 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function isMoney(value: unknown): value is number {
+function isNonNegativeFiniteNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0
 }
 
+function isMoney(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0 && hasCentPrecision(value)
+}
+
 function isPositiveMoney(value: unknown): value is number {
-  return isFiniteNumber(value) && value > 0
+  return isFiniteNumber(value) && value > 0 && hasCentPrecision(value)
 }
 
 function isPercentage(value: unknown): value is number {
@@ -627,6 +660,10 @@ function isPercentage(value: unknown): value is number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+function hasCentPrecision(value: number): boolean {
+  return roundMoney(value) === value
 }
 
 function isLatitude(value: unknown): value is number {
