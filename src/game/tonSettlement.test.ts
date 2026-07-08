@@ -6,6 +6,7 @@ import {
   isTonSettlementLedgerKind,
   tonLedgerSettlementDecision,
   tonSettlementFlowGate,
+  type TonSettlementReadinessInput,
 } from './tonSettlement'
 
 describe('TON settlement policy', () => {
@@ -53,6 +54,26 @@ describe('TON settlement policy', () => {
     })
   })
 
+  test('requires exact true readiness flags before wallet manual activation', () => {
+    const runtimeHints = {
+      serverAuthorityReady: 'true',
+      telegramIdentityVerified: 1,
+      tonConnectReviewed: {},
+    } as unknown as TonSettlementReadinessInput
+
+    expect(tonSettlementFlowGate('wallet_connection', runtimeHints)).toMatchObject({
+      enabled: false,
+      status: 'blocked',
+      readyForManualActivation: false,
+      blockers: [
+        'settlement_execution_disabled',
+        'server_authority_required',
+        'telegram_identity_required',
+        'ton_connect_review_required',
+      ],
+    })
+  })
+
   test('requires compliance, manual review, and KYC/tax before withdrawals are even ready', () => {
     expect(tonSettlementFlowGate('withdrawal', {
       serverAuthorityReady: true,
@@ -77,6 +98,28 @@ describe('TON settlement policy', () => {
       status: 'ready_for_manual_activation',
       readyForManualActivation: true,
       blockers: ['settlement_execution_disabled'],
+    })
+  })
+
+  test('requires exact true settlement readiness flags before withdrawals can be manually activated', () => {
+    const runtimeHints = {
+      serverAuthorityReady: true,
+      telegramIdentityVerified: true,
+      complianceApproved: 'approved',
+      manualSettlementApproved: 1,
+      kycTaxApproved: [],
+    } as unknown as TonSettlementReadinessInput
+
+    expect(tonSettlementFlowGate('withdrawal', runtimeHints)).toMatchObject({
+      enabled: false,
+      status: 'blocked',
+      readyForManualActivation: false,
+      blockers: [
+        'settlement_execution_disabled',
+        'compliance_review_required',
+        'manual_settlement_review_required',
+        'kyc_tax_required',
+      ],
     })
   })
 

@@ -7,6 +7,7 @@ import type {
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
   founderCovenantOperatorQueueActivitySignalText,
+  founderCovenantOperatorQueueCadenceText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueItemStatusClass,
@@ -35,10 +36,11 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('approval workflow disabled')
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
-    expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
+    expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · 1 warning signal · 1 critical · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Cadence: weekly due · monthly 2026-08-05 · overdue · automation disabled')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -123,6 +125,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
+    )
+    expect(founderCovenantOperatorQueueCadenceText(manual)).toBe(
+      'weekly due · monthly 2026-08-05 · overdue · automation disabled',
     )
     expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
@@ -238,12 +243,13 @@ describe('FounderCovenantQueuePanel', () => {
         indebted: 0,
         totalOutstandingDebt: 0,
         blockers: 0,
+        signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
       },
     }
 
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
-    expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · 0 warning signals · 0 critical · $0 debt')
     expect(html).toContain('No founders in this review page.')
   })
 })
@@ -313,6 +319,7 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      signalCounts: { total: 2, info: 0, warning: 1, critical: 1 },
     },
     items: [item, current],
     results: [{
@@ -343,6 +350,15 @@ function founderQueueItem(
     checkedAt: '2026-07-06T04:00:00.000Z',
     lastReviewAt: null,
     latestReview: null,
+    reviewSchedule: {
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
+      nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
+    },
     nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
     nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
     overdue: true,
