@@ -1967,6 +1967,44 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('restored claim returns a structured storage failure when catch-up cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const stale = {
+      ...existingState(),
+      updatedAt: '2026-07-06T05:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-claimed-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: validClaimIntent(),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        updatedAt: '2026-07-06T05:00:00.000Z',
+      },
+      dashboard: {
+        updatedAt: '2026-07-06T05:00:00.000Z',
+      },
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('buildBusiness charges server balance and records a build ledger event', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T04:00:00.000Z'))
