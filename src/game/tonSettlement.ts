@@ -153,22 +153,26 @@ function missingTonSettlementPrerequisites(
   input: TonSettlementReadinessInput,
 ): TonSettlementBlocker[] {
   const blockers: TonSettlementBlocker[] = []
-  if (!input.serverAuthorityReady) blockers.push('server_authority_required')
-  if (!input.telegramIdentityVerified) blockers.push('telegram_identity_required')
+  if (!isReadinessApproved(input.serverAuthorityReady)) blockers.push('server_authority_required')
+  if (!isReadinessApproved(input.telegramIdentityVerified)) blockers.push('telegram_identity_required')
 
   if (flow === 'wallet_connection') {
-    if (!input.tonConnectReviewed) blockers.push('ton_connect_review_required')
+    if (!isReadinessApproved(input.tonConnectReviewed)) blockers.push('ton_connect_review_required')
     return blockers
   }
 
-  if (!input.complianceApproved) blockers.push('compliance_review_required')
-  if (!input.manualSettlementApproved) blockers.push('manual_settlement_review_required')
+  if (!isReadinessApproved(input.complianceApproved)) blockers.push('compliance_review_required')
+  if (!isReadinessApproved(input.manualSettlementApproved)) blockers.push('manual_settlement_review_required')
 
-  if (flow === 'withdrawal' && !input.kycTaxApproved) {
+  if (flow === 'withdrawal' && !isReadinessApproved(input.kycTaxApproved)) {
     blockers.push('kyc_tax_required')
   }
 
   return blockers
+}
+
+function isReadinessApproved(value: unknown): value is true {
+  return value === true
 }
 
 function disabledLedgerDecision(reason: TonLedgerSettlementDecisionReason): TonLedgerSettlementDecision {
