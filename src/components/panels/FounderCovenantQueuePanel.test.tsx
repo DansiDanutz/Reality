@@ -39,7 +39,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('approval workflow disabled')
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
-    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 weekly due · 0 monthly due · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
+    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
@@ -306,6 +306,9 @@ describe('FounderCovenantQueuePanel', () => {
         neverReviewed: 0,
         weeklyDue: 0,
         monthlyDue: 0,
+        warningApprovals: 0,
+        probationApprovals: 0,
+        replacementApprovals: 0,
         overdue: 0,
         hospitalized: 0,
         indebted: 0,
@@ -316,7 +319,7 @@ describe('FounderCovenantQueuePanel', () => {
 
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
-    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 weekly due · 0 monthly due · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 weekly due · 0 monthly due · 0 warning approvals · 0 probation approvals · 0 replacement approvals · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
     expect(html).toContain('No founders in this review page.')
   })
 })
@@ -390,6 +393,9 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       neverReviewed: 1,
       weeklyDue: 0,
       monthlyDue: 0,
+      warningApprovals: 1,
+      probationApprovals: 0,
+      replacementApprovals: 0,
       overdue: 1,
       totalFounderCash: 399_500,
       totalOutstandingDebt: 350,
