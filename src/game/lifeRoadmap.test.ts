@@ -339,6 +339,18 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days).toHaveLength(60)
   })
 
+  test('surfaces community work at least weekly in the first 60-day curriculum', () => {
+    const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 60)
+
+    for (let week = 0; week < 8; week += 1) {
+      const weekDays = roadmap.days.slice(week * 7, week * 7 + 7)
+      expect(
+        weekDays.some((day) => day.primary.value === 'community' || day.routineValues.includes('community')),
+        `missing community in week ${week + 1}`,
+      ).toBe(true)
+    }
+  })
+
   test('projects routed Workers Hall helper hours into a completed house asset', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const readyForFinalHelperBlock = {
