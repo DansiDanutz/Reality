@@ -109,6 +109,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('<span>Monthly ready</span><strong>0</strong>')
     expect(html).toContain('title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"><span>Approvals</span><strong>1</strong>')
+    expect(html).toContain('title="Telegram drafts: 0 warning · 1 manual review · 1 total"')
+    expect(html).toContain('class="founder-ledger-chip warning" title="Telegram drafts: 0 warning · 1 manual review · 1 total"><span>Drafts</span><strong>1</strong>')
     expect(html).toContain('title="Telegram outputs: review update · manual review draft · warning draft"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Telegram outputs: review update · manual review draft · warning draft"><span>Telegram</span><strong>ready</strong>')
     expect(html).toContain('Telegram outputs: review update · manual review draft · warning draft')

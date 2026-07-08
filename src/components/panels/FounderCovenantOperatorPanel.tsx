@@ -1250,6 +1250,19 @@ export default function FounderCovenantOperatorPanel({
               <strong>{queue.totals.pendingApprovals}</strong>
             </span>
             <span
+              className={`founder-ledger-chip ${
+                queue.totals.warningDrafts > 0
+                  ? 'critical'
+                  : queue.totals.pendingNotifications > 0
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueTelegramDraftSummary(queue)}
+            >
+              <span>Drafts</span>
+              <strong>{queue.totals.pendingNotifications}</strong>
+            </span>
+            <span
               className={`founder-ledger-chip ${manualReviewTelegramDraft || founderWarningTelegramDraft ? 'warning' : 'stable'}`}
               title={telegramOutputsSummary}
             >
