@@ -6,27 +6,30 @@ import type {
 const OPERATOR_QUEUE_VIEW_KEY = 'reality-founder-covenant-operator-view-v1'
 
 export function readOperatorQueueViewState(): {
+  cursor: string | null
   filter: FounderCovenantOperatorQueueFilter
   sort: FounderCovenantOperatorQueueSort
 } {
   const storage = browserStorage()
   if (!storage) {
-    return { filter: 'all', sort: 'priority' }
+    return { cursor: null, filter: 'all', sort: 'priority' }
   }
   try {
     const raw = storage.getItem(OPERATOR_QUEUE_VIEW_KEY)
-    if (!raw) return { filter: 'all', sort: 'priority' }
-    const parsed = JSON.parse(raw) as { filter?: string; sort?: string }
+    if (!raw) return { cursor: null, filter: 'all', sort: 'priority' }
+    const parsed = JSON.parse(raw) as { cursor?: string | null; filter?: string; sort?: string }
     return {
+      cursor: typeof parsed.cursor === 'string' || parsed.cursor === null ? parsed.cursor : null,
       filter: isQueueFilter(parsed.filter) ? parsed.filter : 'all',
       sort: isQueueSort(parsed.sort) ? parsed.sort : 'priority',
     }
   } catch {
-    return { filter: 'all', sort: 'priority' }
+    return { cursor: null, filter: 'all', sort: 'priority' }
   }
 }
 
 export function writeOperatorQueueViewState(state: {
+  cursor: string | null
   filter: FounderCovenantOperatorQueueFilter
   sort: FounderCovenantOperatorQueueSort
 }): void {

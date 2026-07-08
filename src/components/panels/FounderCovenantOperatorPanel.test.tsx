@@ -131,16 +131,16 @@ describe('FounderCovenantOperatorPanel', () => {
     const storage = createStorage()
     vi.stubGlobal('window', { localStorage: storage })
 
-    expect(readOperatorQueueViewState()).toEqual({ filter: 'all', sort: 'priority' })
+    expect(readOperatorQueueViewState()).toEqual({ cursor: null, filter: 'all', sort: 'priority' })
 
-    writeOperatorQueueViewState({ filter: 'manual_review', sort: 'founder' })
+    writeOperatorQueueViewState({ cursor: 'page-cursor-2', filter: 'manual_review', sort: 'founder' })
     expect(storage.getItem('reality-founder-covenant-operator-view-v1')).toBe(
-      JSON.stringify({ filter: 'manual_review', sort: 'founder' }),
+      JSON.stringify({ cursor: 'page-cursor-2', filter: 'manual_review', sort: 'founder' }),
     )
-    expect(readOperatorQueueViewState()).toEqual({ filter: 'manual_review', sort: 'founder' })
+    expect(readOperatorQueueViewState()).toEqual({ cursor: 'page-cursor-2', filter: 'manual_review', sort: 'founder' })
 
-    storage.setItem('reality-founder-covenant-operator-view-v1', JSON.stringify({ filter: 'oops', sort: 'bad' }))
-    expect(readOperatorQueueViewState()).toEqual({ filter: 'all', sort: 'priority' })
+    storage.setItem('reality-founder-covenant-operator-view-v1', JSON.stringify({ cursor: 7, filter: 'oops', sort: 'bad' }))
+    expect(readOperatorQueueViewState()).toEqual({ cursor: null, filter: 'all', sort: 'priority' })
   })
 })
 
