@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createBusinessDevelopmentProject, hireBusinessDevelopmentWorker } from './businessDevelopment'
-import { createConstructionProject, hireConstructionWorker } from './construction'
+import { businessConstructionRecipe, createConstructionProject, createConstructionProjectFromRecipe, hireConstructionWorker } from './construction'
 import { planLifeRoadmap } from './lifeRoadmap'
 import type { LifeLadderSnapshot } from './lifeLadder'
 import { freshResources } from './resources'
@@ -581,6 +581,81 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days[0].primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'work' })
     expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(0)
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
+  })
+
+  test('clears stale completed house construction without duplicating the roadmap asset', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45, 21, 10),
+      deposited: freshResources({ wood: 120, stone: 60, metal: 20, glass: 10 }),
+      permitFeePaid: true,
+      laborDoneMinutes: 480,
+    }
+    const existingHome = {
+      ...home(),
+      id: `${project.id}:asset`,
+      lat: project.lat,
+      lng: project.lng,
+      placedAtMinute: 10 * 24 * 60,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 10,
+      money: 1_000,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      assets: [existingHome],
+      constructionProjects: [project],
+    }), 1)
+
+    expect(roadmap.finalSnapshot.constructionProjects).toEqual([])
+    expect(roadmap.finalSnapshot.assets.filter((asset) => asset.id === existingHome.id)).toHaveLength(1)
+    expect(roadmap.finalSnapshot.assets.filter((asset) =>
+      asset.kind === 'home' &&
+      asset.itemId === project.itemId &&
+      asset.lat === project.lat &&
+      asset.lng === project.lng
+    )).toHaveLength(1)
+  })
+
+  test('clears stale completed business shell construction without duplicating the roadmap asset', () => {
+    const project = {
+      ...createConstructionProjectFromRecipe(
+        businessConstructionRecipe({ id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 200 }),
+        45,
+        21,
+        20,
+      ),
+      deposited: freshResources({ wood: 45, stone: 30, metal: 25, glass: 10 }),
+      permitFeePaid: true,
+      laborDoneMinutes: 480,
+    }
+    const existingBusiness = {
+      ...business(),
+      id: `${project.id}:asset`,
+      lat: project.lat,
+      lng: project.lng,
+      placedAtMinute: 20 * 24 * 60,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 20,
+      money: 2_000,
+      jobId: 'barista',
+      shiftsWorked: 10,
+      educationActions: 1,
+      assets: [home(), existingBusiness],
+      constructionProjects: [project],
+    }), 1)
+
+    expect(roadmap.finalSnapshot.constructionProjects).toEqual([])
+    expect(roadmap.finalSnapshot.assets.filter((asset) => asset.id === existingBusiness.id)).toHaveLength(1)
+    expect(roadmap.finalSnapshot.assets.filter((asset) =>
+      asset.kind === 'business' &&
+      asset.itemId === project.itemId &&
+      asset.lat === project.lat &&
+      asset.lng === project.lng
+    )).toHaveLength(1)
   })
 
   test('projects business interior labor into an upgraded earning asset', () => {
