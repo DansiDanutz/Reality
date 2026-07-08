@@ -22,11 +22,13 @@ import {
   founderCovenantOperatorQueueLatestReviewText,
   founderCovenantOperatorQueueManualActionReasonText,
   founderCovenantOperatorQueueNextActionText,
+  founderCovenantOperatorQueueResultText,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSignalText,
   founderCovenantOperatorQueueSignalCountText,
   founderCovenantOperatorQueueUpdatedAtText,
+  founderCovenantOperatorQueueWindowText,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
@@ -64,6 +66,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('waitlist disabled')
     expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
+    expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor review-cursor-1 · next review-cursor-2')
+    expect(html).toContain('founder-12: caught up · 1 tx · 2026-07-06 · founder-13: current · 0 tx · 2026-07-06')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -290,6 +294,12 @@ describe('FounderCovenantQueuePanel', () => {
       },
     })).toBe('Area reviewer / Evidence only')
     expect(founderCovenantOperatorQueueUpdatedAtText(manual)).toBe('2026-07-06 · 1 tx')
+    expect(founderCovenantOperatorQueueWindowText(founderQueue())).toBe(
+      'Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor review-cursor-1 · next review-cursor-2',
+    )
+    expect(founderCovenantOperatorQueueResultText(founderQueue())).toBe(
+      'founder-12: caught up · 1 tx · 2026-07-06 · founder-13: current · 0 tx · 2026-07-06',
+    )
     expect(founderCovenantOperatorQueueReviewQueueBlockerText(manual)).toBe(
       'approval workflow, Telegram delivery, replacement',
     )
@@ -433,6 +443,8 @@ describe('FounderCovenantQueuePanel', () => {
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
     expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor review-cursor-1 · next end')
+    expect(html).toContain('No scan results')
     expect(html).toContain('<span>Active</span><strong>0</strong>')
     expect(html).toContain('<span>At risk</span><strong>0</strong>')
     expect(html).toContain('No founders in this review page.')

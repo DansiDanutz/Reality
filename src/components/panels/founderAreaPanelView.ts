@@ -1272,6 +1272,27 @@ export function founderCovenantOperatorQueuePageSummary(
   return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed${queue.hasMore ? ' · next page ready' : ''}`
 }
 
+export function founderCovenantOperatorQueueWindowText(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'generatedAt' | 'pagesScanned' | 'pages' | 'cursor' | 'nextCursor'>,
+): string {
+  const cursor = queue.cursor ?? 'start'
+  const next = queue.nextCursor ?? 'end'
+  return `Generated ${founderUtcMinuteText(queue.generatedAt)} · pages ${queue.pagesScanned}/${queue.pages} · cursor ${cursor} · next ${next}`
+}
+
+export function founderCovenantOperatorQueueResultText(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'results'>,
+): string {
+  if (queue.results.length === 0) return 'No scan results'
+  return queue.results
+    .map((result) => {
+      const subject = result.citizenId ?? result.areaId ?? 'unknown founder'
+      const updated = result.updatedAt ? shortDate(result.updatedAt) : 'no update'
+      return `${subject}: ${founderCovenantOperatorQueueScanStatusLabel(result.status)} · ${result.transactionsAdded} tx · ${updated}`
+    })
+    .join(' · ')
+}
+
 export function founderCovenantOperatorQueueItemSummary(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
