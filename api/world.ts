@@ -4,6 +4,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
+/**
+ * Per-citizen daily placement cap. A citizen can place at most this many assets
+ * per real day. Bounds how much one citizen can bloat the shared `world/`
+ * prefix (which every player's GET scans), without limiting legitimate play
+ * (a citizen rarely places more than a few homes/businesses a day). Stateless:
+ * the counter is the set of `worldrate/{cid}__{day}__{ts}.json` blobs — same
+ * idiom as avatar.ts's per-citizen daily generation cap.
+ */
+const PLACEMENTS_PER_DAY = 20
+
 async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
   const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
@@ -66,11 +76,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }
+    // Per-citizen daily placement cap. Without this, one citizen can spam the
+    // shared `world/` prefix with random asset ids, slowing every player's GET.
+    // The list() of dated markers IS the counter — same idiom as avatar.ts.
+    const day = new Date().toISOString().slice(0, 10)
+    const used = await list({ prefix: `worldrate/${citizenId}__${day}`, limit: PLACEMENTS_PER_DAY + 1 })
+    if (used.blobs.length >= PLACEMENTS_PER_DAY) {
+      res.status(429).json({ ok: false, error: `You've placed ${PLACEMENTS_PER_DAY} things in the world today. Come back tomorrow.` })
+      return
+    }
     await put(
       `world/${citizenId}/${cleanAssetId}__${cleanItemId}__${kind}__${nLat.toFixed(2)}__${nLng.toFixed(2)}.json`,
       '1',
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+    // Record against the per-citizen daily cap. allowOverwrite:false is not
+    // needed — the {ts} suffix makes each marker unique within the day.
+    await put(`worldrate/${citizenId}__${day}__${Date.now()}.json`, '1', {
+      access: 'private',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json',
+    })
     res.status(200).json({ ok: true })
   } catch {
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })

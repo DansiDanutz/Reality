@@ -993,6 +993,16 @@ export async function createStreetScene(
   const keys = new Set<string>()
   let wantJump = false
   const onKeyDown = (e: KeyboardEvent) => {
+    // Leave the keyboard to focused form controls — a global preventDefault
+    // on Space would stop the first-visit/error overlay buttons from being
+    // activated with the keyboard. Jump belongs to gameplay, not to dialogs.
+    const target = document.activeElement
+    if (
+      target instanceof HTMLElement &&
+      (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
+    ) {
+      return
+    }
     keys.add(e.code)
     if (e.code === 'Space') {
       e.preventDefault()
@@ -1299,8 +1309,12 @@ export async function createStreetScene(
       // view ~10° while actually moving at run speed, then eases back when
       // you stop. Skipped for reduced-motion (already disorienting enough).
       const targetFov = calmMotion ? 72 : running && speed > WALK_SPEED * 0.5 ? 82 : 72
-      camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 6)
-      camera.updateProjectionMatrix()
+      // Rebuilding the projection matrix is not free — skip it once the FOV
+      // has effectively settled on the target (the ease is asymptotic).
+      if (Math.abs(targetFov - camera.fov) > 0.01) {
+        camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 6)
+        camera.updateProjectionMatrix()
+      }
     }
 
     // Precipitation: fall, wrap overhead, follow the camera so the storm is always local
@@ -1418,6 +1432,11 @@ export async function createStreetScene(
       renderer.dispose()
       renderer.domElement.remove()
       pedGeo.dispose()
+      // pedMat is only reachable via the scene traverse below when the
+      // pedestrian mesh was actually added (it isn't under reduced motion or
+      // when no sidewalk was clear) — dispose it explicitly. Material.dispose
+      // is idempotent, so a double dispose via the traverse is harmless.
+      pedMat.dispose()
       shadowMat.dispose()
       shadowTex.dispose()
       shadow.geometry.dispose()
