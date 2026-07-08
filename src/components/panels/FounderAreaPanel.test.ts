@@ -847,6 +847,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       manualReviewRequired: true,
       complianceReviewRequired: true,
       blockers: [
+        'telegram_identity_required',
         'ton_connect_disabled',
         'deposits_disabled',
         'withdrawals_disabled',
@@ -864,6 +865,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       { key: 'credits', label: 'Game credits', value: '$200,000', tone: 'stable' },
       { key: 'eligible', label: 'Payout eligible', value: '$0', tone: 'stable' },
     ])
+    expect(founderSettlementBlockerText('telegram_identity_required')).toBe('Telegram identity')
     expect(founderSettlementBlockerText('ton_connect_disabled')).toBe('TON Connect')
     expect(founderSettlementBlockerText('manual_payout_review_required')).toBe('Manual payout review')
     expect(founderSettlementBlockerText('compliance_review_required')).toBe('Compliance review')
@@ -890,6 +892,7 @@ describe('FounderAreaPanel covenant presenters', () => {
         'game_credits_only',
         'payouts_disabled',
         'withdrawals_disabled',
+        'telegram_identity_required',
         'kyc_disabled',
         'tax_profile_disabled',
         'manual_payout_review_required',
@@ -909,6 +912,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderPayoutReadinessBlockerText('game_credits_only')).toBe('Game credits only')
     expect(founderPayoutReadinessBlockerText('payouts_disabled')).toBe('Payouts')
     expect(founderPayoutReadinessBlockerText('withdrawals_disabled')).toBe('Withdrawals')
+    expect(founderPayoutReadinessBlockerText('telegram_identity_required')).toBe('Telegram identity')
     expect(founderPayoutReadinessBlockerText('kyc_disabled')).toBe('KYC')
     expect(founderPayoutReadinessBlockerText('tax_profile_disabled')).toBe('Tax profile')
     expect(founderPayoutReadinessBlockerText('manual_payout_review_required')).toBe('Manual payout review')

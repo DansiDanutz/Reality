@@ -377,6 +377,8 @@ export function founderPayoutReadinessBlockerText(blocker: RealityAreaPayoutRead
       return 'Payouts'
     case 'withdrawals_disabled':
       return 'Withdrawals'
+    case 'telegram_identity_required':
+      return 'Telegram identity'
     case 'kyc_disabled':
       return 'KYC'
     case 'tax_profile_disabled':
@@ -426,6 +428,8 @@ export function founderSettlementSummaryItems(
 
 export function founderSettlementBlockerText(blocker: RealityAreaSettlementBlocker): string {
   switch (blocker) {
+    case 'telegram_identity_required':
+      return 'Telegram identity'
     case 'ton_connect_disabled':
       return 'TON Connect'
     case 'deposits_disabled':

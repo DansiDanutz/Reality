@@ -366,6 +366,7 @@ type FounderAreaCovenantNotificationChannel = 'telegram'
 type FounderAreaSettlementRail = 'ton'
 type FounderAreaSettlementMode = 'ledger_only'
 type FounderAreaSettlementBlocker =
+  | 'telegram_identity_required'
   | 'ton_connect_disabled'
   | 'deposits_disabled'
   | 'withdrawals_disabled'
@@ -377,6 +378,7 @@ type FounderAreaPayoutReadinessBlocker =
   | 'game_credits_only'
   | 'payouts_disabled'
   | 'withdrawals_disabled'
+  | 'telegram_identity_required'
   | 'kyc_disabled'
   | 'tax_profile_disabled'
   | 'manual_payout_review_required'
@@ -3309,6 +3311,7 @@ function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlement
     manualReviewRequired: true,
     complianceReviewRequired: true,
     blockers: [
+      'telegram_identity_required',
       'ton_connect_disabled',
       'deposits_disabled',
       'withdrawals_disabled',
@@ -3341,6 +3344,7 @@ function areaPayoutReadinessDashboard(state: FounderAreaState): FounderAreaPayou
       'game_credits_only',
       'payouts_disabled',
       'withdrawals_disabled',
+      'telegram_identity_required',
       'kyc_disabled',
       'tax_profile_disabled',
       'manual_payout_review_required',

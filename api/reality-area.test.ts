@@ -1561,6 +1561,7 @@ describe('reality area authority API', () => {
         'game_credits_only',
         'payouts_disabled',
         'withdrawals_disabled',
+        'telegram_identity_required',
         'kyc_disabled',
         'tax_profile_disabled',
         'manual_payout_review_required',
@@ -1574,6 +1575,7 @@ describe('reality area authority API', () => {
       withdrawalsEnabled: false,
       manualReviewRequired: true,
       complianceReviewRequired: true,
+      blockers: expect.arrayContaining(['telegram_identity_required']),
     })
     expect(body.state.transactions.some((transaction) =>
       transaction.memo.toLowerCase().includes('withdraw') ||
@@ -6291,6 +6293,7 @@ function settlementDashboard(gameCredits: number) {
     manualReviewRequired: true,
     complianceReviewRequired: true,
     blockers: [
+      'telegram_identity_required',
       'ton_connect_disabled',
       'deposits_disabled',
       'withdrawals_disabled',
@@ -6323,6 +6326,7 @@ function payoutReadinessDashboard(gameCredits: number) {
       'game_credits_only',
       'payouts_disabled',
       'withdrawals_disabled',
+      'telegram_identity_required',
       'kyc_disabled',
       'tax_profile_disabled',
       'manual_payout_review_required',
