@@ -64,6 +64,18 @@ export interface LifeRoadmapDay {
   startingResources: ResourceInventory
   endingResources: ResourceInventory
   resourceDelta: ResourceInventory
+  startingCommunityRespect: number
+  endingCommunityRespect: number
+  communityRespectDelta: number
+  startingCommunityFriendship: number
+  endingCommunityFriendship: number
+  communityFriendshipDelta: number
+  startingCommunityTrust: number
+  endingCommunityTrust: number
+  communityTrustDelta: number
+  startingShiftsWorked: number
+  endingShiftsWorked: number
+  shiftsWorkedDelta: number
   buildEta: string | null
   interiorEta: string | null
 }
@@ -286,6 +298,18 @@ function roadmapDay(plan: LifePlan, starting: LifeLadderSnapshot, ending: LifeLa
     startingResources,
     endingResources,
     resourceDelta: dailyResourceDelta(startingResources, endingResources),
+    startingCommunityRespect: starting.communityRespect,
+    endingCommunityRespect: ending.communityRespect,
+    communityRespectDelta: ending.communityRespect - starting.communityRespect,
+    startingCommunityFriendship: starting.communityFriendship,
+    endingCommunityFriendship: ending.communityFriendship,
+    communityFriendshipDelta: ending.communityFriendship - starting.communityFriendship,
+    startingCommunityTrust: starting.communityTrust,
+    endingCommunityTrust: ending.communityTrust,
+    communityTrustDelta: ending.communityTrust - starting.communityTrust,
+    startingShiftsWorked: starting.shiftsWorked,
+    endingShiftsWorked: ending.shiftsWorked,
+    shiftsWorkedDelta: ending.shiftsWorked - starting.shiftsWorked,
     buildEta: buildEtaSummary(plan.constructionForecast),
     interiorEta: interiorEtaSummary(plan.businessDevelopmentForecast),
   }

@@ -136,6 +136,17 @@ describe('planLifeRoadmap', () => {
     })
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
     expect(roadmap.finalSnapshot.shiftsWorked).toBe(1)
+    expect(roadmap.days[1]).toMatchObject({
+      startingShiftsWorked: 0,
+      endingShiftsWorked: 1,
+      shiftsWorkedDelta: 1,
+      startingCommunityRespect: 0,
+      endingCommunityRespect: 1,
+      communityRespectDelta: 1,
+      startingCommunityTrust: 0,
+      endingCommunityTrust: 1,
+      communityTrustDelta: 1,
+    })
     expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(1)
     expect(roadmap.finalSnapshot.constructionProjects[0]).toMatchObject({
       name: 'Starter House',
@@ -481,6 +492,28 @@ describe('planLifeRoadmap', () => {
         `missing community in week ${week + 1}`,
       ).toBe(true)
     }
+
+    const firstCommunityGrowth = roadmap.days.find((day) =>
+      day.communityRespectDelta > 0 ||
+      day.communityFriendshipDelta > 0 ||
+      day.communityTrustDelta > 0
+    )
+    expect(firstCommunityGrowth).toMatchObject({
+      startingCommunityRespect: expect.any(Number),
+      endingCommunityRespect: expect.any(Number),
+      communityRespectDelta: expect.any(Number),
+      startingCommunityFriendship: expect.any(Number),
+      endingCommunityFriendship: expect.any(Number),
+      communityFriendshipDelta: expect.any(Number),
+      startingCommunityTrust: expect.any(Number),
+      endingCommunityTrust: expect.any(Number),
+      communityTrustDelta: expect.any(Number),
+    })
+    expect(
+      (firstCommunityGrowth?.communityRespectDelta ?? 0) +
+      (firstCommunityGrowth?.communityFriendshipDelta ?? 0) +
+      (firstCommunityGrowth?.communityTrustDelta ?? 0),
+    ).toBeGreaterThan(0)
   })
 
   test('projects routed Workers Hall helper hours into a completed house asset', () => {
