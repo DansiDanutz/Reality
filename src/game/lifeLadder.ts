@@ -833,7 +833,7 @@ function buildDailyRoutine(snapshot: LifeLadderSnapshot, primary: LifePlanTask, 
   const taskPool = [primary, ...agenda, ...support]
   const bodyTask = primary.value === 'body' ? primary : firstTaskByValue(taskPool, ['body'])
   const workTask = firstTaskByValue(taskPool, ['work'])
-  const growthTask = growthRoutineTask(snapshot, taskPool)
+  const growthTask = primary.value === 'body' ? bodyTask : growthRoutineTask(snapshot, taskPool)
   const capitalTask = firstTaskByValue(taskPool, ['capital'])
   const hasActiveBuild = snapshot.constructionProjects.length > 0 || snapshot.businessDevelopmentProjects.length > 0
 

@@ -151,6 +151,13 @@ describe('planLifeRoadmap', () => {
       id: 'drink-water',
       route: { kind: 'survival-action', action: 'drink-water' },
     })
+    expect(roadmap.days[0].routine.find((block) => block.id === 'growth-block')).toMatchObject({
+      value: 'body',
+      taskId: 'drink-water',
+      route: { kind: 'survival-action', action: 'drink-water' },
+    })
+    expect(roadmap.days[0].routineValues).not.toContain('community')
+    expect(roadmap.days[0].routineValues).not.toContain('friendship')
     expect(roadmap.days[1].primary.id).toBe('find-job')
     expect(roadmap.finalSnapshot.needs.hydration).toBeGreaterThan(35)
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
