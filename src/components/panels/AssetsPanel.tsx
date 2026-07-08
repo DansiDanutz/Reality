@@ -8,7 +8,14 @@ import { MAX_BUSINESS_LEVEL } from '../../game/businessUpgrades'
 import ConfirmDialog from '../hud/ConfirmDialog'
 import type { MapTarget } from '../../store/gameStore'
 import { useGame } from '../../store/gameStore'
-import { businessInteriorAssetView, constructionAssetView } from './assetsPanelView'
+import {
+  businessInteriorAssetNavigation,
+  businessInteriorAssetView,
+  completedAssetNavigation,
+  constructionAssetNavigation,
+  constructionAssetView,
+  type AssetMenuAction,
+} from './assetsPanelView'
 
 export default function AssetsPanel() {
   const assets = useGame((s) => s.assets)
@@ -27,6 +34,10 @@ export default function AssetsPanel() {
   const showOnMap = (target: MapTarget) => {
     selectMapTarget(target)
     setPanel(null)
+  }
+  const openAssetAction = (action: AssetMenuAction) => {
+    selectMapTarget(action.target)
+    setPanel(action.panel)
   }
 
   return (
@@ -62,6 +73,7 @@ export default function AssetsPanel() {
               <ul className="item-list">
                 {projects.map((project) => {
                   const view = constructionAssetView(project)
+                  const navigation = constructionAssetNavigation(project)
                   const { progress } = view
                   return (
                     <li className="item asset-item build-asset-item" key={project.id}>
@@ -83,11 +95,11 @@ export default function AssetsPanel() {
                       </div>
                       <div className="item-buy asset-actions">
                         <span className="item-price mono">{view.percentText}</span>
-                        <button className="btn small primary" onClick={() => { selectMapTarget({ kind: 'construction', id: project.id }); setPanel('construction') }}>
-                          Build plan
+                        <button className="btn small primary" onClick={() => openAssetAction(navigation.primary)}>
+                          {navigation.primary.label}
                         </button>
-                        <button className="btn small ghost" onClick={() => showOnMap({ kind: 'construction', id: project.id })}>
-                          Show map
+                        <button className="btn small ghost" onClick={() => showOnMap(navigation.map.target)}>
+                          {navigation.map.label}
                         </button>
                       </div>
                     </li>
@@ -106,6 +118,7 @@ export default function AssetsPanel() {
               <ul className="item-list">
                 {businessDevelopmentProjects.map((project) => {
                   const view = businessInteriorAssetView(project)
+                  const navigation = businessInteriorAssetNavigation(project)
                   const { progress } = view
                   return (
                     <li className="item asset-item build-asset-item" key={project.id}>
@@ -129,11 +142,11 @@ export default function AssetsPanel() {
                       </div>
                       <div className="item-buy asset-actions">
                         <span className="item-price mono">{view.percentText}</span>
-                        <button className="btn small primary" onClick={() => { selectMapTarget({ kind: 'asset', id: project.businessId }); setPanel('business') }}>
-                          Open plan
+                        <button className="btn small primary" onClick={() => openAssetAction(navigation.primary)}>
+                          {navigation.primary.label}
                         </button>
-                        <button className="btn small ghost" onClick={() => showOnMap({ kind: 'asset', id: project.businessId })}>
-                          Show map
+                        <button className="btn small ghost" onClick={() => showOnMap(navigation.map.target)}>
+                          {navigation.map.label}
                         </button>
                       </div>
                     </li>
@@ -153,6 +166,7 @@ export default function AssetsPanel() {
                 {assets.map((a) => {
               const level = a.level ?? 1
               const isBusiness = a.kind === 'business' && a.incomePerDay > 0
+              const navigation = completedAssetNavigation(a)
               // baseIncome derives from current income / level (incomePerDay
               // stores the level-adjusted value so the engine reads it directly).
               const plan = isBusiness ? businessDevelopmentPlanFor(a) : null
@@ -175,18 +189,11 @@ export default function AssetsPanel() {
                     {a.incomePerDay > 0 && (
                       <span className="item-price mono">+{formatMoney(Math.floor(a.pendingIncome))} ready</span>
                     )}
-                    {a.kind === 'home' && (
-                      <button className="btn small primary" onClick={() => { selectMapTarget({ kind: 'asset', id: a.id }); setPanel('home') }}>
-                        Enter
-                      </button>
-                    )}
-                    {a.kind === 'business' && (
-                      <button className="btn small primary" onClick={() => { selectMapTarget({ kind: 'asset', id: a.id }); setPanel('business') }}>
-                        Enter
-                      </button>
-                    )}
-                    <button className="btn small ghost" onClick={() => showOnMap({ kind: 'asset', id: a.id })}>
-                      Show map
+                    <button className="btn small primary" onClick={() => openAssetAction(navigation.primary)}>
+                      {navigation.primary.label}
+                    </button>
+                    <button className="btn small ghost" onClick={() => showOnMap(navigation.map.target)}>
+                      {navigation.map.label}
                     </button>
                     {isBusiness && plan && (
                       <button
