@@ -67,7 +67,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
-    expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
+    expect(html).toContain('Priority: manual review, never reviewed, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
     expect(html).toContain('manual only')
     expect(html).not.toContain('Approve')
@@ -181,6 +181,38 @@ describe('FounderCovenantQueuePanel', () => {
 
   test('orders founder covenant review rows by manual triage priority', () => {
     const manual = founderQueueItem()
+    const staleTracked = founderQueueItem({
+      areaId: 'founder-area-0010',
+      areaLabel: 'Constanta Founder Block',
+      founderCitizenId: 'founder-10',
+      founderNumber: 10,
+      manualReviewRequired: false,
+      covenantStatus: 'active',
+      overdue: false,
+      reviewFreshness: 'stale',
+      lastReviewAt: '2026-06-20T04:00:00.000Z',
+      activityReview: {
+        ...manual.activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 95,
+      },
+      economicExposure: {
+        ...manual.economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
     const tracked = founderQueueItem({
       areaId: 'founder-area-0011',
       areaLabel: 'Iasi Founder Block',
@@ -189,6 +221,8 @@ describe('FounderCovenantQueuePanel', () => {
       covenantStatus: 'active',
       manualReviewRequired: false,
       overdue: false,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-06T03:30:00.000Z',
       activityReview: {
         ...manual.activityReview,
         active: true,
@@ -239,13 +273,18 @@ describe('FounderCovenantQueuePanel', () => {
       blockerCount: 1,
     })
     const rows = founderCovenantOperatorQueueReviewRows({
-      items: [tracked, watch, manual],
+      items: [tracked, watch, manual, staleTracked],
     })
 
-    expect(rows.map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-13', 'founder-11'])
+    expect(rows.map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-13', 'founder-10', 'founder-11'])
     expect(founderCovenantOperatorQueuePriorityScore(manual)).toBeGreaterThan(
       founderCovenantOperatorQueuePriorityScore(watch),
     )
+    expect(founderCovenantOperatorQueuePriorityScore(staleTracked)).toBeGreaterThan(
+      founderCovenantOperatorQueuePriorityScore(tracked),
+    )
+    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('never reviewed')
+    expect(founderCovenantOperatorQueuePriorityReasons(staleTracked)).toContain('stale review')
     expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
   })
 

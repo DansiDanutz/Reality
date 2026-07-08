@@ -1114,6 +1114,7 @@ export function founderCovenantOperatorQueuePriorityScore(
     | 'manualReviewRequired'
     | 'covenantStatus'
     | 'overdue'
+    | 'reviewFreshness'
     | 'scanStatus'
     | 'activityReview'
     | 'economicExposure'
@@ -1126,6 +1127,8 @@ export function founderCovenantOperatorQueuePriorityScore(
   if (item.covenantStatus === 'manual_review') score += 250
   if (item.covenantStatus === 'watch') score += 120
   if (item.overdue) score += 90
+  if (item.reviewFreshness === 'never') score += 85
+  if (item.reviewFreshness === 'stale') score += 35
   if (item.activityReview.hospitalized) score += 180
   if (item.activityReview.atRisk) score += 140
   if (!item.activityReview.active) score += 60
@@ -1149,6 +1152,7 @@ export function founderCovenantOperatorQueuePriorityReasons(
     | 'manualReviewRequired'
     | 'covenantStatus'
     | 'overdue'
+    | 'reviewFreshness'
     | 'scanStatus'
     | 'activityReview'
     | 'economicExposure'
@@ -1158,6 +1162,8 @@ export function founderCovenantOperatorQueuePriorityReasons(
 ): string[] {
   const reasons: string[] = []
   if (item.manualReviewRequired || item.covenantStatus === 'manual_review') reasons.push('manual review')
+  if (item.reviewFreshness === 'never') reasons.push('never reviewed')
+  if (item.reviewFreshness === 'stale') reasons.push('stale review')
   if (item.overdue) reasons.push('overdue')
   if (item.activityReview.hospitalized) reasons.push('hospitalized')
   if (item.activityReview.atRisk) reasons.push('at risk')
