@@ -9,6 +9,7 @@ import {
   founderCovenantOperatorQueueActivitySignalText,
   founderCovenantOperatorQueueActivityReasonText,
   founderCovenantOperatorQueueApprovalBlockerText,
+  founderCovenantOperatorQueueApprovalAuthorityText,
   founderCovenantOperatorQueueApprovalGateText,
   founderCovenantOperatorQueueApprovalReasonText,
   founderCovenantOperatorQueueEconomicExposureText,
@@ -82,6 +83,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Action reasons: Record review: Reviewer notes are manual evidence only; no automatic enforcement runs. · Send warning: Covenant signals suggest a manual founder warning.')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Approval reasons: Send warning: Founder covenant signals suggest a warning.')
+    expect(html).toContain('Approval authority: Main founder / Approval required')
     expect(html).toContain('Approval gates: Main founder approval · 2 blockers')
     expect(html).toContain('Approval blockers: approval workflow, Telegram delivery')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -212,6 +214,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueApprovalReasonText(manual)).toBe(
       'Send warning: Founder covenant signals suggest a warning.',
     )
+    expect(founderCovenantOperatorQueueApprovalAuthorityText(manual)).toBe(
+      'Main founder / Approval required',
+    )
     expect(founderCovenantOperatorQueueApprovalGateText(manual)).toBe('Main founder approval · 2 blockers')
     expect(founderCovenantOperatorQueueApprovalBlockerText(manual)).toBe('approval workflow, Telegram delivery')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
@@ -277,6 +282,7 @@ describe('FounderCovenantQueuePanel', () => {
       evidenceReasonText: 'Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
       manualActionReasonText: 'Record review: Reviewer notes are manual evidence only; no automatic enforcement runs. · Send warning: Covenant signals suggest a manual founder warning.',
       approvalReasonText: 'Send warning: Founder covenant signals suggest a warning.',
+      approvalAuthorityText: 'Main founder / Approval required',
       approvalGateText: 'Main founder approval · 2 blockers',
       approvalBlockerText: 'approval workflow, Telegram delivery',
       notificationDraftTitleText: 'Founder covenant manual review required',

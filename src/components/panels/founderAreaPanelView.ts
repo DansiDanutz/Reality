@@ -147,6 +147,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   manualActionReasonText: string
   approvalRequestText: string
   approvalReasonText: string
+  approvalAuthorityText: string
   approvalGateText: string
   approvalBlockerText: string
   notificationDraftText: string
@@ -1369,6 +1370,7 @@ export function founderCovenantOperatorQueueReviewRows(
       manualActionReasonText: founderCovenantOperatorQueueManualActionReasonText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       approvalReasonText: founderCovenantOperatorQueueApprovalReasonText(item),
+      approvalAuthorityText: founderCovenantOperatorQueueApprovalAuthorityText(item),
       approvalGateText: founderCovenantOperatorQueueApprovalGateText(item),
       approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
@@ -1585,6 +1587,18 @@ export function founderCovenantOperatorQueueApprovalReasonText(
   if (item.pendingApprovalRequests.length === 0) return 'none'
   return item.pendingApprovalRequests
     .map((request) => `${founderCovenantManualActionKindLabel(request.kind)}: ${request.reason}`)
+    .join(' · ')
+}
+
+export function founderCovenantOperatorQueueApprovalAuthorityText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => {
+      const role = founderCovenantAuthorityRoleLabel(request.authorityGate.requiredRole)
+      return request.authorityGate.status === 'evidence_only' ? `${role} / Evidence only` : `${role} / Approval required`
+    })
     .join(' · ')
 }
 
