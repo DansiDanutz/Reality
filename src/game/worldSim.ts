@@ -1232,7 +1232,7 @@ function buildRecommendation(
       founderCanAfford,
       founderCanAct: input.founderCanAct,
     }),
-    clientPayload: proposedBusinessId
+    clientPayload: proposedBusinessId && canBuildNow
       ? {
         type: 'buildBusiness',
         businessKind: kind,
