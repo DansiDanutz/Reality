@@ -24,7 +24,9 @@ describe('Founder Economy language guardrails', () => {
   test('the business tutorial frames revenue as local demand', () => {
     const businessStep = TUTORIAL_STEPS.find((step) => step.id === 'business')
 
-    expect(businessStep?.detail).toBe('Market → Businesses. Your first local customers.')
+    // Copy updated with the construction flow: businesses are BUILT (foundation
+    // → resources → labor), not bought — still framed as work, never passive.
+    expect(businessStep?.detail).toBe('Market → Businesses. Place a foundation, gather resources, and finish the build.')
     expect(businessStep?.detail).not.toMatch(/passive income|payout|withdraw/i)
   })
 })

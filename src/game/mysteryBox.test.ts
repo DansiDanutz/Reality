@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { boxEV, MYSTERY_BOXES, MYSTERY_BOX_TIERS, openBox } from './mysteryBox'
+import { boxEV, creditTierForSeriousWorkStreak, freshMysteryBoxCredits, MYSTERY_BOXES, MYSTERY_BOX_TIERS, openBox } from './mysteryBox'
 
 const always = (v: number) => () => v
 
@@ -24,26 +24,35 @@ describe('openBox — basic mechanics', () => {
   })
 })
 
-describe('boxEV — expected value', () => {
-  test('EV is always below cost (the house edge - a money sink)', () => {
+describe('boxEV — transparent average reward', () => {
+  test('boxes require earned credits instead of cash costs', () => {
     for (const tier of MYSTERY_BOX_TIERS()) {
-      const ev = boxEV(tier)
-      const cost = MYSTERY_BOXES[tier].cost
-      expect(ev, `${tier}: EV ${ev} should be < cost ${cost}`).toBeLessThan(cost)
+      expect(MYSTERY_BOXES[tier].creditsRequired).toBe(1)
+      expect('cost' in MYSTERY_BOXES[tier]).toBe(false)
     }
   })
 
-  test('EV is at least 70% of cost (not so bad it feels like a scam)', () => {
+  test('average rewards stay visible without comparing against a paid stake', () => {
     for (const tier of MYSTERY_BOX_TIERS()) {
       const ev = boxEV(tier)
-      const cost = MYSTERY_BOXES[tier].cost
-      expect(ev / cost, `${tier}: EV/cost ${ev / cost} should be >= 0.7`).toBeGreaterThanOrEqual(0.7)
+      expect(ev, `${tier}: average reward`).toBeGreaterThan(0)
     }
   })
 
-  test('costs escalate: standard < premium < legendary', () => {
-    expect(MYSTERY_BOXES.standard.cost).toBeLessThan(MYSTERY_BOXES.premium.cost)
-    expect(MYSTERY_BOXES.premium.cost).toBeLessThan(MYSTERY_BOXES.legendary.cost)
+  test('credit ledgers normalize missing and fractional values', () => {
+    expect(freshMysteryBoxCredits({ standard: 2.9, premium: -1 })).toEqual({
+      standard: 2,
+      premium: 0,
+      legendary: 0,
+    })
+  })
+
+  test('serious-work milestones award higher credits without cash purchases', () => {
+    expect(creditTierForSeriousWorkStreak(4)).toBeNull()
+    expect(creditTierForSeriousWorkStreak(5)).toBe('premium')
+    expect(creditTierForSeriousWorkStreak(19)).toBeNull()
+    expect(creditTierForSeriousWorkStreak(20)).toBe('legendary')
+    expect(creditTierForSeriousWorkStreak(20.9)).toBe('legendary')
   })
 })
 
@@ -76,10 +85,10 @@ describe('openBox — reward bounds', () => {
     }
   })
 
-  test('jackpot is at least 5x cost for every tier', () => {
+  test('top grant is visibly larger than the tier average', () => {
     for (const tier of MYSTERY_BOX_TIERS()) {
       const r = openBox(tier, always(0.999))
-      expect(r.cash / MYSTERY_BOXES[tier].cost).toBeGreaterThanOrEqual(2.5)
+      expect(r.cash).toBeGreaterThan(boxEV(tier))
     }
   })
 })

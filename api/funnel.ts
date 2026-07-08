@@ -1,31 +1,6 @@
 import { list } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-
-// Self-contained (api/ cannot import from src/): keep in sync with src/lib/analytics.ts
-const FUNNEL_EVENTS = [
-  'welcome_seen',
-  'spawn_detected',
-  'citizen_created',
-  'avatar_created',
-  'first_zoom_to_street',
-  'walk_mode_entered',
-  'first_purchase',
-  'first_shift_started',
-  'first_home_placed',
-  'first_business_placed',
-  'first_collect',
-  'd7_return',
-  'tutorial_complete',
-  'first_achievement',
-  'first_lucky',
-  'streak_7',
-  'daily_complete',
-  'first_upgrade',
-  'business_maxed',
-  'week_milestone',
-  'notifications_enabled',
-  'telegram_linked',
-]
+import { FUNNEL_EVENTS } from './funnelEvents'
 
 async function countPrefix(prefix: string): Promise<number> {
   let count = 0

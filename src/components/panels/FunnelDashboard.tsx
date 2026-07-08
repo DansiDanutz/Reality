@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FUNNEL_EVENT_LABELS } from './funnelDashboardLabels'
 
 /**
  * Read-only funnel dashboard (issue #12). Renders GET /api/funnel as a
@@ -9,21 +10,6 @@ import { useEffect, useState } from 'react'
  * Reached at ?funnel — a separate page from the game, so the numbers stay a
  * quiet, honest report rather than a HUD element.
  */
-
-const EVENT_LABELS: Record<string, { step: string; detail: string }> = {
-  welcome_seen: { step: 'Saw the world', detail: 'Landed on the welcome screen' },
-  spawn_detected: { step: 'Located', detail: 'Hometown resolved from their IP' },
-  citizen_created: { step: 'Born', detail: 'Claimed a citizen slot' },
-  avatar_created: { step: 'Got a face', detail: 'Generated their avatar' },
-  first_zoom_to_street: { step: 'Zoomed in', detail: 'Dropped from globe to their city' },
-  walk_mode_entered: { step: 'Walked', detail: 'Entered first-person Street Mode' },
-  first_purchase: { step: 'Bought', detail: 'First Market purchase' },
-  first_shift_started: { step: 'Worked', detail: 'Started a first shift or gig' },
-  first_home_placed: { step: 'Homed', detail: 'Placed a home on Earth' },
-  first_business_placed: { step: 'Founded', detail: 'Opened a first business' },
-  first_collect: { step: 'Collected', detail: 'Banked their first earnings' },
-  d7_return: { step: 'Returned', detail: 'Came back a real week later' },
-}
 
 interface FunnelStep {
   event: string
@@ -70,7 +56,7 @@ export default function FunnelDashboard() {
           ) : (
             <ol className="funnel-list" aria-label="Citizen journey funnel">
               {steps.map((s, i) => {
-                const meta = EVENT_LABELS[s.event] ?? { step: s.event, detail: '' }
+                const meta = FUNNEL_EVENT_LABELS[s.event] ?? { step: s.event, detail: '' }
                 const prev = i === 0 ? s.uniques : steps[i - 1].uniques
                 const widthPct = total > 0 ? Math.max(2, Math.round((s.uniques / total) * 100)) : 0
                 const dropoff = i === 0 || prev === 0 ? null : Math.round((1 - s.uniques / prev) * 100)

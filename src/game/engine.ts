@@ -1,5 +1,7 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
 import { totalInvested } from './businessUpgrades'
+import type { CommunityActionId } from './community'
+import type { ResourceKind } from './resources'
 import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
 /**
@@ -97,7 +99,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook'
+  kind: 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | 'business-development'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -114,6 +116,20 @@ export interface Activity {
    */
   wageMult?: number
   xpMult?: number
+  /** Resource gathered when a gathering activity completes. */
+  resourceKind?: ResourceKind
+  resourceAmount?: number
+  /** Construction project worked on when a construction activity completes. */
+  projectId?: string
+  laborMinutes?: number
+  /** Education course studied when a study activity completes. */
+  courseId?: string
+  studyMinutes?: number
+  /** Community action completed when a community block finishes. */
+  communityActionId?: CommunityActionId
+  communityMinutes?: number
+  /** Business interior development project worked on when a development activity completes. */
+  businessDevelopmentProjectId?: string
 }
 
 /**
@@ -222,7 +238,8 @@ export interface LiveOutput extends WorldSlice {
 const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
-  if (activity.kind === 'cook') return 'awake'
+  if (activity.kind === 'gather' || activity.kind === 'construction' || activity.kind === 'business-development') return 'working'
+  if (activity.kind === 'cook' || activity.kind === 'study' || activity.kind === 'community') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }
 

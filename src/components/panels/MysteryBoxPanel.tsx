@@ -3,37 +3,29 @@ import { createPortal } from 'react-dom'
 import { formatMoney } from '../../game/engine'
 import { boxEV, MYSTERY_BOXES, type BoxTier } from '../../game/mysteryBox'
 import { useGame } from '../../store/gameStore'
-import { MysteryBoxRevealOverlay } from './MysteryBoxRevealOverlay'
 
 /**
- * Mystery Boxes — the gacha "just one more" loop.
- *
- * Three box tiers (Standard $500, Premium $2.5k, Legendary $10k). Each open
- * rolls a random reward from the tier's pool. The reveal animation builds
- * anticipation (a shake + glow) before showing the result — the dopamine is
- * in the reveal, not the reward.
- *
- * The EV is below cost (the house edge), making this a money sink. But the
- * variance creates big wins (up to 5x) that keep players chasing "just one
- * more." The jackpot on a first box hooks them for life.
+ * Earned Mystery Boxes — optional reward envelopes from real daily/community work.
  */
 const TIERS: BoxTier[] = ['standard', 'premium', 'legendary']
+const RARITY_LABEL: Record<string, string> = { dud: 'Common', common: 'Good', rare: 'Rare!', jackpot: 'Grant!' }
+const RARITY_TONE: Record<string, string> = { dud: 'common', common: 'common', rare: 'rare', jackpot: 'jackpot' }
 
 export default function MysteryBoxPanel() {
-  const money = useGame((s) => s.money)
+  const credits = useGame((s) => s.mysteryBoxCredits)
   const openMysteryBox = useGame((s) => s.openMysteryBox)
   const lastReward = useGame((s) => s.lastBoxReward)
   const clearBoxReward = useGame((s) => s.clearBoxReward)
   const boxesOpened = useGame((s) => s.mysteryBoxesOpened)
-  const [revealed, setRevealed] = useState(false)
+  const [opening, setOpening] = useState(false)
 
   // The reveal: when openMysteryBox fires, show a brief "opening" animation
   // (~1s of box shaking), then reveal the reward. Clearing the store at the
   // end means a panel remount has nothing to replay.
   useEffect(() => {
     if (!lastReward) return
-    setRevealed(false)
-    const revealTimer = setTimeout(() => setRevealed(true), 1_000)
+    setOpening(true)
+    const revealTimer = setTimeout(() => setOpening(false), 1_000)
     const clearTimer = setTimeout(() => {
       clearBoxReward()
     }, 2_700)
@@ -45,7 +37,7 @@ export default function MysteryBoxPanel() {
 
   const handleOpen = (tier: BoxTier) => {
     const def = MYSTERY_BOXES[tier]
-    if (money < def.cost) return
+    if ((credits[tier] ?? 0) < def.creditsRequired) return
     openMysteryBox(tier)
   }
 
@@ -53,14 +45,33 @@ export default function MysteryBoxPanel() {
     <section className="panel" aria-label="Mystery Boxes">
       <h2 className="panel-title">🎁 Mystery Boxes</h2>
       <p className="panel-sub">
-        Pay for a sealed box, get a random reward. Could be a dud, could be a 5x jackpot.
+        Earn credits from perfect days and community help. Rewards are optional and average values are shown.
         <span className="mono"> {boxesOpened} opened.</span>
       </p>
 
       {/* Reveal animation overlay — portaled to <body>: it's position:fixed,
           and the drawer's backdrop-filter would otherwise clip it. */}
       {lastReward && createPortal(
-        <MysteryBoxRevealOverlay revealed={revealed} reward={lastReward} />,
+        <div className={`box-reveal box-reveal-${RARITY_TONE[lastReward.rarity]}`} role="alert" aria-live="assertive">
+          <div className="box-reveal-card">
+            <span className={`box-reveal-icon ${opening ? 'shaking' : ''}`}>{MYSTERY_BOXES[lastReward.tier].emoji}</span>
+            {opening ? (
+              <>
+                <span className="box-reveal-rarity">Opening...</span>
+                <span className="box-reveal-label muted">Hold on</span>
+              </>
+            ) : (
+              <>
+                <span className="box-reveal-rarity">{RARITY_LABEL[lastReward.rarity]}</span>
+                <span className="box-reveal-label">{lastReward.label}</span>
+                <span className="box-reveal-reward mono">
+                  +{formatMoney(lastReward.cash)} · +{lastReward.xp} XP
+                </span>
+                <span className="box-reveal-icon-big">{lastReward.icon}</span>
+              </>
+            )}
+          </div>
+        </div>,
         document.body,
       )}
 
@@ -68,25 +79,26 @@ export default function MysteryBoxPanel() {
         {TIERS.map((tier) => {
           const def = MYSTERY_BOXES[tier]
           const ev = boxEV(tier)
-          const affordable = money >= def.cost
+          const available = credits[tier] ?? 0
+          const canOpen = available >= def.creditsRequired
           return (
             <button
               key={tier}
-              className={`box-card box-${tier}${!affordable ? ' locked' : ''}`}
-              disabled={!affordable || Boolean(lastReward)}
+              className={`box-card box-${tier}${!canOpen ? ' locked' : ''}`}
+              disabled={!canOpen || Boolean(lastReward)}
               onClick={() => handleOpen(tier)}
             >
               <span className="box-emoji" aria-hidden>{def.emoji}</span>
               <span className="box-name">{def.name}</span>
-              <span className="box-price mono">{formatMoney(def.cost)}</span>
+              <span className="box-price mono">{available}/{def.creditsRequired} credit</span>
               <span className="box-ev mono">~{formatMoney(ev)} avg</span>
-              {!affordable && <span className="box-locked-msg">Need {formatMoney(def.cost)}</span>}
+              {!canOpen && <span className="box-locked-msg">Earn credit</span>}
             </button>
           )
         })}
       </div>
       <p className="panel-sub box-disclaimer">
-        The house always wins — average return is below cost. Play for the thrill, not the profit.
+        No cash buy-in, no house edge. Credits come from doing the day well.
       </p>
     </section>
   )

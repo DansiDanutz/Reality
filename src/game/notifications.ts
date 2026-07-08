@@ -208,10 +208,12 @@ export function decideNotifications(
     const msToMidnight = snap.msToMidnight
     if (msToMidnight <= STREAK_RISK_WINDOW_MS && msToMidnight > 0) {
       const hours = Math.max(1, Math.round(msToMidnight / 3_600_000))
+      const remaining = Math.max(1, snap.dailyTotal - snap.dailyDone)
+      const remainingText = remaining === 1 ? 'One more action completes' : `${remaining} more actions complete`
       out.push({
         id: 'daily-incomplete',
         title: `🎯 ${snap.dailyDone}/${snap.dailyTotal} daily challenges — ${hours}h to finish`,
-        body: `One more action completes today's set and the bonus reward.`,
+        body: `${remainingText} today's set and the bonus reward.`,
         tag: 'activity',
       })
     }
@@ -244,5 +246,6 @@ export function markNotified(log: NotificationLog, id: string, now: number): Not
 export const NOTIFICATION_REASONS = [
   'When your shift, sleep, or meal finishes',
   'Before midnight if your daily streak is at risk',
+  'Before midnight when daily challenges are almost complete',
   'When your citizen urgently needs food, water, or rest',
 ] as const

@@ -48,6 +48,8 @@ Reality is a society, and like every society, it is built by its citizens.
 | 09 | [RISKS-LEGAL](09-RISKS-LEGAL.md) | Data licenses, privacy (IP geolocation), moderation, economy exploits, platform risks — and mitigations |
 | 10 | [CRITIQUE](10-CRITIQUE.md) | Ongoing critique loop: contradictions, missing assumptions, and corrections that keep the plan honest |
 | 11 | [ASSET-GENERATION](11-ASSET-GENERATION.md) | Nano Banana asset generation plan: prompt system, inventory source of truth, quality gate, and storage structure |
+| 11 | [DAY-LOOP-IMPLEMENTATION](11-DAY-LOOP-IMPLEMENTATION.md) | The active Codex/Zcode execution plan for survival, work, school, community, house/business construction, Workers Hall, and daily task clarity |
+| 12 | [ZCODE-DESIGN-HANDOFF](12-ZCODE-DESIGN-HANDOFF.md) | ZCode design handoff for the day-loop features: panels, HUD cards, and construction flows |
 
 ## Where we are today (shipped and live)
 

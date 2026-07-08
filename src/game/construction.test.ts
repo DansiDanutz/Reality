@@ -1,255 +1,289 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
   STARTER_HOUSE_RECIPE,
-  constructionProjectProgress,
+  advanceConstructionWorkerContracts,
+  addConstructionLabor,
+  businessConstructionRecipe,
+  constructionLaborBreakdown,
+  completeConstructionProject,
+  constructionProgress,
+  createConstructionProjectFromRecipe,
   createConstructionProject,
-  depositConstructionResources,
-  missingConstructionResources,
-  payConstructionPermit,
-  workConstructionLabor,
+  depositResources,
+  estimateConstructionWorkerHire,
+  hireConstructionWorker,
+  payPermit,
 } from './construction'
+import { freshResources } from './resources'
 
-describe('Starter House construction model', () => {
-  test('creates a planned Starter House project with the approved recipe', () => {
-    const project = createConstructionProject({
-      id: ' house-1 ',
-      lat: 44.45,
-      lng: 26.08,
-    })
-
-    expect(project).toMatchObject({
-      id: 'house-1',
-      recipeId: 'starter-house',
-      name: 'Starter House',
-      lat: 44.45,
-      lng: 26.08,
-      required: {
-        wood: 120,
-        stone: 60,
-        metal: 20,
-        glass: 10,
-      },
-      deposited: {
-        wood: 0,
-        stone: 0,
-        metal: 0,
-        glass: 0,
-      },
-      laborRequiredMinutes: 480,
-      laborDoneMinutes: 0,
-      permitFeePaid: false,
-      permitFee: 500,
-      permitReceiverId: 'system:building-permits',
-      status: 'planned',
-    })
-    expect(STARTER_HOUSE_RECIPE.required).toEqual({
-      wood: 120,
-      stone: 60,
-      metal: 20,
-      glass: 10,
-    })
+describe('construction', () => {
+  test('creates a Starter House project from the recipe', () => {
+    const project = createConstructionProject('starter-house', 45.7, 21.2, 123)
+    expect(project.required).toEqual(STARTER_HOUSE_RECIPE.required)
+    expect(project.itemId).toBe('microstudio')
+    expect(project.resultKind).toBe('home')
+    expect(project.incomePerDay).toBe(0)
+    expect(project.laborRequiredMinutes).toBe(480)
+    expect(project.hiredLaborMinutes).toBe(0)
+    expect(project.workerContracts).toEqual([])
+    expect(project.permitFee).toBe(500)
+    expect(project.status).toBe('planned')
   })
 
-  test('rejects invalid project identity or coordinates', () => {
-    expect(createConstructionProject({ id: ' ', lat: 44, lng: 26 })).toBeNull()
-    expect(createConstructionProject({ id: 'house', lat: 91, lng: 26 })).toBeNull()
-    expect(createConstructionProject({ id: 'house', lat: 44, lng: -181 })).toBeNull()
+  test('deposits only what the construction site still needs', () => {
+    const project = createConstructionProject('starter-house', 45.7, 21.2, 123)
+    const out = depositResources(project, freshResources({ wood: 150, stone: 10 }))
+    expect(out.project.deposited.wood).toBe(120)
+    expect(out.project.deposited.stone).toBe(10)
+    expect(out.inventory.wood).toBe(30)
+    expect(out.deposited.wood).toBe(120)
+    expect(out.project.status).toBe('building')
   })
 
-  test('deposits only useful available resources and returns the remaining inventory', () => {
-    const project = createProject()
-
-    const deposited = depositConstructionResources(project, {
-      wood: 200,
-      stone: 30,
-      metal: 8,
-      glass: 0,
-    })
-
-    expect(deposited.ok).toBe(true)
-    if (!deposited.ok) throw new Error('expected deposit to succeed')
-    expect(deposited.consumed).toEqual({
-      wood: 120,
-      stone: 30,
-      metal: 8,
-      glass: 0,
-    })
-    expect(deposited.remainingInventory).toEqual({
-      wood: 80,
-      stone: 0,
-      metal: 0,
-      glass: 0,
-    })
-    expect(deposited.project).toMatchObject({
-      deposited: {
-        wood: 120,
-        stone: 30,
-        metal: 8,
-        glass: 0,
-      },
-      status: 'building',
-    })
-    expect(missingConstructionResources(deposited.project)).toEqual({
-      wood: 0,
-      stone: 30,
-      metal: 12,
-      glass: 10,
-    })
-    expect(deposited.progress).toMatchObject({
-      resourcesComplete: false,
-      resourceUnitsRequired: 210,
-      resourceUnitsDeposited: 158,
-      resourcePercent: 75,
-    })
+  test('permit payment is idempotent and requires enough money', () => {
+    const project = createConstructionProject('starter-house', 45.7, 21.2, 123)
+    expect(payPermit(project, 100).paid).toBe(false)
+    const paid = payPermit(project, 600)
+    expect(paid.paid).toBe(true)
+    expect(paid.money).toBe(100)
+    expect(payPermit(paid.project, paid.money).paid).toBe(false)
   })
 
-  test('rejects empty deposits and deposits after completion', () => {
-    const project = createProject()
-    const emptyDeposit = depositConstructionResources(project, { wood: 0, stone: 0 })
-
-    expect(emptyDeposit).toMatchObject({
-      ok: false,
-      error: 'no_resources',
-      consumed: {
-        wood: 0,
-        stone: 0,
-        metal: 0,
-        glass: 0,
-      },
-    })
-
-    const complete = completeProject(project)
-    const lateDeposit = depositConstructionResources(complete, { wood: 1 })
-    expect(lateDeposit).toMatchObject({
-      ok: false,
-      error: 'project_complete',
-      project: { status: 'complete' },
-    })
-  })
-
-  test('pays a permit with a concrete payer and receiver without minting money', () => {
-    const project = createProject()
-
-    const paid = payConstructionPermit(project, {
-      payerId: 'founder-1',
-      cash: 750,
-    })
-
-    expect(paid.ok).toBe(true)
-    if (!paid.ok) throw new Error('expected permit to be paid')
-    expect(paid.remainingCash).toBe(250)
-    expect(paid.project).toMatchObject({
+  test('completes and converts a finished project into a home asset', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(999)
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      laborDoneMinutes: STARTER_HOUSE_RECIPE.laborRequiredMinutes,
       permitFeePaid: true,
-      status: 'building',
-    })
-    expect(paid.payment).toEqual({
-      fromId: 'founder-1',
-      toId: 'system:building-permits',
-      amount: 500,
-      memo: 'Starter House permit fee paid.',
-    })
-
-    expect(payConstructionPermit(project, { payerId: '', cash: 750 })).toMatchObject({
-      ok: false,
-      error: 'invalid_project',
-    })
-    expect(payConstructionPermit(project, { payerId: 'founder-1', cash: 100 })).toMatchObject({
-      ok: false,
-      error: 'insufficient_funds',
-      remainingCash: 100,
-    })
-    expect(payConstructionPermit(paid.project, { payerId: 'founder-1', cash: 750 })).toMatchObject({
-      ok: false,
-      error: 'permit_already_paid',
+    }
+    expect(constructionProgress(project).complete).toBe(true)
+    const out = completeConstructionProject(project)
+    expect(out.project.status).toBe('complete')
+    expect(out.asset).toMatchObject({
+      id: 'starter-house-home-999',
+      itemId: 'microstudio',
+      kind: 'home',
+      name: 'Starter House',
+      lat: 45.7,
+      lng: 21.2,
     })
   })
 
-  test('applies construction labor up to the recipe requirement', () => {
-    const project = createProject()
-
-    const worked = workConstructionLabor(project, 125.8)
-    expect(worked.ok).toBe(true)
-    if (!worked.ok) throw new Error('expected labor to apply')
-    expect(worked.laborAppliedMinutes).toBe(125)
-    expect(worked.project).toMatchObject({
-      laborDoneMinutes: 125,
-      status: 'building',
-    })
-    expect(worked.progress).toMatchObject({
-      laborComplete: false,
-      laborPercent: 26,
-    })
-
-    const finishedLabor = workConstructionLabor(worked.project, 1_000)
-    expect(finishedLabor.ok).toBe(true)
-    if (!finishedLabor.ok) throw new Error('expected remaining labor to apply')
-    expect(finishedLabor.laborAppliedMinutes).toBe(355)
-    expect(finishedLabor.project.laborDoneMinutes).toBe(480)
-    expect(workConstructionLabor(project, 0)).toMatchObject({ ok: false, error: 'invalid_labor' })
+  test('labor progress caps at the recipe requirement', () => {
+    const project = createConstructionProject('starter-house', 45.7, 21.2, 123)
+    const out = addConstructionLabor(project, 999)
+    expect(out.laborDoneMinutes).toBe(STARTER_HOUSE_RECIPE.laborRequiredMinutes)
   })
 
-  test('completes only after resources, permit, and labor are all satisfied', () => {
-    const project = createProject()
-    const deposited = depositConstructionResources(project, {
-      wood: 120,
-      stone: 60,
-      metal: 20,
-      glass: 10,
-    })
-    if (!deposited.ok) throw new Error('expected resources to deposit')
+  test('blocks hired workers until materials and permit are ready', () => {
+    const project = createConstructionProject('starter-house', 45.7, 21.2, 123)
+    expect(estimateConstructionWorkerHire(project, 'helper')?.blockedBy).toBe('materials')
 
-    const paid = payConstructionPermit(deposited.project, { payerId: 'founder-1', cash: 500 })
-    if (!paid.ok) throw new Error('expected permit to be paid')
-    expect(paid.progress).toMatchObject({
-      resourcesComplete: true,
-      permitComplete: true,
-      laborComplete: false,
-      complete: false,
-      overallPercent: 67,
+    const withMaterials = {
+      ...project,
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+    }
+    expect(estimateConstructionWorkerHire(withMaterials, 'helper')?.blockedBy).toBe('permit')
+  })
+
+  test('hired workers create prepaid real-time contracts before adding labor', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const out = hireConstructionWorker(project, 'builder', 100, 1, 1_000)
+    expect(out.hired).toBe(true)
+    expect(out.money).toBe(72)
+    expect(out.cost).toBe(28)
+    expect(out.laborMinutes).toBe(90)
+    expect(out.project.laborDoneMinutes).toBe(0)
+    expect(out.project.hiredLaborMinutes).toBe(0)
+    expect(out.contract).toMatchObject({
+      source: 'workers-hall',
+      workerId: 'builder',
+      workerName: 'Skilled builder',
+      hiredAt: 1_000,
+      paidUntil: 3_601_000,
+      paidMinutes: 60,
+      workedMinutes: 0,
+      laborMultiplier: 1.5,
+      ratePerHour: 28,
+      cost: 28,
+    })
+    expect(out.project.workerContracts).toHaveLength(1)
+  })
+
+  test('hired worker contracts honor selected hours and upfront cost', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const estimate = estimateConstructionWorkerHire(project, 'helper', 2)
+    expect(estimate).toMatchObject({
+      hours: 2,
+      cost: 32,
+      laborMinutes: 120,
+      blockedBy: null,
     })
 
-    const worked = workConstructionLabor(paid.project, 480)
-    if (!worked.ok) throw new Error('expected labor to finish')
-    expect(worked.project.status).toBe('complete')
-    expect(constructionProjectProgress(worked.project)).toMatchObject({
-      resourcesComplete: true,
-      permitComplete: true,
-      laborComplete: true,
-      complete: true,
-      resourcePercent: 100,
-      laborPercent: 100,
-      overallPercent: 100,
-      missing: {
-        wood: 0,
-        stone: 0,
-        metal: 0,
-        glass: 0,
-      },
+    const hired = hireConstructionWorker(project, 'helper', 100, 2, 1_000)
+    expect(hired.hired).toBe(true)
+    expect(hired.money).toBe(68)
+    expect(hired.project.laborDoneMinutes).toBe(0)
+    expect(hired.contract).toMatchObject({
+      paidUntil: 7_201_000,
+      paidMinutes: 120,
+      cost: 32,
     })
-    expect(workConstructionLabor(worked.project, 1)).toMatchObject({
-      ok: false,
-      error: 'project_complete',
+
+    const finished = advanceConstructionWorkerContracts(hired.project, 7_201_000)
+    expect(finished.laborMinutes).toBe(120)
+    expect(finished.project.laborDoneMinutes).toBe(120)
+    expect(finished.project.workerContracts[0].workedMinutes).toBe(120)
+  })
+
+  test('community credit reduces upfront worker cash without changing labor time', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const estimate = estimateConstructionWorkerHire(project, 'helper', 2, 30)
+    expect(estimate).toMatchObject({
+      hours: 2,
+      cost: 24,
+      laborMinutes: 120,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+      blockedBy: null,
+    })
+
+    const hired = hireConstructionWorker(project, 'helper', 24, 2, 1_000, 30)
+    expect(hired.hired).toBe(true)
+    expect(hired.money).toBe(0)
+    expect(hired.contract).toMatchObject({
+      paidMinutes: 120,
+      cost: 24,
+      communityCreditMinutes: 30,
+      communityCreditValue: 8,
+    })
+  })
+
+  test('worker contracts add labor as real paid minutes pass', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const hired = hireConstructionWorker(project, 'builder', 100, 1, 1_000)
+    const halfHour = advanceConstructionWorkerContracts(hired.project, 1_801_000)
+
+    expect(halfHour.laborMinutes).toBe(45)
+    expect(halfHour.project.laborDoneMinutes).toBe(45)
+    expect(halfHour.project.hiredLaborMinutes).toBe(45)
+    expect(halfHour.project.workerContracts[0].workedMinutes).toBe(30)
+
+    const finishedContract = advanceConstructionWorkerContracts(halfHour.project, 3_601_000)
+    expect(finishedContract.laborMinutes).toBe(45)
+    expect(finishedContract.project.laborDoneMinutes).toBe(90)
+    expect(finishedContract.project.hiredLaborMinutes).toBe(90)
+    expect(finishedContract.project.workerContracts[0].workedMinutes).toBe(60)
+    expect(constructionLaborBreakdown(finishedContract.project)).toMatchObject({
+      playerMinutes: 0,
+      hiredMinutes: 90,
+      remainingMinutes: 390,
+    })
+  })
+
+  test('worker contracts wait for whole paid minutes before adding labor', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    const hired = hireConstructionWorker(project, 'helper', 100, 1, 1_000)
+    const subMinute = advanceConstructionWorkerContracts(hired.project, 60_999)
+    expect(subMinute.laborMinutes).toBe(0)
+    expect(subMinute.project.laborDoneMinutes).toBe(0)
+    expect(subMinute.project.workerContracts[0].workedMinutes).toBe(0)
+
+    const oneMinute = advanceConstructionWorkerContracts(subMinute.project, 61_000)
+    expect(oneMinute.laborMinutes).toBe(1)
+    expect(oneMinute.project.laborDoneMinutes).toBe(1)
+    expect(oneMinute.project.workerContracts[0].workedMinutes).toBe(1)
+  })
+
+  test('worker contract labor caps at the remaining house work', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45.7, 21.2, 123),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 420,
+    }
+
+    const hired = hireConstructionWorker(project, 'crew', 1_000, 8, 1_000)
+    expect(hired.hired).toBe(true)
+    expect(hired.laborMinutes).toBe(60)
+    const out = advanceConstructionWorkerContracts(hired.project, 16 * 60_000)
+    expect(out.laborMinutes).toBe(60)
+    expect(out.project.laborDoneMinutes).toBe(480)
+    expect(out.project.hiredLaborMinutes).toBe(60)
+    expect(out.project.workerContracts[0].workedMinutes).toBe(15)
+    expect(constructionProgress(out.project).complete).toBe(true)
+  })
+
+  test('creates a business project from a purchased business recipe', () => {
+    const recipe = businessConstructionRecipe({
+      id: 'foodcart',
+      name: 'Food Cart',
+      price: 15_000,
+      incomePerDay: 200,
+    })
+    const project = createConstructionProjectFromRecipe(recipe, 45.7, 21.2, 123)
+
+    expect(project.recipeId).toBe('business:foodcart')
+    expect(project.itemId).toBe('foodcart')
+    expect(project.resultKind).toBe('business')
+    expect(project.name).toBe('Food Cart')
+    expect(project.incomePerDay).toBe(200)
+    expect(project.required).toEqual({ wood: 45, stone: 30, metal: 25, glass: 10 })
+    expect(project.laborRequiredMinutes).toBe(480)
+    expect(project.permitFee).toBe(500)
+  })
+
+  test('completes a finished business project into an earning business asset', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1001)
+    const recipe = businessConstructionRecipe({
+      id: 'foodcart',
+      name: 'Food Cart',
+      price: 15_000,
+      incomePerDay: 200,
+    })
+    const project = {
+      ...createConstructionProjectFromRecipe(recipe, 45.7, 21.2, 123),
+      deposited: freshResources(recipe.required),
+      laborDoneMinutes: recipe.laborRequiredMinutes,
+      permitFeePaid: true,
+    }
+
+    const out = completeConstructionProject(project)
+    expect(out.asset).toMatchObject({
+      id: 'business-foodcart-business-1001',
+      itemId: 'foodcart',
+      kind: 'business',
+      name: 'Food Cart',
+      incomePerDay: 200,
+      pendingIncome: 0,
+      lat: 45.7,
+      lng: 21.2,
     })
   })
 })
-
-function createProject() {
-  const project = createConstructionProject({ id: 'house-1', lat: 44.45, lng: 26.08 })
-  if (!project) throw new Error('expected project')
-  return project
-}
-
-function completeProject(project: ReturnType<typeof createProject>) {
-  const deposited = depositConstructionResources(project, {
-    wood: 120,
-    stone: 60,
-    metal: 20,
-    glass: 10,
-  })
-  if (!deposited.ok) throw new Error('expected resources')
-  const paid = payConstructionPermit(deposited.project, { payerId: 'founder-1', cash: 500 })
-  if (!paid.ok) throw new Error('expected permit')
-  const worked = workConstructionLabor(paid.project, 480)
-  if (!worked.ok) throw new Error('expected labor')
-  return worked.project
-}
