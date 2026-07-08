@@ -247,9 +247,9 @@ export const ACHIEVEMENTS: Achievement[] = [
     progress: (s) => ({ current: s.level, target: 20 }),
   },
   {
-    id: 'home-chef',
-    title: 'Home Chef',
-    detail: 'Cook a meal at home.',
+    id: 'grocer',
+    title: 'Grocer',
+    detail: 'Buy groceries for your home kitchen.',
     category: 'lifestyle', tier: 'bronze', xp: 75, bounty: 150,
     isUnlocked: (s) => s.hasCooked,
   },

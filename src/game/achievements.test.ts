@@ -102,7 +102,7 @@ describe('achievements — unlock predicates', () => {
 
   test('lifestyle: level + lifestyle flags unlock', () => {
     expect(newlyUnlocked({ ...base, level: 5 }, []).map((a) => a.id)).toContain('well-lived')
-    expect(newlyUnlocked({ ...base, hasCooked: true }, []).map((a) => a.id)).toContain('home-chef')
+    expect(newlyUnlocked({ ...base, hasCooked: true }, []).map((a) => a.id)).toContain('grocer')
     expect(newlyUnlocked({ ...base, hasPet: true }, []).map((a) => a.id)).toContain('pet-parent')
     expect(newlyUnlocked({ ...base, hasAvatar: true }, []).map((a) => a.id)).toContain('face-of-reality')
   })
