@@ -30,6 +30,7 @@ import {
   founderCovenantOperatorQueueNotificationDraftGateText,
   founderCovenantOperatorQueueNotificationDraftStatusText,
   founderCovenantOperatorQueueNotificationDraftText,
+  founderCovenantOperatorQueueNotificationDraftTitleText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageText,
   founderCovenantOperatorQueuePriorityReasons,
@@ -71,6 +72,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Approval gates: Main founder approval · 2 blockers')
     expect(html).toContain('Approval blockers: approval workflow, Telegram delivery')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
+    expect(html).toContain('Draft titles: Founder covenant manual review required')
     expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Draft status: Disabled')
     expect(html).toContain('Signal counts: 2 total · 0 info · 1 warning · 1 critical')
@@ -181,6 +183,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueApprovalGateText(manual)).toBe('Main founder approval · 2 blockers')
     expect(founderCovenantOperatorQueueApprovalBlockerText(manual)).toBe('approval workflow, Telegram delivery')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
+    expect(founderCovenantOperatorQueueNotificationDraftTitleText(manual)).toBe(
+      'Founder covenant manual review required',
+    )
     expect(founderCovenantOperatorQueueNotificationDraftGateText(manual)).toBe(
       'Main founder approval required / Delivery disabled',
     )
@@ -227,6 +232,7 @@ describe('FounderCovenantQueuePanel', () => {
       approvalReasonText: 'Send warning: Founder covenant signals suggest a warning.',
       approvalGateText: 'Main founder approval · 2 blockers',
       approvalBlockerText: 'approval workflow, Telegram delivery',
+      notificationDraftTitleText: 'Founder covenant manual review required',
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
       signalCountText: '2 total · 0 info · 1 warning · 1 critical',
