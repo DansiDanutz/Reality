@@ -832,7 +832,7 @@ export function adviceOf(i: AdviceInput): Advice {
   if (i.needs.hunger < 30)
     return { text: "My stomach is growling. Let's eat something real.", action: 'eat', cta: 'Open the food market' }
   if (i.hasHome && i.money >= 8 && i.needs.hunger < 70)
-    return { text: 'We have a kitchen. Gather groceries and cook at home — cheaper, calmer, better.', action: 'cook', cta: 'Cook at home' }
+    return { text: 'We have a kitchen. Gather groceries first, then cook at home — cheaper, calmer, better.', action: 'cook', cta: 'Cook at home' }
   if (i.activity?.kind === 'sleep')
     return { text: 'Recharging… wake me early if you need me.', action: 'none' }
   if (i.activity?.kind === 'shift')
@@ -910,7 +910,7 @@ export function dailyStepsOf(i: AdviceInput): DailyStep[] {
           ? 'Build: hire a worker and improve the business'
           : 'Build: staff and improve the business'
         : hasHome
-          ? 'Build: cook at home and gather groceries'
+          ? 'Build: gather groceries and cook at home'
           : 'Build: make the home feel real',
     })
   }
@@ -933,12 +933,17 @@ export function lifeMilestonesOf(i: AdviceInput): LifeMilestone[] {
       label: 'Next: get a job',
       detail: 'Income starts the whole ladder. Find work first.',
     })
-  } else if (!i.hasHome && i.money >= CHEAPEST_HOME) {
-    milestones.push({
-      label: 'Next: buy a home',
-      detail: 'A home makes sleep, recovery, and the next build easier.',
-    })
-  } else if (i.businesses > 0 && !i.workersHall && i.money >= 18_000) {
+    } else if (!i.hasHome && i.money >= CHEAPEST_HOME) {
+      milestones.push({
+        label: 'Next: buy a home',
+        detail: 'A home makes sleep, recovery, and the next build easier.',
+      })
+    } else if (i.hasHome && i.money >= 8) {
+      milestones.push({
+        label: 'Next: gather groceries',
+        detail: 'Buy ingredients, then cook at home instead of paying full price for every meal.',
+      })
+    } else if (i.businesses > 0 && !i.workersHall && i.money >= 18_000) {
     milestones.push({
       label: 'Next: build a Workers Hall',
       detail: 'Open roles become real hires only after the hall exists.',

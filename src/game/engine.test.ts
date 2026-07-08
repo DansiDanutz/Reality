@@ -241,7 +241,7 @@ describe('liveRealtime — the single simulation path', () => {
       pendingIncome: 0,
     })
 
-    expect(steps.find((step) => step.phase === 'build')?.label).toBe('Build: cook at home and gather groceries')
+    expect(steps.find((step) => step.phase === 'build')?.label).toBe('Build: gather groceries and cook at home')
   })
 
   test('placeable build times are explicit and shared by homes and businesses', () => {
@@ -540,8 +540,8 @@ describe('lifeMilestonesOf', async () => {
         detail: 'Stay fed, hydrated, and rested so the day stays productive.',
       },
       {
-        label: 'Next: staff the business',
-        detail: 'Hire AI workers so the business keeps growing while you build again.',
+        label: 'Next: gather groceries',
+        detail: 'Buy ingredients, then cook at home instead of paying full price for every meal.',
       },
       {
         label: 'Soon: belong and expand',
@@ -578,6 +578,11 @@ describe('growthRoadmapOf', async () => {
       title: 'Roadmap: survive and save',
       detail: 'The climb starts with making tomorrow easier than today.',
       targets: ['Eat, drink, sleep', 'Hold a job', 'Save for the first foothold'],
+    })
+    expect(growthRoadmapOf({ money: 10, netWorth: 10, respect: 0, businesses: 0, homes: 1, workersHall: false })).toEqual({
+      title: 'Roadmap: build the first base',
+      detail: 'A stable home gives the time and energy needed to start scaling.',
+      targets: ['Sleep properly', 'Hold a job', 'Save for the first business'],
     })
     expect(growthRoadmapOf({ money: 50_000, netWorth: 50_000, respect: 3, businesses: 1, homes: 1, workersHall: false })).toEqual({
       title: 'Roadmap: turn one foothold into two',
