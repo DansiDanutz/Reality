@@ -339,6 +339,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       payoutEligibility: 'payout_eligible',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      clientMemo: 'please attach my area to this private note',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -362,6 +366,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeBuildBusinessIntent({
       type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      estimatedProfit: 999_999,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
       businessKind: 'luxury',
       businessId: 'water-1',
     })).toEqual({ ok: false, error: 'invalid_business_kind' })
@@ -379,6 +389,8 @@ describe('reality area authority API', () => {
       serviceKind: 'water',
     })
     expect(normalizeServicePurchaseIntent({ type: 'buyFood', price: 0 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeServicePurchaseIntent({ type: 'buyWater', serviceBusinessId: 'water-1' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeServicePurchaseIntent({ type: 'buyInsurance' }))
       .toEqual({ ok: false, error: 'unsupported_intent' })
@@ -404,6 +416,11 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeBuyInsuranceIntent({
       type: 'buyInsurance',
+      insuranceBusinessId: 'insurance-1',
+      policyLimit: 1_000_000,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
       insuranceBusinessId: '../insurance',
     })).toEqual({ ok: false, error: 'invalid_business_id' })
   })
@@ -426,6 +443,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeHireWorkerIntent({
       type: 'hireWorker',
+      businessId: 'water-1',
+      workerCitizenId: 'sim-worker-1',
+      shiftId: 'night-shift',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeHireWorkerIntent({
+      type: 'hireWorker',
       businessId: '../water',
       workerCitizenId: 'sim-worker-1',
     })).toEqual({ ok: false, error: 'invalid_business_id' })
@@ -436,6 +459,8 @@ describe('reality area authority API', () => {
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', cash: 999 }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', hours: 24 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeAdvanceHourIntent({ type: 'advanceHour', note: 'advance five hours please' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
@@ -517,6 +542,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRepayDebtIntent({
       type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120,
+      memo: 'client-picked repayment memo',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
       debtId: '../debt',
       amount: 120,
     })).toEqual({ ok: false, error: 'invalid_debt_id' })
@@ -554,6 +585,12 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       note: 'Looks good.',
       reviewerId: 'spoofed-reviewer',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Looks good.',
+      clientMemo: 'only the server decides review metadata',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
@@ -906,7 +943,7 @@ describe('reality area authority API', () => {
       actions: [{
         warning: 'water',
         intent: 'buyWater',
-        clientPayload: { type: 'buyWater' },
+        clientPayload: null,
         serviceKind: 'water',
         available: false,
         lowestPrice: null,
@@ -1905,6 +1942,7 @@ describe('reality area authority API', () => {
       actions: [{
         warning: 'water',
         intent: 'buyWater',
+        clientPayload: { type: 'buyWater' },
         serviceKind: 'water',
         available: true,
         lowestPrice: 2,
@@ -1990,7 +2028,7 @@ describe('reality area authority API', () => {
       issuedAt: '2026-07-06T07:00:00.000Z',
       memo: 'Founder #0012 owes medical debt to system:hospital.',
       repaymentIntent: 'repayDebt',
-      clientPayload: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 50 },
+      clientPayload: null,
       recommendedPayment: 50,
       maxAffordablePayment: 50,
       canRepayNow: false,
@@ -3355,6 +3393,48 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('operator founder covenant review returns a structured storage failure when accepted evidence cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://operator-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          note: 'Weekly operator evidence reviewed.',
+          evidenceKinds: ['external_contribution', 'ideas_feedback'],
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        areaId: 'founder-area-0012',
+      },
+    })
+    expect((res.body as { state: { founderReviewHistory?: unknown[] } }).state.founderReviewHistory ?? []).toHaveLength(0)
+    expect((res.body as { state: { transactions: unknown[] } }).state.transactions).toHaveLength(existing.transactions.length)
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('operator founder covenant review rejects disabled enforcement actions before loading areas', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
@@ -3486,6 +3566,15 @@ describe('reality area authority API', () => {
             automationEnabled: boolean
             executionEnabled: boolean
             recommendedActionKinds: string[]
+          }
+          reviewSchedule: {
+            lastReviewAt: string | null
+            nextWeeklyReviewAt: string
+            nextMonthlyReviewAt: string
+            weeklyReviewDue: boolean
+            monthlyReviewDue: boolean
+            overdue: boolean
+            automationEnabled: boolean
           }
           reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
           activitySignals: {
@@ -3645,6 +3734,14 @@ describe('reality area authority API', () => {
       blockerCount: 5,
       scanStatus: 'caught_up',
       transactionsAdded: 1,
+    })
+    expect(queue.items[0].reviewSchedule).toMatchObject({
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-13T03:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
     })
     expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
@@ -5542,7 +5639,7 @@ describe('reality area authority API', () => {
       insuranceActive: true,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,

@@ -666,7 +666,7 @@ type FounderAreaSurvivalActionBlocker = 'service_unavailable' | 'insufficient_fu
 interface FounderAreaSurvivalAction {
   warning: FounderAreaSurvivalWarningKind
   intent: FounderAreaSurvivalActionIntent
-  clientPayload: { type: FounderAreaSurvivalActionIntent }
+  clientPayload: { type: FounderAreaSurvivalActionIntent } | null
   serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -1180,6 +1180,7 @@ interface FounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: FounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: FounderAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -1645,6 +1646,15 @@ const FORBIDDEN_BUILD_FIELDS = new Set([
   'citizens',
 ])
 
+const CLAIM_AREA_ALLOWED_FIELDS = new Set(['type', 'label', 'centerLat', 'centerLng', 'radiusKm', 'source'])
+const BUILD_BUSINESS_ALLOWED_FIELDS = new Set(['type', 'businessKind', 'businessId', 'name'])
+const SERVICE_PURCHASE_ALLOWED_FIELDS = new Set(['type'])
+const BUY_INSURANCE_ALLOWED_FIELDS = new Set(['type', 'insuranceBusinessId'])
+const HIRE_WORKER_ALLOWED_FIELDS = new Set(['type', 'businessId', 'workerCitizenId'])
+const CLOCK_ACTION_ALLOWED_FIELDS = new Set(['type'])
+const REPAY_DEBT_ALLOWED_FIELDS = new Set(['type', 'debtId', 'amount'])
+const COVENANT_REVIEW_ALLOWED_FIELDS = new Set(['type', 'actionKind', 'note', 'evidenceKinds'])
+
 const BUSINESS_BLUEPRINTS: Record<FounderAreaBusinessKind, {
   name: string
   buildCost: number
@@ -1743,7 +1753,7 @@ export function areaStatePath(citizenId: string): string {
 
 export function normalizeClaimAreaIntent(input: unknown): ClaimAreaIntent {
   if (!isRecord(input) || input.type !== 'claimArea') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_CLAIM_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, CLAIM_AREA_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_CLAIM_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1777,7 +1787,7 @@ export function normalizeClaimAreaIntent(input: unknown): ClaimAreaIntent {
 
 export function normalizeBuildBusinessIntent(input: unknown): BuildBusinessIntent {
   if (!isRecord(input) || input.type !== 'buildBusiness') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_BUILD_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, BUILD_BUSINESS_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_BUILD_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1797,7 +1807,7 @@ export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseI
   if (!isRecord(input) || !isServicePurchaseIntentType(input.type)) {
     return { ok: false, error: 'unsupported_intent' }
   }
-  if (Object.keys(input).some((key) => FORBIDDEN_SERVICE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, SERVICE_PURCHASE_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_SERVICE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true, type: input.type, serviceKind: SERVICE_PURCHASE_INTENTS[input.type] }
@@ -1805,7 +1815,7 @@ export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseI
 
 export function normalizeBuyInsuranceIntent(input: unknown): BuyInsuranceIntent {
   if (!isRecord(input) || input.type !== 'buyInsurance') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_INSURANCE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, BUY_INSURANCE_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_INSURANCE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1817,7 +1827,7 @@ export function normalizeBuyInsuranceIntent(input: unknown): BuyInsuranceIntent 
 
 export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
   if (!isRecord(input) || input.type !== 'hireWorker') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_HIRE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, HIRE_WORKER_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_HIRE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1832,7 +1842,7 @@ export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
 
 export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
   if (!isRecord(input) || input.type !== 'advanceHour') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_ADVANCE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, CLOCK_ACTION_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_ADVANCE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
@@ -1840,7 +1850,7 @@ export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
 
 export function normalizeRefreshAreaIntent(input: unknown): RefreshAreaIntent {
   if (!isRecord(input) || input.type !== 'refreshArea') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => key !== 'type' || FORBIDDEN_REFRESH_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, CLOCK_ACTION_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_REFRESH_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
@@ -1899,7 +1909,7 @@ export function normalizeFounderCovenantReviewQueueIntent(input: unknown): Found
 
 export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
   if (!isRecord(input) || input.type !== 'repayDebt') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_REPAY_DEBT_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, REPAY_DEBT_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_REPAY_DEBT_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1914,7 +1924,7 @@ export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
 
 export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCovenantReviewIntent {
   if (!isRecord(input) || input.type !== 'recordCovenantReview') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_REVIEW_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, COVENANT_REVIEW_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_REVIEW_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -3971,15 +3981,16 @@ function debtDashboard(citizen: FounderAreaCitizen, debt: FounderAreaDebt): Foun
   const blockers: FounderAreaDebtRepaymentBlocker[] = []
   if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
   if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
+  const canRepayNow = blockers.length === 0
   return {
     ...debt,
     repaymentIntent: 'repayDebt',
-    clientPayload: maxAffordablePayment > 0
+    clientPayload: canRepayNow
       ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
       : null,
     recommendedPayment: maxAffordablePayment,
     maxAffordablePayment,
-    canRepayNow: blockers.length === 0,
+    canRepayNow,
     blockers,
   }
 }
@@ -4001,15 +4012,16 @@ function insuranceActionDashboard(
   if (activeInsurance) blockers.push('already_insured')
   if (!insurer) blockers.push('service_unavailable')
   if (insurer && !canAfford) blockers.push('insufficient_funds')
+  const canBuyNow = blockers.length === 0
 
   return {
     intent: 'buyInsurance',
-    clientPayload: insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
+    clientPayload: canBuyNow && insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
     insuranceBusinessId: insurer?.id ?? null,
     premium,
     available: Boolean(insurer),
     canAfford,
-    canBuyNow: blockers.length === 0,
+    canBuyNow,
     blockers,
   }
 }
@@ -4109,10 +4121,11 @@ function survivalActionForWarning(
   const blockers: FounderAreaSurvivalActionBlocker[] = []
   if (!available) blockers.push('service_unavailable')
   if (available && !canAfford) blockers.push('insufficient_funds')
+  const canActNow = blockers.length === 0
   return {
     warning,
     intent,
-    clientPayload: { type: intent },
+    clientPayload: canActNow ? { type: intent } : null,
     serviceKind,
     available,
     lowestPrice,
@@ -4353,7 +4366,18 @@ async function handleFounderCovenantOperatorReview(
     return
   }
 
-  const state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  let state: FounderAreaState
+  try {
+    state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  } catch {
+    res.status(503).json({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      ...areaPayload(stateForReview),
+    })
+    return
+  }
   res.status(200).json({ ok: true, ...areaPayload(state) })
 }
 
@@ -4529,6 +4553,7 @@ function founderCovenantReviewQueueItem(
     checkedAt: review.activityReview.checkedAt,
     lastReviewAt: review.reviewSchedule.lastReviewAt,
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
+    reviewSchedule: founderCovenantReviewScheduleSnapshot(review.reviewSchedule),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
     overdue: review.reviewSchedule.overdue,
@@ -4605,6 +4630,15 @@ function founderCovenantReviewQueueLatestReview(
     actionKind: 'record_review',
     summary: review.summary,
     evidenceOnly: true,
+    automationEnabled: false,
+  }
+}
+
+function founderCovenantReviewScheduleSnapshot(
+  schedule: FounderAreaCovenantReviewSchedule,
+): FounderAreaCovenantReviewSchedule {
+  return {
+    ...schedule,
     automationEnabled: false,
   }
 }
@@ -4836,7 +4870,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const now = new Date()
       const stateForBuild = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
-      const result = applyBuildBusinessIntent(stateForBuild, { type: 'buildBusiness', ...intent }, now)
+      const result = applyBuildBusinessIntent(
+        stateForBuild,
+        { type: 'buildBusiness', businessKind: intent.businessKind, businessId: intent.businessId, name: intent.name },
+        now,
+      )
       if (!result.ok) {
         res.status(buildBusinessStatus(result.error)).json({
           ok: false,
@@ -6322,6 +6360,14 @@ function field(source: unknown, key: string): string | null {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function hasUnexpectedIntentField(input: Record<string, unknown>, allowedFields: ReadonlySet<string>): boolean {
+  return Object.keys(input).some((key) => !allowedFields.has(key))
+}
+
+function hasForbiddenIntentField(input: Record<string, unknown>, forbiddenFields: ReadonlySet<string>): boolean {
+  return Object.keys(input).some((key) => forbiddenFields.has(key))
 }
 
 function isClaimSource(value: string): value is AreaClaimSource {
