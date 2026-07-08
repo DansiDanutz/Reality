@@ -7,9 +7,8 @@ import {
   type FounderCovenantOperatorQueueFilter,
   type FounderCovenantOperatorQueueSort,
   founderCovenantOperatorQueuePageSummary,
-  founderCovenantOperatorQueuePrimaryWorkloadText,
-  founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueActionMix,
+  founderCovenantOperatorQueueActionSummary,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
@@ -53,8 +52,7 @@ export function FounderCovenantQueuePanel({
         <span>{founderCovenantOperatorQueueSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
         <span>{founderCovenantOperatorQueueFocusSummary(queue)}</span>
-        <span>{founderCovenantOperatorQueuePrimaryWorkloadText(queue)}</span>
-        <span>{founderCovenantOperatorQueueRecommendedActionText(queue)}</span>
+        <span>{founderCovenantOperatorQueueActionSummary(queue)}</span>
       </div>
       <div className="founder-covenant-meta" aria-label="Founder operator queue filters">
         <span>Filter: {queueFilterLabel(filter)}</span>

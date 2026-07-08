@@ -848,6 +848,12 @@ export function founderCovenantOperatorQueueFocusSummary(
   return `Focus: ${founderCovenantOperatorQueueWorkloadSummary(queue)} · ${founderCovenantOperatorQueueWorkflowSplitSummary(queue)} · ${founderCovenantOperatorQueueCadenceReadySummary(queue)}`
 }
 
+export function founderCovenantOperatorQueueActionSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  return `Action: ${founderCovenantOperatorQueuePrimaryWorkloadText(queue).replace('Primary workload: ', '')} · ${founderCovenantOperatorQueueRecommendedActionText(queue).replace('Recommended next: ', '')}`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {
