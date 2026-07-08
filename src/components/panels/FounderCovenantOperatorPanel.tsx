@@ -31,6 +31,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
   founderCovenantOperatorQueueTelegramDraftSummary,
+  founderCovenantOperatorQueueTelegramWorkNextSummary,
 } from './founderAreaPanelView'
 import {
   founderCovenantOperatorQueueRefreshCursor,
@@ -152,6 +153,9 @@ export default function FounderCovenantOperatorPanel({
   const warningTelegramRationale = founderWarningTelegramDraft
     ? founderCovenantApprovalBlockerText(founderWarningTelegramDraft)
     : 'No founder warning Telegram draft in current queue'
+  const telegramWorkNext = queue
+    ? founderCovenantOperatorQueueTelegramWorkNextSummary(queue, queueFilter, queueSort)
+    : 'Telegram work next: none'
 
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
@@ -542,6 +546,22 @@ export default function FounderCovenantOperatorPanel({
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for founder warning Telegram copy.')
     }
+  }
+
+  const copyBestTelegramOutput = async () => {
+    if (telegramWorkNext === 'Telegram work next: copy manual review drafts') {
+      await copyManualReviewTelegramDraft()
+      return
+    }
+    if (telegramWorkNext === 'Telegram work next: copy warning drafts') {
+      await copyFounderWarningTelegramDraft()
+      return
+    }
+    if (telegramWorkNext === 'Telegram work next: copy review updates') {
+      await copyQueueTelegramScaffold()
+      return
+    }
+    setOperatorReviewMessage('No Telegram output is available in the current founder queue slice.')
   }
 
   return (
@@ -1174,6 +1194,14 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Copy Telegram
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyBestTelegramOutput()}
+              type="button"
+            >
+              Copy Best Telegram
             </button>
             <button
               className="btn small ghost"

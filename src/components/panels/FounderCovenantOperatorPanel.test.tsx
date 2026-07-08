@@ -87,6 +87,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copy view')
     expect(html).toContain('Copy digest')
     expect(html).toContain('Copy Telegram')
+    expect(html).toContain('Copy Best Telegram')
     expect(html).toContain('Copy Manual Telegram')
     expect(html).toContain('Copy Warning Telegram')
     expect(html).toContain('Clear copied')
