@@ -75,6 +75,7 @@ describe('planLifeRoadmap', () => {
       taskId: 'place-home-foundation',
       route: { kind: 'panel', panel: 'construction' },
     })
+    expect(roadmap.days[1].valuesCovered).toEqual(['work', 'body', 'school', 'capital'])
     expect(roadmap.days[4].primary.id).toBe('gather-wood')
     expect(roadmap.days.some((day) => day.primary.id.startsWith('gather-'))).toBe(true)
     expect(roadmap.valuesCovered).toEqual(expect.arrayContaining(['body', 'work', 'school', 'capital']))
@@ -158,6 +159,7 @@ describe('planLifeRoadmap', () => {
     })
     expect(roadmap.days[0].routineValues).not.toContain('community')
     expect(roadmap.days[0].routineValues).not.toContain('friendship')
+    expect(roadmap.days[0].valuesCovered).toEqual(['body', 'work', 'capital'])
     expect(roadmap.days[1].primary.id).toBe('find-job')
     expect(roadmap.finalSnapshot.needs.hydration).toBeGreaterThan(35)
     expect(roadmap.finalSnapshot.jobId).toBe('barista')

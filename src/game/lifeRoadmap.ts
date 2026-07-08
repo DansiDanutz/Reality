@@ -51,6 +51,7 @@ export interface LifeRoadmapDay {
   agenda: LifePlanTask[]
   routine: LifeRoutineBlock[]
   routineValues: LifeValue[]
+  valuesCovered: LifeValue[]
   millionaireStage: MillionaireStage
   millionaireGap: number
   daysToMillionaire: number | null
@@ -248,12 +249,14 @@ function asPlacedAsset(asset: LifeLadderAsset, index: number): PlacedAsset {
 }
 
 function roadmapDay(plan: LifePlan): LifeRoadmapDay {
+  const routineValues = plan.routine.map((block) => block.value)
   return {
     lifeDay: plan.lifeDay,
     primary: plan.primary,
     agenda: plan.agenda,
     routine: plan.routine,
-    routineValues: plan.routine.map((block) => block.value),
+    routineValues,
+    valuesCovered: Array.from(new Set([plan.primary.value, ...routineValues])),
     millionaireStage: plan.millionairePath.stage,
     millionaireGap: plan.millionairePath.millionaireGap,
     daysToMillionaire: plan.millionairePath.daysToMillionaire,
