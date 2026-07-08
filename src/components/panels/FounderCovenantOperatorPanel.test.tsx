@@ -43,6 +43,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('Record evidence')
     expect(html).toContain('Copy view')
+    expect(html).toContain('Clear copied')
     expect(html).toContain('Refresh page')
     expect(html).toContain('Restart scan')
     expect(html).toContain('Founder #')

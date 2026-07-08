@@ -446,6 +446,17 @@ export default function FounderCovenantOperatorPanel({
             </button>
             <button
               className="btn small ghost"
+              disabled={loading || !lastCopiedText}
+              onClick={() => {
+                setLastCopiedAt(null)
+                setLastCopiedText(null)
+              }}
+              type="button"
+            >
+              Clear copied
+            </button>
+            <button
+              className="btn small ghost"
               disabled={loading || operatorToken.length === 0}
               onClick={() => void loadQueue(scanCursor)}
               type="button"
