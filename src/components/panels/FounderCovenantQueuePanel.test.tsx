@@ -238,6 +238,8 @@ describe('FounderCovenantQueuePanel', () => {
         approvalRequestCount: 0,
       },
       pendingApprovalRequests: [],
+      weeklyReviewDue: false,
+      monthlyReviewDue: false,
     })).toBe('Record review')
     expect(founderCovenantOperatorQueueRecommendedNextTone({
       ...manual,
@@ -264,6 +266,8 @@ describe('FounderCovenantQueuePanel', () => {
         ...manual.manualActions[0],
         recommended: true,
       }],
+      weeklyReviewDue: false,
+      monthlyReviewDue: false,
     })).toBe('Record review')
     expect(founderCovenantOperatorQueueRecommendedNextTone({
       ...manual,
@@ -440,6 +444,42 @@ describe('FounderCovenantQueuePanel', () => {
         }],
       }],
     })).toBe('Recommended next: record due founder reviews')
+    expect(founderCovenantOperatorQueueRecommendedNextText({
+      ...manual,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+        overdue: true,
+      },
+      pendingApprovalRequests: [],
+      overdue: true,
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      manualActions: [{
+        ...manual.manualActions[0],
+        recommended: true,
+      }],
+    })).toBe('Record weekly review')
+    expect(founderCovenantOperatorQueueRecommendedNextText({
+      ...manual,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+        overdue: true,
+      },
+      pendingApprovalRequests: [],
+      overdue: true,
+      weeklyReviewDue: true,
+      monthlyReviewDue: true,
+      manualActions: [{
+        ...manual.manualActions[0],
+        recommended: true,
+      }],
+    })).toBe('Record monthly review')
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]?.summary).toContain('Attach missing manual evidence')
@@ -1164,6 +1204,8 @@ describe('FounderCovenantQueuePanel', () => {
       monthly: 1,
     })
     expect(founderCovenantOperatorQueueCadenceReadySummary(queueWithCadence)).toBe('Cadence ready: 2 weekly · 1 monthly')
+    expect(founderCovenantOperatorQueueReviewRows({ items: [weeklyDue] })[0]?.recommendedNextText).toBe('Record weekly review')
+    expect(founderCovenantOperatorQueueReviewRows({ items: [monthlyDue] })[0]?.recommendedNextText).toBe('Record monthly review')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 2 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'never_reviewed')).toMatchObject({
       founders: 3,

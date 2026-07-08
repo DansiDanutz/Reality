@@ -828,7 +828,7 @@ export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {
   return queue.items.reduce<FounderCovenantOperatorQueueCadenceReadyMix>((totals, item) => {
-    if (founderCovenantOperatorQueueRecommendedNextText(item) !== 'Record review') return totals
+    if (!founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))) return totals
     if (item.weeklyReviewDue) totals.weekly += 1
     if (item.monthlyReviewDue) totals.monthly += 1
     return totals
@@ -850,7 +850,7 @@ export function founderCovenantOperatorQueuePrimaryWorkloadText(
 ): string {
   const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
   const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review').length
+  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))).length
   const overdueFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
 
   if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0 && recordFounders === 0) {
@@ -873,7 +873,7 @@ export function founderCovenantOperatorQueueRecommendedActionText(
 ): string {
   const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
   const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review').length
+  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))).length
   const overdueFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
 
   if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0 && recordFounders === 0) {
@@ -899,7 +899,7 @@ export function founderCovenantOperatorQueueActionMix(
     if (recommendation === 'Attach missing manual evidence') totals.evidence += 1
     else if (recommendation === 'Review blocked approvals') totals.blocked += 1
     else if (recommendation === 'Clear overdue review') totals.overdue += 1
-    else if (recommendation === 'Record review') totals.record += 1
+    else if (founderCovenantOperatorQueueIsRecordRecommendation(recommendation)) totals.record += 1
     else totals.monitor += 1
     return totals
   }, {
@@ -924,13 +924,20 @@ export function founderCovenantOperatorQueueItemSummary(
     | 'transactionsAdded'
   > & Partial<Pick<
     RealityFounderCovenantReviewQueueItem,
-    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions'
+    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions' | 'weeklyReviewDue' | 'monthlyReviewDue'
   >>,
 ): string {
   const status = founderCovenantStatusLabel(item.covenantStatus)
   const review = item.manualReviewRequired ? 'manual review' : 'watch'
   const base = `${status} · ${review} · ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
-  if (!item.reviewReadiness || !item.pendingApprovalRequests || item.overdue === undefined || !item.manualActions) {
+  if (
+    !item.reviewReadiness ||
+    !item.pendingApprovalRequests ||
+    item.overdue === undefined ||
+    !item.manualActions ||
+    item.weeklyReviewDue === undefined ||
+    item.monthlyReviewDue === undefined
+  ) {
     return base
   }
   const recommended = founderCovenantOperatorQueueRecommendedNextText({
@@ -938,6 +945,8 @@ export function founderCovenantOperatorQueueItemSummary(
     pendingApprovalRequests: item.pendingApprovalRequests,
     overdue: item.overdue,
     manualActions: item.manualActions,
+    weeklyReviewDue: item.weeklyReviewDue,
+    monthlyReviewDue: item.monthlyReviewDue,
   })
   return `${base} · ${recommended}`
 }
@@ -1202,7 +1211,7 @@ function founderCovenantOperatorQueueMatchesFilter(
     case 'action_overdue':
       return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
     case 'action_record':
-      return founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review'
+      return founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
     case 'action_monitor':
       return founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor founder'
     case 'overdue':
@@ -1214,6 +1223,20 @@ function founderCovenantOperatorQueueMatchesFilter(
     case 'scan_anomaly':
       return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
   }
+}
+
+function founderCovenantOperatorQueueRecordRecommendationLabel(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'weeklyReviewDue' | 'monthlyReviewDue'>,
+): string {
+  if (item.monthlyReviewDue) return 'Record monthly review'
+  if (item.weeklyReviewDue) return 'Record weekly review'
+  return 'Record review'
+}
+
+function founderCovenantOperatorQueueIsRecordRecommendation(recommendation: string): boolean {
+  return recommendation === 'Record review' ||
+    recommendation === 'Record weekly review' ||
+    recommendation === 'Record monthly review'
 }
 
 function founderCovenantOperatorQueueFreshnessCoverageText(
@@ -1350,7 +1373,7 @@ export function founderCovenantOperatorQueueEvidenceNextText(
 export function founderCovenantOperatorQueueRecommendedNextText(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
-    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions'
+    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions' | 'weeklyReviewDue' | 'monthlyReviewDue'
   >,
 ): string {
   if (item.reviewReadiness.evidenceRequiredCount > 0) {
@@ -1361,6 +1384,9 @@ export function founderCovenantOperatorQueueRecommendedNextText(
   }
   const suggested = item.manualActions.find((action) => action.recommended)
   if (suggested) {
+    if (suggested.kind === 'record_review') {
+      return founderCovenantOperatorQueueRecordRecommendationLabel(item)
+    }
     return founderCovenantManualActionKindLabel(suggested.kind)
   }
   if (item.overdue) {
@@ -1372,7 +1398,7 @@ export function founderCovenantOperatorQueueRecommendedNextText(
 export function founderCovenantOperatorQueueRecommendedNextTone(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
-    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions'
+    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions' | 'weeklyReviewDue' | 'monthlyReviewDue'
   >,
 ): FounderCovenantReviewTone {
   if (item.reviewReadiness.evidenceRequiredCount > 0) {
@@ -1398,6 +1424,10 @@ function founderCovenantOperatorQueueRecommendedNextSortScore(recommendation: st
       return 2
     case 'Clear overdue review':
       return 3
+    case 'Record weekly review':
+      return 4
+    case 'Record monthly review':
+      return 4
     case 'Record review':
       return 4
     case 'Monitor founder':
