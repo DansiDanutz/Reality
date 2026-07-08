@@ -164,6 +164,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   reviewReadinessText: string
   checklistText: string
   evidenceInputText: string
+  evidenceNextText: string
   manualActionText: string
   approvalRequestText: string
   notificationDraftText: string
@@ -879,6 +880,7 @@ export function founderCovenantOperatorQueueReviewRows(
       reviewReadinessText: founderCovenantOperatorQueueReviewReadinessText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
+      evidenceNextText: founderCovenantOperatorQueueEvidenceNextText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
@@ -1174,6 +1176,19 @@ export function founderCovenantOperatorQueueEvidenceInputText(
   if (manual.length > 0) return manual.map((input) => input.label).join(', ')
   const watch = item.reviewInputs.filter((input) => input.status === 'watch')
   return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'complete'
+}
+
+export function founderCovenantOperatorQueueEvidenceNextText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewInputs'>,
+): string {
+  const manual = item.reviewInputs.filter((input) => input.manualEvidenceRequired || input.status === 'manual_needed')
+  if (manual.length === 0) return 'No manual evidence queued.'
+  const [first, second] = manual
+  if (!second) return `Next: ${first.label}`
+  const remaining = manual.length - 2
+  return remaining > 0
+    ? `Next: ${first.label}, ${second.label} · ${remaining} more`
+    : `Next: ${first.label}, ${second.label}`
 }
 
 export function founderCovenantOperatorQueueManualActionText(

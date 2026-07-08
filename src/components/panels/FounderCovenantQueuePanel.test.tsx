@@ -18,6 +18,7 @@ import {
   founderCovenantOperatorQueueApprovalRequestText,
   founderCovenantOperatorQueueChecklistText,
   founderCovenantOperatorQueueEvidenceInputText,
+  founderCovenantOperatorQueueEvidenceNextText,
   founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueueReviewReadinessText,
@@ -66,6 +67,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('Evidence next: Next: Population growth, External contribution · 1 more')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -174,9 +176,20 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
       'Population growth, External contribution, Ideas and feedback',
     )
+    expect(founderCovenantOperatorQueueEvidenceNextText(manual)).toBe(
+      'Next: Population growth, External contribution · 1 more',
+    )
     expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
       'Record review evidence-only, Send warning locked',
     )
+    expect(founderCovenantOperatorQueueEvidenceNextText({
+      ...manual,
+      reviewInputs: [manual.reviewInputs[2]],
+    })).toBe('Next: Population growth')
+    expect(founderCovenantOperatorQueueEvidenceNextText({
+      ...manual,
+      reviewInputs: [],
+    })).toBe('No manual evidence queued.')
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
   })
