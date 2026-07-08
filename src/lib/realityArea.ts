@@ -1274,6 +1274,7 @@ export async function recordRealityFounderCovenantOperatorReview(
   const founderCitizenId = request.founderCitizenId.trim()
   const areaId = request.areaId.trim()
   const note = request.note?.trim()
+  const evidenceKinds = normalizeRealityAreaCovenantManualEvidenceKinds(request.evidenceKinds)
   if (!token) {
     return {
       ok: false,
@@ -1288,6 +1289,14 @@ export async function recordRealityFounderCovenantOperatorReview(
       reason: 'invalid_request',
       error: 'Founder covenant review requires a founder and area identity.',
       code: 'invalid_area_identity',
+    }
+  }
+  if (!evidenceKinds.ok) {
+    return {
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review evidence kinds are invalid.',
+      code: 'invalid_review_evidence',
     }
   }
 
@@ -1305,7 +1314,7 @@ export async function recordRealityFounderCovenantOperatorReview(
           areaId,
           actionKind: request.actionKind,
           ...(note ? { note } : {}),
-          ...(request.evidenceKinds ? { evidenceKinds: request.evidenceKinds } : {}),
+          ...(evidenceKinds.value.length > 0 ? { evidenceKinds: evidenceKinds.value } : {}),
         },
       }),
     })
@@ -1366,6 +1375,19 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'hireWorker' ||
     payload.type === 'repayDebt' ||
     payload.type === 'buyInsurance'
+}
+
+function normalizeRealityAreaCovenantManualEvidenceKinds(
+  kinds: readonly RealityAreaCovenantManualEvidenceKind[] | undefined,
+): { ok: true; value: RealityAreaCovenantManualEvidenceKind[] } | { ok: false } {
+  if (kinds === undefined) return { ok: true, value: [] }
+  if (!Array.isArray(kinds)) return { ok: false }
+  const unique: RealityAreaCovenantManualEvidenceKind[] = []
+  for (const kind of kinds) {
+    if (!isRealityAreaCovenantManualEvidenceKind(kind)) return { ok: false }
+    if (!unique.includes(kind)) unique.push(kind)
+  }
+  return { ok: true, value: unique }
 }
 
 function normalizeRealityAreaServerPayload(

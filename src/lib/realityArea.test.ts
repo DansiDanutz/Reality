@@ -1182,6 +1182,40 @@ describe('Reality area client', () => {
     expect(body.token).toBeUndefined()
   })
 
+  test('normalizes operator review evidence kinds before request', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      evidenceKinds: ['ideas_feedback', 'ideas_feedback', 'external_contribution'],
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer operator-token',
+      },
+      body: JSON.stringify({
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: 'citizen-1',
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          evidenceKinds: ['ideas_feedback', 'external_contribution'],
+        },
+      }),
+    })
+  })
+
   test('keeps operator review evidence blocked without operator authority', async () => {
     const fetchImpl = vi.fn()
 
@@ -1224,6 +1258,25 @@ describe('Reality area client', () => {
       reason: 'invalid_request',
       error: 'Founder covenant review requires a founder and area identity.',
       code: 'invalid_area_identity',
+    })
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('rejects malformed operator review evidence kinds before request', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      evidenceKinds: ['external_contribution', 'bad-kind' as never],
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review evidence kinds are invalid.',
+      code: 'invalid_review_evidence',
     })
 
     expect(fetchImpl).not.toHaveBeenCalled()
