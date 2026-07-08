@@ -35,6 +35,8 @@ const OVERPASS_ENDPOINTS = [
 ]
 
 const ENDPOINT_TIMEOUT_MS = 6_000
+// The proxy retries three mirrors server-side at 8s each — give it headroom.
+const PROXY_TIMEOUT_MS = 20_000
 const DISCOVERY_RADIUS_M = 2_500
 
 const discoveryCache = new Map<string, Promise<MapDiscovery>>()
@@ -65,8 +67,23 @@ export function clearMapDiscoveryCacheForTest() {
 }
 
 async function fetchMapDiscoveryUncached(lat: number, lng: number): Promise<MapDiscovery> {
+  // The same-origin proxy goes first: the public Overpass mirrors don't send
+  // CORS headers, so direct browser calls fail from the deployed origin and
+  // players silently lose real OSM discovery. The proxy also CDN-caches
+  // results per rounded coordinate. Direct mirrors remain as a fallback for
+  // dev servers without API functions.
+  try {
+    const res = await fetch(`/api/overpass?lat=${lat}&lng=${lng}`, {
+      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { ok?: boolean; elements?: OverpassElement[] }
+      if (data.ok) return parseMapDiscovery(data.elements ?? [], lat, lng)
+    }
+  } catch {
+    // Proxy unavailable (e.g. plain `vite dev`) — fall through to mirrors.
+  }
   const query = buildDiscoveryQuery(lat, lng)
-  let lastError: unknown = null
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const res = await fetch(endpoint, {
@@ -75,18 +92,12 @@ async function fetchMapDiscoveryUncached(lat: number, lng: number): Promise<MapD
         body: `data=${encodeURIComponent(query)}`,
         signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
       })
-      if (!res.ok) {
-        lastError = new Error(`Overpass ${endpoint} responded ${res.status}`)
-        continue
-      }
+      if (!res.ok) continue
       const data = (await res.json()) as { elements?: OverpassElement[] }
       return parseMapDiscovery(data.elements ?? [], lat, lng)
-    } catch (error) {
-      lastError = error
+    } catch {
+      // Timeout, network, or CORS failure — try the next mirror.
     }
-  }
-  if (lastError) {
-    return parseMapDiscovery([], lat, lng)
   }
   return parseMapDiscovery([], lat, lng)
 }
