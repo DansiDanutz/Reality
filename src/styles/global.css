@@ -1754,6 +1754,14 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
+.goals-card-agenda-heading {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .goals-card-agenda-item {
   appearance: none;
   display: grid;
