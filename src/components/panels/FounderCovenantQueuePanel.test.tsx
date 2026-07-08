@@ -39,13 +39,15 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('approval workflow disabled')
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
-    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
+    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
     expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('<span>Never</span><strong>2</strong>')
+    expect(html).toContain('<span>Fresh</span><strong>0</strong>')
+    expect(html).toContain('<span>Stale</span><strong>0</strong>')
     expect(html).toContain('<span>Weekly</span><strong>0</strong>')
     expect(html).toContain('<span>Monthly</span><strong>0</strong>')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
@@ -55,7 +57,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('<span>Staffed</span><strong>1</strong>')
     expect(html).toContain('<span>At risk</span><strong>1</strong>')
     expect(html).toContain('#0012 · Bucharest Founder Block')
-    expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('founder-12 · Manual review · manual review · never reviewed · score 35/100 · $350 debt')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -79,6 +81,7 @@ describe('FounderCovenantQueuePanel', () => {
           ...founderQueue(),
           items: [founderQueueItem({
             lastReviewAt: '2026-07-06T08:00:00.000Z',
+            reviewFreshness: 'fresh',
             latestReview: {
               reviewedAt: '2026-07-06T08:00:00.000Z',
               reviewerId: 'telegram-operator:42424242',
@@ -141,6 +144,11 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
     )
+    expect(founderCovenantOperatorQueueItemDateSummary({
+      ...manual,
+      lastReviewAt: '2026-06-20T04:00:00.000Z',
+      reviewFreshness: 'stale',
+    })).toBe('caught up · checked 2026-07-06 · last 2026-06-20 (stale review) · weekly 2026-07-12 · monthly 2026-08-05')
     expect(founderCovenantOperatorQueueItemDateSummary({
       ...manual,
       weeklyReviewDue: true,
@@ -309,6 +317,8 @@ describe('FounderCovenantQueuePanel', () => {
         founders: 0,
         manualReviewRequired: 0,
         neverReviewed: 0,
+        freshReviewed: 0,
+        staleReviewed: 0,
         scanAnomalies: 0,
         weeklyDue: 0,
         monthlyDue: 0,
@@ -327,7 +337,7 @@ describe('FounderCovenantQueuePanel', () => {
 
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
-    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 scan anomalies · 0 weekly due · 0 monthly due · 0 warning approvals · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 0 manual-review drafts · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 scan anomalies · 0 weekly due · 0 monthly due · 0 warning approvals · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 0 manual-review drafts · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
     expect(html).toContain('No founders in this review page.')
   })
 })
@@ -399,6 +409,8 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       atRisk: 1,
       manualReviewRequired: 1,
       neverReviewed: 1,
+      freshReviewed: 0,
+      staleReviewed: 0,
       scanAnomalies: 0,
       weeklyDue: 0,
       monthlyDue: 0,
@@ -445,6 +457,7 @@ function founderQueueItem(
     updatedAt: '2026-07-06T04:00:00.000Z',
     checkedAt: '2026-07-06T04:00:00.000Z',
     lastReviewAt: null,
+    reviewFreshness: 'never',
     latestReview: null,
     nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
     nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',

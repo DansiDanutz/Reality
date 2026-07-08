@@ -116,6 +116,8 @@ export interface FounderCovenantOperatorQueueSliceTotals {
   founders: number
   manualReviewRequired: number
   neverReviewed: number
+  freshReviewed: number
+  staleReviewed: number
   scanAnomalies: number
   weeklyDue: number
   monthlyDue: number
@@ -747,6 +749,8 @@ export function founderCovenantOperatorQueueSummary(
   const riskParts = [
     `${totals.manualReviewRequired} manual review${totals.manualReviewRequired === 1 ? '' : 's'}`,
     `${totals.neverReviewed} never reviewed`,
+    `${totals.freshReviewed} freshly reviewed`,
+    `${totals.staleReviewed} stale review${totals.staleReviewed === 1 ? '' : 's'}`,
     `${totals.scanAnomalies} scan anomal${totals.scanAnomalies === 1 ? 'y' : 'ies'}`,
     `${totals.weeklyDue} weekly due`,
     `${totals.monthlyDue} monthly due`,
@@ -773,6 +777,7 @@ export function founderCovenantOperatorQueueItemSummary(
     RealityFounderCovenantReviewQueueItem,
     | 'covenantStatus'
     | 'manualReviewRequired'
+    | 'reviewFreshness'
     | 'activityReview'
     | 'economicExposure'
     | 'signalCounts'
@@ -782,7 +787,7 @@ export function founderCovenantOperatorQueueItemSummary(
 ): string {
   const status = founderCovenantStatusLabel(item.covenantStatus)
   const review = item.manualReviewRequired ? 'manual review' : 'watch'
-  return `${status} · ${review} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
+  return `${status} · ${review} · ${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
 }
 
 export function founderCovenantOperatorQueueItemTitle(
@@ -811,10 +816,19 @@ export function founderCovenantOperatorQueueItemStatusLabel(
 export function founderCovenantOperatorQueueItemDateSummary(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
-    'scanStatus' | 'checkedAt' | 'lastReviewAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt' | 'weeklyReviewDue' | 'monthlyReviewDue'
+    | 'scanStatus'
+    | 'checkedAt'
+    | 'lastReviewAt'
+    | 'reviewFreshness'
+    | 'nextWeeklyReviewAt'
+    | 'nextMonthlyReviewAt'
+    | 'weeklyReviewDue'
+    | 'monthlyReviewDue'
   >,
 ): string {
-  const lastReview = item.lastReviewAt ? shortDate(item.lastReviewAt) : 'none'
+  const lastReview = item.lastReviewAt
+    ? `${shortDate(item.lastReviewAt)} (${founderCovenantOperatorQueueReviewFreshnessLabel(item.reviewFreshness)})`
+    : 'none'
   const weekly = item.weeklyReviewDue ? 'weekly due' : `weekly ${shortDate(item.nextWeeklyReviewAt)}`
   const monthly = item.monthlyReviewDue ? 'monthly due' : `monthly ${shortDate(item.nextMonthlyReviewAt)}`
   return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · ${weekly} · ${monthly}`
@@ -929,6 +943,8 @@ export function founderCovenantOperatorQueueSliceTotals(
     founders: items.length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    freshReviewed: items.filter((item) => item.reviewFreshness === 'fresh').length,
+    staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
     scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
@@ -941,6 +957,19 @@ export function founderCovenantOperatorQueueSliceTotals(
     building: items.filter((item) => item.activityReview.building).length,
     staffed: items.filter((item) => item.activityReview.staffed).length,
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
+  }
+}
+
+function founderCovenantOperatorQueueReviewFreshnessLabel(
+  freshness: RealityFounderCovenantReviewQueueItem['reviewFreshness'],
+): string {
+  switch (freshness) {
+    case 'never':
+      return 'never reviewed'
+    case 'fresh':
+      return 'fresh review'
+    case 'stale':
+      return 'stale review'
   }
 }
 

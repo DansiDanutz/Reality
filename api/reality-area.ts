@@ -1179,6 +1179,7 @@ interface FounderCovenantReviewQueueItem {
   updatedAt: string
   checkedAt: string
   lastReviewAt: string | null
+  reviewFreshness: 'never' | 'fresh' | 'stale'
   latestReview: FounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
@@ -1248,6 +1249,8 @@ interface FounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    freshReviewed: number
+    staleReviewed: number
     scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
@@ -4531,14 +4534,17 @@ function founderCovenantReviewQueueItem(
   transactionsAdded: number,
 ): FounderCovenantReviewQueueItem {
   const review = state.founderCovenant
+  const checkedAt = review.activityReview.checkedAt
+  const lastReviewAt = review.reviewSchedule.lastReviewAt
   return {
     areaId: state.areaId,
     areaLabel: state.claim.label,
     founderCitizenId: state.founderCitizenId,
     founderNumber: state.founderNumber,
     updatedAt: state.updatedAt,
-    checkedAt: review.activityReview.checkedAt,
-    lastReviewAt: review.reviewSchedule.lastReviewAt,
+    checkedAt,
+    lastReviewAt,
+    reviewFreshness: founderCovenantReviewFreshness(checkedAt, lastReviewAt),
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
@@ -4636,6 +4642,8 @@ function founderCovenantReviewQueueTotals(
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    freshReviewed: items.filter((item) => item.reviewFreshness === 'fresh').length,
+    staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
     scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
@@ -4659,6 +4667,17 @@ function founderCovenantReviewQueueTotals(
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
   }
+}
+
+function founderCovenantReviewFreshness(
+  checkedAt: string,
+  lastReviewAt: string | null,
+): 'never' | 'fresh' | 'stale' {
+  if (lastReviewAt === null) return 'never'
+  const checkedAtMs = Date.parse(checkedAt)
+  const lastReviewMs = Date.parse(lastReviewAt)
+  if (!Number.isFinite(checkedAtMs) || !Number.isFinite(lastReviewMs)) return 'stale'
+  return checkedAtMs - lastReviewMs <= FOUNDER_COVENANT_WEEKLY_REVIEW_MS ? 'fresh' : 'stale'
 }
 
 function compareFounderCovenantReviewQueueItems(

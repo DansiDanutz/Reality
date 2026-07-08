@@ -68,6 +68,16 @@ export function FounderCovenantQueuePanel({
           value={sliceTotals.neverReviewed}
         />
         <QueueTotalChip
+          label="Fresh"
+          tone={sliceTotals.freshReviewed === 0 ? 'warning' : 'stable'}
+          value={sliceTotals.freshReviewed}
+        />
+        <QueueTotalChip
+          label="Stale"
+          tone={sliceTotals.staleReviewed > 0 ? 'warning' : 'stable'}
+          value={sliceTotals.staleReviewed}
+        />
+        <QueueTotalChip
           label="Weekly"
           tone={sliceTotals.weeklyDue > 0 ? 'warning' : 'stable'}
           value={sliceTotals.weeklyDue}

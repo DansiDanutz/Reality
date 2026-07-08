@@ -40,6 +40,8 @@ import {
 } from './worldSimIntentCodec'
 import type { Needs } from './types'
 
+const FOUNDER_COVENANT_WEEKLY_REVIEW_MS = 7 * 24 * 60 * 60 * 1000
+
 export interface WorldAreaRepository {
   loadArea: (areaId: string) => Promise<WorldArea | null>
   loadAreaRecord?: (areaId: string) => Promise<WorldAreaRecord | null>
@@ -212,6 +214,7 @@ export type WorldFounderCovenantActivitySignalKey =
   | 'at_risk'
 
 export type WorldFounderCovenantActivitySignalStatus = 'met' | 'watch' | 'manual_review'
+export type WorldFounderCovenantReviewFreshness = 'never' | 'fresh' | 'stale'
 
 export interface WorldFounderCovenantActivitySignal {
   key: WorldFounderCovenantActivitySignalKey
@@ -250,6 +253,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   founderCitizenId: string
   checkedAt: number
   lastReviewAt: number | null
+  reviewFreshness: WorldFounderCovenantReviewFreshness
   latestReview: WorldFounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: number | null
   nextMonthlyReviewAt: number | null
@@ -316,6 +320,8 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    freshReviewed: number
+    staleReviewed: number
     scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
@@ -691,12 +697,15 @@ function founderCovenantReviewQueueItem(
 ): WorldFounderCovenantReviewQueueItem {
   const review = dashboard.founderCovenant
   const founderCitizenId = review.founderCitizenId ?? area.claim?.founderCitizenId ?? ''
+  const checkedAt = review.activityReview.checkedAt
+  const lastReviewAt = review.reviewSchedule?.lastReviewAt ?? null
   return {
     areaId: area.id,
     areaName: area.name,
     founderCitizenId,
-    checkedAt: review.activityReview.checkedAt,
-    lastReviewAt: review.reviewSchedule?.lastReviewAt ?? null,
+    checkedAt,
+    lastReviewAt,
+    reviewFreshness: founderCovenantReviewFreshness(checkedAt, lastReviewAt),
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
     nextWeeklyReviewAt: review.reviewSchedule?.nextWeeklyReviewAt ?? null,
     nextMonthlyReviewAt: review.reviewSchedule?.nextMonthlyReviewAt ?? null,
@@ -868,6 +877,8 @@ function founderCovenantReviewQueueTotals(
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    freshReviewed: items.filter((item) => item.reviewFreshness === 'fresh').length,
+    staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
     scanAnomalies: items.filter((item) => item.scanStatus === 'write_conflict' || item.scanStatus === 'time_moved_backward').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
@@ -892,6 +903,14 @@ function founderCovenantReviewQueueTotals(
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
   }
+}
+
+function founderCovenantReviewFreshness(
+  checkedAt: number,
+  lastReviewAt: number | null,
+): WorldFounderCovenantReviewFreshness {
+  if (lastReviewAt === null) return 'never'
+  return checkedAt - lastReviewAt <= FOUNDER_COVENANT_WEEKLY_REVIEW_MS ? 'fresh' : 'stale'
 }
 
 function founderCovenantReviewInputSnapshot(input: FounderCovenantReviewInput): FounderCovenantReviewInput {

@@ -867,6 +867,7 @@ export interface RealityFounderCovenantReviewQueueItem {
   updatedAt: string
   checkedAt: string
   lastReviewAt: string | null
+  reviewFreshness: 'never' | 'fresh' | 'stale'
   latestReview: RealityFounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
@@ -936,6 +937,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    freshReviewed: number
+    staleReviewed: number
     scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
@@ -2242,6 +2245,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.atRisk === 'number' &&
     typeof value.manualReviewRequired === 'number' &&
     typeof value.neverReviewed === 'number' &&
+    typeof value.freshReviewed === 'number' &&
+    typeof value.staleReviewed === 'number' &&
     typeof value.scanAnomalies === 'number' &&
     typeof value.weeklyDue === 'number' &&
     typeof value.monthlyDue === 'number' &&
@@ -2272,6 +2277,7 @@ function isRealityFounderCovenantReviewQueueItem(
     typeof value.updatedAt === 'string' &&
     typeof value.checkedAt === 'string' &&
     isNullableString(value.lastReviewAt) &&
+    (value.reviewFreshness === 'never' || value.reviewFreshness === 'fresh' || value.reviewFreshness === 'stale') &&
     (value.latestReview === null || isRealityFounderCovenantReviewQueueLatestReview(value.latestReview)) &&
     typeof value.nextWeeklyReviewAt === 'string' &&
     typeof value.nextMonthlyReviewAt === 'string' &&

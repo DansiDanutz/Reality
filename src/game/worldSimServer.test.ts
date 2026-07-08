@@ -1459,6 +1459,8 @@ describe('runWorldServerCommand', () => {
       atRisk: 2,
       manualReviewRequired: 1,
       neverReviewed: 2,
+      freshReviewed: 0,
+      staleReviewed: 0,
       scanAnomalies: 0,
       totalOutstandingDebt: 350,
     })
@@ -1494,6 +1496,7 @@ describe('runWorldServerCommand', () => {
     expect(result.founderCovenantReviewQueue.items[0]).toMatchObject({
       areaId: 'area-1',
       lastReviewAt: reviewAt,
+      reviewFreshness: 'fresh',
       latestReview: {
         reviewedAt: reviewAt,
         reviewerId: 'reviewer-1',
