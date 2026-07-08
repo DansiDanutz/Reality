@@ -1521,6 +1521,7 @@ describe('Reality area client', () => {
       items: [{
         ...serverFounderCovenantReviewQueue().items[0],
         latestReview: {
+          id: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
           reviewedAt: '2026-07-06T08:00:00.000Z',
           reviewerId: 'telegram-operator:42424242',
           actionKind: 'record_review',
@@ -1552,6 +1553,7 @@ describe('Reality area client', () => {
         areaLabel: ' Bucharest Founder Block ',
         founderCitizenId: ' citizen-1 ',
         latestReview: {
+          id: ' founder-area-0012:1783306800000:founder-review:telegram-operator:42424242 ',
           reviewedAt: '2026-07-06T08:00:00.000Z',
           reviewerId: ' telegram-operator:42424242 ',
           actionKind: 'record_review',
@@ -1576,6 +1578,7 @@ describe('Reality area client', () => {
           areaLabel: 'Bucharest Founder Block',
           founderCitizenId: 'citizen-1',
           latestReview: {
+            id: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
             reviewedAt: '2026-07-06T08:00:00.000Z',
             reviewerId: 'telegram-operator:42424242',
             actionKind: 'record_review',
@@ -1674,6 +1677,7 @@ describe('Reality area client', () => {
       items: [{
         ...serverFounderCovenantReviewQueue().items[0],
         latestReview: {
+          id: '   ',
           reviewedAt: '2026-07-06T08:00:00.000Z',
           reviewerId: '   ',
           actionKind: 'record_review',

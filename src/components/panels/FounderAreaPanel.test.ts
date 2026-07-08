@@ -343,7 +343,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       approvalRequests: [{
         id: 'approval-1',
         at: 1_000,
-        reviewId: null,
+        reviewId: 'review-1',
         kind: 'send_warning',
         label: 'Send warning',
         reason: 'Covenant signals suggest a manual founder warning.',
@@ -363,7 +363,7 @@ describe('FounderAreaPanel covenant presenters', () => {
         notificationDraftId: 'draft-1',
         blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       }],
-    })).toBe('1 approval captured · 0 executable · 2 blockers')
+    })).toBe('1 approval captured · 0 executable · 2 blockers · 1 linked')
   })
 
   test('labels latest covenant review evidence without enabling automation', () => {

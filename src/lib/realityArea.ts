@@ -811,6 +811,7 @@ export interface RealityFounderCovenantReviewQueueEconomicExposure {
 }
 
 export interface RealityFounderCovenantReviewQueueLatestReview {
+  id: string
   reviewedAt: string
   reviewerId: string
   actionKind: 'record_review'
@@ -2588,6 +2589,7 @@ function isRealityFounderCovenantReviewQueueLatestReview(
   value: unknown,
 ): value is RealityFounderCovenantReviewQueueLatestReview {
   return isRecord(value) &&
+    typeof value.id === 'string' &&
     typeof value.reviewedAt === 'string' &&
     typeof value.reviewerId === 'string' &&
     value.actionKind === 'record_review' &&
@@ -2664,12 +2666,14 @@ function parseRealityFounderCovenantReviewQueueItem(
 function parseRealityFounderCovenantReviewQueueLatestReview(
   value: RealityFounderCovenantReviewQueueLatestReview,
 ): RealityFounderCovenantReviewQueueLatestReview | null {
+  const id = value.id.trim()
   const reviewerId = value.reviewerId.trim()
   const summary = value.summary.trim()
-  if (!reviewerId || !summary) return null
+  if (!id || !reviewerId || !summary) return null
 
   return {
     ...value,
+    id,
     reviewerId,
     summary,
   }

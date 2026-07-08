@@ -120,6 +120,7 @@ describe('FounderCovenantQueuePanel', () => {
             lastReviewAt: '2026-07-06T08:00:00.000Z',
             reviewFreshness: 'fresh',
             latestReview: {
+              id: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
               reviewedAt: '2026-07-06T08:00:00.000Z',
               reviewerId: 'telegram-operator:42424242',
               actionKind: 'record_review',
@@ -132,7 +133,7 @@ describe('FounderCovenantQueuePanel', () => {
       />,
     )
 
-    expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · 42424242 · Reviewed contribution and ideas evidence.')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
   })

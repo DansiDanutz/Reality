@@ -757,7 +757,9 @@ export function founderCovenantReviewApprovalSummary(
   if (count === 0) return 'No approval snapshot'
   const executable = review.approvalRequests.filter((request) => request.executionEnabled).length
   const blockers = review.approvalRequests.reduce((total, request) => total + request.blockers.length, 0)
-  return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable · ${blockers} blocker${blockers === 1 ? '' : 's'}`
+  const linked = review.approvalRequests.filter((request) => request.reviewId).length
+  const linkedText = linked > 0 ? ` · ${linked} linked` : ''
+  return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable · ${blockers} blocker${blockers === 1 ? '' : 's'}${linkedText}`
 }
 
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
@@ -1643,7 +1645,8 @@ export function founderCovenantOperatorQueueLatestReviewText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
 ): string | null {
   if (!item.latestReview) return null
-  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+  const reviewKey = item.latestReview.id.split(':').slice(-1)[0] ?? item.latestReview.id
+  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${reviewKey} · ${item.latestReview.summary}`
 }
 
 export function founderCovenantOperatorQueueActivitySignalText(
