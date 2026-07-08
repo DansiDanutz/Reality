@@ -367,6 +367,12 @@ describe('decodeClientWorldIntentPayload', () => {
 
     expect(decodeClientWorldIntentPayload({
       type: 'repayDebt',
+      debtId: 'debt-a',
+      amount: 0.004,
+    }, 'founder')).toEqual({ ok: false, error: 'invalid_amount' })
+
+    expect(decodeClientWorldIntentPayload({
+      type: 'repayDebt',
       debtId: '../debt',
       amount: 10,
     }, 'founder')).toEqual({ ok: false, error: 'invalid_debt_id' })

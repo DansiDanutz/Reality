@@ -330,7 +330,9 @@ function decodeRepayDebtIntent(
   const debtId = readClientId(payload.debtId)
   if (!debtId) return { ok: false, error: 'invalid_debt_id' }
   if (!isPositiveMoney(payload.amount)) return { ok: false, error: 'invalid_amount' }
-  return { ok: true, intent: { type: 'repayDebt', actorCitizenId, debtId, amount: roundMoney(payload.amount) } }
+  const amount = roundMoney(payload.amount)
+  if (amount <= 0) return { ok: false, error: 'invalid_amount' }
+  return { ok: true, intent: { type: 'repayDebt', actorCitizenId, debtId, amount } }
 }
 
 function readReviewActionKind(value: unknown): FounderCovenantManualActionKind | null {
