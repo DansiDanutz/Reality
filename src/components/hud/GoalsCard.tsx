@@ -259,7 +259,7 @@ export default function GoalsCard() {
             ))}
           </span>
         </span>
-        <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · day {lifePlan.lifeDay}</span>
+        <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · Day {lifePlan.lifeDay}</span>
       </button>
       {agenda}
       {routine}
