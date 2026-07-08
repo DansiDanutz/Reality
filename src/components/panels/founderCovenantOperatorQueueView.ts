@@ -10,6 +10,7 @@ export interface CopiedQueueViewState {
   sort: FounderCovenantOperatorQueueSort
   scanCursor: string | null
   nextCursor: string | null
+  cadenceReadySummary?: string | null
   workloadSummary?: string | null
   recommendedAction?: string | null
 }
@@ -102,6 +103,7 @@ export function queueHandoffText({
   scanCursor,
   nextCursor,
   queueSummary,
+  cadenceReadySummary,
   workloadSummary,
   recommendedAction,
 }: {
@@ -110,6 +112,7 @@ export function queueHandoffText({
   scanCursor: string | null
   nextCursor: string | null
   queueSummary: string
+  cadenceReadySummary?: string | null
   workloadSummary?: string | null
   recommendedAction?: string | null
 }): string {
@@ -118,6 +121,7 @@ export function queueHandoffText({
     queueCursorContextText(scanCursor, nextCursor),
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
+    cadenceReadySummary,
     workloadSummary,
     recommendedAction,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
@@ -128,6 +132,7 @@ export function queueCopiedStatusSummary({
   sort,
   scanCursor,
   nextCursor,
+  cadenceReadySummary,
   workloadSummary,
   recommendedAction,
 }: CopiedQueueViewState): string[] {
@@ -139,6 +144,7 @@ export function queueCopiedStatusSummary({
   return [
     `Copied view: ${copiedView}`,
     `Copied cursor: ${copiedCursor}`,
+    cadenceReadySummary ? `Copied cadence: ${cadenceReadySummary}` : null,
     workloadSummary ? `Copied workload: ${workloadSummary}` : null,
     recommendedAction ? `Copied next: ${recommendedAction}` : null,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0)
