@@ -1109,7 +1109,7 @@ export function recordFounderCovenantReview(
     ok: true,
     area: {
       ...area,
-      founderReviewHistory: [...(area.founderReviewHistory ?? []), entry],
+      founderReviewHistory: [...(area.founderReviewHistory ?? []).map(founderCovenantReviewHistoryItem), entry],
     },
     entry,
   }
