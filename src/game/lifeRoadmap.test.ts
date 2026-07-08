@@ -401,6 +401,18 @@ describe('planLifeRoadmap', () => {
       'gather-business-building-stone',
     ]))
     expect(primaryIds.some((id) => id.startsWith('gather-'))).toBe(true)
+    const firstGatherWood = roadmap.days.find((day) => day.primary.id === 'gather-wood')
+    expect(firstGatherWood).toMatchObject({
+      startingResources: expect.objectContaining({ wood: expect.any(Number) }),
+      endingResources: expect.objectContaining({ wood: expect.any(Number) }),
+      resourceDelta: expect.objectContaining({ wood: expect.any(Number) }),
+    })
+    expect(firstGatherWood?.endingResources.wood ?? 0).toBeGreaterThan(firstGatherWood?.startingResources.wood ?? 0)
+    expect(firstGatherWood?.resourceDelta.wood ?? 0).toBeGreaterThan(0)
+
+    const houseDeposit = roadmap.days.find((day) => day.primary.id === 'deposit-house-materials')
+    expect(houseDeposit?.resourceDelta.wood ?? 0).toBeLessThan(0)
+    expect(houseDeposit?.endingResources.wood ?? 0).toBeLessThan(houseDeposit?.startingResources.wood ?? 0)
 
     for (const day of roadmap.days) {
       expect(day.routine.map((block) => block.id)).toEqual([

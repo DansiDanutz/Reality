@@ -31,6 +31,7 @@ import {
 } from './education'
 import { SLEEP_HOURS, advanceLife, applyEffects, applyXp } from './engine'
 import { addResources, RESOURCE_META, freshResources } from './resources'
+import type { ResourceInventory } from './resources'
 import type { Needs, PlacedAsset, ShopCategory, ShopItem } from './types'
 import {
   planLifeDay,
@@ -60,6 +61,9 @@ export interface LifeRoadmapDay {
   endingMoney: number
   projectedCashDelta: number
   actualCashDelta: number
+  startingResources: ResourceInventory
+  endingResources: ResourceInventory
+  resourceDelta: ResourceInventory
   buildEta: string | null
   interiorEta: string | null
 }
@@ -191,6 +195,15 @@ function projectedDailyCashDelta(plan: LifePlan): number {
     cashflow.upkeepPerDay
 }
 
+function dailyResourceDelta(starting: ResourceInventory, ending: ResourceInventory): ResourceInventory {
+  return freshResources({
+    wood: ending.wood - starting.wood,
+    stone: ending.stone - starting.stone,
+    metal: ending.metal - starting.metal,
+    glass: ending.glass - starting.glass,
+  })
+}
+
 function cloneSnapshot(snapshot: LifeLadderSnapshot): LifeLadderSnapshot {
   return {
     ...snapshot,
@@ -251,8 +264,10 @@ function asPlacedAsset(asset: LifeLadderAsset, index: number): PlacedAsset {
   }
 }
 
-function roadmapDay(plan: LifePlan, startingMoney: number, endingMoney: number): LifeRoadmapDay {
+function roadmapDay(plan: LifePlan, starting: LifeLadderSnapshot, ending: LifeLadderSnapshot): LifeRoadmapDay {
   const routineValues = plan.routine.map((block) => block.value)
+  const startingResources = freshResources(starting.resources)
+  const endingResources = freshResources(ending.resources)
   return {
     lifeDay: plan.lifeDay,
     primary: plan.primary,
@@ -264,10 +279,13 @@ function roadmapDay(plan: LifePlan, startingMoney: number, endingMoney: number):
     millionaireGap: plan.millionairePath.millionaireGap,
     daysToMillionaire: plan.millionairePath.daysToMillionaire,
     netWorth: plan.millionairePath.netWorth,
-    startingMoney,
-    endingMoney,
+    startingMoney: starting.money,
+    endingMoney: ending.money,
     projectedCashDelta: projectedDailyCashDelta(plan),
-    actualCashDelta: endingMoney - startingMoney,
+    actualCashDelta: ending.money - starting.money,
+    startingResources,
+    endingResources,
+    resourceDelta: dailyResourceDelta(startingResources, endingResources),
     buildEta: buildEtaSummary(plan.constructionForecast),
     interiorEta: interiorEtaSummary(plan.businessDevelopmentForecast),
   }
@@ -609,7 +627,7 @@ export function planLifeRoadmap(snapshot: LifeLadderSnapshot, days = DEFAULT_ROA
   for (let index = 0; index < horizonDays; index += 1) {
     const plan = planLifeDay(current)
     const next = applyRoute(current, plan)
-    roadmapDays.push(roadmapDay(plan, current.money, next.money))
+    roadmapDays.push(roadmapDay(plan, current, next))
     current = next
   }
 
