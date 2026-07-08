@@ -333,6 +333,11 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     monitorFounders: number
     freshReviewedActiveFounders: number
     overdueCleanupFounders: number
+    nextEvidenceFounders: number
+    nextBlockedFounders: number
+    nextOverdueFounders: number
+    nextRecordFounders: number
+    nextMonitorFounders: number
     probationRiskFounders: number
     replacementRiskFounders: number
     neverReviewed: number
@@ -886,9 +891,30 @@ function founderCovenantReviewQueueTotals(
   items: WorldFounderCovenantReviewQueueItem[],
 ): WorldFounderCovenantReviewQueueDashboard['totals'] {
   const evidenceItems = items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0)
+  const blockedNextItems = items.filter((item) =>
+    item.reviewReadiness.evidenceRequiredCount === 0 &&
+    item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
+  )
   const recordReadyItems = items.filter((item) => item.reviewReadiness.status === 'ready')
   const monitorItems = items.filter((item) => item.reviewReadiness.status === 'monitoring')
   const overdueCleanupItems = items.filter((item) => item.reviewReadiness.overdue && item.reviewFreshness === 'stale')
+  const nextRecordItems = items.filter((item) =>
+    item.reviewReadiness.evidenceRequiredCount === 0 &&
+    !item.pendingApprovalRequests.some((request) => request.blockers.length > 0) &&
+    item.manualActions.some((action) => action.recommended && action.kind === 'record_review')
+  )
+  const nextOverdueItems = items.filter((item) =>
+    item.reviewReadiness.evidenceRequiredCount === 0 &&
+    !item.pendingApprovalRequests.some((request) => request.blockers.length > 0) &&
+    !item.manualActions.some((action) => action.recommended) &&
+    item.overdue
+  )
+  const nextMonitorItems = items.filter((item) =>
+    item.reviewReadiness.evidenceRequiredCount === 0 &&
+    !item.pendingApprovalRequests.some((request) => request.blockers.length > 0) &&
+    !item.manualActions.some((action) => action.recommended) &&
+    !item.overdue
+  )
   return {
     founders: items.length,
     active: items.filter((item) => item.activityReview.active).length,
@@ -913,6 +939,11 @@ function founderCovenantReviewQueueTotals(
     monitorFounders: monitorItems.length,
     freshReviewedActiveFounders: items.filter((item) => item.reviewFreshness === 'fresh' && item.activityReview.active).length,
     overdueCleanupFounders: overdueCleanupItems.length,
+    nextEvidenceFounders: evidenceItems.length,
+    nextBlockedFounders: blockedNextItems.length,
+    nextOverdueFounders: nextOverdueItems.length,
+    nextRecordFounders: nextRecordItems.length,
+    nextMonitorFounders: nextMonitorItems.length,
     probationRiskFounders: items.filter((item) =>
       item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
     ).length,

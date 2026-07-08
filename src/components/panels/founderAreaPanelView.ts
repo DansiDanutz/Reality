@@ -1196,8 +1196,20 @@ export function founderCovenantOperatorQueueRecommendedActionText(
 }
 
 export function founderCovenantOperatorQueueActionMix(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'nextEvidenceFounders' | 'nextBlockedFounders' | 'nextOverdueFounders' | 'nextRecordFounders' | 'nextMonitorFounders'>
+  },
 ): FounderCovenantOperatorQueueActionMix {
+  if (queue.totals) {
+    return {
+      evidence: queue.totals.nextEvidenceFounders,
+      blocked: queue.totals.nextBlockedFounders,
+      overdue: queue.totals.nextOverdueFounders,
+      record: queue.totals.nextRecordFounders,
+      monitor: queue.totals.nextMonitorFounders,
+    }
+  }
   return queue.items.reduce<FounderCovenantOperatorQueueActionMix>((totals, item) => {
     const recommendation = founderCovenantOperatorQueueRecommendedNextText(item)
     if (recommendation === 'Attach missing manual evidence') totals.evidence += 1

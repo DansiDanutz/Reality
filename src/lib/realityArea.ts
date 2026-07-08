@@ -950,6 +950,11 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     monitorFounders: number
     freshReviewedActiveFounders: number
     overdueCleanupFounders: number
+    nextEvidenceFounders: number
+    nextBlockedFounders: number
+    nextOverdueFounders: number
+    nextRecordFounders: number
+    nextMonitorFounders: number
     probationRiskFounders: number
     replacementRiskFounders: number
     neverReviewed: number
@@ -2326,6 +2331,11 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.monitorFounders === 'number' &&
     typeof value.freshReviewedActiveFounders === 'number' &&
     typeof value.overdueCleanupFounders === 'number' &&
+    typeof value.nextEvidenceFounders === 'number' &&
+    typeof value.nextBlockedFounders === 'number' &&
+    typeof value.nextOverdueFounders === 'number' &&
+    typeof value.nextRecordFounders === 'number' &&
+    typeof value.nextMonitorFounders === 'number' &&
     typeof value.probationRiskFounders === 'number' &&
     typeof value.replacementRiskFounders === 'number' &&
     typeof value.neverReviewed === 'number' &&
