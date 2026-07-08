@@ -42,6 +42,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
     expect(html).toContain('Record evidence')
+    expect(html).toContain('Reset view')
     expect(html).toContain('Refresh page')
     expect(html).toContain('Restart scan')
     expect(html).toContain('Next page')

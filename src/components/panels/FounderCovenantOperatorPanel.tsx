@@ -345,6 +345,17 @@ export default function FounderCovenantOperatorPanel({
           <div className="founder-operator-actions">
             <button
               className="btn small ghost"
+              disabled={loading || (queueFilter === 'all' && queueSort === 'priority')}
+              onClick={() => {
+                setQueueFilter('all')
+                setQueueSort('priority')
+              }}
+              type="button"
+            >
+              Reset view
+            </button>
+            <button
+              className="btn small ghost"
               disabled={loading || operatorToken.length === 0}
               onClick={() => void loadQueue(scanCursor)}
               type="button"
