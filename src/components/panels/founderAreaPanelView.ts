@@ -146,6 +146,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   notificationDraftText: string
   notificationDraftGateText: string
   notificationDraftStatusText: string
+  signalCountText: string
   signalText: string
   priorityScore: number
   priorityReasons: string[]
@@ -1309,6 +1310,12 @@ export function founderCovenantOperatorQueueSignalText(
   return item.signalKinds.length > 0 ? item.signalKinds.join(', ') : 'none'
 }
 
+export function founderCovenantOperatorQueueSignalCountText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'signalCounts'>,
+): string {
+  return `${item.signalCounts.total} total · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical`
+}
+
 export function founderCovenantOperatorQueueUpdatedAtText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'updatedAt' | 'transactionsAdded'>,
 ): string {
@@ -1351,6 +1358,7 @@ export function founderCovenantOperatorQueueReviewRows(
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       notificationDraftGateText: founderCovenantOperatorQueueNotificationDraftGateText(item),
       notificationDraftStatusText: founderCovenantOperatorQueueNotificationDraftStatusText(item),
+      signalCountText: founderCovenantOperatorQueueSignalCountText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
