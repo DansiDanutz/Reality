@@ -857,20 +857,10 @@ export function founderCovenantOperatorQueueEvidenceSummary(
 }
 
 export function founderCovenantOperatorQueueRecordReadySummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
 ): string {
-  const recordReadyFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
-  ).length
-  const weeklyReady = queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item)) &&
-      item.weeklyReviewDue
-  ).length
-  const monthlyReady = queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item)) &&
-      item.monthlyReviewDue
-  ).length
-  return `Record ready: ${recordReadyFounders} founder${recordReadyFounders === 1 ? '' : 's'} · ${weeklyReady} weekly · ${monthlyReady} monthly`
+  const { totals } = queue
+  return `Record ready: ${totals.recordReadyFounders} founder${totals.recordReadyFounders === 1 ? '' : 's'} · ${totals.recordReadyWeekly} weekly · ${totals.recordReadyMonthly} monthly`
 }
 
 export function founderCovenantOperatorQueueOverdueCleanupSummary(
@@ -1003,11 +993,9 @@ export function founderCovenantOperatorQueuePrimaryWorkloadTone(
 }
 
 export function founderCovenantOperatorQueueRecordReadyCount(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
 ): number {
-  return queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
-  ).length
+  return queue.totals.recordReadyFounders
 }
 
 export function founderCovenantOperatorQueueActivityRiskMix(

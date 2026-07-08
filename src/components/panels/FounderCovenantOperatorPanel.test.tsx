@@ -278,6 +278,9 @@ describe('FounderCovenantOperatorPanel', () => {
             signalCriticalCount: 0,
             signalWarningCount: 1,
             signalFlaggedFounders: 1,
+            recordReadyFounders: 1,
+            recordReadyWeekly: 1,
+            recordReadyMonthly: 1,
             probationRiskFounders: 0,
             replacementRiskFounders: 0,
             weeklyDue: 2,
@@ -377,10 +380,10 @@ describe('FounderCovenantOperatorPanel', () => {
       items: operatorQueue().items,
     })).toBe('Evidence: 1 founder queued · 3 gaps · 0 record ready')
     expect(founderCovenantOperatorQueueRecordReadySummary({
-      items: operatorQueue().items,
+      totals: operatorQueue().totals,
     })).toBe('Record ready: 0 founders · 0 weekly · 0 monthly')
     expect(founderCovenantOperatorQueueRecordReadyCount({
-      items: operatorQueue().items,
+      totals: operatorQueue().totals,
     })).toBe(0)
     expect(founderCovenantOperatorQueueOverdueCleanupSummary({
       items: operatorQueue().items,
@@ -705,6 +708,9 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       signalWarningCount: 1,
       signalCriticalCount: 1,
       signalFlaggedFounders: 1,
+      recordReadyFounders: 0,
+      recordReadyWeekly: 0,
+      recordReadyMonthly: 0,
       probationRiskFounders: 1,
       replacementRiskFounders: 1,
       neverReviewed: 1,
