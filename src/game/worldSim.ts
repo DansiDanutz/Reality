@@ -86,6 +86,14 @@ export interface WorldTransaction {
   memo: string
 }
 
+const FOUNDER_ACTIVITY_TRANSACTION_KINDS: readonly WorldTransactionKind[] = [
+  'business_build',
+  'customer_purchase',
+  'worker_wage',
+  'insurance_premium',
+  'debt_repayment',
+]
+
 export type WorldAreaEventKind = 'sim_citizen_departure'
 export type WorldAreaEventSeverity = 'info' | 'warning' | 'critical'
 export type WorldDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
@@ -455,6 +463,7 @@ export type FounderCovenantManualActionKind =
   | 'recommend_replacement'
 export type FounderCovenantSignalKind =
   | 'founder_unavailable'
+  | 'stale_founder_activity'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -1573,6 +1582,14 @@ function founderCovenantDashboard(
     })
   }
 
+  if (founderActive && reviewSchedule?.overdue && !hasRecentFounderActivity(area, founderBusinessIds, reviewSchedule)) {
+    signals.push({
+      kind: 'stale_founder_activity',
+      severity: 'warning',
+      message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
+    })
+  }
+
   if (!building) {
     signals.push({
       kind: 'no_business_built',
@@ -1831,6 +1848,30 @@ function unreviewedSimDepartureEvents(area: WorldArea, lastReviewAt: number | nu
     if (lastReviewAt === null || !Number.isFinite(lastReviewAt)) return true
     return Number.isFinite(event.at) && event.at > lastReviewAt
   })
+}
+
+function hasRecentFounderActivity(
+  area: WorldArea,
+  founderBusinessIds: ReadonlySet<string>,
+  reviewSchedule: FounderCovenantReviewSchedule,
+): boolean {
+  const founderCitizenId = area.claim?.founderCitizenId
+  const claimedAt = area.claim?.claimedAt ?? area.now
+  const anchor = Math.max(
+    reviewSchedule.lastReviewAt ?? claimedAt,
+    area.now - FOUNDER_COVENANT_WEEKLY_REVIEW_MS,
+  )
+
+  return area.transactions.some((transaction) =>
+    FOUNDER_ACTIVITY_TRANSACTION_KINDS.includes(transaction.kind) &&
+    transaction.at > anchor &&
+    (
+      transaction.fromId === founderCitizenId ||
+      transaction.toId === founderCitizenId ||
+      founderBusinessIds.has(transaction.fromId) ||
+      founderBusinessIds.has(transaction.toId)
+    )
+  )
 }
 
 function uniqueDepartureServiceKinds(kinds: readonly WorldDepartureServiceKind[]): WorldBusinessKind[] {

@@ -67,6 +67,7 @@ const COVENANT_NEXT_ACTIONS: FounderCovenantNextAction[] = ['claim_area', 'none'
 const COVENANT_SIGNAL_SEVERITIES: FounderCovenantSignalSeverity[] = ['info', 'warning', 'critical']
 const COVENANT_SIGNAL_KINDS: FounderCovenantSignalKind[] = [
   'founder_unavailable',
+  'stale_founder_activity',
   'no_business_built',
   'understaffed_businesses',
   'essential_shortage',

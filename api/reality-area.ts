@@ -59,6 +59,14 @@ type FounderAreaEventSeverity = 'info' | 'warning' | 'critical'
 type FounderAreaDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
 type FounderAreaDepartureServiceKind = 'water' | 'food' | 'housing'
 
+const FOUNDER_ACTIVITY_TRANSACTION_KINDS: readonly FounderAreaTransactionKind[] = [
+  'business_build',
+  'customer_purchase',
+  'worker_wage',
+  'insurance_premium',
+  'debt_repayment',
+]
+
 interface CitizenAuthRecord {
   citizenId: string
   founderNumber: number
@@ -182,6 +190,7 @@ type FounderAreaCovenantManualActionKind =
   | 'recommend_replacement'
 type FounderAreaCovenantSignalKind =
   | 'founder_unavailable'
+  | 'stale_founder_activity'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -2175,6 +2184,30 @@ function unreviewedSimDepartureEvents(
   })
 }
 
+function hasRecentFounderActivity(
+  state: FounderAreaStateInput,
+  founderBusinessIds: ReadonlySet<string>,
+  reviewSchedule: FounderAreaCovenantReviewSchedule,
+): boolean {
+  const updatedMs = safeDateMs(state.updatedAt, state.claim.claimedAt)
+  const claimedMs = safeDateMs(state.claim.claimedAt, state.updatedAt)
+  const lastReviewMs = reviewSchedule.lastReviewAt === null ? null : Date.parse(reviewSchedule.lastReviewAt)
+  const anchorMs = Math.max(
+    Number.isFinite(lastReviewMs) ? lastReviewMs : claimedMs,
+    updatedMs - FOUNDER_COVENANT_WEEKLY_REVIEW_MS,
+  )
+
+  return state.transactions.some((transaction) => {
+    if (!FOUNDER_ACTIVITY_TRANSACTION_KINDS.includes(transaction.kind)) return false
+    const transactionMs = Date.parse(transaction.at)
+    if (!Number.isFinite(transactionMs) || transactionMs <= anchorMs) return false
+    return transaction.fromId === state.founderCitizenId ||
+      transaction.toId === state.founderCitizenId ||
+      founderBusinessIds.has(transaction.fromId) ||
+      founderBusinessIds.has(transaction.toId)
+  })
+}
+
 function uniqueBusinessKinds(kinds: readonly FounderAreaDepartureServiceKind[]): FounderAreaBusinessKind[] {
   return BUSINESS_KINDS.filter((kind) => kinds.includes(kind))
 }
@@ -2211,6 +2244,13 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
       kind: 'founder_unavailable',
       severity: 'critical',
       message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+  if (founderActive && reviewSchedule.overdue && !hasRecentFounderActivity(state, founderBusinessIds, reviewSchedule)) {
+    signals.push({
+      kind: 'stale_founder_activity',
+      severity: 'warning',
+      message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
     })
   }
   if (!building) {

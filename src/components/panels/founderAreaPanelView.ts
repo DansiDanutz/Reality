@@ -1153,6 +1153,8 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
   switch (signal.kind) {
     case 'founder_unavailable':
       return 'Founder unavailable'
+    case 'stale_founder_activity':
+      return 'Stale activity'
     case 'no_business_built':
       return 'No business built'
     case 'understaffed_businesses':

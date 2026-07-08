@@ -990,6 +990,11 @@ describe('reality area authority API', () => {
     })
     expect(dashboard.founderCovenant.signals).toEqual(expect.arrayContaining([
       {
+        kind: 'stale_founder_activity',
+        severity: 'warning',
+        message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
+      },
+      {
         kind: 'review_due',
         severity: 'warning',
         message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
@@ -1019,6 +1024,53 @@ describe('reality area authority API', () => {
         blockers: ['approval_workflow_disabled', 'probation_execution_disabled'],
       }),
     ])
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('GET suppresses stale founder activity when recent server-owned business activity exists', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T04:00:00.000Z'))
+    const withWater = withBusiness({
+      ...existingState(),
+      updatedAt: '2026-07-14T04:00:00.000Z',
+    }, {
+      id: 'water-recent',
+      name: 'Recent Water',
+      kind: 'water',
+      price: 2,
+      cash: 12,
+    })
+    const existing = {
+      ...withWater,
+      transactions: [...withWater.transactions, {
+        id: 'founder-area-0012:1783999800000:recent-water-sale',
+        at: '2026-07-14T03:30:00.000Z',
+        kind: 'customer_purchase',
+        payoutEligibility: 'game_only',
+        fromId: 'founder-area-0012:sim-water',
+        toId: 'water-recent',
+        amount: 2,
+        memo: 'Demo Water Resident bought water from Recent Water.',
+      }],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recent-activity-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const dashboard = (res.body as { dashboard: ReturnType<typeof serverDashboard> }).dashboard
+    expect(dashboard.founderCovenant.reviewSchedule.overdue).toBe(true)
+    expect(dashboard.founderCovenant.signals.map((signal) => signal.kind)).not.toContain('stale_founder_activity')
+    expect(dashboard.founderCovenant.signals).toEqual(expect.arrayContaining([{
+      kind: 'review_due',
+      severity: 'warning',
+      message: 'Founder covenant weekly review is due; record manual evidence before any warning, probation, or replacement decision.',
+    }]))
+    expect(dashboard.founderCovenant.reviewQueue.executionEnabled).toBe(false)
     expect(put).not.toHaveBeenCalled()
   })
 
