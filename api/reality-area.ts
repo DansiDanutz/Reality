@@ -369,6 +369,7 @@ type FounderAreaCovenantNotificationChannel = 'telegram'
 type FounderAreaSettlementRail = 'ton'
 type FounderAreaSettlementMode = 'ledger_only'
 type FounderAreaSettlementBlocker =
+  | 'telegram_identity_required'
   | 'ton_connect_disabled'
   | 'deposits_disabled'
   | 'withdrawals_disabled'
@@ -378,6 +379,7 @@ type FounderAreaSettlementBlocker =
   | 'compliance_review_required'
 type FounderAreaPayoutReadinessBlocker =
   | 'game_credits_only'
+  | 'telegram_identity_required'
   | 'payouts_disabled'
   | 'withdrawals_disabled'
   | 'kyc_disabled'
@@ -3306,6 +3308,7 @@ function areaGrowthDashboard(state: FounderAreaState): FounderAreaGrowthDashboar
 }
 
 function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlementDashboard {
+  const telegramIdentityVerified = Boolean(state.claim.telegramUserId && state.claim.telegramAccountId)
   return {
     rail: 'ton',
     mode: 'ledger_only',
@@ -3322,6 +3325,7 @@ function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlement
     manualReviewRequired: true,
     complianceReviewRequired: true,
     blockers: [
+      ...(telegramIdentityVerified ? [] : ['telegram_identity_required' as const]),
       'ton_connect_disabled',
       'deposits_disabled',
       'withdrawals_disabled',
@@ -3334,6 +3338,7 @@ function areaSettlementDashboard(state: FounderAreaState): FounderAreaSettlement
 }
 
 function areaPayoutReadinessDashboard(state: FounderAreaState): FounderAreaPayoutReadinessDashboard {
+  const telegramIdentityVerified = Boolean(state.claim.telegramUserId && state.claim.telegramAccountId)
   return {
     enabled: false,
     mode: 'game_credits_only',
@@ -3352,6 +3357,7 @@ function areaPayoutReadinessDashboard(state: FounderAreaState): FounderAreaPayou
     stablecoinRailPlanned: true,
     blockers: [
       'game_credits_only',
+      ...(telegramIdentityVerified ? [] : ['telegram_identity_required' as const]),
       'payouts_disabled',
       'withdrawals_disabled',
       'kyc_disabled',

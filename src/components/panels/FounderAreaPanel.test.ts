@@ -1426,6 +1426,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       manualReviewRequired: true,
       complianceReviewRequired: true,
       blockers: [
+        'telegram_identity_required',
         'ton_connect_disabled',
         'deposits_disabled',
         'withdrawals_disabled',
@@ -1444,6 +1445,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       { key: 'eligible', label: 'Payout eligible', value: '$0', tone: 'stable' },
     ])
     expect(founderSettlementBlockerText('ton_connect_disabled')).toBe('TON Connect')
+    expect(founderSettlementBlockerText('telegram_identity_required')).toBe('Telegram identity')
     expect(founderSettlementBlockerText('manual_payout_review_required')).toBe('Manual payout review')
     expect(founderSettlementBlockerText('compliance_review_required')).toBe('Compliance review')
   })
@@ -1467,6 +1469,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       stablecoinRailPlanned: true,
       blockers: [
         'game_credits_only',
+        'telegram_identity_required',
         'payouts_disabled',
         'withdrawals_disabled',
         'kyc_disabled',
@@ -1493,6 +1496,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderPayoutReadinessBlockerText('manual_payout_review_required')).toBe('Manual payout review')
     expect(founderPayoutReadinessBlockerText('compliance_review_required')).toBe('Compliance review')
     expect(founderPayoutReadinessBlockerText('ton_settlement_disabled')).toBe('TON settlement')
+    expect(founderPayoutReadinessBlockerText('telegram_identity_required')).toBe('Telegram identity')
   })
 
   test('summarizes disabled founder legacy royalty without enabling payouts', () => {

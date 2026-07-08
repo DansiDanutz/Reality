@@ -1228,7 +1228,7 @@ describe('reality area authority API', () => {
         understaffedBusinesses: 0,
       },
       growth: growthDashboard(1, 3),
-      settlement: settlementDashboard(200_000),
+      settlement: settlementDashboard(200_000, { telegramIdentityVerified: false }),
     })
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
@@ -1582,6 +1582,39 @@ describe('reality area authority API', () => {
       transaction.memo.toLowerCase().includes('withdraw') ||
       transaction.memo.toLowerCase().includes('payout')
     )).toBe(false)
+  })
+
+  test('GET keeps Telegram identity blockers in settlement and payout readiness before link', async () => {
+    const unlinked = {
+      ...existingState(),
+      claim: {
+        ...existingState().claim,
+        source: 'manual',
+        telegramUserId: undefined,
+        telegramAccountId: undefined,
+        telegramUsername: undefined,
+        telegramName: undefined,
+        telegramLinkedAt: undefined,
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://unlinked-settlement-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(unlinked), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      query: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; dashboard: ReturnType<typeof serverDashboard> }
+    expect(body.dashboard.settlement.blockers).toContain('telegram_identity_required')
+    expect(body.dashboard.payoutReadiness.blockers).toContain('telegram_identity_required')
   })
 
   test('normalizes persisted ledger entries to game-only payout eligibility', async () => {
@@ -6264,8 +6297,12 @@ function serverDashboard(state: ReturnType<typeof existingState>) {
       understaffedBusinesses: 0,
     },
     growth: growthDashboard(1, 3),
-    settlement: settlementDashboard(state.balance),
-    payoutReadiness: payoutReadinessDashboard(state.balance),
+    settlement: settlementDashboard(state.balance, {
+      telegramIdentityVerified: Boolean(state.claim.telegramUserId && state.claim.telegramAccountId),
+    }),
+    payoutReadiness: payoutReadinessDashboard(state.balance, {
+      telegramIdentityVerified: Boolean(state.claim.telegramUserId && state.claim.telegramAccountId),
+    }),
     legacyRoyalty: legacyRoyaltyDashboard(state),
     handoff: handoffDashboard(state),
     landRights: landRightsDashboard(state),
@@ -6341,7 +6378,11 @@ function growthDashboard(realPopulation: number, simPopulation: number) {
   } as const
 }
 
-function settlementDashboard(gameCredits: number) {
+function settlementDashboard(
+  gameCredits: number,
+  options: { telegramIdentityVerified?: boolean } = {},
+) {
+  const telegramIdentityVerified = options.telegramIdentityVerified ?? true
   return {
     rail: 'ton',
     mode: 'ledger_only',
@@ -6358,6 +6399,7 @@ function settlementDashboard(gameCredits: number) {
     manualReviewRequired: true,
     complianceReviewRequired: true,
     blockers: [
+      ...(telegramIdentityVerified ? [] : ['telegram_identity_required']),
       'ton_connect_disabled',
       'deposits_disabled',
       'withdrawals_disabled',
@@ -6369,7 +6411,11 @@ function settlementDashboard(gameCredits: number) {
   } as const
 }
 
-function payoutReadinessDashboard(gameCredits: number) {
+function payoutReadinessDashboard(
+  gameCredits: number,
+  options: { telegramIdentityVerified?: boolean } = {},
+) {
+  const telegramIdentityVerified = options.telegramIdentityVerified ?? true
   return {
     enabled: false,
     mode: 'game_credits_only',
@@ -6388,6 +6434,7 @@ function payoutReadinessDashboard(gameCredits: number) {
     stablecoinRailPlanned: true,
     blockers: [
       'game_credits_only',
+      ...(telegramIdentityVerified ? [] : ['telegram_identity_required']),
       'payouts_disabled',
       'withdrawals_disabled',
       'kyc_disabled',
