@@ -146,6 +146,10 @@ export default function FounderCovenantOperatorPanel({
   const activityRisk = queue ? founderCovenantOperatorQueueActivityRiskMix(queue) : null
   const manualReviewTelegramDraft = queue?.items.flatMap((item) => item.pendingNotificationDrafts).find((item) => item.kind === 'manual_review_required') ?? null
   const founderWarningTelegramDraft = queue?.items.flatMap((item) => item.pendingApprovalRequests).find((item) => item.kind === 'send_warning') ?? null
+  const hasReviewDraft = reviewNote.trim().length > 0 || reviewEvidenceKinds.length > 0
+  const reviewDraftSummary = hasReviewDraft
+    ? `Local draft: ${reviewEvidenceKinds.length} evidence tag${reviewEvidenceKinds.length === 1 ? '' : 's'} · ${reviewNote.trim().length > 0 ? 'note saved' : 'no note'}`
+    : null
   const telegramOutputsSummary = queueTelegramOutputsSummary({
     hasQueue: Boolean(queue),
     hasManualReviewDraft: Boolean(manualReviewTelegramDraft),
@@ -340,6 +344,12 @@ export default function FounderCovenantOperatorPanel({
         ? current.filter((item) => item !== kind)
         : [...current, kind]
     )
+  }
+
+  const clearReviewDraft = () => {
+    setReviewNote('')
+    setReviewEvidenceKinds([])
+    setOperatorReviewMessage('Local founder review draft cleared.')
   }
 
   const copyQueueViewContext = async () => {
@@ -693,6 +703,17 @@ export default function FounderCovenantOperatorPanel({
               <span>{option.label}</span>
             </label>
           ))}
+        </div>
+        <div className="founder-operator-actions">
+          <button
+            className="btn small ghost"
+            disabled={loading || Boolean(recordingReviewKey) || !hasReviewDraft}
+            onClick={clearReviewDraft}
+            type="button"
+          >
+            Clear draft
+          </button>
+          {reviewDraftSummary && <span className="item-desc">{reviewDraftSummary}</span>}
         </div>
       </div>
 

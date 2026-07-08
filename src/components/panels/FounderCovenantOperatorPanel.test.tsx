@@ -41,6 +41,8 @@ describe('FounderCovenantOperatorPanel', () => {
 
     expect(html).toContain('Need a clearer proof of activity.')
     expect(html).toContain('checked=""')
+    expect(html).toContain('Clear draft')
+    expect(html).toContain('Local draft: 2 evidence tags · note saved')
   })
 
   test('renders an isolated operator queue shell without a loaded token', () => {
@@ -55,6 +57,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('evidence writes only')
     expect(html).toContain('Review note')
     expect(html).toContain('Population')
+    expect(html).toContain('Clear draft')
     expect(html).toContain('No operator queue loaded.')
     expect(html).not.toContain('operator-token')
     expect(html).not.toContain('Approve')
