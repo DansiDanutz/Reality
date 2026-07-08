@@ -1374,6 +1374,10 @@ describe('runWorldServerCommand', () => {
     expect(queue.items.map((item) => item.founderCitizenId)).toEqual(['founder-2', 'founder'])
     expect(queue.items[0]).toMatchObject({
       areaId: 'area-2',
+      nextReviewDueAt: 1_000 + 7 * 24 * HOUR,
+      reviewDueCadence: 'weekly',
+      reviewDueInMs: 7 * 24 * HOUR - HOUR,
+      reviewOverdueByMs: 0,
       covenantStatus: 'manual_review',
       nextAction: 'manual_review',
       manualReviewRequired: true,
@@ -1507,6 +1511,32 @@ describe('runWorldServerCommand', () => {
     ])
     expect(savedSafe?.now).toBe(now)
     expect(savedRisk?.now).toBe(now)
+  })
+
+  test('exposes overdue monthly review windows in the founder covenant review queue', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    const area = await repo.loadArea('area-1')
+    if (!area) throw new Error('expected area to exist')
+    const now = 1_000 + 31 * 24 * HOUR
+    await repo.saveArea({ ...area, now })
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, now)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected review queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.items[0]).toMatchObject({
+      lastReviewAt: null,
+      nextWeeklyReviewAt: 1_000 + 7 * 24 * HOUR,
+      nextMonthlyReviewAt: 1_000 + 30 * 24 * HOUR,
+      nextReviewDueAt: 1_000 + 30 * 24 * HOUR,
+      reviewDueCadence: 'monthly',
+      reviewDueInMs: 0,
+      reviewOverdueByMs: 24 * HOUR,
+      overdue: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+    })
   })
 
   test('includes latest founder covenant review evidence in the review queue', async () => {

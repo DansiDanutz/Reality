@@ -254,6 +254,8 @@ export interface WorldFounderCovenantReviewReadiness {
   executionEnabled: false
 }
 
+export type WorldFounderCovenantReviewDueCadence = 'weekly' | 'monthly'
+
 export interface WorldFounderCovenantReviewQueueItem {
   areaId: string
   areaName: string
@@ -264,6 +266,10 @@ export interface WorldFounderCovenantReviewQueueItem {
   reviewSchedule: FounderCovenantReviewSchedule | null
   nextWeeklyReviewAt: number | null
   nextMonthlyReviewAt: number | null
+  nextReviewDueAt: number | null
+  reviewDueCadence: WorldFounderCovenantReviewDueCadence | null
+  reviewDueInMs: number | null
+  reviewOverdueByMs: number
   overdue: boolean
   covenantStatus: FounderCovenantStatus
   nextAction: FounderCovenantNextAction
@@ -844,6 +850,7 @@ function founderCovenantReviewQueueItem(
 ): WorldFounderCovenantReviewQueueItem {
   const review = dashboard.founderCovenant
   const founderCitizenId = review.founderCitizenId ?? area.claim?.founderCitizenId ?? ''
+  const dueWindow = founderCovenantReviewDueWindow(review)
   return {
     areaId: area.id,
     areaName: area.name,
@@ -854,6 +861,10 @@ function founderCovenantReviewQueueItem(
     reviewSchedule: founderCovenantReviewScheduleSnapshot(review.reviewSchedule),
     nextWeeklyReviewAt: review.reviewSchedule?.nextWeeklyReviewAt ?? null,
     nextMonthlyReviewAt: review.reviewSchedule?.nextMonthlyReviewAt ?? null,
+    nextReviewDueAt: dueWindow.nextReviewDueAt,
+    reviewDueCadence: dueWindow.reviewDueCadence,
+    reviewDueInMs: dueWindow.reviewDueInMs,
+    reviewOverdueByMs: dueWindow.reviewOverdueByMs,
     overdue: review.reviewSchedule?.overdue ?? false,
     covenantStatus: review.status,
     nextAction: review.nextAction,
@@ -879,6 +890,35 @@ function founderCovenantReviewQueueItem(
     blockerCount: review.reviewQueue.blockerCount,
     scanStatus,
     transactionsAdded,
+  }
+}
+
+function founderCovenantReviewDueWindow(
+  review: AreaNeedsDashboard['founderCovenant'],
+): Pick<
+  WorldFounderCovenantReviewQueueItem,
+  'nextReviewDueAt' | 'reviewDueCadence' | 'reviewDueInMs' | 'reviewOverdueByMs'
+> {
+  const schedule = review.reviewSchedule
+  if (!schedule) {
+    return {
+      nextReviewDueAt: null,
+      reviewDueCadence: null,
+      reviewDueInMs: null,
+      reviewOverdueByMs: 0,
+    }
+  }
+
+  const monthlyDue = schedule.monthlyReviewDue
+  const nextReviewDueAt = monthlyDue ? schedule.nextMonthlyReviewAt : schedule.nextWeeklyReviewAt
+  const reviewDueCadence: WorldFounderCovenantReviewDueCadence = monthlyDue ? 'monthly' : 'weekly'
+  const msUntilDue = nextReviewDueAt - review.activityReview.checkedAt
+
+  return {
+    nextReviewDueAt,
+    reviewDueCadence,
+    reviewDueInMs: Math.max(0, msUntilDue),
+    reviewOverdueByMs: Math.max(0, -msUntilDue),
   }
 }
 
