@@ -1652,6 +1652,50 @@ describe('runWorldServerCommand', () => {
       .resolves.toEqual({ ok: false, error: 'invalid_command_time' })
   })
 
+  test('counts founder covenant queue scan anomalies even when failed areas produce no items', async () => {
+    const repo = new MemoryWorldRepo()
+    const now = 1_000
+    const created = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Area 1',
+      now,
+      authenticatedFounderId: 'founder-1',
+      founder: citizen('founder-1'),
+      simCitizens: [],
+      claim: {
+        founderCitizenId: 'founder-1',
+        label: 'Area 1',
+        centerLat: 45.45,
+        centerLng: 27.08,
+        radiusKm: 2,
+        claimedAt: now,
+        source: 'manual',
+      },
+    })
+    if (!created.ok) throw new Error(`expected area creation to succeed: ${created.error}`)
+    repo.conflictNextSave()
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, now + HOUR)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.results).toEqual([
+      { areaId: 'area-1', status: 'write_conflict', checkedAt: now, transactionsAdded: 0 },
+    ])
+    expect(result.founderCovenantReviewQueue).toMatchObject({
+      scanned: 1,
+      caughtUp: 0,
+      current: 0,
+      failed: 1,
+      totals: {
+        founders: 0,
+        scanAnomalies: 1,
+      },
+    })
+    expect(result.founderCovenantReviewQueue.items).toEqual([])
+  })
+
   test('rejects founder area reads without a claimed area', async () => {
     const blankRepo = new MemoryWorldRepo()
     const blankFounder = await runWorldServerCommand(blankRepo, {

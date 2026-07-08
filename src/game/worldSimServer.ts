@@ -505,7 +505,7 @@ export async function readWorldFounderCovenantReviewQueue(
       failed: results.filter((result) =>
         result.status === 'time_moved_backward' || result.status === 'write_conflict'
       ).length,
-      totals: founderCovenantReviewQueueTotals(sortedItems),
+      totals: founderCovenantReviewQueueTotals(sortedItems, results),
       items: sortedItems,
       results,
     },
@@ -916,6 +916,7 @@ function founderCovenantReviewQueueLatestReview(
 
 function founderCovenantReviewQueueTotals(
   items: WorldFounderCovenantReviewQueueItem[],
+  results: WorldFounderCovenantReviewQueueScanResult[],
 ): WorldFounderCovenantReviewQueueDashboard['totals'] {
   const evidenceItems = items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0)
   const blockedNextItems = items.filter((item) =>
@@ -988,7 +989,9 @@ function founderCovenantReviewQueueTotals(
     staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
     staleWeeklyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue).length,
     staleMonthlyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.monthlyReviewDue).length,
-    scanAnomalies: items.filter((item) => item.scanStatus === 'write_conflict' || item.scanStatus === 'time_moved_backward').length,
+    scanAnomalies: results.filter((result) =>
+      result.status === 'write_conflict' || result.status === 'time_moved_backward'
+    ).length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     warningApprovals: items.reduce((total, item) =>
