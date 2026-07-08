@@ -174,6 +174,17 @@ export function founderCitizenConditionText(
   return `${citizen.state} · health ${Math.round(citizen.health)} · ${citizen.participantLabel}`
 }
 
+export function founderCitizenNeedText(
+  citizen: Pick<AreaCitizenDashboard, 'needs' | 'health'>,
+): string {
+  return [
+    `water ${Math.round(citizen.needs.hydration)}`,
+    `food ${Math.round(citizen.needs.hunger)}`,
+    `rest ${Math.round(citizen.needs.energy)}`,
+    `health ${Math.round(citizen.health)}`,
+  ].join(' · ')
+}
+
 export function founderCitizenProtectionText(
   citizen: Pick<AreaCitizenDashboard, 'insuranceActive' | 'insurancePaidUntil' | 'insuranceBusinessId' | 'insuranceAction'>,
   survival?: Pick<CitizenSurvivalSignal, 'hospitalizedUntil'>,

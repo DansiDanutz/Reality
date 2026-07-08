@@ -70,6 +70,7 @@ import {
   founderCitizenConditionText,
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
+  founderCitizenNeedText,
   founderCitizenProtectionText,
   founderFirstBuildReasonText,
   founderGrowthBlockerText,
@@ -895,6 +896,9 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">
                         {founderCitizenConditionText(resident)}
                       </span>
+                      {resident.id === profile.founderId && (
+                        <span className="item-desc">{founderCitizenNeedText(resident)}</span>
+                      )}
                       <span className="item-desc">{founderCitizenProtectionText(resident, survival)}</span>
                       {founderWarningDetail && <span className="item-desc">{founderWarningDetail}</span>}
                       {founderSurvivalDetail && <span className="item-desc">{founderSurvivalDetail}</span>}

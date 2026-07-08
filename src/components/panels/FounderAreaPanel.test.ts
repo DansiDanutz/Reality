@@ -44,6 +44,7 @@ import {
   founderCitizenConditionText,
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
+  founderCitizenNeedText,
   founderCitizenProtectionText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
@@ -107,6 +108,17 @@ describe('FounderAreaPanel covenant presenters', () => {
       health: 89.6,
       participantLabel: 'Real Citizen',
     })).toBe('active · health 90 · Real Citizen')
+
+    expect(founderCitizenNeedText({
+      health: 89.6,
+      needs: {
+        hydration: 42.2,
+        hunger: 55.7,
+        energy: 31.4,
+        hygiene: 88,
+        fun: 90,
+      },
+    } as never)).toBe('water 42 · food 56 · rest 31 · health 90')
 
     expect(founderCitizenProtectionText({
       insuranceActive: true,
