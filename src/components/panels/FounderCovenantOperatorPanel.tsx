@@ -30,6 +30,7 @@ import {
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueSignalSummary,
+  founderCovenantOperatorQueueProbationRiskSummary,
   founderCovenantOperatorQueuePrimaryWorkloadSummary,
   founderCovenantOperatorQueuePrimaryWorkloadTone,
   founderCovenantOperatorQueueMonitorSummary,
@@ -1231,6 +1232,19 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>At risk</span>
               <strong>{activityRisk?.atRisk ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.items.some((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review')
+                  ? 'critical'
+                  : queue.items.some((item) => item.activityReview.score < 60)
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueProbationRiskSummary(queue)}
+            >
+              <span>Probation risk</span>
+              <strong>{queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60).length}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${founderCovenantOperatorQueuePrimaryWorkloadTone(queue)}`}

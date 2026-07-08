@@ -904,6 +904,17 @@ export function founderCovenantOperatorQueueSignalSummary(
   return `Signals: ${criticalSignals} critical · ${warningSignals} warning · ${signalFounders} founder${signalFounders === 1 ? '' : 's'} flagged`
 }
 
+export function founderCovenantOperatorQueueProbationRiskSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const probationRiskFounders = queue.items.filter((item) =>
+    item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
+  ).length
+  const lowScoreFounders = queue.items.filter((item) => item.activityReview.score < 60).length
+  const manualReviewFounders = queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
+  return `Probation risk: ${probationRiskFounders} founder${probationRiskFounders === 1 ? '' : 's'} · ${lowScoreFounders} low score · ${manualReviewFounders} manual review`
+}
+
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {
