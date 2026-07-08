@@ -44,6 +44,7 @@ import {
   founderBusinessAlertText,
   founderBusinessLedgerText,
   founderBusinessStatusText,
+  founderFirstBuildActionLabel,
   founderCitizenConditionText,
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
@@ -363,6 +364,42 @@ describe('FounderAreaPanel covenant presenters', () => {
       founderCanAfford: false,
       blockers: ['insufficient_funds'],
     })).toBe('Founder cash is too low for this build')
+
+    expect(founderFirstBuildActionLabel({
+      canBuildNow: true,
+      action: 'build_now',
+      reason: 'Local demand is waiting for this service.',
+    })).toBe('Build')
+
+    expect(founderFirstBuildActionLabel({
+      canBuildNow: false,
+      action: 'recover_first',
+      reason: 'Founder must recover before building.',
+    })).toBe('Recover')
+
+    expect(founderFirstBuildActionLabel({
+      canBuildNow: false,
+      action: 'save_credits',
+      reason: 'Founder balance is too low for this build.',
+    })).toBe('Save')
+
+    expect(founderFirstBuildActionLabel({
+      canBuildNow: false,
+      action: 'grow_demand',
+      reason: 'No starter license remains for this business kind.',
+    })).toBe('Grow demand')
+
+    expect(founderFirstBuildActionLabel({
+      canBuildNow: false,
+      action: 'wait_for_demand',
+      reason: 'Low current demand; consider it after the area grows.',
+    })).toBe('Wait')
+
+    expect(founderFirstBuildActionLabel({
+      canBuildNow: false,
+      action: 'build_now',
+      reason: 'Current businesses need staff before expansion, even though local demand is waiting for this service.',
+    })).toBe('Staff first')
 
     expect(founderWorkerCandidateActionText({
       action: 'hire_now',

@@ -69,6 +69,7 @@ import {
   founderBusinessAlertSummaryText,
   founderBusinessLedgerText,
   founderBusinessStatusText,
+  founderFirstBuildActionLabel,
   founderCitizenConditionText,
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
@@ -950,7 +951,7 @@ export default function FounderAreaPanel() {
                       disabled={busy || !recommendation.canBuildNow || !recommendation.clientPayload}
                       onClick={() => void submitPayload(recommendation.clientPayload, `Built ${recommendation.name}.`)}
                     >
-                      Build
+                      {founderFirstBuildActionLabel(recommendation)}
                     </button>
                   </div>
                 </li>

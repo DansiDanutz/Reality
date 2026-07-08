@@ -374,6 +374,31 @@ export function founderFirstBuildReasonText(
   return recommendation.reason
 }
 
+export function founderFirstBuildActionLabel(
+  recommendation: Pick<
+    RealityAreaDashboard['firstBuild'][number],
+    'canBuildNow' | 'action' | 'reason'
+  >,
+): string {
+  if (recommendation.canBuildNow) return 'Build'
+  if (recommendation.reason.startsWith('Current businesses need staff before expansion.')) return 'Staff first'
+  if (recommendation.reason.startsWith('Current businesses need staff before expansion,')) return 'Staff first'
+  switch (recommendation.action) {
+    case 'claim_area':
+      return 'Claim area'
+    case 'recover_first':
+      return 'Recover'
+    case 'save_credits':
+      return 'Save'
+    case 'grow_demand':
+      return 'Grow demand'
+    case 'wait_for_demand':
+      return 'Wait'
+    case 'build_now':
+      return 'Build'
+  }
+}
+
 export function founderWorkerCandidateActionText(
   candidate: Pick<
     AreaJobsDashboard['candidates'][number],
