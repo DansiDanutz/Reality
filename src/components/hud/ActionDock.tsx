@@ -15,6 +15,7 @@ export default function ActionDock() {
   const placing = useGame((s) => s.placing)
   const activity = useGame((s) => s.activity)
   const startSleep = useGame((s) => s.startSleep)
+  const study = useGame((s) => s.study)
   const startShift = useGame((s) => s.startShift)
   const leaveActivity = useGame((s) => s.leaveActivity)
   const setStreetMode = useGame((s) => s.setStreetMode)
@@ -39,7 +40,8 @@ export default function ActionDock() {
   if (activity) {
     const isSleep = activity.kind === 'sleep'
     const isCook = activity.kind === 'cook'
-    const label = isSleep ? 'Sleeping' : isCook ? `Cooking · ${activity.title}` : `On shift · ${activity.title}`
+    const isStudy = activity.kind === 'study'
+    const label = isSleep ? 'Sleeping' : isCook ? `Cooking · ${activity.title}` : isStudy ? 'Studying' : `On shift · ${activity.title}`
     // Live progress bar: how far through the activity we are. Re-renders
     // every tick via the lastSeenAt subscription above, so the bar fills
     // smoothly in real time. A text countdown is data; a filling bar is felt.
@@ -59,7 +61,7 @@ export default function ActionDock() {
           </div>
         </div>
         <button className="btn ghost" onClick={leaveActivity}>
-          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : 'Leave early'}
+          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : isStudy ? 'Stop studying' : 'Leave early'}
         </button>
       </div>
     )
@@ -89,6 +91,9 @@ export default function ActionDock() {
         </button>
         <button className="btn" onClick={startSleep} title="Sleep through the night (shortcut: S)">
           Sleep
+        </button>
+        <button className="btn" onClick={study} title="Study for 4 real hours and gain XP">
+          Study
         </button>
         <button
           className="btn"

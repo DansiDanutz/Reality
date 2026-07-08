@@ -412,6 +412,7 @@ interface GameState {
   /** Play with a pet — grants fun scaled by how well-fed it is */
   playWithPet: (petId: string) => void
   cook: (recipeId: string) => void
+  study: () => void
   startSleep: () => void
   startShift: () => void
   leaveActivity: () => void
@@ -1582,6 +1583,20 @@ export const useGame = create<GameState>()(
           inventory,
           activity: { kind: 'cook', startedAt: now, endsAt: now + COOK_MINUTES * 60_000, title: recipe.name, recipeId },
           log: note(s.log, `${recipe.name} ${recipe.emoji} is on the stove — ready in ${COOK_MINUTES} minutes.`),
+        })
+      },
+
+      study: () => {
+        const s = get()
+        if (s.activity) return
+        if (s.needs.energy < 20 || s.needs.hunger < 20 || s.health < 30) {
+          set({ log: note(s.log, 'Too worn down to study. Eat and sleep first.') })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: { kind: 'study', startedAt: now, endsAt: now + 4 * 3_600_000 },
+          log: note(s.log, 'Study session started — four real hours to learn something that pays later.'),
         })
       },
 

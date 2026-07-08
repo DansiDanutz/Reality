@@ -209,6 +209,17 @@ describe('liveRealtime — the single simulation path', () => {
     expect(cooking.needs.energy).toBeCloseTo(awake.needs.energy, 3)
   })
 
+  test('studying takes real time and pays out XP only when the session ends', () => {
+    const study: Activity = { kind: 'study', startedAt: 0, endsAt: 4 * HOUR }
+    const midway = liveRealtime(base({ activity: study }), 0, 2 * HOUR)
+    expect(midway.activity).not.toBeNull()
+    expect(midway.xpGained).toBe(0)
+
+    const done = liveRealtime(base({ activity: study }), 0, 4 * HOUR + 1000)
+    expect(done.activity).toBeNull()
+    expect(done.xpGained).toBeGreaterThan(0)
+  })
+
   test('the dignity floor: a broke, parched citizen gets the fountain once a day', () => {
     const broke = base({ money: 0, needs: { hunger: 60, hydration: 5, energy: 60, hygiene: 60, fun: 60 } })
     const out = liveRealtime(broke, 0, 6 * HOUR)

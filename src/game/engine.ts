@@ -97,7 +97,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook'
+  kind: 'sleep' | 'shift' | 'cook' | 'study'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -222,7 +222,7 @@ export interface LiveOutput extends WorldSlice {
 const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
-  if (activity.kind === 'cook') return 'awake'
+  if (activity.kind === 'cook' || activity.kind === 'study') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }
 
@@ -338,6 +338,9 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
           world = { ...world, needs: applyEffects(world.needs, recipe.effects) }
           mealsCooked += 1
         }
+      } else if (activity.kind === 'study') {
+        const studyXp = activity.xpMult ? Math.max(1, Math.round(120 * activity.xpMult)) : 120
+        xpGained += studyXp
       }
       activity = null
     }

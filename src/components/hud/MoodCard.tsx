@@ -64,7 +64,7 @@ export default function MoodCard() {
         s.setPanel('work')
         break
       case 'study':
-        s.openMarket('education')
+        s.study()
         break
       case 'start-shift':
         if (s.jobId) s.startShift()
