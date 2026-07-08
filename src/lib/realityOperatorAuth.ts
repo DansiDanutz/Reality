@@ -1,4 +1,4 @@
-import { telegramMiniAppInitData } from './telegram'
+import { normalizeTelegramInitData, telegramMiniAppInitData } from './telegram'
 
 export interface RealityOperatorQueueAuthOperator {
   role: 'founder_covenant_reviewer'
@@ -26,13 +26,14 @@ export async function requestRealityOperatorQueueToken(
   fetchImpl: typeof fetch = fetch,
   initData = telegramMiniAppInitData(),
 ): Promise<RealityOperatorQueueAuthResult> {
-  if (!initData) return { ok: false, reason: 'not_in_telegram' }
+  const normalizedInitData = normalizeTelegramInitData(initData)
+  if (!normalizedInitData) return { ok: false, reason: 'not_in_telegram' }
 
   try {
     const response = await fetchImpl('/api/reality-operator-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData }),
+      body: JSON.stringify({ initData: normalizedInitData }),
     })
     const data = await response.json() as Record<string, unknown>
     if (response.ok && data.ok === true && isRealityOperatorQueueAuthResponse(data)) {

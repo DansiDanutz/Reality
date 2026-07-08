@@ -23,12 +23,22 @@ describe('Reality operator auth client bridge', () => {
       json: async () => response,
     }))
 
-    await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual(response)
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, ' auth_date=1&hash=abc ')).resolves.toEqual(response)
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-operator-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: 'auth_date=1&hash=abc' }),
     })
+  })
+
+  test('does not request operator authority with blank explicit initData', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, '   ')).resolves.toEqual({
+      ok: false,
+      reason: 'not_in_telegram',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   test('maps non-allowlisted operators to a manual denial', async () => {

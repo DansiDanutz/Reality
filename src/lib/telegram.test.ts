@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
+  normalizeTelegramInitData,
   telegramDisplayName,
   telegramMiniAppInitData,
   type VerifiedTelegramMiniAppSession,
@@ -41,7 +42,7 @@ describe('Telegram Mini App client bridge', () => {
       json: async () => ({ ok: true, ...session }),
     }))
 
-    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, ' auth_date=1&hash=abc ')).resolves.toEqual({
       ok: true,
       session,
     })
@@ -50,6 +51,18 @@ describe('Telegram Mini App client bridge', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: 'auth_date=1&hash=abc' }),
     })
+  })
+
+  test('treats blank explicit initData as not_in_telegram', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, '   ')).resolves.toEqual({
+      ok: false,
+      reason: 'not_in_telegram',
+    })
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(normalizeTelegramInitData('   ')).toBeNull()
+    expect(normalizeTelegramInitData(' auth_date=1&hash=abc ')).toBe('auth_date=1&hash=abc')
   })
 
   test('returns invalid_session for failed verification responses', async () => {

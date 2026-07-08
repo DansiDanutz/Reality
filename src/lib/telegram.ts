@@ -39,13 +39,14 @@ export async function authenticateTelegramMiniApp(
   fetchImpl: typeof fetch = fetch,
   initData = telegramMiniAppInitData(),
 ): Promise<TelegramMiniAppAuthResult> {
-  if (!initData) return { ok: false, reason: 'not_in_telegram' }
+  const normalizedInitData = normalizeTelegramInitData(initData)
+  if (!normalizedInitData) return { ok: false, reason: 'not_in_telegram' }
 
   try {
     const response = await fetchImpl('/api/telegram-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData }),
+      body: JSON.stringify({ initData: normalizedInitData }),
     })
     const data = await response.json() as Record<string, unknown>
     if (!response.ok || data.ok !== true || !isVerifiedTelegramSession(data)) {
@@ -88,6 +89,12 @@ export function citizenWithTelegramSession(
 export function telegramDisplayName(user: Pick<TelegramMiniAppUser, 'firstName' | 'lastName' | 'username'>): string {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
   return fullName || (user.username ? `@${user.username}` : 'Telegram')
+}
+
+export function normalizeTelegramInitData(initData: string | null | undefined): string | null {
+  if (typeof initData !== 'string') return null
+  const normalized = initData.trim()
+  return normalized.length > 0 ? normalized : null
 }
 
 function isVerifiedTelegramSession(value: Record<string, unknown>): value is Record<string, unknown> & VerifiedTelegramMiniAppSession & { ok: true } {
