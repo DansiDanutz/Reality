@@ -761,10 +761,12 @@ describe('planLifeDay', () => {
     }
     const permitPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 1_000, constructionProjects: [readyForPermit] }))
     expect(permitPlan.primary.id).toBe('pay-house-permit')
+    expect(permitPlan.primary.detail).toBe('Pay $500 and keep at least $100 for food and water so the house build stays legal and safe.')
     expect(permitPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'permit' })
 
     const workForPermitPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, money: 100, constructionProjects: [readyForPermit] }))
     expect(workForPermitPlan.primary.id).toBe('work-for-permit')
+    expect(workForPermitPlan.primary.detail).toBe('Building permit costs $500 plus $100 safety cash. You have $100, so earn $500 before paying the permit.')
     expect(workForPermitPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
 
     const readyForLabor = {
@@ -918,7 +920,13 @@ describe('planLifeDay', () => {
     const permitPlan = planLifeDay(snap({ ...base, money: 1_000, constructionProjects: [readyForPermit] }))
     expect(permitPlan.primary.id).toBe('pay-business-building-permit')
     expect(permitPlan.primary.value).toBe('respect')
+    expect(permitPlan.primary.detail).toBe('Pay $500 and keep at least $100 for food and water so the business build stays legal and safe.')
     expect(permitPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'permit' })
+
+    const workForPermitPlan = planLifeDay(snap({ ...base, money: 100, constructionProjects: [readyForPermit] }))
+    expect(workForPermitPlan.primary.id).toBe('work-for-business-building-permit')
+    expect(workForPermitPlan.primary.detail).toBe('Food Cart permit costs $500 plus $100 safety cash. You have $100, so earn $500 before paying the permit.')
+    expect(workForPermitPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
 
     const readyForLabor = {
       ...readyForPermit,
@@ -985,11 +993,13 @@ describe('planLifeDay', () => {
     const budgetPlan = planLifeDay(snap({ ...base, money: resourcesReady.budgetCost + 500, businessDevelopmentProjects: [resourcesReady] }))
     expect(budgetPlan.primary.id).toBe('pay-business-budget')
     expect(budgetPlan.primary.value).toBe('respect')
+    expect(budgetPlan.primary.detail).toBe('Pay $960 and keep at least $100 safe cash to unlock interior labor for level 2.')
     expect(budgetPlan.primary.route).toEqual({ kind: 'business-development-action', projectId: resourcesReady.id, action: 'budget' })
 
     const workForBudgetPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [resourcesReady] }))
     expect(workForBudgetPlan.primary.id).toBe('work-for-business-budget')
     expect(workForBudgetPlan.primary.value).toBe('work')
+    expect(workForBudgetPlan.primary.detail).toBe("Food Cart interior budget costs $960 plus $100 safety cash. You have $500, so earn $560 before funding the upgrade.")
     expect(workForBudgetPlan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
 
     const laborReady = businessProject({ deposited: freshResources(project.required), budgetPaid: true })

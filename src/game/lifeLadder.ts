@@ -298,6 +298,15 @@ function gatherResourceDetail(subject: string, kind: ResourceKind, missing: numb
   return `${subject} still needs ${needed} ${label}. Gather ${remaining} locally, then deposit it.`
 }
 
+function moneyText(amount: number): string {
+  return `$${Math.max(0, Math.ceil(amount)).toLocaleString()}`
+}
+
+function cashGapDetail(costLabel: string, cost: number, money: number, purpose: string): string {
+  const needed = Math.max(0, cost + CASH_SAFETY_FLOOR - money)
+  return `${costLabel} costs ${moneyText(cost)} plus ${moneyText(CASH_SAFETY_FLOOR)} safety cash. You have ${moneyText(money)}, so earn ${moneyText(needed)} before ${purpose}.`
+}
+
 function activeWorkerLaborRemaining(
   remainingLaborMinutes: number,
   contracts: { paidMinutes: number; workedMinutes: number; laborMultiplier: number }[] = [],
@@ -390,7 +399,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
       return task(
         isBusinessBuild ? 'pay-business-building-permit' : 'pay-house-permit',
         isBusinessBuild ? `Pay ${project.name} permit` : 'Pay the building permit',
-        `Pay ${project.permitFee} and keep the ${target} build legal.`,
+        `Pay ${moneyText(project.permitFee)} and keep at least ${moneyText(CASH_SAFETY_FLOOR)} for food and water so the ${target} build stays legal and safe.`,
         'respect',
         { kind: 'construction-action', projectId: project.id, action: 'permit' },
         10,
@@ -399,7 +408,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
     return task(
       isBusinessBuild ? 'work-for-business-building-permit' : 'work-for-permit',
       isBusinessBuild ? `Work for ${project.name}'s permit` : 'Work for permit money',
-      'Earn before paying the permit so food and water stay safe.',
+      cashGapDetail(isBusinessBuild ? `${project.name} permit` : 'Building permit', project.permitFee, snapshot.money, 'paying the permit'),
       'work',
       { kind: 'work-action', action: 'shift' },
       STANDARD_DAY_BUDGET.workMinutes,
@@ -538,9 +547,9 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     }
     if (!progress.budgetComplete) {
       if (snapshot.money >= project.budgetCost + CASH_SAFETY_FLOOR) {
-        return task('pay-business-budget', `Pay ${project.businessName} budget`, `Pay ${project.budgetCost} to unlock interior labor for level ${project.levelTo}.`, 'respect', { kind: 'business-development-action', projectId: project.id, action: 'budget' }, 10)
+        return task('pay-business-budget', `Pay ${project.businessName} budget`, `Pay ${moneyText(project.budgetCost)} and keep at least ${moneyText(CASH_SAFETY_FLOOR)} safe cash to unlock interior labor for level ${project.levelTo}.`, 'respect', { kind: 'business-development-action', projectId: project.id, action: 'budget' }, 10)
       }
-      return task('work-for-business-budget', `Work for ${project.businessName}'s budget`, 'Earn before funding the upgrade so food and water stay safe.', 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
+      return task('work-for-business-budget', `Work for ${project.businessName}'s budget`, cashGapDetail(`${project.businessName} interior budget`, project.budgetCost, snapshot.money, 'funding the upgrade'), 'work', { kind: 'work-action', action: 'shift' }, STANDARD_DAY_BUDGET.workMinutes)
     }
     if (!progress.laborComplete) {
       const labor = businessDevelopmentLaborBreakdown(project)
