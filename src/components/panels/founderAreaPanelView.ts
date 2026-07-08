@@ -1465,6 +1465,16 @@ export function founderCovenantOperatorQueueFilterSummary(
   }
 }
 
+export function founderCovenantOperatorQueueFilterCountsSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const all = founderCovenantOperatorQueueFilteredReviewRows(queue, 'all').length
+  const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
+  const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
+  const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
+  return `All ${all} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
+}
+
 export function founderCovenantOperatorQueueLatestReviewText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
 ): string | null {

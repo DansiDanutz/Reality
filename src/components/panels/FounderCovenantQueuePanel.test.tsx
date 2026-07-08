@@ -17,6 +17,7 @@ import {
   founderCovenantOperatorQueueApprovalTimelineText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueEvidenceReasonText,
+  founderCovenantOperatorQueueFilterCountsSummary,
   founderCovenantOperatorQueueFilterSummary,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueLatestReviewAuthorityText,
@@ -75,6 +76,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('aria-label="Founder operator queue filters"')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
+    expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -504,6 +506,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilterSummary(founderFilterQueue(), 'scan_anomaly')).toBe(
       '1 founder with scan anomalies',
     )
+    expect(founderCovenantOperatorQueueFilterCountsSummary(founderFilterQueue())).toBe(
+      'All 3 · Manual 1 · Hospital 1 · Scan 1',
+    )
   })
 
   test('renders filtered empty-state messaging when no founders match', () => {
@@ -511,6 +516,7 @@ describe('FounderCovenantQueuePanel', () => {
 
     expect(html).toContain('Filter: Scan')
     expect(html).toContain('0 founders with scan anomalies')
+    expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('No founders match this filter.')
   })
 })
@@ -525,6 +531,17 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
     covenantStatus: 'active',
     manualReviewRequired: false,
     overdue: false,
+    activityReview: {
+      ...item.activityReview,
+      active: true,
+      useful: true,
+      building: true,
+      staffed: true,
+      indebted: false,
+      hospitalized: false,
+      atRisk: false,
+      score: 91,
+    },
     economicExposure: {
       ...item.economicExposure,
       founderCash: 200_000,

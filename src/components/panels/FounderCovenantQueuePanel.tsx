@@ -1,5 +1,6 @@
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import {
+  founderCovenantOperatorQueueFilterCountsSummary,
   type FounderCovenantOperatorQueueFilter,
   type FounderCovenantOperatorQueueReviewRow,
   founderCovenantOperatorQueueFilterSummary,
@@ -66,6 +67,7 @@ export function FounderCovenantQueuePanel({
         ))}
         <span className="item-desc">Filter: {FILTER_OPTIONS.find((option) => option.value === filter)?.label ?? 'All'}</span>
         <span className="item-desc">{founderCovenantOperatorQueueFilterSummary(queue, filter)}</span>
+        <span className="item-desc">{founderCovenantOperatorQueueFilterCountsSummary(queue)}</span>
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip
