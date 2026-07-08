@@ -947,6 +947,9 @@ export default function FounderAreaPanel() {
             {!dashboard.jobs.workersHallRequired && dashboard.jobs.openPositions > 0 && (
               <p className="panel-sub">Open roles are ready. Hire sim workers to keep the business running while you build the next one.</p>
             )}
+            {!dashboard.jobs.workersHallRequired && dashboard.jobs.hireableSimWorkers > 0 && (
+              <p className="panel-sub">First up: hire the sim workers who are already ready. One click turns open roles into payroll.</p>
+            )}
             {dashboard.jobs.candidates.length === 0 || dashboard.jobs.openPositions === 0 ? (
               <p className="panel-sub">No open staffing needs.</p>
             ) : (
