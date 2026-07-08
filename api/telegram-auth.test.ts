@@ -266,6 +266,63 @@ describe('telegram Mini App auth', () => {
     }
   })
 
+  test('server handler returns a structured failure when Telegram identity lookup is unavailable', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    try {
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
+      })
+      const res = responseRecorder()
+      vi.mocked(list).mockRejectedValueOnce(new Error('blob list unavailable'))
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(503)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Telegram identity is briefly unavailable.',
+        code: 'telegram_identity_unavailable',
+      })
+      expect(put).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler returns a structured failure when Telegram identity write is unavailable', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:15:00.000Z'))
+    try {
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
+      })
+      const res = responseRecorder()
+      vi.mocked(list).mockResolvedValueOnce(blobList([]))
+      vi.mocked(put).mockRejectedValueOnce(new Error('blob write unavailable'))
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(503)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Telegram identity is briefly unavailable.',
+        code: 'telegram_identity_unavailable',
+      })
+      expect(put).toHaveBeenCalledWith(
+        'telegram-users/42424242.json',
+        expect.stringContaining('"realityAccountId":"telegram:42424242"'),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test('builds deterministic Telegram Reality account ids', () => {
     expect(realityTelegramAccountId({ id: '42424242' })).toBe('telegram:42424242')
     expect(telegramRealityAccountPath({ id: '42424242' })).toBe('telegram-users/42424242.json')
