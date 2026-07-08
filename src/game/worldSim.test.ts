@@ -329,6 +329,62 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'area_already_claimed' })
   })
 
+  test('advanceWorldArea ignores malformed target clocks without economy activity', () => {
+    const start = area({
+      citizens: [
+        sim('resident', { money: 100, needs: fullNeeds({ hydration: 10 }), health: COLLAPSE_HEALTH - 1 }),
+        sim('worker', { jobBusinessId: 'water1' }),
+      ],
+      businesses: [business('water', 'water1', { cash: 20, staffCitizenIds: ['worker'], price: 2 })],
+    })
+
+    for (const target of [Number.POSITIVE_INFINITY, Number.NaN]) {
+      const { area: out, summary } = advanceWorldArea(start, target)
+
+      expect(out.now).toBe(0)
+      expect(out.citizens.find((citizen) => citizen.id === 'resident')!.money).toBe(100)
+      expect(out.citizens.find((citizen) => citizen.id === 'resident')!.state).toEqual({ kind: 'active' })
+      expect(out.businesses[0].cash).toBe(20)
+      expect(out.transactions).toEqual([])
+      expect(summary).toEqual({
+        purchases: 0,
+        wagesPaid: 0,
+        hospitalizations: 0,
+        recoveries: 0,
+        citizensLeft: 0,
+        insurancePremiumsPaid: 0,
+        insurancePoliciesLapsed: 0,
+        debtsIssued: 0,
+        revenueByBusiness: {},
+      })
+    }
+  })
+
+  test('advanceWorldArea normalizes malformed stored clocks without ticking from a fake baseline', () => {
+    for (const storedNow of [Number.NaN, Number.NEGATIVE_INFINITY, -HOUR]) {
+      const start = area({
+        now: storedNow,
+        citizens: [
+          sim('resident', { money: 100, needs: fullNeeds({ hydration: 10 }), health: COLLAPSE_HEALTH - 1 }),
+          sim('worker', { jobBusinessId: 'water1' }),
+        ],
+        businesses: [business('water', 'water1', { cash: 20, staffCitizenIds: ['worker'], price: 2 })],
+      })
+
+      const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+      expect(out.now).toBe(HOUR)
+      expect(out.citizens.find((citizen) => citizen.id === 'resident')!.money).toBe(100)
+      expect(out.citizens.find((citizen) => citizen.id === 'resident')!.state).toEqual({ kind: 'active' })
+      expect(out.businesses[0].cash).toBe(20)
+      expect(out.transactions).toEqual([])
+      expect(summary.purchases).toBe(0)
+      expect(summary.wagesPaid).toBe(0)
+      expect(summary.hospitalizations).toBe(0)
+      expect(summary.debtsIssued).toBe(0)
+    }
+  })
+
   test('a founder build intent creates a business, charges the founder, and records the build ledger event', () => {
     const start = claimedArea({ citizens: [sim('c1')] })
     const result = applyWorldIntent(start, {

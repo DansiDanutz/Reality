@@ -990,11 +990,17 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
 export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAreaResult {
   const area = cloneArea(input)
   const summary = emptyWorldAreaSummary()
-  if (toMs <= area.now) return { area, summary }
+  const targetTime = normalizedWorldTime(toMs)
+  const storedTime = normalizedWorldTime(area.now)
+  if (storedTime === null) {
+    area.now = targetTime ?? 0
+    return { area, summary }
+  }
+  if (targetTime === null || targetTime <= area.now) return { area, summary }
 
   let t = area.now
-  while (t < toMs) {
-    const next = Math.min(toMs, t + WORLD_SIM_HOUR_MS)
+  while (t < targetTime) {
+    const next = Math.min(targetTime, t + WORLD_SIM_HOUR_MS)
     const context: StepContext = {
       at: next,
       hours: (next - t) / WORLD_SIM_HOUR_MS,
@@ -1008,6 +1014,10 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
   }
 
   return { area, summary }
+}
+
+function normalizedWorldTime(value: number): number | null {
+  return Number.isFinite(value) && value >= 0 ? value : null
 }
 
 export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
