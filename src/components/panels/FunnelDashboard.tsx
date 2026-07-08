@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FUNNEL_EVENT_LABELS } from './funnelDashboardLabels'
 
 /**
  * Read-only funnel dashboard (issue #12). Renders GET /api/funnel as a
@@ -9,44 +10,6 @@ import { useEffect, useState } from 'react'
  * Reached at ?funnel — a separate page from the game, so the numbers stay a
  * quiet, honest report rather than a HUD element.
  */
-
-const EVENT_LABELS: Record<string, { step: string; detail: string }> = {
-  welcome_seen: { step: 'Saw the world', detail: 'Landed on the welcome screen' },
-  spawn_detected: { step: 'Located', detail: 'Hometown resolved from their IP' },
-  citizen_created: { step: 'Born', detail: 'Claimed a citizen slot' },
-  avatar_created: { step: 'Got a face', detail: 'Generated their avatar' },
-  first_zoom_to_street: { step: 'Zoomed in', detail: 'Dropped from globe to their city' },
-  walk_mode_entered: { step: 'Walked', detail: 'Entered first-person Street Mode' },
-  first_purchase: { step: 'Bought', detail: 'First Market purchase' },
-  first_shift_started: { step: 'Worked', detail: 'Started a first shift or gig' },
-  first_home_placed: { step: 'Homed', detail: 'Placed a home on Earth' },
-  first_business_placed: { step: 'Founded', detail: 'Opened a first business' },
-  first_collect: { step: 'Collected', detail: 'Banked their first earnings' },
-  d1_return: { step: 'Returned D1', detail: 'Came back after one real day' },
-  d7_return: { step: 'Returned', detail: 'Came back a real week later' },
-  tutorial_complete: { step: 'Learned basics', detail: 'Finished the first tutorial path' },
-  life_ladder_stage_progress: { step: 'Climbed ladder', detail: 'Reached a later Life Ladder stage' },
-  millionaire_path_milestone: { step: 'Path milestone', detail: 'Reached a millionaire-path stage' },
-  today_plan_viewed: { step: 'Saw Today Plan', detail: 'Viewed the Life Ladder plan surface' },
-  today_plan_completed: { step: 'Did Today Plan', detail: 'Completed a Life Ladder wrapped task' },
-  courier_package_opened: { step: 'Opened courier', detail: 'Opened the daily courier wrapper' },
-  courier_package_completed: { step: 'Completed courier', detail: 'Claimed a courier objective' },
-  education_started: { step: 'Started study', detail: 'Began a real study block' },
-  education_completed: { step: 'Completed study', detail: 'Finished a course or certificate' },
-  respect_gained: { step: 'Earned respect', detail: 'Gained reputation from behavior' },
-  respect_lost: { step: 'Lost respect', detail: 'Broke a commitment and took a humane hit' },
-  friendship_gained: { step: 'Built friendship', detail: 'Earned social connection through help' },
-  community_action_completed: { step: 'Helped locally', detail: 'Completed a community action' },
-  first_achievement: { step: 'Achieved', detail: 'Claimed a first achievement' },
-  first_lucky: { step: 'Lucky moment', detail: 'Saw a first lucky moment' },
-  streak_7: { step: 'Seven-day streak', detail: 'Built a 7-day daily streak' },
-  daily_complete: { step: 'Perfect day', detail: 'Completed all daily challenges' },
-  first_upgrade: { step: 'Upgraded', detail: 'Improved a first business' },
-  business_maxed: { step: 'Maxed business', detail: 'Reached the business level cap' },
-  week_milestone: { step: 'Week milestone', detail: 'Crossed a long-term time milestone' },
-  notifications_enabled: { step: 'Notifications', detail: 'Enabled return reminders' },
-  telegram_linked: { step: 'Telegram linked', detail: 'Verified Telegram identity' },
-}
 
 interface FunnelStep {
   event: string
@@ -93,7 +56,7 @@ export default function FunnelDashboard() {
           ) : (
             <ol className="funnel-list" aria-label="Citizen journey funnel">
               {steps.map((s, i) => {
-                const meta = EVENT_LABELS[s.event] ?? { step: s.event, detail: '' }
+                const meta = FUNNEL_EVENT_LABELS[s.event] ?? { step: s.event, detail: '' }
                 const prev = i === 0 ? s.uniques : steps[i - 1].uniques
                 const widthPct = total > 0 ? Math.max(2, Math.round((s.uniques / total) * 100)) : 0
                 const dropoff = i === 0 || prev === 0 ? null : Math.round((1 - s.uniques / prev) * 100)
