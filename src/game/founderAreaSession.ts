@@ -55,11 +55,17 @@ const DEFAULT_CENTER = {
   lng: 26.08,
 }
 
-export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId' | 'name' | 'homeCity' | 'spawnLat' | 'spawnLng' | 'telegramAccountId'>): FounderAreaProfile {
+export function founderAreaProfileFromCitizen(
+  citizen: Pick<
+    Citizen,
+    'citizenId' | 'name' | 'homeCity' | 'spawnLat' | 'spawnLng' | 'telegramUserId' | 'telegramAccountId'
+  >,
+): FounderAreaProfile {
   const founderId = cleanClientId(citizen.citizenId ?? citizen.name, 'founder')
   const areaPlace = citizen.homeCity?.trim() || 'Founder'
   const centerLat = finiteCoordinate(citizen.spawnLat, DEFAULT_CENTER.lat)
   const centerLng = finiteCoordinate(citizen.spawnLng, DEFAULT_CENTER.lng)
+  const telegramVerified = hasCoherentTelegramIdentity(citizen)
   return {
     founderId,
     founderName: citizen.name.trim() || 'Founder',
@@ -68,7 +74,7 @@ export function founderAreaProfileFromCitizen(citizen: Pick<Citizen, 'citizenId'
     centerLat,
     centerLng,
     radiusKm: 1,
-    claimSource: citizen.telegramAccountId
+    claimSource: telegramVerified
       ? 'telegram'
       : citizen.spawnLat !== undefined && citizen.spawnLng !== undefined
         ? 'geolocation'
@@ -179,6 +185,14 @@ export async function advanceFounderArea(
     authenticatedFounderId: session.profile.founderId,
     now: now + hours * WORLD_SIM_HOUR_MS,
   })
+}
+
+function hasCoherentTelegramIdentity(
+  citizen: Pick<Citizen, 'telegramUserId' | 'telegramAccountId'>,
+): boolean {
+  const telegramUserId = citizen.telegramUserId?.trim()
+  if (!telegramUserId) return false
+  return citizen.telegramAccountId === `telegram:${telegramUserId}`
 }
 
 function cleanClientId(value: string, fallback: string): string {

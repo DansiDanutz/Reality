@@ -163,7 +163,7 @@ export function decodeWorldAreaSnapshot(raw: string): DecodeWorldAreaSnapshotRes
 
 function isWorldArea(value: unknown): value is WorldArea {
   if (!isRecord(value)) return false
-  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now)) return false
+  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now) || value.now < 0) return false
   if (value.claim !== undefined && !isAreaClaim(value.claim)) return false
   if (!Array.isArray(value.citizens) || !value.citizens.every(isWorldCitizen) || !hasUniqueIds(value.citizens)) {
     return false
@@ -206,6 +206,7 @@ function isAreaClaim(value: unknown): value is WorldArea['claim'] {
     isFiniteNumber(value.radiusKm) &&
     value.radiusKm > 0 &&
     isFiniteNumber(value.claimedAt) &&
+    value.claimedAt >= 0 &&
     isOneOf(value.source, CLAIM_SOURCES)
 }
 
@@ -235,6 +236,7 @@ function isWorldDebt(value: unknown): value is WorldDebt {
     isNonEmptyString(value.creditorId) &&
     isPositiveMoney(value.amount) &&
     isFiniteNumber(value.issuedAt) &&
+    value.issuedAt >= 0 &&
     isNonEmptyString(value.memo)
 }
 
@@ -289,7 +291,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
 function isFounderCovenantReviewHistoryItem(value: unknown): value is FounderCovenantReviewHistoryItem {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
-    isFiniteNumber(value.at) &&
+    isNonNegativeFiniteNumber(value.at) &&
     isNonEmptyString(value.reviewerId) &&
     isOneOf(value.actionKind, COVENANT_MANUAL_ACTION_KINDS) &&
     isNonEmptyString(value.summary) &&
@@ -610,6 +612,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0
 }
 
 function isMoney(value: unknown): value is number {
