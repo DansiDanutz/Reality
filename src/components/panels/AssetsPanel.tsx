@@ -4,12 +4,15 @@ import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../../game/businessUpgrades'
 import ConfirmDialog from '../hud/ConfirmDialog'
 import { useGame } from '../../store/gameStore'
 
-function underConstructionLabel(constructionEndsAt?: number): string | null {
-  if (!constructionEndsAt) return null
-  const msLeft = constructionEndsAt - Date.now()
+function underConstructionLabel(placedAtMinute: number, constructionEndsAt?: number): string | null {
+  if (!constructionEndsAt || constructionEndsAt <= placedAtMinute) return null
+  const now = Date.now()
+  const msLeft = constructionEndsAt - now
   if (msLeft <= 0) return null
+  const total = constructionEndsAt - placedAtMinute
   const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000))
-  return hoursLeft > 1 ? `under construction · ${hoursLeft}h left` : 'under construction · <1h left'
+  const pct = Math.max(0, Math.min(100, Math.round(((now - placedAtMinute) / total) * 100)))
+  return `${pct}% built · ${hoursLeft > 1 ? `${hoursLeft}h left` : '<1h left'}`
 }
 
 export default function AssetsPanel() {
@@ -47,7 +50,7 @@ export default function AssetsPanel() {
             {assets.map((a) => {
               const level = a.level ?? 1
               const isBusiness = a.kind === 'business' && a.incomePerDay > 0
-              const construction = underConstructionLabel(a.constructionEndsAt)
+              const construction = underConstructionLabel(a.placedAtMinute, a.constructionEndsAt)
               // baseIncome derives from current income / level (incomePerDay
               // stores the level-adjusted value so the engine reads it directly).
               const baseIncome = isBusiness ? a.incomePerDay / level : 0
@@ -68,8 +71,11 @@ export default function AssetsPanel() {
                     )}
                   </div>
                   <div className="item-buy asset-actions">
-                    {a.incomePerDay > 0 && (
+                    {a.incomePerDay > 0 && !construction && (
                       <span className="item-price mono">+{formatMoney(Math.floor(a.pendingIncome))} ready</span>
+                    )}
+                    {a.incomePerDay > 0 && construction && (
+                      <span className="item-price mono">{formatMoney(Math.floor(a.pendingIncome))} ready after build</span>
                     )}
                     {isBusiness && upgrade && (
                       <button

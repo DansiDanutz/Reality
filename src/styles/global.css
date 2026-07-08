@@ -120,6 +120,12 @@ body {
     0 0 12px 2px rgba(67, 217, 163, 0.7);
   animation: beacon-pulse-ready 1.8s ease-out infinite;
 }
+.map-beacon.building {
+  background: var(--warn);
+  border-style: dashed;
+  opacity: 0.95;
+  animation: beacon-pulse-building 1.8s ease-out infinite;
+}
 @keyframes beacon-pulse-ready {
   0% {
     box-shadow:
@@ -132,6 +138,16 @@ body {
       0 0 0 16px rgba(240, 180, 41, 0),
       0 0 0 2px var(--ok),
       0 0 16px 2px rgba(67, 217, 163, 0.9);
+  }
+}
+@keyframes beacon-pulse-building {
+  0% {
+    box-shadow: 0 0 0 0 rgba(248, 156, 0, 0.45);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(248, 156, 0, 0);
+    transform: scale(1.08);
   }
 }
 
