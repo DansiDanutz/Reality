@@ -1062,6 +1062,13 @@ export function founderCovenantOperatorQueueBlockerSummary(
   return `Blockers: ${totals.blockers} total · ${totals.overdue} overdue · ${totals.hospitalized} hospitalized · ${totals.indebted} indebted`
 }
 
+export function founderCovenantOperatorQueueEscalationWorkSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
+): string {
+  const { totals } = queue
+  return `Escalation work: ${totals.pendingApprovals} approvals · ${totals.pendingNotifications} drafts · ${totals.blockers} blockers`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {

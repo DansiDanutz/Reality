@@ -30,6 +30,7 @@ import {
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueEscalationSummary,
+  founderCovenantOperatorQueueEscalationWorkSummary,
   founderCovenantOperatorQueueFreshnessSummary,
   founderCovenantOperatorQueueManualReviewSummary,
   founderCovenantOperatorQueueSignalSummary,
@@ -1410,6 +1411,19 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Blockers</span>
               <strong>{queue.totals.blockers}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.totals.blockers > 0
+                  ? 'critical'
+                  : queue.totals.pendingApprovals > 0 || queue.totals.pendingNotifications > 0
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueEscalationWorkSummary(queue)}
+            >
+              <span>Escalation work</span>
+              <strong>{queue.totals.pendingApprovals + queue.totals.pendingNotifications}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${

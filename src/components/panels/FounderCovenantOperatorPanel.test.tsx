@@ -6,6 +6,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEscalationSummary,
+  founderCovenantOperatorQueueEscalationWorkSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueFreshnessSummary,
   founderCovenantOperatorQueueManualReviewSummary,
@@ -133,6 +134,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip stable" title="Overdue cleanup: 0 founders · 1 overdue · 0 stale"><span>Overdue cleanup</span><strong>0</strong>')
     expect(html).toContain('title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"')
     expect(html).toContain('class="founder-ledger-chip critical" title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"><span>Blockers</span><strong>3</strong>')
+    expect(html).toContain('title="Escalation work: 1 approvals · 1 drafts · 3 blockers"')
+    expect(html).toContain('class="founder-ledger-chip critical" title="Escalation work: 1 approvals · 1 drafts · 3 blockers"><span>Escalation work</span><strong>2</strong>')
     expect(html).toContain('title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"><span>Approvals</span><strong>1</strong>')
     expect(html).toContain('title="Telegram drafts: 0 warning · 1 manual review · 1 total"')
@@ -353,6 +356,14 @@ describe('FounderCovenantOperatorPanel', () => {
         indebted: 3,
       },
     })).toBe('Blockers: 5 total · 2 overdue · 1 hospitalized · 3 indebted')
+    expect(founderCovenantOperatorQueueEscalationWorkSummary({
+      totals: {
+        ...operatorQueue().totals,
+        pendingApprovals: 4,
+        pendingNotifications: 3,
+        blockers: 2,
+      },
+    })).toBe('Escalation work: 4 approvals · 3 drafts · 2 blockers')
     expect(founderCovenantOperatorQueueEvidenceSummary({
       items: operatorQueue().items,
     })).toBe('Evidence: 1 founder queued · 3 gaps · 0 record ready')
