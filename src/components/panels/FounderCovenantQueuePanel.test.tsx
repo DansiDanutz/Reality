@@ -29,6 +29,7 @@ import {
   founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueuePrimaryWorkloadText,
   founderCovenantOperatorQueueRecommendedActionText,
+  founderCovenantOperatorQueueActionMix,
   founderCovenantOperatorQueueRecommendedNextTone,
   founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueWorkloadSummary,
@@ -67,6 +68,12 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('<span>Building</span><strong>2</strong>')
     expect(html).toContain('<span>Staffed</span><strong>1</strong>')
     expect(html).toContain('<span>At risk</span><strong>1</strong>')
+    expect(html).toContain('aria-label="Founder operator queue action mix"')
+    expect(html).toContain('<span>Evidence next</span><strong>1</strong>')
+    expect(html).toContain('<span>Blocked next</span><strong>0</strong>')
+    expect(html).toContain('<span>Overdue next</span><strong>0</strong>')
+    expect(html).toContain('<span>Record next</span><strong>0</strong>')
+    expect(html).toContain('<span>Monitor next</span><strong>1</strong>')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · never reviewed · score 35/100 · $350 debt')
     expect(html).toContain('1 tx · Attach missing manual evidence')
@@ -297,6 +304,15 @@ describe('FounderCovenantQueuePanel', () => {
       overdue: false,
       manualActions: [],
     })).toBe('stable')
+    expect(founderCovenantOperatorQueueActionMix({
+      items: [manual],
+    })).toEqual({
+      evidence: 1,
+      blocked: 0,
+      overdue: 0,
+      record: 0,
+      monitor: 0,
+    })
     expect(founderCovenantOperatorQueueWorkloadSummary({
       items: [manual],
     })).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 1 overdue')

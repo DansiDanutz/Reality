@@ -9,6 +9,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueuePrimaryWorkloadText,
   founderCovenantOperatorQueueRecommendedActionText,
+  founderCovenantOperatorQueueActionMix,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
   founderCovenantOperatorQueueWorkloadSummary,
@@ -33,6 +34,7 @@ export function FounderCovenantQueuePanel({
 }: FounderCovenantQueuePanelProps) {
   const reviewRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
   const sliceTotals = founderCovenantOperatorQueueSliceTotals(queue, filter)
+  const actionMix = founderCovenantOperatorQueueActionMix(queue)
 
   return (
     <section className="founder-section founder-covenant-operator-queue" aria-label="Founder covenant operator queue">
@@ -122,6 +124,13 @@ export function FounderCovenantQueuePanel({
         <QueueTotalChip label="Building" tone={sliceTotals.building === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.building} />
         <QueueTotalChip label="Staffed" tone={sliceTotals.staffed === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.staffed} />
         <QueueTotalChip label="At risk" tone={sliceTotals.atRisk > 0 ? 'critical' : 'stable'} value={sliceTotals.atRisk} />
+      </div>
+      <div className="founder-ledger-summary" aria-label="Founder operator queue action mix">
+        <QueueTotalChip label="Evidence next" tone={actionMix.evidence > 0 ? 'critical' : 'stable'} value={actionMix.evidence} />
+        <QueueTotalChip label="Blocked next" tone={actionMix.blocked > 0 ? 'critical' : 'stable'} value={actionMix.blocked} />
+        <QueueTotalChip label="Overdue next" tone={actionMix.overdue > 0 ? 'warning' : 'stable'} value={actionMix.overdue} />
+        <QueueTotalChip label="Record next" tone={actionMix.record > 0 ? 'warning' : 'stable'} value={actionMix.record} />
+        <QueueTotalChip label="Monitor next" tone={actionMix.monitor > 0 ? 'stable' : 'warning'} value={actionMix.monitor} />
       </div>
       {reviewRows.length === 0 ? (
         <p className="panel-sub">No founders in this review page.</p>

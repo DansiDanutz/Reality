@@ -175,6 +175,14 @@ export interface FounderCovenantOperatorQueueReviewRow {
   priorityReasons: string[]
 }
 
+export interface FounderCovenantOperatorQueueActionMix {
+  evidence: number
+  blocked: number
+  overdue: number
+  record: number
+  monitor: number
+}
+
 export function founderIdentitySeatLabel(
   identity: Pick<RealityAreaDashboard['founderIdentity'], 'founderNumber'>,
 ): string {
@@ -840,6 +848,26 @@ export function founderCovenantOperatorQueueRecommendedActionText(
     return 'Recommended next: review blocked approvals'
   }
   return 'Recommended next: clear overdue founder reviews'
+}
+
+export function founderCovenantOperatorQueueActionMix(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): FounderCovenantOperatorQueueActionMix {
+  return queue.items.reduce<FounderCovenantOperatorQueueActionMix>((totals, item) => {
+    const recommendation = founderCovenantOperatorQueueRecommendedNextText(item)
+    if (recommendation === 'Attach missing manual evidence') totals.evidence += 1
+    else if (recommendation === 'Review blocked approvals') totals.blocked += 1
+    else if (recommendation === 'Clear overdue review') totals.overdue += 1
+    else if (recommendation === 'Record review') totals.record += 1
+    else totals.monitor += 1
+    return totals
+  }, {
+    evidence: 0,
+    blocked: 0,
+    overdue: 0,
+    record: 0,
+    monitor: 0,
+  })
 }
 
 export function founderCovenantOperatorQueueItemSummary(
