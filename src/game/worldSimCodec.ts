@@ -552,6 +552,7 @@ function isValidTransactionReferences(
 ): boolean {
   if (!isLedgerAccount(transaction.fromId, citizens, businesses, departedCitizens)) return false
   if (!isLedgerAccount(transaction.toId, citizens, businesses, departedCitizens)) return false
+  if (transaction.fromId === transaction.toId) return false
 
   switch (transaction.kind) {
     case 'founder_credit':

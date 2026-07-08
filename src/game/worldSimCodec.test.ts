@@ -427,6 +427,37 @@ describe('worldSim snapshot codec', () => {
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: missingDebtCreditor }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects ledger entries whose payer and receiver are the same account', () => {
+    const selfTransfer = area()
+    selfTransfer.businesses.push({
+      id: 'founder',
+      name: 'Founder Food',
+      kind: 'food',
+      ownerId: 'founder',
+      cash: 0,
+      staffCitizenIds: [],
+      price: 14,
+      wagePerHour: 20,
+      quality: 1,
+      createdBy: 'founder',
+    })
+    selfTransfer.transactions.push({
+      id: 'tx5',
+      at: 2_000,
+      kind: 'customer_purchase',
+      payoutEligibility: 'game_only',
+      fromId: 'founder',
+      toId: 'founder',
+      amount: 14,
+      memo: 'Founder bought food from a ledger account with the same id.',
+    })
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: selfTransfer,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('rejects impossible needs, money, claim coordinates, and transaction kinds', () => {
     const badNeeds = area()
     badNeeds.citizens[0].needs.hydration = 101
