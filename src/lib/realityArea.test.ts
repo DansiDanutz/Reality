@@ -76,6 +76,39 @@ describe('Reality area client', () => {
     expect(body.transactions).toBeUndefined()
   })
 
+  test('trims founder area claim labels before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      ...profile,
+      areaLabel: '  Bucharest Founder Area  ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: {
+        type: 'claimArea',
+        label: 'Bucharest Founder Area',
+        centerLat: 44.4268,
+        centerLng: 26.1025,
+        radiusKm: 1,
+        source: 'telegram',
+      },
+    })
+  })
+
   test('treats an existing server area as a successful restored claim', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(409, {
       ok: false,

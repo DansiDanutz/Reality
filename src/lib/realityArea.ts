@@ -1054,6 +1054,7 @@ export async function claimRealityFounderArea(
 ): Promise<RealityAreaClaimResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
+  const label = profile.areaLabel.trim()
 
   try {
     const response = await fetchImpl('/api/reality-area', {
@@ -1064,7 +1065,7 @@ export async function claimRealityFounderArea(
         token: citizen.token,
         intent: {
           type: 'claimArea',
-          label: profile.areaLabel,
+          label,
           centerLat: profile.centerLat,
           centerLng: profile.centerLng,
           radiusKm: profile.radiusKm,
