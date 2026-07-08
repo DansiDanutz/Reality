@@ -1278,6 +1278,32 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('treats persisted areas with mismatched claim ownership as invalid on authenticated reads', async () => {
+    const corrupted = {
+      ...existingState(),
+      claim: {
+        ...existingState().claim,
+        founderCitizenId: 'other-founder',
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://corrupt-area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(corrupted), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toEqual({
+      ok: true,
+      state: null,
+      dashboard: null,
+      founderNumber: 12,
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('models inherited founder-created businesses for legacy royalty review without payout execution', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
@@ -3414,15 +3440,9 @@ describe('reality area authority API', () => {
     expect(founderMismatchRes.statusCode).toBe(409)
     expect(founderMismatchRes.body).toMatchObject({
       ok: false,
-      error: 'Founder covenant review target does not match the stored founder area.',
-      code: 'area_mismatch',
-      state: {
-        areaId: 'founder-area-0012',
-        founderCitizenId: CITIZEN_ID,
-        claim: {
-          founderCitizenId: 'other-founder',
-        },
-      },
+      error: 'Area must be claimed before recording founder review evidence.',
+      code: 'area_not_claimed',
+      state: null,
     })
     expect(put).not.toHaveBeenCalled()
   })
@@ -3981,6 +4001,39 @@ describe('reality area authority API', () => {
       ok: false,
       code: 'client_controlled_server_field',
       error: 'Invalid refreshArea intent.',
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('refreshArea rejects persisted areas whose claim owner no longer matches the founder seat', async () => {
+    const corrupted = {
+      ...existingState(),
+      claim: {
+        ...existingState().claim,
+        founderCitizenId: 'other-founder',
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://corrupt-refresh-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(corrupted), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'refreshArea' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'area_not_claimed',
+      error: 'Area must be claimed before refreshing the server area.',
+      state: null,
     })
     expect(put).not.toHaveBeenCalled()
   })
