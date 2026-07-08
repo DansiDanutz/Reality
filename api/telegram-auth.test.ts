@@ -97,6 +97,18 @@ describe('telegram Mini App auth', () => {
       { nowSeconds: NOW_SECONDS },
     )).toEqual({ ok: false, error: 'invalid_user' })
 
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: 0, first_name: 'Zero' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: -1, first_name: 'Negative' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+
     const duplicateUser = signedInitData({
       auth_date: String(NOW_SECONDS),
       user: JSON.stringify({ id: 9, first_name: 'Founder' }),
@@ -112,6 +124,36 @@ describe('telegram Mini App auth', () => {
 
     expect(verifyTelegramMiniAppInitData(duplicateHash, BOT_TOKEN, { nowSeconds: NOW_SECONDS }))
       .toEqual({ ok: false, error: 'invalid_init_data' })
+  })
+
+  test('rejects verified Telegram bot accounts before identity persistence', async () => {
+    const botInitData = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      user: JSON.stringify({ id: 9, first_name: 'Reality Bot', is_bot: true }),
+    })
+
+    expect(verifyTelegramMiniAppInitData(botInitData, BOT_TOKEN, { nowSeconds: NOW_SECONDS }))
+      .toEqual({ ok: false, error: 'bot_user' })
+
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    try {
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData: botInitData } } as never, res as never)
+
+      expect(res.statusCode).toBe(401)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Invalid Telegram session.',
+        code: 'bot_user',
+      })
+      expect(list).not.toHaveBeenCalled()
+      expect(put).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('server handler stays disabled until a bot token is configured', async () => {
