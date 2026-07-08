@@ -999,6 +999,9 @@ export function founderCovenantOperatorQueuePriorityReasons(
     | 'manualReviewRequired'
     | 'covenantStatus'
     | 'overdue'
+    | 'checkedAt'
+    | 'nextWeeklyReviewAt'
+    | 'nextMonthlyReviewAt'
     | 'scanStatus'
     | 'activityReview'
     | 'economicExposure'
@@ -1008,7 +1011,8 @@ export function founderCovenantOperatorQueuePriorityReasons(
 ): string[] {
   const reasons: string[] = []
   if (item.manualReviewRequired || item.covenantStatus === 'manual_review') reasons.push('manual review')
-  if (item.overdue) reasons.push('overdue')
+  const cadenceReason = founderCovenantOperatorQueueCadenceReason(item)
+  if (cadenceReason) reasons.push(cadenceReason)
   if (item.activityReview.hospitalized) reasons.push('hospitalized')
   if (item.activityReview.atRisk) reasons.push('at risk')
   if (!item.activityReview.active) reasons.push('inactive')
@@ -1026,6 +1030,15 @@ export function founderCovenantOperatorQueuePriorityReasons(
   if (item.blockerCount > 0) reasons.push(`${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'}`)
   if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') reasons.push(`scan ${item.scanStatus}`)
   return reasons.length > 0 ? reasons : ['tracked']
+}
+
+function founderCovenantOperatorQueueCadenceReason(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'overdue' | 'checkedAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt'>,
+): string | null {
+  if (!item.overdue) return null
+  if (item.nextMonthlyReviewAt <= item.checkedAt) return 'monthly due'
+  if (item.nextWeeklyReviewAt <= item.checkedAt) return 'weekly due'
+  return 'overdue'
 }
 
 function founderCovenantOperatorQueueScanStatusLabel(

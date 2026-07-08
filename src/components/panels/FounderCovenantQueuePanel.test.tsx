@@ -48,7 +48,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
-    expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
+    expect(html).toContain('Priority: manual review, monthly due, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
     expect(html).toContain('manual only')
     expect(html).not.toContain('Approve')
@@ -122,7 +122,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemStatusClass(tracked)).toBe('met')
     expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
-      'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
+      'caught up · checked 2026-07-06 · last none · weekly 2026-06-29 · monthly 2026-07-05',
     )
     expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
@@ -207,6 +207,8 @@ describe('FounderCovenantQueuePanel', () => {
       signalCounts: { total: 1, info: 0, warning: 1, critical: 0 },
       signalKinds: ['review_due'],
       blockerCount: 1,
+      nextWeeklyReviewAt: '2026-07-05T04:00:00.000Z',
+      nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
     })
     const rows = founderCovenantOperatorQueueReviewRows({
       items: [tracked, watch, manual],
@@ -216,7 +218,15 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueuePriorityScore(manual)).toBeGreaterThan(
       founderCovenantOperatorQueuePriorityScore(watch),
     )
+    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('monthly due')
+    expect(founderCovenantOperatorQueuePriorityReasons(watch)).toContain('weekly due')
     expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
+  })
+
+  test('renders cadence urgency in queue priority text', () => {
+    const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={founderQueue()} />)
+
+    expect(html).toContain('Priority: manual review, monthly due, hospitalized, at risk, inactive')
   })
 
   test('renders an empty page as evidence-only review state', () => {
@@ -258,6 +268,8 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
     covenantStatus: 'active',
     manualReviewRequired: false,
     overdue: false,
+    nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
+    nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
     economicExposure: {
       ...item.economicExposure,
       founderCash: 200_000,
@@ -343,8 +355,8 @@ function founderQueueItem(
     checkedAt: '2026-07-06T04:00:00.000Z',
     lastReviewAt: null,
     latestReview: null,
-    nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
-    nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+    nextWeeklyReviewAt: '2026-06-29T04:00:00.000Z',
+    nextMonthlyReviewAt: '2026-07-05T04:00:00.000Z',
     overdue: true,
     covenantStatus: 'manual_review',
     nextAction: 'manual_review',

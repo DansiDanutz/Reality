@@ -1021,7 +1021,7 @@ function compareFounderCovenantReviewQueueItems(
 function founderCovenantReviewQueuePriority(item: WorldFounderCovenantReviewQueueItem): number {
   let priority = 0
   if (item.manualReviewRequired) priority += 120
-  if (item.overdue) priority += 100
+  priority += founderCovenantReviewCadenceUrgency(item)
   if (item.activityReview.hospitalized) priority += 90
   if (item.signalCounts.critical > 0) priority += item.signalCounts.critical * 40
   if (item.activityReview.atRisk) priority += 70
@@ -1033,6 +1033,16 @@ function founderCovenantReviewQueuePriority(item: WorldFounderCovenantReviewQueu
   priority += item.signalCounts.warning * 10
   priority += item.reviewQueue.pendingApprovalCount * 5
   return priority
+}
+
+function founderCovenantReviewCadenceUrgency(item: Pick<
+  WorldFounderCovenantReviewQueueItem,
+  'checkedAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt' | 'overdue'
+>): number {
+  if (!item.overdue) return 0
+  if (item.nextMonthlyReviewAt !== null && item.checkedAt >= item.nextMonthlyReviewAt) return 130
+  if (item.nextWeeklyReviewAt !== null && item.checkedAt >= item.nextWeeklyReviewAt) return 100
+  return 100
 }
 
 function roundServerMoney(value: number): number {

@@ -1581,6 +1581,53 @@ describe('runWorldServerCommand', () => {
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_cursor' })
   })
 
+  test('prioritizes monthly-due founder reviews ahead of weekly-due reviews', async () => {
+    const repo = new MemoryWorldRepo()
+    const now = 40 * 24 * HOUR
+
+    for (const [areaId, founderId, claimedAt] of [
+      ['area-1', 'founder-1', now - 35 * 24 * HOUR],
+      ['area-2', 'founder-2', now - 8 * 24 * HOUR],
+    ] as const) {
+      const created = await runWorldServerCommand(repo, {
+        type: 'createClaimedArea',
+        areaId,
+        name: `${areaId} District`,
+        now: claimedAt,
+        authenticatedFounderId: founderId,
+        founder: citizen(founderId),
+        simCitizens: [],
+        claim: {
+          founderCitizenId: founderId,
+          label: `${areaId} District`,
+          centerLat: 45.45,
+          centerLng: 27.08,
+          radiusKm: 2,
+          claimedAt,
+          source: 'manual',
+        },
+      })
+      if (!created.ok) throw new Error(`expected ${areaId} creation to succeed: ${created.error}`)
+    }
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, now)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.items.map((item) => item.founderCitizenId)).toEqual([
+      'founder-1',
+      'founder-2',
+    ])
+    expect(result.founderCovenantReviewQueue.items[0]).toMatchObject({
+      founderCitizenId: 'founder-1',
+      overdue: true,
+    })
+    expect(result.founderCovenantReviewQueue.items[1]).toMatchObject({
+      founderCitizenId: 'founder-2',
+      overdue: true,
+    })
+  })
+
   test('reports unavailable founder covenant review queue repositories', async () => {
     const repo: WorldAreaRepository = {
       loadArea: async () => null,

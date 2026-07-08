@@ -36,7 +36,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
-    expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk')
+    expect(html).toContain('Priority: manual review, monthly due, hospitalized, at risk')
     expect(html).toContain('Record evidence')
     expect(html).toContain('Next page')
     expect(html).toContain('More founders available')
@@ -129,8 +129,8 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       checkedAt: '2026-07-06T04:00:00.000Z',
       lastReviewAt: null,
       latestReview: null,
-      nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
-      nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+      nextWeeklyReviewAt: '2026-06-29T04:00:00.000Z',
+      nextMonthlyReviewAt: '2026-07-05T04:00:00.000Z',
       overdue: true,
       covenantStatus: 'manual_review',
       nextAction: 'manual_review',
