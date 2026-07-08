@@ -943,6 +943,19 @@ export function founderCovenantOperatorQueueReplacementRiskSummary(
   return `Replacement risk: ${replacementRiskFounders} founder${replacementRiskFounders === 1 ? '' : 's'} · ${inactiveFounders} inactive · ${manualReviewFounders} manual review`
 }
 
+export function founderCovenantOperatorQueueEscalationSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items' | 'totals'>,
+): string {
+  const manualReviewFounders = queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
+  const probationRiskFounders = queue.items.filter((item) =>
+    item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
+  ).length
+  const replacementRiskFounders = queue.items.filter((item) =>
+    (item.manualReviewRequired || item.covenantStatus === 'manual_review') && !item.activityReview.active
+  ).length
+  return `Escalation: ${manualReviewFounders} manual review · ${queue.totals.neverReviewed} never reviewed · ${queue.totals.staleReviewed} stale reviewed · ${probationRiskFounders} probation risk · ${replacementRiskFounders} replacement risk`
+}
+
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {

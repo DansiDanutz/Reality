@@ -29,6 +29,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueEscalationSummary,
   founderCovenantOperatorQueueFreshnessSummary,
   founderCovenantOperatorQueueManualReviewSummary,
   founderCovenantOperatorQueueSignalSummary,
@@ -397,6 +398,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const escalationSummary = queue ? founderCovenantOperatorQueueEscalationSummary(queue) : null
     const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
     const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     const handoff = queueHandoffText({
@@ -406,6 +408,7 @@ export default function FounderCovenantOperatorPanel({
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
       focusSummary,
+      escalationSummary,
       activitySummary,
       actionSummary,
     })
@@ -426,6 +429,7 @@ export default function FounderCovenantOperatorPanel({
         telegramSummary: null,
         telegramRationale: null,
         focusSummary,
+        escalationSummary,
         activitySummary,
         actionSummary,
       })
@@ -443,6 +447,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const escalationSummary = queue ? founderCovenantOperatorQueueEscalationSummary(queue) : null
     const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
     const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     const digestSummary = 'Weekly/monthly founder review'
@@ -451,6 +456,7 @@ export default function FounderCovenantOperatorPanel({
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
       focusSummary,
+      escalationSummary,
       activitySummary,
       actionSummary,
     })
@@ -471,6 +477,7 @@ export default function FounderCovenantOperatorPanel({
         telegramSummary: null,
         telegramRationale: null,
         focusSummary,
+        escalationSummary,
         activitySummary,
         actionSummary,
       })
@@ -488,6 +495,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const escalationSummary = queue ? founderCovenantOperatorQueueEscalationSummary(queue) : null
     const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
     const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     const telegramSummary = queue ? founderCovenantOperatorQueueTelegramDraftSummary(queue) : null
@@ -497,6 +505,7 @@ export default function FounderCovenantOperatorPanel({
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
       focusSummary,
+      escalationSummary,
       activitySummary,
       actionSummary,
       telegramSummary,
@@ -518,6 +527,7 @@ export default function FounderCovenantOperatorPanel({
         telegramSummary: scaffoldSummary,
         telegramRationale: telegramWorkNext,
         focusSummary,
+        escalationSummary,
         activitySummary,
         actionSummary,
       })
@@ -536,6 +546,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const escalationSummary = queue ? founderCovenantOperatorQueueEscalationSummary(queue) : null
     const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
     const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     if (!draft) {
@@ -546,6 +557,7 @@ export default function FounderCovenantOperatorPanel({
       draft,
       queueSummary,
       focusSummary,
+      escalationSummary,
       activitySummary,
       actionSummary,
     })
@@ -566,6 +578,7 @@ export default function FounderCovenantOperatorPanel({
         telegramSummary: 'Manual review Telegram draft',
         telegramRationale: manualTelegramRationale,
         focusSummary,
+        escalationSummary,
         activitySummary,
         actionSummary,
       })
@@ -584,6 +597,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const escalationSummary = queue ? founderCovenantOperatorQueueEscalationSummary(queue) : null
     const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
     const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     if (!request) {
@@ -594,6 +608,7 @@ export default function FounderCovenantOperatorPanel({
       request,
       queueSummary,
       focusSummary,
+      escalationSummary,
       activitySummary,
       actionSummary,
     })
@@ -614,6 +629,7 @@ export default function FounderCovenantOperatorPanel({
         telegramSummary: 'Founder warning Telegram draft',
         telegramRationale: warningTelegramRationale,
         focusSummary,
+        escalationSummary,
         activitySummary,
         actionSummary,
       })

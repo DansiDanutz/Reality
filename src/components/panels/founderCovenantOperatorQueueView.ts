@@ -21,6 +21,7 @@ export interface CopiedQueueViewState {
   telegramSummary?: string | null
   telegramRationale?: string | null
   focusSummary?: string | null
+  escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
 }
@@ -137,6 +138,7 @@ export function queueHandoffText({
   nextCursor,
   queueSummary,
   focusSummary,
+  escalationSummary,
   activitySummary,
   actionSummary,
 }: {
@@ -146,6 +148,7 @@ export function queueHandoffText({
   nextCursor: string | null
   queueSummary: string
   focusSummary?: string | null
+  escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
 }): string {
@@ -155,6 +158,7 @@ export function queueHandoffText({
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
     focusSummary,
+    escalationSummary,
     activitySummary,
     actionSummary,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
@@ -165,6 +169,7 @@ export function queueDigestText({
   nextCursor,
   queueSummary,
   focusSummary,
+  escalationSummary,
   activitySummary,
   actionSummary,
 }: {
@@ -172,6 +177,7 @@ export function queueDigestText({
   nextCursor: string | null
   queueSummary: string
   focusSummary?: string | null
+  escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
 }): string {
@@ -181,6 +187,7 @@ export function queueDigestText({
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
     focusSummary,
+    escalationSummary,
     activitySummary,
     actionSummary,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
@@ -191,6 +198,7 @@ export function queueTelegramScaffoldText({
   nextCursor,
   queueSummary,
   focusSummary,
+  escalationSummary,
   activitySummary,
   actionSummary,
   telegramSummary,
@@ -199,6 +207,7 @@ export function queueTelegramScaffoldText({
   nextCursor: string | null
   queueSummary: string
   focusSummary?: string | null
+  escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
   telegramSummary?: string | null
@@ -207,6 +216,7 @@ export function queueTelegramScaffoldText({
     'Reality founder review update',
     `Queue: ${queueSummary}`,
     focusSummary,
+    escalationSummary,
     activitySummary,
     actionSummary,
     telegramSummary,
@@ -233,12 +243,14 @@ export function queueManualReviewTelegramText({
   draft,
   queueSummary,
   focusSummary,
+  escalationSummary,
   activitySummary,
   actionSummary,
 }: {
   draft: Pick<RealityAreaCovenantNotificationDraft, 'title' | 'body' | 'channel'>
   queueSummary: string
   focusSummary?: string | null
+  escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
 }): string {
@@ -247,6 +259,7 @@ export function queueManualReviewTelegramText({
     draft.body,
     `Queue: ${queueSummary}`,
     focusSummary,
+    escalationSummary,
     activitySummary,
     actionSummary,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
@@ -256,12 +269,14 @@ export function queueFounderWarningTelegramText({
   request,
   queueSummary,
   focusSummary,
+  escalationSummary,
   activitySummary,
   actionSummary,
 }: {
   request: Pick<RealityAreaCovenantApprovalRequest, 'label' | 'reason' | 'blockers'>
   queueSummary: string
   focusSummary?: string | null
+  escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
 }): string {
@@ -274,6 +289,7 @@ export function queueFounderWarningTelegramText({
     blockerText,
     `Queue: ${queueSummary}`,
     focusSummary,
+    escalationSummary,
     activitySummary,
     actionSummary,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
@@ -290,6 +306,7 @@ export function queueCopiedStatusSummary({
   telegramSummary,
   telegramRationale,
   focusSummary,
+  escalationSummary,
   activitySummary,
   actionSummary,
 }: CopiedQueueViewState): string[] {
@@ -307,6 +324,7 @@ export function queueCopiedStatusSummary({
     telegramSummary ? `Copied Telegram scaffold: ${telegramSummary}` : null,
     telegramRationale ? `Copied Telegram rationale: ${telegramRationale}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
+    escalationSummary ? `Copied escalation: ${escalationSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,
     actionSummary ? `Copied action: ${actionSummary}` : null,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0)

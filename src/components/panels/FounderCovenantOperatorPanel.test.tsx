@@ -5,6 +5,7 @@ import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
+  founderCovenantOperatorQueueEscalationSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueFreshnessSummary,
   founderCovenantOperatorQueueManualReviewSummary,
@@ -528,6 +529,7 @@ describe('FounderCovenantOperatorPanel', () => {
       telegramSummary: 'Manual review Telegram draft',
       telegramRationale: 'Main founder approval required / Delivery disabled',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toEqual([
@@ -539,6 +541,7 @@ describe('FounderCovenantOperatorPanel', () => {
       'Copied Telegram scaffold: Manual review Telegram draft',
       'Copied Telegram rationale: Main founder approval required / Delivery disabled',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      'Copied escalation: Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       'Copied action: Action: monitor · monitor current founders',
     ])
@@ -549,31 +552,34 @@ describe('FounderCovenantOperatorPanel', () => {
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
+      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
     )
     expect(queueDigestText({
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'Weekly/monthly founder review digest · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
+      'Weekly/monthly founder review digest · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
     )
     expect(queueTelegramScaffoldText({
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
       telegramSummary: 'Telegram drafts: 0 warning · 1 manual review · 1 total',
     })).toBe(
-      'Reality founder review update\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders\nTelegram drafts: 0 warning · 1 manual review · 1 total\nCursor: cursor-5 -> cursor-6\nResumed after cursor-5 · more founders available',
+      'Reality founder review update\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders\nTelegram drafts: 0 warning · 1 manual review · 1 total\nCursor: cursor-5 -> cursor-6\nResumed after cursor-5 · more founders available',
     )
     expect(queueManualReviewTelegramText({
       draft: {
@@ -583,10 +589,11 @@ describe('FounderCovenantOperatorPanel', () => {
       },
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'Founder covenant manual review required (telegram)\nFounder covenant signals require human review. Replacement and waitlist handoff remain disabled.\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
+      'Founder covenant manual review required (telegram)\nFounder covenant signals require human review. Replacement and waitlist handoff remain disabled.\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
     )
     expect(queueFounderWarningTelegramText({
       request: {
@@ -596,11 +603,16 @@ describe('FounderCovenantOperatorPanel', () => {
       },
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'Send warning (telegram)\nFounder covenant signals suggest a warning.\n2 delivery blockers remain before send\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
+      'Send warning (telegram)\nFounder covenant signals suggest a warning.\n2 delivery blockers remain before send\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
     )
+    expect(founderCovenantOperatorQueueEscalationSummary({
+      items: operatorQueue().items,
+      totals: operatorQueue().totals,
+    })).toBe('Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk')
     expect(queueTelegramOutputsSummary({
       hasQueue: true,
       hasManualReviewDraft: true,
