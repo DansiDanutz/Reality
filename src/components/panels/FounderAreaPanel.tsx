@@ -72,6 +72,7 @@ import {
   founderCitizenInsuranceActionText,
   founderCitizenNeedText,
   founderCitizenProtectionText,
+  founderEstateProtectionText,
   founderFirstBuildReasonText,
   founderFirstBuildEconomicsText,
   founderGrowthBlockerText,
@@ -286,6 +287,9 @@ export default function FounderAreaPanel() {
           </div>
           <div className="founder-covenant-meta" aria-label="Founder recovery summary">
             <span>{founderRecoverySummaryText(founder, founderSurvival)}</span>
+          </div>
+          <div className="founder-covenant-meta" aria-label="Founder estate protection">
+            <span>{founderEstateProtectionText(founder)}</span>
           </div>
 
           <section

@@ -46,6 +46,7 @@ import {
   founderCitizenInsuranceActionText,
   founderCitizenNeedText,
   founderCitizenProtectionText,
+  founderEstateProtectionText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -160,6 +161,22 @@ describe('FounderAreaPanel covenant presenters', () => {
       risk: 'stable',
       warnings: [],
     })).toBe('Founder active · insured')
+
+    expect(founderEstateProtectionText({
+      estateProtection: {
+        namedHeirCitizenId: 'heir-1',
+        namedHeirName: 'Ada Heir',
+        protectedByInsurance: true,
+      },
+    } as never)).toBe('Ada Heir · insurance-backed · manual review')
+
+    expect(founderEstateProtectionText({
+      estateProtection: {
+        namedHeirCitizenId: null,
+        namedHeirName: null,
+        protectedByInsurance: false,
+      },
+    } as never)).toBe('no heir named · not protected · manual review')
 
     expect(founderNeedMetricDetailText({
       simDemand: 1,

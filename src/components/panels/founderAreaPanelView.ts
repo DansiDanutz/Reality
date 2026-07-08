@@ -212,6 +212,16 @@ export function founderRecoverySummaryText(
   return parts.join(' · ')
 }
 
+export function founderEstateProtectionText(
+  citizen: Pick<AreaCitizenDashboard, 'estateProtection'> | undefined,
+): string {
+  if (!citizen) return 'Estate status unavailable'
+  const estate = citizen.estateProtection
+  const heir = estate.namedHeirName ?? (estate.namedHeirCitizenId ? `heir ${estate.namedHeirCitizenId}` : 'no heir named')
+  const coverage = estate.protectedByInsurance ? 'insurance-backed' : 'not protected'
+  return `${heir} · ${coverage} · manual review`
+}
+
 export function founderNeedMetricDetailText(input: {
   simDemand: number
   realDemand: number
