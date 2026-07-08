@@ -69,6 +69,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).not.toContain('<span>Preset</span>')
     expect(html).toContain('<span>Cursor</span><strong>start</strong>')
     expect(html).toContain('<span>Resume</span><strong>more</strong>')
+    expect(html).toContain('<span>Weekly ready</span><strong>0</strong>')
+    expect(html).toContain('<span>Monthly ready</span><strong>0</strong>')
     expect(html).toContain('Record evidence')
     expect(html).toContain('Copy view')
     expect(html).toContain('Clear copied')
@@ -163,6 +165,61 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied workload: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue')
     expect(html).toContain('Copied next: Recommended next: monitor current founders')
     expect(html).not.toContain('Last copied:')
+  })
+
+  test('surfaces cadence-ready chips in the operator queue summary strip', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantOperatorPanel
+        initialQueue={{
+          ...operatorQueue(),
+          totals: {
+            ...operatorQueue().totals,
+            weeklyDue: 2,
+            monthlyDue: 1,
+          },
+          items: [{
+            ...operatorQueue().items[0],
+            manualReviewRequired: false,
+            covenantStatus: 'watch',
+            overdue: true,
+            weeklyReviewDue: true,
+            monthlyReviewDue: true,
+            reviewFreshness: 'stale',
+            reviewReadiness: {
+              ...operatorQueue().items[0].reviewReadiness,
+              evidenceRequiredCount: 0,
+              approvalRequestCount: 0,
+              blockerCount: 0,
+              overdue: true,
+            },
+            reviewQueue: {
+              ...operatorQueue().items[0].reviewQueue,
+              nextStep: 'record_review',
+              recommendedActionKinds: ['record_review'],
+              pendingApprovalKinds: [],
+              pendingApprovalCount: 0,
+              pendingNotificationKinds: [],
+              pendingNotificationCount: 0,
+              blockerCount: 0,
+              blockers: [],
+            },
+            manualActions: [{
+              ...operatorQueue().items[0].manualActions[0],
+              recommended: true,
+            }],
+            pendingApprovalRequests: [],
+            pendingApprovalKinds: [],
+            pendingNotificationDrafts: [],
+            pendingNotificationKinds: [],
+            blockerCount: 0,
+          }],
+        }}
+      />,
+    )
+
+    expect(html).toContain('title="Cadence ready: 1 weekly · 1 monthly"')
+    expect(html).toContain('class="founder-ledger-chip warning" title="Cadence ready: 1 weekly · 1 monthly"><span>Weekly ready</span><strong>1</strong>')
+    expect(html).toContain('class="founder-ledger-chip critical" title="Cadence ready: 1 weekly · 1 monthly"><span>Monthly ready</span><strong>1</strong>')
   })
 
   test('keeps manual operator token fallback visible when Telegram auth is unavailable', () => {

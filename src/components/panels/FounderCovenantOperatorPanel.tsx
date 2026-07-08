@@ -20,6 +20,7 @@ import type {
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
 import {
+  founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueRecommendedActionText,
@@ -126,6 +127,7 @@ export default function FounderCovenantOperatorPanel({
     : null
   const loading = panelState.status === 'loading'
   const operatorToken = manualOperatorToken.trim() || telegramOperatorToken.trim()
+  const cadenceReady = queue ? founderCovenantOperatorQueueCadenceReadyMix(queue) : null
 
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
@@ -819,6 +821,20 @@ export default function FounderCovenantOperatorPanel({
             <span className={`founder-ledger-chip ${queue.nextCursor ? 'warning' : 'stable'}`}>
               <span>Resume</span>
               <strong>{queue.nextCursor ? 'more' : 'end'}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${cadenceReady && cadenceReady.weekly > 0 ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueCadenceReadySummary(queue)}
+            >
+              <span>Weekly ready</span>
+              <strong>{cadenceReady?.weekly ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${cadenceReady && cadenceReady.monthly > 0 ? 'critical' : 'stable'}`}
+              title={founderCovenantOperatorQueueCadenceReadySummary(queue)}
+            >
+              <span>Monthly ready</span>
+              <strong>{cadenceReady?.monthly ?? 0}</strong>
             </span>
           </div>
           <FounderCovenantQueuePanel
