@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import founderAreaPanelSource from './FounderAreaPanel.tsx?raw'
 import {
   founderAreaEventDetail,
   founderAreaEventSummaryItems,
@@ -84,6 +85,11 @@ import {
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
+  test('lists every first-build recommendation without truncating starter categories', () => {
+    expect(founderAreaPanelSource).toContain('dashboard.firstBuild.map((recommendation) => (')
+    expect(founderAreaPanelSource).not.toContain('dashboard.firstBuild.slice(0, 4)')
+  })
+
   test('summarizes server-verified founder Telegram identity', () => {
     const identity = {
       citizenId: 'citizen-1',

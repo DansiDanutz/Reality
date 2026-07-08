@@ -920,7 +920,7 @@ export default function FounderAreaPanel() {
           <section className="founder-section" aria-label="First build choices">
             <h3 className="founder-section-title">First Build</h3>
             <ul className="item-list">
-              {dashboard.firstBuild.slice(0, 4).map((recommendation) => (
+              {dashboard.firstBuild.map((recommendation) => (
                 <li className="item founder-choice" key={recommendation.kind}>
                   <div className="item-info">
                     <span className="item-name">{recommendation.name}</span>
