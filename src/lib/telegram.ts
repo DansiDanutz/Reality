@@ -49,7 +49,8 @@ export async function authenticateTelegramMiniApp(
       body: JSON.stringify({ initData: normalizedInitData }),
     })
     const data = await response.json() as Record<string, unknown>
-    if (!response.ok || data.ok !== true || !isVerifiedTelegramSession(data)) {
+    const session = parseVerifiedTelegramSession(data)
+    if (!response.ok || data.ok !== true || !session) {
       return {
         ok: false,
         reason: 'invalid_session',
@@ -59,12 +60,7 @@ export async function authenticateTelegramMiniApp(
     }
     return {
       ok: true,
-      session: {
-        realityAccountId: data.realityAccountId,
-        telegramUser: data.telegramUser,
-        authDate: data.authDate,
-        startParam: typeof data.startParam === 'string' ? data.startParam : undefined,
-      },
+      session,
     }
   } catch {
     return { ok: false, reason: 'request_failed', error: 'Telegram verification is unavailable.' }
@@ -97,14 +93,47 @@ export function normalizeTelegramInitData(initData: string | null | undefined): 
   return normalized.length > 0 ? normalized : null
 }
 
-function isVerifiedTelegramSession(value: Record<string, unknown>): value is Record<string, unknown> & VerifiedTelegramMiniAppSession & { ok: true } {
+function parseVerifiedTelegramSession(value: Record<string, unknown>): VerifiedTelegramMiniAppSession | null {
   const user = value.telegramUser
-  return typeof value.realityAccountId === 'string' &&
-    value.realityAccountId.startsWith('telegram:') &&
-    Number.isFinite(value.authDate) &&
-    isRecord(user) &&
-    typeof user.id === 'string' &&
-    typeof user.firstName === 'string'
+  if (
+    typeof value.realityAccountId !== 'string' ||
+    !Number.isFinite(value.authDate) ||
+    !isRecord(user) ||
+    typeof user.id !== 'string' ||
+    typeof user.firstName !== 'string'
+  ) {
+    return null
+  }
+  const realityAccountId = value.realityAccountId.trim()
+  const telegramUserId = user.id.trim()
+  const firstName = user.firstName.trim()
+  const authDate = Number(value.authDate)
+  if (
+    !realityAccountId.startsWith('telegram:') ||
+    telegramUserId.length === 0 ||
+    firstName.length === 0 ||
+    realityAccountId !== `telegram:${telegramUserId}`
+  ) {
+    return null
+  }
+  const lastName = typeof user.lastName === 'string' ? user.lastName.trim() : undefined
+  const username = typeof user.username === 'string' ? user.username.trim() : undefined
+  const languageCode = typeof user.languageCode === 'string' ? user.languageCode.trim() : undefined
+  const photoUrl = typeof user.photoUrl === 'string' ? user.photoUrl.trim() : undefined
+  const startParam = typeof value.startParam === 'string' ? value.startParam.trim() : undefined
+  return {
+    realityAccountId,
+    authDate,
+    startParam: startParam || undefined,
+    telegramUser: {
+      id: telegramUserId,
+      firstName,
+      ...(lastName ? { lastName } : {}),
+      ...(username ? { username } : {}),
+      ...(languageCode ? { languageCode } : {}),
+      ...(photoUrl ? { photoUrl } : {}),
+    },
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -39,7 +39,19 @@ describe('Telegram Mini App client bridge', () => {
     const session = verifiedSession()
     const fetchImpl = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ ok: true, ...session }),
+      json: async () => ({
+        ok: true,
+        realityAccountId: ' telegram:42424242 ',
+        authDate: session.authDate,
+        startParam: ' founder-seat ',
+        telegramUser: {
+          id: ' 42424242 ',
+          firstName: ' David ',
+          lastName: ' Reality ',
+          username: ' davidreality ',
+          languageCode: ' en ',
+        },
+      }),
     }))
 
     await expect(authenticateTelegramMiniApp(fetchImpl as never, ' auth_date=1&hash=abc ')).resolves.toEqual({
@@ -76,6 +88,50 @@ describe('Telegram Mini App client bridge', () => {
       reason: 'invalid_session',
       error: 'Invalid Telegram session.',
       code: 'invalid_hash',
+    })
+  })
+
+  test('rejects successful responses whose account id does not match the Telegram user id', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        realityAccountId: 'telegram:999',
+        authDate: 1_800_000_000,
+        telegramUser: {
+          id: '42424242',
+          firstName: 'David',
+        },
+      }),
+    }))
+
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_session',
+      error: 'Telegram session could not be verified.',
+      code: undefined,
+    })
+  })
+
+  test('rejects successful responses with blank Telegram identity fields', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        realityAccountId: 'telegram:42424242',
+        authDate: 1_800_000_000,
+        telegramUser: {
+          id: '   ',
+          firstName: '   ',
+        },
+      }),
+    }))
+
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_session',
+      error: 'Telegram session could not be verified.',
+      code: undefined,
     })
   })
 
