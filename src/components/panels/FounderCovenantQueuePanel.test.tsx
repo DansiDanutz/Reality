@@ -141,6 +141,11 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
     )
+    expect(founderCovenantOperatorQueueItemDateSummary({
+      ...manual,
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+    })).toBe('caught up · checked 2026-07-06 · last none · weekly due · monthly 2026-08-05')
     expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
     )

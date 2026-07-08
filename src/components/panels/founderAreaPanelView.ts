@@ -807,10 +807,15 @@ export function founderCovenantOperatorQueueItemStatusLabel(
 }
 
 export function founderCovenantOperatorQueueItemDateSummary(
-  item: Pick<RealityFounderCovenantReviewQueueItem, 'scanStatus' | 'checkedAt' | 'lastReviewAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt'>,
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    'scanStatus' | 'checkedAt' | 'lastReviewAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt' | 'weeklyReviewDue' | 'monthlyReviewDue'
+  >,
 ): string {
   const lastReview = item.lastReviewAt ? shortDate(item.lastReviewAt) : 'none'
-  return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · weekly ${shortDate(item.nextWeeklyReviewAt)} · monthly ${shortDate(item.nextMonthlyReviewAt)}`
+  const weekly = item.weeklyReviewDue ? 'weekly due' : `weekly ${shortDate(item.nextWeeklyReviewAt)}`
+  const monthly = item.monthlyReviewDue ? 'monthly due' : `monthly ${shortDate(item.nextMonthlyReviewAt)}`
+  return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · ${weekly} · ${monthly}`
 }
 
 export function founderCovenantOperatorQueueSignalText(
