@@ -192,6 +192,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   // ── New businesses (issue #36) — priced to keep the 60–90 day payback invariant ──
   { id: 'laundromat', name: 'Laundromat', category: 'business', price: 45_000, placeable: true, incomePerDay: 650, description: 'Coins in, cycles running, every single night.' },
   { id: 'gallery', name: 'Art Gallery', category: 'business', price: 175_000, placeable: true, incomePerDay: 2_300, description: 'Quiet walls, serious collectors, real margins.' },
+  { id: 'workers_hall', name: 'Workers Hall', category: 'business', price: 18_000, placeable: true, incomePerDay: 0, description: 'The place where open roles become real hires.' },
   { id: 'vineyard', name: 'Vineyard', category: 'business', price: 700_000, placeable: true, incomePerDay: 9_000, description: 'A hillside, a harvest, a label with your name.' },
   { id: 'solarfarm', name: 'Solar Farm', category: 'business', price: 1_100_000, placeable: true, incomePerDay: 15_000, description: 'The sun works every shift.' },
   { id: 'skyhotel', name: 'Skyscraper Hotel', category: 'business', price: 4_000_000, placeable: true, incomePerDay: 55_000, description: 'A landmark with your name on the deed.' },
