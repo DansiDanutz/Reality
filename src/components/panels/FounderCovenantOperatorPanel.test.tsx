@@ -177,6 +177,7 @@ describe('FounderCovenantOperatorPanel', () => {
           scanCursor: 'cursor-5',
           nextCursor: 'cursor-6',
           digestSummary: 'Weekly/monthly founder review',
+          lastTelegramOutput: 'Manual review draft',
           telegramSummary: 'Manual review Telegram draft',
           focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
           activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
@@ -189,6 +190,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied view: Action Record')
     expect(html).toContain('Copied cursor: cursor-5 -&gt; cursor-6')
     expect(html).toContain('Copied digest: Weekly/monthly founder review')
+    expect(html).toContain('Last Telegram output: Manual review draft')
     expect(html).toContain('Copied Telegram scaffold: Manual review Telegram draft')
     expect(html).toContain('Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(html).toContain('Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
@@ -328,6 +330,7 @@ describe('FounderCovenantOperatorPanel', () => {
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       digestSummary: 'Weekly/monthly founder review',
+      lastTelegramOutput: 'Manual review draft',
       telegramSummary: 'Manual review Telegram draft',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
@@ -336,6 +339,7 @@ describe('FounderCovenantOperatorPanel', () => {
       'Copied view: Action Record',
       'Copied cursor: cursor-5 -> cursor-6',
       'Copied digest: Weekly/monthly founder review',
+      'Last Telegram output: Manual review draft',
       'Copied Telegram scaffold: Manual review Telegram draft',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',

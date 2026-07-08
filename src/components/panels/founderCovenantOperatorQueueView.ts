@@ -15,6 +15,7 @@ export interface CopiedQueueViewState {
   scanCursor: string | null
   nextCursor: string | null
   digestSummary?: string | null
+  lastTelegramOutput?: string | null
   telegramSummary?: string | null
   focusSummary?: string | null
   activitySummary?: string | null
@@ -266,6 +267,7 @@ export function queueCopiedStatusSummary({
   scanCursor,
   nextCursor,
   digestSummary,
+  lastTelegramOutput,
   telegramSummary,
   focusSummary,
   activitySummary,
@@ -280,6 +282,7 @@ export function queueCopiedStatusSummary({
     `Copied view: ${copiedView}`,
     `Copied cursor: ${copiedCursor}`,
     digestSummary ? `Copied digest: ${digestSummary}` : null,
+    lastTelegramOutput ? `Last Telegram output: ${lastTelegramOutput}` : null,
     telegramSummary ? `Copied Telegram scaffold: ${telegramSummary}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,
