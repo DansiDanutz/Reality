@@ -5,7 +5,7 @@ import { useGame } from '../../store/gameStore'
 
 function firstResourceFromRequirement(requirement: { kind: string; resource?: ResourceKind; resources?: Partial<Record<ResourceKind, number>> }): ResourceKind | null {
   if ((requirement.kind === 'resource' || requirement.kind === 'resource-gathered') && requirement.resource) return requirement.resource
-  if (requirement.kind === 'construction-deposit' && requirement.resources) {
+  if ((requirement.kind === 'construction-deposit' || requirement.kind === 'construction-deposit-complete') && requirement.resources) {
     return (Object.keys(requirement.resources)[0] as ResourceKind | undefined) ?? null
   }
   return null
@@ -101,6 +101,7 @@ export default function CourierPackagePrompt() {
         startPlacingConstruction()
         return
       case 'construction-deposit':
+      case 'construction-deposit-complete':
         if (project) depositConstructionResources(project.id)
         else startPlacingConstruction()
         return
@@ -112,6 +113,14 @@ export default function CourierPackagePrompt() {
         return
       case 'worker-hired':
         setPanel('construction')
+        return
+      case 'business-development-site':
+      case 'business-development-deposit':
+      case 'business-development-deposit-complete':
+      case 'business-development-budget':
+      case 'business-development-labor':
+      case 'business-upgraded':
+        setPanel('business')
         return
       default:
         complete()
@@ -142,12 +151,19 @@ export default function CourierPackagePrompt() {
         ? 'Walk'
         : pkg.requirement.kind === 'construction-site'
           ? 'Place site'
-          : pkg.requirement.kind === 'construction-deposit'
+          : pkg.requirement.kind === 'construction-deposit' || pkg.requirement.kind === 'construction-deposit-complete'
             ? project ? 'Deposit materials' : 'Place site'
             : pkg.requirement.kind === 'worker-hired'
               ? 'Hire worker'
             : pkg.requirement.kind === 'construction-labor' || pkg.requirement.kind === 'home-built-or-progress' || pkg.requirement.kind === 'construction-built'
               ? project ? 'Work 60m' : 'Place site'
+              : pkg.requirement.kind === 'business-development-site' ||
+                  pkg.requirement.kind === 'business-development-deposit' ||
+                  pkg.requirement.kind === 'business-development-deposit-complete' ||
+                  pkg.requirement.kind === 'business-development-budget' ||
+                  pkg.requirement.kind === 'business-development-labor' ||
+                  pkg.requirement.kind === 'business-upgraded'
+                ? 'Open business'
               : resourceKind
                 ? `Gather ${RESOURCE_META[resourceKind].label}`
                 : 'Open package'

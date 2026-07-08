@@ -404,6 +404,33 @@ describe('courierPackages', () => {
       businessDevelopmentProjects: [deposited],
       hasHome: true,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-deposit-complete', resources: project.required, businessId: project.businessId, level: project.levelTo } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [project],
+      assets: [business()],
+      hasHome: true,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-deposit-complete', resources: project.required, businessId: project.businessId, level: project.levelTo } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [deposited],
+      assets: [business()],
+      hasHome: true,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-deposit-complete', resources: project.required, businessId: project.businessId, level: project.levelTo } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [],
+      assets: [upgradedBusiness],
+      hasHome: true,
+    })).toBe(true)
     expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-budget' } }, {
       timesEaten: 0,
       sawStreetMode: false,
@@ -546,6 +573,37 @@ describe('courierPackages', () => {
     })
   })
 
+  test('wraps generated business interior deposit tasks with permanent upgrade requirements', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_000)!
+    const pkg = courierPackageForLifePlan(18, {
+      id: 'deposit-business-materials',
+      title: 'Deposit Food Cart materials',
+      detail: 'Move gathered ingredients into the interior plan so the upgrade can advance.',
+      value: 'capital',
+      minutes: 15,
+      route: { kind: 'business-development-action', projectId: project.id, action: 'deposit' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(project.required),
+      constructionProjects: [],
+      businessDevelopmentProjects: [project],
+      assets: [business()],
+      hasHome: true,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 18,
+      title: 'Deposit Food Cart materials',
+      requirement: {
+        kind: 'business-development-deposit-complete',
+        resources: project.required,
+        businessId: project.businessId,
+        level: project.levelTo,
+      },
+    })
+  })
+
   test('wraps generated worker hire tasks with hire requirements instead of labor progress', () => {
     const constructionProject = createConstructionProject('starter-house', 45, 21, 1)
     const businessProject = createBusinessDevelopmentProject(business(), 1_000)!
@@ -652,8 +710,33 @@ describe('courierPackages', () => {
 
     expect(deposit).toMatchObject({
       day: 12,
-      requirement: { kind: 'construction-deposit', resources: project.required },
+      requirement: {
+        kind: 'construction-deposit-complete',
+        resources: project.required,
+        resultKind: project.resultKind,
+        itemId: project.itemId,
+        lat: project.lat,
+        lng: project.lng,
+      },
     })
+    expect(courierRequirementMet(deposit!, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      assets: [{
+        id: 'built-house',
+        itemId: project.itemId,
+        kind: project.resultKind,
+        name: project.name,
+        lat: project.lat,
+        lng: project.lng,
+        incomePerDay: project.incomePerDay,
+        pendingIncome: 0,
+        placedAtMinute: 0,
+      }],
+      hasHome: true,
+    })).toBe(true)
     expect(permit).toMatchObject({
       day: 13,
       requirement: { kind: 'construction-permit' },
