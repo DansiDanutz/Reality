@@ -71,7 +71,7 @@ export default function HealthGuide() {
         figures the WHO, CDC and EFSA publish — compressed onto your real clock.
       </p>
       <p className="panel-sub">
-        The daily loop is simple: survive first, then work, study, help your neighborhood, and build the home or business that makes the next day easier.
+        The daily loop is simple: survive first, then work, study, help your neighborhood, and build the home or business that makes the next day easier. Builds take real hours, and the map shows how long is left.
       </p>
 
       {SECTIONS.map((s) => (
