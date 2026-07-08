@@ -41,6 +41,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('1 founder in current page')
     expect(html).toContain('All 1 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
+    expect(html).toContain('<span>Never</span><strong>1</strong>')
     expect(html).toContain('aria-label="Founder operator queue view summary"')
     expect(html).toContain('<span>View</span><strong>All</strong>')
     expect(html).toContain('<span>Sort</span><strong>Priority</strong>')
@@ -127,6 +128,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       hospitalized: 1,
       atRisk: 1,
       manualReviewRequired: 1,
+      neverReviewed: 1,
       overdue: 1,
       totalFounderCash: 199_500,
       totalOutstandingDebt: 350,

@@ -933,6 +933,7 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     hospitalized: number
     atRisk: number
     manualReviewRequired: number
+    neverReviewed: number
     overdue: number
     totalFounderCash: number
     totalOutstandingDebt: number
@@ -2230,6 +2231,7 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.hospitalized === 'number' &&
     typeof value.atRisk === 'number' &&
     typeof value.manualReviewRequired === 'number' &&
+    typeof value.neverReviewed === 'number' &&
     typeof value.overdue === 'number' &&
     typeof value.totalFounderCash === 'number' &&
     typeof value.totalOutstandingDebt === 'number' &&

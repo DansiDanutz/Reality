@@ -39,12 +39,13 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('approval workflow disabled')
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
-    expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
+    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
     expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
+    expect(html).toContain('<span>Never</span><strong>2</strong>')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -300,6 +301,7 @@ describe('FounderCovenantQueuePanel', () => {
         ...founderQueue().totals,
         founders: 0,
         manualReviewRequired: 0,
+        neverReviewed: 0,
         overdue: 0,
         hospitalized: 0,
         indebted: 0,
@@ -310,7 +312,7 @@ describe('FounderCovenantQueuePanel', () => {
 
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
-    expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
     expect(html).toContain('No founders in this review page.')
   })
 })
@@ -381,6 +383,7 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       hospitalized: 1,
       atRisk: 1,
       manualReviewRequired: 1,
+      neverReviewed: 1,
       overdue: 1,
       totalFounderCash: 399_500,
       totalOutstandingDebt: 350,

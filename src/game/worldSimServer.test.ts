@@ -1458,6 +1458,7 @@ describe('runWorldServerCommand', () => {
       indebted: 1,
       atRisk: 2,
       manualReviewRequired: 1,
+      neverReviewed: 2,
       totalOutstandingDebt: 350,
     })
     expect(queue.results).toEqual([

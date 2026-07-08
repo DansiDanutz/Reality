@@ -313,6 +313,7 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     hospitalized: number
     atRisk: number
     manualReviewRequired: number
+    neverReviewed: number
     overdue: number
     totalFounderCash: number
     totalOutstandingDebt: number
@@ -854,6 +855,7 @@ function founderCovenantReviewQueueTotals(
     hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
+    neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
     overdue: items.filter((item) => item.overdue).length,
     totalFounderCash: roundServerMoney(items.reduce((total, item) => total + item.economicExposure.founderCash, 0)),
     totalOutstandingDebt: roundServerMoney(items.reduce((total, item) =>

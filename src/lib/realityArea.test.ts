@@ -2985,6 +2985,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       hospitalized: 0,
       atRisk: 1,
       manualReviewRequired: 0,
+      neverReviewed: 1,
       overdue: 0,
       totalFounderCash: 199_650,
       totalOutstandingDebt: 300,

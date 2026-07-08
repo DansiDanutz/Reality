@@ -3508,6 +3508,7 @@ describe('reality area authority API', () => {
         hospitalized: 1,
         atRisk: 1,
         manualReviewRequired: 1,
+        neverReviewed: 1,
         overdue: 1,
         totalFounderCash: 199_650,
         totalOutstandingDebt: 120,
@@ -3795,6 +3796,7 @@ describe('reality area authority API', () => {
         totals: {
           founders: 0,
           manualReviewRequired: 0,
+          neverReviewed: 0,
           overdue: 0,
           pendingApprovals: 0,
           pendingNotifications: 0,
