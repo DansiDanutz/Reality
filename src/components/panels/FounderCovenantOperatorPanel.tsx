@@ -234,13 +234,14 @@ export default function FounderCovenantOperatorPanel({
 
   const copyQueueViewContext = async () => {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    const context = queueContextText(queueFilter, queueSort, scanCursor)
     if (!clipboard?.writeText) {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
       return
     }
     try {
-      await clipboard.writeText(queueContextText(queueFilter, queueSort, scanCursor))
-      setOperatorReviewMessage('Queue view copied.')
+      await clipboard.writeText(context)
+      setOperatorReviewMessage(`Queue view copied: ${context}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
     }
