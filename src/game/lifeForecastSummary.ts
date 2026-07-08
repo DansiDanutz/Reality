@@ -18,7 +18,7 @@ export function buildEtaSummary(forecast: ConstructionDayForecast | null): strin
   if (!forecast) return null
   const parts: string[] = []
   if (forecast.upfrontCostRemaining > 0) {
-    parts.push(`${formatMoney(forecast.upfrontCostRemaining)} shell`)
+    parts.push(`${formatMoney(forecast.upfrontCostRemaining)} foundation`)
     parts.push(forecast.upfrontAffordableToday ? 'place today' : `save ${formatMoney(forecast.upfrontCashNeeded)}`)
   }
   if (forecast.upfrontCostRemaining > 0 && !forecast.upfrontAffordableToday) {

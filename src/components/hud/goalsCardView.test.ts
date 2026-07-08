@@ -105,13 +105,13 @@ describe('buildEtaSummary', () => {
       freshResources(),
       1_000,
       100,
-      0,
+      15_000,
       8,
     )
 
     expect(buildEtaSummary(forecast)).toContain('Build ETA:')
-    expect(buildEtaSummary(forecast)).toContain('gather')
-    expect(buildEtaSummary(forecast)).toContain('$500 permit')
+    expect(buildEtaSummary(forecast)).toContain('foundation')
+    expect(buildEtaSummary(forecast)).toContain('save')
   })
 
   test('does not treat active paid worker labor as a repeating daily forecast', () => {
