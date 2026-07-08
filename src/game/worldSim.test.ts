@@ -400,6 +400,25 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.citizens.find((c) => c.id === 'founder')!.money).toBe(200_000)
   })
 
+  test('build intents reject ids matching trimmed imported businesses without rewriting them', () => {
+    const start = claimedArea({
+      businesses: [business('food', ' food1 ', { ownerId: 'founder' })],
+    })
+    const result = applyWorldIntent(start, {
+      type: 'buildBusiness',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      blueprint: DEFAULT_BUSINESS_BLUEPRINTS.water,
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'business_id_taken' })
+    expect(result.area.businesses).toHaveLength(1)
+    expect(result.area.businesses[0]!.id).toBe(' food1 ')
+    expect(result.area.transactions).toHaveLength(0)
+    expect(result.area.citizens.find((c) => c.id === 'founder')!.money).toBe(200_000)
+    expect(start.businesses[0]!.id).toBe(' food1 ')
+  })
+
   test('build intents reject impossible blueprint economics', () => {
     const start = claimedArea()
 
