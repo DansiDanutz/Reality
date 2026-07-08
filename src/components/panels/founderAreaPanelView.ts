@@ -1026,6 +1026,14 @@ export function founderCovenantReviewApprovalSummary(
   return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable · ${blockers} blocker${blockers === 1 ? '' : 's'}`
 }
 
+export function founderCovenantReviewApprovalBlockerSummary(
+  review: Pick<FounderCovenantReviewHistoryItem, 'approvalRequests'>,
+): string {
+  const blockers = Array.from(new Set(review.approvalRequests.flatMap((request) => request.blockers)))
+  if (blockers.length === 0) return 'No approval blockers'
+  return `Approval blockers: ${blockers.map(founderCovenantApprovalBlockerLabel).join(', ')}`
+}
+
 export function founderCovenantReviewItems(review: FounderCovenantActivityReview): FounderCovenantReviewItem[] {
   return [
     positiveFlag('active', 'Active', review.active),

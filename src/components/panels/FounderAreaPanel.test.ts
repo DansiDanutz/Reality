@@ -20,6 +20,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
   founderCovenantReviewActionSummary,
+  founderCovenantReviewApprovalBlockerSummary,
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
@@ -103,6 +104,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActorText')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(dashboard.founderCovenant.latestReview.reviewQueue)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(entry.reviewQueue)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -814,6 +817,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant approval snapshots', () => {
     expect(founderCovenantReviewApprovalSummary({ approvalRequests: [] })).toBe('No approval snapshot')
+    expect(founderCovenantReviewApprovalBlockerSummary({ approvalRequests: [] })).toBe('No approval blockers')
     expect(founderCovenantReviewApprovalSummary({
       approvalRequests: [{
         id: 'approval-1',
@@ -838,6 +842,30 @@ describe('FounderAreaPanel covenant presenters', () => {
         blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       }],
     })).toBe('1 approval captured · 0 executable · 2 blockers')
+    expect(founderCovenantReviewApprovalBlockerSummary({
+      approvalRequests: [{
+        id: 'approval-1',
+        at: 1_000,
+        kind: 'send_warning',
+        label: 'Send warning',
+        reason: 'Covenant signals suggest a manual founder warning.',
+        status: 'pending_manual_approval',
+        recommended: true,
+        requiresApproval: true,
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        notificationDraftId: 'draft-1',
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
+      }],
+    })).toBe('Approval blockers: approval workflow, Telegram delivery')
   })
 
   test('labels latest covenant review evidence without enabling automation', () => {
