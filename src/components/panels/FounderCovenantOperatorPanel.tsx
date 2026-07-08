@@ -235,7 +235,7 @@ export default function FounderCovenantOperatorPanel({
   const copyQueueViewContext = async () => {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
     const context = queueContextText(queueFilter, queueSort, scanCursor)
-    const handoff = `${context} · ${queueCursorContextText(scanCursor, queue?.nextCursor ?? null)}`
+    const handoff = `${context} · ${queueCursorContextText(scanCursor, queue?.nextCursor ?? null)} · ${queueResumeText(scanCursor, queue?.nextCursor ?? null)}`
     if (!clipboard?.writeText) {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
       return
@@ -415,11 +415,7 @@ export default function FounderCovenantOperatorPanel({
               View: {queueViewLabel(queueFilter)} / {queueSortLabel(queueSort)} / {scanCursor ?? 'start'}
             </span>
             <span className="item-desc">
-              {scanCursor
-                ? `Resumed after ${scanCursor}${queue.nextCursor ? ' · more founders available' : ' · end of current queue'}`
-                : queue.nextCursor
-                  ? 'Start of queue · more founders available'
-                  : 'Start of queue · end of current queue'}
+              {queueResumeText(scanCursor, queue.nextCursor)}
             </span>
           </div>
         </>
@@ -486,6 +482,16 @@ function queueCursorContextText(
     return `Cursor: ${scanCursor}${nextCursor ? ` -> ${nextCursor}` : ' -> end'}`
   }
   return nextCursor ? `Cursor: start -> ${nextCursor}` : 'Cursor: start -> end'
+}
+
+function queueResumeText(
+  scanCursor: string | null,
+  nextCursor: string | null,
+): string {
+  if (scanCursor) {
+    return `Resumed after ${scanCursor}${nextCursor ? ' · more founders available' : ' · end of current queue'}`
+  }
+  return nextCursor ? 'Start of queue · more founders available' : 'Start of queue · end of current queue'
 }
 
 function formatOperatorAuthExpiry(expiresAt: number): string {
