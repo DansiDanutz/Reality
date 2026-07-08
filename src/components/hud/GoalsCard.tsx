@@ -249,7 +249,7 @@ export default function GoalsCard() {
               type="button"
               className="goals-card-agenda-item"
               key={day.dayLabel}
-              onClick={() => setPanel('construction')}
+              onClick={() => openRoute(day.primary.route)}
               aria-label={`${day.dayLabel}. ${day.primary.title}. ${day.primary.detail}`}
             >
               <span className="goals-card-agenda-index">{day.dayLabel}</span>
