@@ -646,11 +646,11 @@ function isNonNegativeFiniteNumber(value: unknown): value is number {
 }
 
 function isMoney(value: unknown): value is number {
-  return isFiniteNumber(value) && value >= 0
+  return isFiniteNumber(value) && value >= 0 && hasCentPrecision(value)
 }
 
 function isPositiveMoney(value: unknown): value is number {
-  return isFiniteNumber(value) && value > 0
+  return isFiniteNumber(value) && value > 0 && hasCentPrecision(value)
 }
 
 function isPercentage(value: unknown): value is number {
@@ -659,6 +659,10 @@ function isPercentage(value: unknown): value is number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+function hasCentPrecision(value: number): boolean {
+  return roundMoney(value) === value
 }
 
 function isLatitude(value: unknown): value is number {

@@ -473,6 +473,33 @@ describe('worldSim snapshot codec', () => {
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: nonSimDeparture }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects sub-cent persisted money values', () => {
+    const subCentCitizenCash = area()
+    subCentCitizenCash.citizens[1].money = 1_000.001
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: subCentCitizenCash }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const subCentBusinessCash = area()
+    subCentBusinessCash.businesses[0].cash = 45.005
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: subCentBusinessCash }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const subCentBusinessPrice = area()
+    subCentBusinessPrice.businesses[0].price = 45.001
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: subCentBusinessPrice }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const subCentWage = area()
+    subCentWage.businesses[0].wagePerHour = 20.001
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: subCentWage }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const subCentDebt = area()
+    subCentDebt.citizens[0].debt = 250.001
+    subCentDebt.citizens[0].debts![0].amount = 250.001
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: subCentDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const subCentTransaction = area()
+    subCentTransaction.transactions[2].amount = 45.001
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: subCentTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('rejects invalid citizen state and business shape', () => {
     const badState = area()
     badState.citizens[0].state = { kind: 'hospitalized', until: Number.NaN }
