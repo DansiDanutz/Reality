@@ -84,6 +84,8 @@ describe('routineShortLabel', () => {
     expect(routineShortLabel(routineBlock({ kind: 'construction-action', projectId: 'house-1', action: 'hire-helper', hours: 2 }))).toBe('Hire')
     expect(routineShortLabel(routineBlock({ kind: 'construction-action', projectId: 'house-1', action: 'work' }))).toBe('Build')
     expect(routineShortLabel(routineBlock({ kind: 'construction-action', projectId: 'house-1', action: 'complete' }))).toBe('Finish')
+    expect(routineShortLabel(routineBlock({ kind: 'construction-action', projectId: 'house-1', action: 'complete', resultKind: 'home' }))).toBe('Enter')
+    expect(routineShortLabel(routineBlock({ kind: 'construction-action', projectId: 'biz-1', action: 'complete', resultKind: 'business' }))).toBe('Open')
   })
 
   test('names active business interior work by the exact next action', () => {

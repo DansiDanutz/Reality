@@ -31,7 +31,11 @@ export function routineShortLabel(block: { id: string; value: string; route: Lif
     if (block.route.action === 'deposit') return 'Deposit'
     if (block.route.action === 'permit') return 'Permit'
     if (block.route.action === 'hire-helper') return 'Hire'
-    if (block.route.action === 'complete') return 'Finish'
+    if (block.route.action === 'complete') {
+      if (block.route.resultKind === 'home') return 'Enter'
+      if (block.route.resultKind === 'business') return 'Open'
+      return 'Finish'
+    }
     return 'Build'
   }
   if (block.route.kind === 'business-development-action') {

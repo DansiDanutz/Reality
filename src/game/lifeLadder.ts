@@ -28,7 +28,7 @@ import {
 import type { CommunityActionId } from './community'
 import { communityAdvantageOf, millionairePathOf, type MillionairePath } from './millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceInventory, type ResourceKind, freshResources } from './resources'
-import type { Needs, PlacedAsset, ShopCategory } from './types'
+import type { AssetKind, Needs, PlacedAsset, ShopCategory } from './types'
 
 export type LifeValue = 'body' | 'school' | 'work' | 'respect' | 'friendship' | 'community' | 'capital'
 
@@ -39,7 +39,7 @@ export type LifePlanRoute =
   | { kind: 'panel'; panel: 'work' | 'construction' | 'assets' | 'home' | 'business' | 'achievements' }
   | { kind: 'market'; focus: ShopCategory }
   | { kind: 'gather'; resourceKind: ResourceKind }
-  | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction; hours?: number }
+  | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction; hours?: number; resultKind?: AssetKind }
   | { kind: 'business-development-action'; projectId: string; action: BusinessDevelopmentPlanAction; hours?: number }
   | { kind: 'work-action'; action: 'shift' }
   | { kind: 'community-action'; actionId: CommunityActionId }
@@ -439,12 +439,12 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
   }
   return task(
     isBusinessBuild ? 'complete-business-building' : 'complete-house',
-    isBusinessBuild ? `Open ${project.name}` : 'Complete the house',
+    isBusinessBuild ? `Open ${project.name}` : 'Enter the house',
     isBusinessBuild
       ? 'Materials, permit, and labor are ready. Finish the building so the business can start earning.'
       : 'Materials, permit, and labor are ready. Finish it and enter your own place.',
     'capital',
-    { kind: 'construction-action', projectId: project.id, action: 'complete' },
+    { kind: 'construction-action', projectId: project.id, action: 'complete', resultKind: project.resultKind },
     10,
   )
 }

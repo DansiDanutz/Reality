@@ -861,6 +861,21 @@ describe('planLifeDay', () => {
       route: { kind: 'panel', panel: 'construction' },
       taskId: 'monitor-house-worker-finish',
     })
+
+    const completeReady = {
+      ...readyForLabor,
+      laborDoneMinutes: project.laborRequiredMinutes,
+    }
+    const finishPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [completeReady] }))
+    expect(finishPlan.primary).toMatchObject({
+      id: 'complete-house',
+      title: 'Enter the house',
+      route: { kind: 'construction-action', projectId: project.id, action: 'complete', resultKind: 'home' },
+    })
+    expect(finishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'construction-action', projectId: project.id, action: 'complete', resultKind: 'home' },
+      taskId: 'complete-house',
+    })
   })
 
   test('routes active business building through materials, permit, labor, and opening after the house exists', () => {
@@ -925,7 +940,11 @@ describe('planLifeDay', () => {
     const finishPlan = planLifeDay(snap({ ...base, constructionProjects: [completeReady] }))
     expect(finishPlan.primary.id).toBe('complete-business-building')
     expect(finishPlan.primary.title).toBe('Open Food Cart')
-    expect(finishPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'complete' })
+    expect(finishPlan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'complete', resultKind: 'business' })
+    expect(finishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      route: { kind: 'construction-action', projectId: project.id, action: 'complete', resultKind: 'business' },
+      taskId: 'complete-business-building',
+    })
   })
 
   test('routes active business development through materials, budget, worker, and completion', () => {
