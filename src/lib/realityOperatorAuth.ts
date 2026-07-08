@@ -36,13 +36,14 @@ export async function requestRealityOperatorQueueToken(
       body: JSON.stringify({ initData: normalizedInitData }),
     })
     const data = await response.json() as Record<string, unknown>
-    if (response.ok && data.ok === true && isRealityOperatorQueueAuthResponse(data)) {
+    const queueAuth = parseRealityOperatorQueueAuthResponse(data)
+    if (response.ok && data.ok === true && queueAuth) {
       return {
         ok: true,
-        operator: data.operator,
-        operatorToken: data.operatorToken,
-        expiresAt: data.expiresAt,
-        expiresInSeconds: data.expiresInSeconds,
+        operator: queueAuth.operator,
+        operatorToken: queueAuth.operatorToken,
+        expiresAt: queueAuth.expiresAt,
+        expiresInSeconds: queueAuth.expiresInSeconds,
       }
     }
 
@@ -70,31 +71,61 @@ function operatorAuthFailureReason(
   return 'server_rejected'
 }
 
-function isRealityOperatorQueueAuthResponse(value: Record<string, unknown>): value is Record<string, unknown> & {
+function parseRealityOperatorQueueAuthResponse(value: Record<string, unknown>): {
   operator: RealityOperatorQueueAuthOperator
   operatorToken: string
   expiresAt: number
   expiresInSeconds: number
-} {
-  const { expiresAt, expiresInSeconds } = value
-  return isRealityOperatorQueueAuthOperator(value.operator) &&
-    typeof value.operatorToken === 'string' &&
-    value.operatorToken.trim().length > 0 &&
-    typeof expiresAt === 'number' &&
-    Number.isSafeInteger(expiresAt) &&
-    typeof expiresInSeconds === 'number' &&
-    Number.isSafeInteger(expiresInSeconds) &&
-    expiresInSeconds > 0
+} | null {
+  if (
+    typeof value.operatorToken !== 'string' ||
+    !Number.isSafeInteger(value.expiresAt) ||
+    !Number.isSafeInteger(value.expiresInSeconds)
+  ) {
+    return null
+  }
+
+  const operator = parseRealityOperatorQueueAuthOperator(value.operator)
+  const operatorToken = value.operatorToken.trim()
+  const expiresAt = Number(value.expiresAt)
+  const expiresInSeconds = Number(value.expiresInSeconds)
+  if (!operator || operatorToken.length === 0 || expiresInSeconds <= 0) return null
+
+  return {
+    operator,
+    operatorToken,
+    expiresAt,
+    expiresInSeconds,
+  }
 }
 
-function isRealityOperatorQueueAuthOperator(value: unknown): value is RealityOperatorQueueAuthOperator {
-  return isRecord(value) &&
-    value.role === 'founder_covenant_reviewer' &&
-    typeof value.telegramUserId === 'string' &&
-    value.telegramUserId.trim().length > 0 &&
-    typeof value.realityAccountId === 'string' &&
-    value.realityAccountId.startsWith('telegram:') &&
-    value.scope === 'founder_covenant_queue'
+function parseRealityOperatorQueueAuthOperator(value: unknown): RealityOperatorQueueAuthOperator | null {
+  if (
+    !isRecord(value) ||
+    value.role !== 'founder_covenant_reviewer' ||
+    typeof value.telegramUserId !== 'string' ||
+    typeof value.realityAccountId !== 'string' ||
+    value.scope !== 'founder_covenant_queue'
+  ) {
+    return null
+  }
+
+  const telegramUserId = value.telegramUserId.trim()
+  const realityAccountId = value.realityAccountId.trim()
+  if (
+    telegramUserId.length === 0 ||
+    !realityAccountId.startsWith('telegram:') ||
+    realityAccountId !== `telegram:${telegramUserId}`
+  ) {
+    return null
+  }
+
+  return {
+    role: 'founder_covenant_reviewer',
+    telegramUserId,
+    realityAccountId,
+    scope: 'founder_covenant_queue',
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

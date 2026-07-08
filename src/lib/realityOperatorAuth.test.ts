@@ -16,14 +16,24 @@ describe('Reality operator auth client bridge', () => {
   })
 
   test('posts Telegram initData and returns a scoped queue token', async () => {
-    const response = operatorAuthResponse()
+    const response = operatorAuthResponse({
+      operator: {
+        role: 'founder_covenant_reviewer',
+        telegramUserId: ' 42424242 ',
+        realityAccountId: ' telegram:42424242 ',
+        scope: 'founder_covenant_queue',
+      },
+      operatorToken: ' operator-token ',
+    })
     const fetchImpl = vi.fn(async () => ({
       ok: true,
       status: 200,
       json: async () => response,
     }))
 
-    await expect(requestRealityOperatorQueueToken(fetchImpl as never, ' auth_date=1&hash=abc ')).resolves.toEqual(response)
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, ' auth_date=1&hash=abc ')).resolves.toEqual(
+      operatorAuthResponse(),
+    )
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-operator-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,6 +104,50 @@ describe('Reality operator auth client bridge', () => {
     })
   })
 
+  test('rejects successful responses whose account does not match the Telegram reviewer', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => operatorAuthResponse({
+        operator: {
+          role: 'founder_covenant_reviewer',
+          telegramUserId: '42424242',
+          realityAccountId: 'telegram:99999999',
+          scope: 'founder_covenant_queue',
+        },
+      }),
+    }))
+
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Reality operator auth was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects successful responses with blank reviewer identity fields', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => operatorAuthResponse({
+        operator: {
+          role: 'founder_covenant_reviewer',
+          telegramUserId: '   ',
+          realityAccountId: ' telegram:42424242 ',
+          scope: 'founder_covenant_queue',
+        },
+      }),
+    }))
+
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Reality operator auth was rejected.',
+      code: undefined,
+    })
+  })
+
   test('maps request failures without retrying or persisting authority', async () => {
     const fetchImpl = vi.fn(async () => {
       throw new Error('network down')
@@ -107,7 +161,9 @@ describe('Reality operator auth client bridge', () => {
   })
 })
 
-function operatorAuthResponse(): RealityOperatorQueueAuthResult {
+function operatorAuthResponse(
+  overrides?: Partial<Extract<RealityOperatorQueueAuthResult, { ok: true }>>,
+): RealityOperatorQueueAuthResult {
   return {
     ok: true,
     operator: {
@@ -119,5 +175,6 @@ function operatorAuthResponse(): RealityOperatorQueueAuthResult {
     operatorToken: 'operator-token',
     expiresAt: 1_783_000_900_000,
     expiresInSeconds: 900,
+    ...overrides,
   }
 }
