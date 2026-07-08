@@ -286,6 +286,22 @@ export function founderWorkerCandidateActionText(
   }
 }
 
+export function founderSurvivalActionText(
+  action: Pick<CitizenSurvivalSignal['actions'][number], 'intent' | 'serviceKind' | 'lowestPrice' | 'available' | 'canAfford' | 'blockers'> | undefined,
+): string | null {
+  if (!action) return null
+  if (action.available && action.canAfford && action.lowestPrice !== null) {
+    return `${founderSurvivalIntentLabel(action.intent)} ready · ${formatMoney(action.lowestPrice)}`
+  }
+  if (action.blockers.includes('service_unavailable')) {
+    return `${founderServiceKindLabel(action.serviceKind)} unavailable nearby`
+  }
+  if (action.blockers.includes('insufficient_funds') && action.lowestPrice !== null) {
+    return `${founderSurvivalIntentLabel(action.intent)} blocked · need ${formatMoney(action.lowestPrice)}`
+  }
+  return `${founderSurvivalIntentLabel(action.intent)} pending`
+}
+
 export function founderGrowthStatusLabel(
   growth: Pick<RealityAreaGrowthDashboard, 'manualEvidenceRequired'>,
 ): string {
@@ -1172,6 +1188,36 @@ function shortDate(value: string): string {
 function founderUtcMinuteText(value: string | number): string {
   const iso = new Date(value).toISOString()
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`
+}
+
+function founderSurvivalIntentLabel(
+  intent: CitizenSurvivalSignal['actions'][number]['intent'],
+): string {
+  switch (intent) {
+    case 'buyWater':
+      return 'Water'
+    case 'buyFood':
+      return 'Food'
+    case 'buyHousing':
+      return 'Rest'
+    case 'visitClinic':
+      return 'Clinic'
+  }
+}
+
+function founderServiceKindLabel(
+  kind: CitizenSurvivalSignal['actions'][number]['serviceKind'],
+): string {
+  switch (kind) {
+    case 'water':
+      return 'Water service'
+    case 'food':
+      return 'Food service'
+    case 'housing':
+      return 'Housing'
+    case 'clinic':
+      return 'Clinic'
+  }
 }
 
 function founderCovenantNextActionLabel(

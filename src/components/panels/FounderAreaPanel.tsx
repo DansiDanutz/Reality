@@ -94,6 +94,7 @@ import {
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
   founderPayoutReadinessSummaryItems,
+  founderSurvivalActionText,
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
@@ -871,6 +872,9 @@ export default function FounderAreaPanel() {
               {dashboard.citizens.slice(0, 6).map((resident) => {
                 const survival = dashboard.survival.signals.find((signal) => signal.citizenId === resident.id)
                 const survivalAction = survival?.actions.find((action) => action.available && action.canAfford)
+                const founderSurvivalDetail = resident.id === profile.founderId
+                  ? founderSurvivalActionText(survival?.actions[0])
+                  : null
                 const debtAction = resident.debts.find((debt) => debt.canRepayNow)
                 const canBuyInsurance = resident.id === profile.founderId && resident.insuranceAction.canBuyNow
                 const founderDebtDetail = resident.id === profile.founderId
@@ -887,6 +891,7 @@ export default function FounderAreaPanel() {
                         {founderCitizenConditionText(resident)}
                       </span>
                       <span className="item-desc">{founderCitizenProtectionText(resident, survival)}</span>
+                      {founderSurvivalDetail && <span className="item-desc">{founderSurvivalDetail}</span>}
                       {founderInsuranceDetail && <span className="item-desc">{founderInsuranceDetail}</span>}
                       {founderDebtDetail && <span className="item-desc">{founderDebtDetail}</span>}
                       {resident.debt > 0 && <span className="item-locked mono">debt {formatMoney(resident.debt)}</span>}

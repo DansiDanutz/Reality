@@ -68,6 +68,7 @@ import {
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
   founderPayoutReadinessSummaryItems,
+  founderSurvivalActionText,
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
@@ -242,6 +243,33 @@ describe('FounderAreaPanel covenant presenters', () => {
       recommendedBusinessName: 'Founder Water',
       recommendedBusinessKind: 'water',
     })).toBe('Founder recovering before hiring resumes')
+
+    expect(founderSurvivalActionText({
+      intent: 'buyWater',
+      serviceKind: 'water',
+      lowestPrice: 2,
+      available: true,
+      canAfford: true,
+      blockers: [],
+    })).toBe('Water ready · $2')
+
+    expect(founderSurvivalActionText({
+      intent: 'visitClinic',
+      serviceKind: 'clinic',
+      lowestPrice: null,
+      available: false,
+      canAfford: false,
+      blockers: ['service_unavailable'],
+    })).toBe('Clinic unavailable nearby')
+
+    expect(founderSurvivalActionText({
+      intent: 'buyFood',
+      serviceKind: 'food',
+      lowestPrice: 14,
+      available: true,
+      canAfford: false,
+      blockers: ['insufficient_funds'],
+    })).toBe('Food blocked · need $14')
   })
 
   test('summarizes disabled Telegram growth tracking for founder review', () => {
