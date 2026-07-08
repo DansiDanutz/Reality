@@ -23,6 +23,10 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
 } from './founderAreaPanelView'
+import {
+  readOperatorQueueViewState,
+  writeOperatorQueueViewState,
+} from './founderCovenantOperatorPanelViewState'
 
 const OPERATOR_REVIEW_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; label: string }[] = [
   { kind: 'population_growth', label: 'Population' },
@@ -75,17 +79,18 @@ export default function FounderCovenantOperatorPanel({
   const [operatorAuthState, setOperatorAuthState] = useState<FounderCovenantOperatorAuthState>(
     initialOperatorAuth ?? { status: 'idle' },
   )
+  const initialQueueView = useRef(readOperatorQueueViewState())
   const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(null)
   const [lastCopiedText, setLastCopiedText] = useState<string | null>(null)
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
   const [reviewNote, setReviewNote] = useState('')
-  const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>('all')
-  const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>('priority')
+  const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>(() => initialQueueView.current.filter)
+  const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>(() => initialQueueView.current.sort)
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
-  const [scanCursor, setScanCursor] = useState<string | null>(initialQueue?.cursor ?? null)
+  const [scanCursor, setScanCursor] = useState<string | null>(initialQueue?.cursor ?? initialQueueView.current.cursor ?? null)
   const [panelState, setPanelState] = useState<OperatorQueuePanelState>(() => {
     if (initialQueue) return { status: 'ready', queue: initialQueue }
     if (initialError) return { status: 'error', message: initialError, queue: null }
@@ -153,6 +158,10 @@ export default function FounderCovenantOperatorPanel({
       cancelled = true
     }
   }, [applyOperatorAuthResult, initialOperatorAuth, requestOperatorToken])
+
+  useEffect(() => {
+    writeOperatorQueueViewState({ cursor: scanCursor, filter: queueFilter, sort: queueSort })
+  }, [queueFilter, queueSort, scanCursor])
 
   const loadQueue = async (cursor: string | null = null) => {
     if (!operatorToken) {
