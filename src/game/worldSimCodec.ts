@@ -206,6 +206,7 @@ function isAreaClaim(value: unknown): value is WorldArea['claim'] {
     isFiniteNumber(value.radiusKm) &&
     value.radiusKm > 0 &&
     isFiniteNumber(value.claimedAt) &&
+    value.claimedAt >= 0 &&
     isOneOf(value.source, CLAIM_SOURCES)
 }
 
