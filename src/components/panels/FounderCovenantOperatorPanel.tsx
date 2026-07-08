@@ -41,6 +41,7 @@ import {
   type CopiedQueueViewState,
   copiedAtText,
   formatDraftNotePreview,
+  formatOperatorSessionClearedMessage,
   formatReviewRecordSuccessMessage,
   queueFounderWarningTelegramText,
   queueCopiedStatusSummary,
@@ -675,11 +676,19 @@ export default function FounderCovenantOperatorPanel({
             className="btn small ghost"
             disabled={loading && !queue}
             onClick={() => {
+              const hadReviewDraft = reviewNote.trim().length > 0 || reviewEvidenceKinds.length > 0
+              const hadCopiedContext = Boolean(lastCopiedText || lastCopiedQueueView || lastCopiedAt)
               setManualOperatorToken('')
               setTelegramOperatorToken('')
               setOperatorAuthState({ status: 'idle' })
+              setReviewNote('')
+              setReviewEvidenceKinds([])
+              setLastCopiedAt(null)
+              setLastCopiedText(null)
+              setLastCopiedQueueView(null)
               setScanCursor(null)
               setPanelState({ status: 'idle' })
+              setOperatorReviewMessage(formatOperatorSessionClearedMessage({ hadReviewDraft, hadCopiedContext }))
             }}
             type="button"
           >

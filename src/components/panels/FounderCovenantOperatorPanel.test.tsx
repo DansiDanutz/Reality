@@ -5,6 +5,7 @@ import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
   formatReviewRecordSuccessMessage,
+  formatOperatorSessionClearedMessage,
   queueFounderWarningTelegramText,
   queueDigestText,
   queueHandoffText,
@@ -270,6 +271,22 @@ describe('FounderCovenantOperatorPanel', () => {
   })
 
   test('derives coverage preset context from filter and sort state', () => {
+    expect(formatOperatorSessionClearedMessage({
+      hadReviewDraft: true,
+      hadCopiedContext: true,
+    })).toBe('Operator session cleared: local draft and copied handoff reset.')
+    expect(formatOperatorSessionClearedMessage({
+      hadReviewDraft: true,
+      hadCopiedContext: false,
+    })).toBe('Operator session cleared: local draft reset.')
+    expect(formatOperatorSessionClearedMessage({
+      hadReviewDraft: false,
+      hadCopiedContext: true,
+    })).toBe('Operator session cleared: copied handoff reset.')
+    expect(formatOperatorSessionClearedMessage({
+      hadReviewDraft: false,
+      hadCopiedContext: false,
+    })).toBe('Operator session cleared.')
     expect(formatReviewRecordSuccessMessage(
       '#0012 · Bucharest Founder Block',
       ['population_growth', 'ideas_feedback'],

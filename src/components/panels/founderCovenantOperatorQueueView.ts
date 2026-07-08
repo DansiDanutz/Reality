@@ -318,6 +318,22 @@ export function formatReviewRecordSuccessMessage(
   return `Review evidence recorded for ${title}: ${evidenceSummary} · ${note.trim().length > 0 ? formatDraftNotePreview(note) : 'no note'}`
 }
 
+export function formatOperatorSessionClearedMessage(options: {
+  hadReviewDraft: boolean
+  hadCopiedContext: boolean
+}): string {
+  if (options.hadReviewDraft && options.hadCopiedContext) {
+    return 'Operator session cleared: local draft and copied handoff reset.'
+  }
+  if (options.hadReviewDraft) {
+    return 'Operator session cleared: local draft reset.'
+  }
+  if (options.hadCopiedContext) {
+    return 'Operator session cleared: copied handoff reset.'
+  }
+  return 'Operator session cleared.'
+}
+
 export function queueCoveragePresetLabel(
   filter: FounderCovenantOperatorQueueFilter,
   sort: FounderCovenantOperatorQueueSort,
