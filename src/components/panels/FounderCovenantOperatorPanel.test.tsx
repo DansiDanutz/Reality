@@ -65,6 +65,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Cleanup Never')
     expect(html).toContain('Cleanup Stale')
     expect(html).toContain('Audit Fresh')
+    expect(html).toContain('class="btn small primary" type="button">Default View</button>')
     expect(html).toContain('Founder #')
     expect(html).toContain('Next page')
     expect(html).toContain('More founders available')

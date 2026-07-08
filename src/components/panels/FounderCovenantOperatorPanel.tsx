@@ -127,6 +127,13 @@ export default function FounderCovenantOperatorPanel({
     setQueueSort('priority')
   }, [])
 
+  const activeCoveragePreset =
+    queueSort === 'coverage'
+      ? queueFilter
+      : queueFilter === 'all' && queueSort === 'priority'
+        ? 'default'
+        : null
+
   const applyOperatorAuthResult = useCallback((result: RealityOperatorQueueAuthResult) => {
     if (result.ok) {
       setTelegramOperatorToken(result.operatorToken)
@@ -446,7 +453,7 @@ export default function FounderCovenantOperatorPanel({
           </div>
           <div className="founder-operator-actions" aria-label="Founder operator coverage presets">
             <button
-              className="btn small ghost"
+              className={`btn small ${activeCoveragePreset === 'default' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => clearCoveragePreset()}
               type="button"
@@ -454,7 +461,7 @@ export default function FounderCovenantOperatorPanel({
               Default View
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${activeCoveragePreset === 'all' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('all')}
               type="button"
@@ -462,7 +469,7 @@ export default function FounderCovenantOperatorPanel({
               Coverage All
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${activeCoveragePreset === 'never_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('never_reviewed')}
               type="button"
@@ -470,7 +477,7 @@ export default function FounderCovenantOperatorPanel({
               Cleanup Never
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${activeCoveragePreset === 'stale_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('stale_reviewed')}
               type="button"
@@ -478,7 +485,7 @@ export default function FounderCovenantOperatorPanel({
               Cleanup Stale
             </button>
             <button
-              className="btn small ghost"
+              className={`btn small ${activeCoveragePreset === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('fresh_reviewed')}
               type="button"
