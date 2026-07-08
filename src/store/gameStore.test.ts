@@ -4,7 +4,7 @@ import { communityDay, freshCommunityStats } from '../game/community'
 import { STARTER_HOUSE_RECIPE, createConstructionProject } from '../game/construction'
 import { eligibleChallengesForContext } from '../game/dailyChallenges'
 import { EDUCATION_COURSES, createEducationProgress, type EducationCourse } from '../game/education'
-import { freshResources } from '../game/resources'
+import { RESOURCE_META, freshResources, type ResourceNode } from '../game/resources'
 import type { PlacedAsset, ShopItem } from '../game/types'
 import { dailyChallengeContextOf, useGame } from './gameStore'
 
@@ -40,6 +40,18 @@ const home = (): PlacedAsset => ({
   incomePerDay: 0,
   pendingIncome: 0,
   placedAtMinute: 0,
+})
+
+const resourceNode = (kind: ResourceNode['kind'] = 'wood'): ResourceNode => ({
+  id: `${kind}-node`,
+  kind,
+  label: `${RESOURCE_META[kind].label} stand`,
+  lat: 45,
+  lng: 21,
+  source: 'fallback',
+  yieldAmount: RESOURCE_META[kind].yieldAmount,
+  gatherMinutes: RESOURCE_META[kind].gatherMinutes,
+  energyCost: RESOURCE_META[kind].energyCost,
 })
 
 const LIVE_STEP_MS = 15 * 60_000
@@ -267,6 +279,26 @@ describe('daily challenge readiness context', () => {
     expect(eligibleDailyIds({ money: 0, inventory: { shower_public: 1 } })).toContain('clean-1')
     expect(eligibleDailyIds({ money: 0, inventory: { showerset: 1 } })).toContain('clean-1')
     expect(eligibleDailyIds({ money: 5, inventory: {} })).toContain('clean-1')
+  })
+
+  test('resource trip challenges unlock only after map resource nodes exist', () => {
+    expect(dailyChallengeContextOf(challengeState({ resourceNodes: [] })).canGatherResources).toBe(false)
+    expect(eligibleDailyIds({ resourceNodes: [] })).not.toContain('gather-1')
+
+    expect(dailyChallengeContextOf(challengeState({ resourceNodes: [resourceNode('wood')] })).canGatherResources).toBe(true)
+    expect(eligibleDailyIds({ resourceNodes: [resourceNode('wood')] })).toContain('gather-1')
+  })
+
+  test('started resource trip challenges stay visible after nodes disappear today', () => {
+    const ids = eligibleDailyIds({
+      resourceNodes: [],
+      dailyCounters: {
+        ...emptyDailyCounters(),
+        gatheredToday: 1,
+      },
+    })
+
+    expect(ids).toContain('gather-1')
   })
 
   test('construction labor challenges unlock only after materials and permit are ready', () => {
