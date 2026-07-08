@@ -6,6 +6,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecordReadySummary,
 } from './founderAreaPanelView'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
@@ -116,6 +117,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip warning" title="Evidence: 1 founder queued · 3 gaps · 0 record ready"><span>Evidence</span><strong>3</strong>')
     expect(html).toContain('title="Record ready: 0 founders · 0 weekly · 0 monthly"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Record ready: 0 founders · 0 weekly · 0 monthly"><span>Record ready</span><strong>0</strong>')
+    expect(html).toContain('title="Overdue cleanup: 0 founders · 1 overdue · 0 stale"')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Overdue cleanup: 0 founders · 1 overdue · 0 stale"><span>Overdue cleanup</span><strong>0</strong>')
     expect(html).toContain('title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"')
     expect(html).toContain('class="founder-ledger-chip critical" title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"><span>Blockers</span><strong>3</strong>')
     expect(html).toContain('title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"')
@@ -333,6 +336,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(founderCovenantOperatorQueueRecordReadySummary({
       items: operatorQueue().items,
     })).toBe('Record ready: 0 founders · 0 weekly · 0 monthly')
+    expect(founderCovenantOperatorQueueOverdueCleanupSummary({
+      items: operatorQueue().items,
+    })).toBe('Overdue cleanup: 0 founders · 1 overdue · 0 stale')
     expect(formatCopiedContextClearedMessage({
       hadTelegramContext: true,
       hadDigestOrViewContext: true,

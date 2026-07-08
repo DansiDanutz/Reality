@@ -29,6 +29,8 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueOverdueCleanupSummary,
+  founderCovenantOperatorQueueRecommendedNextText,
   founderCovenantOperatorQueueRecordReadySummary,
   founderCovenantNotificationDraftGateText,
   founderCovenantOperatorQueueFocusSummary,
@@ -1256,6 +1258,17 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Record ready</span>
               <strong>{queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount === 0 && item.reviewReadiness.approvalRequestCount === 0).length}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.items.some((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review')
+                  ? 'warning'
+                  : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueOverdueCleanupSummary(queue)}
+            >
+              <span>Overdue cleanup</span>
+              <strong>{queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
