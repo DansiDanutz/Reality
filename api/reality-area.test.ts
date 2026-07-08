@@ -917,6 +917,80 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('GET ignores malformed persisted review timestamps when deriving latest founder review', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = {
+      ...existingState(),
+      founderReviewHistory: [{
+        id: 'bad-review',
+        at: 'not-a-date',
+        reviewerId: 'reviewer-bad',
+        actionKind: 'record_review' as const,
+        summary: 'Broken legacy review timestamp.',
+        authorityGate: areaReviewerEvidenceGate(false),
+        decision: null,
+        signals: [],
+        activityReview: null,
+        reviewQueue: covenantReviewQueue({
+          warning: true,
+          probation: true,
+          replacement: false,
+        }, 1),
+        reviewInputs: [],
+        stages: [],
+        reviewChecklist: [],
+        manualActions: [],
+        approvalRequests: [],
+        reviewSchedule: null,
+      }, {
+        id: 'good-review',
+        at: '2026-07-06T07:00:00.000Z',
+        reviewerId: 'reviewer-good',
+        actionKind: 'record_review' as const,
+        summary: 'Valid review should stay latest.',
+        authorityGate: areaReviewerEvidenceGate(false),
+        decision: null,
+        signals: [],
+        activityReview: null,
+        reviewQueue: covenantReviewQueue({
+          warning: true,
+          probation: true,
+          replacement: false,
+        }, 1),
+        reviewInputs: [],
+        stages: [],
+        reviewChecklist: [],
+        manualActions: [],
+        approvalRequests: [],
+        reviewSchedule: null,
+      }],
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://legacy-review-history-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as {
+      ok: true
+      state: ReturnType<typeof existingState>
+      dashboard: DashboardWithBuildGuidance
+    }
+    expect(body.dashboard.founderCovenant.latestReview).toMatchObject({
+      id: 'good-review',
+      reviewedAt: '2026-07-06T07:00:00.000Z',
+      reviewerId: 'reviewer-good',
+      summary: 'Valid review should stay latest.',
+    })
+    expect(body.dashboard.founderCovenant.reviewHistory[0]).toMatchObject({ id: 'good-review' })
+    expect(body.dashboard.founderCovenant.reviewHistory[1]).toMatchObject({ id: 'bad-review' })
+    expect(body.dashboard.founderCovenant.reviewSchedule?.lastReviewAt).toBe('2026-07-06T07:00:00.000Z')
+  })
+
   test('GET surfaces overdue founder covenant review as manual review signal without enforcement', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-14T04:00:00.000Z'))

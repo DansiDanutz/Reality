@@ -2755,7 +2755,8 @@ function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderArea
   return [...(state.founderReviewHistory ?? [])]
     .map((entry, index) => ({ entry, index }))
     .sort((left, right) => {
-      const reviewedAtDelta = Date.parse(right.entry.at) - Date.parse(left.entry.at)
+      const reviewedAtDelta = founderCovenantReviewHistorySortMs(right.entry.at) -
+        founderCovenantReviewHistorySortMs(left.entry.at)
       return reviewedAtDelta || right.index - left.index
     })
     .slice(0, 5)
@@ -3143,9 +3144,18 @@ function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAre
 
 function latestFounderReviewMs(state: FounderAreaStateInput): number | null {
   const reviewedAt = (state.founderReviewHistory ?? [])
-    .map((entry) => Date.parse(entry.at))
+    .map((entry) => founderCovenantReviewAtMs(entry.at))
     .filter(Number.isFinite)
   return reviewedAt.length > 0 ? Math.max(...reviewedAt) : null
+}
+
+function founderCovenantReviewHistorySortMs(reviewedAt: string): number {
+  const parsed = founderCovenantReviewAtMs(reviewedAt)
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY
+}
+
+function founderCovenantReviewAtMs(reviewedAt: string): number {
+  return Date.parse(reviewedAt)
 }
 
 function safeDateMs(value: string, fallback: string): number {
