@@ -124,6 +124,7 @@ function TelegramLinkStatus() {
 export default function ProfilePanel() {
   const citizen = useGame((s) => s.citizen)
   const money = useGame((s) => s.money)
+  const respect = useGame((s) => s.respect)
   const inventory = useGame((s) => s.inventory)
   const assets = useGame((s) => s.assets)
   const level = useGame((s) => s.level)
@@ -150,6 +151,7 @@ export default function ProfilePanel() {
     { label: 'reach', value: Number.isFinite(reach.km) ? `${reach.label} · ${reach.km} km` : reach.label },
     { label: 'net worth', value: formatMoney(netWorth) },
     { label: 'cash', value: formatMoney(money) },
+    { label: 'respect', value: String(respect) },
     { label: 'portfolio yield', value: `${formatMoney(dailyYield)}/day` },
     { label: 'businesses', value: String(businesses) },
     { label: 'homes', value: String(homes) },
