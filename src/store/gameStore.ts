@@ -18,6 +18,7 @@ import {
   hasKitchen,
   liveRealtime,
   netWorthOf,
+  PENDING_CAP_DAYS,
   petFunBonus,
   reachOf,
   rollEvent,
@@ -26,7 +27,7 @@ import {
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
 import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
-import { zoneFor } from '../game/clock'
+import { dayOfLife, zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
@@ -74,7 +75,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 6
+export const SAVE_VERSION = 7
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -86,6 +87,7 @@ export const SAVE_VERSION = 6
  *   v2 → v3: pets array (default [])
  *   v3 → v4: illness + lastIllnessRollAt
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
+ *   v6 → v7: itemLastUsedAt (per-item use cooldown for durable effects)
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -138,6 +140,8 @@ export function migrateSave(persisted: unknown): GameState {
         }
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
+        // v7: per-item use cooldown clock (durable-effects exploit fix)
+        if (state && !state.itemLastUsedAt) state.itemLastUsedAt = {}
         return state
 }
 
@@ -201,15 +205,42 @@ export function msToLocalMidnight(now: number, lat?: number, lng?: number): numb
   }
 }
 
-/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
-function bumpBoughtToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+/** Today's dailyCounters with the given deltas applied — day-rollover aware. */
+function bumpDailyCounters(
+  s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>,
+  deltas: Partial<Omit<GameState['dailyCounters'], 'day'>>,
+): GameState['dailyCounters'] {
   const home = s.assets.find((a) => a.kind === 'home')
   const anchorLat = home ? home.lat : s.citizen?.spawnLat
   const anchorLng = home ? home.lng : s.citizen?.spawnLng
   const todayDay = dayIndexOf(Date.now(), anchorLat, anchorLng)
-  return s.dailyCounters.day === todayDay
-    ? { ...s.dailyCounters, boughtToday: s.dailyCounters.boughtToday + 1 }
-    : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 1, day: todayDay }
+  const base =
+    s.dailyCounters.day === todayDay
+      ? s.dailyCounters
+      : { mealsToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, day: todayDay }
+  return {
+    ...base,
+    mealsToday: base.mealsToday + (deltas.mealsToday ?? 0),
+    shiftsToday: base.shiftsToday + (deltas.shiftsToday ?? 0),
+    earnedToday: base.earnedToday + (deltas.earnedToday ?? 0),
+    sleptToday: base.sleptToday + (deltas.sleptToday ?? 0),
+    boughtToday: base.boughtToday + (deltas.boughtToday ?? 0),
+  }
+}
+
+/** Today's dailyCounters with boughtToday bumped — day-rollover aware. */
+const bumpBoughtToday = (s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] =>
+  bumpDailyCounters(s, { boughtToday: 1 })
+
+/**
+ * The central XP-grant chokepoint for player-facing XP outside the engine:
+ * applies the active "2x all XP" booster to a base amount. Every discrete
+ * XP grant (education, achievements, streak, daily challenges, lucky
+ * moments, combo bonuses, mystery boxes) routes through this so the booster
+ * honestly means ALL XP, not just shift XP.
+ */
+function boostedXp(activeBoosters: { type: BoosterType; expiresAt: number }[], base: number, now: number = Date.now()): number {
+  return Math.round(base * boosterMultiplier(activeBoosters, 'xp', now))
 }
 
 /**
@@ -251,6 +282,20 @@ interface GameState {
   achievementsClaimed: string[]
   /** What the citizen is doing right now, in real time */
   activity: Activity | null
+  /**
+   * The activity that completed on the most recent tick (not persisted) —
+   * the notification engine's completion-transition signal. The tick nulls
+   * a finished activity in the same set(), so post-tick readers can never
+   * observe "activity ended but still set" without this record.
+   */
+  lastCompletedActivity: Pick<Activity, 'kind' | 'startedAt' | 'endsAt'> | null
+  /**
+   * ms timestamp each item id was last USED via consume(). Durable items
+   * with effects (Full Kitchen, Mattress...) are reusable but not free-forever
+   * spam: each use locks the item for its `hours` duration (real hours,
+   * Rule #1). Persisted (v7).
+   */
+  itemLastUsedAt: Record<string, number>
   lastSeenAt: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
@@ -420,6 +465,8 @@ const FRESH = {
   tutorialHidden: false,
   achievementsClaimed: [] as string[],
   activity: null as Activity | null,
+  lastCompletedActivity: null as GameState['lastCompletedActivity'],
+  itemLastUsedAt: {} as Record<string, number>,
   lastSeenAt: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
@@ -509,8 +556,9 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   const assetKinds = new Set(s.assets.map((a) => a.itemId))
   const petKinds = new Set(s.pets.map((p) => p.itemId))
   const distinctItemsOwned = new Set([...inventoryKinds, ...assetKinds, ...petKinds]).size
-  const DAY_MS = 24 * 3_600_000
-  const daysLived = s.citizen ? Math.floor((Date.now() - s.citizen.createdAt) / DAY_MS) : 0
+  // Day-1-based, matching the UI's dayOfLife (TopBar/Profile show "Day 1" on
+  // spawn day) — achievements must agree with the day the player is shown.
+  const daysLived = s.citizen ? dayOfLife(s.citizen.createdAt) : 0
   return {
     timesEaten: s.timesEaten,
     timesSlept: s.timesSlept,
@@ -656,7 +704,10 @@ export const useGame = create<GameState>()(
             telegramName: typeof d.telegramName === 'string' ? d.telegramName : latest.citizen.telegramName,
             telegramLinkedAt: typeof d.telegramLinkedAt === 'number' ? d.telegramLinkedAt : latest.citizen.telegramLinkedAt,
           },
-          money: isFounder ? latest.money : Math.min(latest.money, CITIZEN_BALANCE),
+          // A citizen who registered late started with the FOUNDER grant but
+          // only earned the CITIZEN one — swap the grant DELTA, never clamp
+          // the balance: money earned by playing offline is theirs to keep.
+          money: isFounder ? latest.money : Math.max(0, latest.money - FOUNDER_BALANCE + CITIZEN_BALANCE),
           log: note(
             latest.log,
             isFounder
@@ -739,7 +790,15 @@ export const useGame = create<GameState>()(
       pushCloudSave: async () => {
         const s = get()
         if (!s.citizen?.token || !s.citizen.googleSub) return
-        const save = localStorage.getItem(SAVE_KEY)
+        // localStorage access throws in Safari private mode / storage-denied
+        // contexts — and this runs on a 120s interval, so an unguarded read
+        // would surface a repeating uncaught error. No save readable = no push.
+        let save: string | null = null
+        try {
+          save = localStorage.getItem(SAVE_KEY)
+        } catch {
+          return
+        }
         if (!save) return
         const d = await tryPost('/api/cloud-save', {
           citizenId: s.citizen.citizenId,
@@ -816,8 +875,13 @@ export const useGame = create<GameState>()(
         if (cleanBoosters.length !== activeBoosters.length) activeBoosters = cleanBoosters
         // Combo timeout: if the combo window expired, reset to 0.
         if (combo > 0 && now - s.comboLastActionAt >= COMBO_WINDOW_MS) combo = 0
-        // Apply XP booster to engine XP gains.
-        const xpMult = boosterMultiplier(cleanBoosters, 'xp', now)
+        // Apply XP/wage boosters to engine gains. Engine XP and wages come
+        // from the COMPLETED shift, so use the multipliers STAMPED on the
+        // activity when it started — a booster bought at shift start must
+        // still pay out 8 hours later, after the 30-min booster expired.
+        // Legacy activities without stamps fall back to now-active boosters.
+        const completedShift = s.activity?.kind === 'shift' && now >= s.activity.endsAt ? s.activity : null
+        const xpMult = completedShift?.xpMult ?? boosterMultiplier(cleanBoosters, 'xp', now)
         const boostedXP = out.xpGained * xpMult
         if (boostedXP > 0) {
           const prog = applyXp(level, xp, boostedXP)
@@ -828,7 +892,7 @@ export const useGame = create<GameState>()(
         // Apply wage booster: add bonus wages on top of what the engine computed.
         // The bonus is REAL money — added to the balance below once `money` is
         // initialized from out.money (it previously appeared only in the toast).
-        const wageMult = boosterMultiplier(cleanBoosters, 'wage', now)
+        const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
         const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
         if (out.shiftsCompleted > 0) {
           if (wageBonusEarned > 0) {
@@ -953,14 +1017,24 @@ export const useGame = create<GameState>()(
           addEarned(pendingDelta)
           // Income booster: multiply the accrued pending income by the booster
           // multiplier, adding the bonus directly to the assets' pendingIncome.
+          // The bonus respects the till cap (PENDING_CAP_DAYS) like every other
+          // accrual, is rounded to cents (no float dust in the till), and only
+          // the ACTUALLY-credited amount counts as earned — matching how the
+          // base pendingIncome delta above is measured post-cap.
           const incMult = boosterMultiplier(cleanBoosters, 'income', now)
           if (incMult > 1 && pendingDelta > 0) {
-            const bonus = Math.round(pendingDelta * (incMult - 1))
-            if (bonus > 0) {
-              out.assets = out.assets.map((a) =>
-                a.kind === 'business' ? { ...a, pendingIncome: a.pendingIncome + bonus * (a.pendingIncome > 0 ? 1 : 0) / Math.max(1, out.assets.filter((b) => b.kind === 'business' && b.pendingIncome > 0).length) } : a,
-              )
-              addEarned(bonus)
+            const earners = out.assets.filter((b) => b.kind === 'business' && b.pendingIncome > 0)
+            if (earners.length > 0) {
+              const bonusPerAsset = (pendingDelta * (incMult - 1)) / earners.length
+              let credited = 0
+              out.assets = out.assets.map((a) => {
+                if (a.kind !== 'business' || a.pendingIncome <= 0) return a
+                const cap = a.incomePerDay * PENDING_CAP_DAYS
+                const next = Math.round(Math.min(a.pendingIncome + bonusPerAsset, cap) * 100) / 100
+                credited += Math.max(0, next - a.pendingIncome)
+                return { ...a, pendingIncome: next }
+              })
+              addEarned(credited)
             }
           }
         }
@@ -975,12 +1049,13 @@ export const useGame = create<GameState>()(
         }
 
         // Rare lucky moments — the variable-ratio jackpot. Distinct from
-        // rollEvent above: ~0.05%/live-tick, $1k-50k rewards. Fires regardless
+        // rollEvent above: ~0.02%/live-tick, $100–5k rewards (see
+        // luckyMoments.ts for the 2026-07-05 rebalance). Fires regardless
         // of activity (it's *news*, not chaos) but never during away spans.
         if (!wasAway) {
           // First-win guarantee: a new citizen (< 20 min old) who has never
           // seen a lucky moment gets a dramatically boosted chance so their
-          // first session includes the dopamine hit. Without this, the 0.05%
+          // first session includes the dopamine hit. Without this, the 0.02%
           // chance means a new player might play for days without ever
           // experiencing the system -- and never learn it exists. The boost
           // is ~5% per tick for 20 min, guaranteeing a hit in the first
@@ -994,7 +1069,7 @@ export const useGame = create<GameState>()(
             ? (Math.random() < 0.05 ? pickFirstLuckyMoment() : null)
             : rollLuckyMoment()
           if (lucky) {
-            const prog = applyXp(level, xp, lucky.xp)
+            const prog = applyXp(level, xp, boostedXp(cleanBoosters, lucky.xp, now))
             level = prog.level
             xp = prog.xp
             money += lucky.money
@@ -1045,7 +1120,7 @@ export const useGame = create<GameState>()(
           const earnedIds = newlyEarned.map((a) => a.id)
           const totalXp = newlyEarned.reduce((sum, a) => sum + a.xp, 0)
           const totalBounty = newlyEarned.reduce((sum, a) => sum + a.bounty, 0)
-          const prog = applyXp(level, xp, totalXp)
+          const prog = applyXp(level, xp, boostedXp(cleanBoosters, totalXp, now))
           level = prog.level
           xp = prog.xp
           money += totalBounty
@@ -1091,7 +1166,7 @@ export const useGame = create<GameState>()(
           }
           // Day 1 (spawn day) and grace-day holds pay nothing and stay quiet.
           if (streakOut.advanced && (streakOut.cash > 0 || streakOut.xp > 0)) {
-            const prog = applyXp(level, xp, streakOut.xp)
+            const prog = applyXp(level, xp, boostedXp(cleanBoosters, streakOut.xp, now))
             level = prog.level
             xp = prog.xp
             money += streakOut.cash
@@ -1217,7 +1292,7 @@ export const useGame = create<GameState>()(
               toasts = withToast(toasts, `✅ Daily: ${c.label} complete! +${formatMoney(r.cash)}, +${r.xp} XP`, 'ok')
               log = note(log, `Daily challenge complete: ${c.label} (+${formatMoney(r.cash)}, +${r.xp} XP).`)
             }
-            const prog = applyXp(level, xp, totalXp)
+            const prog = applyXp(level, xp, boostedXp(cleanBoosters, totalXp, now))
             level = prog.level
             xp = prog.xp
             money += totalCash
@@ -1226,7 +1301,7 @@ export const useGame = create<GameState>()(
             if (!dailyBonusClaimed) {
               const summary = challengeSetSummary(dayChallenges, csnap)
               if (summary.allComplete) {
-                const bprog = applyXp(level, xp, DAILY_COMPLETE_BONUS.xp)
+                const bprog = applyXp(level, xp, boostedXp(cleanBoosters, DAILY_COMPLETE_BONUS.xp, now))
                 level = bprog.level
                 xp = bprog.xp
                 money += DAILY_COMPLETE_BONUS.cash
@@ -1252,6 +1327,14 @@ export const useGame = create<GameState>()(
           assets: out.assets,
           money,
           activity: out.activity,
+          // Completion transition for the notification engine: the activity
+          // that naturally finished this tick (null when none did). Compared
+          // by identity so an away-span auto-sleep replacing a finished shift
+          // still records the shift's completion.
+          lastCompletedActivity:
+            s.activity && now >= s.activity.endsAt && out.activity !== s.activity
+              ? { kind: s.activity.kind, startedAt: s.activity.startedAt, endsAt: s.activity.endsAt }
+              : null,
           shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
           level,
           xp,
@@ -1332,7 +1415,7 @@ export const useGame = create<GameState>()(
         if (!water?.effects || s.money < water.price) return
         // Combo chain: drinking advances the combo and grants bonus XP.
         const { bonusXP, comboToast, newCombo } = comboXP(s, 5)
-        const prog = bonusXP > 0 ? applyXp(s.level, s.xp, bonusXP) : { level: s.level, xp: s.xp }
+        const prog = bonusXP > 0 ? applyXp(s.level, s.xp, boostedXp(s.activeBoosters, bonusXP)) : { level: s.level, xp: s.xp }
         set({
           money: s.money - water.price,
           needs: applyEffects(s.needs, water.effects),
@@ -1363,7 +1446,17 @@ export const useGame = create<GameState>()(
         track('first_shift_started')
         const now = Date.now()
         set({
-          activity: { kind: 'shift', startedAt: now, endsAt: now + GIG_MINUTES * 60_000, wage: GIG_WAGE, title: 'Delivery gig' },
+          activity: {
+            kind: 'shift',
+            startedAt: now,
+            endsAt: now + GIG_MINUTES * 60_000,
+            wage: GIG_WAGE,
+            title: 'Delivery gig',
+            // Stamp active booster multipliers — honored at resolution even
+            // if the 30-min booster expires mid-gig (see Activity docs).
+            wageMult: boosterMultiplier(s.activeBoosters, 'wage', now),
+            xpMult: boosterMultiplier(s.activeBoosters, 'xp', now),
+          },
           log: note(s.log, `Gig accepted: ${GIG_MINUTES} real minutes, ${formatMoney(Math.round((GIG_WAGE * GIG_MINUTES) / 60))} on completion.`),
         })
       },
@@ -1400,13 +1493,34 @@ export const useGame = create<GameState>()(
         if (!item || !item.effects) return
         const owned = s.inventory[itemId] ?? 0
         if (owned <= 0) return
+        const now = Date.now()
+        // Durable items with effects (Full Kitchen, Mattress, Console...) are
+        // reusable but not an infinite free-restoration tap: each use locks
+        // the item for its `hours` duration on the REAL clock (Rule #1). A
+        // 1.5h Mattress nap can't be spammed 100 times a minute.
+        if (item.durable && (item.hours ?? 0) > 0) {
+          const readyAt = (s.itemLastUsedAt[itemId] ?? 0) + item.hours! * 3_600_000
+          if (now < readyAt) {
+            const mins = Math.max(1, Math.ceil((readyAt - now) / 60_000))
+            set({
+              toasts: withToast(s.toasts, `${item.name} needs ${mins} min before you can use it again.`, 'blocked'),
+              log: note(s.log, `${item.name} was just used — ready again in ${mins} min.`),
+            })
+            return
+          }
+        }
+        const isMeal = (item.effects.hunger ?? 0) > 0
         // Medicine cures instantly when it matches the active illness;
         // otherwise it's just its (weak) effects — an underwhelming espresso.
         const cures = item.cures !== undefined && s.illness?.kind === item.cures
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
-          timesEaten: (item.effects.hunger ?? 0) > 0 ? s.timesEaten + 1 : s.timesEaten,
+          itemLastUsedAt: item.durable && (item.hours ?? 0) > 0 ? { ...s.itemLastUsedAt, [itemId]: now } : s.itemLastUsedAt,
+          timesEaten: isMeal ? s.timesEaten + 1 : s.timesEaten,
+          // "Eat N meals" daily challenges count EVERY meal, not just cooked
+          // ones — mirror the timesEaten rule (day-rollover aware).
+          dailyCounters: isMeal ? bumpDailyCounters(s, { mealsToday: 1 }) : s.dailyCounters,
           illness: cures ? null : s.illness,
           log: note(s.log, cures ? `${item.name} — the ${item.cures} is gone. Like new.` : `${item.name} — done.`),
         })
@@ -1505,6 +1619,11 @@ export const useGame = create<GameState>()(
             endsAt: now + SHIFT_HOURS * 3_600_000,
             wage: job.wage * rank.wageMultiplier,
             title: job.title,
+            // Stamp active booster multipliers at shift START — a booster
+            // bought now must pay out when the 8h shift resolves, long after
+            // the 30-min booster window itself expired (see Activity docs).
+            wageMult: boosterMultiplier(s.activeBoosters, 'wage', now),
+            xpMult: boosterMultiplier(s.activeBoosters, 'xp', now),
           },
           log: note(
             s.log,
@@ -1518,7 +1637,14 @@ export const useGame = create<GameState>()(
         const a = s.activity
         if (!a) return
         if (a.kind === 'sleep') {
-          set({ activity: null, log: note(s.log, 'Up early. The day is yours.') })
+          // A manual wake-up still counts as today's sleep — the tick's
+          // sleep→null transition detector never sees this (the activity is
+          // cleared here, outside the tick), so bump sleptToday directly.
+          set({
+            activity: null,
+            dailyCounters: bumpDailyCounters(s, { sleptToday: 1 }),
+            log: note(s.log, 'Up early. The day is yours.'),
+          })
           return
         }
         if (a.kind === 'cook') {
@@ -1526,12 +1652,16 @@ export const useGame = create<GameState>()(
           set({ activity: null, log: note(s.log, `Left the stove — ${a.title ?? 'the meal'} went to waste.`) })
           return
         }
-        // Leaving a shift early: pro-rata pay, no XP
+        // Leaving a shift early: pro-rata pay, no XP. The stamped wage
+        // booster still applies to the hours actually worked.
         const hoursWorked = Math.max(0, (Date.now() - a.startedAt) / 3_600_000)
-        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)))
+        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + wageBonusFrom(s.inventory)) * (a.wageMult ?? 1))
         set({
           activity: null,
           money: s.money + pay,
+          // Pro-rata wages are WORK income — they feed the "Earn $X today"
+          // challenge exactly like a completed shift's wages do in the tick.
+          dailyCounters: pay > 0 ? bumpDailyCounters(s, { earnedToday: pay }) : s.dailyCounters,
           log: note(s.log, pay > 0 ? `Left the shift early: +${formatMoney(pay)}, no experience earned.` : 'Left the shift before it started paying.'),
         })
       },
@@ -1566,7 +1696,8 @@ export const useGame = create<GameState>()(
         }
 
         if (item.grantXp) {
-          const prog = applyXp(s.level, s.xp, item.grantXp)
+          // Education XP routes through the XP-booster chokepoint too.
+          const prog = applyXp(s.level, s.xp, boostedXp(s.activeBoosters, item.grantXp))
           set({
             ...dailyCountersPatch,
             money: s.money - item.price,
@@ -1604,6 +1735,11 @@ export const useGame = create<GameState>()(
           return
         }
 
+        // Combo chain: buying advances the combo AND grants its bonus XP +
+        // toast, like quickDrink/collectIncome (previously the reward was
+        // computed and dropped). Uses the captured snapshot `s`, not get().
+        const { bonusXP, comboToast, newCombo } = comboXP(s, 5)
+        const comboProg = bonusXP > 0 ? applyXp(s.level, s.xp, boostedXp(s.activeBoosters, bonusXP)) : { level: s.level, xp: s.xp }
         set({
           ...dailyCountersPatch,
           money: s.money - item.price,
@@ -1612,9 +1748,11 @@ export const useGame = create<GameState>()(
           groceryRestockedAt: item.shelfLifeDays
             ? { ...s.groceryRestockedAt, [itemId]: Date.now() }
             : s.groceryRestockedAt,
-          // Combo chain: buying advances the combo.
-          combo: comboXP(get(), 5).newCombo,
+          level: comboProg.level,
+          xp: comboProg.xp,
+          combo: newCombo,
           comboLastActionAt: Date.now(),
+          toasts: comboToast ? withToast(s.toasts, comboToast, 'gold') : s.toasts,
           log: note(s.log, `Bought ${item.name}.`),
         })
       },
@@ -1699,7 +1837,7 @@ export const useGame = create<GameState>()(
         const wasFirst = s.totalCollected === 0
         // Combo chain: collecting advances the combo.
         const { bonusXP, comboToast, newCombo } = comboXP(s, 10)
-        const xpProg = bonusXP > 0 ? applyXp(s.level, s.xp, bonusXP) : { level: s.level, xp: s.xp }
+        const xpProg = bonusXP > 0 ? applyXp(s.level, s.xp, boostedXp(s.activeBoosters, bonusXP)) : { level: s.level, xp: s.xp }
         const toasts = wasFirst
           ? withToast(withToast(s.toasts, `💰 Your first income! The economy works.`, 'achieve'), `Collected ${formatMoney(Math.floor(total))}`, 'gold')
           : withToast(s.toasts, `Collected ${formatMoney(Math.floor(total))}`, 'gold')
@@ -1853,7 +1991,7 @@ export const useGame = create<GameState>()(
           return
         }
         const reward = openBox(tier)
-        const prog = applyXp(s.level, s.xp, reward.xp)
+        const prog = applyXp(s.level, s.xp, boostedXp(s.activeBoosters, reward.xp))
         set({
           money: s.money - def.cost + reward.cash,
           level: prog.level,
@@ -1875,7 +2013,7 @@ export const useGame = create<GameState>()(
         if (s.achievementsClaimed.includes(achievementId)) return
         const ach = ACHIEVEMENTS.find((a) => a.id === achievementId)
         if (!ach) return
-        const prog = applyXp(s.level, s.xp, ach.xp)
+        const prog = applyXp(s.level, s.xp, boostedXp(s.activeBoosters, ach.xp))
         set({
           achievementsClaimed: [...s.achievementsClaimed, achievementId],
           xp: prog.xp,
@@ -1943,6 +2081,7 @@ export const useGame = create<GameState>()(
           Object.entries(state).filter(
             ([key]) =>
               key !== 'streetMode' &&
+              key !== 'lastCompletedActivity' &&
               key !== 'awayReport' &&
               key !== 'celebration' &&
               key !== 'celebrationQueue' &&
