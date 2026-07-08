@@ -33,7 +33,7 @@ export interface AchievementSnapshot {
   hasCooked: boolean
   /** True once the citizen owns any pet */
   hasPet: boolean
-  /** How many shifts the citizen has slept (auto-sleeps while away) */
+  /** True once the citizen has generated an avatar in the Profile studio */
   hasAvatar: boolean
   activity: Activity | null
   needs: Needs
