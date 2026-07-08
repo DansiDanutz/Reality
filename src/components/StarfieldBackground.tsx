@@ -73,7 +73,12 @@ export default function StarfieldBackground() {
       make(nearCount, 2)
     }
     regen()
-    window.addEventListener('resize', regen)
+    const onResize = () => {
+      regen()
+      // Static mode has no loop to repaint after a resize — draw once now.
+      if (reduced) render()
+    }
+    window.addEventListener('resize', onResize)
 
     // ── Satellites ───────────────────────────────────────────
     // A satellite crosses the sky every ~20-40s. It has a tiny bright dot and
@@ -98,10 +103,13 @@ export default function StarfieldBackground() {
     }
 
     // ── Render loop ──────────────────────────────────────────
+    // Under prefers-reduced-motion the sky is a still image: one frame is
+    // painted (and repainted on resize) but no rAF loop is ever scheduled —
+    // repainting an identical frame at 60fps forever just burns battery.
     let last = performance.now()
     const render = () => {
       if (!running) return
-      raf = requestAnimationFrame(render)
+      if (!reduced) raf = requestAnimationFrame(render)
       const now = performance.now()
       const dt = Math.min((now - last) / 1000, 0.1)
       last = now
@@ -176,7 +184,7 @@ export default function StarfieldBackground() {
       } else if (!running) {
         running = true
         last = performance.now()
-        render()
+        if (!reduced) render()
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
@@ -184,7 +192,7 @@ export default function StarfieldBackground() {
     return () => {
       running = false
       cancelAnimationFrame(raf)
-      window.removeEventListener('resize', regen)
+      window.removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])

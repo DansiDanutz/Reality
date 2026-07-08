@@ -4,12 +4,16 @@ export type FounderLegacyRoyaltyBlocker =
   | 'treasury_payout_disabled'
   | 'manual_review_required'
   | 'compliance_review_required'
+  | 'previous_founder_required'
+  | 'successor_required'
+  | 'successor_must_be_distinct'
 
 export type FounderLegacyRoyaltyExclusionReason =
   | 'successor_created_asset'
   | 'not_owned_by_successor'
   | 'not_created_by_previous_founder'
   | 'no_base_revenue'
+  | 'invalid_founder_identity'
 
 export interface FounderLegacyRoyaltyAssetInput {
   id: string
@@ -92,6 +96,8 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
   const treasuryAccountId = input.treasuryAccountId?.trim() || FOUNDER_LEGACY_TREASURY_ACCOUNT_ID
   const previousFounderCitizenId = input.previousFounderCitizenId.trim()
   const successorCitizenId = input.successorCitizenId.trim()
+  const identityBlockers = founderIdentityBlockers(previousFounderCitizenId, successorCitizenId)
+  const identityReady = identityBlockers.length === 0
   const eligibleAssets: FounderLegacyRoyaltyEligibleAsset[] = []
   const excludedAssets: FounderLegacyRoyaltyExcludedAsset[] = []
 
@@ -101,6 +107,15 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
 
     const baseNetRevenue = positiveMoney(asset.periodBaseNetRevenue)
     const successorUpgradeNetRevenue = positiveMoney(asset.periodSuccessorUpgradeNetRevenue ?? 0)
+
+    if (!identityReady) {
+      excludedAssets.push({
+        id: assetId,
+        reason: 'invalid_founder_identity',
+        excludedNetRevenue: roundMoney(baseNetRevenue + successorUpgradeNetRevenue),
+      })
+      continue
+    }
 
     if (asset.currentOwnerCitizenId !== successorCitizenId) {
       excludedAssets.push({
@@ -151,6 +166,7 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
   const excludedNetRevenue = sumMoney(excludedAssets.map((asset) => asset.excludedNetRevenue))
   const modeledRoyaltyAmount = sumMoney(eligibleAssets.map((asset) => asset.royaltyAmount))
   const sourceAssetIds = eligibleAssets.map((asset) => asset.id)
+  const blockers = uniqueBlockers([...LEGACY_ROYALTY_BLOCKERS, ...identityBlockers])
 
   return {
     enabled: false,
@@ -182,11 +198,21 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
         amount: modeledRoyaltyAmount,
         royaltyRate,
         sourceAssetIds,
-        blockers: LEGACY_ROYALTY_BLOCKERS,
+        blockers,
       }
       : null,
-    blockers: LEGACY_ROYALTY_BLOCKERS,
+    blockers,
   }
+}
+
+function founderIdentityBlockers(previousFounderCitizenId: string, successorCitizenId: string): FounderLegacyRoyaltyBlocker[] {
+  const blockers: FounderLegacyRoyaltyBlocker[] = []
+  if (!previousFounderCitizenId) blockers.push('previous_founder_required')
+  if (!successorCitizenId) blockers.push('successor_required')
+  if (previousFounderCitizenId && successorCitizenId && previousFounderCitizenId === successorCitizenId) {
+    blockers.push('successor_must_be_distinct')
+  }
+  return blockers
 }
 
 function normalizedRoyaltyRate(value: number | undefined): number {
@@ -201,6 +227,10 @@ function positiveMoney(value: number): number {
 
 function sumMoney(values: readonly number[]): number {
   return roundMoney(values.reduce((total, value) => total + value, 0))
+}
+
+function uniqueBlockers(blockers: readonly FounderLegacyRoyaltyBlocker[]): FounderLegacyRoyaltyBlocker[] {
+  return [...new Set(blockers)]
 }
 
 function roundMoney(value: number): number {
