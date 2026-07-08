@@ -144,9 +144,46 @@ describe('land lease policy', () => {
     expect(assessment.operatorBusinessId).toBe('business-clinic')
     expect(assessment.fixedMonthlyRent).toBeNull()
     expect(assessment.termDays).toBe(DEFAULT_LAND_LEASE_TERM_DAYS)
-    expect(assessment.platformFeeRate).toBe(1)
+    expect(assessment.platformFeeRate).toBe(0.99)
     expect(assessment.localDemandServed).toBe(0)
     expect(assessment.rentDraft).toBeNull()
     expect(assessment.blockers).toContain('local_demand_required')
+  })
+
+  test('keeps review-ready rent drafts from routing all rent to platform fees', () => {
+    const assessment = assessLandLeasePolicy({
+      landOwnerCitizenId: 'owner-1',
+      operatorCitizenId: 'operator-1',
+      operatorBusinessId: 'business-water',
+      operatorBusinessUsesLand: true,
+      localDemandServed: 10,
+      fixedMonthlyRent: 100,
+      platformFeeRate: 1,
+    })
+
+    expect(assessment.readyForManualReview).toBe(true)
+    expect(assessment.platformFeeRate).toBe(0.99)
+    expect(assessment.rentDraft).toMatchObject({
+      fixedMonthlyRent: 100,
+      platformFeeRate: 0.99,
+      platformFeeAmount: 99,
+      ownerRentAmount: 1,
+    })
+
+    const oneCentRent = assessLandLeasePolicy({
+      landOwnerCitizenId: 'owner-1',
+      operatorCitizenId: 'operator-1',
+      operatorBusinessId: 'business-water',
+      operatorBusinessUsesLand: true,
+      localDemandServed: 10,
+      fixedMonthlyRent: 0.01,
+      platformFeeRate: 1,
+    })
+
+    expect(oneCentRent.rentDraft).toMatchObject({
+      fixedMonthlyRent: 0.01,
+      platformFeeAmount: 0,
+      ownerRentAmount: 0.01,
+    })
   })
 })

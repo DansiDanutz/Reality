@@ -147,7 +147,7 @@ function landLeaseRentDraft(input: {
   startsAt: number | null
   blockers: readonly LandLeaseBlocker[]
 }): LandLeaseRentDraft {
-  const platformFeeAmount = roundMoney(input.fixedMonthlyRent * input.platformFeeRate)
+  const platformFeeAmount = cappedPlatformFeeAmount(input.fixedMonthlyRent, input.platformFeeRate)
   return {
     kind: 'land_lease_rent',
     executionEnabled: false,
@@ -168,6 +168,12 @@ function landLeaseRentDraft(input: {
   }
 }
 
+function cappedPlatformFeeAmount(fixedMonthlyRent: number, platformFeeRate: number): number {
+  const fee = roundMoney(fixedMonthlyRent * platformFeeRate)
+  const maxFeeWithOwnerRent = roundMoney(Math.max(0, fixedMonthlyRent - 0.01))
+  return Math.min(fee, maxFeeWithOwnerRent)
+}
+
 function normalizedOptionalMoney(value: number | null): number | null {
   if (value === null) return null
   if (!Number.isFinite(value) || value <= 0) return null
@@ -181,7 +187,7 @@ function normalizedTermDays(value: number | null): number {
 
 function normalizedPlatformFeeRate(value: number | null): number {
   if (value === null || !Number.isFinite(value)) return DEFAULT_LAND_LEASE_PLATFORM_FEE_RATE
-  return roundMoney(Math.min(1, Math.max(0, value)))
+  return roundMoney(Math.min(0.99, Math.max(0, value)))
 }
 
 function normalizedDemand(value: number): number {
