@@ -1115,6 +1115,21 @@ export function founderCovenantReviewItems(review: FounderCovenantActivityReview
   ]
 }
 
+export function founderCovenantReviewActivityDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'activityReview'>,
+): string {
+  if (!review.activityReview) return 'Activity detail unavailable'
+  const items = founderCovenantReviewItems(review.activityReview)
+  const critical = items.filter((item) => item.tone === 'critical')
+  const warning = items.filter((item) => item.tone === 'warning')
+  const stable = items.filter((item) => item.tone === 'stable')
+  const parts: string[] = []
+  if (critical.length > 0) parts.push(`Critical: ${critical.map((item) => `${item.label} ${item.value}`).join(', ')}`)
+  if (warning.length > 0) parts.push(`Watch: ${warning.map((item) => `${item.label} ${item.value}`).join(', ')}`)
+  if (stable.length > 0) parts.push(`Stable: ${stable.map((item) => `${item.label} ${item.value}`).join(', ')}`)
+  return parts.join(' · ')
+}
+
 export function founderCovenantReviewQueueSummary(queue: FounderCovenantReviewQueue): string {
   return `${founderCovenantReviewQueueNextStepLabel(queue.nextStep)} · ${queue.pendingApprovalCount} approval${queue.pendingApprovalCount === 1 ? '' : 's'} · ${queue.pendingNotificationCount} draft${queue.pendingNotificationCount === 1 ? '' : 's'}`
 }

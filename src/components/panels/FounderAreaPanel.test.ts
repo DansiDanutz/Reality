@@ -27,6 +27,7 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewCadenceDetailText,
   founderCovenantReviewDecisionSummary,
+  founderCovenantReviewActivityDetailText,
   founderCovenantReviewInputSummary,
   founderCovenantReviewInputDetailText,
   founderCovenantReviewInputStatusClass,
@@ -124,6 +125,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantStageDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewCadenceDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewCadenceDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewActivityDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewActivityDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -1004,6 +1007,9 @@ describe('FounderAreaPanel covenant presenters', () => {
       activityReview: null,
       reviewChecklist: [],
     })).toBe('Snapshot unavailable')
+    expect(founderCovenantReviewActivityDetailText({
+      activityReview: null,
+    })).toBe('Activity detail unavailable')
     expect(founderCovenantReviewChecklistDetailText({
       reviewChecklist: [],
     })).toBe('Checklist detail unavailable')
@@ -1031,6 +1037,19 @@ describe('FounderAreaPanel covenant presenters', () => {
         evidence: 'Covenant signals need weekly/monthly review.',
       }],
     })).toBe('Snapshot score 50/100 · 1 manual · 1 watch')
+    expect(founderCovenantReviewActivityDetailText({
+      activityReview: {
+        checkedAt: 1_000,
+        active: true,
+        useful: false,
+        building: true,
+        staffed: false,
+        indebted: false,
+        hospitalized: false,
+        atRisk: true,
+        score: 50,
+      },
+    })).toBe('Critical: At risk yes · Watch: Useful no, Staffed no · Stable: Active yes, Building yes, Debt no, Hospital no')
     expect(founderCovenantReviewChecklistDetailText({
       reviewChecklist: [{
         key: 'staffed',

@@ -52,6 +52,7 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewCadenceDetailText,
   founderCovenantReviewDecisionSummary,
+  founderCovenantReviewActivityDetailText,
   founderCovenantReviewInputSummary,
   founderCovenantReviewInputDetailText,
   founderCovenantReviewInputStatusClass,
@@ -488,6 +489,9 @@ export default function FounderAreaPanel() {
                     {founderCovenantReviewSnapshotSummary(dashboard.founderCovenant.latestReview)}
                   </span>
                   <span className="item-desc">
+                    {founderCovenantReviewActivityDetailText(dashboard.founderCovenant.latestReview)}
+                  </span>
+                  <span className="item-desc">
                     {founderCovenantReviewChecklistDetailText(dashboard.founderCovenant.latestReview)}
                   </span>
                   <span className="item-desc">
@@ -618,6 +622,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">{entry.summary}</span>
                       <span className="item-desc">{founderCovenantReviewDecisionSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSnapshotSummary(entry)}</span>
+                      <span className="item-desc">{founderCovenantReviewActivityDetailText(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewChecklistDetailText(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewInputSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewInputDetailText(entry)}</span>
