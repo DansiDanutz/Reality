@@ -2753,9 +2753,13 @@ function founderCovenantReviewInputLabel(kind: FounderAreaCovenantManualEvidence
 
 function founderCovenantReviewHistory(state: FounderAreaStateInput): FounderAreaCovenantReviewHistoryItem[] {
   return [...(state.founderReviewHistory ?? [])]
-    .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
+    .map((entry, index) => ({ entry, index }))
+    .sort((left, right) => {
+      const reviewedAtDelta = Date.parse(right.entry.at) - Date.parse(left.entry.at)
+      return reviewedAtDelta || right.index - left.index
+    })
     .slice(0, 5)
-    .map(founderCovenantReviewHistoryItem)
+    .map(({ entry }) => founderCovenantReviewHistoryItem(entry))
 }
 
 function founderCovenantLatestReview(state: FounderAreaStateInput): FounderAreaCovenantLatestReview | null {

@@ -5561,6 +5561,10 @@ describe('reality area authority API', () => {
       `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}:2`,
     ])
     expect(new Set(secondBody.state.founderReviewHistory.map((entry) => entry.id)).size).toBe(2)
+    expect(secondBody.state.founderCovenant.latestReview).toMatchObject({
+      id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}:2`,
+      summary: expect.stringContaining('Second review at the same server time.'),
+    })
   })
 
   test('recordCovenantReview captures and clears reviewed Sim departure signals', async () => {

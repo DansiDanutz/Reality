@@ -2333,6 +2333,10 @@ describe('advanceWorldArea — local real-time economy', () => {
       `area-1:${reviewAt}:founder-review:reviewer-1:2`,
     ])
     expect(new Set(second.area.founderReviewHistory?.map((entry) => entry.id)).size).toBe(2)
+    expect(areaNeedsDashboard(second.area).founderCovenant.latestReview).toMatchObject({
+      id: `area-1:${reviewAt}:founder-review:reviewer-1:2`,
+      summary: expect.stringContaining('Second manual review at the same server time.'),
+    })
   })
 
   test('dashboard turns overdue covenant review into a manual-review signal only', () => {
