@@ -159,6 +159,8 @@ function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
   switch (filter) {
     case 'all':
       return 'All'
+    case 'never_reviewed':
+      return 'Never'
     case 'manual_review':
       return 'Manual'
     case 'hospitalized':

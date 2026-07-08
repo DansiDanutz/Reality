@@ -109,7 +109,7 @@ export interface FounderCovenantScheduleItem {
 }
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
-export type FounderCovenantOperatorQueueFilter = 'all' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
+export type FounderCovenantOperatorQueueFilter = 'all' | 'never_reviewed' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
 export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder'
 
 export interface FounderCovenantOperatorQueueSliceTotals {
@@ -882,6 +882,8 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
     switch (filter) {
       case 'all':
         return true
+      case 'never_reviewed':
+        return item.reviewFreshness === 'never'
       case 'manual_review':
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
       case 'hospitalized':
@@ -914,6 +916,8 @@ export function founderCovenantOperatorQueueFilterSummary(
   switch (filter) {
     case 'all':
       return `${count} founder${count === 1 ? '' : 's'} in current page · ${freshness}`
+    case 'never_reviewed':
+      return `${count} founder${count === 1 ? '' : 's'} never reviewed · ${freshness}`
     case 'manual_review':
       return `${count} founder${count === 1 ? '' : 's'} need manual review · ${freshness}`
     case 'hospitalized':
@@ -927,10 +931,11 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {
   const all = founderCovenantOperatorQueueFilteredReviewRows(queue, 'all').length
+  const neverReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'never_reviewed').length
   const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -941,6 +946,8 @@ export function founderCovenantOperatorQueueSliceTotals(
     switch (filter) {
       case 'all':
         return true
+      case 'never_reviewed':
+        return item.reviewFreshness === 'never'
       case 'manual_review':
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
       case 'hospitalized':
