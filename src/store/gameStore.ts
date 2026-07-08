@@ -100,6 +100,7 @@ import {
   totalResourceCount,
 } from '../game/construction'
 import {
+  COURIER_CAMPAIGN_DAYS,
   type CourierPackage,
   courierPackageForLifePlan,
   courierRequirementMet,
@@ -986,12 +987,13 @@ function communityWorkerCreditMinutes(community: CommunityStats, shiftsWorked: n
   return availableCommunityHelperMinutes(community, advantage.weeklyHelperMinutes, now)
 }
 
-function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
+function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'businessDevelopmentProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
   return {
     timesEaten: s.timesEaten,
     sawStreetMode: s.sawStreetMode,
     resources: s.resources,
     constructionProjects: s.constructionProjects,
+    businessDevelopmentProjects: s.businessDevelopmentProjects,
     hasHome: s.assets.some((asset) => asset.kind === 'home'),
     jobId: s.jobId,
     shiftsWorked: s.shiftsWorked,
@@ -1858,6 +1860,7 @@ export const useGame = create<GameState>()(
           sawStreetMode: s.sawStreetMode,
           resources,
           constructionProjects,
+          businessDevelopmentProjects,
           hasHome: out.assets.some((asset) => asset.kind === 'home'),
           jobId: s.jobId,
           shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
@@ -1895,7 +1898,7 @@ export const useGame = create<GameState>()(
           courierLastDay = todayDay
           toasts = withToast(toasts, `Courier package day ${nextPackage.day} arrived.`, 'gold')
           log = note(log, `Courier package arrived: ${nextPackage.title}.`)
-        } else if (courierLastDay !== todayDay && courierDay <= 10) {
+        } else if (courierLastDay !== todayDay && courierDay <= COURIER_CAMPAIGN_DAYS) {
           courierLastDay = todayDay
           activeCourierPackage = null
         }

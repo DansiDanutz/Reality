@@ -1249,6 +1249,38 @@ describe('courier Life Ladder wrapper', () => {
     expect(useGame.getState().completedCourierDays).toEqual([1])
     expect(useGame.getState().activeCourierPackage).toBeNull()
   })
+
+  test('campaign packages continue after the first 10 tutorial days', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-17T12:00:00Z'))
+    const now = Date.now()
+    const tenDaysAgo = now - 10 * 24 * 60 * 60 * 1000
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: tenDaysAgo, citizenId: 'ada' },
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      money: 500,
+      jobId: null,
+      shiftsWorked: 0,
+      activity: null,
+      lastSeenAt: now - 60_000,
+      activeCourierPackage: null,
+      courierLastDay: 0,
+      completedCourierDays: [],
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().tick()
+
+    expect(useGame.getState().activeCourierPackage).toMatchObject({
+      day: 11,
+      title: 'Find honest work',
+      objective: 'Find honest work',
+      requirement: { kind: 'job' },
+    })
+  })
 })
 
 describe('education study loop', () => {

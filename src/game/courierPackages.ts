@@ -1,5 +1,6 @@
 import { RESOURCE_META, type ResourceKind } from './resources'
 import type { ConstructionProject } from './construction'
+import type { BusinessDevelopmentProject } from './businessDevelopment'
 import {
   educationCourseById,
   nextStudyBlockMinutes,
@@ -23,6 +24,10 @@ export type CourierRequirement =
   | { kind: 'construction-deposit'; resources: Partial<Record<ResourceKind, number>> }
   | { kind: 'construction-labor'; minutes: number }
   | { kind: 'home-built-or-progress'; laborMinutes: number }
+  | { kind: 'business-development-site' }
+  | { kind: 'business-development-deposit'; resources: Partial<Record<ResourceKind, number>> }
+  | { kind: 'business-development-budget' }
+  | { kind: 'business-development-labor'; minutes: number }
 
 export interface CourierPackage {
   day: number
@@ -40,6 +45,7 @@ export interface CourierSnapshot {
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
+  businessDevelopmentProjects?: BusinessDevelopmentProject[]
   hasHome: boolean
   jobId?: string | null
   shiftsWorked?: number
@@ -147,8 +153,18 @@ export const COURIER_PACKAGES: CourierPackage[] = [
 ]
 
 export function courierPackageForDay(citizenAgeDay: number): CourierPackage | null {
-  if (citizenAgeDay < 1 || citizenAgeDay > COURIER_MVP_DAYS) return null
-  return COURIER_PACKAGES[citizenAgeDay - 1] ?? null
+  if (citizenAgeDay < 1 || citizenAgeDay > COURIER_CAMPAIGN_DAYS) return null
+  const authored = COURIER_PACKAGES[citizenAgeDay - 1] ?? null
+  if (authored) return authored
+  return {
+    day: citizenAgeDay,
+    title: `Life Ladder day ${citizenAgeDay}`,
+    story: 'The courier keeps coming because a serious life is built one clear day at a time.',
+    objective: 'Complete today\'s Life Ladder task.',
+    rewardCash: Math.min(1_000, 500 + (citizenAgeDay - COURIER_MVP_DAYS) * 10),
+    rewardXp: Math.min(200, 90 + (citizenAgeDay - COURIER_MVP_DAYS) * 2),
+    requirement: { kind: 'none' },
+  }
 }
 
 export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnapshot): boolean {
@@ -188,6 +204,18 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.minutes) || snapshot.hasHome
     case 'home-built-or-progress':
       return snapshot.hasHome || snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.laborMinutes)
+    case 'business-development-site':
+      return (snapshot.businessDevelopmentProjects ?? []).length > 0
+    case 'business-development-deposit':
+      return (snapshot.businessDevelopmentProjects ?? []).some((project) =>
+        Object.entries(requirement.resources).every(
+          ([kind, amount]) => project.deposited[kind as ResourceKind] >= (amount ?? 0),
+        ),
+      )
+    case 'business-development-budget':
+      return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.budgetPaid)
+    case 'business-development-labor':
+      return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.laborDoneMinutes >= requirement.minutes)
   }
 }
 
@@ -253,6 +281,17 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     return null
   }
   if (route.kind === 'panel' && route.panel === 'construction') return { kind: 'construction-site' }
+  if (route.kind === 'market' && route.focus === 'business') return { kind: 'construction-site' }
+  if (route.kind === 'panel' && route.panel === 'business') return { kind: 'business-development-site' }
+  if (route.kind === 'business-development-action') {
+    const project = (snapshot.businessDevelopmentProjects ?? []).find((candidate) => candidate.id === route.projectId)
+    if (route.action === 'deposit') return { kind: 'business-development-deposit', resources: project?.required ?? {} }
+    if (route.action === 'budget') return { kind: 'business-development-budget' }
+    if (route.action === 'work' || route.action === 'hire-helper') {
+      return { kind: 'business-development-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
+    }
+    if (route.action === 'complete') return { kind: 'business-development-labor', minutes: project?.laborDoneMinutes ?? 0 }
+  }
   if (route.kind === 'consume-action' || route.kind === 'cook-action' || (route.kind === 'market' && route.focus === 'food')) {
     return { kind: 'food', timesEaten: snapshot.timesEaten + 1 }
   }
