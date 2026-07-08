@@ -57,21 +57,62 @@ describe('TON settlement policy', () => {
     expect(tonSettlementFlowGate('withdrawal', {
       serverAuthorityReady: true,
       telegramIdentityVerified: true,
+      tonConnectReviewed: false,
       complianceApproved: true,
       manualSettlementApproved: true,
     })).toMatchObject({
       enabled: false,
       status: 'blocked',
       readyForManualActivation: false,
-      blockers: ['settlement_execution_disabled', 'kyc_tax_required'],
+      blockers: ['settlement_execution_disabled', 'ton_connect_review_required', 'kyc_tax_required'],
     })
 
     expect(tonSettlementFlowGate('withdrawal', {
       serverAuthorityReady: true,
       telegramIdentityVerified: true,
+      tonConnectReviewed: true,
       complianceApproved: true,
       manualSettlementApproved: true,
       kycTaxApproved: true,
+    })).toMatchObject({
+      enabled: false,
+      status: 'ready_for_manual_activation',
+      readyForManualActivation: true,
+      blockers: ['settlement_execution_disabled'],
+    })
+  })
+
+  test('keeps non-wallet settlement flows blocked until TON Connect review is complete', () => {
+    expect(tonSettlementFlowGate('deposit', {
+      serverAuthorityReady: true,
+      telegramIdentityVerified: true,
+      complianceApproved: true,
+      manualSettlementApproved: true,
+    })).toMatchObject({
+      enabled: false,
+      status: 'blocked',
+      readyForManualActivation: false,
+      blockers: ['settlement_execution_disabled', 'ton_connect_review_required'],
+    })
+
+    expect(tonSettlementFlowGate('land_reservation', {
+      serverAuthorityReady: true,
+      telegramIdentityVerified: true,
+      complianceApproved: true,
+      manualSettlementApproved: true,
+    })).toMatchObject({
+      enabled: false,
+      status: 'blocked',
+      readyForManualActivation: false,
+      blockers: ['settlement_execution_disabled', 'ton_connect_review_required'],
+    })
+
+    expect(tonSettlementFlowGate('onchain_proof', {
+      serverAuthorityReady: true,
+      telegramIdentityVerified: true,
+      complianceApproved: true,
+      manualSettlementApproved: true,
+      tonConnectReviewed: true,
     })).toMatchObject({
       enabled: false,
       status: 'ready_for_manual_activation',

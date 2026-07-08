@@ -161,6 +161,7 @@ function missingTonSettlementPrerequisites(
     return blockers
   }
 
+  if (!input.tonConnectReviewed) blockers.push('ton_connect_review_required')
   if (!input.complianceApproved) blockers.push('compliance_review_required')
   if (!input.manualSettlementApproved) blockers.push('manual_settlement_review_required')
 
