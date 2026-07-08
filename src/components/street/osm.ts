@@ -30,12 +30,15 @@ const ENDPOINT_TIMEOUT_MS = 6_000
 
 const GREEN_TAGS = /^(park|garden|grass|meadow|village_green|recreation_ground|playground|pitch)$/
 
+/** Cached neighborhoods stay fresh for an hour — OSM data doesn't move faster. */
+const NEIGHBORHOOD_TTL_MS = 60 * 60 * 1000
+
 export async function fetchNeighborhood(lat: number, lng: number): Promise<Neighborhood> {
   const key = neighborhoodCacheKey(lat, lng)
   const cached = neighborhoodCache.get(key)
-  if (cached) return cached
+  if (cached && Date.now() - cached.at < NEIGHBORHOOD_TTL_MS) return cached.promise
   const promise = fetchNeighborhoodUncached(lat, lng)
-  neighborhoodCache.set(key, promise)
+  neighborhoodCache.set(key, { promise, at: Date.now() })
   try {
     return await promise
   } catch (error) {
@@ -50,7 +53,7 @@ export function preloadNeighborhood(lat: number, lng: number) {
   })
 }
 
-const neighborhoodCache = new Map<string, Promise<Neighborhood>>()
+const neighborhoodCache = new Map<string, { promise: Promise<Neighborhood>; at: number }>()
 
 export function clearNeighborhoodCacheForTest() {
   if (!import.meta.env.DEV) return
@@ -88,7 +91,7 @@ async function fetchNeighborhoodUncached(lat: number, lng: number): Promise<Neig
             (w.geometry?.length ?? 0) >= 3,
         ),
         trees: ways
-          .filter((w) => w.type === 'node' && w.tags?.natural === 'tree' && w.lat !== undefined)
+          .filter((w) => w.type === 'node' && w.tags?.natural === 'tree' && w.lat !== undefined && w.lon !== undefined)
           .map((w) => ({ lat: w.lat!, lon: w.lon! })),
       }
     } catch (error) {

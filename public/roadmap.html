@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reality Roadmap</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #060914;
+      --panel: rgba(13, 18, 32, 0.9);
+      --panel-2: rgba(18, 27, 45, 0.88);
+      --line: rgba(171, 188, 214, 0.18);
+      --text: #f4f7fb;
+      --muted: #9ba9bd;
+      --gold: #f2b84b;
+      --green: #54d18f;
+      --blue: #62b7ff;
+      --red: #ff7d7d;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.35);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 6%, rgba(98, 183, 255, 0.15), transparent 27rem),
+        radial-gradient(circle at 84% 16%, rgba(242, 184, 75, 0.12), transparent 25rem),
+        linear-gradient(180deg, #080d19 0%, var(--bg) 42%, #03050c 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle, rgba(255, 255, 255, 0.2) 0 1px, transparent 1.5px),
+        radial-gradient(circle, rgba(98, 183, 255, 0.16) 0 1px, transparent 1.4px);
+      background-size: 82px 82px, 137px 137px;
+      opacity: 0.22;
+      mask-image: linear-gradient(180deg, black, transparent 78%);
+    }
+
+    a { color: inherit; }
+    .page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 34px 0 56px; }
+    header { display: grid; gap: 20px; margin-bottom: 24px; }
+    .topline { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .title h1 { margin: 0; font-size: clamp(2.25rem, 5vw, 5.2rem); line-height: 0.92; letter-spacing: 0; }
+    .title p { margin: 14px 0 0; max-width: 740px; color: var(--muted); font-size: 1.02rem; line-height: 1.6; }
+    .stamp {
+      min-width: 230px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.045);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.5;
+      text-align: right;
+    }
+    .stamp strong { display: block; color: var(--text); font-size: 0.94rem; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .stat {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .stat span { display: block; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat strong { display: block; margin-top: 8px; font-size: 1.78rem; line-height: 1; }
+    .stat small { display: block; margin-top: 9px; color: var(--muted); line-height: 1.35; }
+
+    .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; align-items: start; }
+    .section {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .section + .section { margin-top: 18px; }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.035);
+    }
+    h2 { margin: 0; font-size: 1rem; letter-spacing: 0.02em; }
+    .section-head p { margin: 4px 0 0; color: var(--muted); font-size: 0.88rem; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    .chip.good { color: #c7f7dd; border-color: rgba(84, 209, 143, 0.35); background: rgba(84, 209, 143, 0.1); }
+    .chip.warn { color: #ffe1a7; border-color: rgba(242, 184, 75, 0.35); background: rgba(242, 184, 75, 0.1); }
+    .chip.bad { color: #ffd0d0; border-color: rgba(255, 125, 125, 0.35); background: rgba(255, 125, 125, 0.1); }
+
+    .road-list, .commit-list, .test-list { list-style: none; margin: 0; padding: 0; }
+    .road-row, .commit-row, .test-row {
+      display: grid;
+      gap: 5px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .road-row:last-child, .commit-row:last-child, .test-row:last-child { border-bottom: 0; }
+    .road-row strong, .commit-row strong, .test-row strong { font-size: 0.94rem; }
+    .road-row span, .commit-row span, .test-row span { color: var(--muted); font-size: 0.86rem; line-height: 1.45; }
+    .road-row em, .commit-row em, .test-row em { color: var(--blue); font-size: 0.78rem; font-style: normal; overflow-wrap: anywhere; }
+
+    .achievement-table { width: 100%; border-collapse: collapse; }
+    .achievement-table th,
+    .achievement-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.86rem;
+    }
+    .achievement-table th {
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .achievement-table td:first-child { width: 28%; font-weight: 700; }
+    .achievement-table td:nth-child(2) { color: var(--muted); line-height: 1.45; }
+    .tier { color: var(--gold); font-weight: 700; text-transform: capitalize; }
+    .category { color: var(--blue); text-transform: capitalize; }
+    .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+    .phase-wrap { display: grid; gap: 12px; padding: 18px 20px; }
+    .phase {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .phase strong { color: var(--text); }
+    .phase ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.86rem; line-height: 1.45; }
+
+    .source-bar {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 920px) {
+      .topline { display: grid; }
+      .stamp { text-align: left; }
+      .stats, .grid { grid-template-columns: 1fr; }
+      .achievement-table { display: block; overflow-x: auto; }
+    }
+
+    @media (max-width: 640px) {
+      .page { width: min(100% - 20px, 1180px); padding-top: 18px; }
+      .title h1 { font-size: 2.2rem; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .achievement-table,
+      .achievement-table tbody,
+      .achievement-table tr,
+      .achievement-table td { display: block; width: 100%; }
+      .achievement-table thead { display: none; }
+      .achievement-table tr { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+      .achievement-table td { padding: 4px 0; border-bottom: 0; }
+      .achievement-table td:first-child { width: 100%; font-size: 0.95rem; }
+      .achievement-table td:nth-child(2) { font-size: 0.88rem; }
+      .achievement-table td:nth-child(n+3) { display: inline-block; width: auto; margin-right: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="topline">
+        <div class="title">
+          <h1>Reality Roadmap</h1>
+          <p>Daily generated status for what is already on main, what is implemented and tested, what is still under review, and what the team is focusing on this week.</p>
+        </div>
+        <div class="stamp">
+          <strong>Wed, 08 Jul 2026 17:49:51 GMT</strong>
+          Branch <span class="mono">roadmap879</span> at <span class="mono">afbda78</span><br />
+          Source: local repo plus GitHub PRs when the cron runs in CI.
+        </div>
+      </div>
+      <section class="stats" aria-label="Roadmap summary">
+        <div class="stat"><span>Achievements</span><strong>28</strong><small>Implemented in <span class="mono">src/game/achievements.ts</span></small></div>
+        <div class="stat"><span>Market Items</span><strong>144</strong><small>10 jobs, 6 recipes, 48 life events</small></div>
+        <div class="stat"><span>Test Files</span><strong>55</strong><small>Unit and API coverage discovered in source</small></div>
+        <div class="stat"><span>Verify</span><strong>pending</strong><small>Tests: not-run-locally &middot; Build: not-run-locally</small></div>
+      </section>
+    </header>
+
+    <div class="grid">
+      <div>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>Implemented And Tested Achievements</h2>
+              <p>All achievement definitions detected in source. The achievement constitution test file is present and part of CI.</p>
+            </div>
+            <span class="chip warn">pending</span>
+          </div>
+          <table class="achievement-table">
+            <thead>
+              <tr>
+                <th>Achievement</th>
+                <th>Requirement</th>
+                <th>Category</th>
+                <th>Tier</th>
+                <th>Reward</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>Survivor<br /><span class="mono">survivor-1</span></td>
+                  <td>Stay alive your first full real day.</td>
+                  <td><span class="category">survival</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">50 XP &middot; $100</td>
+                </tr>
+
+                <tr>
+                  <td>A Week Alive<br /><span class="mono">survivor-7</span></td>
+                  <td>Survive seven real days. Most citizens don&#39;t come back this far.</td>
+                  <td><span class="category">survival</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">200 XP &middot; $1,000</td>
+                </tr>
+
+                <tr>
+                  <td>A Month in Reality<br /><span class="mono">survivor-30</span></td>
+                  <td>Thirty real days. You live here now.</td>
+                  <td><span class="category">survival</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1000 XP &middot; $10,000</td>
+                </tr>
+
+                <tr>
+                  <td>Well Fed<br /><span class="mono">well-fed</span></td>
+                  <td>Eat 25 meals.</td>
+                  <td><span class="category">survival</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">75 XP &middot; $200</td>
+                </tr>
+
+                <tr>
+                  <td>Rested Soul<br /><span class="mono">rested-soul</span></td>
+                  <td>Sleep 25 nights.</td>
+                  <td><span class="category">survival</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">150 XP &middot; $500</td>
+                </tr>
+
+                <tr>
+                  <td>First Day on the Job<br /><span class="mono">first-shift</span></td>
+                  <td>Complete your first shift.</td>
+                  <td><span class="category">career</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">50 XP &middot; $50</td>
+                </tr>
+
+                <tr>
+                  <td>Reliable<br /><span class="mono">reliable</span></td>
+                  <td>Work 10 shifts. Show up, every day.</td>
+                  <td><span class="category">career</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">200 XP &middot; $750</td>
+                </tr>
+
+                <tr>
+                  <td>Workhorse<br /><span class="mono">workhorse</span></td>
+                  <td>Work 50 shifts. The city runs on you.</td>
+                  <td><span class="category">career</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">800 XP &middot; $5,000</td>
+                </tr>
+
+                <tr>
+                  <td>Hired Gun<br /><span class="mono">hired-gun</span></td>
+                  <td>Hold any job.</td>
+                  <td><span class="category">career</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">25 XP &middot; $50</td>
+                </tr>
+
+                <tr>
+                  <td>First Dollar<br /><span class="mono">first-dollar</span></td>
+                  <td>Collect any business income.</td>
+                  <td><span class="category">wealth</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">50 XP &middot; $100</td>
+                </tr>
+
+                <tr>
+                  <td>Hustler<br /><span class="mono">hustler</span></td>
+                  <td>Collect $10,000 in total income.</td>
+                  <td><span class="category">wealth</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">200 XP &middot; $1,000</td>
+                </tr>
+
+                <tr>
+                  <td>Tycoon<br /><span class="mono">tycoon</span></td>
+                  <td>Collect $1,000,000 in total income.</td>
+                  <td><span class="category">wealth</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1500 XP &middot; $25,000</td>
+                </tr>
+
+                <tr>
+                  <td>Homeowner<br /><span class="mono">first-home</span></td>
+                  <td>Own any home.</td>
+                  <td><span class="category">wealth</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">75 XP &middot; $250</td>
+                </tr>
+
+                <tr>
+                  <td>Mogul<br /><span class="mono">mogul</span></td>
+                  <td>Reach $1,000,000 net worth.</td>
+                  <td><span class="category">wealth</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1000 XP &middot; $15,000</td>
+                </tr>
+
+                <tr>
+                  <td>Well Lived<br /><span class="mono">well-lived</span></td>
+                  <td>Reach level 5.</td>
+                  <td><span class="category">lifestyle</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">100 XP &middot; $300</td>
+                </tr>
+
+                <tr>
+                  <td>Established<br /><span class="mono">established</span></td>
+                  <td>Reach level 10.</td>
+                  <td><span class="category">lifestyle</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">300 XP &middot; $1,500</td>
+                </tr>
+
+                <tr>
+                  <td>Pillar of Society<br /><span class="mono">pillar</span></td>
+                  <td>Reach level 20.</td>
+                  <td><span class="category">lifestyle</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1200 XP &middot; $20,000</td>
+                </tr>
+
+                <tr>
+                  <td>Home Chef<br /><span class="mono">home-chef</span></td>
+                  <td>Cook a meal at home.</td>
+                  <td><span class="category">lifestyle</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">75 XP &middot; $150</td>
+                </tr>
+
+                <tr>
+                  <td>Pet Parent<br /><span class="mono">pet-parent</span></td>
+                  <td>Adopt any pet.</td>
+                  <td><span class="category">lifestyle</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">75 XP &middot; $150</td>
+                </tr>
+
+                <tr>
+                  <td>Face of Reality<br /><span class="mono">face-of-reality</span></td>
+                  <td>Generate your avatar.</td>
+                  <td><span class="category">lifestyle</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">50 XP &middot; $100</td>
+                </tr>
+
+                <tr>
+                  <td>Starting a Collection<br /><span class="mono">collector-10</span></td>
+                  <td>Own 10 distinct items.</td>
+                  <td><span class="category">collector</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">100 XP &middot; $400</td>
+                </tr>
+
+                <tr>
+                  <td>Curator<br /><span class="mono">collector-25</span></td>
+                  <td>Own 25 distinct items.</td>
+                  <td><span class="category">collector</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">250 XP &middot; $1,200</td>
+                </tr>
+
+                <tr>
+                  <td>Completionist<br /><span class="mono">collector-50</span></td>
+                  <td>Own 50 distinct items.</td>
+                  <td><span class="category">collector</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1000 XP &middot; $10,000</td>
+                </tr>
+
+                <tr>
+                  <td>Business Owner<br /><span class="mono">business-owner</span></td>
+                  <td>Open your first business.</td>
+                  <td><span class="category">veteran</span></td>
+                  <td><span class="tier">bronze</span></td>
+                  <td class="mono">100 XP &middot; $500</td>
+                </tr>
+
+                <tr>
+                  <td>Small Empire<br /><span class="mono">empire-3</span></td>
+                  <td>Own 3 businesses.</td>
+                  <td><span class="category">veteran</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">300 XP &middot; $2,000</td>
+                </tr>
+
+                <tr>
+                  <td>Empire Builder<br /><span class="mono">empire-10</span></td>
+                  <td>Own 10 businesses.</td>
+                  <td><span class="category">veteran</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1500 XP &middot; $30,000</td>
+                </tr>
+
+                <tr>
+                  <td>Tastemaker<br /><span class="mono">upgrader-3</span></td>
+                  <td>Upgrade any business to level 3.</td>
+                  <td><span class="category">veteran</span></td>
+                  <td><span class="tier">silver</span></td>
+                  <td class="mono">250 XP &middot; $1,500</td>
+                </tr>
+
+                <tr>
+                  <td>Empire of One<br /><span class="mono">upgrader-5</span></td>
+                  <td>Upgrade any business to level 5 — the long-term grind.</td>
+                  <td><span class="category">veteran</span></td>
+                  <td><span class="tier">gold</span></td>
+                  <td class="mono">1000 XP &middot; $15,000</td>
+                </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>Added To Main</h2>
+              <p>Recent commits currently present on <span class="mono">origin/main</span>.</p>
+            </div>
+            <span class="chip">18 commits</span>
+          </div>
+          <ul class="commit-list">
+            
+              <li class="commit-row">
+                <strong>Fail closed when area claims cannot persist (#484)</strong>
+                <span><span class="mono">e1a8839</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Classify Google restore infrastructure failures (#425)</strong>
+                <span><span class="mono">92f474c</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Report cloud save storage outages explicitly (#423)</strong>
+                <span><span class="mono">e967bc6</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Expose Telegram identity storage outages (#420)</strong>
+                <span><span class="mono">9defcfc</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Fail closed when leaderboard storage is unavailable (#418)</strong>
+                <span><span class="mono">07429f9</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep funnel analytics contracts in sync (#416)</strong>
+                <span><span class="mono">2a87395</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Surface Telegram-linked growth in the server funnel (#415)</strong>
+                <span><span class="mono">10a144b</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep founder spawn anchors inside real coordinates (#412)</strong>
+                <span><span class="mono">9d90180</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep registration safety outages explicit (#407)</strong>
+                <span><span class="mono">7188db9</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Expose citizen verification storage outages (#405)</strong>
+                <span><span class="mono">6c2c868</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Make founder area refresh outages explicit (#403)</strong>
+                <span><span class="mono">e842a49</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Surface operator review area load outages (#401)</strong>
+                <span><span class="mono">f503d89</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Make covenant queue storage outages explicit (#399)</strong>
+                <span><span class="mono">8f65628</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep server clock storage outages observable (#397)</strong>
+                <span><span class="mono">faee360</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Expose server clock area tick failure reasons (#393)</strong>
+                <span><span class="mono">3df6cd2</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Reject bad area claims before storage lookup (#391)</strong>
+                <span><span class="mono">9dffb9e</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep client area claims inside founder radius bounds (#389)</strong>
+                <span><span class="mono">62f6324</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep world ledger account ids unambiguous (#385)</strong>
+                <span><span class="mono">0a397dc</span> &middot; 2026-07-08</span>
+              </li>
+          </ul>
+        </section>
+      </div>
+
+      <aside>
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>Roadmap Phases</h2>
+              <p>Read from <span class="mono">docs/ROADMAP.md</span>.</p>
+            </div>
+          </div>
+          <div class="phase-wrap">
+            
+              <article class="phase">
+                <strong>Phase 0 — Open Beta (this release)</strong>
+                <ul><li>[ ] Deploy the beta to a public URL (Vercel/Cloudflare — npm run build, zero config)</li>
+<li>[ ] Landing copy: &quot;First 2,000 founders get $200,000&quot; — the hook is the headline</li>
+<li>[ ] Founder waitlist form (email) so launch-day slots are contested</li>
+<li>[ ] Clips: 15–30s of buying a business and placing it on the spinning Earth</li>
+<li>[ ] Post: r/incremental_games, r/WebGames, X/TikTok dev-log, Product Hunt when online</li></ul>
+              </article>
+
+              <article class="phase">
+                <strong>Phase 1 — The World Comes Online</strong>
+                <ul><li>Real founder registry — exactly 2,000, first-come, atomic slot claims, live counter on the welcome screen</li>
+<li>Citizen identity — token-based registration, existing saves migrate automatically</li>
+<li>Global map shows *everyone&#39;s* businesses (violet beacons) — the world looks inhabited</li>
+<li>Net-worth leaderboard (Top panel)</li>
+<li>Server-authoritative simulation (intents, ledger) — see ARCHITECTURE</li></ul>
+              </article>
+
+              <article class="phase">
+                <strong>Phase 2 — Society</strong>
+                <ul><li>Player-to-player economy: shop inventory comes from player businesses; owners set prices</li>
+<li>Employment: player businesses hire player workers at negotiated wages</li>
+<li>Land scarcity per city hex → real estate market, rent</li>
+<li>Chat / local presence (see who&#39;s in your city)</li></ul>
+              </article>
+
+              <article class="phase">
+                <strong>Phase 3 — Civilization</strong>
+                <ul><li>Cities with elected mayors, local taxes, public projects</li>
+<li>Corporations, shares, contracts between players</li>
+<li>Seasons/events (market booms, disasters, festivals)</li>
+<li>Mobile wrapper</li></ul>
+              </article>
+
+              <article class="phase">
+                <strong>Monetization (from Phase 1, never pay-to-win)</strong>
+                <ul><li>Cosmetics: building skins, beacon colors, profile flair</li>
+<li>Premium citizenship: stats, multiple saves, name reservation</li>
+<li>Founder slots are never sold — scarcity is the marketing engine.</li></ul>
+              </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>Still Testing</h2>
+              <p>Fallback testing list from docs/roadmap-weekly-plan.json.</p>
+            </div>
+            <span class="chip warn">5 items</span>
+          </div>
+          <ul class="road-list">
+      <li class="road-row">
+        <strong>Server-authoritative economy</strong>
+        <span>Move the core simulation from client trust to validated server intents and ledger projections.</span>
+        <em>docs/ROADMAP.md Phase 1b</em>
+      </li>
+
+      <li class="road-row">
+        <strong>Player-to-player trading</strong>
+        <span>Let shop inventory, jobs, prices, and wages come from player-owned businesses.</span>
+        <em>docs/ROADMAP.md Phase 2</em>
+      </li>
+
+      <li class="road-row">
+        <strong>Postgres world storage</strong>
+        <span>Replace Blob-backed registry, map, leaderboard, and area state with durable relational storage.</span>
+        <em>docs/ARCHITECTURE.md v1</em>
+      </li>
+
+      <li class="road-row">
+        <strong>Founder covenant operations</strong>
+        <span>Continue testing review queues, approval gates, manual evidence, and operator flows before automation is trusted.</span>
+        <em>src/game/worldSim.ts</em>
+      </li>
+
+      <li class="road-row">
+        <strong>Street Mode QA</strong>
+        <span>Keep testing map-service failures, low-detail neighborhoods, mobile controls, weather, and performance.</span>
+        <em>src/components/street</em>
+      </li></ul>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>This Week</h2>
+              <p>Planned focus for the current working week.</p>
+            </div>
+          </div>
+          <ul class="road-list">
+      <li class="road-row">
+        <strong>Stabilize the PR pipeline</strong>
+        <span>Keep preview deployments green, clear branch/worktree blockers, and merge only verified branches.</span>
+        
+      </li>
+
+      <li class="road-row">
+        <strong>Publish daily roadmap snapshots</strong>
+        <span>Refresh the public roadmap page every day from source, tests, git history, and open PR status.</span>
+        
+      </li>
+
+      <li class="road-row">
+        <strong>Finish achievement visibility</strong>
+        <span>Make the 28 implemented achievements easy to inspect, prove, and explain from the game and roadmap.</span>
+        
+      </li>
+
+      <li class="road-row">
+        <strong>Harden founder-area simulation</strong>
+        <span>Test survival actions, essential-business gaps, insurance, debt repayment, and covenant review evidence.</span>
+        
+      </li>
+
+      <li class="road-row">
+        <strong>Prepare Phase 1b shape</strong>
+        <span>Keep carving the server-authoritative path: intents, ledgers, storage migration, and anti-cheat boundaries.</span>
+        
+      </li></ul>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>Tested Areas</h2>
+              <p>Detected test files that protect source behavior.</p>
+            </div>
+            <span class="chip">55 files</span>
+          </div>
+          <ul class="test-list">
+            
+              <li class="test-row">
+                <strong>Auth Google</strong>
+                <span class="mono">api/auth-google.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Cloud Save</strong>
+                <span class="mono">api/cloud-save.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Funnel</strong>
+                <span class="mono">api/funnel.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Geo</strong>
+                <span class="mono">api/geo.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Leaderboard</strong>
+                <span class="mono">api/leaderboard.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Reality Area</strong>
+                <span class="mono">api/reality-area.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Reality Operator Auth</strong>
+                <span class="mono">api/reality-operator-auth.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Register</strong>
+                <span class="mono">api/register.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Telegram Auth</strong>
+                <span class="mono">api/telegram-auth.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Track</strong>
+                <span class="mono">api/track.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Waitlist</strong>
+                <span class="mono">api/waitlist.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Map/Buildings/Registry</strong>
+                <span class="mono">src/components/map/buildings/registry.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Founder Area Panel</strong>
+                <span class="mono">src/components/panels/FounderAreaPanel.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Founder Covenant Operator Panel</strong>
+                <span class="mono">src/components/panels/FounderCovenantOperatorPanel.test.tsx</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Founder Covenant Queue Panel</strong>
+                <span class="mono">src/components/panels/FounderCovenantQueuePanel.test.tsx</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Street/Osm</strong>
+                <span class="mono">src/components/street/osm.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Achievements</strong>
+                <span class="mono">src/game/achievements.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Area Claim Evidence</strong>
+                <span class="mono">src/game/areaClaimEvidence.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Asset Manifest</strong>
+                <span class="mono">src/game/assetManifest.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Boosters</strong>
+                <span class="mono">src/game/boosters.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Business Upgrades</strong>
+                <span class="mono">src/game/businessUpgrades.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Combo</strong>
+                <span class="mono">src/game/combo.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Compliance Copy</strong>
+                <span class="mono">src/game/complianceCopy.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Construction</strong>
+                <span class="mono">src/game/construction.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Daily Challenges</strong>
+                <span class="mono">src/game/dailyChallenges.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Engine</strong>
+                <span class="mono">src/game/engine.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Estate Protection</strong>
+                <span class="mono">src/game/estateProtection.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Founder Area Session</strong>
+                <span class="mono">src/game/founderAreaSession.test.ts</span>
+              </li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <p class="source-bar">
+      Generated by <span class="mono">scripts/generate-roadmap.mjs</span>. The daily cron runs tests/build, regenerates this page, and opens or updates a PR instead of pushing directly to protected main.
+    </p>
+  </main>
+</body>
+</html>
