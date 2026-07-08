@@ -81,6 +81,7 @@ export default function GoalsCard() {
     studiedToday: dailyCounters.studiedToday,
     gatheredToday: dailyCounters.gatheredToday,
     constructionMinutesToday: dailyCounters.constructionMinutesToday,
+    workersHiredToday: dailyCounters.workersHiredToday,
     communityToday: dailyCounters.communityToday,
     businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
   }

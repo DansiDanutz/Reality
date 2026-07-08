@@ -324,6 +324,7 @@ function DailyChallengesBlock({
     studiedToday: number
     gatheredToday: number
     constructionMinutesToday: number
+    workersHiredToday: number
     communityToday: number
     businessDevelopmentMinutesToday: number
   }

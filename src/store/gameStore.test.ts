@@ -74,6 +74,7 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
     studiedToday: 0,
     gatheredToday: 0,
     constructionMinutesToday: 0,
+    workersHiredToday: 0,
     communityToday: 0,
     businessDevelopmentMinutesToday: 0,
   }
@@ -261,6 +262,36 @@ describe('daily challenge readiness context', () => {
     expect(ids).toContain('build-60')
   })
 
+  test('Workers Hall hire challenges unlock only when a helper can be paid for ready work', () => {
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+    const ready = {
+      ...project,
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+    }
+
+    expect(dailyChallengeContextOf(challengeState({ money: 1_000, constructionProjects: [project] })).canHireWorkers).toBe(false)
+    expect(eligibleDailyIds({ money: 1_000, constructionProjects: [project] })).not.toContain('hire-worker-1')
+
+    expect(dailyChallengeContextOf(challengeState({ money: 4, constructionProjects: [ready] })).canHireWorkers).toBe(false)
+    expect(eligibleDailyIds({ money: 4, constructionProjects: [ready] })).not.toContain('hire-worker-1')
+
+    expect(dailyChallengeContextOf(challengeState({ money: 1_000, constructionProjects: [ready] })).canHireWorkers).toBe(true)
+    expect(eligibleDailyIds({ money: 1_000, constructionProjects: [ready] })).toContain('hire-worker-1')
+  })
+
+  test('started Workers Hall hire challenges stay visible after the target is no longer hire-ready', () => {
+    const ids = eligibleDailyIds({
+      dailyCounters: {
+        ...emptyDailyCounters(),
+        workersHiredToday: 1,
+      },
+    })
+
+    expect(ids).toContain('hire-worker-1')
+  })
+
   test('business development challenges unlock only after resources and budget are ready', () => {
     const now = Date.now()
     const plan = createBusinessDevelopmentProject(business(), now)!
@@ -332,6 +363,7 @@ describe('sleep daily counter', () => {
         studiedToday: 0,
         gatheredToday: 0,
         constructionMinutesToday: 0,
+        workersHiredToday: 0,
         communityToday: 0,
         businessDevelopmentMinutesToday: 0,
       },
@@ -371,6 +403,7 @@ describe('sleep daily counter', () => {
         studiedToday: 0,
         gatheredToday: 0,
         constructionMinutesToday: 0,
+        workersHiredToday: 0,
         communityToday: 0,
         businessDevelopmentMinutesToday: 0,
       },
@@ -635,6 +668,7 @@ describe('construction worker contracts', () => {
     let hired = useGame.getState()
     expect(hired.money).toBe(984)
     expect(hired.activity).toBeNull()
+    expect(hired.dailyCounters.workersHiredToday).toBe(1)
     expect(hired.constructionProjects[0].laborDoneMinutes).toBe(0)
     expect(hired.constructionProjects[0].workerContracts).toHaveLength(1)
     expect(hired.constructionProjects[0].workerContracts[0]).toMatchObject({
@@ -688,6 +722,7 @@ describe('construction worker contracts', () => {
     const hired = useGame.getState()
 
     expect(hired.money).toBe(0)
+    expect(hired.dailyCounters.workersHiredToday).toBe(1)
     expect(hired.community.helperMinutesUsedThisWeek).toBe(30)
     expect(hired.constructionProjects[0].workerContracts[0]).toMatchObject({
       paidMinutes: 60,
@@ -724,6 +759,7 @@ describe('construction worker contracts', () => {
     const hired = useGame.getState()
 
     expect(hired.money).toBe(0)
+    expect(hired.dailyCounters.workersHiredToday).toBe(1)
     expect(hired.community.helperMinutesUsedThisWeek).toBe(30)
     expect(hired.businessDevelopmentProjects[0].workerContracts[0]).toMatchObject({
       paidMinutes: 60,
@@ -1399,6 +1435,7 @@ describe('business interior development', () => {
     let state = useGame.getState()
     expect(state.money).toBe(1_024)
     expect(state.activity).toBeNull()
+    expect(state.dailyCounters.workersHiredToday).toBe(1)
     expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(0)
     expect(state.businessDevelopmentProjects[0].workerContracts).toHaveLength(1)
     expect(state.businessDevelopmentProjects[0].workerContracts[0]).toMatchObject({

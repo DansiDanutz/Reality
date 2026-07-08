@@ -160,6 +160,7 @@ function countDailyDone(s: ReturnType<typeof useGame.getState>, todayDay: number
     studiedToday: s.dailyCounters.studiedToday,
     gatheredToday: s.dailyCounters.gatheredToday,
     constructionMinutesToday: s.dailyCounters.constructionMinutesToday,
+    workersHiredToday: s.dailyCounters.workersHiredToday,
     communityToday: s.dailyCounters.communityToday,
     businessDevelopmentMinutesToday: s.dailyCounters.businessDevelopmentMinutesToday,
   }

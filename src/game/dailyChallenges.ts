@@ -11,8 +11,9 @@
  *     so they're stable across reloads but vary day-to-day.
  *   - Each challenge tracks a numeric counter that already exists in the game
  *     state (meals, shifts, earned money, study, gathering, build labor,
- *     community help, and business development). The store resets the "today"
- *     counters at midnight; this module reads them via a DailyChallengeSnapshot.
+ *     Workers Hall hires, community help, and business development). The store
+ *     resets the "today" counters at midnight; this module reads them via a
+ *     DailyChallengeSnapshot.
  *   - Rewards scale with difficulty. Cash is stage-aware before first business
  *     so daily tasks support the life loop without replacing work.
  *
@@ -42,6 +43,8 @@ export interface DailyChallengeSnapshot {
   gatheredToday: number
   /** Construction labor minutes completed since local midnight. */
   constructionMinutesToday: number
+  /** Workers Hall helpers hired since local midnight. */
+  workersHiredToday: number
   /** Community help actions completed since local midnight. */
   communityToday: number
   /** Business interior development minutes completed since local midnight. */
@@ -66,6 +69,8 @@ export interface DailyChallengeContext extends Partial<DailyChallengeSnapshot> {
   canGatherResources: boolean
   /** A construction project is ready for player/worker labor. */
   canDoConstructionLabor: boolean
+  /** A Workers Hall helper can be hired for a ready construction/interior project. */
+  canHireWorkers: boolean
   /** A community action can still be completed today. */
   canHelpCommunity: boolean
   /** A business interior project is ready for player/worker labor. */
@@ -154,6 +159,7 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
   { id: 'earn-200', label: 'Earn $200', verb: 'earned', difficulty: 'medium', metric: 'earnedToday', target: 200 },
   { id: 'buy-3', label: 'Buy 3 items', verb: 'items bought', difficulty: 'medium', metric: 'boughtToday', target: 3 },
   { id: 'study-1', label: 'Study 1 block', verb: 'study blocks', difficulty: 'medium', metric: 'studiedToday', target: 1 },
+  { id: 'hire-worker-1', label: 'Hire 1 Workers Hall helper', verb: 'workers hired', difficulty: 'medium', metric: 'workersHiredToday', target: 1 },
   { id: 'community-1', label: 'Help locally once', verb: 'help actions', difficulty: 'medium', metric: 'communityToday', target: 1 },
   // ── Hard (a full day's effort, ~$500) ─────────────────────────────────
   { id: 'shift-2', label: 'Complete 2 shifts', verb: 'shifts', difficulty: 'hard', metric: 'shiftsToday', target: 2 },
@@ -226,6 +232,7 @@ function challengeEligible(def: ChallengeDef, context: DailyChallengeContext): b
   if (def.metric === 'studiedToday') return context.hasStudyBlock
   if (def.metric === 'gatheredToday') return context.canGatherResources
   if (def.metric === 'constructionMinutesToday') return context.canDoConstructionLabor
+  if (def.metric === 'workersHiredToday') return context.canHireWorkers
   if (def.metric === 'communityToday') return context.canHelpCommunity
   if (def.metric === 'businessDevelopmentMinutesToday') return context.canDevelopBusiness
 

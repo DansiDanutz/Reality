@@ -24,6 +24,7 @@ const snap = (over: Partial<DailyChallengeSnapshot> = {}): DailyChallengeSnapsho
   studiedToday: 0,
   gatheredToday: 0,
   constructionMinutesToday: 0,
+  workersHiredToday: 0,
   communityToday: 0,
   businessDevelopmentMinutesToday: 0,
   ...over,
@@ -36,6 +37,7 @@ const context = (over: Partial<DailyChallengeContext> = {}): DailyChallengeConte
   hasStudyBlock: false,
   canGatherResources: false,
   canDoConstructionLabor: false,
+  canHireWorkers: false,
   canHelpCommunity: false,
   canDevelopBusiness: false,
   hasBusiness: false,
@@ -121,11 +123,13 @@ describe('challengesForDay — generation', () => {
       hasStudyBlock: true,
       canGatherResources: true,
       canDoConstructionLabor: true,
+      canHireWorkers: true,
       canHelpCommunity: true,
       canDevelopBusiness: true,
     })).map((c) => c.id)
 
     expect(ready).toContain('study-1')
+    expect(ready).toContain('hire-worker-1')
     expect(ready).toContain('community-1')
     expect(ready).toContain('build-60')
     expect(ready).toContain('business-dev-60')
@@ -137,16 +141,19 @@ describe('challengesForDay — generation', () => {
     const progressed = eligibleChallengesForContext(context({
       communityToday: 1,
       constructionMinutesToday: 30,
+      workersHiredToday: 1,
       businessDevelopmentMinutesToday: 30,
       studiedToday: 1,
       canHelpCommunity: false,
       canDoConstructionLabor: false,
+      canHireWorkers: false,
       canDevelopBusiness: false,
       hasStudyBlock: false,
     })).map((c) => c.id)
 
     expect(progressed).toContain('community-1')
     expect(progressed).toContain('build-60')
+    expect(progressed).toContain('hire-worker-1')
     expect(progressed).toContain('business-dev-60')
     expect(progressed).toContain('study-1')
   })
@@ -206,6 +213,7 @@ describe('challengeProgress — tracking', () => {
     expect(metrics.has('studiedToday')).toBe(true)
     expect(metrics.has('gatheredToday')).toBe(true)
     expect(metrics.has('constructionMinutesToday')).toBe(true)
+    expect(metrics.has('workersHiredToday')).toBe(true)
     expect(metrics.has('communityToday')).toBe(true)
     expect(metrics.has('businessDevelopmentMinutesToday')).toBe(true)
   })
@@ -235,6 +243,7 @@ describe('challengeSetSummary — completion', () => {
       studiedToday: 5,
       gatheredToday: 5,
       constructionMinutesToday: 180,
+      workersHiredToday: 1,
       communityToday: 2,
       businessDevelopmentMinutesToday: 180,
     })
@@ -320,6 +329,7 @@ describe('challenge rewards — balance', () => {
         'studiedToday',
         'gatheredToday',
         'constructionMinutesToday',
+        'workersHiredToday',
         'communityToday',
         'businessDevelopmentMinutesToday',
       ]).toContain(c.metric)

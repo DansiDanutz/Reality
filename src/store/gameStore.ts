@@ -74,6 +74,7 @@ import {
   completeBusinessDevelopmentProject,
   createBusinessDevelopmentProject,
   depositBusinessDevelopmentResources,
+  estimateBusinessDevelopmentWorkerHire,
   hireBusinessDevelopmentWorker as hireBusinessDevelopmentWorkerForProject,
   normalizeBusinessDevelopmentProject,
   payBusinessDevelopmentBudget,
@@ -88,6 +89,7 @@ import {
   createConstructionProject,
   createConstructionProjectFromRecipe,
   depositResources,
+  estimateConstructionWorkerHire,
   hireConstructionWorker as hireConstructionWorkerForProject,
   advanceConstructionWorkerContracts,
   payPermit,
@@ -152,6 +154,7 @@ function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): Da
     studiedToday: 0,
     gatheredToday: 0,
     constructionMinutesToday: 0,
+    workersHiredToday: 0,
     communityToday: 0,
     businessDevelopmentMinutesToday: 0,
     day,
@@ -169,6 +172,7 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
     studiedToday: Math.max(0, Math.floor(Number(counters?.studiedToday ?? 0))),
     gatheredToday: Math.max(0, Math.floor(Number(counters?.gatheredToday ?? 0))),
     constructionMinutesToday: Math.max(0, Math.floor(Number(counters?.constructionMinutesToday ?? 0))),
+    workersHiredToday: Math.max(0, Math.floor(Number(counters?.workersHiredToday ?? 0))),
     communityToday: Math.max(0, Math.floor(Number(counters?.communityToday ?? 0))),
     businessDevelopmentMinutesToday: Math.max(0, Math.floor(Number(counters?.businessDevelopmentMinutesToday ?? 0))),
   })
@@ -215,6 +219,15 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     const progress = businessDevelopmentProgress(project)
     return progress.resourcesComplete && progress.budgetComplete && !progress.laborComplete
   })
+  const helperCreditMinutes = communityWorkerCreditMinutes(s.community, s.shiftsWorked)
+  const constructionWorkerHireReady = s.constructionProjects.some((project) => {
+    const estimate = estimateConstructionWorkerHire(project, 'helper', 1, helperCreditMinutes)
+    return Boolean(estimate && estimate.blockedBy === null && s.money >= estimate.cost)
+  })
+  const businessWorkerHireReady = s.businessDevelopmentProjects.some((project) => {
+    const estimate = estimateBusinessDevelopmentWorkerHire(project, 'helper', 1, helperCreditMinutes)
+    return Boolean(estimate && estimate.blockedBy === null && s.money >= estimate.cost)
+  })
 
   return {
     ...s.dailyCounters,
@@ -224,6 +237,7 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     hasStudyBlock: activeStudy,
     canGatherResources: s.resourceNodes.length > 0,
     canDoConstructionLabor: constructionLaborReady,
+    canHireWorkers: constructionWorkerHireReady || businessWorkerHireReady,
     canHelpCommunity: canStartCommunityAction(s.community),
     canDevelopBusiness: businessLaborReady,
     hasBusiness: s.assets.some((asset) => asset.kind === 'business'),
@@ -446,6 +460,14 @@ function bumpSleptToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters
   return s.dailyCounters.day === todayDay
     ? { ...s.dailyCounters, sleptToday: s.dailyCounters.sleptToday + 1 }
     : freshDailyCounters(todayDay, { sleptToday: 1 })
+}
+
+/** Today's dailyCounters with Workers Hall hires bumped — day-rollover aware. */
+function bumpWorkersHiredToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, workersHiredToday: s.dailyCounters.workersHiredToday + 1 }
+    : freshDailyCounters(todayDay, { workersHiredToday: 1 })
 }
 
 /**
@@ -1860,6 +1882,7 @@ export const useGame = create<GameState>()(
             studiedToday: dailyCounters.studiedToday,
             gatheredToday: dailyCounters.gatheredToday,
             constructionMinutesToday: dailyCounters.constructionMinutesToday,
+            workersHiredToday: dailyCounters.workersHiredToday,
             communityToday: dailyCounters.communityToday,
             businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday,
           }
@@ -2283,6 +2306,7 @@ export const useGame = create<GameState>()(
           money: hired.money,
           constructionProjects: s.constructionProjects.map((candidate) => candidate.id === projectId ? hired.project : candidate),
           community: creditedCommunity,
+          dailyCounters: bumpWorkersHiredToday(s),
           selectedMapTarget: { kind: 'construction', id: projectId },
           panel: s.panel,
           toasts: withToast(
@@ -2541,6 +2565,7 @@ export const useGame = create<GameState>()(
           money: hired.money,
           businessDevelopmentProjects: projects,
           community: creditedCommunity,
+          dailyCounters: bumpWorkersHiredToday(s),
           selectedMapTarget: { kind: 'asset', id: project.businessId },
           panel: 'business',
           toasts: withToast(
