@@ -1029,7 +1029,7 @@ export type RealityAreaApplyResult =
 
 export type RealityFounderCovenantReviewQueueResult =
   | { ok: true; founderCovenantReviewQueue: RealityFounderCovenantReviewQueueDashboard }
-  | { ok: false; reason: 'missing_operator_token' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+  | { ok: false; reason: 'missing_operator_token' | 'invalid_request' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 export interface RealityFounderCovenantReviewQueueRequest {
   serverClockToken?: string
@@ -1057,6 +1057,10 @@ export interface RealityFounderCovenantOperatorReviewRequest {
 export type RealityFounderCovenantOperatorReviewResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
   | { ok: false; reason: 'missing_operator_token' | 'invalid_request' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+
+const REALITY_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT = 100
+const REALITY_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_PAGES = 5
+const REALITY_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH = 256
 
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
 
@@ -1158,11 +1162,45 @@ export async function readRealityFounderCovenantReviewQueue(
       code: 'server_clock_unauthorized',
     }
   }
+  if (
+    request.limit !== undefined &&
+    (!Number.isInteger(request.limit) || request.limit < 1 || request.limit > REALITY_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT)
+  ) {
+    return {
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review queue limit must be between 1 and 100.',
+      code: 'invalid_review_queue_limit',
+    }
+  }
+  if (
+    request.pages !== undefined &&
+    (!Number.isInteger(request.pages) || request.pages < 1 || request.pages > REALITY_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_PAGES)
+  ) {
+    return {
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review queue pages must be between 1 and 5.',
+      code: 'invalid_pages',
+    }
+  }
+  const cursor = request.cursor?.trim()
+  if (
+    request.cursor !== undefined &&
+    (!cursor || cursor.length > REALITY_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH || /[\r\n]/.test(cursor))
+  ) {
+    return {
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review queue cursor is invalid.',
+      code: 'invalid_review_queue_cursor',
+    }
+  }
 
   const query = new URLSearchParams({ review: 'founderCovenantQueue' })
   if (request.limit !== undefined) query.set('limit', String(request.limit))
   if (request.pages !== undefined) query.set('pages', String(request.pages))
-  if (request.cursor !== undefined) query.set('cursor', request.cursor)
+  if (cursor !== undefined) query.set('cursor', cursor)
 
   try {
     const response = await fetchImpl(`/api/reality-area?${query.toString()}`, {

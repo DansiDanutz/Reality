@@ -956,6 +956,42 @@ describe('Reality area client', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  test('rejects invalid operator queue paging arguments before request', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+      limit: 0,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review queue limit must be between 1 and 100.',
+      code: 'invalid_review_queue_limit',
+    })
+
+    await expect(readRealityFounderCovenantOperatorQueue({
+      operatorToken: 'operator-token',
+      pages: 6,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review queue pages must be between 1 and 5.',
+      code: 'invalid_pages',
+    })
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+      cursor: ' \n ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review queue cursor is invalid.',
+      code: 'invalid_review_queue_cursor',
+    })
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   test('records operator founder covenant review evidence without founder credentials', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
