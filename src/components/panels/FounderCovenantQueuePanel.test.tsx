@@ -918,6 +918,117 @@ describe('FounderCovenantQueuePanel', () => {
     }, 'all', 'coverage').map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-10', 'founder-11'])
   })
 
+  test('breaks queue sort ties by telegram availability', () => {
+    const telegramReady = founderQueueItem({
+      areaId: 'founder-area-0019',
+      areaLabel: 'Telegram Ready Founder Block',
+      founderCitizenId: 'founder-19',
+      founderNumber: 19,
+      manualReviewRequired: false,
+      covenantStatus: 'active',
+      overdue: false,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-06T03:30:00.000Z',
+      activityReview: {
+        ...founderQueueItem().activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 88,
+      },
+      economicExposure: {
+        ...founderQueueItem().economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      reviewReadiness: {
+        status: 'ready',
+        label: 'Ready',
+        summary: 'Fresh review is current with a manual Telegram draft available.',
+        evidenceRequiredCount: 0,
+        approvalRequestCount: 0,
+        blockerCount: 0,
+        overdue: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      },
+      reviewQueue: {
+        ...founderQueueItem().reviewQueue,
+        nextStep: 'monitor',
+        recommendedActionKinds: [],
+        pendingApprovalKinds: [],
+        pendingApprovalCount: 0,
+        pendingNotificationKinds: ['manual_review_required'],
+        pendingNotificationCount: 1,
+        blockerCount: 0,
+        blockers: [],
+      },
+      manualActions: [{
+        ...founderManualActions()[0],
+        recommended: false,
+        reason: 'Fresh review needs monitoring only.',
+      }],
+      pendingApprovalRequests: [],
+      pendingApprovalKinds: [],
+      pendingNotificationDrafts: [founderNotificationDraft()],
+      pendingNotificationKinds: ['manual_review_required'],
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
+    const noTelegram = founderQueueItem({
+      areaId: 'founder-area-0020',
+      areaLabel: 'No Telegram Founder Block',
+      founderCitizenId: 'founder-20',
+      founderNumber: 20,
+      manualReviewRequired: false,
+      covenantStatus: 'active',
+      overdue: false,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-06T03:30:00.000Z',
+      activityReview: {
+        ...telegramReady.activityReview,
+      },
+      economicExposure: {
+        ...telegramReady.economicExposure,
+      },
+      reviewReadiness: {
+        ...telegramReady.reviewReadiness,
+        summary: 'Fresh review is current with no Telegram outputs pending.',
+      },
+      reviewQueue: {
+        ...telegramReady.reviewQueue,
+        pendingApprovalKinds: [],
+        pendingApprovalCount: 0,
+        pendingNotificationKinds: [],
+        pendingNotificationCount: 0,
+      },
+      manualActions: [...telegramReady.manualActions],
+      pendingApprovalRequests: [],
+      pendingApprovalKinds: [],
+      pendingNotificationDrafts: [],
+      pendingNotificationKinds: [],
+      signalCounts: { ...telegramReady.signalCounts },
+      signalKinds: [...telegramReady.signalKinds],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
+
+    expect(founderCovenantOperatorQueueFilteredReviewRows({
+      items: [noTelegram, telegramReady],
+    }, 'all', 'priority').map((row) => row.founderCitizenId)).toEqual(['founder-19', 'founder-20'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows({
+      items: [noTelegram, telegramReady],
+    }, 'all', 'action').map((row) => row.founderCitizenId)).toEqual(['founder-19', 'founder-20'])
+  })
+
   test('orders founder covenant review rows by recommended next action', () => {
     const manual = founderQueueItem()
     const blocked = founderQueueItem({

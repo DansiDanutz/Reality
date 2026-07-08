@@ -1117,7 +1117,11 @@ export function founderCovenantOperatorQueueReviewRows(
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
     }))
-    .sort((a, b) => b.priorityScore - a.priorityScore || a.title.localeCompare(b.title))
+    .sort((a, b) =>
+      b.priorityScore - a.priorityScore ||
+      founderCovenantOperatorQueueTelegramSortScore(b.telegramOutputText) - founderCovenantOperatorQueueTelegramSortScore(a.telegramOutputText) ||
+      a.title.localeCompare(b.title)
+    )
 }
 
 export function founderCovenantOperatorQueueFilteredReviewRows(
@@ -1133,6 +1137,7 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
     return [...rows].sort((a, b) =>
       founderCovenantOperatorQueueCoverageSortScore(b.reviewFreshness) - founderCovenantOperatorQueueCoverageSortScore(a.reviewFreshness) ||
       b.priorityScore - a.priorityScore ||
+      founderCovenantOperatorQueueTelegramSortScore(b.telegramOutputText) - founderCovenantOperatorQueueTelegramSortScore(a.telegramOutputText) ||
       a.title.localeCompare(b.title)
     )
   }
@@ -1140,6 +1145,7 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
     return [...rows].sort((a, b) =>
       founderCovenantOperatorQueueRecommendedNextSortScore(a.recommendedNextText) - founderCovenantOperatorQueueRecommendedNextSortScore(b.recommendedNextText) ||
       b.priorityScore - a.priorityScore ||
+      founderCovenantOperatorQueueTelegramSortScore(b.telegramOutputText) - founderCovenantOperatorQueueTelegramSortScore(a.telegramOutputText) ||
       a.title.localeCompare(b.title)
     )
   }
@@ -1533,6 +1539,19 @@ function founderCovenantOperatorQueueRecommendedNextSortScore(recommendation: st
       return 5
     default:
       return 6
+  }
+}
+
+function founderCovenantOperatorQueueTelegramSortScore(output: string): number {
+  switch (output) {
+    case 'Telegram manual + warning':
+      return 3
+    case 'Telegram manual':
+      return 2
+    case 'Telegram warning':
+      return 1
+    default:
+      return 0
   }
 }
 
