@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import {
+  queueHandoffText,
   queueActionPresetLabel,
   queueContextText,
   queueCoveragePresetLabel,
@@ -214,6 +215,17 @@ describe('FounderCovenantOperatorPanel', () => {
     )
     expect(queueContextText('action_record', 'action', 'cursor-5')).toBe(
       'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action',
+    )
+    expect(queueHandoffText({
+      filter: 'action_record',
+      sort: 'action',
+      scanCursor: 'cursor-5',
+      nextCursor: 'cursor-6',
+      queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
+      workloadSummary: '0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue',
+      recommendedAction: 'Recommended next: monitor current founders',
+    })).toBe(
+      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue · Recommended next: monitor current founders',
     )
   })
 })

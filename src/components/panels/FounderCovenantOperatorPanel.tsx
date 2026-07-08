@@ -21,7 +21,9 @@ import type {
 } from './founderAreaPanelView'
 import {
   founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSummary,
+  founderCovenantOperatorQueueWorkloadSummary,
 } from './founderAreaPanelView'
 import {
   founderCovenantOperatorQueueRefreshCursor,
@@ -29,10 +31,9 @@ import {
 } from './founderCovenantOperatorPanelState'
 import {
   copiedAtText,
+  queueHandoffText,
   queuePresetLabel,
   queuePresetChipTone,
-  queueContextText,
-  queueCursorContextText,
   queueResumeText,
   queueSortChipTone,
   queueSortLabel,
@@ -293,12 +294,17 @@ export default function FounderCovenantOperatorPanel({
     const queueSummary = queue
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
-    const handoff = [
-      queueContextText(queueFilter, queueSort, scanCursor),
-      queueCursorContextText(scanCursor, queue?.nextCursor ?? null),
-      queueResumeText(scanCursor, queue?.nextCursor ?? null),
+    const workloadSummary = queue ? founderCovenantOperatorQueueWorkloadSummary(queue) : null
+    const recommendedAction = queue ? founderCovenantOperatorQueueRecommendedActionText(queue) : null
+    const handoff = queueHandoffText({
+      filter: queueFilter,
+      sort: queueSort,
+      scanCursor,
+      nextCursor: queue?.nextCursor ?? null,
       queueSummary,
-    ].join(' · ')
+      workloadSummary,
+      recommendedAction,
+    })
     if (!clipboard?.writeText) {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
       return

@@ -83,6 +83,33 @@ export function queueResumeText(scanCursor: string | null, nextCursor: string | 
   return nextCursor ? 'Start of queue · more founders available' : 'Start of queue · end of current queue'
 }
 
+export function queueHandoffText({
+  filter,
+  sort,
+  scanCursor,
+  nextCursor,
+  queueSummary,
+  workloadSummary,
+  recommendedAction,
+}: {
+  filter: FounderCovenantOperatorQueueFilter
+  sort: FounderCovenantOperatorQueueSort
+  scanCursor: string | null
+  nextCursor: string | null
+  queueSummary: string
+  workloadSummary?: string | null
+  recommendedAction?: string | null
+}): string {
+  return [
+    queueContextText(filter, sort, scanCursor),
+    queueCursorContextText(scanCursor, nextCursor),
+    queueResumeText(scanCursor, nextCursor),
+    queueSummary,
+    workloadSummary,
+    recommendedAction,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
+}
+
 export function copiedAtText(value: string): string {
   return `${value.slice(0, 10)} ${value.slice(11, 16)} UTC`
 }
