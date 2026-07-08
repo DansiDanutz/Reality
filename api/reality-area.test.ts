@@ -3386,6 +3386,45 @@ describe('reality area authority API', () => {
       state: { areaId: 'founder-area-0012' },
     })
     expect(put).not.toHaveBeenCalled()
+
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://operator-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      ...existingState(),
+      claim: {
+        ...existingState().claim,
+        founderCitizenId: 'other-founder',
+      },
+    }), { status: 200 })))
+    const founderMismatchRes = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+        },
+      },
+    } as never, founderMismatchRes as never)
+
+    expect(founderMismatchRes.statusCode).toBe(409)
+    expect(founderMismatchRes.body).toMatchObject({
+      ok: false,
+      error: 'Founder covenant review target does not match the stored founder area.',
+      code: 'area_mismatch',
+      state: {
+        areaId: 'founder-area-0012',
+        founderCitizenId: CITIZEN_ID,
+        claim: {
+          founderCitizenId: 'other-founder',
+        },
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('founder covenant review queue summarizes manual review signals without enabling enforcement', async () => {

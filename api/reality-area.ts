@@ -4338,7 +4338,14 @@ async function handleFounderCovenantOperatorReview(
   const now = new Date()
   const existing = await readAreaState(intent.founderCitizenId)
   const stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
-  if (stateForReview && stateForReview.areaId !== intent.areaId) {
+  if (
+    stateForReview &&
+    (
+      stateForReview.areaId !== intent.areaId ||
+      stateForReview.founderCitizenId !== intent.founderCitizenId ||
+      stateForReview.claim.founderCitizenId !== intent.founderCitizenId
+    )
+  ) {
     res.status(operatorRecordCovenantReviewStatus('area_mismatch')).json({
       ok: false,
       error: operatorRecordCovenantReviewMessage('area_mismatch'),
