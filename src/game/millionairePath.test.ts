@@ -114,6 +114,7 @@ describe('millionairePathOf', () => {
 
     expect(withoutHome.nextAction).toBe('build-home')
     expect(withHome.nextAction).toBe('buy-business')
+    expect(withHome.nextActionDetail).toContain('Save for the first business foundation')
     expect(withHome.cashflow.livingCostPerDay).toBeLessThan(withoutHome.cashflow.livingCostPerDay)
   })
 

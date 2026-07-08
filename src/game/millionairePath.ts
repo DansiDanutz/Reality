@@ -231,7 +231,7 @@ function nextActionOf(input: MillionairePathInput, stage: MillionaireStage, cash
   if (businesses <= 0) {
     return {
       nextAction: 'buy-business',
-      nextActionDetail: withCommunityAdvantage('Turn stable home life into the first earning building.', communityAdvantage),
+      nextActionDetail: withCommunityAdvantage('Save for the first business foundation, place it on the map, then build it into an earning building.', communityAdvantage),
     }
   }
   if (businesses === 1) {
