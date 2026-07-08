@@ -29,6 +29,7 @@ import {
 } from './founderCovenantOperatorPanelState'
 import {
   copiedAtText,
+  queueCoveragePresetLabel,
   queueContextText,
   queueCursorContextText,
   queueResumeText,
@@ -499,6 +500,12 @@ export default function FounderCovenantOperatorPanel({
               <span>Sort</span>
               <strong>{queueSortLabel(queueSort)}</strong>
             </span>
+            {queueCoveragePresetLabel(queueFilter, queueSort) && (
+              <span className="founder-ledger-chip warning">
+                <span>Preset</span>
+                <strong>{queueCoveragePresetLabel(queueFilter, queueSort)}</strong>
+              </span>
+            )}
             <span className="founder-ledger-chip warning">
               <span>Cursor</span>
               <strong>{scanCursor ?? 'start'}</strong>

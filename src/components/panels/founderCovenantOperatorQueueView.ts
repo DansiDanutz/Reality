@@ -38,7 +38,10 @@ export function queueContextText(
   sort: FounderCovenantOperatorQueueSort,
   scanCursor: string | null,
 ): string {
-  return `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}`
+  const preset = queueCoveragePresetLabel(filter, sort)
+  return preset
+    ? `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'} · Preset: ${preset}`
+    : `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}`
 }
 
 export function queueCursorContextText(scanCursor: string | null, nextCursor: string | null): string {
@@ -57,4 +60,21 @@ export function queueResumeText(scanCursor: string | null, nextCursor: string | 
 
 export function copiedAtText(value: string): string {
   return `${value.slice(0, 10)} ${value.slice(11, 16)} UTC`
+}
+
+export function queueCoveragePresetLabel(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+): string | null {
+  if (sort !== 'coverage') return null
+  switch (filter) {
+    case 'never_reviewed':
+      return 'Cleanup Never'
+    case 'stale_reviewed':
+      return 'Cleanup Stale'
+    case 'fresh_reviewed':
+      return 'Audit Fresh'
+    default:
+      return null
+  }
 }

@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
+import { queueContextText, queueCoveragePresetLabel } from './founderCovenantOperatorQueueView'
 
 describe('FounderCovenantOperatorPanel', () => {
   test('renders an isolated operator queue shell without a loaded token', () => {
@@ -48,6 +49,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('aria-label="Founder operator queue view summary"')
     expect(html).toContain('<span>View</span><strong>All</strong>')
     expect(html).toContain('<span>Sort</span><strong>Priority</strong>')
+    expect(html).not.toContain('<span>Preset</span>')
     expect(html).toContain('<span>Cursor</span><strong>start</strong>')
     expect(html).toContain('<span>Resume</span><strong>more</strong>')
     expect(html).toContain('Record evidence')
@@ -105,6 +107,16 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Telegram Mini App session not detected. Manual operator token remains available.')
     expect(html).toContain('Operator token')
     expect(html).toContain('Scan')
+  })
+
+  test('derives coverage preset context from filter and sort state', () => {
+    expect(queueCoveragePresetLabel('never_reviewed', 'coverage')).toBe('Cleanup Never')
+    expect(queueCoveragePresetLabel('stale_reviewed', 'coverage')).toBe('Cleanup Stale')
+    expect(queueCoveragePresetLabel('fresh_reviewed', 'coverage')).toBe('Audit Fresh')
+    expect(queueCoveragePresetLabel('manual_review', 'coverage')).toBeNull()
+    expect(queueContextText('stale_reviewed', 'coverage', 'cursor-2')).toBe(
+      'View: Stale / Coverage / cursor-2 · Preset: Cleanup Stale',
+    )
   })
 })
 
