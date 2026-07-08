@@ -2104,7 +2104,7 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
     ...defaultSimCitizens(state.areaId),
   ]
   let citizens = state.citizens.map((citizen) =>
-    citizen.id === state.founderCitizenId ? { ...citizen, money: state.balance } : citizen
+    citizen.id === state.founderCitizenId ? { ...citizen, money: normalizedCitizenMoney(citizen.money, state.balance) } : citizen
   )
   const transactions = state.transactions.map(normalizeFounderAreaTransaction)
   const areaEvents = normalizeFounderAreaEvents(state.areaEvents)
@@ -5150,7 +5150,7 @@ function applyBuildBusinessIntent(
   }
 
   const blueprint = BUSINESS_BLUEPRINTS[intent.businessKind]
-  if (state.balance < blueprint.buildCost) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, founder, blueprint.buildCost)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const business: FounderAreaBusiness = {
@@ -5337,7 +5337,7 @@ function applyServicePurchaseIntent(
 
   const business = chooseServiceBusiness(state, intent.serviceKind)
   if (!business) return { ok: false, error: 'service_not_available' }
-  if (state.balance < business.price) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, actor, business.price)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const nextBalance = roundMoney(state.balance - business.price)
@@ -5400,7 +5400,7 @@ function applyBuyInsuranceIntent(
   if (Number.isFinite(existingPolicyUntil) && existingPolicyUntil > now.getTime()) {
     return { ok: false, error: 'already_insured' }
   }
-  if (state.balance < insurer.price) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, actor, insurer.price)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const paidUntil = new Date(now.getTime() + INSURANCE_POLICY_PERIOD_MS).toISOString()
@@ -5456,7 +5456,7 @@ function applyRepayDebtIntent(
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, error: 'invalid_debt_payment' }
-  if (actor.money < payment) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, actor, payment)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const nextDebtAmount = roundMoney(debt.amount - payment)
@@ -6003,6 +6003,14 @@ function setFounderCitizenMoney(state: FounderAreaState, money: number): Founder
   return state.citizens.map((citizen) =>
     citizen.id === state.founderCitizenId ? { ...citizen, money } : citizen
   )
+}
+
+function normalizedCitizenMoney(money: number, fallback: number): number {
+  return Number.isFinite(money) ? money : fallback
+}
+
+function founderHasSpendableFunds(state: FounderAreaState, founder: FounderAreaCitizen, amount: number): boolean {
+  return state.balance >= amount && founder.money >= amount
 }
 
 function servicePurchaseStatus(error: ApplyServicePurchaseError): number {
