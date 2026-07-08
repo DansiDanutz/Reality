@@ -4003,15 +4003,16 @@ function insuranceActionDashboard(
   if (activeInsurance) blockers.push('already_insured')
   if (!insurer) blockers.push('service_unavailable')
   if (insurer && !canAfford) blockers.push('insufficient_funds')
+  const canBuyNow = blockers.length === 0
 
   return {
     intent: 'buyInsurance',
-    clientPayload: insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
+    clientPayload: canBuyNow && insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
     insuranceBusinessId: insurer?.id ?? null,
     premium,
     available: Boolean(insurer),
     canAfford,
-    canBuyNow: blockers.length === 0,
+    canBuyNow,
     blockers,
   }
 }
