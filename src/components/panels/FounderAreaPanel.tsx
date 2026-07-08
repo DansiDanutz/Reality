@@ -33,6 +33,7 @@ import {
   founderAreaEventDetail,
   founderAreaEventSummaryItems,
   founderAreaEventTitle,
+  founderAreaNextSteps,
   founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
   founderCovenantApprovalRequestText,
@@ -158,6 +159,7 @@ export default function FounderAreaPanel() {
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
+  const nextSteps = dashboard ? founderAreaNextSteps(dashboard) : []
   const businessNamesById = new Map(
     dashboard?.existingBusinesses.map((business) => [business.id, business.name]) ?? [],
   )
@@ -909,6 +911,16 @@ export default function FounderAreaPanel() {
           </section>
 
           <section className="founder-section" aria-label="Businesses">
+            {nextSteps.length > 0 && (
+              <div className="founder-next-steps" aria-label="Next steps">
+                {nextSteps.map((step) => (
+                  <div className="founder-next-step" key={step.label}>
+                    <span className="founder-next-step-label">{step.label}</span>
+                    <span className="founder-next-step-detail">{step.detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="founder-section-head">
               <h3 className="founder-section-title">Businesses</h3>
               <button className="btn small" disabled={busy} onClick={() => void refreshArea()}>

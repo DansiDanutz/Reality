@@ -3,6 +3,7 @@ import {
   founderAreaEventDetail,
   founderAreaEventSummaryItems,
   founderAreaEventTitle,
+  founderAreaNextSteps,
   founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
   founderCovenantApprovalRequestText,
@@ -64,8 +65,29 @@ import {
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
 } from './founderAreaPanelView'
+import type { RealityAreaDashboard } from '../../lib/realityArea'
 
 describe('FounderAreaPanel covenant presenters', () => {
+  test('spells out the founder-area next steps in order', () => {
+    const dashboard = {
+      survival: { signals: [{ citizenId: 'c1' }] },
+      businesses: { existingBusinesses: [] },
+      jobs: { openPositions: 0, hireableSimWorkers: 0 },
+      growth: { realPopulation: 1, simPopulation: 3 },
+    } as unknown as RealityAreaDashboard
+
+    expect(founderAreaNextSteps(dashboard)).toEqual([
+      {
+        label: 'Survive first',
+        detail: 'Eat, drink, or sleep before you try to scale anything else.',
+      },
+      {
+        label: 'Place the first build',
+        detail: 'Start with a home or a starter business, then let it construct in real time.',
+      },
+    ])
+  })
+
   test('summarizes server-verified founder Telegram identity', () => {
     const identity = {
       citizenId: 'citizen-1',

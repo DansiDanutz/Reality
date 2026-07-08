@@ -207,6 +207,58 @@ export function founderGrowthBlockerText(blocker: RealityAreaGrowthBlocker): str
   }
 }
 
+export interface FounderAreaNextStep {
+  label: string
+  detail: string
+}
+
+type FounderAreaNextStepsDashboard = {
+  survival?: { signals?: readonly unknown[] }
+  jobs?: RealityAreaDashboard['jobs']
+  growth?: RealityAreaDashboard['growth']
+  existingBusinesses?: Array<{ kind?: string }>
+}
+
+export function founderAreaNextSteps(dashboard: FounderAreaNextStepsDashboard): FounderAreaNextStep[] {
+  const steps: FounderAreaNextStep[] = []
+  if ((dashboard.survival?.signals?.length ?? 0) > 0) {
+    steps.push({
+      label: 'Survive first',
+      detail: 'Eat, drink, or sleep before you try to scale anything else.',
+    })
+  }
+
+  const businesses = dashboard.existingBusinesses ?? []
+  if (businesses.length === 0) {
+    steps.push({
+      label: 'Place the first build',
+      detail: 'Start with a home or a starter business, then let it construct in real time.',
+    })
+  } else {
+    const workersHall = businesses.find((business) => business.kind === 'workers_hall')
+    if (!workersHall && (dashboard.jobs?.openPositions ?? 0) > 0) {
+      steps.push({
+        label: 'Build a Workers Hall',
+        detail: 'The hall unlocks AI hiring so open roles can be staffed one by one.',
+      })
+    }
+    if ((dashboard.jobs?.hireableSimWorkers ?? 0) > 0) {
+      steps.push({
+        label: 'Hire sim workers',
+        detail: 'Use the ready sim workers to keep your business running while you build the next thing.',
+      })
+    }
+    if ((dashboard.growth?.realPopulation ?? 0) > 0 || (dashboard.growth?.simPopulation ?? 0) > 0) {
+      steps.push({
+        label: 'Grow the neighborhood',
+        detail: 'Study, work, and community actions push respect, skills, and stability upward.',
+      })
+    }
+  }
+
+  return steps.slice(0, 3)
+}
+
 export function founderHandoffStatusLabel(
   handoff: Pick<RealityAreaHandoffDashboard, 'enabled' | 'manualReviewRequired'>,
 ): string {
