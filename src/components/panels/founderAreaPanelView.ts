@@ -118,6 +118,9 @@ export type FounderCovenantOperatorQueueFilter =
   | 'fresh_reviewed'
   | 'manual_review'
   | 'needs_evidence'
+  | 'action_evidence'
+  | 'action_blocked'
+  | 'action_overdue'
   | 'overdue'
   | 'blocked'
   | 'hospitalized'
@@ -1009,6 +1012,12 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
       case 'needs_evidence':
         return item.reviewReadiness.evidenceRequiredCount > 0
+      case 'action_evidence':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Attach missing manual evidence'
+      case 'action_blocked':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
+      case 'action_overdue':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
       case 'overdue':
         return item.overdue
       case 'blocked':
@@ -1064,6 +1073,12 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} need manual review · ${freshness}`
     case 'needs_evidence':
       return `${count} founder${count === 1 ? '' : 's'} need manual evidence · ${freshness}`
+    case 'action_evidence':
+      return `${count} founder${count === 1 ? '' : 's'} next need evidence · ${freshness}`
+    case 'action_blocked':
+      return `${count} founder${count === 1 ? '' : 's'} next need approval review · ${freshness}`
+    case 'action_overdue':
+      return `${count} founder${count === 1 ? '' : 's'} next need overdue cleanup · ${freshness}`
     case 'overdue':
       return `${count} founder${count === 1 ? '' : 's'} overdue · ${freshness}`
     case 'blocked':
@@ -1086,11 +1101,14 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const freshReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'fresh_reviewed').length
   const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
   const evidence = founderCovenantOperatorQueueFilteredReviewRows(queue, 'needs_evidence').length
+  const nextEvidence = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_evidence').length
+  const nextBlocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_blocked').length
+  const nextOverdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_overdue').length
   const overdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'overdue').length
   const blocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -1115,6 +1133,12 @@ export function founderCovenantOperatorQueueSliceTotals(
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
       case 'needs_evidence':
         return item.reviewReadiness.evidenceRequiredCount > 0
+      case 'action_evidence':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Attach missing manual evidence'
+      case 'action_blocked':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
+      case 'action_overdue':
+        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
       case 'overdue':
         return item.overdue
       case 'blocked':

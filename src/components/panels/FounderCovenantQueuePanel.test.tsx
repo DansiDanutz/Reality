@@ -53,7 +53,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Recommended next: attach missing manual evidence')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
-    expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('<span>Never</span><strong>2</strong>')
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
@@ -725,7 +725,7 @@ describe('FounderCovenantQueuePanel', () => {
     ])
   })
 
-  test('filters queue rows for manual review, evidence gaps, overdue, blocked, hospitalization, and scan anomalies', () => {
+  test('filters queue rows for manual review, evidence gaps, action queues, overdue, blocked, hospitalization, and scan anomalies', () => {
     const invalid = founderQueueItem({
       areaId: 'founder-area-0014',
       areaLabel: 'Timisoara Founder Block',
@@ -935,6 +935,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCoverage, 'fresh_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-16'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'needs_evidence').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_evidence').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_blocked')).toEqual([])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'action_overdue')).toEqual([])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'overdue').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
@@ -946,13 +949,16 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilterSummary(queueWithCoverage, 'fresh_reviewed')).toBe('1 founder fresh reviewed · 0 never · 0 stale · 1 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'manual_review')).toBe('1 founder need manual review · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'needs_evidence')).toBe('1 founder need manual evidence · 1 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'action_evidence')).toBe('1 founder next need evidence · 1 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'action_blocked')).toBe('0 founders next need approval review · 0 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'action_overdue')).toBe('0 founders next need overdue cleanup · 0 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'overdue')).toBe('1 founder overdue · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'blocked')).toBe('1 founder blocked by workflow gaps · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'hospitalized')).toBe('1 founder hospitalized · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies · 1 never · 0 stale · 0 fresh')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 1 · Manual 1 · Evidence 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 1 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'never_reviewed')).toMatchObject({
       founders: 3,
       neverReviewed: 3,

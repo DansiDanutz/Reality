@@ -483,6 +483,30 @@ export default function FounderCovenantOperatorPanel({
               Evidence
             </button>
             <button
+              className={`btn small ${queueFilter === 'action_evidence' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('action_evidence')}
+              type="button"
+            >
+              Next evidence
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'action_blocked' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('action_blocked')}
+              type="button"
+            >
+              Next blocked
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'action_overdue' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('action_overdue')}
+              type="button"
+            >
+              Next overdue
+            </button>
+            <button
               className={`btn small ${queueFilter === 'overdue' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('overdue')}
