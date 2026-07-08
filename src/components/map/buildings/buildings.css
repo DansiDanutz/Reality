@@ -1,0 +1,136 @@
+/* Map building sprites + interior overlay — tokens from src/styles/tokens.css.
+   Animations are compositor-friendly only (transform/opacity). */
+
+/* ── Marker sprite ─────────────────────────────────────── */
+.map-building {
+  cursor: pointer;
+  line-height: 0;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.map-building:hover { transform: scale(1.08); }
+.map-building svg { display: block; }
+
+/* Collectable-income indicator: the same "ready" language as the old
+   beacons — a pulsing gold ring behind the sprite. The marker element is
+   already MapLibre-positioned (absolute) — do NOT set position here; a more
+   specific position:relative would override .maplibregl-marker and break
+   marker layout to a full-width static block. */
+.map-building.ready::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 30px;
+  height: 30px;
+  margin-left: -15px;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  opacity: 0.8;
+  animation: building-ready-pulse 1.8s var(--ease-out) infinite;
+}
+@keyframes building-ready-pulse {
+  0% { transform: scale(0.7); opacity: 0.85; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ── Interior overlay ──────────────────────────────────── */
+.building-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 7, 14, 0.6);
+}
+
+.building-interior {
+  width: min(440px, 100%);
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: building-enter var(--duration-normal) var(--ease-out);
+}
+@keyframes building-enter {
+  from { transform: translateY(14px) scale(0.97); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.building-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.building-portrait {
+  flex: none;
+  padding: 6px;
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.08);
+  border: 1px solid var(--line);
+}
+.building-portrait svg { width: 64px; height: 64px; }
+.building-title-block { flex: 1; min-width: 0; }
+.building-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--text);
+}
+.building-sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.building-income { font-family: var(--font-mono); }
+.building-pending { color: var(--ok); }
+.building-close {
+  flex: none;
+  align-self: flex-start;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 14px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.building-close:hover { color: var(--text); border-color: var(--line-strong); }
+
+/* Rooms grid — each room is one existing store action or panel deep-link. */
+.building-rooms {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.building-room {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px;
+  background: rgba(120, 150, 205, 0.08);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.building-room:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--gold); }
+.building-room:active:not(:disabled) { transform: none; }
+.building-room:disabled { opacity: 0.4; cursor: not-allowed; }
+.building-room-icon { font-size: 20px; }
+.building-room-label { font-weight: 600; font-size: 14px; }
+.building-room-desc { font-size: 12px; color: var(--muted); }
+
+/* Reduced motion: no entrance slide, no pulsing ring, no hover lift. */
+@media (prefers-reduced-motion: reduce) {
+  .building-interior { animation: none; }
+  .map-building.ready::before { animation: none; transform: scale(1.1); opacity: 0.6; }
+  .map-building:hover, .building-room:hover:not(:disabled) { transform: none; }
+}
