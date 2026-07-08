@@ -317,6 +317,7 @@ function DailyChallengesBlock({
   day: number
   counters: {
     mealsToday: number
+    drinksToday: number
     shiftsToday: number
     earnedToday: number
     sleptToday: number

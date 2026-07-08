@@ -317,6 +317,7 @@ describe('migrateSave - backfills every field added after v1', () => {
 
     expect(out.dailyCounters).toEqual({
       mealsToday: 1,
+      drinksToday: 0,
       shiftsToday: 1,
       earnedToday: 125,
       sleptToday: 1,

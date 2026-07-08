@@ -29,6 +29,8 @@
 export interface DailyChallengeSnapshot {
   /** Meals eaten since local midnight. */
   mealsToday: number
+  /** Drinks consumed since local midnight. */
+  drinksToday: number
   /** Shifts completed since local midnight. */
   shiftsToday: number
   /** Cash earned (wages + collected income) since local midnight. */
@@ -65,6 +67,8 @@ export interface DailyChallengeContext extends Partial<DailyChallengeSnapshot> {
   maxPurchasesToday: number
   /** Meals/snacks the current inventory, kitchen, and realistic cash can cover today. */
   maxMealsToday: number
+  /** Drinks the current inventory and realistic cash can cover today. */
+  maxDrinksToday: number
   /** An enrolled course has study minutes remaining. */
   hasStudyBlock: boolean
   /** A resource trip is available and meaningful today. */
@@ -151,6 +155,7 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
   // ── Easy (1-3 actions, ~$100) ─────────────────────────────────────────
   { id: 'eat-2', label: 'Eat 2 meals', verb: 'meals', difficulty: 'easy', metric: 'mealsToday', target: 2 },
   { id: 'eat-3', label: 'Eat 3 meals', verb: 'meals', difficulty: 'easy', metric: 'mealsToday', target: 3 },
+  { id: 'drink-2', label: 'Drink 2 waters', verb: 'drinks', difficulty: 'easy', metric: 'drinksToday', target: 2 },
   { id: 'sleep-1', label: 'Sleep once', verb: 'sleeps', difficulty: 'easy', metric: 'sleptToday', target: 1 },
   { id: 'buy-1', label: 'Buy 1 item', verb: 'items bought', difficulty: 'easy', metric: 'boughtToday', target: 1 },
   { id: 'buy-2', label: 'Buy 2 items', verb: 'items bought', difficulty: 'easy', metric: 'boughtToday', target: 2 },
@@ -158,6 +163,7 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
   // ── Medium (a real session's worth, ~$250) ────────────────────────────
   { id: 'shift-1', label: 'Complete 1 shift', verb: 'shifts', difficulty: 'medium', metric: 'shiftsToday', target: 1 },
   { id: 'eat-5', label: 'Eat 5 meals', verb: 'meals', difficulty: 'medium', metric: 'mealsToday', target: 5 },
+  { id: 'drink-4', label: 'Drink 4 times', verb: 'drinks', difficulty: 'medium', metric: 'drinksToday', target: 4 },
   { id: 'earn-200', label: 'Earn $200', verb: 'earned', difficulty: 'medium', metric: 'earnedToday', target: 200 },
   { id: 'buy-3', label: 'Buy 3 items', verb: 'items bought', difficulty: 'medium', metric: 'boughtToday', target: 3 },
   { id: 'study-1', label: 'Study 1 block', verb: 'study blocks', difficulty: 'medium', metric: 'studiedToday', target: 1 },
@@ -229,6 +235,7 @@ function challengeEligible(def: ChallengeDef, context: DailyChallengeContext): b
   if (progressToday > 0) return true
 
   if (def.metric === 'mealsToday') return context.maxMealsToday >= def.target
+  if (def.metric === 'drinksToday') return context.maxDrinksToday >= def.target
   if (def.metric === 'shiftsToday') return context.maxShiftsToday >= def.target
   if (def.metric === 'earnedToday') return context.maxEarnedToday >= def.target
   if (def.metric === 'boughtToday') return context.maxPurchasesToday >= def.target

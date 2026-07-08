@@ -149,6 +149,7 @@ type DailyCounters = DailyChallengeSnapshot & { day: number }
 function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): DailyCounters {
   return {
     mealsToday: 0,
+    drinksToday: 0,
     shiftsToday: 0,
     earnedToday: 0,
     sleptToday: 0,
@@ -167,6 +168,7 @@ function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): Da
 function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefined): DailyCounters {
   return freshDailyCounters(Number.isFinite(counters?.day) ? Math.floor(Number(counters?.day)) : 0, {
     mealsToday: Math.max(0, Math.floor(Number(counters?.mealsToday ?? 0))),
+    drinksToday: Math.max(0, Math.floor(Number(counters?.drinksToday ?? 0))),
     shiftsToday: Math.max(0, Math.floor(Number(counters?.shiftsToday ?? 0))),
     earnedToday: Math.max(0, Math.floor(Number(counters?.earnedToday ?? 0))),
     sleptToday: Math.max(0, Math.floor(Number(counters?.sleptToday ?? 0))),
@@ -197,6 +199,8 @@ type DailyChallengeContextState = {
 const CHEAPEST_SHOP_PRICE = Math.max(1, Math.min(...SHOP_ITEMS.map((item) => item.price).filter((price) => price > 0)))
 const EDIBLE_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && (item.effects?.hunger ?? 0) > 0)
 const CHEAPEST_EDIBLE_PRICE = Math.max(1, Math.min(...EDIBLE_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+const DRINK_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && item.category === 'drinks' && (item.effects?.hydration ?? 0) > 0)
+const CHEAPEST_DRINK_PRICE = Math.max(1, Math.min(...DRINK_ITEMS.map((item) => item.price).filter((price) => price > 0)))
 
 function totalWageBonus(inventory: Record<string, number>, educationProgress: EducationProgress[]): number {
   return wageBonusFrom(inventory) + educationWageBonusFrom(educationProgress)
@@ -204,6 +208,10 @@ function totalWageBonus(inventory: Record<string, number>, educationProgress: Ed
 
 function edibleInventoryCount(inventory: Record<string, number>): number {
   return EDIBLE_ITEMS.reduce((sum, item) => sum + Math.max(0, Math.floor(inventory[item.id] ?? 0)), 0)
+}
+
+function drinkInventoryCount(inventory: Record<string, number>): number {
+  return DRINK_ITEMS.reduce((sum, item) => sum + Math.max(0, Math.floor(inventory[item.id] ?? 0)), 0)
 }
 
 function cookableMealCount(inventory: Record<string, number>, assets: PlacedAsset[]): number {
@@ -252,6 +260,9 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
   const spendableMealBudget = s.money + maxEarnedToday
   const stockedMealActions = Math.max(edibleInventoryCount(s.inventory), cookableMealCount(s.inventory, s.assets))
   const affordableMealActions = Math.floor(spendableMealBudget / CHEAPEST_EDIBLE_PRICE)
+  const spendableDrinkBudget = s.money + maxEarnedToday
+  const stockedDrinkActions = drinkInventoryCount(s.inventory)
+  const affordableDrinkActions = Math.floor(spendableDrinkBudget / CHEAPEST_DRINK_PRICE)
 
   return {
     ...s.dailyCounters,
@@ -259,6 +270,7 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     maxShiftsToday: Math.max(s.dailyCounters.shiftsToday, maxShiftsToday),
     maxPurchasesToday: Math.max(s.dailyCounters.boughtToday, Math.floor(s.money / CHEAPEST_SHOP_PRICE)),
     maxMealsToday: Math.max(s.dailyCounters.mealsToday, s.dailyCounters.mealsToday + stockedMealActions + affordableMealActions),
+    maxDrinksToday: Math.max(s.dailyCounters.drinksToday, s.dailyCounters.drinksToday + stockedDrinkActions + affordableDrinkActions),
     hasStudyBlock: activeStudy,
     canGatherResources: s.resourceNodes.length > 0,
     canDoConstructionLabor: constructionLaborReady,
@@ -495,6 +507,14 @@ function bumpMealsToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters
   return s.dailyCounters.day === todayDay
     ? { ...s.dailyCounters, mealsToday: s.dailyCounters.mealsToday + 1 }
     : freshDailyCounters(todayDay, { mealsToday: 1 })
+}
+
+/** Today's dailyCounters with drinksToday bumped when hydration is handled intentionally. */
+function bumpDrinksToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, drinksToday: s.dailyCounters.drinksToday + 1 }
+    : freshDailyCounters(todayDay, { drinksToday: 1 })
 }
 
 /** Today's dailyCounters with Workers Hall hires bumped — day-rollover aware. */
@@ -1967,6 +1987,7 @@ export const useGame = create<GameState>()(
         if (s.citizen) {
           const csnap: DailyChallengeSnapshot = {
             mealsToday: dailyCounters.mealsToday,
+            drinksToday: dailyCounters.drinksToday,
             shiftsToday: dailyCounters.shiftsToday,
             earnedToday: dailyCounters.earnedToday,
             sleptToday: dailyCounters.sleptToday,
@@ -2769,6 +2790,7 @@ export const useGame = create<GameState>()(
           needs: applyEffects(s.needs, water.effects),
           level: prog.level,
           xp: prog.xp,
+          dailyCounters: bumpDrinksToday(s),
           combo: newCombo,
           comboLastActionAt: Date.now(),
           toasts: comboToast ? withToast(s.toasts, comboToast, 'gold') : s.toasts,
@@ -2836,11 +2858,17 @@ export const useGame = create<GameState>()(
         // otherwise it's just its (weak) effects — an underwhelming espresso.
         const cures = item.cures !== undefined && s.illness?.kind === item.cures
         const ate = (item.effects.hunger ?? 0) > 0
+        const drank = item.category === 'drinks' && (item.effects.hydration ?? 0) > 0
+        const dailyCounters = ate
+          ? bumpMealsToday(s)
+          : drank
+            ? bumpDrinksToday(s)
+            : s.dailyCounters
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
           timesEaten: ate ? s.timesEaten + 1 : s.timesEaten,
-          dailyCounters: ate ? bumpMealsToday(s) : s.dailyCounters,
+          dailyCounters,
           illness: cures ? null : s.illness,
           log: note(s.log, cures ? `${item.name} — the ${item.cures} is gone. Like new.` : `${item.name} — done.`),
         })

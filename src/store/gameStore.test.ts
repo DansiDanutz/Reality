@@ -67,6 +67,7 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
   return {
     day: 0,
     mealsToday: 0,
+    drinksToday: 0,
     shiftsToday: 0,
     earnedToday: 0,
     sleptToday: 0,
@@ -243,6 +244,20 @@ describe('daily challenge readiness context', () => {
     expect(workdayIds).toContain('eat-5')
   })
 
+  test('drink challenges unlock only when stock or realistic cash can cover them', () => {
+    const broke = dailyChallengeContextOf(challengeState({ money: 0, inventory: {} }))
+    expect(broke.maxDrinksToday).toBe(0)
+    expect(eligibleDailyIds({ money: 0, inventory: {} })).not.toContain('drink-2')
+
+    const stockedIds = eligibleDailyIds({ money: 0, inventory: { water: 2 } })
+    expect(stockedIds).toContain('drink-2')
+    expect(stockedIds).not.toContain('drink-4')
+
+    const pocketChangeIds = eligibleDailyIds({ money: 4, inventory: {} })
+    expect(pocketChangeIds).toContain('drink-2')
+    expect(pocketChangeIds).toContain('drink-4')
+  })
+
   test('construction labor challenges unlock only after materials and permit are ready', () => {
     const now = Date.now()
     const project = createConstructionProject('starter-house', 45.7, 21.2, now)
@@ -378,6 +393,7 @@ describe('sleep daily counter', () => {
       dailyCounters: {
         day: 0,
         mealsToday: 0,
+        drinksToday: 0,
         shiftsToday: 0,
         earnedToday: 0,
         sleptToday: 0,
@@ -418,6 +434,7 @@ describe('sleep daily counter', () => {
       dailyCounters: {
         day: 0,
         mealsToday: 0,
+        drinksToday: 0,
         shiftsToday: 0,
         earnedToday: 0,
         sleptToday: 0,
@@ -446,7 +463,7 @@ describe('sleep daily counter', () => {
 })
 
 describe('meal daily counter', () => {
-  test('consuming food counts toward today without counting drinks as meals', () => {
+  test('consuming food and drinks count toward the correct daily self-care tasks', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
     const now = Date.now()
@@ -454,6 +471,7 @@ describe('meal daily counter', () => {
     useGame.setState({
       citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
       activity: null,
+      money: 2,
       inventory: { noodles: 1, water: 1 },
       needs: { hunger: 50, hydration: 50, energy: 50, hygiene: 50, fun: 50 },
       dailyCounters: emptyDailyCounters(),
@@ -464,10 +482,16 @@ describe('meal daily counter', () => {
     useGame.getState().consume('noodles')
     expect(useGame.getState().timesEaten).toBe(1)
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+    expect(useGame.getState().dailyCounters.drinksToday).toBe(0)
 
     useGame.getState().consume('water')
     expect(useGame.getState().timesEaten).toBe(1)
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+    expect(useGame.getState().dailyCounters.drinksToday).toBe(1)
+
+    useGame.getState().quickDrink()
+    expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+    expect(useGame.getState().dailyCounters.drinksToday).toBe(2)
   })
 })
 
@@ -1042,6 +1066,8 @@ describe('education study loop', () => {
       educationProgress: [],
       activity: null,
       lastSeenAt: Date.now(),
+      dailyClaimed: ['buy-1', 'study-1'],
+      dailyBonusClaimed: true,
       log: [],
       toasts: [],
     })

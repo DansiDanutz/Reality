@@ -153,6 +153,7 @@ function countDailyDone(s: ReturnType<typeof useGame.getState>, todayDay: number
   const challenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, dailyChallengeContextOf(s))
   const snap = {
     mealsToday: s.dailyCounters.mealsToday,
+    drinksToday: s.dailyCounters.drinksToday,
     shiftsToday: s.dailyCounters.shiftsToday,
     earnedToday: s.dailyCounters.earnedToday,
     sleptToday: s.dailyCounters.sleptToday,
