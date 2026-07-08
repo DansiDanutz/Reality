@@ -11,6 +11,7 @@ import {
   founderCovenantOperatorQueuePrimaryWorkloadTone,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
+  founderCovenantOperatorQueueRecordReadyCount,
   founderCovenantOperatorQueueRecordReadySummary,
 } from './founderAreaPanelView'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
@@ -345,6 +346,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(founderCovenantOperatorQueueRecordReadySummary({
       items: operatorQueue().items,
     })).toBe('Record ready: 0 founders · 0 weekly · 0 monthly')
+    expect(founderCovenantOperatorQueueRecordReadyCount({
+      items: operatorQueue().items,
+    })).toBe(0)
     expect(founderCovenantOperatorQueueOverdueCleanupSummary({
       items: operatorQueue().items,
     })).toBe('Overdue cleanup: 0 founders · 1 overdue · 0 stale')

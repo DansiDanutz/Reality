@@ -34,6 +34,7 @@ import {
   founderCovenantOperatorQueuePrimaryWorkloadTone,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
+  founderCovenantOperatorQueueRecordReadyCount,
   founderCovenantOperatorQueueRecommendedNextText,
   founderCovenantOperatorQueueRecordReadySummary,
   founderCovenantNotificationDraftGateText,
@@ -1274,14 +1275,14 @@ export default function FounderCovenantOperatorPanel({
             </span>
             <span
               className={`founder-ledger-chip ${
-                queue.items.some((item) => item.reviewReadiness.evidenceRequiredCount === 0 && item.reviewReadiness.approvalRequestCount === 0)
+                founderCovenantOperatorQueueRecordReadyCount(queue) > 0
                   ? 'stable'
                   : 'warning'
               }`}
               title={founderCovenantOperatorQueueRecordReadySummary(queue)}
             >
               <span>Record ready</span>
-              <strong>{queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount === 0 && item.reviewReadiness.approvalRequestCount === 0).length}</strong>
+              <strong>{founderCovenantOperatorQueueRecordReadyCount(queue)}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${

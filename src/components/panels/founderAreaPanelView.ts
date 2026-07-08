@@ -951,6 +951,14 @@ export function founderCovenantOperatorQueuePrimaryWorkloadTone(
   }
 }
 
+export function founderCovenantOperatorQueueRecordReadyCount(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): number {
+  return queue.items.filter((item) =>
+    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
+  ).length
+}
+
 export function founderCovenantOperatorQueueActivityRiskMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueActivityRiskMix {
