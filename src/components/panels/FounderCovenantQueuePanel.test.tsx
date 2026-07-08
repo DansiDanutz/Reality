@@ -140,7 +140,7 @@ describe('FounderCovenantQueuePanel', () => {
       />,
     )
 
-    expect(html).toContain('Latest review 2026-07-06 · telegram-operator:42424242 · 42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).toContain('Latest review 2026-07-06 · Record review · telegram-operator:42424242 · 42424242 · Reviewed contribution and ideas evidence.')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
   })

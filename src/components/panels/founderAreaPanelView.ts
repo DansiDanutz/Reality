@@ -1787,7 +1787,7 @@ function founderCovenantOperatorQueueLatestReviewReference(
   row: Pick<FounderCovenantOperatorQueueReviewRow, 'latestReviewText'>,
 ): string | null {
   if (!row.latestReviewText) return null
-  const [label, reviewerId, reviewKey] = row.latestReviewText.split(' · ')
+  const [label, _actionLabel, reviewerId, reviewKey] = row.latestReviewText.split(' · ')
   const reviewedAt = label.replace(/^Latest review /, '')
   if (!reviewedAt) return null
   return reviewKey ? `${reviewedAt}/${reviewKey}` : reviewerId ? `${reviewedAt}/${reviewerId}` : reviewedAt
@@ -1817,7 +1817,7 @@ export function founderCovenantOperatorQueueLatestReviewText(
 ): string | null {
   if (!item.latestReview) return null
   const reviewKey = item.latestReview.id.split(':').slice(-1)[0] ?? item.latestReview.id
-  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${reviewKey} · ${item.latestReview.summary}`
+  return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${founderCovenantManualActionKindLabel(item.latestReview.actionKind)} · ${item.latestReview.reviewerId} · ${reviewKey} · ${item.latestReview.summary}`
 }
 
 export function founderCovenantOperatorQueueActivitySignalText(
