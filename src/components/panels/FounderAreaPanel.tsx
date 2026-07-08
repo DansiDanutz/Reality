@@ -830,6 +830,11 @@ export default function FounderAreaPanel() {
 
           <section className="founder-section" aria-label="First build choices">
             <h3 className="founder-section-title">First Build</h3>
+            {dashboard.firstBuild[0] && (
+              <p className="panel-sub">
+                Best next build: <strong>{dashboard.firstBuild[0].name}</strong> — {dashboard.firstBuild[0].reason}
+              </p>
+            )}
             <ul className="item-list">
               {dashboard.firstBuild.slice(0, 4).map((recommendation) => (
                 <li className="item founder-choice" key={recommendation.kind}>
@@ -837,6 +842,7 @@ export default function FounderAreaPanel() {
                     <span className="item-name">{recommendation.name}</span>
                     <span className="item-desc">
                       demand {recommendation.currentDemand} · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
+                      · next license {recommendation.citizensUntilNextLicense}
                     </span>
                     <span className={recommendation.estimatedHourlyProfit >= 0 ? 'item-yield mono' : 'item-locked mono'}>
                       {recommendation.estimatedHourlyProfit >= 0 ? '+' : '-'}
