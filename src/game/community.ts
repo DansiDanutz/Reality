@@ -21,6 +21,7 @@ export interface CommunityStats {
   friendship: number
   trust: number
   actionsThisWeek: number
+  actionCountsThisWeek: Partial<Record<CommunityActionId, number>>
   week: number
   actionsToday: number
   actionDay: number
@@ -79,6 +80,7 @@ export function freshCommunityStats(now = Date.now()): CommunityStats {
     friendship: 0,
     trust: 0,
     actionsThisWeek: 0,
+    actionCountsThisWeek: {},
     week: communityWeek(now),
     actionsToday: 0,
     actionDay: communityDay(now),
@@ -101,6 +103,9 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
     friendship: Math.max(0, Math.floor(stats.friendship ?? 0)),
     trust: Math.max(0, Math.floor(stats.trust ?? 0)),
     actionsThisWeek: Math.max(0, Math.floor(stats.actionsThisWeek ?? 0)),
+    actionCountsThisWeek: Object.fromEntries(
+      Object.entries(stats.actionCountsThisWeek ?? {}).map(([id, count]) => [id, Math.max(0, Math.floor(Number(count) || 0))]),
+    ),
     week: Number.isFinite(stats.week) ? Math.floor(stats.week ?? communityWeek(now)) : communityWeek(now),
     actionsToday: Math.max(0, Math.floor(stats.actionsToday ?? 0)),
     actionDay: Number.isFinite(stats.actionDay) ? Math.floor(stats.actionDay ?? communityDay(now)) : communityDay(now),
@@ -118,7 +123,7 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
 
 export function resetCommunityWeekIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
   const week = communityWeek(now)
-  return stats.week === week ? stats : { ...stats, actionsThisWeek: 0, helperMinutesUsedThisWeek: 0, week }
+  return stats.week === week ? stats : { ...stats, actionsThisWeek: 0, actionCountsThisWeek: {}, helperMinutesUsedThisWeek: 0, week }
 }
 
 export function resetCommunityWorkDayIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
@@ -161,6 +166,10 @@ export function completeCommunityAction(stats: CommunityStats, action: Community
     friendship: current.friendship + action.rewards.friendship,
     trust: current.trust + action.rewards.trust,
     actionsThisWeek: current.actionsThisWeek + 1,
+    actionCountsThisWeek: {
+      ...current.actionCountsThisWeek,
+      [action.id]: (current.actionCountsThisWeek[action.id] ?? 0) + 1,
+    },
     actionsToday: current.actionsToday + 1,
   }
 }

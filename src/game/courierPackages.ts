@@ -1,5 +1,6 @@
 import { RESOURCE_META, type ResourceKind } from './resources'
 import { itemById } from './catalog'
+import type { CommunityActionId } from './community'
 import type { ConstructionProject } from './construction'
 import type { BusinessDevelopmentProject } from './businessDevelopment'
 import {
@@ -25,7 +26,7 @@ export type CourierRequirement =
   | { kind: 'education-enrolled'; courseId: EducationCourseId }
   | { kind: 'education-study'; courseId: EducationCourseId; studiedMinutes: number }
   | { kind: 'education'; educationActions: number }
-  | { kind: 'community'; actionsThisWeek: number }
+  | { kind: 'community'; actionsThisWeek: number; actionId?: CommunityActionId }
   | { kind: 'street-mode-seen' }
   | { kind: 'resource'; resource: ResourceKind; amount: number }
   | { kind: 'construction-site' }
@@ -69,6 +70,7 @@ export interface CourierSnapshot {
   educationProgress?: EducationProgress[]
   educationActions?: number
   communityActionsThisWeek?: number
+  communityActionCountsThisWeek?: Partial<Record<CommunityActionId, number>>
 }
 
 export const COURIER_MVP_DAYS = 10
@@ -212,6 +214,9 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
     case 'education':
       return (snapshot.educationActions ?? 0) >= requirement.educationActions
     case 'community':
+      if (requirement.actionId) {
+        return (snapshot.communityActionCountsThisWeek?.[requirement.actionId] ?? 0) >= requirement.actionsThisWeek
+      }
       return (snapshot.communityActionsThisWeek ?? 0) >= requirement.actionsThisWeek
     case 'street-mode-seen':
       return snapshot.sawStreetMode
@@ -304,7 +309,13 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     }
     return { kind: 'education', educationActions: (snapshot.educationActions ?? 0) + 1 }
   }
-  if (route.kind === 'community-action') return { kind: 'community', actionsThisWeek: (snapshot.communityActionsThisWeek ?? 0) + 1 }
+  if (route.kind === 'community-action') {
+    return {
+      kind: 'community',
+      actionId: route.actionId,
+      actionsThisWeek: (snapshot.communityActionCountsThisWeek?.[route.actionId] ?? 0) + 1,
+    }
+  }
   if (route.kind === 'gather') {
     return {
       kind: 'resource',

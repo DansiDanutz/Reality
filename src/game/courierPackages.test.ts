@@ -206,6 +206,23 @@ describe('courierPackages', () => {
       hasHome: false,
       communityActionsThisWeek: 2,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'community', actionId: 'check-neighbor', actionsThisWeek: 1 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      communityActionsThisWeek: 1,
+      communityActionCountsThisWeek: { 'help-errand': 1 },
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(1)!, requirement: { kind: 'community', actionId: 'check-neighbor', actionsThisWeek: 1 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      communityActionCountsThisWeek: { 'check-neighbor': 1 },
+    })).toBe(true)
   })
 
   test('checks survival drink and sleep requirements', () => {
@@ -420,13 +437,14 @@ describe('courierPackages', () => {
       constructionProjects: [],
       hasHome: true,
       communityActionsThisWeek: 0,
+      communityActionCountsThisWeek: {},
     })
 
     expect(pkg).toMatchObject({
       day: 11,
       title: 'Help one local person',
       objective: 'Help one local person',
-      requirement: { kind: 'community', actionsThisWeek: 1 },
+      requirement: { kind: 'community', actionId: 'help-errand', actionsThisWeek: 1 },
     })
     expect(pkg?.story).toContain('Life Ladder')
   })

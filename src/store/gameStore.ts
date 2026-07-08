@@ -1006,6 +1006,7 @@ function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dai
     educationProgress: s.educationProgress,
     educationActions: educationActionCount(s.educationProgress),
     communityActionsThisWeek: s.community.actionsThisWeek,
+    communityActionCountsThisWeek: s.community.actionCountsThisWeek,
   }
 }
 
@@ -1878,6 +1879,7 @@ export const useGame = create<GameState>()(
           shiftsWorked: s.shiftsWorked + out.shiftsCompleted,
           educationActions: educationActionCount(educationProgress),
           communityActionsThisWeek: community.actionsThisWeek,
+          communityActionCountsThisWeek: community.actionCountsThisWeek,
         }
         const nextPackage = baseCourierPackage
           ? courierPackageForLifePlan(courierDay, planLifeDay({
