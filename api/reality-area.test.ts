@@ -3442,6 +3442,26 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('founder covenant review queue returns structured storage failure when area listing is unavailable', async () => {
+    vi.mocked(list).mockRejectedValueOnce(new Error('blob list failed'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'area_list_unavailable',
+      error: 'Founder covenant review queue could not list Reality areas.',
+    })
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('founder covenant review queue accepts short-lived Telegram operator queue tokens', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
