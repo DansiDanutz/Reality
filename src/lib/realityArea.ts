@@ -1129,7 +1129,12 @@ export async function recordRealityFounderCovenantReview(
   payload: RealityAreaCovenantReviewPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
-  return applyRealityAreaPayload(citizen, payload, fetchImpl)
+  return applyRealityAreaPayload(citizen, {
+    type: 'recordCovenantReview',
+    actionKind: payload.actionKind,
+    ...(payload.note ? { note: payload.note } : {}),
+    ...(payload.evidenceKinds ? { evidenceKinds: payload.evidenceKinds } : {}),
+  }, fetchImpl)
 }
 
 export async function readRealityFounderCovenantReviewQueue(
