@@ -40,6 +40,14 @@ function isUnderConstruction(asset: { constructionEndsAt?: number }): boolean {
   return Boolean(asset.constructionEndsAt && Date.now() < asset.constructionEndsAt)
 }
 
+export function constructionTimeLabel(constructionEndsAt?: number): string | null {
+  if (!constructionEndsAt || constructionEndsAt <= Date.now()) return null
+  const msLeft = constructionEndsAt - Date.now()
+  const h = Math.floor(msLeft / 3_600_000)
+  const m = Math.floor((msLeft % 3_600_000) / 60_000)
+  return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m remaining` : `${m}m remaining`
+}
+
 /** Interpolate a great-circle route between two points for the empire arcs */
 function greatCircle(from: [number, number], to: [number, number], steps = 64): [number, number][] {
   const rad = Math.PI / 180
@@ -60,7 +68,7 @@ function greatCircle(from: [number, number], to: [number, number], steps = 64): 
   return points
 }
 
-function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0, underConstruction = false): HTMLDivElement {
+function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0, underConstruction = false, constructionEndsAt?: number): HTMLDivElement {
   const el = document.createElement('div')
   // 'ready' modifier lights up business beacons with a ring when they have
   // collectable income — surfaces the economy loop on the map so the player
@@ -68,11 +76,14 @@ function beaconElement(kind: string, name: string, own: boolean, pendingIncome =
   const ready = own && kind === 'business' && pendingIncome >= 1 ? ' ready' : ''
   const building = own && underConstruction ? ' building' : ''
   el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}${ready}${building}`
-  el.title = underConstruction
-    ? `${name} — under construction`
-    : ready
-      ? `${name} — ${Math.floor(pendingIncome)} ready to collect`
-      : name
+  const construction = constructionTimeLabel(constructionEndsAt)
+  el.title = construction
+    ? `${name} — under construction · ${construction}`
+    : underConstruction
+      ? `${name} — under construction`
+      : ready
+        ? `${name} — ${Math.floor(pendingIncome)} ready to collect`
+        : name
   return el
 }
 
@@ -230,7 +241,7 @@ export default function WorldMap() {
     const seen = new Set<string>()
     for (const a of assets) {
       seen.add(a.id)
-      const fresh = beaconElement(a.kind, a.name, true, a.pendingIncome, isUnderConstruction(a))
+      const fresh = beaconElement(a.kind, a.name, true, a.pendingIncome, isUnderConstruction(a), a.constructionEndsAt)
       const existing = markers.get(a.id)
       if (existing) {
         const el = existing.getElement()
