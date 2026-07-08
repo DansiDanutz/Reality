@@ -549,6 +549,7 @@ describe('construction worker contracts', () => {
     expect(hired.constructionProjects[0].laborDoneMinutes).toBe(0)
     expect(hired.constructionProjects[0].workerContracts).toHaveLength(1)
     expect(hired.constructionProjects[0].workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
       workerId: 'helper',
       paidMinutes: 60,
       workedMinutes: 0,
@@ -1238,6 +1239,7 @@ describe('business interior development', () => {
     expect(state.businessDevelopmentProjects[0].laborDoneMinutes).toBe(0)
     expect(state.businessDevelopmentProjects[0].workerContracts).toHaveLength(1)
     expect(state.businessDevelopmentProjects[0].workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
       workerId: 'helper',
       paidMinutes: 60,
       workedMinutes: 0,

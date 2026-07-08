@@ -42,6 +42,7 @@ export interface ConstructionProject {
 }
 
 export type ConstructionWorkerId = 'helper' | 'builder' | 'crew'
+export type WorkerContractSource = 'workers-hall'
 
 export interface ConstructionWorker {
   id: ConstructionWorkerId
@@ -54,6 +55,7 @@ export interface ConstructionWorker {
 
 export interface ConstructionWorkerContract {
   id: string
+  source: WorkerContractSource
   workerId: ConstructionWorkerId
   workerName: string
   hiredAt: number
@@ -366,6 +368,7 @@ export function hireConstructionWorker(
   if (estimate.laborMinutes <= 0) return { project, money, hired: false, cost: estimate.cost, laborMinutes: 0, contract: null, reason: 'labor' }
   const contract: ConstructionWorkerContract = {
     id: `${project.id}:${estimate.worker.id}:${now}`,
+    source: 'workers-hall',
     workerId: estimate.worker.id,
     workerName: estimate.worker.name,
     hiredAt: now,

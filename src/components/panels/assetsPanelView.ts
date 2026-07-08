@@ -14,6 +14,7 @@ import { formatMoney } from '../../game/engine'
 import { RESOURCE_KINDS, RESOURCE_META } from '../../game/resources'
 import type { PlacedAsset } from '../../game/types'
 import type { MapTarget, PanelId } from '../../store/gameStore'
+import { activeWorkerContractViews, activeWorkerSummaryText } from './workerContractView'
 
 export interface AssetMenuAction {
   label: string
@@ -45,21 +46,23 @@ function activeWorkerText(count: number): string | null {
   return `${count} worker${count === 1 ? '' : 's'} active`
 }
 
-export function constructionAssetView(project: ConstructionProject) {
+export function constructionAssetView(project: ConstructionProject, now = Date.now()) {
   const progress = constructionProgress(project)
   const missing = constructionShortfall(project)
   const labor = constructionLaborBreakdown(project)
   const missingText = missingResourceText(missing)
-  const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
+  const workerViews = activeWorkerContractViews(project.workerContracts, now)
   return {
     progress,
     missingText,
     labor,
-    activeWorkerCount: activeWorkers.length,
+    activeWorkerCount: workerViews.length,
+    workerViews,
     materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
     permitText: project.permitFeePaid ? 'permit paid' : `${formatMoney(project.permitFee)} permit`,
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
-    workerText: activeWorkerText(activeWorkers.length),
+    workerText: activeWorkerText(workerViews.length),
+    workerEtaText: activeWorkerSummaryText(project.workerContracts, now),
     percentText: `${progress.percent}% built`,
     completionText: project.resultKind === 'business' ? 'open' : 'home',
   }
@@ -73,24 +76,26 @@ export function constructionAssetNavigation(project: Pick<ConstructionProject, '
   }
 }
 
-export function businessInteriorAssetView(project: BusinessDevelopmentProject) {
+export function businessInteriorAssetView(project: BusinessDevelopmentProject, now = Date.now()) {
   const progress = businessDevelopmentProgress(project)
   const missing = businessDevelopmentShortfall(project)
   const labor = businessDevelopmentLaborBreakdown(project)
   const missingText = missingResourceText(missing)
-  const activeWorkers = (project.workerContracts ?? []).filter((contract) => contract.workedMinutes < contract.paidMinutes)
+  const workerViews = activeWorkerContractViews(project.workerContracts, now)
   return {
     progress,
     missingText,
     labor,
-    activeWorkerCount: activeWorkers.length,
+    activeWorkerCount: workerViews.length,
+    workerViews,
     title: `${project.businessName} interior`,
     levelText: `L${project.levelFrom} to L${project.levelTo}`,
     incomeText: `+${formatMoney(project.incomeDelta)}/day when finished`,
     materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
     budgetText: project.budgetPaid ? 'budget paid' : `${formatMoney(project.budgetCost)} budget`,
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
-    workerText: activeWorkerText(activeWorkers.length),
+    workerText: activeWorkerText(workerViews.length),
+    workerEtaText: activeWorkerSummaryText(project.workerContracts, now),
     percentText: `${progress.percent}% ready`,
   }
 }

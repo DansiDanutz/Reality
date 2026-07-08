@@ -815,6 +815,7 @@ describe('planLifeDay', () => {
       ...readyForLabor,
       workerContracts: [{
         id: 'worker-1',
+        source: 'workers-hall' as const,
         workerId: 'helper' as const,
         workerName: 'Local helper',
         hiredAt: 1,
@@ -840,6 +841,7 @@ describe('planLifeDay', () => {
       hiredLaborMinutes: 0,
       workerContracts: [{
         id: 'worker-can-finish',
+        source: 'workers-hall' as const,
         workerId: 'helper' as const,
         workerName: 'Local helper',
         hiredAt: 1,
@@ -979,6 +981,7 @@ describe('planLifeDay', () => {
       budgetPaid: true,
       workerContracts: [{
         id: 'business-worker-1',
+        source: 'workers-hall' as const,
         workerId: 'helper',
         workerName: 'Local helper',
         hiredAt: 1,
@@ -1005,6 +1008,7 @@ describe('planLifeDay', () => {
       hiredLaborMinutes: 0,
       workerContracts: [{
         id: 'business-worker-can-finish',
+        source: 'workers-hall' as const,
         workerId: 'helper',
         workerName: 'Local helper',
         hiredAt: 1,
@@ -1108,6 +1112,7 @@ describe('constructionDayForecast', () => {
       hiredLaborMinutes: 60,
       workerContracts: [{
         id: 'worker-1',
+        source: 'workers-hall' as const,
         workerId: 'builder' as const,
         workerName: 'Skilled builder',
         hiredAt: 1,
@@ -1164,6 +1169,7 @@ describe('businessDevelopmentDayForecast', () => {
       hiredLaborMinutes: 30,
       workerContracts: [{
         id: 'business-worker-1',
+        source: 'workers-hall' as const,
         workerId: 'builder',
         workerName: 'Skilled builder',
         hiredAt: 1,

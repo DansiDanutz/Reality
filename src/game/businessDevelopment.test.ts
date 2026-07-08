@@ -83,6 +83,7 @@ describe('business development projects', () => {
     expect(hired.project.hiredLaborMinutes).toBe(0)
     expect(hired.project.workerContracts).toHaveLength(1)
     expect(hired.project.workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
       workerId: 'helper',
       paidMinutes: 60,
       workedMinutes: 0,
