@@ -97,6 +97,18 @@ describe('telegram Mini App auth', () => {
       { nowSeconds: NOW_SECONDS },
     )).toEqual({ ok: false, error: 'invalid_user' })
 
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: 0, first_name: 'Zero' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+
+    expect(verifyTelegramMiniAppInitData(
+      signedInitData({ auth_date: String(NOW_SECONDS), user: JSON.stringify({ id: -1, first_name: 'Negative' }) }),
+      BOT_TOKEN,
+      { nowSeconds: NOW_SECONDS },
+    )).toEqual({ ok: false, error: 'invalid_user' })
+
     const duplicateUser = signedInitData({
       auth_date: String(NOW_SECONDS),
       user: JSON.stringify({ id: 9, first_name: 'Founder' }),
@@ -112,6 +124,36 @@ describe('telegram Mini App auth', () => {
 
     expect(verifyTelegramMiniAppInitData(duplicateHash, BOT_TOKEN, { nowSeconds: NOW_SECONDS }))
       .toEqual({ ok: false, error: 'invalid_init_data' })
+  })
+
+  test('rejects verified Telegram bot accounts before identity persistence', async () => {
+    const botInitData = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      user: JSON.stringify({ id: 9, first_name: 'Reality Bot', is_bot: true }),
+    })
+
+    expect(verifyTelegramMiniAppInitData(botInitData, BOT_TOKEN, { nowSeconds: NOW_SECONDS }))
+      .toEqual({ ok: false, error: 'bot_user' })
+
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    try {
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData: botInitData } } as never, res as never)
+
+      expect(res.statusCode).toBe(401)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Invalid Telegram session.',
+        code: 'bot_user',
+      })
+      expect(list).not.toHaveBeenCalled()
+      expect(put).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('server handler stays disabled until a bot token is configured', async () => {
@@ -217,6 +259,63 @@ describe('telegram Mini App auth', () => {
       expect(put).toHaveBeenCalledWith(
         'telegram-users/42424242.json',
         JSON.stringify((res.body as { account: unknown }).account),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler returns a structured failure when Telegram identity lookup is unavailable', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    try {
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
+      })
+      const res = responseRecorder()
+      vi.mocked(list).mockRejectedValueOnce(new Error('blob list unavailable'))
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(503)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Telegram identity is briefly unavailable.',
+        code: 'telegram_identity_unavailable',
+      })
+      expect(put).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler returns a structured failure when Telegram identity write is unavailable', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:15:00.000Z'))
+    try {
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
+      })
+      const res = responseRecorder()
+      vi.mocked(list).mockResolvedValueOnce(blobList([]))
+      vi.mocked(put).mockRejectedValueOnce(new Error('blob write unavailable'))
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(503)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Telegram identity is briefly unavailable.',
+        code: 'telegram_identity_unavailable',
+      })
+      expect(put).toHaveBeenCalledWith(
+        'telegram-users/42424242.json',
+        expect.stringContaining('"realityAccountId":"telegram:42424242"'),
         { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
       )
     } finally {
