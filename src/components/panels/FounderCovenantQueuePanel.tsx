@@ -224,6 +224,12 @@ function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
       return 'Blocked'
     case 'hospitalized':
       return 'Hospital'
+    case 'inactive':
+      return 'Inactive'
+    case 'debt_risk':
+      return 'Debt'
+    case 'at_risk':
+      return 'Risk'
     case 'scan_anomaly':
       return 'Scan'
   }

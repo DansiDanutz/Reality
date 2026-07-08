@@ -70,6 +70,9 @@ function isQueueFilter(value: string | undefined): value is FounderCovenantOpera
     value === 'overdue' ||
     value === 'blocked' ||
     value === 'hospitalized' ||
+    value === 'inactive' ||
+    value === 'debt_risk' ||
+    value === 'at_risk' ||
     value === 'scan_anomaly'
 }
 

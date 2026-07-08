@@ -165,6 +165,9 @@ export default function FounderCovenantOperatorPanel({
       queueFilter === 'overdue' ||
       queueFilter === 'blocked' ||
       queueFilter === 'hospitalized' ||
+      queueFilter === 'inactive' ||
+      queueFilter === 'debt_risk' ||
+      queueFilter === 'at_risk' ||
       queueFilter === 'scan_anomaly'
     )
       ? queueFilter
@@ -596,6 +599,30 @@ export default function FounderCovenantOperatorPanel({
               Hospital
             </button>
             <button
+              className={`btn small ${queueFilter === 'inactive' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('inactive')}
+              type="button"
+            >
+              Inactive
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'debt_risk' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('debt_risk')}
+              type="button"
+            >
+              Debt
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'at_risk' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('at_risk')}
+              type="button"
+            >
+              Risk
+            </button>
+            <button
               className={`btn small ${queueFilter === 'scan_anomaly' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('scan_anomaly')}
@@ -758,6 +785,30 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Triage Hospital
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'inactive' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('inactive')}
+              type="button"
+            >
+              Triage Inactive
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'debt_risk' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('debt_risk')}
+              type="button"
+            >
+              Triage Debt
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'at_risk' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('at_risk')}
+              type="button"
+            >
+              Triage Risk
             </button>
             <button
               className={`btn small ${activePriorityPreset === 'scan_anomaly' ? 'primary' : 'ghost'}`}

@@ -13,6 +13,9 @@ describe('founderCovenantOperatorQueueView', () => {
     expect(queueViewLabel('all')).toBe('All')
     expect(queueViewLabel('manual_review')).toBe('Manual')
     expect(queueViewLabel('hospitalized')).toBe('Hospital')
+    expect(queueViewLabel('inactive')).toBe('Inactive')
+    expect(queueViewLabel('debt_risk')).toBe('Debt')
+    expect(queueViewLabel('at_risk')).toBe('Risk')
     expect(queueViewLabel('scan_anomaly')).toBe('Scan')
     expect(queueSortLabel('priority')).toBe('Priority')
     expect(queueSortLabel('founder')).toBe('Founder #')
@@ -22,6 +25,9 @@ describe('founderCovenantOperatorQueueView', () => {
     expect(queueContextText('all', 'priority', null)).toBe('View: All / Priority / start')
     expect(queueContextText('hospitalized', 'founder', 'review-cursor-2')).toBe(
       'View: Hospital / Founder # / review-cursor-2 · filter hospital · sort founder #',
+    )
+    expect(queueContextText('inactive', 'priority', 'review-cursor-3')).toBe(
+      'View: Inactive / Priority / review-cursor-3 · Preset: Triage Inactive · filter inactive',
     )
     expect(queueCursorContextText(null, 'review-cursor-2')).toBe('Cursor: start -> review-cursor-2')
     expect(queueCursorContextText('review-cursor-2', null)).toBe('Cursor: review-cursor-2 -> end')

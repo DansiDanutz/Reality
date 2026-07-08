@@ -53,6 +53,12 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'Blocked'
     case 'hospitalized':
       return 'Hospital'
+    case 'inactive':
+      return 'Inactive'
+    case 'debt_risk':
+      return 'Debt'
+    case 'at_risk':
+      return 'Risk'
     case 'scan_anomaly':
       return 'Scan'
   }
@@ -207,6 +213,12 @@ export function queuePriorityPresetLabel(
       return 'Triage Blocked'
     case 'hospitalized':
       return 'Triage Hospital'
+    case 'inactive':
+      return 'Triage Inactive'
+    case 'debt_risk':
+      return 'Triage Debt'
+    case 'at_risk':
+      return 'Triage Risk'
     case 'scan_anomaly':
       return 'Triage Scan'
     default:

@@ -128,6 +128,9 @@ export type FounderCovenantOperatorQueueFilter =
   | 'overdue'
   | 'blocked'
   | 'hospitalized'
+  | 'inactive'
+  | 'debt_risk'
+  | 'at_risk'
   | 'scan_anomaly'
 export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder' | 'action'
 
@@ -1177,6 +1180,12 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} blocked by workflow gaps · ${freshness}`
     case 'hospitalized':
       return `${count} founder${count === 1 ? '' : 's'} hospitalized · ${freshness}`
+    case 'inactive':
+      return `${count} founder${count === 1 ? '' : 's'} inactive · ${freshness}`
+    case 'debt_risk':
+      return `${count} founder${count === 1 ? '' : 's'} in debt risk · ${freshness}`
+    case 'at_risk':
+      return `${count} founder${count === 1 ? '' : 's'} at risk · ${freshness}`
     case 'scan_anomaly':
       return `${count} founder${count === 1 ? '' : 's'} with scan anomalies · ${freshness}`
   }
@@ -1203,8 +1212,11 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const overdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'overdue').length
   const blocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
+  const inactive = founderCovenantOperatorQueueFilteredReviewRows(queue, 'inactive').length
+  const debtRisk = founderCovenantOperatorQueueFilteredReviewRows(queue, 'debt_risk').length
+  const atRisk = founderCovenantOperatorQueueFilteredReviewRows(queue, 'at_risk').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Weekly due ${weeklyDue} · Monthly due ${monthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Weekly due ${weeklyDue} · Monthly due ${monthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Inactive ${inactive} · Debt ${debtRisk} · Risk ${atRisk} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -1290,6 +1302,12 @@ function founderCovenantOperatorQueueMatchesFilter(
       return item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
     case 'hospitalized':
       return item.activityReview.hospitalized
+    case 'inactive':
+      return !item.activityReview.active
+    case 'debt_risk':
+      return item.economicExposure.outstandingDebt > 0
+    case 'at_risk':
+      return item.activityReview.atRisk
     case 'scan_anomaly':
       return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
   }
