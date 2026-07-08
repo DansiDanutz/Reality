@@ -104,6 +104,7 @@ export default function ActionDock() {
     preloadStreetMode()
     setStreetMode(true)
   }
+  const canStaff = assets.some((a) => a.kind === 'business') && assets.some((a) => a.itemId === 'workers_hall')
   const run = (action: AdviceAction) => {
     const s = useGame.getState()
     switch (action) {
@@ -191,6 +192,11 @@ export default function ActionDock() {
         >
           {job ? `Work · ${job.title}` : 'Find a job'}
         </button>
+        {canStaff && (
+          <button className="btn" onClick={() => setPanel('founder')} title="Open the founder panel to hire AI workers">
+            Staff
+          </button>
+        )}
         <button
           className="btn ghost"
           onFocus={preloadStreetMode}

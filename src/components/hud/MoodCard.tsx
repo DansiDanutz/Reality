@@ -55,6 +55,7 @@ export default function MoodCard() {
     workersHall,
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   }).map((step) => step.label)
+  const canStaff = assets.some((a) => a.kind === 'business') && assets.some((a) => a.itemId === 'workers_hall')
 
   const run = (action: AdviceAction) => {
     const s = useGame.getState()
@@ -126,6 +127,11 @@ export default function MoodCard() {
       {advice.cta && advice.action !== 'none' && (
         <button className="btn small primary" onClick={() => run(advice.action)}>
           {advice.cta}
+        </button>
+      )}
+      {canStaff && (
+        <button className="btn small" onClick={() => useGame.getState().setPanel('founder')}>
+          Staff business
         </button>
       )}
     </aside>
