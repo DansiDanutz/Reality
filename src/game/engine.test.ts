@@ -430,7 +430,7 @@ describe('the guide (adviceOf)', async () => {
     expect(adviceOf({ ...base, businesses: 0, money: 20_000 }).action).toBe('buy-business')
     expect(adviceOf({ ...base, businesses: 2, respect: 0 }).action).toBe('community')
     expect(adviceOf({ ...base, businesses: 2, workersHall: false, money: 20_000, respect: 10 }).action).toBe('buy-business')
-    expect(adviceOf({ ...base, businesses: 2, workersHall: true, money: 20_000, respect: 10 }).action).not.toBe('buy-business')
+    expect(adviceOf({ ...base, businesses: 2, workersHall: true, money: 20_000, respect: 10 }).action).toBe('staff-business')
   })
 
   test('during activities he narrates instead of nagging', () => {

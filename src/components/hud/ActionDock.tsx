@@ -142,6 +142,9 @@ export default function ActionDock() {
       case 'buy-business':
         s.openMarket('business')
         break
+      case 'staff-business':
+        s.setPanel('founder')
+        break
     }
   }
 

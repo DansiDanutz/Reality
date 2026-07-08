@@ -90,7 +90,7 @@ export default function GoalsCard() {
         <span className="goals-card-plan-head mono">Plan</span>
         <span className="goals-card-plan-text">{advice.text}</span>
         <span className="goals-card-plan-steps mono">{routine.slice(0, 4).map((step) => step.label).join(' · ')}</span>
-        {hallNext && <span className="goals-card-plan-steps mono">Build Workers Hall · unlock hiring</span>}
+        {hallNext && <span className="goals-card-plan-steps mono">Build Workers Hall · staff what you built</span>}
         <span className="goals-card-plan-work mono">Net worth {formatMoney(netWorthOf(money, inventory, assets))}</span>
       </div>
       {total > 0 ? (
