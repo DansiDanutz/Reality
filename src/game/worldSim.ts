@@ -2839,6 +2839,9 @@ function hireWorkerFromIntent(
   area: WorldArea,
   intent: Extract<WorldIntent, { type: 'hireWorker' }>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
@@ -2871,6 +2874,9 @@ function buyInsuranceFromIntent(
   area: WorldArea,
   intent: Extract<WorldIntent, { type: 'buyInsurance' }>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
@@ -2903,6 +2909,9 @@ function buyServiceFromIntent(
   intent: Extract<WorldIntent, { type: 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic' }>,
   kind: Exclude<WorldBusinessKind, 'insurance'>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
@@ -2928,6 +2937,9 @@ function repayDebtFromIntent(
   area: WorldArea,
   intent: Extract<WorldIntent, { type: 'repayDebt' }>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
@@ -2958,6 +2970,10 @@ function repayDebtFromIntent(
     memo: `${actor.name} repaid debt to ${debt.creditorId}.`,
   })
   return { ok: true, area }
+}
+
+function requireClaimedArea(area: WorldArea): { ok: true } | { ok: false; area: WorldArea; error: WorldIntentError } {
+  return area.claim ? { ok: true } : { ok: false, area, error: 'area_not_claimed' }
 }
 
 function requireAreaFounder(area: WorldArea, actorCitizenId: string): RequireAreaFounderResult {
