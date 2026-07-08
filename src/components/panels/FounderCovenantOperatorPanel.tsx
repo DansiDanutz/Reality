@@ -37,9 +37,11 @@ import {
 import {
   type CopiedQueueViewState,
   copiedAtText,
+  queueFounderWarningTelegramText,
   queueCopiedStatusSummary,
   queueDigestText,
   queueHandoffText,
+  queueManualReviewTelegramText,
   queuePresetLabel,
   queuePresetChipTone,
   queueResumeText,
@@ -432,6 +434,96 @@ export default function FounderCovenantOperatorPanel({
       setOperatorReviewMessage(`Telegram scaffold copied: ${scaffold}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for Telegram scaffold copy.')
+    }
+  }
+
+  const copyManualReviewTelegramDraft = async () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    const draft = queue?.items.flatMap((item) => item.pendingNotificationDrafts).find((item) => item.kind === 'manual_review_required')
+    const queueSummary = queue
+      ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
+      : 'Queue unavailable'
+    const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
+    const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
+    if (!draft) {
+      setOperatorReviewMessage('No manual review Telegram draft is available in the current queue.')
+      return
+    }
+    const scaffold = queueManualReviewTelegramText({
+      draft,
+      queueSummary,
+      focusSummary,
+      activitySummary,
+      actionSummary,
+    })
+    if (!clipboard?.writeText) {
+      setOperatorReviewMessage('Clipboard is unavailable for manual review Telegram copy.')
+      return
+    }
+    try {
+      await clipboard.writeText(scaffold)
+      setLastCopiedQueueView({
+        filter: queueFilter,
+        sort: queueSort,
+        scanCursor,
+        nextCursor: queue?.nextCursor ?? null,
+        digestSummary: null,
+        telegramSummary: 'Manual review Telegram draft',
+        focusSummary,
+        activitySummary,
+        actionSummary,
+      })
+      setLastCopiedAt(new Date().toISOString())
+      setLastCopiedText(scaffold)
+      setOperatorReviewMessage(`Manual review Telegram copied: ${scaffold}`)
+    } catch {
+      setOperatorReviewMessage('Clipboard is unavailable for manual review Telegram copy.')
+    }
+  }
+
+  const copyFounderWarningTelegramDraft = async () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    const request = queue?.items.flatMap((item) => item.pendingApprovalRequests).find((item) => item.kind === 'send_warning')
+    const queueSummary = queue
+      ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
+      : 'Queue unavailable'
+    const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
+    const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
+    if (!request) {
+      setOperatorReviewMessage('No founder warning Telegram draft is available in the current queue.')
+      return
+    }
+    const scaffold = queueFounderWarningTelegramText({
+      request,
+      queueSummary,
+      focusSummary,
+      activitySummary,
+      actionSummary,
+    })
+    if (!clipboard?.writeText) {
+      setOperatorReviewMessage('Clipboard is unavailable for founder warning Telegram copy.')
+      return
+    }
+    try {
+      await clipboard.writeText(scaffold)
+      setLastCopiedQueueView({
+        filter: queueFilter,
+        sort: queueSort,
+        scanCursor,
+        nextCursor: queue?.nextCursor ?? null,
+        digestSummary: null,
+        telegramSummary: 'Founder warning Telegram draft',
+        focusSummary,
+        activitySummary,
+        actionSummary,
+      })
+      setLastCopiedAt(new Date().toISOString())
+      setLastCopiedText(scaffold)
+      setOperatorReviewMessage(`Founder warning Telegram copied: ${scaffold}`)
+    } catch {
+      setOperatorReviewMessage('Clipboard is unavailable for founder warning Telegram copy.')
     }
   }
 
@@ -1042,6 +1134,22 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Copy Telegram
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyManualReviewTelegramDraft()}
+              type="button"
+            >
+              Copy Manual Telegram
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyFounderWarningTelegramDraft()}
+              type="button"
+            >
+              Copy Warning Telegram
             </button>
             <button
               className="btn small ghost"

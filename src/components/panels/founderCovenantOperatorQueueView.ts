@@ -2,6 +2,10 @@ import type {
   FounderCovenantOperatorQueueFilter,
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
+import type {
+  RealityAreaCovenantApprovalRequest,
+  RealityAreaCovenantNotificationDraft,
+} from '../../lib/realityArea'
 
 export type OperatorQueueChipTone = 'stable' | 'warning' | 'critical'
 
@@ -187,6 +191,56 @@ export function queueTelegramScaffoldText({
     telegramSummary,
     queueCursorContextText(scanCursor, nextCursor),
     queueResumeText(scanCursor, nextCursor),
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
+}
+
+export function queueManualReviewTelegramText({
+  draft,
+  queueSummary,
+  focusSummary,
+  activitySummary,
+  actionSummary,
+}: {
+  draft: Pick<RealityAreaCovenantNotificationDraft, 'title' | 'body' | 'channel'>
+  queueSummary: string
+  focusSummary?: string | null
+  activitySummary?: string | null
+  actionSummary?: string | null
+}): string {
+  return [
+    `${draft.title} (${draft.channel})`,
+    draft.body,
+    `Queue: ${queueSummary}`,
+    focusSummary,
+    activitySummary,
+    actionSummary,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
+}
+
+export function queueFounderWarningTelegramText({
+  request,
+  queueSummary,
+  focusSummary,
+  activitySummary,
+  actionSummary,
+}: {
+  request: Pick<RealityAreaCovenantApprovalRequest, 'label' | 'reason' | 'blockers'>
+  queueSummary: string
+  focusSummary?: string | null
+  activitySummary?: string | null
+  actionSummary?: string | null
+}): string {
+  const blockerText = request.blockers.length > 0
+    ? `${request.blockers.length} delivery blocker${request.blockers.length === 1 ? '' : 's'} remain before send`
+    : 'No delivery blockers remain'
+  return [
+    `${request.label} (telegram)`,
+    request.reason,
+    blockerText,
+    `Queue: ${queueSummary}`,
+    focusSummary,
+    activitySummary,
+    actionSummary,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
 }
 

@@ -4,8 +4,10 @@ import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/reali
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
+  queueFounderWarningTelegramText,
   queueDigestText,
   queueHandoffText,
+  queueManualReviewTelegramText,
   queueActionPresetLabel,
   queueCopiedStatusSummary,
   queueContextText,
@@ -78,6 +80,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copy view')
     expect(html).toContain('Copy digest')
     expect(html).toContain('Copy Telegram')
+    expect(html).toContain('Copy Manual Telegram')
+    expect(html).toContain('Copy Warning Telegram')
     expect(html).toContain('Clear copied')
     expect(html).toContain('Refresh page')
     expect(html).toContain('Restart scan')
@@ -163,7 +167,7 @@ describe('FounderCovenantOperatorPanel', () => {
           scanCursor: 'cursor-5',
           nextCursor: 'cursor-6',
           digestSummary: 'Weekly/monthly founder review',
-          telegramSummary: 'Weekly/monthly founder review Telegram',
+          telegramSummary: 'Manual review Telegram draft',
           focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
           activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
           actionSummary: 'Action: monitor · monitor current founders',
@@ -175,7 +179,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied view: Action Record')
     expect(html).toContain('Copied cursor: cursor-5 -&gt; cursor-6')
     expect(html).toContain('Copied digest: Weekly/monthly founder review')
-    expect(html).toContain('Copied Telegram scaffold: Weekly/monthly founder review Telegram')
+    expect(html).toContain('Copied Telegram scaffold: Manual review Telegram draft')
     expect(html).toContain('Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(html).toContain('Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(html).toContain('Copied action: Action: monitor · monitor current founders')
@@ -312,7 +316,7 @@ describe('FounderCovenantOperatorPanel', () => {
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       digestSummary: 'Weekly/monthly founder review',
-      telegramSummary: 'Weekly/monthly founder review Telegram',
+      telegramSummary: 'Manual review Telegram draft',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
@@ -320,7 +324,7 @@ describe('FounderCovenantOperatorPanel', () => {
       'Copied view: Action Record',
       'Copied cursor: cursor-5 -> cursor-6',
       'Copied digest: Weekly/monthly founder review',
-      'Copied Telegram scaffold: Weekly/monthly founder review Telegram',
+      'Copied Telegram scaffold: Manual review Telegram draft',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       'Copied action: Action: monitor · monitor current founders',
@@ -357,6 +361,32 @@ describe('FounderCovenantOperatorPanel', () => {
       telegramSummary: 'Telegram drafts: 0 warning · 1 manual review · 1 total',
     })).toBe(
       'Reality founder review update\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders\nTelegram drafts: 0 warning · 1 manual review · 1 total\nCursor: cursor-5 -> cursor-6\nResumed after cursor-5 · more founders available',
+    )
+    expect(queueManualReviewTelegramText({
+      draft: {
+        title: 'Founder covenant manual review required',
+        body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
+        channel: 'telegram',
+      },
+      queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
+      focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
+      actionSummary: 'Action: monitor · monitor current founders',
+    })).toBe(
+      'Founder covenant manual review required (telegram)\nFounder covenant signals require human review. Replacement and waitlist handoff remain disabled.\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
+    )
+    expect(queueFounderWarningTelegramText({
+      request: {
+        label: 'Send warning',
+        reason: 'Founder covenant signals suggest a warning.',
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
+      },
+      queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
+      focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
+      actionSummary: 'Action: monitor · monitor current founders',
+    })).toBe(
+      'Send warning (telegram)\nFounder covenant signals suggest a warning.\n2 delivery blockers remain before send\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
     )
   })
 })
