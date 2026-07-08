@@ -1617,6 +1617,11 @@ describe('Reality area client', () => {
           title: ` ${draft.title} `,
           body: ` ${draft.body} `,
         })),
+        manualActions: serverFounderCovenantReviewQueue().items[0].manualActions.map((action) => ({
+          ...action,
+          label: ` ${action.label} `,
+          reason: ` ${action.reason} `,
+        })),
         latestReview: null,
       }],
     }
@@ -1636,6 +1641,7 @@ describe('Reality area client', () => {
           founderCitizenId: 'citizen-1',
           activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals,
           reviewReadiness: serverFounderCovenantReviewQueue().items[0].reviewReadiness,
+          manualActions: serverFounderCovenantReviewQueue().items[0].manualActions,
           pendingApprovalRequests: serverFounderCovenantReviewQueue().items[0].pendingApprovalRequests,
           pendingNotificationDrafts: serverFounderCovenantReviewQueue().items[0].pendingNotificationDrafts,
           latestReview: null,
@@ -1770,6 +1776,29 @@ describe('Reality area client', () => {
         ...serverFounderCovenantReviewQueue().items[0],
         pendingNotificationDrafts: serverFounderCovenantReviewQueue().items[0].pendingNotificationDrafts.map((draft, index) =>
           index === 0 ? { ...draft, body: '   ' } : draft
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank manual-action text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        manualActions: serverFounderCovenantReviewQueue().items[0].manualActions.map((action, index) =>
+          index === 0 ? { ...action, reason: '   ' } : action
         ),
       }],
     }

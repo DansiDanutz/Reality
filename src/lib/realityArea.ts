@@ -2563,9 +2563,11 @@ function parseRealityFounderCovenantReviewQueueItem(
   const reviewReadiness = parseRealityFounderCovenantReviewReadiness(value.reviewReadiness)
   const pendingApprovalRequests = value.pendingApprovalRequests.map(parseRealityAreaCovenantReviewApprovalRequestSnapshot)
   const pendingNotificationDrafts = value.pendingNotificationDrafts.map(parseRealityAreaCovenantNotificationDraft)
+  const manualActions = value.manualActions.map(parseRealityAreaCovenantReviewActionSnapshot)
   if (
     activitySignals.some((signal) => signal === null) ||
     !reviewReadiness ||
+    manualActions.some((action) => action === null) ||
     pendingApprovalRequests.some((request) => request === null) ||
     pendingNotificationDrafts.some((draft) => draft === null)
   ) {
@@ -2580,6 +2582,7 @@ function parseRealityFounderCovenantReviewQueueItem(
       founderCitizenId,
       activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
       reviewReadiness,
+      manualActions: manualActions as RealityAreaCovenantManualAction[],
       pendingApprovalRequests: pendingApprovalRequests as RealityAreaCovenantApprovalRequest[],
       pendingNotificationDrafts: pendingNotificationDrafts as RealityAreaCovenantNotificationDraft[],
     }
@@ -2595,6 +2598,7 @@ function parseRealityFounderCovenantReviewQueueItem(
     founderCitizenId,
     activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
     reviewReadiness,
+    manualActions: manualActions as RealityAreaCovenantManualAction[],
     pendingApprovalRequests: pendingApprovalRequests as RealityAreaCovenantApprovalRequest[],
     pendingNotificationDrafts: pendingNotificationDrafts as RealityAreaCovenantNotificationDraft[],
     latestReview,
@@ -2857,6 +2861,20 @@ function isRealityAreaCovenantReviewActionSnapshot(value: unknown): value is Rea
     value.automationEnabled === false &&
     value.clientPayload === null &&
     value.authorityGate.executionEnabled === false
+}
+
+function parseRealityAreaCovenantReviewActionSnapshot(
+  value: RealityAreaCovenantManualAction,
+): RealityAreaCovenantManualAction | null {
+  const label = value.label.trim()
+  const reason = value.reason.trim()
+  if (!label || !reason) return null
+
+  return {
+    ...value,
+    label,
+    reason,
+  }
 }
 
 function isRealityAreaCovenantApprovalRequest(value: unknown): value is RealityAreaCovenantApprovalRequest {
