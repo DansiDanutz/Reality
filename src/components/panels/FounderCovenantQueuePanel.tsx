@@ -95,6 +95,7 @@ export function FounderCovenantQueuePanel({
                 <span className="item-desc">Drafts: {row.notificationDraftText}</span>
                 <span className="item-desc">Draft titles: {row.notificationDraftTitleText}</span>
                 <span className="item-desc">Draft body: {row.notificationDraftBodyText}</span>
+                <span className="item-desc">Draft recipient: {row.notificationDraftRecipientText}</span>
                 <span className="item-desc">Draft gates: {row.notificationDraftGateText}</span>
                 <span className="item-desc">Draft status: {row.notificationDraftStatusText}</span>
                 <span className="item-desc">Signal counts: {row.signalCountText}</span>

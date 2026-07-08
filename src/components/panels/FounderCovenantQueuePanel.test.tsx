@@ -36,6 +36,7 @@ import {
   founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueueNotificationDraftBodyText,
   founderCovenantOperatorQueueNotificationDraftTitleText,
+  founderCovenantOperatorQueueNotificationDraftRecipientText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageReasonText,
   founderCovenantOperatorQueueStageText,
@@ -85,6 +86,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Draft titles: Founder covenant manual review required')
     expect(html).toContain('Draft body: Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.')
+    expect(html).toContain('Draft recipient: Telegram -&gt; founder-12')
     expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Draft status: Disabled')
     expect(html).toContain('Signal counts: 2 total · 0 info · 1 warning · 1 critical')
@@ -217,6 +219,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueNotificationDraftBodyText(manual)).toBe(
       'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
     )
+    expect(founderCovenantOperatorQueueNotificationDraftRecipientText(manual)).toBe(
+      'Telegram -> founder-12',
+    )
     expect(founderCovenantOperatorQueueNotificationDraftGateText(manual)).toBe(
       'Main founder approval required / Delivery disabled',
     )
@@ -271,6 +276,7 @@ describe('FounderCovenantQueuePanel', () => {
       approvalBlockerText: 'approval workflow, Telegram delivery',
       notificationDraftTitleText: 'Founder covenant manual review required',
       notificationDraftBodyText: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
+      notificationDraftRecipientText: 'Telegram -> founder-12',
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
       signalCountText: '2 total · 0 info · 1 warning · 1 critical',

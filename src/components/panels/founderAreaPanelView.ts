@@ -152,6 +152,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   notificationDraftText: string
   notificationDraftTitleText: string
   notificationDraftBodyText: string
+  notificationDraftRecipientText: string
   notificationDraftGateText: string
   notificationDraftStatusText: string
   signalCountText: string
@@ -1372,6 +1373,7 @@ export function founderCovenantOperatorQueueReviewRows(
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       notificationDraftTitleText: founderCovenantOperatorQueueNotificationDraftTitleText(item),
       notificationDraftBodyText: founderCovenantOperatorQueueNotificationDraftBodyText(item),
+      notificationDraftRecipientText: founderCovenantOperatorQueueNotificationDraftRecipientText(item),
       notificationDraftGateText: founderCovenantOperatorQueueNotificationDraftGateText(item),
       notificationDraftStatusText: founderCovenantOperatorQueueNotificationDraftStatusText(item),
       signalCountText: founderCovenantOperatorQueueSignalCountText(item),
@@ -1622,6 +1624,15 @@ export function founderCovenantOperatorQueueNotificationDraftBodyText(
 ): string {
   if (item.pendingNotificationDrafts.length === 0) return 'none'
   return item.pendingNotificationDrafts.map((draft) => draft.body).join(' · ')
+}
+
+export function founderCovenantOperatorQueueNotificationDraftRecipientText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
+): string {
+  if (item.pendingNotificationDrafts.length === 0) return 'none'
+  return item.pendingNotificationDrafts
+    .map((draft) => `${founderCovenantNotificationChannelLabel(draft.channel)} -> ${draft.recipientCitizenId}`)
+    .join(' · ')
 }
 
 export function founderCovenantOperatorQueueNotificationDraftGateText(
