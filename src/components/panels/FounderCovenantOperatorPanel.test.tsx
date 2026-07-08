@@ -28,6 +28,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Founder Review Queue')
     expect(html).toContain('Evidence only')
     expect(html).toContain('#0012 · Bucharest Founder Block')
+    expect(html).toContain('Cadence: weekly due · monthly 2026-08-05 · overdue · automation disabled')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
@@ -129,6 +130,15 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       checkedAt: '2026-07-06T04:00:00.000Z',
       lastReviewAt: null,
       latestReview: null,
+      reviewSchedule: {
+        lastReviewAt: null,
+        nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
+        nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+        weeklyReviewDue: true,
+        monthlyReviewDue: false,
+        overdue: true,
+        automationEnabled: false,
+      },
       nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
       nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
       overdue: true,

@@ -8,6 +8,7 @@ import {
   INSURANCE_POLICY_PERIOD_MS,
   MAX_FOUNDER_AREA_RADIUS_KM,
   MIN_BUSINESS_QUALITY,
+  PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER,
   SIM_LEAVES_HEALTH,
   SIM_LEAVES_NEED_LEVEL,
   UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR,
@@ -459,6 +460,25 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toEqual([])
   })
 
+  test('hire intents clear stale job assignments before assigning active Sim workers', () => {
+    const start = claimedArea({
+      citizens: [sim('worker', { jobBusinessId: 'missing-business' })],
+      businesses: [business('water', 'water1', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'water1',
+      workerCitizenId: 'worker',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected stale job assignment not to block hiring')
+    expect(result.area.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('water1')
+  })
+
   test('hire intents reject non-owners, unavailable workers, and duplicate hires', () => {
     const start = claimedArea({
       citizens: [
@@ -613,6 +633,34 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'insufficient_funds' })
   })
 
+  test('buyInsurance intent lets citizens replace stale insurance markers', () => {
+    const staleCoverage = claimedArea({
+      citizens: [sim('resident', {
+        money: 500,
+        insuranceBusinessId: 'missing-insurer',
+        insurancePaidUntil: HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(staleCoverage, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected stale insurance marker not to block replacement')
+    const resident = result.area.citizens.find((c) => c.id === 'resident')!
+    expect(resident.money).toBe(455)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(INSURANCE_POLICY_PERIOD_MS)
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(45)
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
+  })
+
   test('buyInsurance intent rejects hospitalized citizens', () => {
     const start = claimedArea({
       citizens: [sim('resident', { money: 500, state: { kind: 'hospitalized', until: 10 * HOUR } })],
@@ -624,6 +672,26 @@ describe('advanceWorldArea — local real-time economy', () => {
       actorCitizenId: 'resident',
       insuranceBusinessId: 'ins1',
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
+  })
+
+  test('buyInsurance intent rejects unattended insurers while the owner is hospitalized', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', cash: 10, price: 45 })],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.state = { kind: 'hospitalized', until: 10 * HOUR }
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(500)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(10)
+    expect(result.area.transactions).toEqual([])
   })
 
   test('insurance renews monthly with a real premium payment', () => {
@@ -652,6 +720,45 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('insurance renewals reserve insurer capacity before later policy sales', () => {
+    const start = area({
+      citizens: [
+        sim('renewing', {
+          money: 100,
+          insuranceBusinessId: 'ins1',
+          insurancePaidUntil: HOUR,
+        }),
+        sim('capacity-blocked', {
+          money: 100,
+          insuranceBusinessId: 'ins1',
+          insurancePaidUntil: HOUR,
+        }),
+        sim('new-buyer', { money: 100 }),
+      ],
+      businesses: [business('insurance', 'ins1', { cash: 0, price: 45, quality: 0.2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const renewing = out.citizens.find((citizen) => citizen.id === 'renewing')!
+    const capacityBlocked = out.citizens.find((citizen) => citizen.id === 'capacity-blocked')!
+    const newBuyer = out.citizens.find((citizen) => citizen.id === 'new-buyer')!
+
+    expect(renewing.money).toBe(55)
+    expect(renewing.insuranceBusinessId).toBe('ins1')
+    expect(renewing.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(capacityBlocked.money).toBe(100)
+    expect(capacityBlocked.insuranceBusinessId).toBeUndefined()
+    expect(capacityBlocked.insurancePaidUntil).toBeUndefined()
+    expect(newBuyer.money).toBe(100)
+    expect(newBuyer.insuranceBusinessId).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(45)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(summary.insurancePoliciesLapsed).toBe(1)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'renewing', toId: 'ins1', amount: 45 },
+    ])
+  })
+
   test('insurance lapses when the monthly premium cannot be paid', () => {
     const start = area({
       citizens: [sim('resident', {
@@ -673,6 +780,31 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(summary.insurancePremiumsPaid).toBe(0)
     expect(summary.insurancePoliciesLapsed).toBe(1)
     expect(out.transactions).toEqual([])
+  })
+
+  test('stale insurance providers lapse before Sim Citizens buy valid coverage', () => {
+    const start = area({
+      citizens: [sim('resident', {
+        money: 100,
+        insuranceBusinessId: 'missing-insurer',
+        insurancePaidUntil: 2 * HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { cash: 10, price: 45 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const resident = out.citizens[0]
+    const insurer = out.businesses[0]
+
+    expect(resident.money).toBe(55)
+    expect(resident.insuranceBusinessId).toBe('ins1')
+    expect(resident.insurancePaidUntil).toBe(HOUR + INSURANCE_POLICY_PERIOD_MS)
+    expect(insurer.cash).toBe(55)
+    expect(summary.insurancePoliciesLapsed).toBe(1)
+    expect(summary.insurancePremiumsPaid).toBe(45)
+    expect(out.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: 'ins1', amount: 45 },
+    ])
   })
 
   test('Sim Citizens buy first insurance policies from local insurers with real premiums', () => {
@@ -710,6 +842,24 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('simulation does not buy services from unattended businesses while the owner is hospitalized', () => {
+    const start = area({
+      citizens: [
+        sim('owner', { state: { kind: 'hospitalized', until: 5 * HOUR } }),
+        sim('resident', { money: 20, needs: fullNeeds({ hydration: 20 }) }),
+      ],
+      businesses: [business('water', 'water1', { ownerId: 'owner', cash: 5, price: 2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens.find((c) => c.id === 'resident')!.money).toBe(20)
+    expect(out.citizens.find((c) => c.id === 'resident')!.needs.hydration).toBeCloseTo(15.2)
+    expect(out.businesses.find((b) => b.id === 'water1')!.cash).toBe(5)
+    expect(summary.purchases).toBe(0)
+    expect(out.transactions).toEqual([])
+  })
+
   test('buyWater intent routes a player purchase to a local water business', () => {
     const start = claimedArea({
       citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
@@ -726,6 +876,22 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toMatchObject([
       { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
     ])
+  })
+
+  test('buyWater intent rejects unattended businesses while the owner is hospitalized', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder', cash: 5, price: 2 })],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.state = { kind: 'hospitalized', until: 5 * HOUR }
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(20)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.needs.hydration).toBe(20)
+    expect(result.area.businesses.find((b) => b.id === 'water1')!.cash).toBe(5)
+    expect(result.area.transactions).toEqual([])
   })
 
   test('buyHousing intent routes rest to a local housing business', () => {
@@ -985,7 +1151,12 @@ describe('advanceWorldArea — local real-time economy', () => {
   test('underfunded businesses pay what they can and lose active staff', () => {
     const start = area({
       citizens: [sim('worker', { jobBusinessId: 'food1' })],
-      businesses: [business('food', 'food1', { cash: 5, staffCitizenIds: ['worker'], wagePerHour: 15 })],
+      businesses: [business('food', 'food1', {
+        cash: 5,
+        quality: 1,
+        staffCitizenIds: ['worker'],
+        wagePerHour: 15,
+      })],
     })
 
     const { area: out, summary } = advanceWorldArea(start, HOUR)
@@ -993,6 +1164,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.citizens[0].money).toBe(105)
     expect(out.citizens[0].jobBusinessId).toBeUndefined()
     expect(out.businesses[0].cash).toBe(0)
+    expect(out.businesses[0].quality).toBe(1 - PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER)
     expect(out.businesses[0].staffCitizenIds).toEqual([])
     expect(summary.wagesPaid).toBe(5)
     expect(out.transactions[0]).toMatchObject({
@@ -1001,6 +1173,33 @@ describe('advanceWorldArea — local real-time economy', () => {
       toId: 'worker',
       amount: 5,
     })
+  })
+
+  test('payroll defaults cannot push business quality below the floor', () => {
+    const start = area({
+      citizens: [
+        sim('worker1', { jobBusinessId: 'food1' }),
+        sim('worker2', { jobBusinessId: 'food1' }),
+      ],
+      businesses: [business('food', 'food1', {
+        cash: 0,
+        quality: MIN_BUSINESS_QUALITY,
+        staffCitizenIds: ['worker1', 'worker2'],
+        wagePerHour: 15,
+      })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens.find((citizen) => citizen.id === 'worker1')!.money).toBe(100)
+    expect(out.citizens.find((citizen) => citizen.id === 'worker2')!.money).toBe(100)
+    expect(out.citizens.find((citizen) => citizen.id === 'worker1')!.jobBusinessId).toBeUndefined()
+    expect(out.citizens.find((citizen) => citizen.id === 'worker2')!.jobBusinessId).toBeUndefined()
+    expect(out.businesses[0].cash).toBe(0)
+    expect(out.businesses[0].quality).toBe(MIN_BUSINESS_QUALITY)
+    expect(out.businesses[0].staffCitizenIds).toEqual([])
+    expect(summary.wagesPaid).toBe(0)
+    expect(out.transactions).toEqual([])
   })
 
   test('stale roster entries do not receive wages', () => {
@@ -1031,11 +1230,43 @@ describe('advanceWorldArea — local real-time economy', () => {
       employedCitizens: 0,
       unemployedCitizens: 1,
       hireableSimWorkers: 0,
-      candidates: [],
+      candidates: [
+        {
+          citizenId: 'worker',
+          action: 'waiting_for_position',
+          recommendedBusinessId: null,
+          clientPayload: null,
+        },
+      ],
     })
     expect(out.citizens[0].needs.hunger).toBeCloseTo(90 - 3.8)
     expect(out.citizens[0].needs.hydration).toBeCloseTo(90 - 4.8)
     expect(out.citizens[0].needs.energy).toBeCloseTo(90 - 3)
+  })
+
+  test('stale job ids remain hireable candidates when businesses have open positions', () => {
+    const start = area({
+      citizens: [sim('worker', { jobBusinessId: 'missing-business' })],
+      businesses: [business('water', 'water1')],
+    })
+
+    const dashboard = areaNeedsDashboard(start)
+
+    expect(dashboard.jobs).toMatchObject({
+      employedCitizens: 0,
+      unemployedCitizens: 1,
+      hireableSimWorkers: 1,
+      openPositions: 1,
+      understaffedBusinesses: 1,
+    })
+    expect(dashboard.jobs.candidates).toMatchObject([
+      {
+        citizenId: 'worker',
+        action: 'hire_now',
+        recommendedBusinessId: 'water1',
+        clientPayload: { type: 'hireWorker', businessId: 'water1', workerCitizenId: 'worker' },
+      },
+    ])
   })
 
   test('unpaid workers leave before they can boost service capacity', () => {
@@ -1133,6 +1364,37 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(summary.hospitalizations).toBe(1)
     expect(summary.debtsIssued).toBe(300)
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
+  })
+
+  test('hospital bills use clinic capacity before falling back to the system hospital', () => {
+    const start = area({
+      citizens: [
+        sim('c1', { health: COLLAPSE_HEALTH - 10, money: 50 }),
+        sim('c2', { health: COLLAPSE_HEALTH - 10, money: 50 }),
+      ],
+      businesses: [business('clinic', 'clinic1', { quality: 0.2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const first = out.citizens.find((citizen) => citizen.id === 'c1')!
+    const second = out.citizens.find((citizen) => citizen.id === 'c2')!
+    const clinic = out.businesses[0]
+
+    expect(first.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'clinic1', amount: HOSPITAL_BILL - 50, issuedAt: HOUR },
+    ])
+    expect(second.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'system:hospital', amount: HOSPITAL_BILL - 50, issuedAt: HOUR },
+    ])
+    expect(clinic.cash).toBe(50)
+    expect(summary.hospitalizations).toBe(2)
+    expect(summary.debtsIssued).toBe((HOSPITAL_BILL - 50) * 2)
+    expect(out.transactions).toMatchObject([
+      { kind: 'hospital_bill', fromId: 'c1', toId: 'clinic1', amount: 50 },
+      { kind: 'medical_debt', fromId: 'c1', toId: 'clinic1', amount: HOSPITAL_BILL - 50 },
+      { kind: 'hospital_bill', fromId: 'c2', toId: 'system:hospital', amount: 50 },
+      { kind: 'medical_debt', fromId: 'c2', toId: 'system:hospital', amount: HOSPITAL_BILL - 50 },
+    ])
   })
 
   test('hospitalized citizens recover without acting during the hospital hour', () => {
@@ -1324,6 +1586,84 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.citizens[0].debts).toEqual([])
     expect(result.area.transactions).toMatchObject([
       { kind: 'debt_repayment', fromId: 'c1', toId: 'system:hospital', amount: 75 },
+    ])
+  })
+
+  test('simulation lets active Sim Citizens repay medical debt from spare cash', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        money: 100,
+        debt: 90,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 90,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to clinic1.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 10 })],
+    })
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+    const citizen = out.citizens[0]
+    const clinic = out.businesses[0]
+
+    expect(citizen.money).toBe(75)
+    expect(citizen.debt).toBe(65)
+    expect(citizen.debts).toMatchObject([{ id: 'debt1', amount: 65, creditorId: 'clinic1' }])
+    expect(clinic.cash).toBe(35)
+    expect(out.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'c1', toId: 'clinic1', amount: 25 },
+    ])
+  })
+
+  test('simulation keeps Sim cash reserves and never auto-repays Real Citizen debt', () => {
+    const start = area({
+      citizens: [
+        sim('low-cash', {
+          money: 60,
+          debt: 90,
+          debts: [{
+            id: 'low-cash-debt',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 90,
+            issuedAt: HOUR,
+            memo: 'Sim low-cash owes medical debt to clinic1.',
+          }],
+        }),
+        sim('real-citizen', {
+          kind: 'real',
+          money: 100,
+          debt: 90,
+          debts: [{
+            id: 'real-debt',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 90,
+            issuedAt: HOUR,
+            memo: 'Real citizen owes medical debt to clinic1.',
+          }],
+        }),
+      ],
+      businesses: [business('clinic', 'clinic1', { cash: 10 })],
+    })
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+    const lowCash = out.citizens.find((citizen) => citizen.id === 'low-cash')!
+    const realCitizen = out.citizens.find((citizen) => citizen.id === 'real-citizen')!
+
+    expect(lowCash.money).toBe(50)
+    expect(lowCash.debt).toBe(80)
+    expect(lowCash.debts).toMatchObject([{ id: 'low-cash-debt', amount: 80 }])
+    expect(realCitizen.money).toBe(100)
+    expect(realCitizen.debt).toBe(90)
+    expect(realCitizen.debts).toMatchObject([{ id: 'real-debt', amount: 90 }])
+    expect(out.businesses[0].cash).toBe(20)
+    expect(out.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'low-cash', toId: 'clinic1', amount: 10 },
     ])
   })
 
@@ -1618,6 +1958,38 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.demand.water).toBe(30)
     expect(dash.capacity.water).toBe(4)
     expect(dash.shortage.water).toBe(26)
+  })
+
+  test('dashboard removes capacity from unattended businesses while the owner is hospitalized', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [
+        sim('owner', { state: { kind: 'hospitalized', until: 5 * HOUR } }),
+        sim('worker', { jobBusinessId: 'food1' }),
+        sim('resident', { needs: fullNeeds({ hydration: 40 }) }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'owner', quality: 1 }),
+        business('food', 'food1', { ownerId: 'owner', staffCitizenIds: ['worker'], quality: 1 }),
+      ],
+    }))
+
+    expect(dash.demand.water).toBe(1)
+    expect(dash.capacity.water).toBe(0)
+    expect(dash.shortage.water).toBe(1)
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'water1')).toMatchObject({
+      hourlyCapacity: 0,
+      status: 'critical',
+      alerts: expect.arrayContaining([
+        { kind: 'owner_unavailable', severity: 'critical' },
+        { kind: 'quality_degraded', severity: 'critical' },
+      ]),
+    })
+
+    const staffedFood = dash.existingBusinesses.find((candidate) => candidate.id === 'food1')!
+    expect(staffedFood.hourlyCapacity).toBeGreaterThan(0)
+    expect(staffedFood.alerts).not.toEqual(
+      expect.arrayContaining([{ kind: 'owner_unavailable', severity: 'critical' }]),
+    )
   })
 
   test('dashboard suppresses sim-worker hire payloads while the founder is hospitalized', () => {
@@ -2643,7 +3015,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: true,
         insuranceAction: {
           intent: 'buyInsurance',
-          clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
+          clientPayload: null,
           insuranceBusinessId: 'ins1',
           premium: 45,
           available: true,
@@ -2686,7 +3058,7 @@ describe('advanceWorldArea — local real-time economy', () => {
           amount: 40,
           creditorId: 'system:hospital',
           repaymentIntent: 'repayDebt',
-          clientPayload: { type: 'repayDebt', debtId: 'debt-real', amount: 40 },
+          clientPayload: null,
           recommendedPayment: 40,
           maxAffordablePayment: 40,
           canRepayNow: false,
@@ -2696,7 +3068,7 @@ describe('advanceWorldArea — local real-time economy', () => {
         insuranceActive: false,
         insuranceAction: {
           intent: 'buyInsurance',
-          clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
+          clientPayload: null,
           insuranceBusinessId: 'ins1',
           premium: 45,
           available: true,
@@ -2754,7 +3126,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       blockers: [],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'broke')!.insuranceAction).toMatchObject({
-      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins-low' },
+      clientPayload: null,
       insuranceBusinessId: 'ins-low',
       premium: 45,
       canAfford: false,
@@ -2762,10 +3134,12 @@ describe('advanceWorldArea — local real-time economy', () => {
       blockers: ['insufficient_funds'],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'covered')!.insuranceAction).toMatchObject({
+      clientPayload: null,
       canBuyNow: false,
       blockers: ['already_insured'],
     })
     expect(dash.citizens.find((citizen) => citizen.id === 'patient')!.insuranceAction).toMatchObject({
+      clientPayload: null,
       canBuyNow: false,
       blockers: ['actor_unavailable'],
     })
@@ -2780,6 +3154,55 @@ describe('advanceWorldArea — local real-time economy', () => {
       canAfford: false,
       canBuyNow: false,
       blockers: ['service_unavailable'],
+    })
+
+    const unattendedInsurer = areaNeedsDashboard(area({
+      citizens: [
+        sim('owner', { state: { kind: 'hospitalized', until: 3 * HOUR } }),
+        sim('buyer', { money: 50 }),
+      ],
+      businesses: [business('insurance', 'ins1', { ownerId: 'owner', price: 45 })],
+    }))
+    expect(unattendedInsurer.citizens.find((citizen) => citizen.id === 'buyer')!.insuranceAction).toEqual({
+      intent: 'buyInsurance',
+      clientPayload: null,
+      insuranceBusinessId: null,
+      premium: null,
+      available: false,
+      canAfford: false,
+      canBuyNow: false,
+      blockers: ['service_unavailable'],
+    })
+  })
+
+  test('dashboard treats stale provider insurance as uninsured demand', () => {
+    const dash = areaNeedsDashboard(area({
+      now: HOUR,
+      citizens: [sim('stale-covered', {
+        money: 50,
+        insuranceBusinessId: 'missing-insurer',
+        insurancePaidUntil: 2 * HOUR,
+      })],
+      businesses: [business('insurance', 'ins1', { price: 45 })],
+    }))
+
+    expect(dash.demand.insurance).toBe(1)
+    expect(dash.simDemand.insurance).toBe(1)
+    expect(dash.citizens[0]).toMatchObject({
+      insuranceBusinessId: 'missing-insurer',
+      insuranceActive: false,
+      insuranceAction: {
+        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'ins1' },
+        insuranceBusinessId: 'ins1',
+        premium: 45,
+        available: true,
+        canAfford: true,
+        canBuyNow: true,
+        blockers: [],
+      },
+      estateProtection: {
+        protectedByInsurance: false,
+      },
     })
   })
 
@@ -3012,12 +3435,7 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(insurance).toMatchObject({
       kind: 'insurance',
       proposedBusinessId: 'business:area-1:insurance:1',
-      clientPayload: {
-        type: 'buildBusiness',
-        businessKind: 'insurance',
-        businessId: 'business:area-1:insurance:1',
-        name: DEFAULT_BUSINESS_BLUEPRINTS.insurance.name,
-      },
+      clientPayload: null,
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.insurance.buildCost,
       cashShortfall: 40_000,
       licenseSlots: 0,
@@ -3056,6 +3474,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     const brokeFood = areaNeedsDashboard(brokeFounder).firstBuild.find((rec) => rec.kind === 'food')!
     expect(brokeFood).toMatchObject({
       action: 'save_credits',
+      proposedBusinessId: 'business:area-1:food:1',
+      clientPayload: null,
       canBuildNow: false,
       cashShortfall: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost - 100,
       blockers: ['insufficient_funds'],
@@ -3070,6 +3490,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     const unavailableFood = areaNeedsDashboard(hospitalizedFounder).firstBuild.find((rec) => rec.kind === 'food')!
     expect(unavailableFood).toMatchObject({
       action: 'recover_first',
+      proposedBusinessId: 'business:area-1:food:1',
+      clientPayload: null,
       canBuildNow: false,
       cashShortfall: 0,
       blockers: ['actor_unavailable'],
@@ -3081,6 +3503,12 @@ describe('advanceWorldArea — local real-time economy', () => {
       action: 'wait_for_demand',
       currentDemand: 0,
       canBuildNow: true,
+      clientPayload: {
+        type: 'buildBusiness',
+        businessKind: 'water',
+        businessId: 'business:area-1:water:1',
+        name: DEFAULT_BUSINESS_BLUEPRINTS.water.name,
+      },
       cashShortfall: 0,
       blockers: [],
     })
