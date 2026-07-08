@@ -9,6 +9,7 @@ const GENERATIONS_PER_DAY = 5
 // (register allows 5/IP/day), and every generation is a billed OpenAI call.
 // Real usage is far below this; it exists only to bound worst-case spend.
 const GLOBAL_GENERATIONS_PER_DAY = 500
+const AVATAR_POST_FIELDS = new Set(['citizenId', 'token', 'params'])
 
 // Kept in sync with src/lib/avatarPrompt.ts (api functions must be
 // self-contained — Vercel does not bundle imports from src/)
@@ -38,6 +39,15 @@ function validateAvatarParams(p: unknown): p is AvatarParams {
     HAIR_STYLES.includes(String(a.hairStyle)) &&
     EYE_COLORS.includes(String(a.eyeColor))
   )
+}
+
+function readAvatarPostBody(req: VercelRequest): Record<string, unknown> {
+  const body = req.body
+  return body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : {}
+}
+
+function hasUnexpectedAvatarPostField(body: Record<string, unknown>): boolean {
+  return Object.keys(body).some((field) => !AVATAR_POST_FIELDS.has(field))
 }
 
 function buildWord(heightCm: number, weightKg: number): string {
@@ -145,13 +155,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
+
+  const body = readAvatarPostBody(req)
+  if (hasUnexpectedAvatarPostField(body)) {
+    res.status(400).json({
+      ok: false,
+      error: 'Avatar request contains fields the server must own.',
+      code: 'client_controlled_avatar_field',
+    })
+    return
+  }
+
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     res.status(503).json({ ok: false, error: 'The avatar studio is not configured on this server yet.' })
     return
   }
 
-  const { citizenId, token, params } = (req.body ?? {}) as Record<string, unknown>
+  const { citizenId, token, params } = body
   if (!validateAvatarParams(params)) {
     res.status(400).json({ ok: false, error: 'Those measurements do not look right — check the form.' })
     return
