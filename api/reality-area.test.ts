@@ -339,6 +339,10 @@ describe('reality area authority API', () => {
       ...validClaimIntent(),
       payoutEligibility: 'payout_eligible',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeClaimAreaIntent({
+      ...validClaimIntent(),
+      clientMemo: 'please attach my area to this private note',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
   test('normalizes buildBusiness without accepting client-controlled economy fields', () => {
@@ -362,6 +366,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeBuildBusinessIntent({
       type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      estimatedProfit: 999_999,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuildBusinessIntent({
+      type: 'buildBusiness',
       businessKind: 'luxury',
       businessId: 'water-1',
     })).toEqual({ ok: false, error: 'invalid_business_kind' })
@@ -379,6 +389,8 @@ describe('reality area authority API', () => {
       serviceKind: 'water',
     })
     expect(normalizeServicePurchaseIntent({ type: 'buyFood', price: 0 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeServicePurchaseIntent({ type: 'buyWater', serviceBusinessId: 'water-1' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeServicePurchaseIntent({ type: 'buyInsurance' }))
       .toEqual({ ok: false, error: 'unsupported_intent' })
@@ -404,6 +416,11 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeBuyInsuranceIntent({
       type: 'buyInsurance',
+      insuranceBusinessId: 'insurance-1',
+      policyLimit: 1_000_000,
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeBuyInsuranceIntent({
+      type: 'buyInsurance',
       insuranceBusinessId: '../insurance',
     })).toEqual({ ok: false, error: 'invalid_business_id' })
   })
@@ -426,6 +443,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeHireWorkerIntent({
       type: 'hireWorker',
+      businessId: 'water-1',
+      workerCitizenId: 'sim-worker-1',
+      shiftId: 'night-shift',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeHireWorkerIntent({
+      type: 'hireWorker',
       businessId: '../water',
       workerCitizenId: 'sim-worker-1',
     })).toEqual({ ok: false, error: 'invalid_business_id' })
@@ -436,6 +459,8 @@ describe('reality area authority API', () => {
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', cash: 999 }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeAdvanceHourIntent({ type: 'advanceHour', hours: 24 }))
+      .toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeAdvanceHourIntent({ type: 'advanceHour', note: 'advance five hours please' }))
       .toEqual({ ok: false, error: 'client_controlled_server_field' })
   })
 
@@ -517,6 +542,12 @@ describe('reality area authority API', () => {
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRepayDebtIntent({
       type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120,
+      memo: 'client-picked repayment memo',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRepayDebtIntent({
+      type: 'repayDebt',
       debtId: '../debt',
       amount: 120,
     })).toEqual({ ok: false, error: 'invalid_debt_id' })
@@ -554,6 +585,12 @@ describe('reality area authority API', () => {
       actionKind: 'record_review',
       note: 'Looks good.',
       reviewerId: 'spoofed-reviewer',
+    })).toEqual({ ok: false, error: 'client_controlled_server_field' })
+    expect(normalizeRecordCovenantReviewIntent({
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Looks good.',
+      clientMemo: 'only the server decides review metadata',
     })).toEqual({ ok: false, error: 'client_controlled_server_field' })
     expect(normalizeRecordCovenantReviewIntent({
       type: 'recordCovenantReview',
