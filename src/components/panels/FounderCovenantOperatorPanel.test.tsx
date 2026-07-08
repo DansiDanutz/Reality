@@ -168,6 +168,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Next overdue')
     expect(html).toContain('Next record')
     expect(html).toContain('Next monitor')
+    expect(html).toContain('title="0 founders next need record review · 0 never · 0 stale · 0 fresh · Action slice: 0 weekly / 0 monthly · Record ready: 0 founders · 0 weekly · 0 monthly"')
+    expect(html).toContain('title="0 founders next need monitoring only · 0 never · 0 stale · 0 fresh · Action slice: 0 monitor / 0 fresh · Monitor: 0 founders · 0 fresh active"')
     expect(html).toContain('Default View')
     expect(html).toContain('Coverage All')
     expect(html).toContain('Cleanup Never')
@@ -177,6 +179,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Review Weekly Due')
     expect(html).toContain('Review Monthly Due')
     expect(html).toContain('Audit Fresh')
+    expect(html).toContain('title="0 founders stale reviewed · 0 never · 0 stale · 0 fresh"')
+    expect(html).toContain('title="0 founders fresh reviewed · 0 never · 0 stale · 0 fresh"')
     expect(html).toContain('Triage Manual')
     expect(html).toContain('Triage Evidence')
     expect(html).toContain('Triage Next Evidence')
@@ -184,6 +188,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Triage Next Overdue')
     expect(html).toContain('Triage Next Record')
     expect(html).toContain('Triage Next Monitor')
+    expect(html).toContain('title="0 founders next need record review · 0 never · 0 stale · 0 fresh · Action slice: 0 weekly / 0 monthly · Record ready: 0 founders · 0 weekly · 0 monthly"')
+    expect(html).toContain('title="0 founders next need monitoring only · 0 never · 0 stale · 0 fresh · Action slice: 0 monitor / 0 fresh · Monitor: 0 founders · 0 fresh active"')
     expect(html).toContain('Triage Overdue')
     expect(html).toContain('Triage Blocked')
     expect(html).toContain('Triage Hospital')
@@ -388,6 +394,7 @@ describe('FounderCovenantOperatorPanel', () => {
     )
 
     expect(html).toContain('class="founder-ledger-chip critical" title="Record ready: 1 founder · 1 weekly · 1 monthly"><span>Action slice</span><strong>1 weekly / 1 monthly</strong>')
+    expect(html).toContain('title="1 founder next need record review · 0 never · 1 stale · 0 fresh · Action slice: 1 weekly / 1 monthly · Record ready: 1 founder · 1 weekly · 1 monthly"')
   })
 
   test('keeps manual operator token fallback visible when Telegram auth is unavailable', () => {

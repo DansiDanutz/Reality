@@ -219,6 +219,26 @@ export default function FounderCovenantOperatorPanel({
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
     .join(' · ')
 
+  const queueSelectionTitle = (
+    filter: FounderCovenantOperatorQueueFilter,
+    sort: FounderCovenantOperatorQueueSort,
+  ): string => {
+    if (!queue) return ''
+    const filterSummary = founderCovenantOperatorQueueFilterSummary(queue, filter, sort)
+    const provenanceSummary = founderCovenantOperatorQueueReviewProvenanceSummary(queue, filter, sort)
+    const actionContextLabel = founderCovenantOperatorQueueSelectedActionContextLabel(queue, filter)
+    const actionContextTitle = filter === 'action_record'
+      ? founderCovenantOperatorQueueRecordReadySummary(queue)
+      : filter === 'action_monitor'
+        ? founderCovenantOperatorQueueMonitorSummary(queue)
+        : null
+    return [filterSummary, provenanceSummary, actionContextLabel && actionContextTitle
+      ? `Action slice: ${actionContextLabel} · ${actionContextTitle}`
+      : null]
+      .filter((value): value is string => typeof value === 'string' && value.length > 0)
+      .join(' · ')
+  }
+
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
     setQueueSort('coverage')
@@ -910,6 +930,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'action_evidence' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('action_evidence')}
+              title={queueSelectionTitle('action_evidence', queueSort)}
               type="button"
             >
               Next evidence
@@ -918,6 +939,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'action_blocked' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('action_blocked')}
+              title={queueSelectionTitle('action_blocked', queueSort)}
               type="button"
             >
               Next blocked
@@ -926,6 +948,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'action_overdue' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('action_overdue')}
+              title={queueSelectionTitle('action_overdue', queueSort)}
               type="button"
             >
               Next overdue
@@ -934,6 +957,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'action_record' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('action_record')}
+              title={queueSelectionTitle('action_record', queueSort)}
               type="button"
             >
               Next record
@@ -942,6 +966,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'action_monitor' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('action_monitor')}
+              title={queueSelectionTitle('action_monitor', queueSort)}
               type="button"
             >
               Next monitor
@@ -1032,6 +1057,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'never_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('never_reviewed')}
+              title={queueSelectionTitle('never_reviewed', 'coverage')}
               type="button"
             >
               Cleanup Never
@@ -1040,6 +1066,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'stale_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('stale_reviewed')}
+              title={queueSelectionTitle('stale_reviewed', 'coverage')}
               type="button"
             >
               Cleanup Stale
@@ -1064,6 +1091,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'weekly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('weekly_due')}
+              title={queueSelectionTitle('weekly_due', 'coverage')}
               type="button"
             >
               Review Weekly Due
@@ -1072,6 +1100,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'monthly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('monthly_due')}
+              title={queueSelectionTitle('monthly_due', 'coverage')}
               type="button"
             >
               Review Monthly Due
@@ -1080,6 +1109,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('fresh_reviewed')}
+              title={queueSelectionTitle('fresh_reviewed', 'coverage')}
               type="button"
             >
               Audit Fresh
@@ -1130,6 +1160,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'action_record' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('action_record')}
+              title={queueSelectionTitle('action_record', 'priority')}
               type="button"
             >
               Triage Next Record
@@ -1138,6 +1169,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'action_monitor' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('action_monitor')}
+              title={queueSelectionTitle('action_monitor', 'priority')}
               type="button"
             >
               Triage Next Monitor
