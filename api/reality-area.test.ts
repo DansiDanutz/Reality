@@ -3113,6 +3113,88 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('tickAreas reports failure reasons for invalid and unavailable area ticks', async () => {
+    vi.mocked(list).mockResolvedValueOnce({
+      blobs: [
+        { pathname: 'reality-areas/not-a-citizen.txt', downloadUrl: 'blob://bad-path' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: '' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://invalid-state' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://not-ok' },
+        { pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://throws' },
+      ],
+      hasMore: false,
+    })
+    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+      const url = String(input)
+      if (url === 'blob://invalid-state') {
+        return new Response(JSON.stringify({ areaId: 'wrong-area' }), { status: 200 })
+      }
+      if (url === 'blob://not-ok') return new Response('offline', { status: 503 })
+      throw new Error('network unavailable')
+    }))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '5' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        scanned: 5,
+        caughtUp: 0,
+        current: 0,
+        failed: 5,
+        results: [
+          {
+            citizenId: null,
+            areaId: null,
+            status: 'invalid',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'invalid_area_path',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'invalid',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'missing_download_url',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'invalid',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'invalid_area_state',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'unavailable',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'area_fetch_unavailable',
+          },
+          {
+            citizenId: CITIZEN_ID,
+            areaId: null,
+            status: 'unavailable',
+            updatedAt: null,
+            transactionsAdded: 0,
+            failureReason: 'area_fetch_failed',
+          },
+        ],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas accepts cron-style GET with bearer server-clock authority', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))

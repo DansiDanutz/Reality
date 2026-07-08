@@ -1069,6 +1069,12 @@ type ServerClockTickAreasError =
   | 'server_clock_unauthorized'
 
 type ServerClockAreaTickStatus = 'caught_up' | 'current' | 'invalid' | 'unavailable'
+type ServerClockAreaTickFailureReason =
+  | 'invalid_area_path'
+  | 'missing_download_url'
+  | 'area_fetch_unavailable'
+  | 'invalid_area_state'
+  | 'area_fetch_failed'
 
 interface ServerClockAreaTickResult {
   citizenId: string | null
@@ -1076,6 +1082,7 @@ interface ServerClockAreaTickResult {
   status: ServerClockAreaTickStatus
   updatedAt: string | null
   transactionsAdded: number
+  failureReason?: ServerClockAreaTickFailureReason
 }
 
 interface ServerClockTickAreasSummary {
@@ -4762,15 +4769,22 @@ async function tickServerClockAreaBlob(
   now: Date,
 ): Promise<ServerClockAreaTickResult> {
   const citizenId = citizenIdFromAreaStatePath(blob.pathname)
-  if (!citizenId || !blob.downloadUrl) {
-    return serverClockAreaTickResult(null, null, 'invalid', null, 0)
+  if (!citizenId) {
+    return serverClockAreaTickResult(null, null, 'invalid', null, 0, 'invalid_area_path')
+  }
+  if (!blob.downloadUrl) {
+    return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'missing_download_url')
   }
 
   try {
     const response = await fetch(blob.downloadUrl)
-    if (!response.ok) return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0)
+    if (!response.ok) {
+      return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0, 'area_fetch_unavailable')
+    }
     const value = await response.json() as unknown
-    if (!isFounderAreaState(value, citizenId)) return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0)
+    if (!isFounderAreaState(value, citizenId)) {
+      return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'invalid_area_state')
+    }
 
     const state = normalizeAreaCitizens(value)
     const previousUpdatedAt = state.updatedAt
@@ -4782,7 +4796,7 @@ async function tickServerClockAreaBlob(
       : 'caught_up'
     return serverClockAreaTickResult(citizenId, next.areaId, status, next.updatedAt, transactionsAdded)
   } catch {
-    return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0)
+    return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0, 'area_fetch_failed')
   }
 }
 
@@ -4792,8 +4806,16 @@ function serverClockAreaTickResult(
   status: ServerClockAreaTickStatus,
   updatedAt: string | null,
   transactionsAdded: number,
+  failureReason?: ServerClockAreaTickFailureReason,
 ): ServerClockAreaTickResult {
-  return { citizenId, areaId, status, updatedAt, transactionsAdded }
+  return {
+    citizenId,
+    areaId,
+    status,
+    updatedAt,
+    transactionsAdded,
+    ...(failureReason ? { failureReason } : {}),
+  }
 }
 
 function citizenIdFromAreaStatePath(pathname: string | undefined): string | null {
