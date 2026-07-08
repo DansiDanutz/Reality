@@ -3210,8 +3210,16 @@ function emptyBusinessKindRecord(): Record<FounderAreaBusinessKind, number> {
 }
 
 function totalCitizenDebt(citizen: FounderAreaCitizen): number {
-  const itemizedDebt = (citizen.debts ?? []).reduce((total, debt) => total + debt.amount, 0)
-  return roundMoney(Math.max(citizen.debt, itemizedDebt))
+  const itemizedDebt = payableCitizenDebts(citizen).reduce((total, debt) => total + debt.amount, 0)
+  return roundMoney(Math.max(payableMoney(citizen.debt), itemizedDebt))
+}
+
+function payableCitizenDebts(citizen: FounderAreaCitizen): FounderAreaDebt[] {
+  return (citizen.debts ?? []).filter((debt) => payableMoney(debt.amount) > 0)
+}
+
+function payableMoney(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0
 }
 
 function founderActivityScore(input: {
@@ -3398,7 +3406,7 @@ function areaHandoffDashboard(state: FounderAreaState): FounderAreaHandoffDashbo
     .filter((business) => business.createdBy === state.founderCitizenId)
     .length
   const inheritedBusinessCount = founderBusinesses.length - founderCreatedBusinessCount
-  const debts = founder?.debts ?? []
+  const debts = founder ? payableCitizenDebts(founder) : []
 
   return {
     enabled: false,
@@ -4590,7 +4598,7 @@ function founderCovenantReviewQueueEconomicExposure(
   const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
   const outstandingDebt = founder ? totalCitizenDebt(founder) : 0
-  const itemizedDebtCount = founder?.debts?.length ?? 0
+  const itemizedDebtCount = founder ? payableCitizenDebts(founder).length : 0
   const checkedAt = new Date(state.updatedAt)
   return {
     founderCash: roundMoney(founder?.money ?? 0),
