@@ -2555,13 +2555,28 @@ function isRealityFounderCovenantReviewQueueLatestReview(
 function parseRealityFounderCovenantReviewQueueItem(
   value: RealityFounderCovenantReviewQueueItem,
 ): RealityFounderCovenantReviewQueueItem | null {
-  if (value.latestReview === null) return value
+  const areaId = value.areaId.trim()
+  const areaLabel = value.areaLabel.trim()
+  const founderCitizenId = value.founderCitizenId.trim()
+  if (!areaId || !areaLabel || !founderCitizenId) return null
+
+  if (value.latestReview === null) {
+    return {
+      ...value,
+      areaId,
+      areaLabel,
+      founderCitizenId,
+    }
+  }
 
   const latestReview = parseRealityFounderCovenantReviewQueueLatestReview(value.latestReview)
   if (!latestReview) return null
 
   return {
     ...value,
+    areaId,
+    areaLabel,
+    founderCitizenId,
     latestReview,
   }
 }

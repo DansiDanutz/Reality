@@ -1548,6 +1548,9 @@ describe('Reality area client', () => {
       ...serverFounderCovenantReviewQueue(),
       items: [{
         ...serverFounderCovenantReviewQueue().items[0],
+        areaId: ' founder-area-0012 ',
+        areaLabel: ' Bucharest Founder Block ',
+        founderCitizenId: ' citizen-1 ',
         latestReview: {
           reviewedAt: '2026-07-06T08:00:00.000Z',
           reviewerId: ' telegram-operator:42424242 ',
@@ -1569,6 +1572,9 @@ describe('Reality area client', () => {
         ...serverFounderCovenantReviewQueue(),
         items: [{
           ...serverFounderCovenantReviewQueue().items[0],
+          areaId: 'founder-area-0012',
+          areaLabel: 'Bucharest Founder Block',
+          founderCitizenId: 'citizen-1',
           latestReview: {
             reviewedAt: '2026-07-06T08:00:00.000Z',
             reviewerId: 'telegram-operator:42424242',
@@ -1577,6 +1583,37 @@ describe('Reality area client', () => {
             evidenceOnly: true,
             automationEnabled: false,
           },
+        }],
+      },
+    })
+  })
+
+  test('normalizes founder covenant queue row identity fields without latest reviews', async () => {
+    const queue = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        areaId: ' founder-area-0012 ',
+        areaLabel: ' Bucharest Founder Block ',
+        founderCitizenId: ' citizen-1 ',
+        latestReview: null,
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      founderCovenantReviewQueue: {
+        ...serverFounderCovenantReviewQueue(),
+        items: [{
+          ...serverFounderCovenantReviewQueue().items[0],
+          areaId: 'founder-area-0012',
+          areaLabel: 'Bucharest Founder Block',
+          founderCitizenId: 'citizen-1',
+          latestReview: null,
         }],
       },
     })
@@ -1595,6 +1632,27 @@ describe('Reality area client', () => {
           evidenceOnly: true,
           automationEnabled: false,
         },
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank row identity fields', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        areaLabel: '   ',
       }],
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
