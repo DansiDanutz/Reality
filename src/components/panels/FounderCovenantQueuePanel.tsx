@@ -172,6 +172,8 @@ function queueSortLabel(sort: FounderCovenantOperatorQueueSort): string {
   switch (sort) {
     case 'priority':
       return 'Priority'
+    case 'coverage':
+      return 'Coverage'
     case 'founder':
       return 'Founder #'
   }

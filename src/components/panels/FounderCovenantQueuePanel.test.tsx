@@ -288,6 +288,84 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
   })
 
+  test('orders founder covenant review rows by coverage risk', () => {
+    const neverReviewed = founderQueueItem({
+      areaId: 'founder-area-0012',
+      founderCitizenId: 'founder-12',
+      founderNumber: 12,
+      reviewFreshness: 'never',
+      lastReviewAt: null,
+    })
+    const staleReviewed = founderQueueItem({
+      areaId: 'founder-area-0010',
+      areaLabel: 'Constanta Founder Block',
+      founderCitizenId: 'founder-10',
+      founderNumber: 10,
+      manualReviewRequired: false,
+      covenantStatus: 'active',
+      overdue: false,
+      reviewFreshness: 'stale',
+      lastReviewAt: '2026-06-20T04:00:00.000Z',
+      activityReview: {
+        ...neverReviewed.activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 90,
+      },
+      economicExposure: {
+        ...neverReviewed.economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
+    const freshReviewed = founderQueueItem({
+      areaId: 'founder-area-0011',
+      areaLabel: 'Iasi Founder Block',
+      founderCitizenId: 'founder-11',
+      founderNumber: 11,
+      manualReviewRequired: false,
+      covenantStatus: 'active',
+      overdue: false,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-06T03:30:00.000Z',
+      activityReview: {
+        ...neverReviewed.activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 95,
+      },
+      economicExposure: {
+        ...neverReviewed.economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
+
+    expect(founderCovenantOperatorQueueFilteredReviewRows({
+      items: [freshReviewed, staleReviewed, neverReviewed],
+    }, 'all', 'coverage').map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-10', 'founder-11'])
+  })
+
   test('filters queue rows for manual review, hospitalization, and scan anomalies', () => {
     const invalid = founderQueueItem({
       areaId: 'founder-area-0014',

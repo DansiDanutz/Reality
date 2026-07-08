@@ -41,6 +41,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('1 founder in current page · 1 never · 0 stale · 0 fresh')
     expect(html).toContain('All 1 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
+    expect(html).toContain('Coverage')
     expect(html).toContain('<span>Never</span><strong>1</strong>')
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
     expect(html).toContain('<span>Stale</span><strong>0</strong>')

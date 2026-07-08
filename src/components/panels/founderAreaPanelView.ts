@@ -110,7 +110,7 @@ export interface FounderCovenantScheduleItem {
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
 export type FounderCovenantOperatorQueueFilter = 'all' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
-export type FounderCovenantOperatorQueueSort = 'priority' | 'founder'
+export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder'
 
 export interface FounderCovenantOperatorQueueSliceTotals {
   founders: number
@@ -137,6 +137,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   title: string
   areaId: string
   founderCitizenId: string
+  reviewFreshness: RealityFounderCovenantReviewQueueItem['reviewFreshness']
   canRecordReview: boolean
   statusClass: FounderCovenantOperatorQueueStatusClass
   statusLabel: string
@@ -849,6 +850,7 @@ export function founderCovenantOperatorQueueReviewRows(
       title: founderCovenantOperatorQueueItemTitle(item),
       areaId: item.areaId,
       founderCitizenId: item.founderCitizenId,
+      reviewFreshness: item.reviewFreshness,
       canRecordReview: item.reviewQueue.recordReviewEnabled,
       statusClass: founderCovenantOperatorQueueItemStatusClass(item),
       statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
@@ -891,6 +893,13 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
 
   const rows = founderCovenantOperatorQueueReviewRows({ items })
   if (sort === 'priority') return rows
+  if (sort === 'coverage') {
+    return [...rows].sort((a, b) =>
+      founderCovenantOperatorQueueCoverageSortScore(b.reviewFreshness) - founderCovenantOperatorQueueCoverageSortScore(a.reviewFreshness) ||
+      b.priorityScore - a.priorityScore ||
+      a.title.localeCompare(b.title)
+    )
+  }
   return [...rows].sort((a, b) => a.title.localeCompare(b.title))
 }
 
@@ -979,6 +988,19 @@ function founderCovenantOperatorQueueFreshnessCoverageText(
   totals: Pick<FounderCovenantOperatorQueueSliceTotals, 'neverReviewed' | 'freshReviewed' | 'staleReviewed'>,
 ): string {
   return `${totals.neverReviewed} never · ${totals.staleReviewed} stale · ${totals.freshReviewed} fresh`
+}
+
+function founderCovenantOperatorQueueCoverageSortScore(
+  freshness: RealityFounderCovenantReviewQueueItem['reviewFreshness'],
+): number {
+  switch (freshness) {
+    case 'never':
+      return 3
+    case 'stale':
+      return 2
+    case 'fresh':
+      return 1
+  }
 }
 
 export function founderCovenantOperatorQueueLatestReviewText(

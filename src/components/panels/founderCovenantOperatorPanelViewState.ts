@@ -56,5 +56,5 @@ function isQueueFilter(value: string | undefined): value is FounderCovenantOpera
 }
 
 function isQueueSort(value: string | undefined): value is FounderCovenantOperatorQueueSort {
-  return value === 'priority' || value === 'founder'
+  return value === 'priority' || value === 'coverage' || value === 'founder'
 }

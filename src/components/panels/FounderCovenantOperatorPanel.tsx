@@ -421,6 +421,14 @@ export default function FounderCovenantOperatorPanel({
             <button
               className="btn small ghost"
               disabled={loading}
+              onClick={() => setQueueSort('coverage')}
+              type="button"
+            >
+              Coverage
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
               onClick={() => setQueueSort('founder')}
               type="button"
             >
