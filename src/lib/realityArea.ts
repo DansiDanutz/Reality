@@ -373,6 +373,8 @@ export interface RealityAreaFirstBuildRecommendation {
   buildCost: number
   cashShortfall: number
   currentDemand: number
+  simDemand: number
+  realDemand: number
   currentSupply: number
   licenseSlots: number
   licensesRemaining: number
@@ -1769,6 +1771,8 @@ function mergeFirstBuildRecommendation(
     buildCost: recommendation.buildCost,
     cashShortfall: recommendation.cashShortfall,
     currentDemand: recommendation.currentDemand,
+    simDemand: recommendation.simDemand,
+    realDemand: recommendation.realDemand,
     currentSupply: recommendation.currentSupply,
     licenseSlots: recommendation.licenseSlots,
     licensesRemaining: recommendation.licensesRemaining,
@@ -2949,6 +2953,8 @@ function isRealityAreaFirstBuildRecommendation(value: unknown): value is Reality
     typeof value.buildCost === 'number' &&
     typeof value.cashShortfall === 'number' &&
     typeof value.currentDemand === 'number' &&
+    typeof value.simDemand === 'number' &&
+    typeof value.realDemand === 'number' &&
     typeof value.currentSupply === 'number' &&
     typeof value.licenseSlots === 'number' &&
     typeof value.licensesRemaining === 'number' &&

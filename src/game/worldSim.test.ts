@@ -3870,9 +3870,15 @@ describe('advanceWorldArea — local real-time economy', () => {
 
   test('first-build guidance includes canonical shop costs, license room, affordability, and payback', () => {
     const start = claimedArea({
-      citizens: Array.from({ length: 12 }, (_, i) => sim(`hungry-${i}`, {
-        needs: fullNeeds({ hunger: 45 }),
-      })),
+      citizens: [
+        ...Array.from({ length: 11 }, (_, i) => sim(`hungry-${i}`, {
+          needs: fullNeeds({ hunger: 45 }),
+        })),
+        sim('real-hungry', {
+          kind: 'real',
+          needs: fullNeeds({ hunger: 45 }),
+        }),
+      ],
     })
     start.citizens.find((citizen) => citizen.id === 'founder')!.money = 20_000
 
@@ -3893,6 +3899,8 @@ describe('advanceWorldArea — local real-time economy', () => {
       buildCost: DEFAULT_BUSINESS_BLUEPRINTS.food.buildCost,
       cashShortfall: 0,
       currentDemand: 12,
+      simDemand: 11,
+      realDemand: 1,
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,
@@ -3979,6 +3987,8 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(quietWater).toMatchObject({
       action: 'wait_for_demand',
       currentDemand: 0,
+      simDemand: 0,
+      realDemand: 0,
       canBuildNow: true,
       clientPayload: {
         type: 'buildBusiness',
