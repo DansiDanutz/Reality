@@ -486,6 +486,31 @@ describe('planLifeRoadmap', () => {
     })
   })
 
+  test('carries build ETA detail on each roadmap day', () => {
+    const project = createConstructionProject('starter-house', 1, 1, 1)
+    const readyForHelperBlock = {
+      ...project,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+      laborDoneMinutes: project.laborRequiredMinutes - 180,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 10,
+      money: 1_000,
+      jobId: 'barista',
+      shiftsWorked: 5,
+      educationActions: 1,
+      constructionProjects: [readyForHelperBlock],
+    }), 1)
+
+    expect(roadmap.days[0]).toMatchObject({
+      primary: { id: 'hire-house-worker-hour' },
+      buildEta: 'Build ETA: 3d solo · 1d with helper · finish day 10 · $32/helper day · hire today',
+      interiorEta: null,
+    })
+  })
+
   test('spends roadmap community helper credit once across repeated house helper hires', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const laborRequiredMinutes = project.laborRequiredMinutes + 300
@@ -756,6 +781,35 @@ describe('planLifeRoadmap', () => {
       kind: 'business',
       level: project.levelTo,
       incomePerDay: project.incomeAfter,
+    })
+  })
+
+  test('carries community-backed interior ETA detail on roadmap days', () => {
+    const asset = business()
+    const project = createBusinessDevelopmentProject(asset, 1)
+    if (!project) throw new Error('business development fixture failed')
+    const readyForHelperBlock = {
+      ...project,
+      deposited: freshResources(project.required),
+      budgetPaid: true,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      lifeDay: 20,
+      money: 124,
+      jobId: 'barista',
+      shiftsWorked: 10,
+      educationActions: 1,
+      communityRespect: 3,
+      communityActionsThisWeek: 1,
+      assets: [home(), asset],
+      businessDevelopmentProjects: [readyForHelperBlock],
+    }), 1)
+
+    expect(roadmap.days[0]).toMatchObject({
+      primary: { id: 'hire-business-worker-hour' },
+      buildEta: null,
+      interiorEta: 'Interior ETA: 3d solo · 1d with helper · finish day 20 · $24/helper day · community -$8 · hire today',
     })
   })
 

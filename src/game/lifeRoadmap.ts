@@ -43,6 +43,7 @@ import {
   type LifeValue,
 } from './lifeLadder'
 import { communityAdvantageOf, type MillionaireStage } from './millionairePath'
+import { buildEtaSummary, interiorEtaSummary } from './lifeForecastSummary'
 
 export interface LifeRoadmapDay {
   lifeDay: number
@@ -54,6 +55,8 @@ export interface LifeRoadmapDay {
   millionaireGap: number
   daysToMillionaire: number | null
   netWorth: number
+  buildEta: string | null
+  interiorEta: string | null
 }
 
 export interface LifeRoadmap {
@@ -254,6 +257,8 @@ function roadmapDay(plan: LifePlan): LifeRoadmapDay {
     millionaireGap: plan.millionairePath.millionaireGap,
     daysToMillionaire: plan.millionairePath.daysToMillionaire,
     netWorth: plan.millionairePath.netWorth,
+    buildEta: buildEtaSummary(plan.constructionForecast),
+    interiorEta: interiorEtaSummary(plan.businessDevelopmentForecast),
   }
 }
 
