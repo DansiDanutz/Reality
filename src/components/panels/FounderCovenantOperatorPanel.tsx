@@ -29,6 +29,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueManualReviewSummary,
   founderCovenantOperatorQueueSignalSummary,
   founderCovenantOperatorQueueProbationRiskSummary,
   founderCovenantOperatorQueueReplacementRiskSummary,
@@ -1264,6 +1265,19 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Next</span>
               <strong>{founderCovenantOperatorQueuePrimaryWorkloadSummary(queue)}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.items.some((item) => (item.manualReviewRequired || item.covenantStatus === 'manual_review') && item.reviewFreshness === 'never')
+                  ? 'critical'
+                  : queue.items.some((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review')
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueManualReviewSummary(queue)}
+            >
+              <span>Manual review</span>
+              <strong>{queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
