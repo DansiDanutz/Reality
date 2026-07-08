@@ -349,6 +349,7 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     warningDrafts: number
     manualReviewDrafts: number
     overdue: number
+    blockedApprovalFounders: number
     totalFounderCash: number
     totalOutstandingDebt: number
     totalBusinessCash: number
@@ -937,6 +938,7 @@ function founderCovenantReviewQueueTotals(
     manualReviewDrafts: items.reduce((total, item) =>
       total + item.pendingNotificationDrafts.filter((draft) => draft.kind === 'manual_review_required').length, 0),
     overdue: items.filter((item) => item.overdue).length,
+    blockedApprovalFounders: items.filter((item) => item.blockerCount > 0).length,
     totalFounderCash: roundServerMoney(items.reduce((total, item) => total + item.economicExposure.founderCash, 0)),
     totalOutstandingDebt: roundServerMoney(items.reduce((total, item) =>
       total + item.economicExposure.outstandingDebt, 0)),

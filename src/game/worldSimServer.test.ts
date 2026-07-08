@@ -1472,6 +1472,7 @@ describe('runWorldServerCommand', () => {
       monitorFounders: 0,
       freshReviewedActiveFounders: 0,
       overdueCleanupFounders: 0,
+      blockedApprovalFounders: 2,
       probationRiskFounders: 2,
       replacementRiskFounders: 1,
       neverReviewed: 2,

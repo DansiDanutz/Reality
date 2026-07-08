@@ -1438,6 +1438,12 @@ describe('FounderCovenantQueuePanel', () => {
     })
     const queueWithCadence = {
       ...queueWithCoverage,
+      totals: {
+        ...queueWithCoverage.totals,
+        recordReadyFounders: 2,
+        recordReadyWeekly: 2,
+        recordReadyMonthly: 1,
+      },
       items: [...queueWithCoverage.items, weeklyDue, monthlyDue],
     }
 
@@ -1716,8 +1722,8 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       signalWarningCount: 1,
       signalCriticalCount: 1,
       signalFlaggedFounders: 1,
-      evidenceQueuedFounders: 0,
-      evidenceRequiredGaps: 0,
+      evidenceQueuedFounders: 1,
+      evidenceRequiredGaps: 3,
       recordReadyFounders: 0,
       recordReadyWeekly: 0,
       recordReadyMonthly: 0,
@@ -1740,6 +1746,7 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       warningDrafts: 0,
       manualReviewDrafts: 1,
       overdue: 1,
+      blockedApprovalFounders: 1,
       totalFounderCash: 399_500,
       totalOutstandingDebt: 350,
       totalBusinessCash: 70,

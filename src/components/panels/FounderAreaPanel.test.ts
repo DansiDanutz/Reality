@@ -608,6 +608,7 @@ describe('FounderAreaPanel covenant presenters', () => {
         warningDrafts: 0,
         manualReviewDrafts: 1,
         overdue: 1,
+        blockedApprovalFounders: 1,
         totalFounderCash: 399_000,
         totalOutstandingDebt: 350,
         totalBusinessCash: 25,

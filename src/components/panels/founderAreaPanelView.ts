@@ -829,19 +829,33 @@ export function founderCovenantOperatorQueuePageSummary(
 }
 
 export function founderCovenantOperatorQueueWorkloadSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceQueuedFounders' | 'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'pendingApprovals' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
-  const evidenceFounders = queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0).length
-  const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
-  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const approvalRequests = queue.items.reduce((sum, item) => sum + item.reviewReadiness.approvalRequestCount, 0)
-  const recordReadyFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
-  ).length
-  const overdueCleanupFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
-  ).length
-
+  const evidenceFounders = queue.totals
+    ? queue.totals.evidenceQueuedFounders
+    : queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0).length
+  const evidenceGaps = queue.totals
+    ? queue.totals.evidenceRequiredGaps
+    : queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
+  const blockedFounders = queue.totals
+    ? queue.totals.blockedApprovalFounders
+    : queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const approvalRequests = queue.totals
+    ? queue.totals.pendingApprovals
+    : queue.items.reduce((sum, item) => sum + item.reviewReadiness.approvalRequestCount, 0)
+  const recordReadyFounders = queue.totals
+    ? queue.totals.recordReadyFounders
+    : queue.items.filter((item) =>
+      founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
+    ).length
+  const overdueCleanupFounders = queue.totals
+    ? queue.totals.overdueCleanupFounders
+    : queue.items.filter((item) =>
+      founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+    ).length
   return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${recordReadyFounders} record ready · ${overdueCleanupFounders} overdue cleanup`
 }
 
@@ -934,20 +948,32 @@ export function founderCovenantOperatorQueueEscalationSummary(
 }
 
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'blockedApprovalFounders' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
-  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const recordReadyFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
-  ).length
-  const overdueCleanupFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
-  ).length
+  const blockedFounders = queue.totals
+    ? queue.totals.blockedApprovalFounders
+    : queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const recordReadyFounders = queue.totals
+    ? queue.totals.recordReadyFounders
+    : queue.items.filter((item) =>
+      founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
+    ).length
+  const overdueCleanupFounders = queue.totals
+    ? queue.totals.overdueCleanupFounders
+    : queue.items.filter((item) =>
+      founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+    ).length
   return `Workflow split: ${blockedFounders} blocked approvals · ${recordReadyFounders} record ready · ${overdueCleanupFounders} overdue cleanup`
 }
 
 export function founderCovenantOperatorQueueFocusSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceQueuedFounders' | 'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'pendingApprovals' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
   return `Focus: ${founderCovenantOperatorQueueWorkloadSummary(queue)} · ${founderCovenantOperatorQueueWorkflowSplitSummary(queue)} · ${founderCovenantOperatorQueueCadenceReadySummary(queue)}`
 }
@@ -1066,12 +1092,23 @@ export function founderCovenantOperatorQueueCadenceReadySummary(
 }
 
 export function founderCovenantOperatorQueuePrimaryWorkloadText(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
-  const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
-  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))).length
-  const overdueFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
+  const evidenceGaps = queue.totals
+    ? queue.totals.evidenceRequiredGaps
+    : queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
+  const blockedFounders = queue.totals
+    ? queue.totals.blockedApprovalFounders
+    : queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const recordFounders = queue.totals
+    ? queue.totals.recordReadyFounders
+    : queue.items.filter((item) => founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))).length
+  const overdueFounders = queue.totals
+    ? queue.totals.overdueCleanupFounders
+    : queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
 
   if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0 && recordFounders === 0) {
     return 'Primary workload: monitor'
@@ -1089,12 +1126,23 @@ export function founderCovenantOperatorQueuePrimaryWorkloadText(
 }
 
 export function founderCovenantOperatorQueueRecommendedActionText(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
-  const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
-  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
-  const recordFounders = queue.items.filter((item) => founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))).length
-  const overdueFounders = queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
+  const evidenceGaps = queue.totals
+    ? queue.totals.evidenceRequiredGaps
+    : queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
+  const blockedFounders = queue.totals
+    ? queue.totals.blockedApprovalFounders
+    : queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const recordFounders = queue.totals
+    ? queue.totals.recordReadyFounders
+    : queue.items.filter((item) => founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))).length
+  const overdueFounders = queue.totals
+    ? queue.totals.overdueCleanupFounders
+    : queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review').length
 
   if (evidenceGaps === 0 && blockedFounders === 0 && overdueFounders === 0 && recordFounders === 0) {
     return 'Recommended next: monitor current founders'
