@@ -1334,16 +1334,16 @@ export default function FounderCovenantOperatorPanel({
             </span>
             <span
               className={`founder-ledger-chip ${
-                queue.items.some((item) => item.signalCounts.critical > 0)
+                queue.totals.signalCriticalCount > 0
                   ? 'critical'
-                  : queue.items.some((item) => item.signalCounts.warning > 0)
+                  : queue.totals.signalWarningCount > 0
                     ? 'warning'
                     : 'stable'
               }`}
               title={founderCovenantOperatorQueueSignalSummary(queue)}
             >
               <span>Signals</span>
-              <strong>{queue.items.reduce((sum, item) => sum + item.signalCounts.critical + item.signalCounts.warning, 0)}</strong>
+              <strong>{queue.totals.signalCriticalCount + queue.totals.signalWarningCount}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${cadenceReady && cadenceReady.weekly > 0 ? 'warning' : 'stable'}`}

@@ -275,6 +275,9 @@ describe('FounderCovenantOperatorPanel', () => {
             manualReviewNeverReviewed: 0,
             manualReviewFreshReviewed: 0,
             manualReviewStaleReviewed: 0,
+            signalCriticalCount: 0,
+            signalWarningCount: 1,
+            signalFlaggedFounders: 1,
             probationRiskFounders: 0,
             replacementRiskFounders: 0,
             weeklyDue: 2,
@@ -386,7 +389,7 @@ describe('FounderCovenantOperatorPanel', () => {
       items: operatorQueue().items,
     })).toBe('Monitor: 0 founders · 0 fresh · 0 active')
     expect(founderCovenantOperatorQueueSignalSummary({
-      items: operatorQueue().items,
+      totals: operatorQueue().totals,
     })).toBe('Signals: 1 critical · 1 warning · 1 founder flagged')
     expect(founderCovenantOperatorQueueManualReviewSummary({
       totals: operatorQueue().totals,
@@ -699,6 +702,9 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       manualReviewNeverReviewed: 1,
       manualReviewFreshReviewed: 0,
       manualReviewStaleReviewed: 0,
+      signalWarningCount: 1,
+      signalCriticalCount: 1,
+      signalFlaggedFounders: 1,
       probationRiskFounders: 1,
       replacementRiskFounders: 1,
       neverReviewed: 1,

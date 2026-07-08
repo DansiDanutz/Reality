@@ -322,6 +322,9 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     manualReviewNeverReviewed: number
     manualReviewFreshReviewed: number
     manualReviewStaleReviewed: number
+    signalWarningCount: number
+    signalCriticalCount: number
+    signalFlaggedFounders: number
     probationRiskFounders: number
     replacementRiskFounders: number
     neverReviewed: number
@@ -886,6 +889,9 @@ function founderCovenantReviewQueueTotals(
     manualReviewNeverReviewed: items.filter((item) => item.manualReviewRequired && item.lastReviewAt === null).length,
     manualReviewFreshReviewed: items.filter((item) => item.manualReviewRequired && item.reviewFreshness === 'fresh').length,
     manualReviewStaleReviewed: items.filter((item) => item.manualReviewRequired && item.reviewFreshness === 'stale').length,
+    signalWarningCount: items.reduce((sum, item) => sum + item.signalCounts.warning, 0),
+    signalCriticalCount: items.reduce((sum, item) => sum + item.signalCounts.critical, 0),
+    signalFlaggedFounders: items.filter((item) => item.signalCounts.warning > 0 || item.signalCounts.critical > 0).length,
     probationRiskFounders: items.filter((item) =>
       item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
     ).length,
