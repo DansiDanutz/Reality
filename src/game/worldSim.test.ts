@@ -1890,6 +1890,18 @@ describe('advanceWorldArea — local real-time economy', () => {
       amount: 0,
     })).toMatchObject({ ok: false, error: 'invalid_debt_payment' })
 
+    const subCent = applyWorldIntent(start, {
+      type: 'repayDebt',
+      actorCitizenId: 'c1',
+      debtId: 'debt1',
+      amount: 1.001,
+    })
+    expect(subCent).toMatchObject({ ok: false, error: 'invalid_debt_payment' })
+    expect(subCent.area.citizens.find((citizen) => citizen.id === 'c1')!.money).toBe(10)
+    expect(subCent.area.citizens.find((citizen) => citizen.id === 'c1')!.debt).toBe(75)
+    expect(subCent.area.businesses[0].cash).toBe(50)
+    expect(subCent.area.transactions).toEqual([])
+
     expect(applyWorldIntent(start, {
       type: 'repayDebt',
       actorCitizenId: 'c1',
