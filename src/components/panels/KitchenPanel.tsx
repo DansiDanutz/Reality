@@ -11,6 +11,15 @@ const NEED_LABEL: Record<keyof Needs, string> = {
   fun: 'fun',
 }
 
+function missingSummary(recipeName: string, missing: { id: string; need: number; have: number }[]): string {
+  if (missing.length === 0) return 'Ready to cook'
+  const summary = missing
+    .slice(0, 2)
+    .map((ingredient) => `${itemById(ingredient.id)?.name ?? ingredient.id} ×${ingredient.need - ingredient.have}`)
+    .join(', ')
+  return `${recipeName}: gather ${summary}${missing.length > 2 ? '…' : ''}`
+}
+
 /** The Kitchen: turn raw groceries into meals. The payoff for owning a kitchen. */
 export default function KitchenPanel() {
   const inventory = useGame((s) => s.inventory)
@@ -39,9 +48,9 @@ export default function KitchenPanel() {
     <section className="panel" aria-label="Kitchen">
       <h2 className="panel-title">Kitchen</h2>
       <p className="panel-sub">
-        Buy raw groceries, cook them into meals. Cheaper per bite than eating out — and every
-        recipe adds fun or energy on top. Cooking takes {COOK_MINUTES} real minutes and needs a
-        kitchen: any home, the Full Kitchen, or a $40 Hot Plate.
+        Buy raw groceries, cook them into meals, and keep a running pantry. Cheaper per bite than
+        eating out — and every recipe adds fun or energy on top. Cooking takes {COOK_MINUTES}
+        real minutes and needs a kitchen: any home, the Full Kitchen, or a $40 Hot Plate.
       </p>
 
       {!kitchen && (
@@ -88,6 +97,7 @@ export default function KitchenPanel() {
                     )
                   })}
                 </span>
+                <span className="item-desc mono">{missingSummary(recipe.name, missing)}</span>
                 <span className="recipe-effects">
                   {Object.entries(recipe.effects).map(([k, v]) => (
                     <span key={k} className="chip ok">+{v} {NEED_LABEL[k as keyof Needs]}</span>
