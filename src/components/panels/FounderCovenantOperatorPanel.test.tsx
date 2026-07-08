@@ -46,6 +46,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Restart scan')
     expect(html).toContain('Next page')
     expect(html).toContain('Filter: All')
+    expect(html).toContain('1 founder in current page')
     expect(html).toContain('>Manual<')
     expect(html).toContain('>Hospital<')
     expect(html).toContain('>Scan<')

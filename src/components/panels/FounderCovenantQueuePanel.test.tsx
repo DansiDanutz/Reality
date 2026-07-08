@@ -17,6 +17,7 @@ import {
   founderCovenantOperatorQueueApprovalTimelineText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueEvidenceReasonText,
+  founderCovenantOperatorQueueFilterSummary,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueLatestReviewAuthorityText,
   founderCovenantOperatorQueueLatestReviewText,
@@ -73,6 +74,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Scan anomalies: none')
     expect(html).toContain('aria-label="Founder operator queue filters"')
     expect(html).toContain('Filter: All')
+    expect(html).toContain('2 founders in current page')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -493,12 +495,22 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilteredReviewRows(founderFilterQueue(), 'scan_anomaly').map(founderId)).toEqual([
       'founder-14',
     ])
+    expect(founderCovenantOperatorQueueFilterSummary(founderFilterQueue(), 'manual_review')).toBe(
+      '1 founder need manual review',
+    )
+    expect(founderCovenantOperatorQueueFilterSummary(founderFilterQueue(), 'hospitalized')).toBe(
+      '1 founder hospitalized',
+    )
+    expect(founderCovenantOperatorQueueFilterSummary(founderFilterQueue(), 'scan_anomaly')).toBe(
+      '1 founder with scan anomalies',
+    )
   })
 
   test('renders filtered empty-state messaging when no founders match', () => {
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel filter="scan_anomaly" queue={founderQueue()} />)
 
     expect(html).toContain('Filter: Scan')
+    expect(html).toContain('0 founders with scan anomalies')
     expect(html).toContain('No founders match this filter.')
   })
 })

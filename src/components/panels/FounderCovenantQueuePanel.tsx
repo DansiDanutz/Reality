@@ -2,6 +2,7 @@ import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/reali
 import {
   type FounderCovenantOperatorQueueFilter,
   type FounderCovenantOperatorQueueReviewRow,
+  founderCovenantOperatorQueueFilterSummary,
   founderCovenantOperatorQueueFilteredReviewRows,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueResultAnomalyText,
@@ -64,6 +65,7 @@ export function FounderCovenantQueuePanel({
           </button>
         ))}
         <span className="item-desc">Filter: {FILTER_OPTIONS.find((option) => option.value === filter)?.label ?? 'All'}</span>
+        <span className="item-desc">{founderCovenantOperatorQueueFilterSummary(queue, filter)}</span>
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip

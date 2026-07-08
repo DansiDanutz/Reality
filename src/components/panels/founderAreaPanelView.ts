@@ -1448,6 +1448,23 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
   return founderCovenantOperatorQueueReviewRows({ items })
 }
 
+export function founderCovenantOperatorQueueFilterSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+): string {
+  const count = founderCovenantOperatorQueueFilteredReviewRows(queue, filter).length
+  switch (filter) {
+    case 'all':
+      return `${count} founder${count === 1 ? '' : 's'} in current page`
+    case 'manual_review':
+      return `${count} founder${count === 1 ? '' : 's'} need manual review`
+    case 'hospitalized':
+      return `${count} founder${count === 1 ? '' : 's'} hospitalized`
+    case 'scan_anomaly':
+      return `${count} founder${count === 1 ? '' : 's'} with scan anomalies`
+  }
+}
+
 export function founderCovenantOperatorQueueLatestReviewText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
 ): string | null {
