@@ -497,6 +497,7 @@ export interface RealityAreaGrowthDashboard {
 }
 
 export type RealityAreaSettlementBlocker =
+  | 'telegram_identity_required'
   | 'ton_connect_disabled'
   | 'deposits_disabled'
   | 'withdrawals_disabled'
@@ -527,6 +528,7 @@ export type RealityAreaPayoutReadinessBlocker =
   | 'game_credits_only'
   | 'payouts_disabled'
   | 'withdrawals_disabled'
+  | 'telegram_identity_required'
   | 'kyc_disabled'
   | 'tax_profile_disabled'
   | 'manual_payout_review_required'
@@ -1991,7 +1993,8 @@ function isRealityAreaSettlementDashboard(value: unknown): value is RealityAreaS
 }
 
 function isRealityAreaSettlementBlocker(value: unknown): value is RealityAreaSettlementBlocker {
-  return value === 'ton_connect_disabled' ||
+  return value === 'telegram_identity_required' ||
+    value === 'ton_connect_disabled' ||
     value === 'deposits_disabled' ||
     value === 'withdrawals_disabled' ||
     value === 'land_reservations_disabled' ||
@@ -2025,6 +2028,7 @@ function isRealityAreaPayoutReadinessBlocker(value: unknown): value is RealityAr
   return value === 'game_credits_only' ||
     value === 'payouts_disabled' ||
     value === 'withdrawals_disabled' ||
+    value === 'telegram_identity_required' ||
     value === 'kyc_disabled' ||
     value === 'tax_profile_disabled' ||
     value === 'manual_payout_review_required' ||
