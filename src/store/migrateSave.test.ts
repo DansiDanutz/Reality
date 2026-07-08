@@ -61,6 +61,8 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.lastIllnessRollAt).toBe(0)
     // v5: streak + lucky moments
     expect(out.streakLength).toBe(0)
+    // v7: per-item use cooldown clock
+    expect(out.itemLastUsedAt).toEqual({})
     expect(out.streakLastClaimDay).toBe(0)
     expect(out.streakBest).toBe(0)
     expect(out.luckyMomentsSeen).toBe(0)
@@ -197,6 +199,18 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(6)
+    expect(SAVE_VERSION).toBe(7)
+  })
+})
+
+describe('migrateSave — v7 itemLastUsedAt', () => {
+  test('a v6 save without itemLastUsedAt gets an empty map', () => {
+    const out = migrateSave({ ...v1Save })
+    expect(out.itemLastUsedAt).toEqual({})
+  })
+
+  test('an existing itemLastUsedAt map is preserved, not reset', () => {
+    const out = migrateSave({ ...v1Save, itemLastUsedAt: { kitchen: 12345 } })
+    expect(out.itemLastUsedAt).toEqual({ kitchen: 12345 })
   })
 })

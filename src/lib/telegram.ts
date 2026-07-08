@@ -92,12 +92,21 @@ export function telegramDisplayName(user: Pick<TelegramMiniAppUser, 'firstName' 
 
 function isVerifiedTelegramSession(value: Record<string, unknown>): value is Record<string, unknown> & VerifiedTelegramMiniAppSession & { ok: true } {
   const user = value.telegramUser
-  return typeof value.realityAccountId === 'string' &&
-    value.realityAccountId.startsWith('telegram:') &&
-    Number.isFinite(value.authDate) &&
-    isRecord(user) &&
-    typeof user.id === 'string' &&
-    typeof user.firstName === 'string'
+  const { authDate } = value
+  if (!isRecord(user)) return false
+  if (!isNonEmptyText(user.id) || !isNonEmptyText(user.firstName)) return false
+  return value.realityAccountId === `telegram:${user.id}` &&
+    typeof authDate === 'number' &&
+    Number.isSafeInteger(authDate) &&
+    authDate >= 0 &&
+    (user.username === undefined || isNonEmptyText(user.username)) &&
+    (user.lastName === undefined || isNonEmptyText(user.lastName)) &&
+    (user.languageCode === undefined || isNonEmptyText(user.languageCode)) &&
+    (user.photoUrl === undefined || isNonEmptyText(user.photoUrl))
+}
+
+function isNonEmptyText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
