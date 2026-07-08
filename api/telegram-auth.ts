@@ -30,6 +30,7 @@ export type VerifyTelegramMiniAppInitDataError =
   | 'auth_date_from_future'
   | 'missing_user'
   | 'invalid_user'
+  | 'bot_user'
 
 export type VerifyTelegramMiniAppInitDataResult =
   | {
@@ -87,6 +88,7 @@ export function verifyTelegramMiniAppInitData(
   if (!rawUser) return { ok: false, error: 'missing_user' }
   const user = parseTelegramMiniAppUser(rawUser)
   if (!user) return { ok: false, error: 'invalid_user' }
+  if (user.isBot) return { ok: false, error: 'bot_user' }
 
   return {
     ok: true,
@@ -205,7 +207,7 @@ function parseTelegramMiniAppUser(rawUser: string): TelegramMiniAppUser | null {
   if (!isRecord(value)) return null
   const id = value.id
   const firstName = optionalText(value.first_name)
-  if (!Number.isSafeInteger(id) || id < 0 || !firstName) return null
+  if (!Number.isSafeInteger(id) || id <= 0 || !firstName) return null
 
   return {
     id: String(id),
@@ -303,7 +305,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
   } catch {
-    res.status(500).json({ ok: false, error: 'Telegram identity is briefly unavailable.' })
+    res.status(503).json({
+      ok: false,
+      error: 'Telegram identity is briefly unavailable.',
+      code: 'telegram_identity_unavailable',
+    })
     return
   }
 
