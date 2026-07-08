@@ -1180,6 +1180,7 @@ interface FounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: FounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: FounderAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -4540,6 +4541,7 @@ function founderCovenantReviewQueueItem(
     checkedAt: review.activityReview.checkedAt,
     lastReviewAt: review.reviewSchedule.lastReviewAt,
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
+    reviewSchedule: founderCovenantReviewScheduleSnapshot(review.reviewSchedule),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
     overdue: review.reviewSchedule.overdue,
@@ -4616,6 +4618,15 @@ function founderCovenantReviewQueueLatestReview(
     actionKind: 'record_review',
     summary: review.summary,
     evidenceOnly: true,
+    automationEnabled: false,
+  }
+}
+
+function founderCovenantReviewScheduleSnapshot(
+  schedule: FounderAreaCovenantReviewSchedule,
+): FounderAreaCovenantReviewSchedule {
+  return {
+    ...schedule,
     automationEnabled: false,
   }
 }
