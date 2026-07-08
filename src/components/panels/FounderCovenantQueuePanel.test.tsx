@@ -18,6 +18,7 @@ import {
   founderCovenantOperatorQueueChecklistText,
   founderCovenantOperatorQueueEvidenceInputText,
   founderCovenantOperatorQueueManualActionText,
+  founderCovenantOperatorQueueNotificationDraftGateText,
   founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageText,
@@ -54,6 +55,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Approval blockers: approval workflow, Telegram delivery')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
+    expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
     expect(html).toContain('manual only')
@@ -155,6 +157,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueApprovalBlockerText(manual)).toBe('approval workflow, Telegram delivery')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
+    expect(founderCovenantOperatorQueueNotificationDraftGateText(manual)).toBe(
+      'Main founder approval required / Delivery disabled',
+    )
     expect(founderCovenantOperatorQueueLatestReviewText({
       latestReview: {
         reviewedAt: '2026-07-06T08:00:00.000Z',
@@ -170,6 +175,7 @@ describe('FounderCovenantQueuePanel', () => {
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
       reviewQueueStatusText: 'Evidence only',
       approvalBlockerText: 'approval workflow, Telegram delivery',
+      notificationDraftGateText: 'Main founder approval required / Delivery disabled',
     })
   })
 
