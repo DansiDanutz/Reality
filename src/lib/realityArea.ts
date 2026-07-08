@@ -819,6 +819,7 @@ export interface RealityFounderCovenantReviewQueueLatestReview {
   reviewerId: string
   actionKind: 'record_review'
   summary: string
+  authorityGate: RealityAreaCovenantAuthorityGate
   evidenceOnly: true
   automationEnabled: false
 }
@@ -2319,6 +2320,7 @@ function isRealityFounderCovenantReviewQueueLatestReview(
     typeof value.reviewerId === 'string' &&
     value.actionKind === 'record_review' &&
     typeof value.summary === 'string' &&
+    isRealityAreaCovenantEvidenceAuthorityGate(value.authorityGate) &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
 }

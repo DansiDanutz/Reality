@@ -1496,6 +1496,11 @@ describe('runWorldServerCommand', () => {
         reviewedAt: reviewAt,
         reviewerId: 'reviewer-1',
         actionKind: 'record_review',
+        authorityGate: expect.objectContaining({
+          requiredRole: 'area_reviewer',
+          status: 'evidence_only',
+          executionEnabled: false,
+        }),
         evidenceOnly: true,
         automationEnabled: false,
       },

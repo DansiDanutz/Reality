@@ -125,6 +125,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   summary: string
   dateSummary: string
   latestReviewText: string | null
+  latestReviewAuthorityText: string | null
   reviewQueueSummaryText: string
   reviewQueueDetailText: string
   reviewQueueStatusText: string
@@ -1319,6 +1320,7 @@ export function founderCovenantOperatorQueueReviewRows(
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
+      latestReviewAuthorityText: founderCovenantOperatorQueueLatestReviewAuthorityText(item),
       reviewQueueSummaryText: founderCovenantReviewQueueSummary(item.reviewQueue),
       reviewQueueDetailText: founderCovenantReviewQueueDetailText(item.reviewQueue),
       reviewQueueStatusText: founderCovenantReviewQueueStatusLabel(item.reviewQueue),
@@ -1349,6 +1351,13 @@ export function founderCovenantOperatorQueueLatestReviewText(
   const action = founderCovenantManualActionKindLabel(item.latestReview.actionKind)
   const mode = item.latestReview.evidenceOnly && !item.latestReview.automationEnabled ? 'Evidence only' : 'Automation'
   return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${action} · ${mode} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
+}
+
+export function founderCovenantOperatorQueueLatestReviewAuthorityText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
+): string | null {
+  if (!item.latestReview) return null
+  return founderCovenantLatestReviewStatusLabel(item.latestReview)
 }
 
 export function founderCovenantOperatorQueueActivitySignalText(

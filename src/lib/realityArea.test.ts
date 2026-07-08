@@ -1235,6 +1235,7 @@ describe('Reality area client', () => {
           reviewerId: 'telegram-operator:42424242',
           actionKind: 'record_review',
           summary: 'Reviewed contribution evidence.',
+          authorityGate: areaReviewerEvidenceGate(false),
           evidenceOnly: true,
           automationEnabled: true,
         },

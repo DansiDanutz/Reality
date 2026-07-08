@@ -10,6 +10,7 @@ import {
   type AreaNeedsDashboard,
   type AreaClaimSource,
   type ClaimWorldAreaError,
+  type FounderCovenantAuthorityGate,
   type FounderCovenantApprovalRequest,
   type FounderCovenantManualAction,
   type FounderCovenantManualActionKind,
@@ -198,6 +199,7 @@ export interface WorldFounderCovenantReviewQueueLatestReview {
   reviewerId: string
   actionKind: 'record_review'
   summary: string
+  authorityGate: FounderCovenantAuthorityGate
   evidenceOnly: true
   automationEnabled: false
 }
@@ -836,6 +838,7 @@ function founderCovenantReviewQueueLatestReview(
     reviewerId: review.reviewerId,
     actionKind: 'record_review',
     summary: review.summary,
+    authorityGate: { ...review.authorityGate },
     evidenceOnly: true,
     automationEnabled: false,
   }

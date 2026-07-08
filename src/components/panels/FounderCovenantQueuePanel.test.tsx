@@ -11,6 +11,7 @@ import {
   founderCovenantOperatorQueueApprovalGateText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueItemDateSummary,
+  founderCovenantOperatorQueueLatestReviewAuthorityText,
   founderCovenantOperatorQueueLatestReviewText,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
@@ -79,6 +80,7 @@ describe('FounderCovenantQueuePanel', () => {
               reviewerId: 'telegram-operator:42424242',
               actionKind: 'record_review',
               summary: 'Reviewed contribution and ideas evidence.',
+              authorityGate: areaReviewerEvidenceGate(),
               evidenceOnly: true,
               automationEnabled: false,
             },
@@ -88,6 +90,7 @@ describe('FounderCovenantQueuePanel', () => {
     )
 
     expect(html).toContain('Latest review 2026-07-06 · Record review · Evidence only · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(html).toContain('Authority: Area reviewer / Evidence only')
     expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
@@ -172,11 +175,24 @@ describe('FounderCovenantQueuePanel', () => {
         reviewerId: 'telegram-operator:42424242',
         actionKind: 'record_review',
         summary: 'Reviewed contribution and ideas evidence.',
+        authorityGate: areaReviewerEvidenceGate(),
         evidenceOnly: true,
         automationEnabled: false,
       },
     })).toBe('Latest review 2026-07-06 · Record review · Evidence only · telegram-operator:42424242 · Reviewed contribution and ideas evidence.')
+    expect(founderCovenantOperatorQueueLatestReviewAuthorityText({
+      latestReview: {
+        reviewedAt: '2026-07-06T08:00:00.000Z',
+        reviewerId: 'telegram-operator:42424242',
+        actionKind: 'record_review',
+        summary: 'Reviewed contribution and ideas evidence.',
+        authorityGate: areaReviewerEvidenceGate(),
+        evidenceOnly: true,
+        automationEnabled: false,
+      },
+    })).toBe('Area reviewer / Evidence only')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
+      latestReviewAuthorityText: null,
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
       reviewQueueStatusText: 'Evidence only',
@@ -755,4 +771,14 @@ function founderApprovalRequest(): RealityFounderCovenantReviewQueueItem['pendin
     notificationDraftId: 'founder-area-0012:1783310400000:covenant-notification:founder_warning:founder-12',
     blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
   }
+}
+
+function areaReviewerEvidenceGate() {
+  return {
+    requiredRole: 'area_reviewer',
+    status: 'evidence_only',
+    approvedById: null,
+    approvedAt: null,
+    executionEnabled: false,
+  } as const
 }
