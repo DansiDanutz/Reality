@@ -18,6 +18,7 @@ import {
 const snap = (over: Partial<DailyChallengeSnapshot> = {}): DailyChallengeSnapshot => ({
   mealsToday: 0,
   drinksToday: 0,
+  hygieneToday: 0,
   shiftsToday: 0,
   earnedToday: 0,
   sleptToday: 0,
@@ -37,6 +38,7 @@ const context = (over: Partial<DailyChallengeContext> = {}): DailyChallengeConte
   maxPurchasesToday: 0,
   maxMealsToday: 3,
   maxDrinksToday: 2,
+  maxHygieneToday: 1,
   hasStudyBlock: false,
   canGatherResources: false,
   canDoConstructionLabor: false,
@@ -109,7 +111,7 @@ describe('challengesForDay — generation', () => {
   test('backfills from reachable tasks when a difficulty band has no fair option', () => {
     const out = challengesForDay('bare-citizen', 19_000, context())
     expect(out).toHaveLength(3)
-    expect(out.every((challenge) => ['mealsToday', 'drinksToday', 'sleptToday'].includes(challenge.metric))).toBe(true)
+    expect(out.every((challenge) => ['mealsToday', 'drinksToday', 'hygieneToday', 'sleptToday'].includes(challenge.metric))).toBe(true)
   })
 
   test('unlocks roadmap action challenges only when their systems are ready', () => {
@@ -171,12 +173,22 @@ describe('challengesForDay — generation', () => {
     expect(fourDrinks).toContain('drink-4')
   })
 
+  test('hygiene challenges only appear when the player can clean up today', () => {
+    const noCleanups = eligibleChallengesForContext(context({ maxHygieneToday: 0 })).map((c) => c.id)
+    expect(noCleanups).not.toContain('clean-1')
+
+    const oneCleanup = eligibleChallengesForContext(context({ maxHygieneToday: 1 })).map((c) => c.id)
+    expect(oneCleanup).toContain('clean-1')
+  })
+
   test('keeps progressed tasks eligible for the rest of the day', () => {
     const progressed = eligibleChallengesForContext(context({
       mealsToday: 1,
       drinksToday: 1,
+      hygieneToday: 1,
       maxMealsToday: 0,
       maxDrinksToday: 0,
+      maxHygieneToday: 0,
       communityToday: 1,
       constructionMinutesToday: 30,
       workersHiredToday: 1,
@@ -194,6 +206,7 @@ describe('challengesForDay — generation', () => {
     expect(progressed).toContain('eat-5')
     expect(progressed).toContain('drink-2')
     expect(progressed).toContain('drink-4')
+    expect(progressed).toContain('clean-1')
     expect(progressed).toContain('community-1')
     expect(progressed).toContain('build-60')
     expect(progressed).toContain('hire-worker-1')
@@ -250,6 +263,7 @@ describe('challengeProgress — tracking', () => {
     const metrics = new Set(CHALLENGE_POOL.map((c) => c.metric))
     expect(metrics.has('mealsToday')).toBe(true)
     expect(metrics.has('drinksToday')).toBe(true)
+    expect(metrics.has('hygieneToday')).toBe(true)
     expect(metrics.has('shiftsToday')).toBe(true)
     expect(metrics.has('earnedToday')).toBe(true)
     expect(metrics.has('sleptToday')).toBe(true)
@@ -281,6 +295,7 @@ describe('challengeSetSummary — completion', () => {
     const fullSnap = snap({
       mealsToday: 10,
       drinksToday: 10,
+      hygieneToday: 10,
       shiftsToday: 5,
       earnedToday: 5000,
       sleptToday: 3,
@@ -368,6 +383,7 @@ describe('challenge rewards — balance', () => {
       expect([
         'mealsToday',
         'drinksToday',
+        'hygieneToday',
         'shiftsToday',
         'earnedToday',
         'sleptToday',

@@ -68,6 +68,7 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
     day: 0,
     mealsToday: 0,
     drinksToday: 0,
+    hygieneToday: 0,
     shiftsToday: 0,
     earnedToday: 0,
     sleptToday: 0,
@@ -258,6 +259,16 @@ describe('daily challenge readiness context', () => {
     expect(pocketChangeIds).toContain('drink-4')
   })
 
+  test('hygiene challenges unlock only when stock or realistic cash can cover cleanup', () => {
+    const broke = dailyChallengeContextOf(challengeState({ money: 0, inventory: {} }))
+    expect(broke.maxHygieneToday).toBe(0)
+    expect(eligibleDailyIds({ money: 0, inventory: {} })).not.toContain('clean-1')
+
+    expect(eligibleDailyIds({ money: 0, inventory: { shower_public: 1 } })).toContain('clean-1')
+    expect(eligibleDailyIds({ money: 0, inventory: { showerset: 1 } })).toContain('clean-1')
+    expect(eligibleDailyIds({ money: 5, inventory: {} })).toContain('clean-1')
+  })
+
   test('construction labor challenges unlock only after materials and permit are ready', () => {
     const now = Date.now()
     const project = createConstructionProject('starter-house', 45.7, 21.2, now)
@@ -394,6 +405,7 @@ describe('sleep daily counter', () => {
         day: 0,
         mealsToday: 0,
         drinksToday: 0,
+        hygieneToday: 0,
         shiftsToday: 0,
         earnedToday: 0,
         sleptToday: 0,
@@ -435,6 +447,7 @@ describe('sleep daily counter', () => {
         day: 0,
         mealsToday: 0,
         drinksToday: 0,
+        hygieneToday: 0,
         shiftsToday: 0,
         earnedToday: 0,
         sleptToday: 0,
@@ -472,8 +485,8 @@ describe('meal daily counter', () => {
       citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
       activity: null,
       money: 2,
-      inventory: { noodles: 1, water: 1 },
-      needs: { hunger: 50, hydration: 50, energy: 50, hygiene: 50, fun: 50 },
+      inventory: { noodles: 1, water: 1, shower_public: 1 },
+      needs: { hunger: 50, hydration: 50, energy: 50, hygiene: 30, fun: 50 },
       dailyCounters: emptyDailyCounters(),
       timesEaten: 0,
       log: [],
@@ -483,15 +496,23 @@ describe('meal daily counter', () => {
     expect(useGame.getState().timesEaten).toBe(1)
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
     expect(useGame.getState().dailyCounters.drinksToday).toBe(0)
+    expect(useGame.getState().dailyCounters.hygieneToday).toBe(0)
 
     useGame.getState().consume('water')
     expect(useGame.getState().timesEaten).toBe(1)
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
     expect(useGame.getState().dailyCounters.drinksToday).toBe(1)
+    expect(useGame.getState().dailyCounters.hygieneToday).toBe(0)
 
     useGame.getState().quickDrink()
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
     expect(useGame.getState().dailyCounters.drinksToday).toBe(2)
+    expect(useGame.getState().dailyCounters.hygieneToday).toBe(0)
+
+    useGame.getState().consume('shower_public')
+    expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+    expect(useGame.getState().dailyCounters.drinksToday).toBe(2)
+    expect(useGame.getState().dailyCounters.hygieneToday).toBe(1)
   })
 })
 

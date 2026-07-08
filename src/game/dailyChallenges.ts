@@ -31,6 +31,8 @@ export interface DailyChallengeSnapshot {
   mealsToday: number
   /** Drinks consumed since local midnight. */
   drinksToday: number
+  /** Hygiene/self-care actions completed since local midnight. */
+  hygieneToday: number
   /** Shifts completed since local midnight. */
   shiftsToday: number
   /** Cash earned (wages + collected income) since local midnight. */
@@ -69,6 +71,8 @@ export interface DailyChallengeContext extends Partial<DailyChallengeSnapshot> {
   maxMealsToday: number
   /** Drinks the current inventory and realistic cash can cover today. */
   maxDrinksToday: number
+  /** Hygiene/self-care actions the current inventory and realistic cash can cover today. */
+  maxHygieneToday: number
   /** An enrolled course has study minutes remaining. */
   hasStudyBlock: boolean
   /** A resource trip is available and meaningful today. */
@@ -156,6 +160,7 @@ export const CHALLENGE_POOL: readonly ChallengeDef[] = [
   { id: 'eat-2', label: 'Eat 2 meals', verb: 'meals', difficulty: 'easy', metric: 'mealsToday', target: 2 },
   { id: 'eat-3', label: 'Eat 3 meals', verb: 'meals', difficulty: 'easy', metric: 'mealsToday', target: 3 },
   { id: 'drink-2', label: 'Drink 2 waters', verb: 'drinks', difficulty: 'easy', metric: 'drinksToday', target: 2 },
+  { id: 'clean-1', label: 'Clean up once', verb: 'cleanups', difficulty: 'easy', metric: 'hygieneToday', target: 1 },
   { id: 'sleep-1', label: 'Sleep once', verb: 'sleeps', difficulty: 'easy', metric: 'sleptToday', target: 1 },
   { id: 'buy-1', label: 'Buy 1 item', verb: 'items bought', difficulty: 'easy', metric: 'boughtToday', target: 1 },
   { id: 'buy-2', label: 'Buy 2 items', verb: 'items bought', difficulty: 'easy', metric: 'boughtToday', target: 2 },
@@ -236,6 +241,7 @@ function challengeEligible(def: ChallengeDef, context: DailyChallengeContext): b
 
   if (def.metric === 'mealsToday') return context.maxMealsToday >= def.target
   if (def.metric === 'drinksToday') return context.maxDrinksToday >= def.target
+  if (def.metric === 'hygieneToday') return context.maxHygieneToday >= def.target
   if (def.metric === 'shiftsToday') return context.maxShiftsToday >= def.target
   if (def.metric === 'earnedToday') return context.maxEarnedToday >= def.target
   if (def.metric === 'boughtToday') return context.maxPurchasesToday >= def.target

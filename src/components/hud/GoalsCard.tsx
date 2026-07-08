@@ -77,6 +77,7 @@ export default function GoalsCard() {
   const csnap: DailyChallengeSnapshot = {
     mealsToday: dailyCounters.mealsToday,
     drinksToday: dailyCounters.drinksToday,
+    hygieneToday: dailyCounters.hygieneToday,
     shiftsToday: dailyCounters.shiftsToday,
     earnedToday: dailyCounters.earnedToday,
     sleptToday: dailyCounters.sleptToday,

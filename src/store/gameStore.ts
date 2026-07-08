@@ -150,6 +150,7 @@ function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): Da
   return {
     mealsToday: 0,
     drinksToday: 0,
+    hygieneToday: 0,
     shiftsToday: 0,
     earnedToday: 0,
     sleptToday: 0,
@@ -169,6 +170,7 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
   return freshDailyCounters(Number.isFinite(counters?.day) ? Math.floor(Number(counters?.day)) : 0, {
     mealsToday: Math.max(0, Math.floor(Number(counters?.mealsToday ?? 0))),
     drinksToday: Math.max(0, Math.floor(Number(counters?.drinksToday ?? 0))),
+    hygieneToday: Math.max(0, Math.floor(Number(counters?.hygieneToday ?? 0))),
     shiftsToday: Math.max(0, Math.floor(Number(counters?.shiftsToday ?? 0))),
     earnedToday: Math.max(0, Math.floor(Number(counters?.earnedToday ?? 0))),
     sleptToday: Math.max(0, Math.floor(Number(counters?.sleptToday ?? 0))),
@@ -201,6 +203,8 @@ const EDIBLE_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && (item.effects?
 const CHEAPEST_EDIBLE_PRICE = Math.max(1, Math.min(...EDIBLE_ITEMS.map((item) => item.price).filter((price) => price > 0)))
 const DRINK_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && item.category === 'drinks' && (item.effects?.hydration ?? 0) > 0)
 const CHEAPEST_DRINK_PRICE = Math.max(1, Math.min(...DRINK_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+const HYGIENE_ITEMS = SHOP_ITEMS.filter((item) => (item.effects?.hygiene ?? 0) > 0)
+const CHEAPEST_HYGIENE_PRICE = Math.max(1, Math.min(...HYGIENE_ITEMS.map((item) => item.price).filter((price) => price > 0)))
 
 function totalWageBonus(inventory: Record<string, number>, educationProgress: EducationProgress[]): number {
   return wageBonusFrom(inventory) + educationWageBonusFrom(educationProgress)
@@ -212,6 +216,13 @@ function edibleInventoryCount(inventory: Record<string, number>): number {
 
 function drinkInventoryCount(inventory: Record<string, number>): number {
   return DRINK_ITEMS.reduce((sum, item) => sum + Math.max(0, Math.floor(inventory[item.id] ?? 0)), 0)
+}
+
+function hygieneInventoryCount(inventory: Record<string, number>): number {
+  return HYGIENE_ITEMS.reduce((sum, item) => {
+    const owned = Math.max(0, Math.floor(inventory[item.id] ?? 0))
+    return sum + (item.durable && owned > 0 ? 1 : owned)
+  }, 0)
 }
 
 function cookableMealCount(inventory: Record<string, number>, assets: PlacedAsset[]): number {
@@ -263,6 +274,9 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
   const spendableDrinkBudget = s.money + maxEarnedToday
   const stockedDrinkActions = drinkInventoryCount(s.inventory)
   const affordableDrinkActions = Math.floor(spendableDrinkBudget / CHEAPEST_DRINK_PRICE)
+  const spendableHygieneBudget = s.money + maxEarnedToday
+  const stockedHygieneActions = hygieneInventoryCount(s.inventory)
+  const affordableHygieneActions = Math.floor(spendableHygieneBudget / CHEAPEST_HYGIENE_PRICE)
 
   return {
     ...s.dailyCounters,
@@ -271,6 +285,7 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     maxPurchasesToday: Math.max(s.dailyCounters.boughtToday, Math.floor(s.money / CHEAPEST_SHOP_PRICE)),
     maxMealsToday: Math.max(s.dailyCounters.mealsToday, s.dailyCounters.mealsToday + stockedMealActions + affordableMealActions),
     maxDrinksToday: Math.max(s.dailyCounters.drinksToday, s.dailyCounters.drinksToday + stockedDrinkActions + affordableDrinkActions),
+    maxHygieneToday: Math.max(s.dailyCounters.hygieneToday, s.dailyCounters.hygieneToday + stockedHygieneActions + affordableHygieneActions),
     hasStudyBlock: activeStudy,
     canGatherResources: s.resourceNodes.length > 0,
     canDoConstructionLabor: constructionLaborReady,
@@ -515,6 +530,14 @@ function bumpDrinksToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounter
   return s.dailyCounters.day === todayDay
     ? { ...s.dailyCounters, drinksToday: s.dailyCounters.drinksToday + 1 }
     : freshDailyCounters(todayDay, { drinksToday: 1 })
+}
+
+/** Today's dailyCounters with hygieneToday bumped when a cleanup action is used. */
+function bumpHygieneToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, hygieneToday: s.dailyCounters.hygieneToday + 1 }
+    : freshDailyCounters(todayDay, { hygieneToday: 1 })
 }
 
 /** Today's dailyCounters with Workers Hall hires bumped — day-rollover aware. */
@@ -1988,6 +2011,7 @@ export const useGame = create<GameState>()(
           const csnap: DailyChallengeSnapshot = {
             mealsToday: dailyCounters.mealsToday,
             drinksToday: dailyCounters.drinksToday,
+            hygieneToday: dailyCounters.hygieneToday,
             shiftsToday: dailyCounters.shiftsToday,
             earnedToday: dailyCounters.earnedToday,
             sleptToday: dailyCounters.sleptToday,
@@ -2859,11 +2883,14 @@ export const useGame = create<GameState>()(
         const cures = item.cures !== undefined && s.illness?.kind === item.cures
         const ate = (item.effects.hunger ?? 0) > 0
         const drank = item.category === 'drinks' && (item.effects.hydration ?? 0) > 0
+        const cleaned = (item.effects.hygiene ?? 0) > 0
         const dailyCounters = ate
           ? bumpMealsToday(s)
           : drank
             ? bumpDrinksToday(s)
-            : s.dailyCounters
+            : cleaned
+              ? bumpHygieneToday(s)
+              : s.dailyCounters
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },

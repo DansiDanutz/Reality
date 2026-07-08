@@ -154,6 +154,7 @@ function countDailyDone(s: ReturnType<typeof useGame.getState>, todayDay: number
   const snap = {
     mealsToday: s.dailyCounters.mealsToday,
     drinksToday: s.dailyCounters.drinksToday,
+    hygieneToday: s.dailyCounters.hygieneToday,
     shiftsToday: s.dailyCounters.shiftsToday,
     earnedToday: s.dailyCounters.earnedToday,
     sleptToday: s.dailyCounters.sleptToday,
