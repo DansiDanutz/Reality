@@ -30,6 +30,8 @@ import {
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueSignalSummary,
+  founderCovenantOperatorQueuePrimaryWorkloadSummary,
+  founderCovenantOperatorQueuePrimaryWorkloadTone,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecommendedNextText,
@@ -1228,6 +1230,13 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>At risk</span>
               <strong>{activityRisk?.atRisk ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${founderCovenantOperatorQueuePrimaryWorkloadTone(queue)}`}
+              title={founderCovenantOperatorQueueActionSummary(queue)}
+            >
+              <span>Next</span>
+              <strong>{founderCovenantOperatorQueuePrimaryWorkloadSummary(queue)}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${

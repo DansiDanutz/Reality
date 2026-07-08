@@ -929,6 +929,28 @@ export function founderCovenantOperatorQueueActionSummary(
   return `Action: ${founderCovenantOperatorQueuePrimaryWorkloadText(queue).replace('Primary workload: ', '')} · ${founderCovenantOperatorQueueRecommendedActionText(queue).replace('Recommended next: ', '')}`
 }
 
+export function founderCovenantOperatorQueuePrimaryWorkloadSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  return founderCovenantOperatorQueuePrimaryWorkloadText(queue).replace('Primary workload: ', '')
+}
+
+export function founderCovenantOperatorQueuePrimaryWorkloadTone(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): FounderCovenantReviewTone {
+  const workload = founderCovenantOperatorQueuePrimaryWorkloadSummary(queue)
+  switch (workload) {
+    case 'collect evidence':
+    case 'clear blockers':
+      return 'critical'
+    case 'record due reviews':
+    case 'clear overdue reviews':
+      return 'warning'
+    default:
+      return 'stable'
+  }
+}
+
 export function founderCovenantOperatorQueueActivityRiskMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueActivityRiskMix {

@@ -7,6 +7,8 @@ import {
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueSignalSummary,
+  founderCovenantOperatorQueuePrimaryWorkloadSummary,
+  founderCovenantOperatorQueuePrimaryWorkloadTone,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecordReadySummary,
@@ -275,6 +277,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Debt risk</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Hospital</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>At risk</span><strong>0</strong>')
+    expect(html).toContain('class="founder-ledger-chip warning" title="Action: record due reviews · record due founder reviews"><span>Next</span><strong>record due reviews</strong>')
     expect(html).toContain('title="Signals: 0 critical · 1 warning · 1 founder flagged"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Signals: 0 critical · 1 warning · 1 founder flagged"><span>Signals</span><strong>1</strong>')
     expect(html).toContain('title="Cadence ready: 1 weekly · 1 monthly"')
@@ -351,6 +354,12 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(founderCovenantOperatorQueueSignalSummary({
       items: operatorQueue().items,
     })).toBe('Signals: 1 critical · 1 warning · 1 founder flagged')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadSummary({
+      items: operatorQueue().items,
+    })).toBe('collect evidence')
+    expect(founderCovenantOperatorQueuePrimaryWorkloadTone({
+      items: operatorQueue().items,
+    })).toBe('critical')
     expect(formatCopiedContextClearedMessage({
       hadTelegramContext: true,
       hadDigestOrViewContext: true,
