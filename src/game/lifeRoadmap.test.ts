@@ -78,9 +78,13 @@ describe('planLifeRoadmap', () => {
       'Day 8',
     ])
     expect(roadmap.days[0].primary.id).toBe('find-job')
+    expect(roadmap.days[0].dayFocusLabel).toBe('Work day')
     expect(roadmap.days[1].primary.id).toBe('first-shift')
+    expect(roadmap.days[1].dayFocusLabel).toBe('Work day')
     expect(roadmap.days[2].primary.id).toBe('study-first-course')
+    expect(roadmap.days[2].dayFocusLabel).toBe('School day')
     expect(roadmap.days[3].primary.id).toBe('study-course')
+    expect(roadmap.days[3].dayFocusLabel).toBe('School day')
     expect(roadmap.days[1].routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       taskId: 'place-home-foundation',
       route: { kind: 'panel', panel: 'construction' },

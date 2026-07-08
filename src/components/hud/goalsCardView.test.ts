@@ -17,6 +17,7 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapDisplayDayLabel,
+  roadmapFocusSummary,
   roadmapPreviewSummary,
   roadmapRouteLabel,
   roadmapValueLabel,
@@ -74,6 +75,12 @@ describe('formatPlanMinutes', () => {
 describe('roadmapPreviewSummary', () => {
   test('summarizes the next-day forecast in one readable line', () => {
     expect(roadmapPreviewSummary('Day 2', 'school', 'Study Course', 60)).toBe('Day 2: School Study Course (1h)')
+  })
+})
+
+describe('roadmapFocusSummary', () => {
+  test('summarizes the next-day focus in plain language', () => {
+    expect(roadmapFocusSummary('Day 2', 'School day', 'Study Course', 60)).toBe('Day 2: School day - Study Course (1h)')
   })
 })
 
