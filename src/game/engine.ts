@@ -1,4 +1,5 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
+import { totalInvested } from './businessUpgrades'
 import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
 
 /**
@@ -104,6 +105,15 @@ export interface Activity {
   title?: string
   /** Recipe being cooked, for 'cook' activities */
   recipeId?: string
+  /**
+   * Booster multipliers STAMPED at activity start. A wage/XP booster bought
+   * before an 8-hour shift must still pay out at completion even though the
+   * 30-min booster expired hours earlier — the player paid for the boost at
+   * the moment they committed to the shift. Undefined on legacy saves ⇒ the
+   * store falls back to evaluating boosters at resolution time.
+   */
+  wageMult?: number
+  xpMult?: number
 }
 
 /**
@@ -266,7 +276,11 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
   const MAX_HOURLY_STEPS = 24 * 366
   for (let guard = 0; t < end; guard++) {
     const stepEnd = guard >= MAX_HOURLY_STEPS ? end : t + 60 * 60_000
-    const chunkEnd = Math.min(end, activity ? activity.endsAt : end, stepEnd)
+    // Clamp to `t`: a persisted activity whose endsAt is already in the past
+    // (e.g. the player returns hours after a shift ended) must not move the
+    // time cursor BACKWARDS — that would re-simulate (double-charge upkeep,
+    // double-decay needs for) a span that was already lived.
+    const chunkEnd = Math.max(t, Math.min(end, activity ? activity.endsAt : end, stepEnd))
     const minutes = Math.max(0, (chunkEnd - t) / 60_000)
     const days = minutes / 60 / 24
     world = advanceLife(world, minutes, modeOf(activity, input.hasHome), illness?.kind === 'cold' ? COLD_REGEN_MULT : 1)
@@ -517,13 +531,22 @@ export function applyXp(level: number, xp: number, gain: number): { level: numbe
   return { level: l, xp: x, levelsGained: gained }
 }
 
-/** Cash + owned inventory + placed assets at purchase price + uncollected income */
+/**
+ * Cash + owned inventory + placed assets at purchase price + uncollected
+ * income + business upgrade investment. Upgrade cash isn't burned — it's
+ * capital sunk into the business, so it stays on the balance sheet.
+ */
 export function netWorthOf(money: number, inventory: Record<string, number>, assets: PlacedAsset[]): number {
   const inventoryValue = Object.entries(inventory).reduce(
     (sum, [id, qty]) => sum + (itemById(id)?.price ?? 0) * Math.max(0, qty),
     0,
   )
-  const assetValue = assets.reduce((sum, a) => sum + (itemById(a.itemId)?.price ?? 0) + a.pendingIncome, 0)
+  const assetValue = assets.reduce((sum, a) => {
+    const level = a.level ?? 1
+    const invested =
+      a.kind === 'business' && level > 1 ? totalInvested(a.incomePerDay / level, level) : 0
+    return sum + (itemById(a.itemId)?.price ?? 0) + a.pendingIncome + invested
+  }, 0)
   return Math.round(money + inventoryValue + assetValue)
 }
 
