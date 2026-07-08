@@ -2839,7 +2839,7 @@ function buildBusinessFromIntent(
   const blueprint = normalizeBlueprint(intent.blueprint)
   const businessId = intent.businessId.trim()
   if (!blueprint || !businessId) return { ok: false, area, error: 'invalid_business' }
-  if (area.businesses.some((business) => business.id === businessId)) {
+  if (area.businesses.some((business) => business.id.trim() === businessId)) {
     return { ok: false, area, error: 'business_id_taken' }
   }
 
