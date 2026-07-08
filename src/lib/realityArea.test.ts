@@ -956,6 +956,48 @@ describe('Reality area client', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
+  test('sanitizes malformed founder covenant review queue query params before sending', async () => {
+    const queue = serverFounderCovenantReviewQueue()
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+      limit: 0,
+      pages: Number.NaN,
+      cursor: '   ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      founderCovenantReviewQueue: queue,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area?review=founderCovenantQueue', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer operator-token' },
+    })
+  })
+
+  test('trims valid founder covenant review queue cursors before sending', async () => {
+    const queue = serverFounderCovenantReviewQueue()
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+
+    await expect(readRealityFounderCovenantOperatorQueue({
+      operatorToken: 'operator-token',
+      limit: 2,
+      pages: 1,
+      cursor: ' review-cursor-2 ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      founderCovenantReviewQueue: queue,
+    })
+
+    expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area?review=founderCovenantQueue&limit=2&pages=1&cursor=review-cursor-2', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer operator-token' },
+    })
+  })
+
   test('records operator founder covenant review evidence without founder credentials', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))

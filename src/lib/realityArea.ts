@@ -1142,9 +1142,12 @@ export async function readRealityFounderCovenantReviewQueue(
   }
 
   const query = new URLSearchParams({ review: 'founderCovenantQueue' })
-  if (request.limit !== undefined) query.set('limit', String(request.limit))
-  if (request.pages !== undefined) query.set('pages', String(request.pages))
-  if (request.cursor !== undefined) query.set('cursor', request.cursor)
+  const limit = sanitizePositiveInteger(request.limit)
+  const pages = sanitizePositiveInteger(request.pages)
+  const cursor = sanitizeOptionalCursor(request.cursor)
+  if (limit !== undefined) query.set('limit', String(limit))
+  if (pages !== undefined) query.set('pages', String(pages))
+  if (cursor !== undefined) query.set('cursor', cursor)
 
   try {
     const response = await fetchImpl(`/api/reality-area?${query.toString()}`, {
@@ -1267,6 +1270,18 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'hireWorker' ||
     payload.type === 'repayDebt' ||
     payload.type === 'buyInsurance'
+}
+
+function sanitizePositiveInteger(value: number | undefined): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value) && value > 0
+    ? value
+    : undefined
+}
+
+function sanitizeOptionalCursor(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed || undefined
 }
 
 export function founderAreaProfileWithServerClaim(
