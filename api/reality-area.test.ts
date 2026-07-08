@@ -3809,6 +3809,7 @@ describe('reality area authority API', () => {
       queue.items[0].pendingApprovalKinds,
     )
     expect(queue.items[0].pendingApprovalRequests.every((request) =>
+      request.reviewId === null &&
       request.status === 'pending_manual_approval' &&
       request.approvalEnabled === false &&
       request.automationEnabled === false &&
@@ -3819,6 +3820,7 @@ describe('reality area authority API', () => {
       queue.items[0].pendingNotificationKinds,
     )
     expect(queue.items[0].pendingNotificationDrafts.every((draft) =>
+      draft.reviewId === null &&
       draft.channel === 'telegram' &&
       draft.requiresApproval === true &&
       draft.sendEnabled === false &&
@@ -5483,7 +5485,7 @@ describe('reality area authority API', () => {
       warning: true,
       probation: true,
       replacement: false,
-    }, '2026-07-06T08:00:00.000Z', 'founder_warning'))
+    }, '2026-07-06T08:00:00.000Z', 'founder_warning', `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}`))
     expect(body.state.founderCovenant.reviewSchedule).toEqual(covenantReviewSchedule({
       anchorAt: '2026-07-06T03:00:00.000Z',
       checkedAt: '2026-07-06T08:00:00.000Z',
@@ -5492,6 +5494,7 @@ describe('reality area authority API', () => {
     expect(body.state.founderCovenant.notificationDrafts).toEqual([{
       id: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:covenant-notification:founder_warning:${CITIZEN_ID}`,
       at: '2026-07-06T08:00:00.000Z',
+      reviewId: `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}`,
       kind: 'founder_warning',
       channel: 'telegram',
       recipientCitizenId: CITIZEN_ID,
@@ -6437,6 +6440,7 @@ function baseFounderCovenant(checkedAt: string) {
     notificationDrafts: [{
       id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-notification:founder_warning:${CITIZEN_ID}`,
       at: checkedAt,
+      reviewId: null,
       kind: 'founder_warning',
       channel: 'telegram',
       recipientCitizenId: CITIZEN_ID,
@@ -7121,12 +7125,14 @@ function manualApprovalRequests(
   input: { warning: boolean; probation: boolean; replacement: boolean },
   checkedAt: string,
   notificationKind: 'founder_warning' | 'manual_review_required' | null,
+  reviewId: string | null = null,
 ) {
   return manualReviewActions(input)
     .filter((action) => action.kind !== 'record_review' && action.recommended)
     .map((action) => ({
       id: `founder-area-0012:${Date.parse(checkedAt)}:covenant-approval:${action.kind}:${CITIZEN_ID}`,
       at: checkedAt,
+      reviewId,
       kind: action.kind,
       label: action.label,
       reason: action.reason,

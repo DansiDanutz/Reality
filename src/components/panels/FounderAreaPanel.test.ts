@@ -274,6 +274,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     const request = {
       id: 'approval-1',
       at: 1_000,
+      reviewId: null,
       kind: 'send_warning',
       label: 'Send warning',
       reason: 'Covenant signals suggest a manual founder warning.',
@@ -342,6 +343,7 @@ describe('FounderAreaPanel covenant presenters', () => {
       approvalRequests: [{
         id: 'approval-1',
         at: 1_000,
+        reviewId: null,
         kind: 'send_warning',
         label: 'Send warning',
         reason: 'Covenant signals suggest a manual founder warning.',
@@ -768,6 +770,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     const draft = {
       id: 'draft-1',
       at: 1_000,
+      reviewId: null,
       kind: 'manual_review_required',
       channel: 'telegram',
       recipientCitizenId: 'founder-1',

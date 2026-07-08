@@ -291,6 +291,7 @@ type FounderAreaCovenantApprovalBlocker =
 interface FounderAreaCovenantApprovalRequest {
   id: string
   at: string
+  reviewId?: string | null
   kind: FounderAreaCovenantApprovalRequestKind
   label: string
   reason: string
@@ -429,6 +430,7 @@ type DisabledEstateProtectionIntentType = typeof DISABLED_ESTATE_PROTECTION_INTE
 interface FounderAreaCovenantNotificationDraft {
   id: string
   at: string
+  reviewId?: string | null
   kind: FounderAreaCovenantNotificationDraftKind
   channel: FounderAreaCovenantNotificationChannel
   recipientCitizenId: string
@@ -2305,12 +2307,16 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     waitlistHandoffEnabled: false,
   })
   const manualActions = founderCovenantManualActions({ status, nextAction, activityReview })
+  const latestReview = founderCovenantLatestReview(state)
+  const reviewId = latestReview?.reviewedAt === state.updatedAt ? latestReview.id : null
   const notificationDrafts = founderCovenantNotificationDrafts(state, {
     nextAction,
+    reviewId,
   })
   const approvalRequests = founderCovenantApprovalRequests(state, {
     manualActions,
     notificationDrafts,
+    reviewId,
   })
   const reviewQueue = founderCovenantReviewQueue({
     manualActions,
@@ -2346,7 +2352,7 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
     manualActions,
     approvalRequests,
     reviewSchedule,
-    latestReview: founderCovenantLatestReview(state),
+    latestReview,
     reviewHistory: founderCovenantReviewHistory(state),
     notificationDrafts,
     signals,
@@ -2645,6 +2651,7 @@ function founderCovenantApprovalRequests(
   input: {
     manualActions: FounderAreaCovenantManualAction[]
     notificationDrafts: FounderAreaCovenantNotificationDraft[]
+    reviewId: string | null
   },
 ): FounderAreaCovenantApprovalRequest[] {
   return input.manualActions
@@ -2652,6 +2659,7 @@ function founderCovenantApprovalRequests(
     .map((action) => ({
       id: `${state.areaId}:${Date.parse(state.updatedAt)}:covenant-approval:${action.kind}:${state.founderCitizenId}`,
       at: state.updatedAt,
+      reviewId: input.reviewId,
       kind: action.kind,
       label: action.label,
       reason: action.reason,
@@ -3175,6 +3183,7 @@ function founderCovenantNotificationDrafts(
   state: FounderAreaStateInput,
   input: {
     nextAction: FounderAreaCovenantNextAction
+    reviewId: string | null
   },
 ): FounderAreaCovenantNotificationDraft[] {
   if (input.nextAction === 'none') return []
@@ -3183,6 +3192,7 @@ function founderCovenantNotificationDrafts(
   return [{
     id: `${state.areaId}:${Date.parse(state.updatedAt)}:covenant-notification:${kind}:${state.founderCitizenId}`,
     at: state.updatedAt,
+    reviewId: input.reviewId,
     kind,
     channel: 'telegram',
     recipientCitizenId: state.founderCitizenId,

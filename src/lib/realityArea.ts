@@ -238,6 +238,7 @@ export type RealityAreaCovenantApprovalBlocker =
 export interface RealityAreaCovenantApprovalRequest {
   id: string
   at: string
+  reviewId?: string | null
   kind: RealityAreaCovenantApprovalRequestKind
   label: string
   reason: string
@@ -314,6 +315,7 @@ export type RealityAreaCovenantNotificationChannel = 'telegram'
 export interface RealityAreaCovenantNotificationDraft {
   id: string
   at: string
+  reviewId?: string | null
   kind: RealityAreaCovenantNotificationDraftKind
   channel: RealityAreaCovenantNotificationChannel
   recipientCitizenId: string

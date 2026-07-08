@@ -565,6 +565,7 @@ export type FounderCovenantApprovalBlocker =
 export interface FounderCovenantApprovalRequest {
   id: string
   at: number
+  reviewId?: string | null
   kind: FounderCovenantApprovalRequestKind
   label: string
   reason: string
@@ -641,6 +642,7 @@ export type FounderCovenantNotificationChannel = 'telegram'
 export interface FounderCovenantNotificationDraft {
   id: string
   at: number
+  reviewId?: string | null
   kind: FounderCovenantNotificationDraftKind
   channel: FounderCovenantNotificationChannel
   recipientCitizenId: string
@@ -1623,14 +1625,18 @@ function founderCovenantDashboard(
     waitlistHandoffEnabled: false,
   })
   const manualActions = founderCovenantManualActions({ status, nextAction, activityReview })
+  const latestReview = founderCovenantLatestReview(area)
+  const reviewId = latestReview?.reviewedAt === area.now ? latestReview.id : null
   const notificationDrafts = founderCovenantNotificationDrafts(area, {
     founderCitizenId,
     nextAction,
+    reviewId,
   })
   const approvalRequests = founderCovenantApprovalRequests(area, {
     founderCitizenId,
     manualActions,
     notificationDrafts,
+    reviewId,
   })
   const reviewQueue = founderCovenantReviewQueue({
     manualActions,
@@ -1666,7 +1672,7 @@ function founderCovenantDashboard(
     manualActions,
     approvalRequests,
     reviewSchedule,
-    latestReview: founderCovenantLatestReview(area),
+    latestReview,
     reviewHistory: founderCovenantReviewHistory(area),
     notificationDrafts,
     signals,
@@ -2032,6 +2038,7 @@ function founderCovenantApprovalRequests(
     founderCitizenId: string
     manualActions: FounderCovenantManualAction[]
     notificationDrafts: FounderCovenantNotificationDraft[]
+    reviewId: string | null
   },
 ): FounderCovenantApprovalRequest[] {
   return input.manualActions
@@ -2039,6 +2046,7 @@ function founderCovenantApprovalRequests(
     .map((action) => ({
       id: `${area.id}:${area.now}:covenant-approval:${action.kind}:${input.founderCitizenId}`,
       at: area.now,
+      reviewId: input.reviewId,
       kind: action.kind,
       label: action.label,
       reason: action.reason,
@@ -2379,6 +2387,7 @@ function founderCovenantNotificationDrafts(
   input: {
     founderCitizenId: string
     nextAction: FounderCovenantNextAction
+    reviewId: string | null
   },
 ): FounderCovenantNotificationDraft[] {
   if (input.nextAction === 'none' || input.nextAction === 'claim_area') return []
@@ -2387,6 +2396,7 @@ function founderCovenantNotificationDrafts(
   return [{
     id: `${area.id}:${area.now}:covenant-notification:${kind}:${input.founderCitizenId}`,
     at: area.now,
+    reviewId: input.reviewId,
     kind,
     channel: 'telegram',
     recipientCitizenId: input.founderCitizenId,

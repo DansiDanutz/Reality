@@ -149,6 +149,7 @@ const covenantManualActionSnapshot = () => [{
 const covenantApprovalRequestSnapshot = () => [{
   id: 'approval-1',
   at: 2 * 24 * HOUR,
+  reviewId: null,
   kind: 'start_probation' as const,
   label: 'Start probation',
   reason: 'Reviewer may open probation, but the game will not remove the founder automatically.',
@@ -1804,6 +1805,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       notificationDrafts: [{
         id: 'area-1:0:covenant-notification:manual_review_required:founder',
         at: 0,
+        reviewId: null,
         kind: 'manual_review_required',
         channel: 'telegram',
         recipientCitizenId: 'founder',
