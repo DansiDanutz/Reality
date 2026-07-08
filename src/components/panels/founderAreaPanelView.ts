@@ -187,6 +187,36 @@ export function founderCitizenProtectionText(
   return 'Uninsured'
 }
 
+export function founderCitizenDebtActionText(
+  debt: Pick<AreaCitizenDashboard['debts'][number], 'creditorId' | 'recommendedPayment' | 'canRepayNow' | 'blockers'> | undefined,
+): string | null {
+  if (!debt) return null
+  if (debt.canRepayNow) return `Repay ${formatMoney(debt.recommendedPayment)} to ${debt.creditorId}`
+  if (debt.blockers.includes('actor_unavailable')) return 'Debt locked while hospitalized'
+  if (debt.blockers.includes('insufficient_funds')) {
+    return debt.recommendedPayment > 0
+      ? `Debt due · repay up to ${formatMoney(debt.recommendedPayment)} now`
+      : 'Debt due · founder cash required'
+  }
+  return 'Debt review required'
+}
+
+export function founderCitizenInsuranceActionText(
+  citizen: Pick<AreaCitizenDashboard, 'insuranceActive' | 'insuranceBusinessId' | 'insuranceAction'>,
+): string | null {
+  if (citizen.insuranceActive) return null
+  if (citizen.insuranceBusinessId) return 'Insurance renewal required'
+  if (citizen.insuranceAction.canBuyNow && citizen.insuranceAction.premium !== null) {
+    return `Insurance ready · premium ${formatMoney(citizen.insuranceAction.premium)}`
+  }
+  if (citizen.insuranceAction.blockers.includes('actor_unavailable')) return 'Insurance locked while hospitalized'
+  if (citizen.insuranceAction.blockers.includes('insufficient_funds') && citizen.insuranceAction.premium !== null) {
+    return `Insurance blocked · premium ${formatMoney(citizen.insuranceAction.premium)}`
+  }
+  if (citizen.insuranceAction.blockers.includes('service_unavailable')) return 'No insurance provider available'
+  return null
+}
+
 export function founderGrowthStatusLabel(
   growth: Pick<RealityAreaGrowthDashboard, 'manualEvidenceRequired'>,
 ): string {

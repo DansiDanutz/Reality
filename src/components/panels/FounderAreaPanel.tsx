@@ -65,6 +65,8 @@ import {
   founderCovenantStatusLabel,
   founderCovenantTone,
   founderCitizenConditionText,
+  founderCitizenDebtActionText,
+  founderCitizenInsuranceActionText,
   founderCitizenProtectionText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
@@ -866,6 +868,12 @@ export default function FounderAreaPanel() {
                 const survivalAction = survival?.actions.find((action) => action.available && action.canAfford)
                 const debtAction = resident.debts.find((debt) => debt.canRepayNow)
                 const canBuyInsurance = resident.id === profile.founderId && resident.insuranceAction.canBuyNow
+                const founderDebtDetail = resident.id === profile.founderId
+                  ? founderCitizenDebtActionText(resident.debts[0])
+                  : null
+                const founderInsuranceDetail = resident.id === profile.founderId
+                  ? founderCitizenInsuranceActionText(resident)
+                  : null
                 return (
                   <li className={`item founder-citizen ${resident.visualTone}`} key={resident.id}>
                     <div className="item-info">
@@ -874,6 +882,8 @@ export default function FounderAreaPanel() {
                         {founderCitizenConditionText(resident)}
                       </span>
                       <span className="item-desc">{founderCitizenProtectionText(resident, survival)}</span>
+                      {founderInsuranceDetail && <span className="item-desc">{founderInsuranceDetail}</span>}
+                      {founderDebtDetail && <span className="item-desc">{founderDebtDetail}</span>}
                       {resident.debt > 0 && <span className="item-locked mono">debt {formatMoney(resident.debt)}</span>}
                     </div>
                     <div className="item-buy">

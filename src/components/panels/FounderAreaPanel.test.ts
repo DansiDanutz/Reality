@@ -38,6 +38,8 @@ import {
   founderCovenantStatusLabel,
   founderCovenantTone,
   founderCitizenConditionText,
+  founderCitizenDebtActionText,
+  founderCitizenInsuranceActionText,
   founderCitizenProtectionText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
@@ -139,6 +141,47 @@ describe('FounderAreaPanel covenant presenters', () => {
         premium: 45,
       } as never,
     })).toBe('Uninsured · premium $45')
+
+    expect(founderCitizenInsuranceActionText({
+      insuranceActive: false,
+      insuranceBusinessId: undefined,
+      insuranceAction: {
+        canBuyNow: false,
+        premium: 45,
+        blockers: ['actor_unavailable'],
+      },
+    } as never)).toBe('Insurance locked while hospitalized')
+
+    expect(founderCitizenInsuranceActionText({
+      insuranceActive: false,
+      insuranceBusinessId: 'insurance-1',
+      insuranceAction: {
+        canBuyNow: false,
+        premium: 45,
+        blockers: ['already_insured'],
+      },
+    } as never)).toBe('Insurance renewal required')
+
+    expect(founderCitizenDebtActionText({
+      creditorId: 'clinic-1',
+      recommendedPayment: 300,
+      canRepayNow: true,
+      blockers: [],
+    })).toBe('Repay $300 to clinic-1')
+
+    expect(founderCitizenDebtActionText({
+      creditorId: 'clinic-1',
+      recommendedPayment: 300,
+      canRepayNow: false,
+      blockers: ['actor_unavailable'],
+    })).toBe('Debt locked while hospitalized')
+
+    expect(founderCitizenDebtActionText({
+      creditorId: 'clinic-1',
+      recommendedPayment: 120,
+      canRepayNow: false,
+      blockers: ['insufficient_funds'],
+    })).toBe('Debt due · repay up to $120 now')
   })
 
   test('summarizes disabled Telegram growth tracking for founder review', () => {
