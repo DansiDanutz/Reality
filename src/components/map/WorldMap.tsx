@@ -70,7 +70,7 @@ function beaconElement(kind: string, name: string, own: boolean, pendingIncome =
 export default function WorldMap() {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  const markersRef = useRef<maplibregl.Marker[]>([])
+  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const [styleReady, setStyleReady] = useState(false)
 
   const assets = useGame((s) => s.assets)
@@ -135,33 +135,61 @@ export default function WorldMap() {
     // Slow ambient spin while zoomed out, until the player takes the wheel
     // (people who ask for reduced motion never get the spin at all)
     let interacted = prefersReducedMotion()
-    const stop = () => {
-      interacted = true
-    }
-    ;(map as unknown as { __stopSpin?: () => void }).__stopSpin = stop
-    map.on('mousedown', stop)
-    map.on('touchstart', stop)
-    map.on('wheel', stop)
     let raf = 0
     const spin = () => {
-      if (!interacted && map.getZoom() < 3.5) {
+      // Once the player takes over, stop scheduling frames entirely — the
+      // spin never resumes, so an idle rAF loop would just burn battery.
+      if (interacted) {
+        raf = 0
+        return
+      }
+      if (map.getZoom() < 3.5) {
         const c = map.getCenter()
         map.setCenter([c.lng + 0.02, c.lat])
       }
       raf = requestAnimationFrame(spin)
     }
-    raf = requestAnimationFrame(spin)
+    const startSpin = () => {
+      if (!interacted && raf === 0 && !document.hidden) raf = requestAnimationFrame(spin)
+    }
+    const stop = () => {
+      interacted = true
+      cancelAnimationFrame(raf)
+      raf = 0
+    }
+    ;(map as unknown as { __stopSpin?: () => void }).__stopSpin = stop
+    map.on('mousedown', stop)
+    map.on('touchstart', stop)
+    map.on('wheel', stop)
+    // Pause the ambient spin while the tab is hidden.
+    const onVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf)
+        raf = 0
+      } else {
+        startSpin()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    startSpin()
 
     // Ease into the PAM-style tilt when the player reaches street level
+    let trackedStreetZoom = false
     map.on('zoomend', () => {
       const z = map.getZoom()
       if (z >= TILT_ZOOM && map.getPitch() < 20) map.easeTo({ pitch: 58, duration: 900 })
       if (z < TILT_ZOOM - 1.5 && map.getPitch() > 40) map.easeTo({ pitch: 0, duration: 700 })
-      if (z >= 15) track('first_zoom_to_street')
+      // "first_zoom_to_street" means FIRST — guard so it fires once per
+      // session instead of on every zoomend past street level.
+      if (z >= 15 && !trackedStreetZoom) {
+        trackedStreetZoom = true
+        track('first_zoom_to_street')
+      }
     })
 
     return () => {
       cancelAnimationFrame(raf)
+      document.removeEventListener('visibilitychange', onVisibility)
       map.remove()
       mapRef.current = null
     }
@@ -182,13 +210,34 @@ export default function WorldMap() {
   }, [styleReady])
 
   // Your holdings: gold/sky pulsing beacons (DOM markers — few, always visible).
+  // Diffed by asset id: `assets` changes identity on every tick (pendingIncome
+  // accrues), so recreating every Marker each time would churn the DOM at
+  // 1Hz. Markers are created/removed only when the id set changes; existing
+  // ones just get their className/title (the 'ready' ring) updated in place.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    markersRef.current.forEach((m) => m.remove())
-    markersRef.current = assets.map((a) =>
-      new maplibregl.Marker({ element: beaconElement(a.kind, a.name, true, a.pendingIncome) }).setLngLat([a.lng, a.lat]).addTo(map),
-    )
+    const markers = markersRef.current
+    const seen = new Set<string>()
+    for (const a of assets) {
+      seen.add(a.id)
+      const fresh = beaconElement(a.kind, a.name, true, a.pendingIncome)
+      const existing = markers.get(a.id)
+      if (existing) {
+        const el = existing.getElement()
+        el.className = fresh.className
+        el.title = fresh.title
+        existing.setLngLat([a.lng, a.lat])
+      } else {
+        markers.set(a.id, new maplibregl.Marker({ element: fresh }).setLngLat([a.lng, a.lat]).addTo(map))
+      }
+    }
+    for (const [id, marker] of markers) {
+      if (!seen.has(id)) {
+        marker.remove()
+        markers.delete(id)
+      }
+    }
   }, [assets])
 
   // Other citizens' properties: a clustered GeoJSON source (issue #33). When
@@ -378,7 +427,16 @@ export default function WorldMap() {
     if (assets.length === 1) {
       map.flyTo({ center: [assets[0].lng, assets[0].lat], zoom: 14, duration: 1800, essential: true })
     } else {
-      const lngs = assets.map((a) => a.lng)
+      // Normalize longitudes around the first asset so holdings on both
+      // sides of the antimeridian (±180°) produce a tight box instead of a
+      // bounds spanning nearly the whole planet.
+      const refLng = assets[0].lng
+      const lngs = assets.map((a) => {
+        let lng = a.lng
+        while (lng - refLng > 180) lng -= 360
+        while (lng - refLng < -180) lng += 360
+        return lng
+      })
       const lats = assets.map((a) => a.lat)
       map.fitBounds(
         [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
