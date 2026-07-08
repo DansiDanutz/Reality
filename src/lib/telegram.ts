@@ -18,7 +18,11 @@ export interface VerifiedTelegramMiniAppSession {
 
 export type TelegramMiniAppAuthResult =
   | { ok: true; session: VerifiedTelegramMiniAppSession }
-  | { ok: false; reason: 'not_in_telegram' | 'request_failed' | 'invalid_session'; error?: string; code?: string }
+  | { ok: false; reason: 'not_in_telegram' | 'request_failed' | 'invalid_session' | 'not_allowed'; error?: string; code?: string }
+
+const TELEGRAM_NOT_ALLOWED_ERROR_CODES = new Set([
+  'bot_user_not_allowed',
+])
 
 interface TelegramWebApp {
   initData?: string
@@ -49,11 +53,12 @@ export async function authenticateTelegramMiniApp(
     })
     const data = await response.json() as Record<string, unknown>
     if (!response.ok || data.ok !== true || !isVerifiedTelegramSession(data)) {
+      const code = typeof data.code === 'string' ? data.code : undefined
       return {
         ok: false,
-        reason: 'invalid_session',
+        reason: telegramMiniAppAuthFailureReason(code),
         error: typeof data.error === 'string' ? data.error : 'Telegram session could not be verified.',
-        code: typeof data.code === 'string' ? data.code : undefined,
+        code,
       }
     }
     return {
@@ -67,6 +72,20 @@ export async function authenticateTelegramMiniApp(
     }
   } catch {
     return { ok: false, reason: 'request_failed', error: 'Telegram verification is unavailable.' }
+  }
+}
+
+export function telegramMiniAppAuthErrorMessage(result: Exclude<TelegramMiniAppAuthResult, { ok: true }>): string {
+  if (result.error) return result.error
+  switch (result.reason) {
+    case 'not_allowed':
+      return 'Telegram bot accounts cannot sign in to Reality.'
+    case 'request_failed':
+      return 'Telegram verification is unavailable.'
+    case 'invalid_session':
+      return 'Telegram session could not be verified.'
+    case 'not_in_telegram':
+      return 'Telegram Mini App session not detected.'
   }
 }
 
@@ -88,6 +107,13 @@ export function citizenWithTelegramSession(
 export function telegramDisplayName(user: Pick<TelegramMiniAppUser, 'firstName' | 'lastName' | 'username'>): string {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
   return fullName || (user.username ? `@${user.username}` : 'Telegram')
+}
+
+function telegramMiniAppAuthFailureReason(
+  code: string | undefined,
+): Exclude<TelegramMiniAppAuthResult, { ok: true }>['reason'] {
+  if (code !== undefined && TELEGRAM_NOT_ALLOWED_ERROR_CODES.has(code)) return 'not_allowed'
+  return 'invalid_session'
 }
 
 function isVerifiedTelegramSession(value: Record<string, unknown>): value is Record<string, unknown> & VerifiedTelegramMiniAppSession & { ok: true } {

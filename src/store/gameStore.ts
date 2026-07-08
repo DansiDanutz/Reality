@@ -53,6 +53,7 @@ import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
   telegramDisplayName,
+  telegramMiniAppAuthErrorMessage,
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
@@ -318,6 +319,8 @@ interface GameState {
   dismissCelebration: () => void
   /** Feedback toasts (not persisted) */
   toasts: { id: number; text: string; tone: ToastTone }[]
+  /** Most recent Telegram Mini App link failure (not persisted). */
+  telegramLinkError: string | null
   popToast: (id: number) => void
   soundOn: boolean
   toggleSound: () => void
@@ -461,6 +464,7 @@ const FRESH = {
   goldenOpportunity: null as GameState['goldenOpportunity'],
   celebrationQueue: [] as GameState['celebrationQueue'],
   toasts: [] as { id: number; text: string; tone: ToastTone }[],
+  telegramLinkError: null as string | null,
   // Optimistic: assume online until an /api/* call proves otherwise. The banner
   // only surfaces when something actually fails, so a cold start in airplane
   // mode isn't greeted with a false "offline" claim before any fetch.
@@ -685,7 +689,9 @@ export const useGame = create<GameState>()(
         if (!s.citizen) return null
         const result = await authenticateTelegramMiniApp()
         if (!result.ok) {
-          return result.reason === 'not_in_telegram' ? null : result.error ?? 'Telegram sign-in failed.'
+          const error = result.reason === 'not_in_telegram' ? null : telegramMiniAppAuthErrorMessage(result)
+          set({ telegramLinkError: error })
+          return error
         }
 
         const latest = get()
@@ -693,6 +699,7 @@ export const useGame = create<GameState>()(
         const wasLinkedToSameUser = latest.citizen.telegramUserId === result.session.telegramUser.id
         set({
           citizen: citizenWithTelegramSession(latest.citizen, result.session, Date.now()),
+          telegramLinkError: null,
           log: wasLinkedToSameUser
             ? latest.log
             : note(latest.log, `Telegram linked: ${telegramDisplayName(result.session.telegramUser)}.`),
@@ -1949,6 +1956,7 @@ export const useGame = create<GameState>()(
               key !== 'lastBoxReward' &&
               key !== 'goldenOpportunity' &&
               key !== 'toasts' &&
+              key !== 'telegramLinkError' &&
               key !== 'marketNeed' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',

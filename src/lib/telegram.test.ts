@@ -3,6 +3,7 @@ import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
   telegramDisplayName,
+  telegramMiniAppAuthErrorMessage,
   telegramMiniAppInitData,
   type VerifiedTelegramMiniAppSession,
 } from './telegram'
@@ -64,6 +65,33 @@ describe('Telegram Mini App client bridge', () => {
       error: 'Invalid Telegram session.',
       code: 'invalid_hash',
     })
+  })
+
+  test('maps bot users to not_allowed responses', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({
+        ok: false,
+        error: 'Telegram bot accounts cannot sign in to Reality.',
+        code: 'bot_user_not_allowed',
+      }),
+    }))
+
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'not_allowed',
+      error: 'Telegram bot accounts cannot sign in to Reality.',
+      code: 'bot_user_not_allowed',
+    })
+  })
+
+  test('provides stable fallback copy for Telegram auth failures', () => {
+    expect(telegramMiniAppAuthErrorMessage({ ok: false, reason: 'not_allowed' })).toBe(
+      'Telegram bot accounts cannot sign in to Reality.',
+    )
+    expect(telegramMiniAppAuthErrorMessage({ ok: false, reason: 'request_failed' })).toBe(
+      'Telegram verification is unavailable.',
+    )
   })
 
   test('maps a verified Telegram session onto a local citizen', () => {

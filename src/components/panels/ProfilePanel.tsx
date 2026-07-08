@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { dayOfLife } from '../../game/clock'
 import { formatMoney, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
 import { BOOSTERS, BOOSTER_LIST, boosterRemaining, isBoosterActive } from '../../game/boosters'
+import type { Citizen } from '../../game/types'
 import {
   NOTIFICATION_REASONS,
   notificationPermission,
@@ -99,11 +100,25 @@ function GoogleLink() {
 
 function TelegramLinkStatus() {
   const citizen = useGame((s) => s.citizen)
+  const telegramLinkError = useGame((s) => s.telegramLinkError)
+  return <TelegramLinkStatusContent citizen={citizen} telegramLinkError={telegramLinkError} />
+}
+
+export function TelegramLinkStatusContent({
+  citizen,
+  telegramLinkError,
+}: {
+  citizen: Pick<Citizen, 'telegramUserId' | 'telegramUsername' | 'telegramName' | 'telegramAccountId' | 'telegramLinkedAt'> | null
+  telegramLinkError: string | null
+}) {
   if (!citizen?.telegramUserId) {
     return (
-      <p className="panel-sub">
-        Telegram Mini App sign-in will link automatically when Reality opens inside Telegram.
-      </p>
+      <>
+        {telegramLinkError && <p className="waitlist-error" role="alert">{telegramLinkError}</p>}
+        <p className="panel-sub">
+          Telegram Mini App sign-in will link automatically when Reality opens inside Telegram.
+        </p>
+      </>
     )
   }
 
