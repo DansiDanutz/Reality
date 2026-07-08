@@ -142,7 +142,13 @@ export default function FounderCovenantOperatorPanel({
         ? 'default'
         : null
   const activePriorityPreset =
-    queueSort === 'priority' && (queueFilter === 'manual_review' || queueFilter === 'hospitalized' || queueFilter === 'scan_anomaly')
+    queueSort === 'priority' && (
+      queueFilter === 'manual_review' ||
+      queueFilter === 'overdue' ||
+      queueFilter === 'blocked' ||
+      queueFilter === 'hospitalized' ||
+      queueFilter === 'scan_anomaly'
+    )
       ? queueFilter
       : null
 
@@ -468,6 +474,22 @@ export default function FounderCovenantOperatorPanel({
               Manual
             </button>
             <button
+              className={`btn small ${queueFilter === 'overdue' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('overdue')}
+              type="button"
+            >
+              Overdue
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'blocked' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('blocked')}
+              type="button"
+            >
+              Blocked
+            </button>
+            <button
               className={`btn small ${queueFilter === 'hospitalized' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('hospitalized')}
@@ -550,6 +572,22 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Triage Manual
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'overdue' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('overdue')}
+              type="button"
+            >
+              Triage Overdue
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'blocked' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('blocked')}
+              type="button"
+            >
+              Triage Blocked
             </button>
             <button
               className={`btn small ${activePriorityPreset === 'hospitalized' ? 'primary' : 'ghost'}`}

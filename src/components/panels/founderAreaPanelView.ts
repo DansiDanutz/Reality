@@ -117,6 +117,8 @@ export type FounderCovenantOperatorQueueFilter =
   | 'stale_monthly_due'
   | 'fresh_reviewed'
   | 'manual_review'
+  | 'overdue'
+  | 'blocked'
   | 'hospitalized'
   | 'scan_anomaly'
 export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder'
@@ -907,6 +909,10 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
         return item.reviewFreshness === 'fresh'
       case 'manual_review':
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'overdue':
+        return item.overdue
+      case 'blocked':
+        return item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
       case 'hospitalized':
         return item.activityReview.hospitalized
       case 'scan_anomaly':
@@ -949,6 +955,10 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} fresh reviewed · ${freshness}`
     case 'manual_review':
       return `${count} founder${count === 1 ? '' : 's'} need manual review · ${freshness}`
+    case 'overdue':
+      return `${count} founder${count === 1 ? '' : 's'} overdue · ${freshness}`
+    case 'blocked':
+      return `${count} founder${count === 1 ? '' : 's'} blocked by workflow gaps · ${freshness}`
     case 'hospitalized':
       return `${count} founder${count === 1 ? '' : 's'} hospitalized · ${freshness}`
     case 'scan_anomaly':
@@ -966,9 +976,11 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const staleMonthlyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_monthly_due').length
   const freshReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'fresh_reviewed').length
   const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
+  const overdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'overdue').length
+  const blocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -991,6 +1003,10 @@ export function founderCovenantOperatorQueueSliceTotals(
         return item.reviewFreshness === 'fresh'
       case 'manual_review':
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'overdue':
+        return item.overdue
+      case 'blocked':
+        return item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
       case 'hospitalized':
         return item.activityReview.hospitalized
       case 'scan_anomaly':

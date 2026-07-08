@@ -181,6 +181,10 @@ function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
       return 'Fresh'
     case 'manual_review':
       return 'Manual'
+    case 'overdue':
+      return 'Overdue'
+    case 'blocked':
+      return 'Blocked'
     case 'hospitalized':
       return 'Hospital'
     case 'scan_anomaly':

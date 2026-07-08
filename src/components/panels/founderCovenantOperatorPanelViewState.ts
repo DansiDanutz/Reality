@@ -59,6 +59,8 @@ function isQueueFilter(value: string | undefined): value is FounderCovenantOpera
     value === 'stale_monthly_due' ||
     value === 'fresh_reviewed' ||
     value === 'manual_review' ||
+    value === 'overdue' ||
+    value === 'blocked' ||
     value === 'hospitalized' ||
     value === 'scan_anomaly'
 }
