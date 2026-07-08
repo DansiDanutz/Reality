@@ -1,5 +1,5 @@
 import { jobById } from '../../game/catalog'
-import { dailyStepsOf } from '../../game/engine'
+import { adviceOf, dailyStepsOf, type AdviceAction } from '../../game/engine'
 import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 
@@ -88,9 +88,60 @@ export default function ActionDock() {
     workersHall: assets.some((a) => a.itemId === 'workers_hall'),
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
+  const advice = adviceOf({
+    needs,
+    health,
+    money,
+    jobId,
+    respect,
+    activity,
+    hasHome: assets.some((a) => a.kind === 'home'),
+    businesses: assets.filter((a) => a.kind === 'business').length,
+    workersHall: assets.some((a) => a.itemId === 'workers_hall'),
+    pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+  })
   const enterStreetMode = () => {
     preloadStreetMode()
     setStreetMode(true)
+  }
+  const run = (action: AdviceAction) => {
+    const s = useGame.getState()
+    switch (action) {
+      case 'drink':
+        s.quickDrink()
+        break
+      case 'eat':
+        s.openMarket('food')
+        break
+      case 'sleep':
+        s.startSleep()
+        break
+      case 'find-job':
+        s.setPanel('work')
+        break
+      case 'study':
+        s.study()
+        break
+      case 'community':
+        s.community()
+        break
+      case 'start-shift':
+        if (s.jobId) s.startShift()
+        else s.setPanel('work')
+        break
+      case 'leisure':
+        s.openMarket('leisure')
+        break
+      case 'collect':
+        s.collectIncome()
+        break
+      case 'buy-home':
+        s.openMarket('home')
+        break
+      case 'buy-business':
+        s.openMarket('business')
+        break
+    }
   }
 
   return (
@@ -98,6 +149,11 @@ export default function ActionDock() {
       <p className="dock-rhythm mono" aria-label="Today’s rhythm">
         {dailyRhythm.slice(0, 3).map((step) => step.label).join(' · ')}
       </p>
+      {advice.cta && advice.action !== 'none' && (
+        <button className="btn small primary dock-next" onClick={() => run(advice.action)}>
+          {advice.cta}
+        </button>
+      )}
       <div className="dock-actions">
         <button
           className="btn"
