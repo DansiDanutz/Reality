@@ -383,16 +383,16 @@ export function founderWorkerCandidateActionText(
   switch (candidate.action) {
     case 'hire_now':
       return candidate.recommendedBusinessName
-        ? `Ready for ${candidate.recommendedBusinessName}`
-        : 'Ready to hire'
+        ? `Ready for ${candidate.recommendedBusinessName} · clears staffing pressure`
+        : 'Ready to hire · clears staffing pressure'
     case 'founder_unavailable':
       return 'Founder recovering before hiring resumes'
     case 'requires_acceptance':
       return candidate.recommendedBusinessKind
-        ? `${candidate.recommendedBusinessKind} role needs worker acceptance`
+        ? `${candidate.recommendedBusinessKind} role needs worker acceptance before staffing clears`
         : 'Worker acceptance required'
     case 'waiting_for_position':
-      return 'No open staffed role right now'
+      return 'No understaffed role open right now'
   }
 }
 

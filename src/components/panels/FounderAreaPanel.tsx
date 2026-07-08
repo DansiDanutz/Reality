@@ -1067,7 +1067,7 @@ export default function FounderAreaPanel() {
             <div className="founder-section-head">
               <h3 className="founder-section-title">Staffing</h3>
               <span className="item-desc">
-                {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready
+                {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready · {dashboard.jobs.understaffedBusinesses} unstaffed
               </span>
             </div>
             {dashboard.jobs.candidates.length === 0 || dashboard.jobs.openPositions === 0 ? (

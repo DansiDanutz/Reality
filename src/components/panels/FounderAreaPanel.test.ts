@@ -368,13 +368,25 @@ describe('FounderAreaPanel covenant presenters', () => {
       action: 'hire_now',
       recommendedBusinessName: 'Founder Water',
       recommendedBusinessKind: 'water',
-    })).toBe('Ready for Founder Water')
+    })).toBe('Ready for Founder Water · clears staffing pressure')
 
     expect(founderWorkerCandidateActionText({
       action: 'founder_unavailable',
       recommendedBusinessName: 'Founder Water',
       recommendedBusinessKind: 'water',
     })).toBe('Founder recovering before hiring resumes')
+
+    expect(founderWorkerCandidateActionText({
+      action: 'requires_acceptance',
+      recommendedBusinessName: 'Founder Food',
+      recommendedBusinessKind: 'food',
+    })).toBe('food role needs worker acceptance before staffing clears')
+
+    expect(founderWorkerCandidateActionText({
+      action: 'waiting_for_position',
+      recommendedBusinessName: null,
+      recommendedBusinessKind: null,
+    })).toBe('No understaffed role open right now')
 
     expect(founderSurvivalActionText({
       intent: 'buyWater',
