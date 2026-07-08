@@ -169,6 +169,24 @@ describe('businessDevelopmentForecastCards', () => {
     }))
   })
 
+  test('describes the first business foundation as a foundation purchase when that runway is active', () => {
+    const forecast = constructionDayForecast(
+      createConstructionProject('starter-house', 45, 21, 1),
+      freshResources(),
+      100,
+      100,
+      15_000,
+      8,
+    )
+    const cards = constructionForecastCards(forecast)
+
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Shell',
+      value: '$15,000',
+      detail: 'Save this much above the cash floor before buying the foundation.',
+    }))
+  })
+
   test('marks funded and gathered interior steps as ready', () => {
     const project = createBusinessDevelopmentProject(business(), 1_000)!
     const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project

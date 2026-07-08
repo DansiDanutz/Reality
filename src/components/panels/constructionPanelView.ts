@@ -35,7 +35,7 @@ export function constructionForecastCards(forecast: ConstructionDayForecast): Fo
       value: forecast.upfrontAffordableToday ? 'ready' : formatMoney(forecast.upfrontCashNeeded),
       detail: forecast.upfrontAffordableToday
         ? `${formatMoney(forecast.upfrontCostRemaining)} foundation can be placed today.`
-        : `Save this much above the cash floor before buying the shell.`,
+        : `Save this much above the cash floor before buying the foundation.`,
       tone: forecast.upfrontAffordableToday ? 'ok' : undefined,
     })
   }
