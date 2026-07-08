@@ -162,6 +162,10 @@ export function FounderCovenantQueuePanel({
                   <span>Next</span>
                   <strong>{row.recommendedNextText}</strong>
                 </span>
+                <span className={`founder-ledger-chip ${row.telegramOutputTone}`}>
+                  <span>Telegram</span>
+                  <strong>{row.telegramOutputText}</strong>
+                </span>
                 <span className={`founder-covenant-checklist-status mono ${row.statusClass}`}>
                   {row.statusLabel}
                 </span>

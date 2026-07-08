@@ -180,6 +180,8 @@ export interface FounderCovenantOperatorQueueReviewRow {
   manualActionText: string
   approvalRequestText: string
   notificationDraftText: string
+  telegramOutputText: string
+  telegramOutputTone: FounderCovenantReviewTone
   signalText: string
   priorityScore: number
   priorityReasons: string[]
@@ -1109,6 +1111,8 @@ export function founderCovenantOperatorQueueReviewRows(
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
+      telegramOutputText: founderCovenantOperatorQueueTelegramOutputText(item),
+      telegramOutputTone: founderCovenantOperatorQueueTelegramOutputTone(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
@@ -1566,6 +1570,28 @@ export function founderCovenantOperatorQueueNotificationDraftText(
   return item.pendingNotificationDrafts
     .map((draft) => `${founderCovenantNotificationKindLabel(draft.kind)} locked (${founderCovenantNotificationChannelLabel(draft.channel)})`)
     .join(', ')
+}
+
+export function founderCovenantOperatorQueueTelegramOutputText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts' | 'pendingApprovalRequests'>,
+): string {
+  const manual = item.pendingNotificationDrafts.some((draft) => draft.kind === 'manual_review_required')
+  const warning = item.pendingApprovalRequests.some((request) => request.kind === 'send_warning')
+  if (manual && warning) return 'Telegram manual + warning'
+  if (manual) return 'Telegram manual'
+  if (warning) return 'Telegram warning'
+  return 'Telegram none'
+}
+
+export function founderCovenantOperatorQueueTelegramOutputTone(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts' | 'pendingApprovalRequests'>,
+): FounderCovenantReviewTone {
+  const manual = item.pendingNotificationDrafts.some((draft) => draft.kind === 'manual_review_required')
+  const warning = item.pendingApprovalRequests.some((request) => request.kind === 'send_warning')
+  if (manual && warning) return 'warning'
+  if (manual) return 'warning'
+  if (warning) return 'critical'
+  return 'stable'
 }
 
 export function founderCovenantOperatorQueuePriorityScore(

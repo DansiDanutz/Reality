@@ -54,6 +54,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
+    expect(html).toContain('class="founder-ledger-chip warning"><span>Telegram</span><strong>Telegram manual + warning</strong></span>')
     expect(html).toContain('Priority: manual review, never reviewed, overdue, hospitalized, at risk')
     expect(html).toContain('Filter: All')
     expect(html).toContain('1 founder in current page · 1 never · 0 stale · 0 fresh')

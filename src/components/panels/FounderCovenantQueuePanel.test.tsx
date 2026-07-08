@@ -26,6 +26,8 @@ import {
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueStageText,
+  founderCovenantOperatorQueueTelegramOutputText,
+  founderCovenantOperatorQueueTelegramOutputTone,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueuePrimaryWorkloadText,
@@ -94,6 +96,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Evidence next: Next: Population growth, External contribution · 1 more')
     expect(html).toContain('Recommended next: Attach missing manual evidence')
     expect(html).toContain('class="founder-ledger-chip critical"><span>Next</span><strong>Attach missing manual evidence</strong></span>')
+    expect(html).toContain('class="founder-ledger-chip warning"><span>Telegram</span><strong>Telegram manual + warning</strong></span>')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -1079,6 +1082,27 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueuePriorityReasons(blockedReady)).toContain('approval blockers')
     expect(founderCovenantOperatorQueuePriorityReasons(recordReady)).not.toContain('approval blockers')
+  })
+
+  test('labels telegram availability for founder queue rows', () => {
+    const manual = founderQueueItem()
+    const warningOnly = founderQueueItem({
+      pendingNotificationDrafts: [],
+      pendingNotificationKinds: [],
+    })
+    const none = founderQueueItem({
+      pendingNotificationDrafts: [],
+      pendingNotificationKinds: [],
+      pendingApprovalRequests: [],
+      pendingApprovalKinds: [],
+    })
+
+    expect(founderCovenantOperatorQueueTelegramOutputText(manual)).toBe('Telegram manual + warning')
+    expect(founderCovenantOperatorQueueTelegramOutputTone(manual)).toBe('warning')
+    expect(founderCovenantOperatorQueueTelegramOutputText(warningOnly)).toBe('Telegram warning')
+    expect(founderCovenantOperatorQueueTelegramOutputTone(warningOnly)).toBe('critical')
+    expect(founderCovenantOperatorQueueTelegramOutputText(none)).toBe('Telegram none')
+    expect(founderCovenantOperatorQueueTelegramOutputTone(none)).toBe('stable')
   })
 
   test('filters queue rows for manual review, evidence gaps, founder-state risks, action queues, overdue, blocked, hospitalization, and scan anomalies', () => {
