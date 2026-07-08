@@ -11,6 +11,9 @@ lives in the linked chapters; this file is the index and the status board.*
 [plan/00-MASTER-PLAN.md](plan/00-MASTER-PLAN.md). If this file and a chapter disagree,
 the chapter wins — then fix this file.
 
+**Live status page:** [reality-gamma.vercel.app/roadmap.html](https://reality-gamma.vercel.app/roadmap.html)
+— auto-generated nightly from the repo (`npm run roadmap`): achievements, test counts, recent commits.
+
 ---
 
 ## The one-paragraph vision
