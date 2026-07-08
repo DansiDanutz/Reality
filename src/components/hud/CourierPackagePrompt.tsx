@@ -110,6 +110,7 @@ export default function CourierPackagePrompt() {
         setPanel('construction')
         return
       case 'construction-labor':
+      case 'construction-labor-complete':
       case 'home-built-or-progress':
       case 'construction-built':
         if (project) startConstructionWork(project.id)
@@ -124,6 +125,7 @@ export default function CourierPackagePrompt() {
       case 'business-development-budget':
       case 'business-development-budget-complete':
       case 'business-development-labor':
+      case 'business-development-labor-complete':
       case 'business-upgraded':
         setPanel('business')
         return
@@ -162,7 +164,7 @@ export default function CourierPackagePrompt() {
               ? 'Pay permit'
             : pkg.requirement.kind === 'worker-hired'
               ? 'Hire worker'
-            : pkg.requirement.kind === 'construction-labor' || pkg.requirement.kind === 'home-built-or-progress' || pkg.requirement.kind === 'construction-built'
+            : pkg.requirement.kind === 'construction-labor' || pkg.requirement.kind === 'construction-labor-complete' || pkg.requirement.kind === 'home-built-or-progress' || pkg.requirement.kind === 'construction-built'
               ? project ? 'Work 60m' : 'Place site'
               : pkg.requirement.kind === 'business-development-site' ||
                   pkg.requirement.kind === 'business-development-deposit' ||
@@ -170,6 +172,7 @@ export default function CourierPackagePrompt() {
                   pkg.requirement.kind === 'business-development-budget' ||
                   pkg.requirement.kind === 'business-development-budget-complete' ||
                   pkg.requirement.kind === 'business-development-labor' ||
+                  pkg.requirement.kind === 'business-development-labor-complete' ||
                   pkg.requirement.kind === 'business-upgraded'
                 ? 'Open business'
               : resourceKind

@@ -37,6 +37,7 @@ export type CourierRequirement =
   | { kind: 'construction-permit' }
   | { kind: 'construction-permit-complete'; resultKind: AssetKind; itemId: string; lat: number; lng: number }
   | { kind: 'construction-labor'; minutes: number }
+  | { kind: 'construction-labor-complete'; resultKind: AssetKind; itemId: string; lat: number; lng: number; minutes: number }
   | { kind: 'worker-hired'; workersHiredToday: number }
   | { kind: 'home-built-or-progress'; laborMinutes: number }
   | { kind: 'construction-built'; resultKind: AssetKind; itemId: string; lat: number; lng: number; laborMinutes: number }
@@ -46,6 +47,7 @@ export type CourierRequirement =
   | { kind: 'business-development-budget' }
   | { kind: 'business-development-budget-complete'; businessId: string; level: number }
   | { kind: 'business-development-labor'; minutes: number }
+  | { kind: 'business-development-labor-complete'; businessId: string; level: number; minutes: number }
   | { kind: 'business-upgraded'; businessId: string; level: number }
   | { kind: 'active-commitment'; activityKind: CourierActivityKind }
 
@@ -280,6 +282,19 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       )
     case 'construction-labor':
       return snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.minutes) || snapshot.hasHome
+    case 'construction-labor-complete':
+      return snapshot.constructionProjects.some((project) =>
+        project.resultKind === requirement.resultKind &&
+        project.itemId === requirement.itemId &&
+        project.lat === requirement.lat &&
+        project.lng === requirement.lng &&
+        project.laborDoneMinutes >= requirement.minutes
+      ) || (snapshot.assets ?? []).some((asset) =>
+        asset.kind === requirement.resultKind &&
+        asset.itemId === requirement.itemId &&
+        asset.lat === requirement.lat &&
+        asset.lng === requirement.lng
+      )
     case 'worker-hired':
       return (snapshot.workersHiredToday ?? 0) >= requirement.workersHiredToday
     case 'home-built-or-progress':
@@ -331,6 +346,16 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       )
     case 'business-development-labor':
       return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.laborDoneMinutes >= requirement.minutes)
+    case 'business-development-labor-complete':
+      return (snapshot.businessDevelopmentProjects ?? []).some((project) =>
+        project.businessId === requirement.businessId &&
+        project.levelTo >= requirement.level &&
+        project.laborDoneMinutes >= requirement.minutes
+      ) || (snapshot.assets ?? []).some((asset) =>
+        asset.id === requirement.businessId &&
+        asset.kind === 'business' &&
+        (asset.level ?? 1) >= requirement.level
+      )
     case 'business-upgraded':
       return (snapshot.assets ?? []).some((asset) =>
         asset.id === requirement.businessId &&
@@ -432,7 +457,17 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     if (route.action === 'permit') return { kind: 'construction-permit' }
     if (route.action === 'hire-helper') return { kind: 'worker-hired', workersHiredToday: (snapshot.workersHiredToday ?? 0) + 1 }
     if (route.action === 'work') {
-      return { kind: 'construction-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
+      if (project) {
+        return {
+          kind: 'construction-labor-complete',
+          resultKind: project.resultKind,
+          itemId: project.itemId,
+          lat: project.lat,
+          lng: project.lng,
+          minutes: Math.min(project.laborRequiredMinutes, project.laborDoneMinutes + 60),
+        }
+      }
+      return { kind: 'construction-labor', minutes: 60 }
     }
     if (route.action === 'complete') {
       if (!project) return null
@@ -472,7 +507,15 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     if (route.action === 'budget') return { kind: 'business-development-budget' }
     if (route.action === 'hire-helper') return { kind: 'worker-hired', workersHiredToday: (snapshot.workersHiredToday ?? 0) + 1 }
     if (route.action === 'work') {
-      return { kind: 'business-development-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
+      if (project) {
+        return {
+          kind: 'business-development-labor-complete',
+          businessId: project.businessId,
+          level: project.levelTo,
+          minutes: Math.min(project.laborRequiredMinutes, project.laborDoneMinutes + 60),
+        }
+      }
+      return { kind: 'business-development-labor', minutes: 60 }
     }
     if (route.action === 'complete' && project) return { kind: 'business-upgraded', businessId: project.businessId, level: project.levelTo }
     if (route.action === 'complete') return null

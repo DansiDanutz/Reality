@@ -155,6 +155,30 @@ describe('courierPackages', () => {
       assets: [],
       hasHome: false,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'construction-labor-complete', resultKind: 'business', itemId: 'foodcart', lat: 45, lng: 21, minutes: 120 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [{ ...project, resultKind: 'business', itemId: 'foodcart', laborDoneMinutes: 119 }],
+      assets: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'construction-labor-complete', resultKind: 'business', itemId: 'foodcart', lat: 45, lng: 21, minutes: 120 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [{ ...project, resultKind: 'business', itemId: 'foodcart', laborDoneMinutes: 120 }],
+      assets: [],
+      hasHome: false,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'construction-labor-complete', resultKind: 'business', itemId: 'foodcart', lat: 45, lng: 21, minutes: 120 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      assets: [business({ lat: 45, lng: 21 })],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('checks Life Ladder job, shift, education, and community requirements', () => {
@@ -474,6 +498,33 @@ describe('courierPackages', () => {
       businessDevelopmentProjects: [worked],
       hasHome: true,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-labor-complete', businessId: project.businessId, level: project.levelTo, minutes: 60 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [project],
+      assets: [business()],
+      hasHome: true,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-labor-complete', businessId: project.businessId, level: project.levelTo, minutes: 60 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [worked],
+      assets: [business()],
+      hasHome: true,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-labor-complete', businessId: project.businessId, level: project.levelTo, minutes: 60 } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [],
+      assets: [upgradedBusiness],
+      hasHome: true,
+    })).toBe(true)
     expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-upgraded', businessId: project.businessId, level: project.levelTo } }, {
       timesEaten: 0,
       sawStreetMode: false,
@@ -596,7 +647,12 @@ describe('courierPackages', () => {
     expect(pkg).toMatchObject({
       day: 18,
       title: 'Work 60m inside Food Cart',
-      requirement: { kind: 'business-development-labor', minutes: 60 },
+      requirement: {
+        kind: 'business-development-labor-complete',
+        businessId: project.businessId,
+        level: project.levelTo,
+        minutes: 60,
+      },
     })
   })
 
@@ -705,6 +761,46 @@ describe('courierPackages', () => {
     expect(businessHire).toMatchObject({
       day: 19,
       requirement: { kind: 'worker-hired', workersHiredToday: 2 },
+    })
+  })
+
+  test('wraps generated construction work tasks with permanent asset requirements', () => {
+    const project = {
+      ...createConstructionProjectFromRecipe(businessConstructionRecipe({
+        id: 'foodcart',
+        name: 'Food Cart',
+        price: 1_000,
+        incomePerDay: 200,
+      }), 45, 21, 1),
+      laborDoneMinutes: 60,
+    }
+    const pkg = courierPackageForLifePlan(20, {
+      id: 'work-business-shell',
+      title: 'Build Food Cart for 60m',
+      detail: 'Put a real hour into the business shell so it moves from plan to place.',
+      value: 'capital',
+      minutes: 60,
+      route: { kind: 'construction-action', projectId: project.id, action: 'work' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [project],
+      assets: [],
+      hasHome: false,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 20,
+      title: 'Build Food Cart for 60m',
+      requirement: {
+        kind: 'construction-labor-complete',
+        resultKind: 'business',
+        itemId: 'foodcart',
+        lat: 45,
+        lng: 21,
+        minutes: 120,
+      },
     })
   })
 
