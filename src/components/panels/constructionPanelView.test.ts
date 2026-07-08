@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createBusinessDevelopmentProject, depositBusinessDevelopmentResources, payBusinessDevelopmentBudget } from '../../game/businessDevelopment'
-import { createConstructionProject } from '../../game/construction'
+import { createConstructionProject, STARTER_HOUSE_RECIPE } from '../../game/construction'
 import { businessDevelopmentDayForecast, constructionDayForecast } from '../../game/lifeLadder'
 import { freshResources } from '../../game/resources'
 import type { PlacedAsset } from '../../game/types'
@@ -124,6 +124,22 @@ describe('constructionForecastCards', () => {
       tone: 'gold',
     }))
   })
+
+  test('explains community backing in the helper plan forecast', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 1, 1, 1),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 120,
+    }
+    const cards = constructionForecastCards(constructionDayForecast(project, freshResources(), 124, undefined, undefined, 1, 30))
+
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Workers',
+      value: '2d helper plan',
+      detail: '2h helper adds 2h labor/day for $24 after community backing covers 30m ($8); affordable today.',
+    }))
+  })
 })
 
 describe('businessDevelopmentForecastCards', () => {
@@ -166,6 +182,19 @@ describe('businessDevelopmentForecastCards', () => {
       value: 'day 1',
       detail: '2h helper plan beats solo day 3.',
       tone: 'gold',
+    }))
+  })
+
+  test('explains community backing in the interior helper plan forecast', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_000)!
+    const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project
+    const paid = payBusinessDevelopmentBudget(deposited, project.budgetCost).project
+    const cards = businessDevelopmentForecastCards(businessDevelopmentDayForecast(paid, freshResources(), 124, undefined, 1, 30))
+
+    expect(cards).toContainEqual(expect.objectContaining({
+      label: 'Workers',
+      value: '1d helper plan',
+      detail: '2h helper adds 2h labor/day for $24 after community backing covers 30m ($8); affordable today.',
     }))
   })
 })

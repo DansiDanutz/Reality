@@ -101,6 +101,8 @@ export interface ConstructionDayForecast {
   helperTwoHourCompletionLifeDay: number
   helperTwoHourLaborMinutes: number
   helperTwoHourCost: number
+  helperTwoHourCommunityCreditMinutes: number
+  helperTwoHourCommunityCreditValue: number
   helperTwoHourAffordableToday: boolean
   helperTwoHourCashNeeded: number
   activeWorkerCount: number
@@ -123,6 +125,8 @@ export interface BusinessDevelopmentDayForecast {
   helperTwoHourCompletionLifeDay: number
   helperTwoHourLaborMinutes: number
   helperTwoHourCost: number
+  helperTwoHourCommunityCreditMinutes: number
+  helperTwoHourCommunityCreditValue: number
   helperTwoHourAffordableToday: boolean
   helperTwoHourCashNeeded: number
   activeWorkerCount: number
@@ -1023,6 +1027,8 @@ export function constructionDayForecast(
     helperTwoHourCompletionLifeDay: completionLifeDay(currentLifeDay, helperTwoHourDays),
     helperTwoHourLaborMinutes: helperDailyMinutes,
     helperTwoHourCost: helperCost,
+    helperTwoHourCommunityCreditMinutes: helperEstimate?.communityCreditMinutes ?? 0,
+    helperTwoHourCommunityCreditValue: helperEstimate?.communityCreditValue ?? 0,
     helperTwoHourAffordableToday: helperCashNeeded <= 0,
     helperTwoHourCashNeeded: helperCashNeeded,
     activeWorkerCompletionLifeDay: activeWorkerDays > 0 ? completionLifeDay(currentLifeDay, activeWorkerDays) : 0,
@@ -1068,6 +1074,8 @@ export function businessDevelopmentDayForecast(
     helperTwoHourCompletionLifeDay: completionLifeDay(currentLifeDay, helperTwoHourDays),
     helperTwoHourLaborMinutes: helperDailyMinutes,
     helperTwoHourCost: helperCost,
+    helperTwoHourCommunityCreditMinutes: helperEstimate?.communityCreditMinutes ?? 0,
+    helperTwoHourCommunityCreditValue: helperEstimate?.communityCreditValue ?? 0,
     helperTwoHourAffordableToday: helperCashNeeded <= 0,
     helperTwoHourCashNeeded: helperCashNeeded,
     activeWorkerCompletionLifeDay: activeWorkerDays > 0 ? completionLifeDay(currentLifeDay, activeWorkerDays) : 0,
