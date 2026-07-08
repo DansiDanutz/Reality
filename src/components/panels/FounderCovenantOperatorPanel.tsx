@@ -19,6 +19,10 @@ import type {
   FounderCovenantOperatorQueueReviewRow,
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
+import {
+  founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueSummary,
+} from './founderAreaPanelView'
 
 const OPERATOR_REVIEW_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; label: string }[] = [
   { kind: 'population_growth', label: 'Population' },
@@ -71,6 +75,8 @@ export default function FounderCovenantOperatorPanel({
   const [operatorAuthState, setOperatorAuthState] = useState<FounderCovenantOperatorAuthState>(
     initialOperatorAuth ?? { status: 'idle' },
   )
+  const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(null)
+  const [lastCopiedText, setLastCopiedText] = useState<string | null>(null)
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
@@ -79,6 +85,7 @@ export default function FounderCovenantOperatorPanel({
   const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>('priority')
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
+  const [scanCursor, setScanCursor] = useState<string | null>(initialQueue?.cursor ?? null)
   const [panelState, setPanelState] = useState<OperatorQueuePanelState>(() => {
     if (initialQueue) return { status: 'ready', queue: initialQueue }
     if (initialError) return { status: 'error', message: initialError, queue: null }
@@ -160,6 +167,7 @@ export default function FounderCovenantOperatorPanel({
       ...(cursor ? { cursor } : {}),
     })
     if (result.ok) {
+      setScanCursor(cursor)
       setPanelState({ status: 'ready', queue: result.founderCovenantReviewQueue })
     } else {
       setPanelState({ status: 'error', message: result.error, queue })
@@ -196,7 +204,12 @@ export default function FounderCovenantOperatorPanel({
       setReviewNote('')
       setReviewEvidenceKinds([])
       setOperatorReviewMessage(`Review evidence recorded for ${row.title}.`)
-      const refreshed = await readQueue({ operatorToken, limit, pages })
+      const refreshed = await readQueue({
+        operatorToken,
+        limit,
+        pages,
+        ...(scanCursor ? { cursor: scanCursor } : {}),
+      })
       if (refreshed.ok) {
         setPanelState({ status: 'ready', queue: refreshed.founderCovenantReviewQueue })
       } else {
@@ -213,6 +226,31 @@ export default function FounderCovenantOperatorPanel({
         ? current.filter((item) => item !== kind)
         : [...current, kind]
     )
+  }
+
+  const copyQueueViewContext = async () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    const queueSummary = queue
+      ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
+      : 'Queue unavailable'
+    const handoff = [
+      queueContextText(queueFilter, queueSort, scanCursor),
+      queueCursorContextText(scanCursor, queue?.nextCursor ?? null),
+      queueResumeText(scanCursor, queue?.nextCursor ?? null),
+      queueSummary,
+    ].join(' · ')
+    if (!clipboard?.writeText) {
+      setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
+      return
+    }
+    try {
+      await clipboard.writeText(handoff)
+      setLastCopiedAt(new Date().toISOString())
+      setLastCopiedText(handoff)
+      setOperatorReviewMessage(`Queue view copied: ${handoff}`)
+    } catch {
+      setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
+    }
   }
 
   return (
@@ -278,6 +316,7 @@ export default function FounderCovenantOperatorPanel({
               setManualOperatorToken('')
               setTelegramOperatorToken('')
               setOperatorAuthState({ status: 'idle' })
+              setScanCursor(null)
               setPanelState({ status: 'idle' })
             }}
             type="button"
@@ -381,6 +420,30 @@ export default function FounderCovenantOperatorPanel({
           <div className="founder-operator-actions">
             <button
               className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyQueueViewContext()}
+              type="button"
+            >
+              Copy view
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading || operatorToken.length === 0}
+              onClick={() => void loadQueue(scanCursor)}
+              type="button"
+            >
+              Refresh page
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading || operatorToken.length === 0 || scanCursor === null}
+              onClick={() => void loadQueue(null)}
+              type="button"
+            >
+              Restart scan
+            </button>
+            <button
+              className="btn small ghost"
               disabled={loading || !queue.nextCursor || operatorToken.length === 0}
               onClick={() => void loadQueue(queue.nextCursor)}
               type="button"
@@ -390,6 +453,10 @@ export default function FounderCovenantOperatorPanel({
             <span className="item-desc">
               {queue.nextCursor ? 'More founders available' : 'End of current queue'}
             </span>
+            <span className="item-desc">Copy status: {lastCopiedAt ? copiedAtText(lastCopiedAt) : 'not copied yet'}</span>
+            {lastCopiedText && <span className="item-desc">Last copied: {lastCopiedText}</span>}
+            <span className="item-desc">View: {queueViewLabel(queueFilter)} / {queueSortLabel(queueSort)} / {scanCursor ?? 'start'}</span>
+            <span className="item-desc">{queueResumeText(scanCursor, queue.nextCursor)}</span>
           </div>
         </>
       )}
@@ -419,6 +486,54 @@ function operatorAuthStatusLabel(state: FounderCovenantOperatorAuthState): strin
 
 function formatOperatorAuthExpiry(expiresAt: number): string {
   return `${new Date(expiresAt).toISOString().slice(11, 16)} UTC`
+}
+
+function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): string {
+  switch (filter) {
+    case 'all':
+      return 'All'
+    case 'manual_review':
+      return 'Manual'
+    case 'hospitalized':
+      return 'Hospital'
+    case 'scan_anomaly':
+      return 'Scan'
+  }
+}
+
+function queueSortLabel(sort: FounderCovenantOperatorQueueSort): string {
+  switch (sort) {
+    case 'priority':
+      return 'Priority'
+    case 'founder':
+      return 'Founder #'
+  }
+}
+
+function queueContextText(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+  scanCursor: string | null,
+): string {
+  return `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}`
+}
+
+function queueCursorContextText(scanCursor: string | null, nextCursor: string | null): string {
+  if (scanCursor) {
+    return `Cursor: ${scanCursor}${nextCursor ? ` -> ${nextCursor}` : ' -> end'}`
+  }
+  return nextCursor ? `Cursor: start -> ${nextCursor}` : 'Cursor: start -> end'
+}
+
+function queueResumeText(scanCursor: string | null, nextCursor: string | null): string {
+  if (scanCursor) {
+    return `Resumed after ${scanCursor}${nextCursor ? ' · more founders available' : ' · end of current queue'}`
+  }
+  return nextCursor ? 'Start of queue · more founders available' : 'Start of queue · end of current queue'
+}
+
+function copiedAtText(value: string): string {
+  return `${value.slice(0, 10)} ${value.slice(11, 16)} UTC`
 }
 
 function operatorAuthErrorMessage(result: Exclude<RealityOperatorQueueAuthResult, { ok: true }>): string {
