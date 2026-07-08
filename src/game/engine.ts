@@ -283,7 +283,26 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
     const chunkEnd = Math.max(t, Math.min(end, activity ? activity.endsAt : end, stepEnd))
     const minutes = Math.max(0, (chunkEnd - t) / 60_000)
     const days = minutes / 60 / 24
+    const startAssets = world.assets
     world = advanceLife(world, minutes, modeOf(activity, input.hasHome), illness?.kind === 'cold' ? COLD_REGEN_MULT : 1)
+    if (minutes > 0) {
+      const startAssetsById = new Map(startAssets.map((asset) => [asset.id, asset] as const))
+      world = {
+        ...world,
+        assets: world.assets.map((asset) => {
+          const startAsset = startAssetsById.get(asset.id)
+          if (!startAsset?.constructionEndsAt || asset.incomePerDay <= 0) return asset
+          const productiveStart = Math.max(t, startAsset.constructionEndsAt)
+          if (productiveStart >= chunkEnd) return { ...asset, pendingIncome: startAsset.pendingIncome }
+          const productiveHours = (chunkEnd - productiveStart) / 3_600_000
+          const productivePending = Math.min(
+            startAsset.pendingIncome + (asset.incomePerDay / 24) * productiveHours,
+            asset.incomePerDay * PENDING_CAP_DAYS,
+          )
+          return { ...asset, pendingIncome: productivePending }
+        }),
+      }
+    }
     // Pets get hungry on the same real clock as the citizen
     if (pets.length) pets = pets.map((p) => ({ ...p, hunger: clamp(p.hunger - PET_HUNGER_PER_DAY * days) }))
     t = chunkEnd

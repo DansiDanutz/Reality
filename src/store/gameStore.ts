@@ -841,7 +841,6 @@ export const useGame = create<GameState>()(
           from,
           now,
         )
-
         let log = s.log
         let toasts = s.toasts
         let { level, xp } = s
@@ -1013,7 +1012,9 @@ export const useGame = create<GameState>()(
         // (the engine's starting cash). Capture them as earned income.
         addEarned(out.wagesEarned * wageMult) // wages with booster
         {
-          const pendingDelta = out.assets.reduce((sum, a) => sum + a.pendingIncome, 0) - s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
+          const pendingDelta =
+            out.assets.reduce((sum, a) => sum + (a.constructionEndsAt && now < a.constructionEndsAt ? 0 : a.pendingIncome), 0) -
+            s.assets.reduce((sum, a) => sum + a.pendingIncome, 0)
           addEarned(pendingDelta)
           // Income booster: multiply the accrued pending income by the booster
           // multiplier, adding the bonus directly to the assets' pendingIncome.
@@ -1023,12 +1024,12 @@ export const useGame = create<GameState>()(
           // base pendingIncome delta above is measured post-cap.
           const incMult = boosterMultiplier(cleanBoosters, 'income', now)
           if (incMult > 1 && pendingDelta > 0) {
-            const earners = out.assets.filter((b) => b.kind === 'business' && b.pendingIncome > 0)
+            const earners = out.assets.filter((b) => b.kind === 'business' && b.pendingIncome > 0 && (!b.constructionEndsAt || now >= b.constructionEndsAt))
             if (earners.length > 0) {
               const bonusPerAsset = (pendingDelta * (incMult - 1)) / earners.length
               let credited = 0
               out.assets = out.assets.map((a) => {
-                if (a.kind !== 'business' || a.pendingIncome <= 0) return a
+                if (a.kind !== 'business' || a.pendingIncome <= 0 || (a.constructionEndsAt && now < a.constructionEndsAt)) return a
                 const cap = a.incomePerDay * PENDING_CAP_DAYS
                 const next = Math.round(Math.min(a.pendingIncome + bonusPerAsset, cap) * 100) / 100
                 credited += Math.max(0, next - a.pendingIncome)

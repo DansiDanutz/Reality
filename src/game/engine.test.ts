@@ -267,6 +267,14 @@ describe('liveRealtime — the single simulation path', () => {
     expect(out.upkeepPaid).toBeLessThan(80_100)
     expect(out.assets[0].pendingIncome).toBeCloseTo(1000 * PENDING_CAP_DAYS, 0)
   })
+
+  test('construction blocks business income in the real-time loop until the finish time', () => {
+    const out = liveRealtime(base({ assets: [{ ...business(240), constructionEndsAt: 2 * HOUR }] }), 0, HOUR)
+    expect(out.assets[0].pendingIncome).toBe(0)
+
+    const finished = liveRealtime(base({ assets: [{ ...business(240), constructionEndsAt: HOUR }] }), 0, 2 * HOUR)
+    expect(finished.assets[0].pendingIncome).toBeGreaterThan(0)
+  })
 })
 
 describe('real-time clock', () => {
