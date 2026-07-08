@@ -147,6 +147,9 @@ export default function FounderCovenantOperatorPanel({
   const manualReviewTelegramDraft = queue?.items.flatMap((item) => item.pendingNotificationDrafts).find((item) => item.kind === 'manual_review_required') ?? null
   const founderWarningTelegramDraft = queue?.items.flatMap((item) => item.pendingApprovalRequests).find((item) => item.kind === 'send_warning') ?? null
   const hasReviewDraft = reviewNote.trim().length > 0 || reviewEvidenceKinds.length > 0
+  const reviewDraftNotePreview = reviewNote.trim().length > 0
+    ? formatDraftNotePreview(reviewNote)
+    : 'no note'
   const reviewDraftEvidenceSummary = reviewEvidenceKinds.length > 0
     ? OPERATOR_REVIEW_EVIDENCE_OPTIONS
       .filter((option) => reviewEvidenceKinds.includes(option.kind))
@@ -154,7 +157,7 @@ export default function FounderCovenantOperatorPanel({
       .join(', ')
     : 'no evidence tags'
   const reviewDraftSummary = hasReviewDraft
-    ? `Local draft: ${reviewDraftEvidenceSummary} · ${reviewNote.trim().length > 0 ? 'note saved' : 'no note'}`
+    ? `Local draft: ${reviewDraftEvidenceSummary} · ${reviewDraftNotePreview}`
     : null
   const telegramOutputsSummary = queueTelegramOutputsSummary({
     hasQueue: Boolean(queue),
@@ -1337,6 +1340,12 @@ function clampNumber(value: string, min: number, max: number, fallback: number):
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
   return Math.min(max, Math.max(min, Math.trunc(parsed)))
+}
+
+function formatDraftNotePreview(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length <= 48) return `note "${trimmed}"`
+  return `note "${trimmed.slice(0, 45)}..."`
 }
 
 function operatorAuthStatusLabel(state: FounderCovenantOperatorAuthState): string {
