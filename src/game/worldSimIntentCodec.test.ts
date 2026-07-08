@@ -209,7 +209,7 @@ describe('decodeClientWorldIntentPayload', () => {
 
     expect(decodeClientWorldIntentPayload({
       type: 'buyInsurance',
-      insuranceBusinessId: 'ins-a',
+      insuranceBusinessId: ' ins-a ',
     }, 'founder')).toEqual({
       ok: true,
       intent: {
@@ -221,7 +221,7 @@ describe('decodeClientWorldIntentPayload', () => {
 
     expect(decodeClientWorldIntentPayload({
       type: 'repayDebt',
-      debtId: 'founder:1000:1:medical',
+      debtId: ' founder:1000:1:medical ',
       amount: 12.345,
     }, 'founder')).toEqual({
       ok: true,
