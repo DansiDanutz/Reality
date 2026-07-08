@@ -1015,7 +1015,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const realDemand = zeroKindRecord()
   const shortage = zeroKindRecord()
   for (const citizen of activeCitizens) {
-    addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
+    addCitizenDemand(area, citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
   }
   for (const kind of BUSINESS_KINDS) {
     demand[kind] = simDemand[kind] + realDemand[kind]
@@ -1361,7 +1361,7 @@ function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): A
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     heirCitizenId: citizen.heirCitizenId,
-    insuranceActive: hasActiveInsurance(citizen, at),
+    insuranceActive: hasActiveInsurance(area, citizen, at),
     insuranceAction: insuranceActionDashboard(area, citizen, at),
     estateProtection: estateProtectionDashboard(area, citizen, at),
   }
@@ -1379,7 +1379,7 @@ function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: n
     manualReviewRequired: true,
     namedHeirCitizenId: heir?.id ?? null,
     namedHeirName: heir?.name ?? null,
-    protectedByInsurance: hasActiveInsurance(citizen, at),
+    protectedByInsurance: hasActiveInsurance(area, citizen, at),
     status: 'disabled_until_death_enabled',
     blockers: [
       'death_disabled',
@@ -1424,7 +1424,7 @@ function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: nu
     )
   const insurer = insurers[0]
   const premium = insurer ? insurer.price ?? DEFAULT_PRICES.insurance : null
-  const activeInsurance = hasActiveInsurance(citizen, at)
+  const activeInsurance = hasActiveInsurance(area, citizen, at)
   const canAfford = premium !== null && citizen.money >= premium
   const blockers: AreaInsuranceActionBlocker[] = []
 
@@ -2437,12 +2437,12 @@ function citizenPresentation(citizen: WorldCitizen): {
   }
 }
 
-function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
+function addCitizenDemand(area: WorldArea, citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
   if (citizen.needs.hydration < 70) demand.water += 1
   if (citizen.needs.hunger < 70) demand.food += 1
   if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
   if (citizen.health < 80) demand.clinic += 1
-  if (!hasActiveInsurance(citizen, at)) demand.insurance += 1
+  if (!hasActiveInsurance(area, citizen, at)) demand.insurance += 1
 }
 
 function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
@@ -2871,7 +2871,7 @@ function buyInsuranceFromIntent(
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
-  if (hasActiveInsurance(actor, area.now)) return { ok: false, area, error: 'already_insured' }
+  if (hasActiveInsurance(area, actor, area.now)) return { ok: false, area, error: 'already_insured' }
 
   const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
@@ -3047,7 +3047,7 @@ function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
 
 function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
   for (const citizen of area.citizens) {
-    if (!citizen.insuranceBusinessId || hasActiveInsurance(citizen, context.at)) {
+    if (!citizen.insuranceBusinessId || hasActiveInsurance(area, citizen, context.at)) {
       continue
     }
 
@@ -3088,8 +3088,11 @@ function lapseInsurance(citizen: WorldCitizen, context: StepContext): void {
   context.summary.insurancePoliciesLapsed += 1
 }
 
-function hasActiveInsurance(citizen: WorldCitizen, at: number): boolean {
-  return Boolean(citizen.insuranceBusinessId && citizen.insurancePaidUntil !== undefined && citizen.insurancePaidUntil > at)
+function hasActiveInsurance(area: WorldArea, citizen: WorldCitizen, at: number): boolean {
+  if (!citizen.insuranceBusinessId || citizen.insurancePaidUntil === undefined || citizen.insurancePaidUntil <= at) {
+    return false
+  }
+  return area.businesses.some((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
 }
 
 function payWorkerWages(area: WorldArea, context: StepContext): void {
@@ -3165,7 +3168,7 @@ function buyNeededServices(area: WorldArea, citizen: WorldCitizen, context: Step
   if (citizen.needs.hunger <= 50) purchaseService(area, citizen, 'food', context)
   if (citizen.needs.energy <= 35) purchaseService(area, citizen, 'housing', context)
   if (citizen.health <= 65) purchaseService(area, citizen, 'clinic', context)
-  if (citizen.kind === 'sim' && !hasActiveInsurance(citizen, context.at)) purchaseInsurancePolicy(area, citizen, context)
+  if (citizen.kind === 'sim' && !hasActiveInsurance(area, citizen, context.at)) purchaseInsurancePolicy(area, citizen, context)
 }
 
 function simDepartureReason(area: WorldArea, citizen: WorldCitizen, context: StepContext): WorldDepartureReason | null {
@@ -3421,7 +3424,7 @@ function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: Ste
   let remaining = HOSPITAL_BILL
   let insurancePaid = false
 
-  const insurer = hasActiveInsurance(citizen, context.at)
+  const insurer = hasActiveInsurance(area, citizen, context.at)
     ? area.businesses.find((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
     : undefined
   if (insurer) {
