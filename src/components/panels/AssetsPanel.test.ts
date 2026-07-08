@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { createBusinessDevelopmentProject } from '../../game/businessDevelopment'
-import { createConstructionProject } from '../../game/construction'
+import {
+  businessConstructionRecipe,
+  createConstructionProject,
+  createConstructionProjectFromRecipe,
+} from '../../game/construction'
 import { freshResources } from '../../game/resources'
 import type { PlacedAsset } from '../../game/types'
 import {
@@ -145,7 +149,24 @@ describe('constructionAssetView', () => {
     expect(view.permitText).toBe('$500 permit')
     expect(view.laborText).toBe('8h labor left')
     expect(view.percentText).toBe('0% built')
-    expect(view.completionText).toBe('home')
+    expect(view.icon).toBe('⌂')
+    expect(view.kindText).toBe('home shell')
+    expect(view.completionText).toBe('enter home')
+  })
+
+  test('labels business construction as a business shell before it opens', () => {
+    const project = createConstructionProjectFromRecipe(
+      businessConstructionRecipe({ id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 240 }),
+      45,
+      21,
+      1_700_000_000_000,
+    )
+
+    const view = constructionAssetView(project)
+
+    expect(view.icon).toBe('◆')
+    expect(view.kindText).toBe('business shell')
+    expect(view.completionText).toBe('open business')
   })
 
   test('marks construction materials, permit, labor, and hired workers clearly', () => {

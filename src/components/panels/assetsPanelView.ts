@@ -58,13 +58,15 @@ export function constructionAssetView(project: ConstructionProject, now = Date.n
     labor,
     activeWorkerCount: workerViews.length,
     workerViews,
+    icon: project.resultKind === 'business' ? '◆' : '⌂',
+    kindText: project.resultKind === 'business' ? 'business shell' : 'home shell',
     materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
     permitText: project.permitFeePaid ? 'permit paid' : `${formatMoney(project.permitFee)} permit`,
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
     workerText: activeWorkerText(workerViews.length),
     workerEtaText: activeWorkerSummaryText(project.workerContracts, now),
     percentText: `${progress.percent}% built`,
-    completionText: project.resultKind === 'business' ? 'open' : 'home',
+    completionText: project.resultKind === 'business' ? 'open business' : 'enter home',
   }
 }
 

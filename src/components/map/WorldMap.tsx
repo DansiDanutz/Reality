@@ -5,10 +5,12 @@ import { businessDevelopmentProgress } from '../../game/businessDevelopment'
 import { constructionProgress } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { DEFAULT_MAP_ANCHOR } from '../../game/mapAnchor'
+import type { AssetKind } from '../../game/types'
 import { workersHallActionFor, workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
+import { constructionMarkerView } from './worldMapMarkers'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -94,14 +96,15 @@ function resourceElement(kind: string, name: string, source: string): HTMLButton
   return el
 }
 
-function constructionElement(name: string, progressPercent: number): HTMLButtonElement {
+function constructionElement(name: string, resultKind: AssetKind, progressPercent: number): HTMLButtonElement {
+  const view = constructionMarkerView(name, resultKind, progressPercent)
   const el = document.createElement('button')
   el.type = 'button'
-  el.className = 'map-construction'
-  el.title = `${name} construction site — ${progressPercent}% complete`
-  el.setAttribute('aria-label', `${name} construction site, ${progressPercent}% complete`)
-  el.style.setProperty('--construction-progress', `${Math.max(0, Math.min(100, progressPercent))}%`)
-  el.textContent = '⌂'
+  el.className = view.className
+  el.title = view.title
+  el.setAttribute('aria-label', view.ariaLabel)
+  el.style.setProperty('--construction-progress', view.progressStyle)
+  el.textContent = view.symbol
   return el
 }
 
@@ -283,7 +286,7 @@ export default function WorldMap() {
     constructionMarkersRef.current.forEach((m) => m.remove())
     constructionMarkersRef.current = constructionProjects.map((project) => {
       const progress = constructionProgress(project)
-      const el = constructionElement(project.name, progress.percent)
+      const el = constructionElement(project.name, project.resultKind, progress.percent)
       el.addEventListener('click', (event) => {
         event.stopPropagation()
         useGame.getState().selectMapTarget({ kind: 'construction', id: project.id })

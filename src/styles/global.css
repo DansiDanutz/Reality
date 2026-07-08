@@ -263,6 +263,32 @@ body {
   transform: rotate(45deg);
   opacity: 0.72;
 }
+.map-construction.business {
+  border-radius: 8px;
+}
+.map-construction.business::before {
+  left: 6px;
+  right: 6px;
+  top: 8px;
+  bottom: auto;
+  height: 4px;
+  border: 0;
+  border-radius: 1px;
+  background: #201603;
+  box-shadow: 0 8px 0 rgba(32, 22, 3, 0.72);
+}
+.map-construction.business::after {
+  top: auto;
+  left: auto;
+  right: 6px;
+  bottom: 5px;
+  width: 6px;
+  height: 9px;
+  border: 0;
+  border-radius: 1px 1px 0 0;
+  background: #201603;
+  transform: none;
+}
 .map-workers-hall {
   background:
     linear-gradient(to bottom, #dbe8f7 0 22%, #7dd8ff 23% 100%);

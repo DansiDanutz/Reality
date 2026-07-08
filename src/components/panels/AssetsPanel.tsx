@@ -78,11 +78,12 @@ export default function AssetsPanel() {
                   return (
                     <li className="item asset-item build-asset-item" key={project.id}>
                       <div className="item-info">
-                        <span className="item-name">⌂ {project.name}</span>
+                        <span className="item-name">{view.icon} {project.name}</span>
                         <span className="item-desc mono">{project.lat.toFixed(2)}°, {project.lng.toFixed(2)}°</span>
                         <div className="asset-build-meter" aria-label={`${project.name} ${progress.percent}% complete`}>
                           <div style={{ width: `${progress.percent}%` }} />
                         </div>
+                        <span className="item-desc">{view.kindText}</span>
                         <span className="item-desc">
                           {[view.materialText, view.permitText, view.laborText, view.workerEtaText ?? view.workerText].filter(Boolean).join(' · ')}
                         </span>
