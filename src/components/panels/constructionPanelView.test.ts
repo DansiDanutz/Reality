@@ -181,7 +181,7 @@ describe('businessDevelopmentForecastCards', () => {
     const cards = constructionForecastCards(forecast)
 
     expect(cards).toContainEqual(expect.objectContaining({
-      label: 'Shell',
+      label: 'Foundation',
       value: '$15,000',
       detail: 'Save this much above the cash floor before buying the foundation.',
     }))

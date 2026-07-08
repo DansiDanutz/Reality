@@ -31,7 +31,7 @@ export function constructionForecastCards(forecast: ConstructionDayForecast): Fo
   const cards: ForecastCardView[] = []
   if (forecast.upfrontCostRemaining > 0) {
     cards.push({
-      label: 'Shell',
+      label: 'Foundation',
       value: forecast.upfrontAffordableToday ? 'ready' : formatMoney(forecast.upfrontCashNeeded),
       detail: forecast.upfrontAffordableToday
         ? `${formatMoney(forecast.upfrontCostRemaining)} foundation can be placed today.`
