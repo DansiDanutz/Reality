@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
+import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
   queueHandoffText,
   queueActionPresetLabel,
@@ -177,42 +178,9 @@ describe('FounderCovenantOperatorPanel', () => {
             weeklyDue: 2,
             monthlyDue: 1,
           },
-          items: [{
-            ...operatorQueue().items[0],
-            manualReviewRequired: false,
-            covenantStatus: 'watch',
-            overdue: true,
-            weeklyReviewDue: true,
-            monthlyReviewDue: true,
-            reviewFreshness: 'stale',
-            reviewReadiness: {
-              ...operatorQueue().items[0].reviewReadiness,
-              evidenceRequiredCount: 0,
-              approvalRequestCount: 0,
-              blockerCount: 0,
-              overdue: true,
-            },
-            reviewQueue: {
-              ...operatorQueue().items[0].reviewQueue,
-              nextStep: 'record_review',
-              recommendedActionKinds: ['record_review'],
-              pendingApprovalKinds: [],
-              pendingApprovalCount: 0,
-              pendingNotificationKinds: [],
-              pendingNotificationCount: 0,
-              blockerCount: 0,
-              blockers: [],
-            },
-            manualActions: [{
-              ...operatorQueue().items[0].manualActions[0],
-              recommended: true,
-            }],
-            pendingApprovalRequests: [],
-            pendingApprovalKinds: [],
-            pendingNotificationDrafts: [],
-            pendingNotificationKinds: [],
-            blockerCount: 0,
-          }],
+          items: [withRecordReadyCadenceFounder(operatorQueue().items[0], {
+            cadence: 'monthly',
+          })],
         }}
       />,
     )
