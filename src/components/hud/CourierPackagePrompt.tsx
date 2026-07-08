@@ -91,6 +91,7 @@ export default function CourierPackagePrompt() {
         return
       case 'construction-labor':
       case 'home-built-or-progress':
+      case 'construction-built':
         if (project) startConstructionWork(project.id)
         else startPlacingConstruction()
         return
@@ -121,7 +122,7 @@ export default function CourierPackagePrompt() {
           ? 'Place site'
           : pkg.requirement.kind === 'construction-deposit'
             ? project ? 'Deposit materials' : 'Place site'
-            : pkg.requirement.kind === 'construction-labor' || pkg.requirement.kind === 'home-built-or-progress'
+            : pkg.requirement.kind === 'construction-labor' || pkg.requirement.kind === 'home-built-or-progress' || pkg.requirement.kind === 'construction-built'
               ? project ? 'Work 60m' : 'Place site'
               : resourceKind
                 ? `Gather ${RESOURCE_META[resourceKind].label}`

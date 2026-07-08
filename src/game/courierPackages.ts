@@ -10,7 +10,7 @@ import {
   type EducationProgress,
 } from './education'
 import type { LifePlanTask } from './lifeLadder'
-import type { PlacedAsset } from './types'
+import type { AssetKind, PlacedAsset } from './types'
 
 export type CourierActivityKind = 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | 'business-development'
 
@@ -34,6 +34,7 @@ export type CourierRequirement =
   | { kind: 'construction-permit' }
   | { kind: 'construction-labor'; minutes: number }
   | { kind: 'home-built-or-progress'; laborMinutes: number }
+  | { kind: 'construction-built'; resultKind: AssetKind; itemId: string; lat: number; lng: number; laborMinutes: number }
   | { kind: 'business-development-site' }
   | { kind: 'business-development-deposit'; resources: Partial<Record<ResourceKind, number>> }
   | { kind: 'business-development-budget' }
@@ -236,6 +237,19 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.minutes) || snapshot.hasHome
     case 'home-built-or-progress':
       return snapshot.hasHome || snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.laborMinutes)
+    case 'construction-built':
+      return (snapshot.assets ?? []).some((asset) =>
+        asset.kind === requirement.resultKind &&
+        asset.itemId === requirement.itemId &&
+        asset.lat === requirement.lat &&
+        asset.lng === requirement.lng
+      ) || snapshot.constructionProjects.some((project) =>
+        project.resultKind === requirement.resultKind &&
+        project.itemId === requirement.itemId &&
+        project.lat === requirement.lat &&
+        project.lng === requirement.lng &&
+        project.laborDoneMinutes >= requirement.laborMinutes
+      )
     case 'business-development-site':
       return (snapshot.businessDevelopmentProjects ?? []).length > 0
     case 'business-development-deposit':
@@ -331,7 +345,15 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
       return { kind: 'construction-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
     }
     if (route.action === 'complete') {
-      return { kind: 'home-built-or-progress', laborMinutes: project?.laborDoneMinutes ?? 0 }
+      if (!project) return null
+      return {
+        kind: 'construction-built',
+        resultKind: project.resultKind,
+        itemId: project.itemId,
+        lat: project.lat,
+        lng: project.lng,
+        laborMinutes: project.laborDoneMinutes,
+      }
     }
     return null
   }
