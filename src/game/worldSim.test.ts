@@ -1451,6 +1451,84 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('simulation lets active Sim Citizens repay medical debt from spare cash', () => {
+    const start = area({
+      citizens: [sim('c1', {
+        money: 100,
+        debt: 90,
+        debts: [{
+          id: 'debt1',
+          kind: 'medical',
+          creditorId: 'clinic1',
+          amount: 90,
+          issuedAt: HOUR,
+          memo: 'Sim c1 owes medical debt to clinic1.',
+        }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 10 })],
+    })
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+    const citizen = out.citizens[0]
+    const clinic = out.businesses[0]
+
+    expect(citizen.money).toBe(75)
+    expect(citizen.debt).toBe(65)
+    expect(citizen.debts).toMatchObject([{ id: 'debt1', amount: 65, creditorId: 'clinic1' }])
+    expect(clinic.cash).toBe(35)
+    expect(out.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'c1', toId: 'clinic1', amount: 25 },
+    ])
+  })
+
+  test('simulation keeps Sim cash reserves and never auto-repays Real Citizen debt', () => {
+    const start = area({
+      citizens: [
+        sim('low-cash', {
+          money: 60,
+          debt: 90,
+          debts: [{
+            id: 'low-cash-debt',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 90,
+            issuedAt: HOUR,
+            memo: 'Sim low-cash owes medical debt to clinic1.',
+          }],
+        }),
+        sim('real-citizen', {
+          kind: 'real',
+          money: 100,
+          debt: 90,
+          debts: [{
+            id: 'real-debt',
+            kind: 'medical',
+            creditorId: 'clinic1',
+            amount: 90,
+            issuedAt: HOUR,
+            memo: 'Real citizen owes medical debt to clinic1.',
+          }],
+        }),
+      ],
+      businesses: [business('clinic', 'clinic1', { cash: 10 })],
+    })
+
+    const { area: out } = advanceWorldArea(start, HOUR)
+    const lowCash = out.citizens.find((citizen) => citizen.id === 'low-cash')!
+    const realCitizen = out.citizens.find((citizen) => citizen.id === 'real-citizen')!
+
+    expect(lowCash.money).toBe(50)
+    expect(lowCash.debt).toBe(80)
+    expect(lowCash.debts).toMatchObject([{ id: 'low-cash-debt', amount: 80 }])
+    expect(realCitizen.money).toBe(100)
+    expect(realCitizen.debt).toBe(90)
+    expect(realCitizen.debts).toMatchObject([{ id: 'real-debt', amount: 90 }])
+    expect(out.businesses[0].cash).toBe(20)
+    expect(out.transactions).toMatchObject([
+      { kind: 'debt_repayment', fromId: 'low-cash', toId: 'clinic1', amount: 10 },
+    ])
+  })
+
   test('repayDebt intent rejects invalid, missing, unavailable, and unaffordable repayments', () => {
     const start = area({
       citizens: [
