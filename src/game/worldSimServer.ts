@@ -85,6 +85,7 @@ export type WorldServerCommand =
     founder: WorldCitizen
     simCitizens?: WorldCitizen[]
     claim: WorldAreaClaim
+    includeReceipt?: boolean
   }
   | {
     type: 'createClientClaimedArea'
@@ -95,16 +96,19 @@ export type WorldServerCommand =
     claimSource: AreaClaimSource
     payload: unknown
     simCitizens?: WorldCitizen[]
+    includeReceipt?: boolean
   }
   | {
     type: 'advance'
     areaId: string
     now: number
+    includeReceipt?: boolean
   }
   | {
     type: 'readFounderArea'
     authenticatedFounderId: string
     now: number
+    includeReceipt?: boolean
   }
   | {
     type: 'applyIntent'
@@ -112,18 +116,21 @@ export type WorldServerCommand =
     now: number
     authenticatedCitizenId: string
     intent: WorldIntent
+    includeReceipt?: boolean
   }
   | {
     type: 'applyFounderIntent'
     authenticatedFounderId: string
     now: number
     intent: WorldIntent
+    includeReceipt?: boolean
   }
   | {
     type: 'applyClientFounderIntent'
     authenticatedFounderId: string
     now: number
     payload: unknown
+    includeReceipt?: boolean
   }
   | {
     type: 'recordFounderCovenantReview'
@@ -133,6 +140,7 @@ export type WorldServerCommand =
     actionKind: FounderCovenantManualActionKind
     note?: string
     evidenceKinds?: readonly FounderCovenantManualEvidenceKind[]
+    includeReceipt?: boolean
   }
   | {
     type: 'recordClientFounderCovenantReview'
@@ -140,6 +148,7 @@ export type WorldServerCommand =
     now: number
     authenticatedReviewerId: string
     payload: unknown
+    includeReceipt?: boolean
   }
 
 export type WorldServerCommandError =
@@ -338,6 +347,30 @@ export interface ReadWorldFounderCovenantReviewQueueOptions {
   cursor?: string
 }
 
+export type WorldServerCommandReceiptKind =
+  | 'claim_area'
+  | 'read_area'
+  | 'advance_area'
+  | 'apply_intent'
+  | 'record_covenant_review'
+
+export interface WorldServerCommandReceipt {
+  id: string
+  command: WorldServerCommandReceiptKind
+  areaId: string
+  actorCitizenId: string | null
+  reviewerId: string | null
+  acceptedAt: number
+  serverAuthority: 'world_sim_server'
+  gameCreditsOnly: boolean
+  realWithdrawalEligible: false
+  tonSettlementEnabled: false
+  manualPayoutReviewRequired: true
+  transactionsAdded: number
+  transactionIds: string[]
+  payoutEligibleTransactionCount: number
+}
+
 export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_LIMIT = 25
 export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT = 100
 const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH = 256
@@ -349,6 +382,7 @@ export type WorldServerCommandResult =
     dashboard: AreaNeedsDashboard
     transactions: WorldTransaction[]
     summary?: AdvanceWorldAreaResult['summary']
+    receipt?: WorldServerCommandReceipt
   }
   | {
     ok: false
@@ -369,15 +403,34 @@ export async function runWorldServerCommand(
     case 'createClientClaimedArea':
       return createClientClaimedArea(repo, command)
     case 'advance':
-      return advanceStoredArea(repo, command.areaId, command.now)
+      return advanceStoredArea(repo, command.areaId, command.now, command.includeReceipt)
     case 'readFounderArea':
-      return readFounderArea(repo, command.authenticatedFounderId, command.now)
+      return readFounderArea(repo, command.authenticatedFounderId, command.now, command.includeReceipt)
     case 'applyIntent':
-      return applyIntentToStoredArea(repo, command.areaId, command.now, command.authenticatedCitizenId, command.intent)
+      return applyIntentToStoredArea(
+        repo,
+        command.areaId,
+        command.now,
+        command.authenticatedCitizenId,
+        command.intent,
+        command.includeReceipt,
+      )
     case 'applyFounderIntent':
-      return applyFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.intent)
+      return applyFounderIntentToStoredArea(
+        repo,
+        command.authenticatedFounderId,
+        command.now,
+        command.intent,
+        command.includeReceipt,
+      )
     case 'applyClientFounderIntent':
-      return applyClientFounderIntentToStoredArea(repo, command.authenticatedFounderId, command.now, command.payload)
+      return applyClientFounderIntentToStoredArea(
+        repo,
+        command.authenticatedFounderId,
+        command.now,
+        command.payload,
+        command.includeReceipt,
+      )
     case 'recordFounderCovenantReview':
       return recordFounderCovenantReviewForStoredArea(repo, command)
     case 'recordClientFounderCovenantReview':
@@ -503,12 +556,18 @@ async function createClaimedArea(
     expectedFounderAreaEmpty: command.authenticatedFounderId,
   })
   if (!saved.ok) return { ok: false, error: saved.error }
-  return {
+  const transactions = transactionDelta(claimed.area, 0)
+  return withCommandReceipt(command.includeReceipt, {
     ok: true,
     area: claimed.area,
     dashboard: areaNeedsDashboard(claimed.area),
-    transactions: transactionDelta(claimed.area, 0),
-  }
+    transactions,
+  }, {
+    command: 'claim_area',
+    area: claimed.area,
+    transactions,
+    actorCitizenId: command.authenticatedFounderId,
+  })
 }
 
 async function createClientClaimedArea(
@@ -532,6 +591,7 @@ async function createClientClaimedArea(
     founder: newAuthenticatedFounderProfile(decoded.claim.founderCitizenId, command.authenticatedFounderName),
     simCitizens: command.simCitizens,
     claim: decoded.claim,
+    includeReceipt: command.includeReceipt,
   })
 }
 
@@ -539,6 +599,7 @@ async function advanceStoredArea(
   repo: WorldAreaRepository,
   areaId: string,
   now: number,
+  includeReceipt = false,
 ): Promise<WorldServerCommandResult> {
   const normalizedAreaId = areaId.trim()
   if (!normalizedAreaId) return { ok: false, error: 'invalid_area_identity' }
@@ -552,19 +613,25 @@ async function advanceStoredArea(
   const advanced = advanceWorldArea(area, now)
   const saved = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
   if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
-  return {
+  const transactions = transactionDelta(advanced.area, area.transactions.length)
+  return withCommandReceipt(includeReceipt, {
     ok: true,
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
-    transactions: transactionDelta(advanced.area, area.transactions.length),
+    transactions,
     summary: advanced.summary,
-  }
+  }, {
+    command: 'advance_area',
+    area: advanced.area,
+    transactions,
+  })
 }
 
 async function readFounderArea(
   repo: WorldAreaRepository,
   authenticatedFounderId: string,
   now: number,
+  includeReceipt = false,
 ): Promise<WorldServerCommandResult> {
   const founderId = authenticatedFounderId.trim()
   if (!founderId) return { ok: false, error: 'founder_not_found' }
@@ -574,18 +641,36 @@ async function readFounderArea(
   if (!loaded) return { ok: false, error: 'area_not_found' }
   const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
-  if (now === area.now) return { ok: true, area, dashboard: areaNeedsDashboard(area), transactions: [] }
+  if (now === area.now) {
+    return withCommandReceipt(includeReceipt, {
+      ok: true,
+      area,
+      dashboard: areaNeedsDashboard(area),
+      transactions: [],
+    }, {
+      command: 'read_area',
+      area,
+      transactions: [],
+      actorCitizenId: founderId,
+    })
+  }
 
   const advanced = advanceWorldArea(area, now)
   const saved = await saveStoredArea(repo, advanced.area, { expectedRevision: loaded.revision })
   if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
-  return {
+  const transactions = transactionDelta(advanced.area, area.transactions.length)
+  return withCommandReceipt(includeReceipt, {
     ok: true,
     area: advanced.area,
     dashboard: areaNeedsDashboard(advanced.area),
-    transactions: transactionDelta(advanced.area, area.transactions.length),
+    transactions,
     summary: advanced.summary,
-  }
+  }, {
+    command: 'read_area',
+    area: advanced.area,
+    transactions,
+    actorCitizenId: founderId,
+  })
 }
 
 async function loadStoredArea(repo: WorldAreaRepository, areaId: string): Promise<WorldAreaRecord | null> {
@@ -606,6 +691,83 @@ async function saveStoredArea(
 
 function transactionDelta(area: WorldArea, fromIndex: number): WorldTransaction[] {
   return area.transactions.slice(fromIndex).map((transaction) => ({ ...transaction }))
+}
+
+function withCommandReceipt<T extends Extract<WorldServerCommandResult, { ok: true }>>(
+  includeReceipt: boolean | undefined,
+  result: T,
+  input: {
+    command: WorldServerCommandReceiptKind
+    area: WorldArea
+    transactions: WorldTransaction[]
+    actorCitizenId?: string
+    reviewerId?: string
+  },
+): T {
+  if (!includeReceipt) return result
+  return {
+    ...result,
+    receipt: worldServerCommandReceipt(input),
+  }
+}
+
+function worldServerCommandReceipt(input: {
+  command: WorldServerCommandReceiptKind
+  area: WorldArea
+  transactions: WorldTransaction[]
+  actorCitizenId?: string
+  reviewerId?: string
+}): WorldServerCommandReceipt {
+  const transactionIds = input.transactions.map((transaction) => transaction.id)
+  const payoutEligibleTransactionCount = input.transactions.filter((transaction) =>
+    transaction.payoutEligibility === 'payout_eligible'
+  ).length
+
+  return {
+    id: worldServerReceiptId(input.command, input.area, transactionIds),
+    command: input.command,
+    areaId: input.area.id,
+    actorCitizenId: input.actorCitizenId?.trim() || null,
+    reviewerId: input.reviewerId?.trim() || null,
+    acceptedAt: input.area.now,
+    serverAuthority: 'world_sim_server',
+    gameCreditsOnly: payoutEligibleTransactionCount === 0,
+    realWithdrawalEligible: false,
+    tonSettlementEnabled: false,
+    manualPayoutReviewRequired: true,
+    transactionsAdded: input.transactions.length,
+    transactionIds,
+    payoutEligibleTransactionCount,
+  }
+}
+
+function worldServerReceiptId(
+  command: WorldServerCommandReceiptKind,
+  area: WorldArea,
+  transactionIds: string[],
+): string {
+  const reviewIds = area.founderReviewHistory?.map((entry) => entry.id).join('|') ?? ''
+  const stateFingerprint = [
+    area.transactions.length,
+    area.businesses.map((business) =>
+      `${business.id}:${business.staffCitizenIds.join(',')}:${business.cash}`
+    ).join('|'),
+    area.citizens.map((citizen) =>
+      `${citizen.id}:${citizen.money}:${citizen.debt}:${citizen.jobBusinessId ?? ''}:${citizen.homeBusinessId ?? ''}`
+    ).join('|'),
+    reviewIds,
+    transactionIds.join('|'),
+  ].join('::')
+
+  return `${area.id}:${area.now}:server-receipt:${command}:${stableReceiptHash(stateFingerprint)}`
+}
+
+function stableReceiptHash(value: string): string {
+  let hash = 5381
+  for (let index = 0; index < value.length; index++) {
+    hash = ((hash << 5) + hash + value.charCodeAt(index)) >>> 0
+  }
+  return hash.toString(36)
 }
 
 async function founderCovenantReviewQueueRecord(
@@ -1205,6 +1367,7 @@ async function applyIntentToStoredArea(
   now: number,
   authenticatedCitizenId: string,
   intent: WorldIntent,
+  includeReceipt = false,
 ): Promise<WorldServerCommandResult> {
   if (intent.actorCitizenId !== authenticatedCitizenId) {
     return { ok: false, error: 'actor_mismatch' }
@@ -1216,7 +1379,7 @@ async function applyIntentToStoredArea(
 
   const loaded = await loadStoredArea(repo, normalizedAreaId)
   if (!loaded) return { ok: false, error: 'area_not_found' }
-  return applyIntentToAreaRecord(repo, loaded, now, intent)
+  return applyIntentToAreaRecord(repo, loaded, now, intent, includeReceipt)
 }
 
 async function applyFounderIntentToStoredArea(
@@ -1224,6 +1387,7 @@ async function applyFounderIntentToStoredArea(
   authenticatedFounderId: string,
   now: number,
   intent: WorldIntent,
+  includeReceipt = false,
 ): Promise<WorldServerCommandResult> {
   const founderId = authenticatedFounderId.trim()
   if (!founderId) return { ok: false, error: 'founder_not_found' }
@@ -1232,7 +1396,7 @@ async function applyFounderIntentToStoredArea(
 
   const loaded = await repo.loadAreaByFounder(founderId)
   if (!loaded) return { ok: false, error: 'area_not_found' }
-  return applyIntentToAreaRecord(repo, loaded, now, intent)
+  return applyIntentToAreaRecord(repo, loaded, now, intent, includeReceipt)
 }
 
 async function applyClientFounderIntentToStoredArea(
@@ -1240,10 +1404,11 @@ async function applyClientFounderIntentToStoredArea(
   authenticatedFounderId: string,
   now: number,
   payload: unknown,
+  includeReceipt = false,
 ): Promise<WorldServerCommandResult> {
   const decoded = decodeClientWorldIntentPayload(payload, authenticatedFounderId)
   if (!decoded.ok) return { ok: false, error: decoded.error }
-  return applyFounderIntentToStoredArea(repo, authenticatedFounderId, now, decoded.intent)
+  return applyFounderIntentToStoredArea(repo, authenticatedFounderId, now, decoded.intent, includeReceipt)
 }
 
 async function applyIntentToAreaRecord(
@@ -1251,6 +1416,7 @@ async function applyIntentToAreaRecord(
   loaded: WorldAreaRecord,
   now: number,
   intent: WorldIntent,
+  includeReceipt = false,
 ): Promise<WorldServerCommandResult> {
   const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
@@ -1274,13 +1440,19 @@ async function applyIntentToAreaRecord(
 
   const saved = await saveStoredArea(repo, applied.area, { expectedRevision: loaded.revision })
   if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
-  return {
+  const transactions = transactionDelta(applied.area, startingTransactionCount)
+  return withCommandReceipt(includeReceipt, {
     ok: true,
     area: applied.area,
     dashboard: areaNeedsDashboard(applied.area),
-    transactions: transactionDelta(applied.area, startingTransactionCount),
+    transactions,
     summary: advanced.summary,
-  }
+  }, {
+    command: 'apply_intent',
+    area: applied.area,
+    transactions,
+    actorCitizenId: intent.actorCitizenId,
+  })
 }
 
 async function recordFounderCovenantReviewForStoredArea(
@@ -1324,13 +1496,19 @@ async function recordFounderCovenantReviewForStoredArea(
 
   const saved = await saveStoredArea(repo, recorded.area, { expectedRevision: loaded.revision })
   if (!saved.ok) return { ok: false, error: saved.error, area, dashboard: areaNeedsDashboard(area) }
-  return {
+  const transactions = transactionDelta(recorded.area, startingTransactionCount)
+  return withCommandReceipt(command.includeReceipt, {
     ok: true,
     area: recorded.area,
     dashboard: areaNeedsDashboard(recorded.area),
-    transactions: transactionDelta(recorded.area, startingTransactionCount),
+    transactions,
     summary: advanced?.summary,
-  }
+  }, {
+    command: 'record_covenant_review',
+    area: recorded.area,
+    transactions,
+    reviewerId,
+  })
 }
 
 async function recordClientFounderCovenantReviewForStoredArea(
@@ -1347,5 +1525,6 @@ async function recordClientFounderCovenantReviewForStoredArea(
     actionKind: decoded.review.actionKind,
     note: decoded.review.note,
     evidenceKinds: decoded.review.evidenceKinds,
+    includeReceipt: command.includeReceipt,
   })
 }
