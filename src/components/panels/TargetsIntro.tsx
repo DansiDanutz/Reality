@@ -13,6 +13,13 @@ const TARGETS = [
   { icon: '🌍', title: 'No top to the ladder', text: 'From a $15,000 food cart in your town to a $12M airline spanning continents. One day: mayor of your real city.' },
 ]
 
+const DAILY_LOOP = [
+  'Survive: water, food, sleep',
+  'Work: take shifts or gigs',
+  'Grow: study, save, build',
+  'Belong: help the neighborhood',
+]
+
 export default function TargetsIntro() {
   const citizen = useGame((s) => s.citizen)
   const markTargetsSeen = useGame((s) => s.markTargetsSeen)
@@ -34,6 +41,7 @@ export default function TargetsIntro() {
             </li>
           ))}
         </ol>
+        <p className="targets-loop mono">{DAILY_LOOP.join(' · ')}</p>
         <button className="btn primary" onClick={markTargetsSeen}>
           Begin your life in {citizen.homeCity ?? 'your city'}
         </button>
