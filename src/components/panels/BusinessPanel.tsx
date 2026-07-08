@@ -14,6 +14,7 @@ import { formatMoney } from '../../game/engine'
 import { businessDevelopmentDayForecast, lifeDayFromCreatedAt } from '../../game/lifeLadder'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
+import { activeBusinessConstructionProject } from './businessPanelView'
 import { businessDevelopmentForecastCards } from './constructionPanelView'
 import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
@@ -37,6 +38,7 @@ export default function BusinessPanel() {
   const money = useGame((s) => s.money)
   const citizen = useGame((s) => s.citizen)
   const resources = useGame((s) => s.resources)
+  const constructionProjects = useGame((s) => s.constructionProjects)
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const educationProgress = useGame((s) => s.educationProgress)
   const collectIncome = useGame((s) => s.collectIncome)
@@ -53,8 +55,27 @@ export default function BusinessPanel() {
     (selectedMapTarget?.kind === 'asset'
       ? assets.find((asset) => asset.id === selectedMapTarget.id && asset.kind === 'business')
       : null) ?? assets.find((asset) => asset.kind === 'business') ?? null
+  const businessConstruction = activeBusinessConstructionProject(constructionProjects, selectedMapTarget)
 
   if (!business) {
+    if (businessConstruction) {
+      return (
+        <section className="panel business-panel" aria-label="Business building">
+          <h2 className="panel-title">{businessConstruction.name}</h2>
+          <p className="panel-sub">This business is still a building site. Finish materials, permit, and labor before the inside can open.</p>
+          <button
+            className="btn primary"
+            onClick={() => {
+              selectMapTarget({ kind: 'construction', id: businessConstruction.id })
+              setPanel('construction')
+            }}
+          >
+            Open build plan
+          </button>
+        </section>
+      )
+    }
+
     return (
       <section className="panel business-panel" aria-label="Business">
         <h2 className="panel-title">Business</h2>
