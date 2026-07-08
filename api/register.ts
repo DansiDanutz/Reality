@@ -9,6 +9,11 @@ import {
 } from './telegram-auth'
 
 const FOUNDER_SLOTS = 2_000
+const REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE = {
+  ok: false,
+  error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
+  code: 'registration_safety_unavailable',
+} as const
 
 async function claimedSlots(): Promise<number> {
   let count = 0
@@ -41,8 +46,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const verifiedTelegram = typeof telegramInitData === 'string' && telegramInitData.trim().length > 0
-    ? verifyTelegramMiniAppInitData(telegramInitData, process.env.TELEGRAM_BOT_TOKEN)
+  const telegramInitDataInput = readOptionalTelegramInitData(telegramInitData)
+  if (telegramInitDataInput === false) {
+    res.status(400).json({
+      ok: false,
+      error: 'Telegram initData must be a signed Mini App string.',
+      code: 'invalid_telegram_init_data',
+    })
+    return
+  }
+
+  const verifiedTelegram = telegramInitDataInput
+    ? verifyTelegramMiniAppInitData(telegramInitDataInput, process.env.TELEGRAM_BOT_TOKEN)
     : null
   if (verifiedTelegram && !verifiedTelegram.ok) {
     const status = verifiedTelegram.error === 'missing_bot_token' ? 503 : 401
@@ -64,17 +79,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
     const day = registeredAt.toISOString().slice(0, 10)
-    const recent = await list({ prefix: `regip/${ipHash}__${day}`, limit: 6 })
+    const safetyPrefix = `regip/${ipHash}__${day}`
+    let recent: Awaited<ReturnType<typeof list>>
+    try {
+      recent = await list({ prefix: safetyPrefix, limit: 6 })
+    } catch {
+      res.status(503).json(REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE)
+      return
+    }
     if (recent.blobs.length >= 5) {
       res.status(429).json({ ok: false, error: 'Too many new citizens from this connection today. Try again tomorrow.' })
       return
     }
-    await put(`regip/${ipHash}__${day}__${Date.now()}.json`, '1', {
-      access: 'private',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: 'application/json',
-    })
+    try {
+      await put(`${safetyPrefix}__${Date.now()}.json`, '1', {
+        access: 'private',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+      })
+    } catch {
+      res.status(503).json(REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE)
+      return
+    }
 
     // Every citizen name in Reality is unique — a name is an identity claim
     const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -180,6 +207,13 @@ function citizenRecord(name: string, createdAt: Date, telegram: TelegramRealityA
       telegramLinkedAt: createdAt.toISOString(),
     } : {}),
   }
+}
+
+function readOptionalTelegramInitData(value: unknown): string | null | false {
+  if (value === undefined) return null
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : false
 }
 
 function telegramDisplayName(telegram: Pick<TelegramRealityAccountRecord, 'firstName' | 'lastName' | 'username'>): string {
