@@ -34,6 +34,7 @@ import {
   type Activity,
 } from './engine'
 import { dayOfLife, localClock, zoneFor } from './clock'
+import { buildHoursFor } from './catalog'
 import type { Pet, PlacedAsset } from './types'
 
 const HOUR = 3_600_000
@@ -224,6 +225,12 @@ describe('liveRealtime — the single simulation path', () => {
       'Belong: build respect and friends',
       'Build: staff and improve the business',
     ])
+  })
+
+  test('placeable build times are explicit and shared by homes and businesses', () => {
+    expect(buildHoursFor(SHOP_ITEMS.find((item) => item.id === 'microstudio')!)).toBe(4)
+    expect(buildHoursFor(SHOP_ITEMS.find((item) => item.id === 'foodcart')!)).toBe(8)
+    expect(buildHoursFor(SHOP_ITEMS.find((item) => item.id === 'water')!)).toBeNull()
   })
 
   test('cooking drains like an ordinary awake hour, not a work shift', () => {

@@ -198,6 +198,13 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'airline', name: 'Regional Airline', category: 'business', price: 12_000_000, placeable: true, incomePerDay: 165_000, description: 'Own the routes between your empire.' },
 ]
 
+export function buildHoursFor(item: ShopItem): number | null {
+  if (!item.placeable) return null
+  if (item.category === 'home') return 4
+  if (item.category === 'business') return 8
+  return null
+}
+
 export const JOBS: Job[] = [
   { id: 'barista', title: 'Barista', wage: 15, requiredLevel: 1, flavor: 'Latte art and rush hours.' },
   { id: 'courier', title: 'Courier', wage: 16, requiredLevel: 1, flavor: 'The city moves because you do.' },

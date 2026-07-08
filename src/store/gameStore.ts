@@ -26,7 +26,7 @@ import {
   type Activity,
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
+import { buildHoursFor, CITIZEN_BALANCE, FOUNDER_BALANCE, itemById, jobById, recipeById } from '../game/catalog'
 import { dayOfLife, zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
@@ -1829,6 +1829,7 @@ export const useGame = create<GameState>()(
             return
           }
         }
+        const buildHours = buildHoursFor(item) ?? 0
         const asset: PlacedAsset = {
           id: `${item.id}-${Date.now()}`,
           itemId: item.id,
@@ -1839,7 +1840,7 @@ export const useGame = create<GameState>()(
           incomePerDay: item.incomePerDay ?? 0,
           pendingIncome: 0,
           placedAtMinute: Date.now(),
-          constructionEndsAt: Date.now() + (item.category === 'home' ? 4 * 3_600_000 : 8 * 3_600_000),
+          constructionEndsAt: Date.now() + buildHours * 3_600_000,
         }
         set({
           assets: [...s.assets, asset],

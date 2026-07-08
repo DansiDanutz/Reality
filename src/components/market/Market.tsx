@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
+import { buildHoursFor, CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
 import { formatMoney, seasonOf } from '../../game/engine'
 import type { NeedKey, Pet, ShopCategory, ShopItem } from '../../game/types'
 import { useFocusTrap } from '../../lib/useFocusTrap'
@@ -29,6 +29,10 @@ function chips(item: ShopItem): { text: string; tone: 'ok' | 'gold' | 'sky' }[] 
   if (item.grantXp) out.push({ text: `+${item.grantXp} XP`, tone: 'sky' })
   if (item.incomePerDay) out.push({ text: `+${formatMoney(item.incomePerDay)}/day`, tone: 'gold' })
   if (item.pet) out.push({ text: `${formatMoney(item.pet.foodCostPerDay)}/day food`, tone: 'sky' })
+  if (item.placeable) {
+    const buildHours = buildHoursFor(item)
+    if (buildHours) out.push({ text: `${buildHours}h build`, tone: 'gold' })
+  }
   if (item.durable) out.push({ text: 'keep forever', tone: 'sky' })
   return out
 }
@@ -215,7 +219,7 @@ export default function Market() {
                   </div>
                   {petOwned && <PetRow pets={myPets} money={money} foodCost={item.pet!.foodCostPerDay} onFeed={feedPet} />}
                   <div className="card-foot">
-                    <span className="card-price mono">{formatMoney(item.price)}</span>
+                    <span className="card-price mono">{formatMoney(item.price)}{item.placeable ? ` · ${buildHoursFor(item)}h build` : ''}</span>
                     <div className="card-actions">
                       {owned > 0 && item.effects && (
                         <button className="btn small ghost" onClick={() => consume(item.id)}>Use</button>
