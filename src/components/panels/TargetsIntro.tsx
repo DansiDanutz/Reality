@@ -7,9 +7,9 @@ import { useGame } from '../../store/gameStore'
 
 const TARGETS = [
   { icon: '🧍', title: 'You are a person', text: 'Stay alive: drink, eat, sleep. Your body follows real human rules — tap ⓘ on your vitals to learn them.' },
-  { icon: '🏠', title: 'Get a roof', text: 'A home on your real street makes every night count for more.' },
+  { icon: '🏠', title: 'Build a home', text: 'A home starts as a project, then becomes the place that makes every night count for more.' },
   { icon: '💼', title: 'Get a job', text: 'Shifts are real hours at real wages. Gigs pay small and fast; careers pay better with levels.' },
-  { icon: '🏗', title: 'Build your area first', text: 'Your reality starts in YOUR city — you can see the whole world, but you build at home. Grow to unlock your province, your country, the world.' },
+  { icon: '🏗', title: 'Build your area first', text: 'Your reality starts in YOUR city — you build at home, recruit through a Workers Hall, and grow outward one day at a time.' },
   { icon: '🌍', title: 'No top to the ladder', text: 'From a $15,000 food cart in your town to a $12M airline spanning continents. One day: mayor of your real city.' },
 ]
 
