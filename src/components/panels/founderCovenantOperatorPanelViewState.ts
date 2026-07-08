@@ -36,13 +36,13 @@ export function readOperatorQueueViewState(): {
     }
     return {
       ...defaultOperatorQueueViewState(),
-      cursor: typeof parsed.cursor === 'string' || parsed.cursor === null ? parsed.cursor : null,
+      cursor: optionalTrimmedStringOrNull(parsed.cursor),
       filter: isQueueFilter(parsed.filter) ? parsed.filter : 'all',
       sort: isQueueSort(parsed.sort) ? parsed.sort : 'priority',
-      lastCopiedAt: typeof parsed.lastCopiedAt === 'string' || parsed.lastCopiedAt === null ? parsed.lastCopiedAt : null,
-      lastCopiedText: typeof parsed.lastCopiedText === 'string' || parsed.lastCopiedText === null ? parsed.lastCopiedText : null,
+      lastCopiedAt: optionalTrimmedStringOrNull(parsed.lastCopiedAt),
+      lastCopiedText: optionalTrimmedStringOrNull(parsed.lastCopiedText),
       lastCopiedQueueView: parseCopiedQueueViewState(parsed.lastCopiedQueueView),
-      draftReviewNote: typeof parsed.draftReviewNote === 'string' ? parsed.draftReviewNote : '',
+      draftReviewNote: optionalTrimmedString(parsed.draftReviewNote),
       draftReviewEvidenceKinds: parseDraftReviewEvidenceKinds(parsed.draftReviewEvidenceKinds),
     }
   } catch {
@@ -151,21 +151,29 @@ function parseCopiedQueueViewState(value: unknown): CopiedQueueViewState | null 
   return {
     filter: parsed.filter,
     sort: parsed.sort,
-    scanCursor: optionalStringOrNull(parsed.scanCursor),
-    nextCursor: optionalStringOrNull(parsed.nextCursor),
-    digestSummary: optionalStringOrNull(parsed.digestSummary),
-    lastTelegramFilter: optionalStringOrNull(parsed.lastTelegramFilter),
-    lastTelegramOutput: optionalStringOrNull(parsed.lastTelegramOutput),
-    telegramSummary: optionalStringOrNull(parsed.telegramSummary),
-    telegramRationale: optionalStringOrNull(parsed.telegramRationale),
-    focusSummary: optionalStringOrNull(parsed.focusSummary),
-    activitySummary: optionalStringOrNull(parsed.activitySummary),
-    actionSummary: optionalStringOrNull(parsed.actionSummary),
+    scanCursor: optionalTrimmedStringOrNull(parsed.scanCursor),
+    nextCursor: optionalTrimmedStringOrNull(parsed.nextCursor),
+    digestSummary: optionalTrimmedStringOrNull(parsed.digestSummary),
+    lastTelegramFilter: optionalTrimmedStringOrNull(parsed.lastTelegramFilter),
+    lastTelegramOutput: optionalTrimmedStringOrNull(parsed.lastTelegramOutput),
+    telegramSummary: optionalTrimmedStringOrNull(parsed.telegramSummary),
+    telegramRationale: optionalTrimmedStringOrNull(parsed.telegramRationale),
+    focusSummary: optionalTrimmedStringOrNull(parsed.focusSummary),
+    activitySummary: optionalTrimmedStringOrNull(parsed.activitySummary),
+    actionSummary: optionalTrimmedStringOrNull(parsed.actionSummary),
   }
 }
 
-function optionalStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' || value === null ? value : null
+function optionalTrimmedStringOrNull(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function optionalTrimmedString(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim()
 }
 
 function parseDraftReviewEvidenceKinds(value: unknown): RealityAreaCovenantManualEvidenceKind[] {

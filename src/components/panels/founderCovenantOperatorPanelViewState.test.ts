@@ -71,6 +71,61 @@ describe('founderCovenantOperatorPanelViewState', () => {
     })
   })
 
+  test('normalizes stored queue view strings before reusing them', () => {
+    const storage = createStorage()
+    storage.setItem(
+      'reality-founder-covenant-operator-view-v1',
+      JSON.stringify({
+        cursor: '  review-cursor-9  ',
+        filter: 'telegram_ready',
+        sort: 'priority',
+        lastCopiedAt: ' 2026-07-08T14:30:00.000Z ',
+        lastCopiedText: ' Founder warning Telegram copied ',
+        lastCopiedQueueView: {
+          filter: 'telegram_ready',
+          sort: 'priority',
+          scanCursor: ' review-cursor-9 ',
+          nextCursor: ' review-cursor-10 ',
+          digestSummary: ' Weekly founder digest ',
+          lastTelegramFilter: ' Telegram ',
+          lastTelegramOutput: ' Founder warning draft ',
+          telegramSummary: ' Founder warning Telegram draft ',
+          telegramRationale: ' Manual approval still required ',
+          focusSummary: ' Queue focus summary ',
+          activitySummary: ' Activity summary ',
+          actionSummary: ' Action summary ',
+        },
+        draftReviewNote: ' Need proof of local hiring. ',
+        draftReviewEvidenceKinds: ['population_growth'],
+      }),
+    )
+    ;(globalThis as { window?: { localStorage: Storage } }).window = { localStorage: storage }
+
+    expect(readOperatorQueueViewState()).toEqual({
+      cursor: 'review-cursor-9',
+      filter: 'telegram_ready',
+      sort: 'priority',
+      lastCopiedAt: '2026-07-08T14:30:00.000Z',
+      lastCopiedText: 'Founder warning Telegram copied',
+      lastCopiedQueueView: {
+        filter: 'telegram_ready',
+        sort: 'priority',
+        scanCursor: 'review-cursor-9',
+        nextCursor: 'review-cursor-10',
+        digestSummary: 'Weekly founder digest',
+        lastTelegramFilter: 'Telegram',
+        lastTelegramOutput: 'Founder warning draft',
+        telegramSummary: 'Founder warning Telegram draft',
+        telegramRationale: 'Manual approval still required',
+        focusSummary: 'Queue focus summary',
+        activitySummary: 'Activity summary',
+        actionSummary: 'Action summary',
+      },
+      draftReviewNote: 'Need proof of local hiring.',
+      draftReviewEvidenceKinds: ['population_growth'],
+    })
+  })
+
   test('falls back to defaults when stored queue view state is invalid', () => {
     const storage = createStorage()
     storage.setItem('reality-founder-covenant-operator-view-v1', '{"cursor":7,"filter":"oops","sort":"bad"}')
@@ -118,6 +173,53 @@ describe('founderCovenantOperatorPanelViewState', () => {
       lastCopiedQueueView: null,
       draftReviewNote: 'Follow up on staffing.',
       draftReviewEvidenceKinds: ['external_contribution'],
+    })
+  })
+
+  test('drops blank stored queue strings instead of replaying them', () => {
+    const storage = createStorage()
+    storage.setItem(
+      'reality-founder-covenant-operator-view-v1',
+      JSON.stringify({
+        cursor: '   ',
+        filter: 'inactive',
+        sort: 'priority',
+        lastCopiedAt: '   ',
+        lastCopiedText: '   ',
+        lastCopiedQueueView: {
+          filter: 'telegram_ready',
+          sort: 'priority',
+          scanCursor: '   ',
+          nextCursor: '   ',
+          lastTelegramFilter: '   ',
+        },
+        draftReviewNote: '   ',
+      }),
+    )
+    ;(globalThis as { window?: { localStorage: Storage } }).window = { localStorage: storage }
+
+    expect(readOperatorQueueViewState()).toEqual({
+      cursor: null,
+      filter: 'inactive',
+      sort: 'priority',
+      lastCopiedAt: null,
+      lastCopiedText: null,
+      lastCopiedQueueView: {
+        filter: 'telegram_ready',
+        sort: 'priority',
+        scanCursor: null,
+        nextCursor: null,
+        digestSummary: null,
+        lastTelegramFilter: null,
+        lastTelegramOutput: null,
+        telegramSummary: null,
+        telegramRationale: null,
+        focusSummary: null,
+        activitySummary: null,
+        actionSummary: null,
+      },
+      draftReviewNote: '',
+      draftReviewEvidenceKinds: [],
     })
   })
 })
