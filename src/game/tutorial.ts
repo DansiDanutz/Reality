@@ -11,6 +11,7 @@ export interface TutorialSnapshot {
   shiftsWorked: number
   activity: Activity | null
   assets: PlacedAsset[]
+  groceryRestockedAt: Record<string, number>
   totalCollected: number
   /** True once the citizen has generated an avatar (issue #38 onboarding) */
   hasAvatar: boolean
@@ -73,6 +74,13 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     detail: 'Sleep restores energy through the real night — more at home.',
     xp: 25,
     isDone: (s) => s.timesSlept >= 1,
+  },
+  {
+    id: 'cook',
+    title: 'Cook at home',
+    detail: 'Buy groceries, use the kitchen, and turn ingredients into a real meal.',
+    xp: 50,
+    isDone: (s) => Object.keys(s.groceryRestockedAt).length > 0 || s.activity?.kind === 'cook',
   },
   {
     id: 'community',

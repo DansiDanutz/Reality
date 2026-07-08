@@ -11,6 +11,7 @@ export default function TutorialPanel() {
   const shiftsWorked = useGame((s) => s.shiftsWorked)
   const activity = useGame((s) => s.activity)
   const assets = useGame((s) => s.assets)
+  const groceryRestockedAt = useGame((s) => s.groceryRestockedAt)
   const totalCollected = useGame((s) => s.totalCollected)
   const claimed = useGame((s) => s.tutorialClaimed)
   const claimTutorial = useGame((s) => s.claimTutorial)
@@ -28,6 +29,7 @@ export default function TutorialPanel() {
     shiftsWorked,
     activity,
     assets,
+    groceryRestockedAt,
     totalCollected,
     hasAvatar: !!citizen.avatarUrl,
     sawAchievementsPanel,

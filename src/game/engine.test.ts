@@ -662,6 +662,7 @@ describe('tutorial', async () => {
     shiftsWorked: 0,
     activity: null,
     assets: [],
+    groceryRestockedAt: {},
     totalCollected: 0,
     hasAvatar: false,
     sawAchievementsPanel: false,
@@ -670,6 +671,7 @@ describe('tutorial', async () => {
   test('step ids are unique and every step starts incomplete', () => {
     const ids = TUTORIAL_STEPS.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toContain('cook')
     for (const step of TUTORIAL_STEPS) {
       expect(step.isDone(fresh), step.id).toBe(false)
       expect(step.xp, step.id).toBeGreaterThan(0)
@@ -695,6 +697,7 @@ describe('tutorial', async () => {
         { id: 'h', itemId: 'studio', kind: 'home' as const, name: 'Studio', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 },
         { id: 'b', itemId: 'foodcart', kind: 'business' as const, name: 'Cart', lat: 0, lng: 0, incomePerDay: 230, pendingIncome: 0, placedAtMinute: 0 },
       ],
+      groceryRestockedAt: { pasta: 0 },
       totalCollected: 120,
       hasAvatar: true,
       sawAchievementsPanel: true,
