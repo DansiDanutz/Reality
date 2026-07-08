@@ -113,6 +113,37 @@ describe('buildEtaSummary', () => {
     expect(buildEtaSummary(forecast)).toContain('gather')
     expect(buildEtaSummary(forecast)).toContain('$500 permit')
   })
+
+  test('does not treat active paid worker labor as a repeating daily forecast', () => {
+    const project = createConstructionProject('starter-house', 45, 21, 1)
+    const forecast = constructionDayForecast(
+      {
+        ...project,
+        deposited: freshResources(project.required),
+        permitFeePaid: true,
+        laborDoneMinutes: 120,
+        hiredLaborMinutes: 60,
+        workerContracts: [{
+          id: 'worker-1',
+          source: 'workers-hall' as const,
+          workerId: 'builder' as const,
+          workerName: 'Skilled builder',
+          hiredAt: 1,
+          paidUntil: 3_600_001,
+          paidMinutes: 60,
+          workedMinutes: 20,
+          laborMultiplier: 1.5,
+          ratePerHour: 28,
+          cost: 28,
+        }],
+      },
+      freshResources(),
+      500,
+    )
+
+    expect(forecast.activeWorkerLaborMinutesRemaining).toBe(60)
+    expect(buildEtaSummary(forecast)).toContain('finish day 5')
+  })
 })
 
 describe('interiorEtaSummary', () => {

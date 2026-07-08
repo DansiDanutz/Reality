@@ -119,7 +119,7 @@ describe('constructionForecastCards', () => {
     }))
     expect(cards).toContainEqual(expect.objectContaining({
       label: 'Finish',
-      value: 'day 3',
+      value: 'day 5',
       detail: 'Active paid help plus your free hour can finish the build by then.',
       tone: 'gold',
     }))

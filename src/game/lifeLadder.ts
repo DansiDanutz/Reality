@@ -906,6 +906,13 @@ function forecastLaborDays(remainingLaborMinutes: number, dailyLaborMinutes: num
   return Math.max(1, Math.ceil(remainingLaborMinutes / Math.max(1, dailyLaborMinutes)))
 }
 
+function forecastLaborDaysWithOneTimeHelp(remainingLaborMinutes: number, dailyLaborMinutes: number, oneTimeLaborMinutes: number): number {
+  if (remainingLaborMinutes <= 0) return 0
+  const remainingAfterHelp = Math.max(0, remainingLaborMinutes - Math.max(0, oneTimeLaborMinutes))
+  if (remainingAfterHelp <= 0) return 1
+  return forecastLaborDays(remainingAfterHelp, dailyLaborMinutes)
+}
+
 function completionLifeDay(currentLifeDay: number, laborDays: number): number {
   const safeCurrentDay = Math.max(1, Math.floor(Number.isFinite(currentLifeDay) ? currentLifeDay : 1))
   if (laborDays <= 0) return safeCurrentDay
@@ -966,7 +973,7 @@ export function constructionDayForecast(
   const playerOnlyDaysAtTwoHours = forecastLaborDays(remainingLaborMinutes, 120)
   const helperTwoHourDays = forecastLaborDays(remainingLaborMinutes, 60 + helperDailyMinutes)
   const activeWorkerDays = activeWorkers.activeWorkerCount > 0
-    ? forecastLaborDays(remainingLaborMinutes, 60 + activeWorkers.activeWorkerLaborMinutesRemaining)
+    ? forecastLaborDaysWithOneTimeHelp(remainingLaborMinutes, 60, activeWorkers.activeWorkerLaborMinutesRemaining)
     : 0
   return {
     upfrontCostRemaining,
@@ -1014,7 +1021,7 @@ export function businessDevelopmentDayForecast(
   const playerOnlyDaysAtTwoHours = forecastLaborDays(remainingLaborMinutes, 120)
   const helperTwoHourDays = forecastLaborDays(remainingLaborMinutes, 60 + helperDailyMinutes)
   const activeWorkerDays = activeWorkers.activeWorkerCount > 0
-    ? forecastLaborDays(remainingLaborMinutes, 60 + activeWorkers.activeWorkerLaborMinutesRemaining)
+    ? forecastLaborDaysWithOneTimeHelp(remainingLaborMinutes, 60, activeWorkers.activeWorkerLaborMinutesRemaining)
     : 0
   return {
     budgetRemaining,

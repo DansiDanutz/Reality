@@ -1214,7 +1214,7 @@ describe('constructionDayForecast', () => {
     expect(forecast.activeWorkerCount).toBe(1)
     expect(forecast.activeWorkerPaidMinutesRemaining).toBe(40)
     expect(forecast.activeWorkerLaborMinutesRemaining).toBe(60)
-    expect(forecast.activeWorkerCompletionLifeDay).toBe(3)
+    expect(forecast.activeWorkerCompletionLifeDay).toBe(5)
   })
 })
 
