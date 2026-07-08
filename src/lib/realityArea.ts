@@ -1054,14 +1054,15 @@ export async function claimRealityFounderArea(
 ): Promise<RealityAreaClaimResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
+  const { citizenId, token } = ready
 
   try {
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        citizenId: citizen.citizenId,
-        token: citizen.token,
+        citizenId,
+        token,
         intent: {
           type: 'claimArea',
           label: profile.areaLabel,
@@ -1232,14 +1233,15 @@ async function applyRealityAreaPayload(
 ): Promise<RealityAreaApplyResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
+  const { citizenId, token } = ready
 
   try {
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        citizenId: citizen.citizenId,
-        token: citizen.token,
+        citizenId,
+        token,
         intent: payload,
       }),
     })
@@ -3130,14 +3132,17 @@ function isClaimSource(value: unknown): value is RealityAreaClaimSource {
 
 function readyFounderCredentials(
   citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
-): { ok: true } | { ok: false; reason: 'missing_identity' | 'not_founder'; error: string } {
-  if (!citizen.citizenId || !citizen.token) {
+): { ok: true; citizenId: string; token: string } | { ok: false; reason: 'missing_identity' | 'not_founder'; error: string } {
+  const citizenId = citizen.citizenId?.trim()
+  const token = citizen.token?.trim()
+
+  if (!citizenId || !token) {
     return { ok: false, reason: 'missing_identity', error: 'Connect to the world first.' }
   }
   if (citizen.founderNumber <= 0) {
     return { ok: false, reason: 'not_founder', error: 'Founder seat required.' }
   }
-  return { ok: true }
+  return { ok: true, citizenId, token }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -46,8 +46,8 @@ describe('Reality area client', () => {
       jsonResponse(200, { ok: true, state: serverState() }))
 
     const result = await claimRealityFounderArea({
-      citizenId: 'citizen-1',
-      token: 'token-1',
+      citizenId: ' citizen-1 ',
+      token: ' token-1 ',
       founderNumber: 12,
     }, profile, fetchImpl as never)
 
@@ -710,6 +710,10 @@ describe('Reality area client', () => {
       .resolves.toEqual({ ok: false, reason: 'missing_identity', error: 'Connect to the world first.' })
     await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 0 }, profile, fetchImpl as never))
       .resolves.toEqual({ ok: false, reason: 'not_founder', error: 'Founder seat required.' })
+    await expect(claimRealityFounderArea({ citizenId: '   ', token: 'token-1', founderNumber: 12 }, profile, fetchImpl as never))
+      .resolves.toEqual({ ok: false, reason: 'missing_identity', error: 'Connect to the world first.' })
+    await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: '   ', founderNumber: 12 }, profile, fetchImpl as never))
+      .resolves.toEqual({ ok: false, reason: 'missing_identity', error: 'Connect to the world first.' })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
@@ -718,8 +722,8 @@ describe('Reality area client', () => {
       jsonResponse(200, { ok: true, state: serverState() }))
 
     await expect(applyRealityFounderAreaIntent({
-      citizenId: 'citizen-1',
-      token: 'token-1',
+      citizenId: ' citizen-1 ',
+      token: ' token-1 ',
       founderNumber: 12,
     }, {
       type: 'buildBusiness',
