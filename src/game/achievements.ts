@@ -205,6 +205,14 @@ export const ACHIEVEMENTS: Achievement[] = [
     isUnlocked: (s) => s.assets.some((a) => a.kind === 'home'),
   },
   {
+    id: 'workers-hall',
+    title: 'Hiring Floor',
+    detail: 'Build a Workers Hall.',
+    category: 'wealth', tier: 'silver', xp: 250, bounty: 2000,
+    isUnlocked: (s) => s.assets.some((a) => a.itemId === 'workers_hall'),
+    progress: (s) => ({ current: s.assets.some((a) => a.itemId === 'workers_hall') ? 1 : 0, target: 1 }),
+  },
+  {
     id: 'mogul',
     title: 'Mogul',
     detail: 'Reach $1,000,000 net worth.',

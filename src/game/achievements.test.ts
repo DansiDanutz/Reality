@@ -147,7 +147,7 @@ describe('achievement progress bars', () => {
       'hustler', 'tycoon', 'mogul',
       'well-lived', 'established', 'pillar',
       'collector-10', 'collector-25', 'collector-50',
-      'business-owner', 'empire-3', 'empire-10', 'upgrader-3', 'upgrader-5',
+      'business-owner', 'workers-hall', 'empire-3', 'empire-10', 'upgrader-3', 'upgrader-5',
     ])
     for (const a of ACHIEVEMENTS) {
       if (numericIds.has(a.id)) {
@@ -188,6 +188,7 @@ describe('achievement progress bars', () => {
       { ...base, level: 10 },
       { ...base, level: 20 },
       { ...base, distinctItemsOwned: 10 },
+      { ...base, assets: [{ id: 'workers', itemId: 'workers_hall', kind: 'business', name: 'Workers Hall', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 }] },
       { ...base, distinctItemsOwned: 25 },
       { ...base, distinctItemsOwned: 50 },
       { ...base, businesses: 1 },
