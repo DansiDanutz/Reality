@@ -24,6 +24,10 @@ import {
   founderCovenantOperatorQueueSummary,
 } from './founderAreaPanelView'
 import {
+  founderCovenantOperatorQueueRefreshCursor,
+  founderCovenantOperatorQueueRequest,
+} from './founderCovenantOperatorPanelState'
+import {
   readOperatorQueueViewState,
   writeOperatorQueueViewState,
 } from './founderCovenantOperatorPanelViewState'
@@ -169,12 +173,7 @@ export default function FounderCovenantOperatorPanel({
       return
     }
     setPanelState({ status: 'loading', queue })
-    const result = await readQueue({
-      operatorToken,
-      limit,
-      pages,
-      ...(cursor ? { cursor } : {}),
-    })
+    const result = await readQueue(founderCovenantOperatorQueueRequest(operatorToken, limit, pages, cursor))
     if (result.ok) {
       setScanCursor(cursor)
       setPanelState({ status: 'ready', queue: result.founderCovenantReviewQueue })
@@ -213,12 +212,14 @@ export default function FounderCovenantOperatorPanel({
       setReviewNote('')
       setReviewEvidenceKinds([])
       setOperatorReviewMessage(`Review evidence recorded for ${row.title}.`)
-      const refreshed = await readQueue({
-        operatorToken,
-        limit,
-        pages,
-        ...(scanCursor ? { cursor: scanCursor } : {}),
-      })
+      const refreshed = await readQueue(
+        founderCovenantOperatorQueueRequest(
+          operatorToken,
+          limit,
+          pages,
+          founderCovenantOperatorQueueRefreshCursor(queue, scanCursor),
+        ),
+      )
       if (refreshed.ok) {
         setPanelState({ status: 'ready', queue: refreshed.founderCovenantReviewQueue })
       } else {
