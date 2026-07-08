@@ -3,6 +3,7 @@ export type LandLeaseBlocker =
   | 'leases_disabled'
   | 'rent_collection_disabled'
   | 'operator_acceptance_disabled'
+  | 'land_owner_required'
   | 'operator_required'
   | 'operator_must_be_distinct'
   | 'operator_use_required'
@@ -87,6 +88,7 @@ export function assessLandLeasePolicy(input: LandLeasePolicyInput): LandLeasePol
   const operatorBusinessUsesLand = input.operatorBusinessUsesLand === true
 
   const readinessBlockers: LandLeaseBlocker[] = []
+  if (!landOwnerCitizenId) readinessBlockers.push('land_owner_required')
   if (!operatorCitizenId) readinessBlockers.push('operator_required')
   if (operatorCitizenId && operatorCitizenId === landOwnerCitizenId) readinessBlockers.push('operator_must_be_distinct')
   if (!operatorBusinessId || !operatorBusinessUsesLand) readinessBlockers.push('operator_use_required')
@@ -171,7 +173,8 @@ function landLeaseRentDraft(input: {
 function normalizedOptionalMoney(value: number | null): number | null {
   if (value === null) return null
   if (!Number.isFinite(value) || value <= 0) return null
-  return roundMoney(value)
+  const rounded = roundMoney(value)
+  return rounded > 0 ? rounded : null
 }
 
 function normalizedTermDays(value: number | null): number {
