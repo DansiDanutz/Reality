@@ -237,6 +237,17 @@ describe('worldSim snapshot codec', () => {
     }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
+  test('rejects negative founder covenant review timestamps', () => {
+    const reviewed = area()
+    reviewed.founderReviewHistory = [founderReview()]
+    reviewed.founderReviewHistory[0].at = -1
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: reviewed,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
   test('accepts historical ledger entries for departed Sim Citizens with event evidence', () => {
     const departed = area()
     departed.areaEvents![0] = {
@@ -370,6 +381,10 @@ describe('worldSim snapshot codec', () => {
     const badClaim = area()
     badClaim.claim!.centerLat = 120
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badClaim }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const negativeClaimTime = area()
+    negativeClaimTime.claim!.claimedAt = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeClaimTime }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const badTransaction = area()
     badTransaction.transactions[0].kind = 'free_money' as never
