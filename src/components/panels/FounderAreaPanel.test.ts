@@ -40,6 +40,7 @@ import {
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
   founderCovenantReviewSnapshotSummary,
+  founderCovenantReviewChecklistDetailText,
   founderCovenantSignalText,
   founderCovenantStageSnapshotSummary,
   founderCovenantStageStatusLabel,
@@ -115,6 +116,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewChecklistDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewChecklistDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -995,6 +998,9 @@ describe('FounderAreaPanel covenant presenters', () => {
       activityReview: null,
       reviewChecklist: [],
     })).toBe('Snapshot unavailable')
+    expect(founderCovenantReviewChecklistDetailText({
+      reviewChecklist: [],
+    })).toBe('Checklist detail unavailable')
     expect(founderCovenantReviewSnapshotSummary({
       activityReview: {
         checkedAt: 1_000,
@@ -1019,6 +1025,19 @@ describe('FounderAreaPanel covenant presenters', () => {
         evidence: 'Covenant signals need weekly/monthly review.',
       }],
     })).toBe('Snapshot score 50/100 · 1 manual · 1 watch')
+    expect(founderCovenantReviewChecklistDetailText({
+      reviewChecklist: [{
+        key: 'staffed',
+        label: 'Staffed',
+        status: 'watch',
+        evidence: 'Founder businesses need staff before review can clear.',
+      }, {
+        key: 'risk',
+        label: 'At risk',
+        status: 'manual_review',
+        evidence: 'Covenant signals need weekly/monthly review.',
+      }],
+    })).toBe('Manual: At risk · Watch: Staffed')
   })
 
   test('summarizes captured covenant review input snapshots', () => {

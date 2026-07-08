@@ -975,6 +975,19 @@ export function founderCovenantReviewSnapshotSummary(
   return `Snapshot score ${review.activityReview.score}/100 · ${manualItems} manual · ${watchItems} watch`
 }
 
+export function founderCovenantReviewChecklistDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'reviewChecklist'>,
+): string {
+  if (review.reviewChecklist.length === 0) return 'Checklist detail unavailable'
+  const manual = review.reviewChecklist.filter((entry) => entry.status === 'manual_review')
+  const watch = review.reviewChecklist.filter((entry) => entry.status === 'watch')
+  if (manual.length === 0 && watch.length === 0) return 'All checklist items met'
+  const parts: string[] = []
+  if (manual.length > 0) parts.push(`Manual: ${manual.map((entry) => entry.label).join(', ')}`)
+  if (watch.length > 0) parts.push(`Watch: ${watch.map((entry) => entry.label).join(', ')}`)
+  return parts.join(' · ')
+}
+
 export function founderCovenantReviewInputSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'reviewInputs'>,
 ): string {
