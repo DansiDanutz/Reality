@@ -37,6 +37,7 @@ import {
   type LifeLadderAsset,
   type LifeLadderSnapshot,
   type LifePlan,
+  type LifePlanRoute,
   type LifeRoutineBlock,
   type LifePlanTask,
   type LifeValue,
@@ -368,23 +369,8 @@ function applyBusinessCompletion(snapshot: LifeLadderSnapshot, projectId: string
   }
 }
 
-function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSnapshot {
-  const route = plan.primary.route
-  const workday = projectsWorkday(plan)
-  let next: LifeLadderSnapshot = {
-    ...snapshot,
-    money: Math.max(0, Math.round(snapshot.money + projectedDailyCashDelta(plan))),
-  }
-
-  if (snapshot.jobId && workday) {
-    next = {
-      ...next,
-      shiftsWorked: next.shiftsWorked + 1,
-      communityRespect: next.communityRespect + 1,
-      communityTrust: next.communityTrust + 1,
-    }
-  }
-
+function applyRouteAction(snapshot: LifeLadderSnapshot, route: LifePlanRoute): LifeLadderSnapshot {
+  let next = snapshot
   if (route.kind === 'panel' && route.panel === 'work' && !next.jobId) {
     next = { ...next, jobId: jobById('barista')?.id ?? 'barista' }
   }
@@ -538,6 +524,36 @@ function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSna
     }
     next = applyBusinessCompletion(next, route.projectId)
   }
+
+  return next
+}
+
+function freeTimeOwnershipRoute(plan: LifePlan, snapshot: LifeLadderSnapshot): LifePlanRoute | null {
+  if (!snapshot.jobId) return null
+  const freeTime = plan.routine.find((block) => block.id === 'free-time-block') ?? null
+  if (!freeTime || freeTime.taskId === plan.primary.id || freeTime.route.kind === 'none') return null
+  return freeTime.route
+}
+
+function applyRoute(snapshot: LifeLadderSnapshot, plan: LifePlan): LifeLadderSnapshot {
+  const workday = projectsWorkday(plan)
+  let next: LifeLadderSnapshot = {
+    ...snapshot,
+    money: Math.max(0, Math.round(snapshot.money + projectedDailyCashDelta(plan))),
+  }
+
+  if (snapshot.jobId && workday) {
+    next = {
+      ...next,
+      shiftsWorked: next.shiftsWorked + 1,
+      communityRespect: next.communityRespect + 1,
+      communityTrust: next.communityTrust + 1,
+    }
+  }
+
+  next = applyRouteAction(next, plan.primary.route)
+  const freeTimeRoute = freeTimeOwnershipRoute(plan, snapshot)
+  if (freeTimeRoute) next = applyRouteAction(next, freeTimeRoute)
 
   next = advanceRoadmapWorkerContracts(next, roadmapDayEndMs(snapshot.lifeDay))
   next = applyReadyConstructionCompletions(next)

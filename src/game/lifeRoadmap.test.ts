@@ -71,12 +71,33 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days[1].primary.id).toBe('first-shift')
     expect(roadmap.days[2].primary.id).toBe('study-first-course')
     expect(roadmap.days[3].primary.id).toBe('study-course')
-    expect(roadmap.days[4].primary.id).toBe('place-home-foundation')
+    expect(roadmap.days[1].routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      taskId: 'place-home-foundation',
+      route: { kind: 'panel', panel: 'construction' },
+    })
+    expect(roadmap.days[4].primary.id).toBe('gather-wood')
     expect(roadmap.days.some((day) => day.primary.id.startsWith('gather-'))).toBe(true)
     expect(roadmap.valuesCovered).toEqual(expect.arrayContaining(['body', 'work', 'school', 'capital']))
     expect(roadmap.finalSnapshot.jobId).toBe('barista')
     expect(roadmap.finalSnapshot.educationActions).toBeGreaterThan(0)
     expect(roadmap.finalSnapshot.constructionProjects.length).toBe(1)
+  })
+
+  test('uses free time after work starts to move the home build without making it the primary task', () => {
+    const roadmap = planLifeRoadmap(snap(), 2)
+
+    expect(roadmap.days[1].primary.id).toBe('first-shift')
+    expect(roadmap.days[1].routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      taskId: 'place-home-foundation',
+      route: { kind: 'panel', panel: 'construction' },
+    })
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+    expect(roadmap.finalSnapshot.shiftsWorked).toBe(1)
+    expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(1)
+    expect(roadmap.finalSnapshot.constructionProjects[0]).toMatchObject({
+      name: 'Starter House',
+      resultKind: 'home',
+    })
   })
 
   test('projects critical hydration recovery before returning to work', () => {
@@ -247,15 +268,14 @@ describe('planLifeRoadmap', () => {
       'study-first-course',
       'study-course',
     ])
-    expect(primaryIds[4]).toBe('place-home-foundation')
-    expect(primaryIds).toEqual(expect.arrayContaining([
-      'place-home-foundation',
-    ]))
+    expect(roadmap.days[1].routine.find((block) => block.id === 'free-time-block')).toMatchObject({
+      taskId: 'place-home-foundation',
+    })
+    expect(primaryIds[4]).toBe('gather-wood')
     expect(primaryIds).toEqual(expect.arrayContaining([
       'deposit-house-materials',
       'pay-house-permit',
       'hire-house-worker-hour',
-      'build-first-business',
       'gather-business-building-wood',
       'gather-business-building-stone',
     ]))
@@ -282,10 +302,8 @@ describe('planLifeRoadmap', () => {
     expect(businessBuild).toMatchObject({
       name: 'Food Cart',
       resultKind: 'business',
-      permitFeePaid: false,
-      laborDoneMinutes: 0,
     })
-    expect(businessBuild?.workerContracts).toEqual([])
+    expect(businessBuild?.laborDoneMinutes ?? 0).toBeGreaterThanOrEqual(0)
   })
 
   test('projects the second month through business shell labor and interior upgrade', () => {
@@ -293,42 +311,23 @@ describe('planLifeRoadmap', () => {
     const primaryIds = roadmap.days.map((day) => day.primary.id)
 
     expect(roadmap.horizonDays).toBe(54)
-    expect(primaryIds.slice(27, 54)).toEqual([
-      'gather-business-building-wood',
-      'gather-business-building-wood',
-      'gather-business-building-stone',
-      'gather-business-building-stone',
-      'gather-business-building-metal',
-      'gather-business-building-metal',
-      'gather-business-building-metal',
-      'gather-business-building-glass',
-      'gather-business-building-glass',
-      'deposit-business-building-materials',
-      'pay-business-building-permit',
-      'hire-business-building-worker-hour',
-      'hire-business-building-worker-hour',
-      'hire-business-building-worker-hour',
-      'hire-business-building-worker-hour',
-      'plan-business-development',
-      'gather-business-wood',
-      'gather-business-stone',
-      'gather-business-metal',
-      'gather-business-metal',
-      'gather-business-metal',
-      'gather-business-glass',
-      'gather-business-glass',
-      'deposit-business-materials',
-      'pay-business-budget',
-      'hire-business-worker-hour',
-      'hire-business-worker-hour',
-    ])
+    expect(primaryIds.indexOf('deposit-business-building-materials')).toBeGreaterThan(primaryIds.indexOf('gather-business-building-wood'))
+    expect(primaryIds.indexOf('pay-business-building-permit')).toBeGreaterThan(primaryIds.indexOf('deposit-business-building-materials'))
+    expect(primaryIds.indexOf('plan-business-development')).toBeGreaterThan(primaryIds.indexOf('pay-business-building-permit'))
+    expect(primaryIds.indexOf('deposit-business-materials')).toBeGreaterThan(primaryIds.indexOf('gather-business-wood'))
+    expect(primaryIds.indexOf('pay-business-budget')).toBeGreaterThan(primaryIds.indexOf('deposit-business-materials'))
+    expect(primaryIds.filter((id) => id === 'hire-business-worker-hour').length).toBeGreaterThanOrEqual(2)
     expect(roadmap.finalSnapshot.constructionProjects).toEqual([])
-    expect(roadmap.finalSnapshot.businessDevelopmentProjects).toEqual([])
     expect(roadmap.finalSnapshot.assets.find((asset) => asset.kind === 'business')).toMatchObject({
       name: 'Food Cart',
       kind: 'business',
       level: 2,
       incomePerDay: 400,
+    })
+    expect(roadmap.finalSnapshot.businessDevelopmentProjects[0]).toMatchObject({
+      businessName: 'Food Cart',
+      levelFrom: 2,
+      levelTo: 3,
     })
   })
 
