@@ -3693,6 +3693,40 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('operator founder covenant review returns structured storage failure when target area cannot load', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    process.env.REALITY_OPERATOR_AUTH_SECRET = OPERATOR_AUTH_SECRET
+    const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
+    const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
+    vi.mocked(list).mockRejectedValueOnce(new Error('blob list failed'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${operatorToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+          note: 'Weekly operator evidence reviewed.',
+          evidenceKinds: ['external_contribution'],
+        },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Founder covenant review target area is temporarily unavailable.',
+      code: 'area_load_unavailable',
+    })
+    expect(list).toHaveBeenCalledWith({ prefix: areaStatePath(CITIZEN_ID), limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('operator founder covenant review rejects expired tokens and mismatched area targets', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))

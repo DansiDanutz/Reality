@@ -1361,6 +1361,7 @@ type ApplyOperatorRecordCovenantReviewError =
   | OperatorRecordCovenantReviewIntentError
   | 'operator_unauthorized'
   | 'area_mismatch'
+  | 'area_load_unavailable'
 
 const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
   buyWater: 'water',
@@ -4435,7 +4436,17 @@ async function handleFounderCovenantOperatorReview(
   }
 
   const now = new Date()
-  const existing = await readAreaState(intent.founderCitizenId)
+  let existing: FounderAreaState | null
+  try {
+    existing = await readAreaState(intent.founderCitizenId)
+  } catch {
+    res.status(operatorRecordCovenantReviewStatus('area_load_unavailable')).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage('area_load_unavailable'),
+      code: 'area_load_unavailable',
+    })
+    return
+  }
   const stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
   if (stateForReview && stateForReview.areaId !== intent.areaId) {
     res.status(operatorRecordCovenantReviewStatus('area_mismatch')).json({
@@ -6396,6 +6407,7 @@ function recordCovenantReviewMessage(error: ApplyRecordCovenantReviewError): str
 
 function operatorRecordCovenantReviewStatus(error: ApplyOperatorRecordCovenantReviewError): number {
   if (error === 'operator_unauthorized') return 403
+  if (error === 'area_load_unavailable') return 503
   if (error === 'area_not_claimed' || error === 'area_mismatch' || error === 'review_action_disabled') return 409
   return error === 'unsupported_intent' ? 400 : 422
 }
@@ -6404,6 +6416,8 @@ function operatorRecordCovenantReviewMessage(error: ApplyOperatorRecordCovenantR
   switch (error) {
     case 'operator_unauthorized':
       return 'Founder covenant operator review requires a valid operator token.'
+    case 'area_load_unavailable':
+      return 'Founder covenant review target area is temporarily unavailable.'
     case 'area_mismatch':
       return 'Founder covenant review target does not match the stored founder area.'
     case 'invalid_founder_identity':
