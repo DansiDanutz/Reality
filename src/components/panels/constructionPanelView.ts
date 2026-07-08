@@ -70,6 +70,8 @@ export function constructionForecastCards(forecast: ConstructionDayForecast): Fo
     helperTwoHourDays: forecast.helperTwoHourDays,
     helperTwoHourLaborMinutes: forecast.helperTwoHourLaborMinutes,
     helperTwoHourCost: forecast.helperTwoHourCost,
+    helperTwoHourCommunityCreditMinutes: forecast.helperTwoHourCommunityCreditMinutes,
+    helperTwoHourCommunityCreditValue: forecast.helperTwoHourCommunityCreditValue,
     helperTwoHourAffordableToday: forecast.helperTwoHourAffordableToday,
     helperTwoHourCashNeeded: forecast.helperTwoHourCashNeeded,
     idleLabel: 'no helper needed',
@@ -123,6 +125,8 @@ export function businessDevelopmentForecastCards(forecast: BusinessDevelopmentDa
       helperTwoHourDays: forecast.helperTwoHourDays,
       helperTwoHourLaborMinutes: forecast.helperTwoHourLaborMinutes,
       helperTwoHourCost: forecast.helperTwoHourCost,
+      helperTwoHourCommunityCreditMinutes: forecast.helperTwoHourCommunityCreditMinutes,
+      helperTwoHourCommunityCreditValue: forecast.helperTwoHourCommunityCreditValue,
       helperTwoHourAffordableToday: forecast.helperTwoHourAffordableToday,
       helperTwoHourCashNeeded: forecast.helperTwoHourCashNeeded,
       idleLabel: 'no interior help needed',
@@ -171,6 +175,8 @@ function workerForecastCard(input: {
   helperTwoHourDays: number
   helperTwoHourLaborMinutes: number
   helperTwoHourCost: number
+  helperTwoHourCommunityCreditMinutes: number
+  helperTwoHourCommunityCreditValue: number
   helperTwoHourAffordableToday: boolean
   helperTwoHourCashNeeded: number
   idleLabel: string
@@ -194,8 +200,13 @@ function workerForecastCard(input: {
   return {
     label: 'Workers',
     value: `${input.helperTwoHourDays}d helper plan`,
-    detail: `2h helper adds ${formatForecastMinutes(input.helperTwoHourLaborMinutes)} labor/day for ${formatMoney(input.helperTwoHourCost)}${input.helperTwoHourAffordableToday ? '; affordable today.' : `; save ${formatMoney(input.helperTwoHourCashNeeded)}.`}`,
+    detail: `2h helper adds ${formatForecastMinutes(input.helperTwoHourLaborMinutes)} labor/day for ${formatMoney(input.helperTwoHourCost)}${helperCreditDetail(input.helperTwoHourCommunityCreditMinutes, input.helperTwoHourCommunityCreditValue)}${input.helperTwoHourAffordableToday ? '; affordable today.' : `; save ${formatMoney(input.helperTwoHourCashNeeded)}.`}`,
   }
+}
+
+function helperCreditDetail(minutes: number, value: number): string {
+  if (minutes <= 0 || value <= 0) return ''
+  return ` after community backing covers ${formatForecastMinutes(minutes)} (${formatMoney(value)})`
 }
 
 function completionForecastCard(input: {
