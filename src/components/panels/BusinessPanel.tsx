@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { itemById } from '../../game/catalog'
 import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentPlanFor,
@@ -16,7 +15,7 @@ import { businessDevelopmentDayForecast, lifeDayFromCreatedAt } from '../../game
 import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, formatResourceList } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
-import { activeBusinessConstructionProject } from './businessPanelView'
+import { businessPanelView } from './businessPanelView'
 import { businessDevelopmentForecastCards } from './constructionPanelView'
 import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
@@ -55,41 +54,37 @@ export default function BusinessPanel() {
   const selectMapTarget = useGame((s) => s.selectMapTarget)
   const setPanel = useGame((s) => s.setPanel)
 
-  const business =
-    (selectedMapTarget?.kind === 'asset'
-      ? assets.find((asset) => asset.id === selectedMapTarget.id && asset.kind === 'business')
-      : null) ?? assets.find((asset) => asset.kind === 'business') ?? null
-  const businessConstruction = activeBusinessConstructionProject(constructionProjects, selectedMapTarget)
+  const view = businessPanelView(assets, constructionProjects, selectedMapTarget)
 
-  if (!business) {
-    if (businessConstruction) {
-      return (
-        <section className="panel business-panel" aria-label="Business building">
-          <h2 className="panel-title">{businessConstruction.name}</h2>
-          <p className="panel-sub">This business is still a building site. Finish materials, permit, and labor before the inside can open.</p>
-          <button
-            className="btn primary"
-            onClick={() => {
-              selectMapTarget({ kind: 'construction', id: businessConstruction.id })
-              setPanel('construction')
-            }}
-          >
-            Open build plan
-          </button>
-        </section>
-      )
-    }
+  if (view.kind === 'construction') {
+    return (
+      <section className="panel business-panel" aria-label="Business building">
+        <h2 className="panel-title">{view.title}</h2>
+        <p className="panel-sub">{view.detail}</p>
+        <button
+          className="btn primary"
+          onClick={() => {
+            selectMapTarget(view.mapTarget)
+            setPanel('construction')
+          }}
+        >
+          Open build plan
+        </button>
+      </section>
+    )
+  }
 
+  if (view.kind === 'empty') {
     return (
       <section className="panel business-panel" aria-label="Business">
-        <h2 className="panel-title">Business</h2>
-        <p className="panel-sub">No finished business yet. Buy a business, place its foundation, then build it from resources.</p>
+        <h2 className="panel-title">{view.title}</h2>
+        <p className="panel-sub">{view.detail}</p>
         <button className="btn primary" onClick={() => setPanel('shop')}>Open shop</button>
       </section>
     )
   }
 
-  const item = itemById(business.itemId)
+  const business = view.business
   const level = business.level ?? 1
   const plan = businessDevelopmentPlanFor(business)
   const project = businessDevelopmentProjects.find((candidate) => candidate.businessId === business.id) ?? null
@@ -115,7 +110,7 @@ export default function BusinessPanel() {
       <div className="house-panel-head">
         <div>
           <h2 className="panel-title">{business.name}</h2>
-          <p className="panel-sub">{item?.description ?? 'A working building on your map.'}</p>
+          <p className="panel-sub">{view.description}</p>
         </div>
         <span className="chip gold">L{level}</span>
       </div>
