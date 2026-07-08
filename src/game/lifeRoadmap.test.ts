@@ -80,15 +80,19 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.days[0].primary.id).toBe('find-job')
     expect(roadmap.days[0].dayFocusLabel).toBe('Work day')
     expect(roadmap.days[0].millionaireStageLabel).toBe('Survival')
+    expect(roadmap.days[0].millionaireStageStory).toBe('Protect the body so the day can move at all.')
     expect(roadmap.days[1].primary.id).toBe('first-shift')
     expect(roadmap.days[1].dayFocusLabel).toBe('Work day')
     expect(roadmap.days[1].millionaireStageLabel).toBe('Stable cash')
+    expect(roadmap.days[1].millionaireStageStory).toBe('Keep cash and routine steady so the climb stays repeatable.')
     expect(roadmap.days[2].primary.id).toBe('study-first-course')
     expect(roadmap.days[2].dayFocusLabel).toBe('School day')
     expect(roadmap.days[2].millionaireStageLabel).toBe('Stable cash')
+    expect(roadmap.days[2].millionaireStageStory).toBe('Keep cash and routine steady so the climb stays repeatable.')
     expect(roadmap.days[3].primary.id).toBe('study-course')
     expect(roadmap.days[3].dayFocusLabel).toBe('School day')
     expect(roadmap.days[3].millionaireStageLabel).toBe('Stable cash')
+    expect(roadmap.days[3].millionaireStageStory).toBe('Keep cash and routine steady so the climb stays repeatable.')
     expect(roadmap.days[1].routine.find((block) => block.id === 'free-time-block')).toMatchObject({
       taskId: 'place-home-foundation',
       route: { kind: 'panel', panel: 'construction' },

@@ -238,6 +238,7 @@ export default function GoalsCard() {
               <span>{day.primary.title}</span>
               <span>{day.dayFocusLabel}</span>
               <span>{day.millionaireStageLabel}</span>
+              <span>{day.millionaireStageStory}</span>
               <span className="goals-card-agenda-time">{roadmapRouteLabel(day.primary.route)}</span>
               <span className="goals-card-agenda-time">{formatPlanMinutes(day.primary.minutes)}</span>
             </button>

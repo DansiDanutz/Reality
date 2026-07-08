@@ -43,7 +43,7 @@ import {
   type LifePlanTask,
   type LifeValue,
 } from './lifeLadder'
-import { communityAdvantageOf, millionaireStageProgress, type MillionaireStage } from './millionairePath'
+import { communityAdvantageOf, millionaireStageProgress, millionaireStageStory, type MillionaireStage } from './millionairePath'
 import { buildEtaSummary, interiorEtaSummary } from './lifeForecastSummary'
 
 export interface LifeRoadmapDay {
@@ -52,6 +52,7 @@ export interface LifeRoadmapDay {
   dayFocus: LifeValue
   dayFocusLabel: string
   millionaireStageLabel: string
+  millionaireStageStory: string
   primary: LifePlanTask
   agenda: LifePlanTask[]
   routine: LifeRoutineBlock[]
@@ -299,6 +300,7 @@ function roadmapDay(plan: LifePlan, starting: LifeLadderSnapshot, ending: LifeLa
     dayFocus: plan.dayFocus,
     dayFocusLabel: plan.dayFocusLabel,
     millionaireStageLabel: millionaireStageProgress(plan.millionairePath.stage).label,
+    millionaireStageStory: millionaireStageStory(plan.millionairePath.stage),
     primary: plan.primary,
     agenda: plan.agenda,
     routine: plan.routine,

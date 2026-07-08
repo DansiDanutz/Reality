@@ -46,6 +46,16 @@ export interface MillionaireStageProgress {
   nextLabel: string | null
 }
 
+export function millionaireStageStory(stage: MillionaireStage): string {
+  if (stage === 'survival') return 'Protect the body so the day can move at all.'
+  if (stage === 'stable') return 'Keep cash and routine steady so the climb stays repeatable.'
+  if (stage === 'skilled') return 'Build skill so work pays better tomorrow.'
+  if (stage === 'reliable') return 'Turn consistency into respect and better opportunities.'
+  if (stage === 'owner') return 'Turn work into a real place and a real asset.'
+  if (stage === 'employer') return 'Use help to grow the business without losing control.'
+  return 'Keep reinvesting until $1M feels normal.'
+}
+
 export type MillionaireNextAction =
   | 'recover-body'
   | 'find-job'
