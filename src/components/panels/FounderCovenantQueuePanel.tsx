@@ -9,6 +9,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
+  founderCovenantOperatorQueueWorkloadSummary,
 } from './founderAreaPanelView'
 
 export interface FounderCovenantQueuePanelProps {
@@ -47,6 +48,7 @@ export function FounderCovenantQueuePanel({
       <div className="founder-covenant-meta" aria-label="Founder operator queue scan">
         <span>{founderCovenantOperatorQueueSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
+        <span>{founderCovenantOperatorQueueWorkloadSummary(queue)}</span>
       </div>
       <div className="founder-covenant-meta" aria-label="Founder operator queue filters">
         <span>Filter: {queueFilterLabel(filter)}</span>

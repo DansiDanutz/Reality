@@ -790,6 +790,18 @@ export function founderCovenantOperatorQueuePageSummary(
   return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed · ${founderCovenantOperatorQueueFreshnessCoverageText(queue.totals)}${queue.hasMore ? ' · next page ready' : ''}`
 }
 
+export function founderCovenantOperatorQueueWorkloadSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const evidenceFounders = queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount > 0).length
+  const evidenceGaps = queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)
+  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const approvalRequests = queue.items.reduce((sum, item) => sum + item.reviewReadiness.approvalRequestCount, 0)
+  const overdueFounders = queue.items.filter((item) => item.overdue).length
+
+  return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${overdueFounders} overdue`
+}
+
 export function founderCovenantOperatorQueueItemSummary(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
