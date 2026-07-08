@@ -322,6 +322,9 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    populationGrowthEvidenceGaps: number
+    externalContributionEvidenceGaps: number
+    ideasFeedbackEvidenceGaps: number
   }
   items: WorldFounderCovenantReviewQueueItem[]
   results: WorldFounderCovenantReviewQueueScanResult[]
@@ -864,7 +867,21 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    populationGrowthEvidenceGaps: items.filter((item) =>
+      founderCovenantReviewInputNeedsManualEvidence(item.reviewInputs, 'population_growth')).length,
+    externalContributionEvidenceGaps: items.filter((item) =>
+      founderCovenantReviewInputNeedsManualEvidence(item.reviewInputs, 'external_contribution')).length,
+    ideasFeedbackEvidenceGaps: items.filter((item) =>
+      founderCovenantReviewInputNeedsManualEvidence(item.reviewInputs, 'ideas_feedback')).length,
   }
+}
+
+function founderCovenantReviewInputNeedsManualEvidence(
+  reviewInputs: readonly FounderCovenantReviewInput[],
+  kind: FounderCovenantManualEvidenceKind,
+): boolean {
+  return reviewInputs.some((input) =>
+    input.kind === kind && (input.manualEvidenceRequired || input.status === 'manual_needed'))
 }
 
 function founderCovenantReviewInputSnapshot(input: FounderCovenantReviewInput): FounderCovenantReviewInput {

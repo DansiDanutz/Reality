@@ -2994,6 +2994,9 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      populationGrowthEvidenceGaps: 1,
+      externalContributionEvidenceGaps: 1,
+      ideasFeedbackEvidenceGaps: 1,
     },
     items: [{
       areaId: dashboard.areaId,

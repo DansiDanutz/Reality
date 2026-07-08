@@ -942,6 +942,9 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    populationGrowthEvidenceGaps: number
+    externalContributionEvidenceGaps: number
+    ideasFeedbackEvidenceGaps: number
   }
   items: RealityFounderCovenantReviewQueueItem[]
   results: RealityFounderCovenantReviewQueueScanResult[]
@@ -2238,7 +2241,10 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.insuredFounders === 'number' &&
     typeof value.pendingApprovals === 'number' &&
     typeof value.pendingNotifications === 'number' &&
-    typeof value.blockers === 'number'
+    typeof value.blockers === 'number' &&
+    typeof value.populationGrowthEvidenceGaps === 'number' &&
+    typeof value.externalContributionEvidenceGaps === 'number' &&
+    typeof value.ideasFeedbackEvidenceGaps === 'number'
 }
 
 function isRealityFounderCovenantReviewQueueItem(

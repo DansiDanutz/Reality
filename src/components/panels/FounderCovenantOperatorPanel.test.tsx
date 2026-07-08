@@ -33,6 +33,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('<span>Pop proof</span><strong>1</strong>')
+    expect(html).toContain('<span>Contribution</span><strong>1</strong>')
+    expect(html).toContain('<span>Ideas</span><strong>1</strong>')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -119,6 +122,9 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      populationGrowthEvidenceGaps: 1,
+      externalContributionEvidenceGaps: 1,
+      ideasFeedbackEvidenceGaps: 1,
     },
     items: [{
       areaId: 'founder-area-0012',

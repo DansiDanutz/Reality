@@ -45,6 +45,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('<span>Pop proof</span><strong>2</strong>')
+    expect(html).toContain('<span>Contribution</span><strong>2</strong>')
+    expect(html).toContain('<span>Ideas</span><strong>2</strong>')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -238,6 +241,9 @@ describe('FounderCovenantQueuePanel', () => {
         indebted: 0,
         totalOutstandingDebt: 0,
         blockers: 0,
+        populationGrowthEvidenceGaps: 0,
+        externalContributionEvidenceGaps: 0,
+        ideasFeedbackEvidenceGaps: 0,
       },
     }
 
@@ -313,6 +319,9 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      populationGrowthEvidenceGaps: 2,
+      externalContributionEvidenceGaps: 2,
+      ideasFeedbackEvidenceGaps: 2,
     },
     items: [item, current],
     results: [{

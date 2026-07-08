@@ -56,6 +56,21 @@ export function FounderCovenantQueuePanel({
           tone={queue.totals.blockers > 0 ? 'warning' : 'stable'}
           value={queue.totals.blockers}
         />
+        <QueueTotalChip
+          label="Pop proof"
+          tone={queue.totals.populationGrowthEvidenceGaps > 0 ? 'warning' : 'stable'}
+          value={queue.totals.populationGrowthEvidenceGaps}
+        />
+        <QueueTotalChip
+          label="Contribution"
+          tone={queue.totals.externalContributionEvidenceGaps > 0 ? 'warning' : 'stable'}
+          value={queue.totals.externalContributionEvidenceGaps}
+        />
+        <QueueTotalChip
+          label="Ideas"
+          tone={queue.totals.ideasFeedbackEvidenceGaps > 0 ? 'warning' : 'stable'}
+          value={queue.totals.ideasFeedbackEvidenceGaps}
+        />
       </div>
       {reviewRows.length === 0 ? (
         <p className="panel-sub">No founders in this review page.</p>

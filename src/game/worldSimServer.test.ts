@@ -1459,6 +1459,9 @@ describe('runWorldServerCommand', () => {
       atRisk: 2,
       manualReviewRequired: 1,
       totalOutstandingDebt: 350,
+      populationGrowthEvidenceGaps: 2,
+      externalContributionEvidenceGaps: 2,
+      ideasFeedbackEvidenceGaps: 2,
     })
     expect(queue.results).toEqual([
       { areaId: 'area-1', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },

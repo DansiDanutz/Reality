@@ -587,6 +587,9 @@ describe('FounderAreaPanel covenant presenters', () => {
         pendingApprovals: 2,
         pendingNotifications: 1,
         blockers: 5,
+        populationGrowthEvidenceGaps: 2,
+        externalContributionEvidenceGaps: 2,
+        ideasFeedbackEvidenceGaps: 2,
       },
     }
     const item = {
