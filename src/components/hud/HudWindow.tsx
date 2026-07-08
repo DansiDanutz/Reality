@@ -71,6 +71,14 @@ export default function HudWindow({ id, children }: HudWindowProps) {
   const layout = useGame((s) => s.hudLayout[id])
   const patchCard = useGame((s) => s.patchCard)
   const ref = useRef<HTMLDivElement>(null)
+  // Detach any in-flight drag/resize window listeners if the card unmounts
+  // mid-gesture (e.g. minimized from elsewhere) — otherwise they'd keep
+  // firing against a detached node and persist garbage geometry.
+  const gestureCleanupRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => {
+    gestureCleanupRef.current?.()
+    gestureCleanupRef.current = null
+  }, [])
 
   const def = CARD_DEFAULTS[id]
   const pos = { min: false, ...def, ...layout }
@@ -131,9 +139,11 @@ export default function HudWindow({ id, children }: HudWindowProps) {
       el.style.top = `${y}px`
     }
     const onUp = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
+      cleanup()
       el.classList.remove('dragging')
+      // A detached node measures 0×0 at 0,0 — persisting that would wreck
+      // the saved layout. Bail if the card left the DOM mid-drag.
+      if (!el.isConnected) return
       const r = el.getBoundingClientRect()
       // Clamp fully on-screen + snap to the nearest edge, then persist as %.
       const snapped = clampAndSnap(r.left, r.top, r.width, r.height)
@@ -142,6 +152,12 @@ export default function HudWindow({ id, children }: HudWindowProps) {
         y: (snapped.y / window.innerHeight) * 100,
       })
     }
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      gestureCleanupRef.current = null
+    }
+    gestureCleanupRef.current = cleanup
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }
@@ -159,10 +175,17 @@ export default function HudWindow({ id, children }: HudWindowProps) {
       el.style.width = `${w}px`
     }
     const onUp = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
+      cleanup()
+      // Same guard as drag: a detached node reports width 0 — don't persist it.
+      if (!el.isConnected) return
       patchCard(id, { w: Math.round(el.getBoundingClientRect().width) })
     }
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      gestureCleanupRef.current = null
+    }
+    gestureCleanupRef.current = cleanup
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
   }

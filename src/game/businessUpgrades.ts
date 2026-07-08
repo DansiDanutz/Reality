@@ -1,12 +1,11 @@
 /**
  * Business upgrades — the incremental-depth hook.
  *
- * Reality's businesses earn passive income, but once bought they're static —
- * there's nothing to spend on, no compounding curve. Upgrades fix that: pay
- * cash to multiply a business's income. This is THE idle-game hook (Adventure
- * Capitalist, every incremental): it sinks the ballooning founder balance,
- * gives a reason to collect (afford the next tier), and creates a progression
- * curve that never ends.
+ * Reality's legacy local businesses earn collectable revenue, but once bought
+ * they're static: there's nothing to spend on, no compounding curve. Upgrades
+ * fix that by letting players pay cash to improve a business's earning
+ * capacity. The server economy still requires customer demand and ledger
+ * events before revenue exists.
  *
  * Cost curve (geometric — the hallmark of idle games):
  *   cost(level → level+1) = round(baseIncome × COST_MULT^level)
