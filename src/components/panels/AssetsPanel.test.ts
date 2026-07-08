@@ -150,11 +150,11 @@ describe('constructionAssetView', () => {
     expect(view.laborText).toBe('8h labor left')
     expect(view.percentText).toBe('0% built')
     expect(view.icon).toBe('⌂')
-    expect(view.kindText).toBe('home shell')
+    expect(view.kindText).toBe('home foundation')
     expect(view.completionText).toBe('enter home')
   })
 
-  test('labels business construction as a business shell before it opens', () => {
+  test('labels business construction as a business foundation before it opens', () => {
     const project = createConstructionProjectFromRecipe(
       businessConstructionRecipe({ id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 240 }),
       45,
@@ -165,7 +165,7 @@ describe('constructionAssetView', () => {
     const view = constructionAssetView(project)
 
     expect(view.icon).toBe('◆')
-    expect(view.kindText).toBe('business shell')
+    expect(view.kindText).toBe('business foundation')
     expect(view.completionText).toBe('open business')
   })
 

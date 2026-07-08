@@ -59,7 +59,7 @@ export function constructionAssetView(project: ConstructionProject, now = Date.n
     activeWorkerCount: workerViews.length,
     workerViews,
     icon: project.resultKind === 'business' ? '◆' : '⌂',
-    kindText: project.resultKind === 'business' ? 'business shell' : 'home shell',
+    kindText: project.resultKind === 'business' ? 'business foundation' : 'home foundation',
     materialText: progress.resourcesComplete ? 'materials ready' : `missing ${missingText}`,
     permitText: project.permitFeePaid ? 'permit paid' : `${formatMoney(project.permitFee)} permit`,
     laborText: `${formatMinutes(labor.remainingMinutes)} labor left`,
