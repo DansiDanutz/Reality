@@ -1,5 +1,5 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
-import { adviceOf, formatMoney, netWorthOf } from '../../game/engine'
+import { adviceOf, dailyStepsOf, formatMoney, netWorthOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -60,15 +60,18 @@ export default function GoalsCard() {
     workersHall,
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
-  const routine = [
-    needs.hydration < 30 ? 'Drink' : null,
-    needs.hunger < 30 ? 'Eat' : null,
-    needs.energy < 28 ? 'Sleep' : null,
-    !jobId ? 'Get a job' : null,
-    assets.some((a) => a.kind === 'home') ? 'Sleep at home' : 'Build a home',
-    businesses > 0 ? 'Collect income' : 'Open a business',
-    respect < 5 ? 'Help the neighborhood' : null,
-  ].filter((step): step is string => Boolean(step))
+  const routine = dailyStepsOf({
+    needs,
+    health,
+    money,
+    jobId,
+    respect,
+    activity,
+    hasHome: assets.some((a) => a.kind === 'home'),
+    businesses,
+    workersHall,
+    pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+  })
 
   return (
     <button
@@ -85,7 +88,7 @@ export default function GoalsCard() {
       <div className="goals-card-plan" aria-label="Today’s routine">
         <span className="goals-card-plan-head mono">Plan</span>
         <span className="goals-card-plan-text">{advice.text}</span>
-        <span className="goals-card-plan-steps mono">{routine.slice(0, 4).join(' · ')}</span>
+        <span className="goals-card-plan-steps mono">{routine.slice(0, 4).map((step) => step.label).join(' · ')}</span>
         <span className="goals-card-plan-work mono">Net worth {formatMoney(netWorthOf(money, inventory, assets))}</span>
       </div>
       {total > 0 ? (

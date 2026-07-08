@@ -782,6 +782,11 @@ export interface Advice {
   cta?: string
 }
 
+export interface DailyStep {
+  phase: 'survive' | 'work' | 'grow' | 'belong' | 'build'
+  label: string
+}
+
 export interface AdviceInput {
   needs: Needs
   health: number
@@ -838,6 +843,48 @@ export function adviceOf(i: AdviceInput): Advice {
     return { text: 'The first one pays. The second one compounds. Expand?', action: 'buy-business', cta: 'Expand the empire' }
 
   return { text: "Life is good. A shift today keeps the dream funded.", action: 'start-shift', cta: 'Work a shift' }
+}
+
+export function dailyStepsOf(i: AdviceInput): DailyStep[] {
+  const steps: DailyStep[] = []
+  const hasHome = i.hasHome
+  const hasBusiness = i.businesses > 0
+
+  if (i.health < 35 || (i.needs.hydration ?? 75) < 30 || i.needs.hunger < 30 || i.needs.energy < 28) {
+    steps.push({ phase: 'survive', label: 'Survive: eat, drink, sleep' })
+  } else {
+    steps.push({ phase: 'survive', label: 'Stay fed, hydrated, rested' })
+  }
+
+  if (!i.jobId) {
+    steps.push({ phase: 'work', label: 'Work: take a job' })
+  } else {
+    steps.push({ phase: 'work', label: 'Work: clock a shift' })
+  }
+
+  if (i.money >= 80 && i.money < CHEAPEST_BUSINESS && hasHome) {
+    steps.push({ phase: 'grow', label: 'Grow: study while bills are light' })
+  } else if (!hasHome && i.money >= CHEAPEST_HOME) {
+    steps.push({ phase: 'grow', label: 'Grow: buy a home' })
+  } else if (hasBusiness && !i.workersHall && i.money >= 18_000) {
+    steps.push({ phase: 'grow', label: 'Grow: build a Workers Hall' })
+  } else if (i.businesses === 0 && i.money >= CHEAPEST_BUSINESS) {
+    steps.push({ phase: 'grow', label: 'Grow: open the first business' })
+  } else {
+    steps.push({ phase: 'grow', label: hasBusiness ? 'Grow: collect and expand' : 'Grow: save for the next build' })
+  }
+
+  if (i.businesses >= 2 && i.respect < 5) {
+    steps.push({ phase: 'belong', label: 'Belong: help the neighborhood' })
+  } else {
+    steps.push({ phase: 'belong', label: 'Belong: build respect and friends' })
+  }
+
+  if (hasBusiness || hasHome) {
+    steps.push({ phase: 'build', label: hasBusiness ? 'Build: staff and improve the business' : 'Build: make the home feel real' })
+  }
+
+  return steps
 }
 
 /**

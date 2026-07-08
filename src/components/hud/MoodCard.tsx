@@ -1,4 +1,4 @@
-import { adviceOf, moodOf, netWorthOf, tierOf, type AdviceAction } from '../../game/engine'
+import { adviceOf, dailyStepsOf, moodOf, netWorthOf, tierOf, type AdviceAction } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -43,14 +43,18 @@ export default function MoodCard() {
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
 
-  const priorities = [
-    needs.hydration < 30 ? 'Drink' : null,
-    needs.hunger < 30 ? 'Eat' : null,
-    needs.energy < 28 ? 'Sleep' : null,
-    !jobId ? 'Get a job' : null,
-    level < 3 ? 'Study' : null,
-    assets.some((a) => a.kind === 'business') ? 'Collect / expand' : null,
-  ].filter((p): p is string => Boolean(p))
+  const priorities = dailyStepsOf({
+    needs,
+    health,
+    money,
+    jobId,
+    respect,
+    activity,
+    hasHome: assets.some((a) => a.kind === 'home'),
+    businesses,
+    workersHall,
+    pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+  }).map((step) => step.label)
 
   const run = (action: AdviceAction) => {
     const s = useGame.getState()

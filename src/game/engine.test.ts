@@ -16,6 +16,7 @@ import {
   applyXp,
   canCook,
   clamp,
+  dailyStepsOf,
   feedPet,
   fluBlocksWork,
   hasKitchen,
@@ -200,6 +201,29 @@ describe('liveRealtime — the single simulation path', () => {
     expect(done.activity).toBeNull()
     expect(done.mealsCooked).toBe(1)
     expect(done.needs.hunger).toBeGreaterThan(80) // the recipe's effects landed
+  })
+
+  test('daily steps spell out the day-by-day ladder', () => {
+    const steps = dailyStepsOf({
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      money: 18_500,
+      jobId: 'barista',
+      respect: 2,
+      activity: null,
+      hasHome: true,
+      businesses: 1,
+      workersHall: false,
+      pendingIncome: 0,
+    })
+
+    expect(steps.map((step) => step.label)).toEqual([
+      'Stay fed, hydrated, rested',
+      'Work: clock a shift',
+      'Grow: build a Workers Hall',
+      'Belong: build respect and friends',
+      'Build: staff and improve the business',
+    ])
   })
 
   test('cooking drains like an ordinary awake hour, not a work shift', () => {
