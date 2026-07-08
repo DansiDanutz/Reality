@@ -37,6 +37,7 @@ import {
   founderCovenantOperatorQueueNotificationDraftBodyText,
   founderCovenantOperatorQueueNotificationDraftTitleText,
   founderCovenantOperatorQueueNotificationDraftRecipientText,
+  founderCovenantOperatorQueueNotificationDraftAuthorityText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageReasonText,
   founderCovenantOperatorQueueStageText,
@@ -87,6 +88,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Draft titles: Founder covenant manual review required')
     expect(html).toContain('Draft body: Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.')
     expect(html).toContain('Draft recipient: Telegram -&gt; founder-12')
+    expect(html).toContain('Draft authority: Main founder / Approval required')
     expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Draft status: Disabled')
     expect(html).toContain('Signal counts: 2 total · 0 info · 1 warning · 1 critical')
@@ -222,6 +224,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueNotificationDraftRecipientText(manual)).toBe(
       'Telegram -> founder-12',
     )
+    expect(founderCovenantOperatorQueueNotificationDraftAuthorityText(manual)).toBe(
+      'Main founder / Approval required',
+    )
     expect(founderCovenantOperatorQueueNotificationDraftGateText(manual)).toBe(
       'Main founder approval required / Delivery disabled',
     )
@@ -277,6 +282,7 @@ describe('FounderCovenantQueuePanel', () => {
       notificationDraftTitleText: 'Founder covenant manual review required',
       notificationDraftBodyText: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
       notificationDraftRecipientText: 'Telegram -> founder-12',
+      notificationDraftAuthorityText: 'Main founder / Approval required',
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
       signalCountText: '2 total · 0 info · 1 warning · 1 critical',

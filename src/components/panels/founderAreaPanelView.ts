@@ -153,6 +153,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   notificationDraftTitleText: string
   notificationDraftBodyText: string
   notificationDraftRecipientText: string
+  notificationDraftAuthorityText: string
   notificationDraftGateText: string
   notificationDraftStatusText: string
   signalCountText: string
@@ -1374,6 +1375,7 @@ export function founderCovenantOperatorQueueReviewRows(
       notificationDraftTitleText: founderCovenantOperatorQueueNotificationDraftTitleText(item),
       notificationDraftBodyText: founderCovenantOperatorQueueNotificationDraftBodyText(item),
       notificationDraftRecipientText: founderCovenantOperatorQueueNotificationDraftRecipientText(item),
+      notificationDraftAuthorityText: founderCovenantOperatorQueueNotificationDraftAuthorityText(item),
       notificationDraftGateText: founderCovenantOperatorQueueNotificationDraftGateText(item),
       notificationDraftStatusText: founderCovenantOperatorQueueNotificationDraftStatusText(item),
       signalCountText: founderCovenantOperatorQueueSignalCountText(item),
@@ -1632,6 +1634,18 @@ export function founderCovenantOperatorQueueNotificationDraftRecipientText(
   if (item.pendingNotificationDrafts.length === 0) return 'none'
   return item.pendingNotificationDrafts
     .map((draft) => `${founderCovenantNotificationChannelLabel(draft.channel)} -> ${draft.recipientCitizenId}`)
+    .join(' · ')
+}
+
+export function founderCovenantOperatorQueueNotificationDraftAuthorityText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
+): string {
+  if (item.pendingNotificationDrafts.length === 0) return 'none'
+  return item.pendingNotificationDrafts
+    .map((draft) => {
+      const role = founderCovenantAuthorityRoleLabel(draft.authorityGate.requiredRole)
+      return draft.authorityGate.status === 'evidence_only' ? `${role} / Evidence only` : `${role} / Approval required`
+    })
     .join(' · ')
 }
 
