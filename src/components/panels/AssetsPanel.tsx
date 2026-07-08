@@ -9,10 +9,9 @@ function underConstructionLabel(placedAtMinute: number, constructionEndsAt?: num
   const now = Date.now()
   const msLeft = constructionEndsAt - now
   if (msLeft <= 0) return null
-  const total = constructionEndsAt - placedAtMinute
-  const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000))
-  const pct = Math.max(0, Math.min(100, Math.round(((now - placedAtMinute) / total) * 100)))
-  return `${pct}% built · ${hoursLeft > 1 ? `${hoursLeft}h left` : '<1h left'}`
+  const hoursLeft = Math.floor(msLeft / 3_600_000)
+  const minutesLeft = Math.floor((msLeft % 3_600_000) / 60_000)
+  return hoursLeft > 0 ? `${hoursLeft}h ${String(minutesLeft).padStart(2, '0')}m remaining` : `${minutesLeft}m remaining`
 }
 
 export default function AssetsPanel() {
@@ -75,7 +74,7 @@ export default function AssetsPanel() {
                       <span className="item-price mono">+{formatMoney(Math.floor(a.pendingIncome))} ready</span>
                     )}
                     {a.incomePerDay > 0 && construction && (
-                      <span className="item-price mono">{formatMoney(Math.floor(a.pendingIncome))} ready after build</span>
+                      <span className="item-price mono">{formatMoney(Math.floor(a.pendingIncome))} ready when built</span>
                     )}
                     {isBusiness && upgrade && (
                       <button
