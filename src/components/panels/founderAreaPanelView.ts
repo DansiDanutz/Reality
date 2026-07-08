@@ -895,6 +895,15 @@ export function founderCovenantOperatorQueueMonitorSummary(
   return `Monitor: ${monitorFounders} founder${monitorFounders === 1 ? '' : 's'} · ${freshFounders} fresh · ${activeFounders} active`
 }
 
+export function founderCovenantOperatorQueueSignalSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const warningSignals = queue.items.reduce((sum, item) => sum + item.signalCounts.warning, 0)
+  const criticalSignals = queue.items.reduce((sum, item) => sum + item.signalCounts.critical, 0)
+  const signalFounders = queue.items.filter((item) => item.signalCounts.warning > 0 || item.signalCounts.critical > 0).length
+  return `Signals: ${criticalSignals} critical · ${warningSignals} warning · ${signalFounders} founder${signalFounders === 1 ? '' : 's'} flagged`
+}
+
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {

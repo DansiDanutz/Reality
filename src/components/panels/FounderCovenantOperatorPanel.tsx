@@ -29,6 +29,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueSignalSummary,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecommendedNextText,
@@ -1227,6 +1228,19 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>At risk</span>
               <strong>{activityRisk?.atRisk ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.items.some((item) => item.signalCounts.critical > 0)
+                  ? 'critical'
+                  : queue.items.some((item) => item.signalCounts.warning > 0)
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueSignalSummary(queue)}
+            >
+              <span>Signals</span>
+              <strong>{queue.items.reduce((sum, item) => sum + item.signalCounts.critical + item.signalCounts.warning, 0)}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${cadenceReady && cadenceReady.weekly > 0 ? 'warning' : 'stable'}`}

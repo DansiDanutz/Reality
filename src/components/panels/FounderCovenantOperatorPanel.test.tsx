@@ -6,6 +6,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueSignalSummary,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecordReadySummary,
@@ -274,6 +275,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Debt risk</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Hospital</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>At risk</span><strong>0</strong>')
+    expect(html).toContain('title="Signals: 0 critical · 1 warning · 1 founder flagged"')
+    expect(html).toContain('class="founder-ledger-chip warning" title="Signals: 0 critical · 1 warning · 1 founder flagged"><span>Signals</span><strong>1</strong>')
     expect(html).toContain('title="Cadence ready: 1 weekly · 1 monthly"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Cadence ready: 1 weekly · 1 monthly"><span>Weekly ready</span><strong>1</strong>')
     expect(html).toContain('class="founder-ledger-chip critical" title="Cadence ready: 1 weekly · 1 monthly"><span>Monthly ready</span><strong>1</strong>')
@@ -345,6 +348,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(founderCovenantOperatorQueueMonitorSummary({
       items: operatorQueue().items,
     })).toBe('Monitor: 0 founders · 0 fresh · 0 active')
+    expect(founderCovenantOperatorQueueSignalSummary({
+      items: operatorQueue().items,
+    })).toBe('Signals: 1 critical · 1 warning · 1 founder flagged')
     expect(formatCopiedContextClearedMessage({
       hadTelegramContext: true,
       hadDigestOrViewContext: true,
