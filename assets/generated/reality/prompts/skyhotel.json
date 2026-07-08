@@ -1,0 +1,12 @@
+{
+  "assetId": "skyhotel",
+  "kind": "market-item",
+  "sourceSize": "2048x2048",
+  "sourcePng": "assets/generated/reality/businesses/skyhotel.png",
+  "metadataPath": "assets/generated/reality/metadata/skyhotel.json",
+  "generator": "Nano Banana",
+  "prompt": "Create a realistic 3D object render for the game Reality.\n\nObject: a tall modern skyscraper hotel with a glass curtain wall and lit upper floors\nPurpose in game UI: Market card image for Skyscraper Hotel\nCategory: business\nVisual style: realistic 3D object, clean studio lighting, premium but grounded, real-world materials, immediately recognizable silhouette.\nCamera: slight top-down 3/4 view, consistent angle across the full Reality asset set.\nBackground: transparent alpha, isolated object only, no room, no card frame, no UI background.\nText: no embedded text, no numbers, no labels, no brand names, no symbols that require reading.\nPalette influence: use Reality's earth-at-night UI language: deep orbital navy shadows, amber-gold highlights, atmosphere-blue rim light, restrained success/warning/critical accents only when semantically useful.\nAnimation readiness: separate visual parts clearly so the object can be layered later; preserve distinct movable components, highlights, shadows, glow/effect layer, and state variation potential.\nQuality: HD, sharp edges, no blur, no watermark, no cropped object, no extra props unless they improve recognition.\nOutput: transparent PNG source at 2048x2048.",
+  "objectDescription": "a tall modern skyscraper hotel with a glass curtain wall and lit upper floors",
+  "assetName": "Skyscraper Hotel",
+  "negativePrompt": "text, watermark, frame, background, cropped object, blur, embedded labels, numbers, brand names, logos, UI, buttons, extra props, clutter"
+}
