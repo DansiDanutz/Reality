@@ -146,6 +146,29 @@ describe('Reality area client', () => {
     })
   })
 
+  test('ignores dashboards with mismatched founder Telegram identity', async () => {
+    const malformedDashboard = {
+      ...serverDashboard(),
+      founderIdentity: {
+        ...serverDashboard().founderIdentity,
+        telegramAccountId: 'telegram:777',
+      },
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: malformedDashboard }))
+
+    await expect(claimRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, profile, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      restoredExisting: false,
+      dashboard: undefined,
+    })
+  })
+
   test('ignores covenant notification drafts that enable Telegram sending', async () => {
     const dashboard = serverDashboard()
     const malformedDashboard = {

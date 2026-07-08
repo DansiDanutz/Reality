@@ -1824,12 +1824,19 @@ function isRealityAreaDashboard(value: unknown): value is RealityAreaDashboard {
 }
 
 function isRealityAreaFounderIdentity(value: unknown): value is RealityAreaDashboard['founderIdentity'] {
-  return isRecord(value) &&
-    typeof value.citizenId === 'string' &&
-    typeof value.founderNumber === 'number' &&
-    isClaimSource(value.claimSource) &&
-    (value.telegramUserId === null || typeof value.telegramUserId === 'string') &&
-    (value.telegramAccountId === null || typeof value.telegramAccountId === 'string')
+  if (!isRecord(value) ||
+    typeof value.citizenId !== 'string' ||
+    typeof value.founderNumber !== 'number' ||
+    !isClaimSource(value.claimSource) ||
+    (value.telegramUserId !== null && typeof value.telegramUserId !== 'string') ||
+    (value.telegramAccountId !== null && typeof value.telegramAccountId !== 'string')) {
+    return false
+  }
+  if (value.telegramAccountId !== null) {
+    return typeof value.telegramUserId === 'string' &&
+      value.telegramAccountId === `telegram:${value.telegramUserId}`
+  }
+  return true
 }
 
 function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedgerDashboard {
