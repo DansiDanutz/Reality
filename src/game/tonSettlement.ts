@@ -56,6 +56,7 @@ export interface TonSettlementLedgerEntry {
 export type TonLedgerSettlementDecisionReason =
   | 'gameplay_transactions_stay_off_chain'
   | 'settlement_execution_disabled'
+  | 'unknown_ledger_kind'
   | 'invalid_ledger_amount'
 
 export interface TonLedgerSettlementDecision {
@@ -132,6 +133,9 @@ export function tonLedgerSettlementDecision(entry: TonSettlementLedgerEntry): To
   }
   if (isGameplayLedgerKind(entry.kind)) {
     return disabledLedgerDecision('gameplay_transactions_stay_off_chain')
+  }
+  if (!isTonSettlementLedgerKind(entry.kind)) {
+    return disabledLedgerDecision('unknown_ledger_kind')
   }
   return disabledLedgerDecision('settlement_execution_disabled')
 }
