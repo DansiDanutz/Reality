@@ -28,6 +28,7 @@ import {
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
+  founderCovenantOperatorQueueTelegramDraftSummary,
 } from './founderAreaPanelView'
 import {
   founderCovenantOperatorQueueRefreshCursor,
@@ -44,6 +45,7 @@ import {
   queueResumeText,
   queueSortChipTone,
   queueSortLabel,
+  queueTelegramScaffoldText,
   queueViewChipTone,
   queueViewLabel,
 } from './founderCovenantOperatorQueueView'
@@ -334,6 +336,7 @@ export default function FounderCovenantOperatorPanel({
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
         digestSummary: null,
+        telegramSummary: null,
         focusSummary,
         activitySummary,
         actionSummary,
@@ -375,6 +378,7 @@ export default function FounderCovenantOperatorPanel({
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
         digestSummary,
+        telegramSummary: null,
         focusSummary,
         activitySummary,
         actionSummary,
@@ -384,6 +388,50 @@ export default function FounderCovenantOperatorPanel({
       setOperatorReviewMessage(`Digest copied: ${digest}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for queue digest copy.')
+    }
+  }
+
+  const copyQueueTelegramScaffold = async () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    const queueSummary = queue
+      ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
+      : 'Queue unavailable'
+    const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
+    const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
+    const telegramSummary = queue ? founderCovenantOperatorQueueTelegramDraftSummary(queue) : null
+    const scaffoldSummary = 'Weekly/monthly founder review Telegram'
+    const scaffold = queueTelegramScaffoldText({
+      scanCursor,
+      nextCursor: queue?.nextCursor ?? null,
+      queueSummary,
+      focusSummary,
+      activitySummary,
+      actionSummary,
+      telegramSummary,
+    })
+    if (!clipboard?.writeText) {
+      setOperatorReviewMessage('Clipboard is unavailable for Telegram scaffold copy.')
+      return
+    }
+    try {
+      await clipboard.writeText(scaffold)
+      setLastCopiedQueueView({
+        filter: queueFilter,
+        sort: queueSort,
+        scanCursor,
+        nextCursor: queue?.nextCursor ?? null,
+        digestSummary: null,
+        telegramSummary: scaffoldSummary,
+        focusSummary,
+        activitySummary,
+        actionSummary,
+      })
+      setLastCopiedAt(new Date().toISOString())
+      setLastCopiedText(scaffold)
+      setOperatorReviewMessage(`Telegram scaffold copied: ${scaffold}`)
+    } catch {
+      setOperatorReviewMessage('Clipboard is unavailable for Telegram scaffold copy.')
     }
   }
 
@@ -986,6 +1034,14 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Copy digest
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyQueueTelegramScaffold()}
+              type="button"
+            >
+              Copy Telegram
             </button>
             <button
               className="btn small ghost"

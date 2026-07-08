@@ -897,6 +897,13 @@ export function founderCovenantOperatorQueueActivityRiskSummary(
   return `Founder state: inactive ${risks.inactive} · usefulness gaps ${risks.usefulnessGaps} · build gaps ${risks.buildGaps} · staffing gaps ${risks.staffingGaps} · debt risk ${risks.debtRisk} · hospitalized ${risks.hospitalized} · at risk ${risks.atRisk}`
 }
 
+export function founderCovenantOperatorQueueTelegramDraftSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
+): string {
+  const { totals } = queue
+  return `Telegram drafts: ${totals.warningDrafts} warning · ${totals.manualReviewDrafts} manual review · ${totals.pendingNotifications} total`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {

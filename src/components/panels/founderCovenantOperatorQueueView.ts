@@ -11,6 +11,7 @@ export interface CopiedQueueViewState {
   scanCursor: string | null
   nextCursor: string | null
   digestSummary?: string | null
+  telegramSummary?: string | null
   focusSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
@@ -160,12 +161,42 @@ export function queueDigestText({
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
 }
 
+export function queueTelegramScaffoldText({
+  scanCursor,
+  nextCursor,
+  queueSummary,
+  focusSummary,
+  activitySummary,
+  actionSummary,
+  telegramSummary,
+}: {
+  scanCursor: string | null
+  nextCursor: string | null
+  queueSummary: string
+  focusSummary?: string | null
+  activitySummary?: string | null
+  actionSummary?: string | null
+  telegramSummary?: string | null
+}): string {
+  return [
+    'Reality founder review update',
+    `Queue: ${queueSummary}`,
+    focusSummary,
+    activitySummary,
+    actionSummary,
+    telegramSummary,
+    queueCursorContextText(scanCursor, nextCursor),
+    queueResumeText(scanCursor, nextCursor),
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
+}
+
 export function queueCopiedStatusSummary({
   filter,
   sort,
   scanCursor,
   nextCursor,
   digestSummary,
+  telegramSummary,
   focusSummary,
   activitySummary,
   actionSummary,
@@ -179,6 +210,7 @@ export function queueCopiedStatusSummary({
     `Copied view: ${copiedView}`,
     `Copied cursor: ${copiedCursor}`,
     digestSummary ? `Copied digest: ${digestSummary}` : null,
+    telegramSummary ? `Copied Telegram scaffold: ${telegramSummary}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,
     actionSummary ? `Copied action: ${actionSummary}` : null,
