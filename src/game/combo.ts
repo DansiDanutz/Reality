@@ -39,7 +39,7 @@ export function comboMultiplier(combo: number): number {
 
 /**
  * The bonus XP to grant for an action at the current combo level.
- * = floor(baseXP * (multiplier - 1)). The base XP is still granted normally;
+ * = round(baseXP * (multiplier - 1)). The base XP is still granted normally;
  * this is the BONUS on top.
  */
 export function comboBonusXP(baseXP: number, combo: number): number {
