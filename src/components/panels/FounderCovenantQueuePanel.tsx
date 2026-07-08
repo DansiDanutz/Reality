@@ -10,11 +10,9 @@ import {
   founderCovenantOperatorQueuePrimaryWorkloadText,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueActionMix,
-  founderCovenantOperatorQueueCadenceReadySummary,
-  founderCovenantOperatorQueueWorkflowSplitSummary,
+  founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
-  founderCovenantOperatorQueueWorkloadSummary,
 } from './founderAreaPanelView'
 
 export interface FounderCovenantQueuePanelProps {
@@ -54,9 +52,7 @@ export function FounderCovenantQueuePanel({
       <div className="founder-covenant-meta" aria-label="Founder operator queue scan">
         <span>{founderCovenantOperatorQueueSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
-        <span>{founderCovenantOperatorQueueWorkloadSummary(queue)}</span>
-        <span>{founderCovenantOperatorQueueWorkflowSplitSummary(queue)}</span>
-        <span>{founderCovenantOperatorQueueCadenceReadySummary(queue)}</span>
+        <span>{founderCovenantOperatorQueueFocusSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePrimaryWorkloadText(queue)}</span>
         <span>{founderCovenantOperatorQueueRecommendedActionText(queue)}</span>
       </div>

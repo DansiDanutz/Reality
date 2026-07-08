@@ -842,6 +842,12 @@ export function founderCovenantOperatorQueueWorkflowSplitSummary(
   return `Workflow split: ${blockedFounders} blocked approvals · ${recordReadyFounders} record ready · ${overdueCleanupFounders} overdue cleanup`
 }
 
+export function founderCovenantOperatorQueueFocusSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  return `Focus: ${founderCovenantOperatorQueueWorkloadSummary(queue)} · ${founderCovenantOperatorQueueWorkflowSplitSummary(queue)} · ${founderCovenantOperatorQueueCadenceReadySummary(queue)}`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {

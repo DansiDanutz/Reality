@@ -33,6 +33,7 @@ import {
   founderCovenantOperatorQueueActionMix,
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
+  founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueueWorkflowSplitSummary,
   founderCovenantOperatorQueueRecommendedNextTone,
   founderCovenantOperatorQueueReviewRows,
@@ -52,9 +53,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('waitlist disabled')
     expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 stale weekly · 0 stale monthly · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
-    expect(html).toContain('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 0 record ready · 0 overdue cleanup')
-    expect(html).toContain('Workflow split: 1 blocked approvals · 0 record ready · 0 overdue cleanup')
-    expect(html).toContain('Cadence ready: 0 weekly · 0 monthly')
+    expect(html).toContain('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 0 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 0 record ready · 0 overdue cleanup · Cadence ready: 0 weekly · 0 monthly')
     expect(html).toContain('Primary workload: collect evidence')
     expect(html).toContain('Recommended next: attach missing manual evidence')
     expect(html).toContain('Filter: All')
@@ -335,6 +334,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueCadenceReadySummary({
       items: [manual],
     })).toBe('Cadence ready: 0 weekly · 0 monthly')
+    expect(founderCovenantOperatorQueueFocusSummary({
+      items: [manual],
+    })).toBe('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 0 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 0 record ready · 0 overdue cleanup · Cadence ready: 0 weekly · 0 monthly')
     expect(founderCovenantOperatorQueueWorkflowSplitSummary({
       items: [manual],
     })).toBe('Workflow split: 1 blocked approvals · 0 record ready · 0 overdue cleanup')
@@ -382,6 +384,25 @@ describe('FounderCovenantQueuePanel', () => {
         }],
       }],
     })).toBe('Workflow split: 0 blocked approvals · 1 record ready · 0 overdue cleanup')
+    expect(founderCovenantOperatorQueueFocusSummary({
+      items: [{
+        ...manual,
+        reviewReadiness: {
+          ...manual.reviewReadiness,
+          evidenceRequiredCount: 0,
+          approvalRequestCount: 0,
+          blockerCount: 0,
+        },
+        pendingApprovalRequests: [],
+        overdue: true,
+        weeklyReviewDue: true,
+        monthlyReviewDue: true,
+        manualActions: [{
+          ...manual.manualActions[0],
+          recommended: true,
+        }],
+      }],
+    })).toBe('Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 1 record ready · 0 overdue cleanup · Workflow split: 0 blocked approvals · 1 record ready · 0 overdue cleanup · Cadence ready: 1 weekly · 1 monthly')
     expect(founderCovenantOperatorQueueWorkloadSummary({
       items: [{
         ...manual,
@@ -1164,6 +1185,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueWorkflowSplitSummary(queueWithCadence)).toBe('Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup')
     expect(founderCovenantOperatorQueueCadenceReadySummary(queueWithCadence)).toBe('Cadence ready: 2 weekly · 1 monthly')
     expect(founderCovenantOperatorQueueWorkloadSummary(queueWithCadence)).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup')
+    expect(founderCovenantOperatorQueueFocusSummary(queueWithCadence)).toBe('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(founderCovenantOperatorQueueReviewRows({ items: [weeklyDue] })[0]?.recommendedNextText).toBe('Record weekly review')
     expect(founderCovenantOperatorQueueReviewRows({ items: [monthlyDue] })[0]?.recommendedNextText).toBe('Record monthly review')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 2 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Scan 1')
