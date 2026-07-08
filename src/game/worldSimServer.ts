@@ -1032,7 +1032,17 @@ function founderCovenantReviewQueuePriority(item: WorldFounderCovenantReviewQueu
   if (!item.activityReview.staffed) priority += 15
   priority += item.signalCounts.warning * 10
   priority += item.reviewQueue.pendingApprovalCount * 5
+  priority += founderCovenantManualEvidenceGapCount(item.reviewInputs) * 20
   return priority
+}
+
+function founderCovenantManualEvidenceGapCount(
+  reviewInputs: readonly FounderCovenantReviewInput[],
+): number {
+  return ['population_growth', 'external_contribution', 'ideas_feedback']
+    .filter((kind) => reviewInputs.some((input) =>
+      input.kind === kind && (input.manualEvidenceRequired || input.status === 'manual_needed')))
+    .length
 }
 
 function roundServerMoney(value: number): number {

@@ -1468,6 +1468,79 @@ describe('runWorldServerCommand', () => {
     expect(savedRisk?.now).toBe(now)
   })
 
+  test('prioritizes founders missing more manual covenant proof when risk is otherwise equal', async () => {
+    const repo = new MemoryWorldRepo()
+    const now = 1_000 + HOUR
+
+    const createdCaptured = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-1',
+      name: 'Captured Proof District',
+      now: 1_000,
+      authenticatedFounderId: 'founder-1',
+      founder: citizen('founder-1'),
+      simCitizens: [],
+      claim: {
+        founderCitizenId: 'founder-1',
+        label: 'Captured Proof District',
+        centerLat: 44.45,
+        centerLng: 26.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    if (!createdCaptured.ok) throw new Error(`expected first area creation to succeed: ${createdCaptured.error}`)
+
+    const createdMissing = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-2',
+      name: 'Missing Proof District',
+      now: 1_000,
+      authenticatedFounderId: 'founder-2',
+      founder: citizen('founder-2'),
+      simCitizens: [],
+      claim: {
+        founderCitizenId: 'founder-2',
+        label: 'Missing Proof District',
+        centerLat: 45.45,
+        centerLng: 27.08,
+        radiusKm: 2,
+        claimedAt: 1_000,
+        source: 'manual',
+      },
+    })
+    if (!createdMissing.ok) throw new Error(`expected second area creation to succeed: ${createdMissing.error}`)
+
+    await repo.saveArea({
+      ...createdCaptured.area,
+      citizens: [...createdCaptured.area.citizens, citizen('resident-1')],
+    })
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, now)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected review queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.items.map((item) => item.founderCitizenId)).toEqual([
+      'founder-2',
+      'founder-1',
+    ])
+    expect(result.founderCovenantReviewQueue.items[0].reviewInputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'population_growth',
+        status: 'manual_needed',
+        manualEvidenceRequired: true,
+      }),
+    ]))
+    expect(result.founderCovenantReviewQueue.items[1].reviewInputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'population_growth',
+        status: 'captured',
+        manualEvidenceRequired: false,
+      }),
+    ]))
+  })
+
   test('includes latest founder covenant review evidence in the review queue', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo)
