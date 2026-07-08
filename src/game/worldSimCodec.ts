@@ -67,6 +67,7 @@ const COVENANT_NEXT_ACTIONS: FounderCovenantNextAction[] = ['claim_area', 'none'
 const COVENANT_SIGNAL_SEVERITIES: FounderCovenantSignalSeverity[] = ['info', 'warning', 'critical']
 const COVENANT_SIGNAL_KINDS: FounderCovenantSignalKind[] = [
   'founder_unavailable',
+  'stale_founder_activity',
   'no_business_built',
   'understaffed_businesses',
   'essential_shortage',
@@ -163,7 +164,7 @@ export function decodeWorldAreaSnapshot(raw: string): DecodeWorldAreaSnapshotRes
 
 function isWorldArea(value: unknown): value is WorldArea {
   if (!isRecord(value)) return false
-  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now)) return false
+  if (!isNonEmptyString(value.id) || !isNonEmptyString(value.name) || !isFiniteNumber(value.now) || value.now < 0) return false
   if (value.claim !== undefined && !isAreaClaim(value.claim)) return false
   if (!Array.isArray(value.citizens) || !value.citizens.every(isWorldCitizen) || !hasUniqueIds(value.citizens)) {
     return false
@@ -206,6 +207,7 @@ function isAreaClaim(value: unknown): value is WorldArea['claim'] {
     isFiniteNumber(value.radiusKm) &&
     value.radiusKm > 0 &&
     isFiniteNumber(value.claimedAt) &&
+    value.claimedAt >= 0 &&
     isOneOf(value.source, CLAIM_SOURCES)
 }
 
@@ -235,13 +237,14 @@ function isWorldDebt(value: unknown): value is WorldDebt {
     isNonEmptyString(value.creditorId) &&
     isPositiveMoney(value.amount) &&
     isFiniteNumber(value.issuedAt) &&
+    value.issuedAt >= 0 &&
     isNonEmptyString(value.memo)
 }
 
 function isCitizenState(value: unknown): value is WorldCitizenState {
   if (!isRecord(value)) return false
   if (value.kind === 'active') return true
-  return value.kind === 'hospitalized' && isFiniteNumber(value.until)
+  return value.kind === 'hospitalized' && isFiniteNumber(value.until) && value.until >= 0
 }
 
 function isWorldBusiness(value: unknown): value is WorldBusiness {
@@ -261,6 +264,7 @@ function isWorldTransaction(value: unknown): value is WorldTransaction {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, TRANSACTION_KINDS) &&
     value.payoutEligibility === 'game_only' &&
     isNonEmptyString(value.fromId) &&
@@ -273,6 +277,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, AREA_EVENT_KINDS) &&
     isOneOf(value.severity, AREA_EVENT_SEVERITIES) &&
     isNonEmptyString(value.citizenId) &&
@@ -289,7 +294,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
 function isFounderCovenantReviewHistoryItem(value: unknown): value is FounderCovenantReviewHistoryItem {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
-    isFiniteNumber(value.at) &&
+    isNonNegativeFiniteNumber(value.at) &&
     isNonEmptyString(value.reviewerId) &&
     isOneOf(value.actionKind, COVENANT_MANUAL_ACTION_KINDS) &&
     isNonEmptyString(value.summary) &&
@@ -442,9 +447,9 @@ function isFounderCovenantApprovalRequest(value: unknown): value is FounderCoven
 
 function isFounderCovenantReviewSchedule(value: unknown): boolean {
   return isRecord(value) &&
-    (value.lastReviewAt === null || isFiniteNumber(value.lastReviewAt)) &&
-    isFiniteNumber(value.nextWeeklyReviewAt) &&
-    isFiniteNumber(value.nextMonthlyReviewAt) &&
+    (value.lastReviewAt === null || isNonNegativeFiniteNumber(value.lastReviewAt)) &&
+    isNonNegativeFiniteNumber(value.nextWeeklyReviewAt) &&
+    isNonNegativeFiniteNumber(value.nextMonthlyReviewAt) &&
     typeof value.weeklyReviewDue === 'boolean' &&
     typeof value.monthlyReviewDue === 'boolean' &&
     typeof value.overdue === 'boolean' &&
@@ -610,6 +615,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0
 }
 
 function isMoney(value: unknown): value is number {
