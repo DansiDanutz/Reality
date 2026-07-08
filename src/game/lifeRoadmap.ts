@@ -76,6 +76,15 @@ export interface LifeRoadmapDay {
   startingShiftsWorked: number
   endingShiftsWorked: number
   shiftsWorkedDelta: number
+  startingAssetCount: number
+  endingAssetCount: number
+  assetCountDelta: number
+  startingConstructionProjectCount: number
+  endingConstructionProjectCount: number
+  constructionProjectCountDelta: number
+  startingBusinessDevelopmentProjectCount: number
+  endingBusinessDevelopmentProjectCount: number
+  businessDevelopmentProjectCountDelta: number
   buildEta: string | null
   interiorEta: string | null
 }
@@ -310,6 +319,15 @@ function roadmapDay(plan: LifePlan, starting: LifeLadderSnapshot, ending: LifeLa
     startingShiftsWorked: starting.shiftsWorked,
     endingShiftsWorked: ending.shiftsWorked,
     shiftsWorkedDelta: ending.shiftsWorked - starting.shiftsWorked,
+    startingAssetCount: starting.assets.length,
+    endingAssetCount: ending.assets.length,
+    assetCountDelta: ending.assets.length - starting.assets.length,
+    startingConstructionProjectCount: starting.constructionProjects.length,
+    endingConstructionProjectCount: ending.constructionProjects.length,
+    constructionProjectCountDelta: ending.constructionProjects.length - starting.constructionProjects.length,
+    startingBusinessDevelopmentProjectCount: starting.businessDevelopmentProjects.length,
+    endingBusinessDevelopmentProjectCount: ending.businessDevelopmentProjects.length,
+    businessDevelopmentProjectCountDelta: ending.businessDevelopmentProjects.length - starting.businessDevelopmentProjects.length,
     buildEta: buildEtaSummary(plan.constructionForecast),
     interiorEta: interiorEtaSummary(plan.businessDevelopmentForecast),
   }

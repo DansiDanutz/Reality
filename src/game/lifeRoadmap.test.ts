@@ -146,6 +146,12 @@ describe('planLifeRoadmap', () => {
       startingCommunityTrust: 0,
       endingCommunityTrust: 1,
       communityTrustDelta: 1,
+      startingAssetCount: 0,
+      endingAssetCount: 0,
+      assetCountDelta: 0,
+      startingConstructionProjectCount: 0,
+      endingConstructionProjectCount: 1,
+      constructionProjectCountDelta: 1,
     })
     expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(1)
     expect(roadmap.finalSnapshot.constructionProjects[0]).toMatchObject({
@@ -690,6 +696,14 @@ describe('planLifeRoadmap', () => {
 
     expect(roadmap.days[0].primary.id).toBe('build-house-hour')
     expect(roadmap.days[0].primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'work' })
+    expect(roadmap.days[0]).toMatchObject({
+      startingAssetCount: 0,
+      endingAssetCount: 1,
+      assetCountDelta: 1,
+      startingConstructionProjectCount: 1,
+      endingConstructionProjectCount: 0,
+      constructionProjectCountDelta: -1,
+    })
     expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(0)
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
   })
@@ -926,6 +940,14 @@ describe('planLifeRoadmap', () => {
     expect(shell.finalSnapshot.assets.filter((asset) => asset.kind === 'business')).toEqual([])
     expect(shell.finalSnapshot.businessDevelopmentProjects).toEqual([])
     expect(shell.finalSnapshot.constructionProjects).toHaveLength(1)
+    expect(shell.days[0]).toMatchObject({
+      startingAssetCount: 1,
+      endingAssetCount: 1,
+      assetCountDelta: 0,
+      startingConstructionProjectCount: 0,
+      endingConstructionProjectCount: 1,
+      constructionProjectCountDelta: 1,
+    })
     expect(shell.finalSnapshot.constructionProjects[0]).toMatchObject({
       name: 'Food Cart',
       resultKind: 'business',
@@ -946,6 +968,14 @@ describe('planLifeRoadmap', () => {
     ])
     expect(built.finalSnapshot.constructionProjects).toEqual([])
     expect(built.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    expect(built.days[6]).toMatchObject({
+      startingAssetCount: 1,
+      endingAssetCount: 2,
+      assetCountDelta: 1,
+      startingConstructionProjectCount: 1,
+      endingConstructionProjectCount: 0,
+      constructionProjectCountDelta: -1,
+    })
     const builtBusiness = built.finalSnapshot.assets.find((asset) => asset.kind === 'business')
     expect(builtBusiness).toMatchObject({
       name: 'Food Cart',
@@ -961,6 +991,11 @@ describe('planLifeRoadmap', () => {
     })
     expect(interiorPlanned.finalSnapshot.constructionProjects).toEqual([])
     expect(interiorPlanned.finalSnapshot.businessDevelopmentProjects).toHaveLength(1)
+    expect(interiorPlanned.days[7]).toMatchObject({
+      startingBusinessDevelopmentProjectCount: 0,
+      endingBusinessDevelopmentProjectCount: 1,
+      businessDevelopmentProjectCountDelta: 1,
+    })
     expect(interiorPlanned.finalSnapshot.businessDevelopmentProjects[0]).toMatchObject({
       businessId: builtBusiness?.id,
       businessName: 'Food Cart',
@@ -980,6 +1015,14 @@ describe('planLifeRoadmap', () => {
     ])
     expect(upgraded.finalSnapshot.constructionProjects).toEqual([])
     expect(upgraded.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    expect(upgraded.days[11]).toMatchObject({
+      startingAssetCount: 2,
+      endingAssetCount: 2,
+      assetCountDelta: 0,
+      startingBusinessDevelopmentProjectCount: 1,
+      endingBusinessDevelopmentProjectCount: 0,
+      businessDevelopmentProjectCountDelta: -1,
+    })
     expect(upgraded.finalSnapshot.assets.find((asset) => asset.id === builtBusiness?.id)).toMatchObject({
       kind: 'business',
       name: 'Food Cart',
