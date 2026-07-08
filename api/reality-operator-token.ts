@@ -65,12 +65,14 @@ export function realityOperatorQueueTokenClaims(
   ttlMs: number,
 ): RealityOperatorQueueTokenClaims | null {
   if (!TELEGRAM_USER_ID_RE.test(telegramUserId)) return null
-  if (!Number.isSafeInteger(issuedAtMs) || !Number.isSafeInteger(ttlMs) || ttlMs <= 0) return null
+  if (!Number.isSafeInteger(issuedAtMs) || issuedAtMs < 0 || !Number.isSafeInteger(ttlMs) || ttlMs <= 0) return null
+  const expiresAt = issuedAtMs + ttlMs
+  if (!Number.isSafeInteger(expiresAt)) return null
   return {
     kind: OPERATOR_QUEUE_TOKEN_KIND,
     telegramUserId,
     issuedAt: issuedAtMs,
-    expiresAt: issuedAtMs + ttlMs,
+    expiresAt,
   }
 }
 
