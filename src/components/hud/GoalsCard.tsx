@@ -231,7 +231,7 @@ export default function GoalsCard() {
               className="goals-card-agenda-item"
               key={day.dayLabel}
               onClick={() => openRoute(day.primary.route)}
-              aria-label={roadmapPreviewSummary(day.dayLabel, day.primary.title, day.primary.minutes)}
+              aria-label={roadmapPreviewSummary(day.dayLabel, day.primary.value, day.primary.title, day.primary.minutes)}
             >
               <span className="goals-card-agenda-index">{day.dayLabel}</span>
               <span>{day.primary.title}</span>

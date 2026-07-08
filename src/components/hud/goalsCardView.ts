@@ -11,8 +11,8 @@ export function formatPlanMinutes(minutes: number): string {
   return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`
 }
 
-export function roadmapPreviewSummary(dayLabel: string, title: string, minutes: number): string {
-  return `${dayLabel}: ${title} (${formatPlanMinutes(minutes)})`
+export function roadmapPreviewSummary(dayLabel: string, value: string, title: string, minutes: number): string {
+  return `${dayLabel}: ${roadmapValueLabel(value)} ${title} (${formatPlanMinutes(minutes)})`
 }
 
 export function roadmapPreviewHeading(dayCount: number): string {
