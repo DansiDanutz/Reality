@@ -143,11 +143,36 @@ export function queuePriorityPresetLabel(
   }
 }
 
+export function queueActionPresetLabel(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+): string | null {
+  if (sort !== 'action') return null
+  switch (filter) {
+    case 'all':
+      return 'Action All'
+    case 'action_evidence':
+      return 'Action Evidence'
+    case 'action_blocked':
+      return 'Action Blocked'
+    case 'action_overdue':
+      return 'Action Overdue'
+    case 'action_record':
+      return 'Action Record'
+    case 'action_monitor':
+      return 'Action Monitor'
+    default:
+      return null
+  }
+}
+
 export function queuePresetLabel(
   filter: FounderCovenantOperatorQueueFilter,
   sort: FounderCovenantOperatorQueueSort,
 ): string | null {
-  return queueCoveragePresetLabel(filter, sort) ?? queuePriorityPresetLabel(filter, sort)
+  return queueCoveragePresetLabel(filter, sort) ??
+    queuePriorityPresetLabel(filter, sort) ??
+    queueActionPresetLabel(filter, sort)
 }
 
 export function queueViewChipTone(filter: FounderCovenantOperatorQueueFilter): OperatorQueueChipTone {

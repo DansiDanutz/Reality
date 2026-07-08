@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import {
+  queueActionPresetLabel,
   queueContextText,
   queueCoveragePresetLabel,
   queuePresetLabel,
@@ -163,6 +164,12 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queuePriorityPresetLabel('action_overdue', 'priority')).toBe('Triage Next Overdue')
     expect(queuePriorityPresetLabel('action_record', 'priority')).toBe('Triage Next Record')
     expect(queuePriorityPresetLabel('action_monitor', 'priority')).toBe('Triage Next Monitor')
+    expect(queueActionPresetLabel('all', 'action')).toBe('Action All')
+    expect(queueActionPresetLabel('action_evidence', 'action')).toBe('Action Evidence')
+    expect(queueActionPresetLabel('action_blocked', 'action')).toBe('Action Blocked')
+    expect(queueActionPresetLabel('action_overdue', 'action')).toBe('Action Overdue')
+    expect(queueActionPresetLabel('action_record', 'action')).toBe('Action Record')
+    expect(queueActionPresetLabel('action_monitor', 'action')).toBe('Action Monitor')
     expect(queuePriorityPresetLabel('overdue', 'priority')).toBe('Triage Overdue')
     expect(queuePriorityPresetLabel('blocked', 'priority')).toBe('Triage Blocked')
     expect(queuePriorityPresetLabel('hospitalized', 'priority')).toBe('Triage Hospital')
@@ -174,6 +181,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queuePresetLabel('action_overdue', 'priority')).toBe('Triage Next Overdue')
     expect(queuePresetLabel('action_record', 'priority')).toBe('Triage Next Record')
     expect(queuePresetLabel('action_monitor', 'priority')).toBe('Triage Next Monitor')
+    expect(queuePresetLabel('all', 'action')).toBe('Action All')
+    expect(queuePresetLabel('action_record', 'action')).toBe('Action Record')
     expect(queuePresetLabel('overdue', 'priority')).toBe('Triage Overdue')
     expect(queuePresetLabel('blocked', 'priority')).toBe('Triage Blocked')
     expect(queuePresetLabel('hospitalized', 'priority')).toBe('Triage Hospital')
@@ -199,6 +208,12 @@ describe('FounderCovenantOperatorPanel', () => {
     )
     expect(queueContextText('needs_evidence', 'priority', 'cursor-7')).toBe(
       'View: Evidence / Priority / cursor-7 · Preset: Triage Evidence · filter evidence',
+    )
+    expect(queueContextText('all', 'action', null)).toBe(
+      'View: All / Action / start · Preset: Action All · sort action',
+    )
+    expect(queueContextText('action_record', 'action', 'cursor-5')).toBe(
+      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action',
     )
   })
 })
