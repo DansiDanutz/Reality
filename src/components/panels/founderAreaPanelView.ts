@@ -1102,6 +1102,20 @@ export function founderCovenantReviewApprovalSummary(
   return `${count} approval${count === 1 ? '' : 's'} captured · ${executable} executable · ${blockers} blocker${blockers === 1 ? '' : 's'}`
 }
 
+export function founderCovenantReviewApprovalDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'approvalRequests'>,
+): string {
+  if (review.approvalRequests.length === 0) return 'Approval detail unavailable'
+  return review.approvalRequests
+    .map((request) => {
+      const blockerText = request.blockers.length === 0
+        ? 'no blockers'
+        : `${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
+      return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
+    })
+    .join(', ')
+}
+
 export function founderCovenantReviewApprovalBlockerSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'approvalRequests'>,
 ): string {

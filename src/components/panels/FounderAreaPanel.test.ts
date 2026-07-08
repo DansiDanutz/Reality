@@ -22,6 +22,7 @@ import {
   founderCovenantReviewActionSummary,
   founderCovenantReviewActionDetailText,
   founderCovenantReviewApprovalBlockerSummary,
+  founderCovenantReviewApprovalDetailText,
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewSignalDetailText,
   founderCovenantReviewCadenceSummary,
@@ -118,6 +119,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewChecklistDetailText(dashboard.founderCovenant.latestReview)')
@@ -875,6 +878,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant approval snapshots', () => {
     expect(founderCovenantReviewApprovalSummary({ approvalRequests: [] })).toBe('No approval snapshot')
+    expect(founderCovenantReviewApprovalDetailText({ approvalRequests: [] })).toBe('Approval detail unavailable')
     expect(founderCovenantReviewApprovalBlockerSummary({ approvalRequests: [] })).toBe('No approval blockers')
     expect(founderCovenantReviewApprovalSummary({
       approvalRequests: [{
@@ -900,6 +904,30 @@ describe('FounderAreaPanel covenant presenters', () => {
         blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       }],
     })).toBe('1 approval captured · 0 executable · 2 blockers')
+    expect(founderCovenantReviewApprovalDetailText({
+      approvalRequests: [{
+        id: 'approval-1',
+        at: 1_000,
+        kind: 'send_warning',
+        label: 'Send warning',
+        reason: 'Covenant signals suggest a manual founder warning.',
+        status: 'pending_manual_approval',
+        recommended: true,
+        requiresApproval: true,
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        notificationDraftId: 'draft-1',
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
+      }],
+    })).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantReviewApprovalBlockerSummary({
       approvalRequests: [{
         id: 'approval-1',
