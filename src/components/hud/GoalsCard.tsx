@@ -116,7 +116,7 @@ export default function GoalsCard() {
   // "1 to go!" — the near-completion nudge. A player at 2/3 is one action
   // away from the bonus; this makes that concrete and tappable.
   const oneLeft = !allDone && total > 0 && done === total - 1
-  const lifePlan = planLifeDay({
+  const lifePlanContext = {
     lifeDay: lifeDayFromCreatedAt(citizen.createdAt),
     money,
     needs,
@@ -140,32 +140,9 @@ export default function GoalsCard() {
     communityTrust: community.trust,
     brokenCommitments: community.brokenCommitments,
     seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
-  })
-  const roadmapPreview = planLifeRoadmap({
-    lifeDay: lifePlan.lifeDay,
-    money,
-    needs,
-    health,
-    level,
-    xp,
-    jobId,
-    shiftsWorked,
-    activityKind: activity?.kind ?? null,
-    assets,
-    inventory,
-    resources,
-    constructionProjects,
-    businessDevelopmentProjects,
-    educationActions: educationActionCount(educationProgress),
-    educationProgress,
-    communityActionsThisWeek: community.actionsThisWeek,
-    communityActionsToday: community.actionsToday,
-    communityRespect: community.respect,
-    communityFriendship: community.friendship,
-    communityTrust: community.trust,
-    brokenCommitments: community.brokenCommitments,
-    seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
-  }, 3)
+  }
+  const lifePlan = planLifeDay(lifePlanContext)
+  const roadmapPreview = planLifeRoadmap(lifePlanContext, 3)
 
   const openRoute = (route: typeof lifePlan.primary.route) => dispatchLifePlanRoute(route, {
     resourceNodes,
