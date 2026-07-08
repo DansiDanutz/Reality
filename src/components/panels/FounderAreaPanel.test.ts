@@ -27,6 +27,7 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewCadenceDetailText,
   founderCovenantReviewDecisionSummary,
+  founderCovenantReviewDecisionDetailText,
   founderCovenantReviewActivityDetailText,
   founderCovenantReviewInputSummary,
   founderCovenantReviewInputDetailText,
@@ -127,6 +128,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewCadenceDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActivityDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActivityDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewDecisionDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewDecisionDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -1233,6 +1236,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant review decisions', () => {
     expect(founderCovenantReviewDecisionSummary({ decision: null })).toBe('Decision unavailable')
+    expect(founderCovenantReviewDecisionDetailText({ decision: null })).toBe('Decision detail unavailable')
     expect(founderCovenantReviewDecisionSummary({
       decision: {
         status: 'watch',
@@ -1240,6 +1244,13 @@ describe('FounderAreaPanel covenant presenters', () => {
         manualReviewRequired: false,
       },
     })).toBe('Watch / Warn founder')
+    expect(founderCovenantReviewDecisionDetailText({
+      decision: {
+        status: 'watch',
+        nextAction: 'warn_founder',
+        manualReviewRequired: false,
+      },
+    })).toBe('Manual review cleared')
     expect(founderCovenantReviewDecisionSummary({
       decision: {
         status: 'manual_review',
@@ -1247,6 +1258,13 @@ describe('FounderAreaPanel covenant presenters', () => {
         manualReviewRequired: true,
       },
     })).toBe('Manual review / Manual review')
+    expect(founderCovenantReviewDecisionDetailText({
+      decision: {
+        status: 'manual_review',
+        nextAction: 'manual_review',
+        manualReviewRequired: true,
+      },
+    })).toBe('Manual review required')
   })
 
   test('summarizes the current manual covenant review queue', () => {

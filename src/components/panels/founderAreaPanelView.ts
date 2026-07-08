@@ -1063,6 +1063,13 @@ export function founderCovenantReviewDecisionSummary(
   return `${founderCovenantStatusLabel(review.decision.status)} / ${founderCovenantNextActionLabel(review.decision.nextAction)}`
 }
 
+export function founderCovenantReviewDecisionDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'decision'>,
+): string {
+  if (!review.decision) return 'Decision detail unavailable'
+  return review.decision.manualReviewRequired ? 'Manual review required' : 'Manual review cleared'
+}
+
 export function founderCovenantReviewActionSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'manualActions'>,
 ): string {
