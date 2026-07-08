@@ -9,6 +9,7 @@ import {
   type EducationProgress,
 } from './education'
 import type { LifePlanTask } from './lifeLadder'
+import type { PlacedAsset } from './types'
 
 export type CourierActivityKind = 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | 'business-development'
 
@@ -36,6 +37,7 @@ export type CourierRequirement =
   | { kind: 'business-development-deposit'; resources: Partial<Record<ResourceKind, number>> }
   | { kind: 'business-development-budget' }
   | { kind: 'business-development-labor'; minutes: number }
+  | { kind: 'business-upgraded'; businessId: string; level: number }
   | { kind: 'active-commitment'; activityKind: CourierActivityKind }
 
 export interface CourierPackage {
@@ -59,6 +61,7 @@ export interface CourierSnapshot {
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
   businessDevelopmentProjects?: BusinessDevelopmentProject[]
+  assets?: PlacedAsset[]
   activityKind?: CourierActivityKind | null
   hasHome: boolean
   jobId?: string | null
@@ -240,6 +243,16 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.budgetPaid)
     case 'business-development-labor':
       return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.laborDoneMinutes >= requirement.minutes)
+    case 'business-upgraded':
+      return (snapshot.assets ?? []).some((asset) =>
+        asset.id === requirement.businessId &&
+        asset.kind === 'business' &&
+        (asset.level ?? 1) >= requirement.level
+      ) || (snapshot.businessDevelopmentProjects ?? []).some((project) =>
+        project.businessId === requirement.businessId &&
+        project.levelTo >= requirement.level &&
+        project.laborDoneMinutes >= project.laborRequiredMinutes
+      )
     case 'active-commitment':
       return snapshot.activityKind !== requirement.activityKind
   }
@@ -322,7 +335,8 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     if (route.action === 'work' || route.action === 'hire-helper') {
       return { kind: 'business-development-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
     }
-    if (route.action === 'complete') return { kind: 'business-development-labor', minutes: project?.laborDoneMinutes ?? 0 }
+    if (route.action === 'complete' && project) return { kind: 'business-upgraded', businessId: project.businessId, level: project.levelTo }
+    if (route.action === 'complete') return null
   }
   if (route.kind === 'survival-action' && route.action === 'drink-water') return { kind: 'drink', drinksToday: (snapshot.drinksToday ?? 0) + 1 }
   if (route.kind === 'survival-action' && route.action === 'sleep') return { kind: 'sleep', timesSlept: (snapshot.timesSlept ?? 0) + 1 }
