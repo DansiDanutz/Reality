@@ -141,6 +141,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   evidenceInputText: string
   manualActionText: string
   approvalRequestText: string
+  approvalReasonText: string
   approvalGateText: string
   approvalBlockerText: string
   notificationDraftText: string
@@ -1353,6 +1354,7 @@ export function founderCovenantOperatorQueueReviewRows(
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
+      approvalReasonText: founderCovenantOperatorQueueApprovalReasonText(item),
       approvalGateText: founderCovenantOperatorQueueApprovalGateText(item),
       approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
@@ -1519,6 +1521,15 @@ export function founderCovenantOperatorQueueApprovalRequestText(
       return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
     })
     .join(', ')
+}
+
+export function founderCovenantOperatorQueueApprovalReasonText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => `${founderCovenantManualActionKindLabel(request.kind)}: ${request.reason}`)
+    .join(' · ')
 }
 
 export function founderCovenantOperatorQueueApprovalGateText(
