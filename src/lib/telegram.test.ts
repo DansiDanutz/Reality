@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
@@ -7,6 +7,10 @@ import {
   type VerifiedTelegramMiniAppSession,
 } from './telegram'
 import type { Citizen } from '../game/types'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('Telegram Mini App client bridge', () => {
   test('reads only signed initData from the Telegram WebApp bridge', () => {
@@ -35,6 +39,8 @@ describe('Telegram Mini App client bridge', () => {
   })
 
   test('posts initData to the server verifier and returns a verified session', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(1_800_000_030_000))
     const session = verifiedSession()
     const fetchImpl = vi.fn(async () => ({
       ok: true,
@@ -49,6 +55,26 @@ describe('Telegram Mini App client bridge', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: 'auth_date=1&hash=abc' }),
+    })
+  })
+
+  test('rejects successful verifier responses whose authDate is implausibly in the future', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(1_800_000_030_000))
+    const session = {
+      ...verifiedSession(),
+      authDate: 1_800_000_200,
+    }
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, ...session }),
+    }))
+
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_session',
+      error: 'Telegram session could not be verified.',
+      code: undefined,
     })
   })
 

@@ -30,6 +30,8 @@ interface TelegramWindow {
   }
 }
 
+const TELEGRAM_AUTH_FUTURE_SKEW_SECONDS = 60
+
 export function telegramMiniAppInitData(source: TelegramWindow = globalThis as TelegramWindow): string | null {
   const initData = source.Telegram?.WebApp?.initData
   return typeof initData === 'string' && initData.trim().length > 0 ? initData : null
@@ -92,9 +94,12 @@ export function telegramDisplayName(user: Pick<TelegramMiniAppUser, 'firstName' 
 
 function isVerifiedTelegramSession(value: Record<string, unknown>): value is Record<string, unknown> & VerifiedTelegramMiniAppSession & { ok: true } {
   const user = value.telegramUser
+  const authDate = value.authDate
+  if (typeof authDate !== 'number' || !Number.isFinite(authDate)) return false
+  const nowSeconds = Math.floor(Date.now() / 1000)
   return typeof value.realityAccountId === 'string' &&
     value.realityAccountId.startsWith('telegram:') &&
-    Number.isFinite(value.authDate) &&
+    authDate <= nowSeconds + TELEGRAM_AUTH_FUTURE_SKEW_SECONDS &&
     isRecord(user) &&
     typeof user.id === 'string' &&
     typeof user.firstName === 'string'
