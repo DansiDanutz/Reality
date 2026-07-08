@@ -1307,7 +1307,7 @@ function firstBuildBlockers(input: {
 function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
   const totalsByKind = zeroTransactionKindRecord()
   for (const transaction of area.transactions) {
-    totalsByKind[transaction.kind] = roundMoney(totalsByKind[transaction.kind] + transaction.amount)
+    totalsByKind[transaction.kind] = roundMoney(totalsByKind[transaction.kind] + transactionAmount(transaction))
   }
 
   return {
@@ -1319,7 +1319,7 @@ function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
 }
 
 function transactionDashboard(transaction: WorldTransaction): AreaTransactionDashboard {
-  return { ...transaction }
+  return { ...transaction, amount: transactionAmount(transaction) }
 }
 
 function ledgerPayoutClassification(transactions: WorldTransaction[]): AreaLedgerPayoutClassificationDashboard {
@@ -1331,10 +1331,10 @@ function ledgerPayoutClassification(transactions: WorldTransaction[]): AreaLedge
   for (const transaction of transactions) {
     if (transaction.payoutEligibility === 'game_only') {
       gameOnlyTransactionCount += 1
-      gameOnlyAmount = roundMoney(gameOnlyAmount + transaction.amount)
+      gameOnlyAmount = roundMoney(gameOnlyAmount + transactionAmount(transaction))
     } else {
       payoutEligibleTransactionCount += 1
-      payoutEligibleAmount = roundMoney(payoutEligibleAmount + transaction.amount)
+      payoutEligibleAmount = roundMoney(payoutEligibleAmount + transactionAmount(transaction))
     }
   }
 
@@ -2613,12 +2613,14 @@ function businessLedgerDashboard(area: WorldArea, business: WorldBusiness): Area
 
   for (const transaction of relatedTransactions) {
     if (transaction.toId === business.id) {
-      if (isCashRevenue(transaction.kind)) revenue = roundMoney(revenue + transaction.amount)
-      if (transaction.kind === 'medical_debt') receivablesIssued = roundMoney(receivablesIssued + transaction.amount)
+      const amount = transactionAmount(transaction)
+      if (isCashRevenue(transaction.kind)) revenue = roundMoney(revenue + amount)
+      if (transaction.kind === 'medical_debt') receivablesIssued = roundMoney(receivablesIssued + amount)
     }
     if (transaction.fromId === business.id) {
-      if (transaction.kind === 'worker_wage') wagesPaid = roundMoney(wagesPaid + transaction.amount)
-      if (isCashExpense(transaction.kind)) expenses = roundMoney(expenses + transaction.amount)
+      const amount = transactionAmount(transaction)
+      if (transaction.kind === 'worker_wage') wagesPaid = roundMoney(wagesPaid + amount)
+      if (isCashExpense(transaction.kind)) expenses = roundMoney(expenses + amount)
     }
   }
 
@@ -3588,6 +3590,10 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
     debtsIssued: 0,
     revenueByBusiness: {},
   }
+}
+
+function transactionAmount(transaction: WorldTransaction): number {
+  return Number.isFinite(transaction.amount) ? transaction.amount : 0
 }
 
 function roundMoney(value: number): number {
