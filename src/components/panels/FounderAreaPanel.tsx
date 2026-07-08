@@ -977,7 +977,7 @@ export default function FounderAreaPanel() {
                   void submitPayload(candidate.clientPayload, `Hired ${candidate.displayName}.`)
                 }}
               >
-                Hire next
+                {hiringHighlight ? hiringHighlight.title : 'Hire next'}
               </button>
             )}
             {dashboard.jobs.workersHallRequired && (
