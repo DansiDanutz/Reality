@@ -122,6 +122,11 @@ export default function FounderCovenantOperatorPanel({
     setQueueSort('coverage')
   }, [])
 
+  const clearCoveragePreset = useCallback(() => {
+    setQueueFilter('all')
+    setQueueSort('priority')
+  }, [])
+
   const applyOperatorAuthResult = useCallback((result: RealityOperatorQueueAuthResult) => {
     if (result.ok) {
       setTelegramOperatorToken(result.operatorToken)
@@ -440,6 +445,14 @@ export default function FounderCovenantOperatorPanel({
             </button>
           </div>
           <div className="founder-operator-actions" aria-label="Founder operator coverage presets">
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => clearCoveragePreset()}
+              type="button"
+            >
+              Default View
+            </button>
             <button
               className="btn small ghost"
               disabled={loading}

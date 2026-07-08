@@ -60,6 +60,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Never')
     expect(html).toContain('Stale')
     expect(html).toContain('Fresh')
+    expect(html).toContain('Default View')
     expect(html).toContain('Coverage All')
     expect(html).toContain('Cleanup Never')
     expect(html).toContain('Cleanup Stale')
