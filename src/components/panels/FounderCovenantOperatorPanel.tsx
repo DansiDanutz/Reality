@@ -22,6 +22,10 @@ import {
   writeOperatorQueueViewState,
 } from './founderCovenantOperatorPanelViewState'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
+import {
+  founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueSummary,
+} from './founderAreaPanelView'
 import type {
   FounderCovenantOperatorQueueFilter,
   FounderCovenantOperatorQueueReviewRow,
@@ -235,7 +239,10 @@ export default function FounderCovenantOperatorPanel({
   const copyQueueViewContext = async () => {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
     const context = queueContextText(queueFilter, queueSort, scanCursor)
-    const handoff = `${context} · ${queueCursorContextText(scanCursor, queue?.nextCursor ?? null)} · ${queueResumeText(scanCursor, queue?.nextCursor ?? null)}`
+    const queueSummary = queue
+      ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
+      : 'Queue unavailable'
+    const handoff = `${context} · ${queueCursorContextText(scanCursor, queue?.nextCursor ?? null)} · ${queueResumeText(scanCursor, queue?.nextCursor ?? null)} · ${queueSummary}`
     if (!clipboard?.writeText) {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
       return
