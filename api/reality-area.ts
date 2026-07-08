@@ -1248,6 +1248,7 @@ interface FounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
     warningApprovals: number
@@ -4635,6 +4636,7 @@ function founderCovenantReviewQueueTotals(
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     warningApprovals: items.reduce((total, item) =>

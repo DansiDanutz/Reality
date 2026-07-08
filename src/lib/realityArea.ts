@@ -936,6 +936,7 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
     warningApprovals: number
@@ -2241,6 +2242,7 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.atRisk === 'number' &&
     typeof value.manualReviewRequired === 'number' &&
     typeof value.neverReviewed === 'number' &&
+    typeof value.scanAnomalies === 'number' &&
     typeof value.weeklyDue === 'number' &&
     typeof value.monthlyDue === 'number' &&
     typeof value.warningApprovals === 'number' &&

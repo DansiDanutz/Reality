@@ -2986,6 +2986,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       atRisk: 1,
       manualReviewRequired: 0,
       neverReviewed: 1,
+      scanAnomalies: 0,
       weeklyDue: 0,
       monthlyDue: 0,
       warningApprovals: review.reviewQueue.pendingApprovalKinds.filter((kind) => kind === 'send_warning').length,

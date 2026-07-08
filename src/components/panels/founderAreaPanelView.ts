@@ -116,6 +116,7 @@ export interface FounderCovenantOperatorQueueSliceTotals {
   founders: number
   manualReviewRequired: number
   neverReviewed: number
+  scanAnomalies: number
   weeklyDue: number
   monthlyDue: number
   overdue: number
@@ -746,6 +747,7 @@ export function founderCovenantOperatorQueueSummary(
   const riskParts = [
     `${totals.manualReviewRequired} manual review${totals.manualReviewRequired === 1 ? '' : 's'}`,
     `${totals.neverReviewed} never reviewed`,
+    `${totals.scanAnomalies} scan anomal${totals.scanAnomalies === 1 ? 'y' : 'ies'}`,
     `${totals.weeklyDue} weekly due`,
     `${totals.monthlyDue} monthly due`,
     `${totals.warningApprovals} warning approval${totals.warningApprovals === 1 ? '' : 's'}`,
@@ -927,6 +929,7 @@ export function founderCovenantOperatorQueueSliceTotals(
     founders: items.length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     overdue: items.filter((item) => item.overdue).length,
