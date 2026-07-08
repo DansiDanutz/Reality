@@ -5,6 +5,8 @@ import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import {
   queueContextText,
   queueCoveragePresetLabel,
+  queuePresetLabel,
+  queuePriorityPresetLabel,
   queuePresetChipTone,
   queueSortChipTone,
   queueViewChipTone,
@@ -77,6 +79,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Cleanup Stale Week')
     expect(html).toContain('Cleanup Stale Month')
     expect(html).toContain('Audit Fresh')
+    expect(html).toContain('Triage Manual')
+    expect(html).toContain('Triage Hospital')
+    expect(html).toContain('Triage Scan')
     expect(html).toContain('class="btn small primary" type="button">All</button>')
     expect(html).toContain('class="btn small primary" type="button">Priority</button>')
     expect(html).toContain('class="btn small primary" type="button">Default View</button>')
@@ -133,6 +138,12 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queueCoveragePresetLabel('stale_weekly_due', 'coverage')).toBe('Cleanup Stale Week')
     expect(queueCoveragePresetLabel('stale_monthly_due', 'coverage')).toBe('Cleanup Stale Month')
     expect(queueCoveragePresetLabel('fresh_reviewed', 'coverage')).toBe('Audit Fresh')
+    expect(queuePriorityPresetLabel('manual_review', 'priority')).toBe('Triage Manual')
+    expect(queuePriorityPresetLabel('hospitalized', 'priority')).toBe('Triage Hospital')
+    expect(queuePriorityPresetLabel('scan_anomaly', 'priority')).toBe('Triage Scan')
+    expect(queuePresetLabel('manual_review', 'priority')).toBe('Triage Manual')
+    expect(queuePresetLabel('hospitalized', 'priority')).toBe('Triage Hospital')
+    expect(queuePresetLabel('scan_anomaly', 'priority')).toBe('Triage Scan')
     expect(queueCoveragePresetLabel('manual_review', 'coverage')).toBeNull()
     expect(queueViewChipTone('all')).toBe('stable')
     expect(queueViewChipTone('never_reviewed')).toBe('warning')
@@ -147,7 +158,7 @@ describe('FounderCovenantOperatorPanel', () => {
       'View: Stale / Coverage / cursor-2 · Preset: Cleanup Stale · filter stale · sort coverage',
     )
     expect(queueContextText('manual_review', 'priority', null)).toBe(
-      'View: Manual / Priority / start · filter manual',
+      'View: Manual / Priority / start · Preset: Triage Manual · filter manual',
     )
   })
 })

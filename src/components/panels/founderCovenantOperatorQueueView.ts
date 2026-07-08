@@ -44,7 +44,7 @@ export function queueContextText(
   sort: FounderCovenantOperatorQueueSort,
   scanCursor: string | null,
 ): string {
-  const preset = queueCoveragePresetLabel(filter, sort)
+  const preset = queuePresetLabel(filter, sort)
   const stateCues = queueStateCueText(filter, sort)
   return preset
     ? `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'} · Preset: ${preset}${stateCues ? ` · ${stateCues}` : ''}`
@@ -92,6 +92,30 @@ export function queueCoveragePresetLabel(
   }
 }
 
+export function queuePriorityPresetLabel(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+): string | null {
+  if (sort !== 'priority') return null
+  switch (filter) {
+    case 'manual_review':
+      return 'Triage Manual'
+    case 'hospitalized':
+      return 'Triage Hospital'
+    case 'scan_anomaly':
+      return 'Triage Scan'
+    default:
+      return null
+  }
+}
+
+export function queuePresetLabel(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+): string | null {
+  return queueCoveragePresetLabel(filter, sort) ?? queuePriorityPresetLabel(filter, sort)
+}
+
 export function queueViewChipTone(filter: FounderCovenantOperatorQueueFilter): OperatorQueueChipTone {
   return filter === 'all' ? 'stable' : 'warning'
 }
@@ -104,7 +128,7 @@ export function queuePresetChipTone(
   filter: FounderCovenantOperatorQueueFilter,
   sort: FounderCovenantOperatorQueueSort,
 ): OperatorQueueChipTone {
-  return queueCoveragePresetLabel(filter, sort) ? 'critical' : 'stable'
+  return queuePresetLabel(filter, sort) ? 'critical' : 'stable'
 }
 
 function queueStateCueText(

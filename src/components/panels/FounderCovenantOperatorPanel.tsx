@@ -29,7 +29,7 @@ import {
 } from './founderCovenantOperatorPanelState'
 import {
   copiedAtText,
-  queueCoveragePresetLabel,
+  queuePresetLabel,
   queuePresetChipTone,
   queueContextText,
   queueCursorContextText,
@@ -125,6 +125,11 @@ export default function FounderCovenantOperatorPanel({
     setQueueSort('coverage')
   }, [])
 
+  const applyPriorityPreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
+    setQueueFilter(filter)
+    setQueueSort('priority')
+  }, [])
+
   const clearCoveragePreset = useCallback(() => {
     setQueueFilter('all')
     setQueueSort('priority')
@@ -136,6 +141,10 @@ export default function FounderCovenantOperatorPanel({
       : queueFilter === 'all' && queueSort === 'priority'
         ? 'default'
         : null
+  const activePriorityPreset =
+    queueSort === 'priority' && (queueFilter === 'manual_review' || queueFilter === 'hospitalized' || queueFilter === 'scan_anomaly')
+      ? queueFilter
+      : null
 
   const applyOperatorAuthResult = useCallback((result: RealityOperatorQueueAuthResult) => {
     if (result.ok) {
@@ -533,6 +542,32 @@ export default function FounderCovenantOperatorPanel({
               Audit Fresh
             </button>
           </div>
+          <div className="founder-operator-actions" aria-label="Founder operator triage presets">
+            <button
+              className={`btn small ${activePriorityPreset === 'manual_review' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('manual_review')}
+              type="button"
+            >
+              Triage Manual
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'hospitalized' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('hospitalized')}
+              type="button"
+            >
+              Triage Hospital
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'scan_anomaly' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('scan_anomaly')}
+              type="button"
+            >
+              Triage Scan
+            </button>
+          </div>
           <div className="founder-operator-actions" aria-label="Founder operator queue sort">
             <button
               className={`btn small ${queueSort === 'priority' ? 'primary' : 'ghost'}`}
@@ -568,10 +603,10 @@ export default function FounderCovenantOperatorPanel({
               <span>Sort</span>
               <strong>{queueSortLabel(queueSort)}</strong>
             </span>
-            {queueCoveragePresetLabel(queueFilter, queueSort) && (
+            {queuePresetLabel(queueFilter, queueSort) && (
               <span className={`founder-ledger-chip ${queuePresetChipTone(queueFilter, queueSort)}`}>
                 <span>Preset</span>
-                <strong>{queueCoveragePresetLabel(queueFilter, queueSort)}</strong>
+                <strong>{queuePresetLabel(queueFilter, queueSort)}</strong>
               </span>
             )}
             <span className="founder-ledger-chip warning">
