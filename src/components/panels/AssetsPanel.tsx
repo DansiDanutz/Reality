@@ -4,7 +4,7 @@ import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../../game/businessUpgrades'
 import ConfirmDialog from '../hud/ConfirmDialog'
 import { useGame } from '../../store/gameStore'
 
-function underConstructionLabel(placedAtMinute: number, constructionEndsAt?: number): string | null {
+export function underConstructionLabel(placedAtMinute: number, constructionEndsAt?: number): string | null {
   if (!constructionEndsAt || constructionEndsAt <= placedAtMinute) return null
   const now = Date.now()
   const msLeft = constructionEndsAt - now
