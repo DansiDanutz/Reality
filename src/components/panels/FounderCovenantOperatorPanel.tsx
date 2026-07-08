@@ -26,6 +26,7 @@ import {
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueActionSummary,
+  founderCovenantOperatorQueueApprovalSummary,
   founderCovenantNotificationDraftGateText,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
@@ -1234,6 +1235,19 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Monthly ready</span>
               <strong>{cadenceReady?.monthly ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.totals.replacementApprovals > 0
+                  ? 'critical'
+                  : queue.totals.pendingApprovals > 0
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueApprovalSummary(queue)}
+            >
+              <span>Approvals</span>
+              <strong>{queue.totals.pendingApprovals}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${manualReviewTelegramDraft || founderWarningTelegramDraft ? 'warning' : 'stable'}`}

@@ -907,6 +907,13 @@ export function founderCovenantOperatorQueueTelegramDraftSummary(
   return `Telegram drafts: ${totals.warningDrafts} warning · ${totals.manualReviewDrafts} manual review · ${totals.pendingNotifications} total`
 }
 
+export function founderCovenantOperatorQueueApprovalSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
+): string {
+  const { totals } = queue
+  return `Approvals: ${totals.warningApprovals} warning · ${totals.probationApprovals} probation · ${totals.replacementApprovals} replacement · ${totals.pendingApprovals} total`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {
