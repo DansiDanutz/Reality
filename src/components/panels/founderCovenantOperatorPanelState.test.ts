@@ -18,6 +18,19 @@ describe('founderCovenantOperatorPanelState', () => {
       pages: 2,
       cursor: 'review-cursor-2',
     })
+
+    expect(founderCovenantOperatorQueueRequest('operator-token', 10, 2, '   review-cursor-3   ')).toEqual({
+      operatorToken: 'operator-token',
+      limit: 10,
+      pages: 2,
+      cursor: 'review-cursor-3',
+    })
+
+    expect(founderCovenantOperatorQueueRequest('operator-token', 10, 2, '   ')).toEqual({
+      operatorToken: 'operator-token',
+      limit: 10,
+      pages: 2,
+    })
   })
 
   test('prefers the queue cursor when refreshing and falls back to the local scan cursor', () => {
@@ -26,5 +39,8 @@ describe('founderCovenantOperatorPanelState', () => {
     expect(founderCovenantOperatorQueueRefreshCursor({
       cursor: 'queue-cursor',
     } as { cursor: string | null } as never, 'scan-cursor')).toBe('queue-cursor')
+    expect(founderCovenantOperatorQueueRefreshCursor({
+      cursor: '   ',
+    } as { cursor: string | null } as never, '  scan-cursor  ')).toBe('scan-cursor')
   })
 })

@@ -1050,7 +1050,11 @@ describe('Reality area client', () => {
   })
 
   test('reads and validates the operator founder covenant review queue', async () => {
-    const queue = serverFounderCovenantReviewQueue()
+    const queue = {
+      ...serverFounderCovenantReviewQueue(),
+      cursor: ' review-cursor-1 ',
+      nextCursor: ' review-cursor-2 ',
+    }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
 
@@ -1061,7 +1065,7 @@ describe('Reality area client', () => {
       cursor: 'review-cursor-1',
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
-      founderCovenantReviewQueue: queue,
+      founderCovenantReviewQueue: serverFounderCovenantReviewQueue(),
     })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area?review=founderCovenantQueue&limit=2&pages=3&cursor=review-cursor-1', {
@@ -1310,6 +1314,24 @@ describe('Reality area client', () => {
         ...serverFounderCovenantReviewQueue().items[0],
         replacementEnabled: true,
       }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues that advertise more pages without a usable next cursor', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      nextCursor: '   ',
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))

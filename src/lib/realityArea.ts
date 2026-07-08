@@ -1240,9 +1240,7 @@ export async function readRealityFounderCovenantReviewQueue(
       headers: { Authorization: `Bearer ${token}` },
     })
     const data = await response.json() as Record<string, unknown>
-    const queue = isRealityFounderCovenantReviewQueueDashboard(data.founderCovenantReviewQueue)
-      ? data.founderCovenantReviewQueue
-      : null
+    const queue = parseRealityFounderCovenantReviewQueueDashboard(data.founderCovenantReviewQueue)
     if (response.ok && data.ok === true && queue) return { ok: true, founderCovenantReviewQueue: queue }
     return {
       ok: false,
@@ -2406,6 +2404,22 @@ function isRealityFounderCovenantReviewQueueDashboard(
     value.results.every(isRealityFounderCovenantReviewQueueScanResult)
 }
 
+function parseRealityFounderCovenantReviewQueueDashboard(
+  value: unknown,
+): RealityFounderCovenantReviewQueueDashboard | null {
+  if (!isRealityFounderCovenantReviewQueueDashboard(value)) return null
+
+  const cursor = normalizeRealityFounderCovenantReviewQueueCursor(value.cursor)
+  const nextCursor = normalizeRealityFounderCovenantReviewQueueCursor(value.nextCursor)
+  if (value.hasMore && nextCursor === null) return null
+
+  return {
+    ...value,
+    cursor,
+    nextCursor,
+  }
+}
+
 function isRealityFounderCovenantReviewQueueTotals(
   value: unknown,
 ): value is RealityFounderCovenantReviewQueueDashboard['totals'] {
@@ -3376,4 +3390,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string'
+}
+
+function normalizeRealityFounderCovenantReviewQueueCursor(value: string | null): string | null {
+  if (value === null) return null
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
 }

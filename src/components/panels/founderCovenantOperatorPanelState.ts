@@ -9,11 +9,12 @@ export function founderCovenantOperatorQueueRequest(
   pages: number,
   cursor: string | null = null,
 ): RealityFounderCovenantOperatorQueueRequest {
+  const normalizedCursor = cursor?.trim()
   return {
     operatorToken,
     limit,
     pages,
-    ...(cursor ? { cursor } : {}),
+    ...(normalizedCursor ? { cursor: normalizedCursor } : {}),
   }
 }
 
@@ -21,5 +22,8 @@ export function founderCovenantOperatorQueueRefreshCursor(
   queue: RealityFounderCovenantReviewQueueDashboard | null,
   scanCursor: string | null,
 ): string | null {
-  return queue?.cursor ?? scanCursor ?? null
+  const queueCursor = queue?.cursor?.trim()
+  if (queueCursor) return queueCursor
+  const localCursor = scanCursor?.trim()
+  return localCursor || null
 }
