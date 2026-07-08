@@ -94,6 +94,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).not.toContain('dashboard.firstBuild.slice(0, 4)')
     expect(founderAreaPanelSource).toContain('dashboard.founderCovenant.signals.map((signal) => (')
     expect(founderAreaPanelSource).not.toContain('dashboard.founderCovenant.signals.slice(0, 4)')
+    expect(founderAreaPanelSource).toContain('Link Telegram')
+    expect(founderAreaPanelSource).toContain("Open Reality inside Telegram to link this founder seat.")
   })
 
   test('summarizes server-verified founder Telegram identity', () => {

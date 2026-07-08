@@ -126,6 +126,7 @@ const COVENANT_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; 
 
 export default function FounderAreaPanel() {
   const citizen = useGame((s) => s.citizen)
+  const linkTelegram = useGame((s) => s.linkTelegram)
   const commandClientRef = useRef<FounderAreaCommandClient | null>(null)
   const [panelState, setPanelState] = useState<PanelState>({ status: 'loading' })
   const [busy, setBusy] = useState(false)
@@ -227,6 +228,38 @@ export default function FounderAreaPanel() {
     }
   }
 
+  const linkFounderTelegram = async () => {
+    const commandClient = commandClientRef.current
+    if (!commandClient || !area || !citizen) return
+    setBusy(true)
+    try {
+      const previousTelegramUserId = citizen.telegramUserId
+      const error = await linkTelegram()
+      if (error) {
+        setLastEvent(error)
+        return
+      }
+      const latestCitizen = useGame.getState().citizen
+      if (!latestCitizen?.telegramUserId) {
+        setLastEvent('Open Reality inside Telegram to link this founder seat.')
+        return
+      }
+      if (latestCitizen.telegramUserId === previousTelegramUserId) {
+        setLastEvent('Telegram already linked for this founder seat.')
+      }
+      const serverApplied = await refreshRealityFounderArea(latestCitizen)
+      if (!serverApplied.ok) {
+        setLastEvent(serverApplied.error)
+        return
+      }
+      const next = await hydrateServerArea(profile, serverApplied.state, commandClientRef, serverApplied.dashboard)
+      setPanelState({ status: 'ready', result: next })
+      setLastEvent(next.ok ? 'Telegram linked and founder area refreshed.' : `Command failed: ${next.error}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const recordCovenantReview = async (payload: RealityAreaCovenantReviewPayload | null) => {
     const commandClient = commandClientRef.current
     if (!payload || !commandClient || !area || !citizen) return
@@ -285,7 +318,17 @@ export default function FounderAreaPanel() {
                 </div>
                 <div className="stat">
                   <span className="stat-label">{founderIdentityClaimSourceLabel(founderIdentityDashboard.claimSource)}</span>
-                  <span className="stat-value mono">{founderIdentityTelegramStatusLabel(founderIdentityDashboard)}</span>
+                  <span className="stat-value mono">
+                    {founderIdentityTelegramStatusLabel(founderIdentityDashboard)}
+                    {!founderIdentityDashboard.telegramUserId && !founderIdentityDashboard.telegramAccountId && (
+                      <>
+                        {' '}
+                        <button className="btn small ghost" disabled={busy} onClick={() => void linkFounderTelegram()}>
+                          Link Telegram
+                        </button>
+                      </>
+                    )}
+                  </span>
                 </div>
               </>
             )}
