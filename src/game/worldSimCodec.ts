@@ -466,6 +466,10 @@ function departureReasonServiceKind(reason: WorldDepartureReason): WorldDepartur
 function hasValidAreaReferences(area: WorldArea): boolean {
   const citizens = new Map(area.citizens.map((citizen) => [citizen.id, citizen]))
   const businesses = new Map(area.businesses.map((business) => [business.id, business]))
+  const departureCitizenIds = (area.areaEvents ?? [])
+    .filter((event) => event.kind === 'sim_citizen_departure')
+    .map((event) => event.citizenId)
+  if (!hasUniqueStrings(departureCitizenIds)) return false
   const departedCitizens = new Map((area.areaEvents ?? [])
     .filter((event) => event.kind === 'sim_citizen_departure')
     .map((event) => [event.citizenId, event]))

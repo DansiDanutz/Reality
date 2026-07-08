@@ -267,6 +267,18 @@ describe('worldSim snapshot codec', () => {
     duplicateDebt.citizens[0].debt = 500
     duplicateDebt.citizens[0].debts!.push({ ...duplicateDebt.citizens[0].debts![0] })
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const duplicateDepartureCitizen = area()
+    duplicateDepartureCitizen.areaEvents!.push({
+      ...duplicateDepartureCitizen.areaEvents![0],
+      id: 'event2',
+      at: 4_000,
+      message: 'Duplicate departure evidence for the same departed Sim Citizen.',
+    })
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: duplicateDepartureCitizen,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects invalid persisted live references', () => {
