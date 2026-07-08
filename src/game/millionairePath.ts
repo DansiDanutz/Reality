@@ -71,6 +71,7 @@ export interface MillionairePathInput {
   communityRespect: number
   communityFriendship: number
   communityTrust: number
+  brokenCommitments?: number
 }
 
 export type MillionaireCommunityTier = 'alone' | 'known' | 'trusted' | 'backed'
@@ -133,12 +134,13 @@ function stageOf(input: MillionairePathInput, netWorth: number, cashflow: Cashfl
   return 'survival'
 }
 
-export function communityAdvantageOf(input: Pick<MillionairePathInput, 'communityRespect' | 'communityFriendship' | 'communityTrust' | 'shiftsWorked'>): MillionaireCommunityAdvantage {
+export function communityAdvantageOf(input: Pick<MillionairePathInput, 'communityRespect' | 'communityFriendship' | 'communityTrust' | 'shiftsWorked' | 'brokenCommitments'>): MillionaireCommunityAdvantage {
   const respect = Math.max(0, Math.floor(input.communityRespect))
   const friendship = Math.max(0, Math.floor(input.communityFriendship))
   const trust = Math.max(0, Math.floor(input.communityTrust))
   const reliability = Math.min(20, Math.max(0, Math.floor(input.shiftsWorked)))
-  const score = respect * 2 + friendship + trust * 2 + reliability
+  const unreliablePenalty = Math.min(20, Math.max(0, Math.floor(input.brokenCommitments ?? 0)) * 4)
+  const score = Math.max(0, respect * 2 + friendship + trust * 2 + reliability - unreliablePenalty)
 
   if (score >= 45) {
     return {

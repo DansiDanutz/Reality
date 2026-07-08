@@ -143,6 +143,13 @@ describe('reputation contract', () => {
       communityTrust: 0,
       shiftsWorked: 0,
     })).toMatchObject({ tier: 'known', dailyOpportunityValue: 8 })
+    expect(communityAdvantageOf({
+      communityRespect: 5,
+      communityFriendship: 5,
+      communityTrust: 4,
+      shiftsWorked: 4,
+      brokenCommitments: 2,
+    })).toMatchObject({ tier: 'known', dailyOpportunityValue: 8 })
 
     expect(millionairePathOf(snap({ communityRespect: 4 })).stage).toBe('survival')
     expect(millionairePathOf(snap({ communityRespect: 5 })).stage).toBe('reliable')

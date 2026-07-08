@@ -973,6 +973,7 @@ function communityWorkerCreditMinutes(community: CommunityStats, shiftsWorked: n
     communityRespect: community.respect,
     communityFriendship: community.friendship,
     communityTrust: community.trust,
+    brokenCommitments: community.brokenCommitments,
     shiftsWorked,
   })
   return availableCommunityHelperMinutes(community, advantage.weeklyHelperMinutes, now)
@@ -2096,6 +2097,7 @@ export const useGame = create<GameState>()(
           communityRespect: community.respect,
           communityFriendship: community.friendship,
           communityTrust: community.trust,
+          brokenCommitments: community.brokenCommitments,
         }).stage
         if (ladderStage !== 'survival') {
           track('life_ladder_stage_progress')

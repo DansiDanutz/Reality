@@ -97,6 +97,7 @@ export default function BusinessPanel() {
     communityRespect: community.respect,
     communityFriendship: community.friendship,
     communityTrust: community.trust,
+    brokenCommitments: community.brokenCommitments,
     shiftsWorked,
   })
   const communityCreditMinutes = availableCommunityHelperMinutes(community, communityAdvantage.weeklyHelperMinutes)

@@ -175,6 +175,44 @@ describe('millionairePathOf', () => {
     })).toMatchObject({ tier: 'trusted', dailyOpportunityValue: 22 })
   })
 
+  test('broken commitments reduce practical backing until reliable work repairs the score', () => {
+    const trusted = millionairePathOf(snap({
+      money: 50_000,
+      level: 2,
+      educationActions: 1,
+      shiftsWorked: 5,
+      communityRespect: 5,
+      communityFriendship: 5,
+      communityTrust: 4,
+    }))
+    const unreliable = millionairePathOf(snap({
+      money: 50_000,
+      level: 2,
+      educationActions: 1,
+      shiftsWorked: 5,
+      communityRespect: 5,
+      communityFriendship: 5,
+      communityTrust: 4,
+      brokenCommitments: 2,
+    }))
+    const repaired = millionairePathOf(snap({
+      money: 50_000,
+      level: 2,
+      educationActions: 1,
+      shiftsWorked: 13,
+      communityRespect: 5,
+      communityFriendship: 5,
+      communityTrust: 4,
+      brokenCommitments: 2,
+    }))
+
+    expect(trusted.communityAdvantage).toMatchObject({ score: 28, tier: 'trusted', dailyOpportunityValue: 22 })
+    expect(unreliable.communityAdvantage).toMatchObject({ score: 20, tier: 'known', dailyOpportunityValue: 8 })
+    expect(repaired.communityAdvantage).toMatchObject({ score: 28, tier: 'trusted', dailyOpportunityValue: 22 })
+    expect(unreliable.daysToMillionaire!).toBeGreaterThan(trusted.daysToMillionaire!)
+    expect(repaired.daysToMillionaire).toBe(trusted.daysToMillionaire)
+  })
+
   test('business ownership advances stages and uses passive cashflow in the forecast', () => {
     const owner = millionairePathOf(snap({
       assets: [home(), business({ incomePerDay: 20 })],

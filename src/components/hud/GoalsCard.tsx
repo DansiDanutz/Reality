@@ -134,6 +134,7 @@ export default function GoalsCard() {
     communityRespect: community.respect,
     communityFriendship: community.friendship,
     communityTrust: community.trust,
+    brokenCommitments: community.brokenCommitments,
     seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
   })
 

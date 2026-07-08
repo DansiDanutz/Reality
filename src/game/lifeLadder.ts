@@ -171,6 +171,7 @@ export interface LifeLadderSnapshot {
   communityRespect: number
   communityFriendship: number
   communityTrust: number
+  brokenCommitments?: number
   communityHelperMinutesUsedThisWeek?: number
   seriousWorkMissedYesterday?: boolean
 }
@@ -708,6 +709,7 @@ function millionairePathFor(snapshot: LifeLadderSnapshot): MillionairePath {
     communityRespect: snapshot.communityRespect,
     communityFriendship: snapshot.communityFriendship,
     communityTrust: snapshot.communityTrust,
+    brokenCommitments: snapshot.brokenCommitments,
   })
 }
 
@@ -940,11 +942,12 @@ function completionLifeDay(currentLifeDay: number, laborDays: number): number {
   return safeCurrentDay + laborDays - 1
 }
 
-function communityHelperCreditMinutes(snapshot: Pick<LifeLadderSnapshot, 'communityRespect' | 'communityFriendship' | 'communityTrust' | 'shiftsWorked' | 'communityHelperMinutesUsedThisWeek'>): number {
+function communityHelperCreditMinutes(snapshot: Pick<LifeLadderSnapshot, 'communityRespect' | 'communityFriendship' | 'communityTrust' | 'brokenCommitments' | 'shiftsWorked' | 'communityHelperMinutesUsedThisWeek'>): number {
   const advantage = communityAdvantageOf({
     communityRespect: snapshot.communityRespect,
     communityFriendship: snapshot.communityFriendship,
     communityTrust: snapshot.communityTrust,
+    brokenCommitments: snapshot.brokenCommitments,
     shiftsWorked: snapshot.shiftsWorked,
   })
   return Math.max(0, advantage.weeklyHelperMinutes - Math.max(0, Math.floor(snapshot.communityHelperMinutesUsedThisWeek ?? 0)))
