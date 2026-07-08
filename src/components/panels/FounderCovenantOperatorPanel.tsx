@@ -389,6 +389,17 @@ export default function FounderCovenantOperatorPanel({
             </button>
             <button
               className="btn small ghost"
+              disabled={loading || !lastCopiedText}
+              onClick={() => {
+                setLastCopiedAt(null)
+                setLastCopiedText(null)
+              }}
+              type="button"
+            >
+              Clear copied
+            </button>
+            <button
+              className="btn small ghost"
               disabled={loading || (queueFilter === 'all' && queueSort === 'priority')}
               onClick={() => {
                 setQueueFilter('all')
