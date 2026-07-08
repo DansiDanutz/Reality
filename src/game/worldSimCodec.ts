@@ -470,6 +470,10 @@ function hasValidAreaReferences(area: WorldArea): boolean {
     .filter((event) => event.kind === 'sim_citizen_departure')
     .map((event) => [event.citizenId, event]))
 
+  for (const citizenId of departedCitizens.keys()) {
+    if (citizens.has(citizenId)) return false
+  }
+
   if (area.claim && citizens.get(area.claim.founderCitizenId)?.kind !== 'real') return false
 
   for (const business of area.businesses) {
