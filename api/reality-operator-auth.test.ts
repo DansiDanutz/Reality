@@ -91,6 +91,47 @@ describe('Reality operator Telegram auth', () => {
     })
   })
 
+  test('rejects client-controlled operator auth fields before issuing a token', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    vi.stubEnv('REALITY_OPERATOR_TELEGRAM_IDS', '42424242')
+    vi.stubEnv('REALITY_OPERATOR_AUTH_SECRET', OPERATOR_SECRET)
+    const initData = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+    })
+    const serverOwnedFields = [
+      'operatorToken',
+      'role',
+      'scope',
+      'telegramUserId',
+      'realityAccountId',
+      'expiresAt',
+      'approvedById',
+    ]
+
+    for (const field of serverOwnedFields) {
+      const res = responseRecorder()
+
+      await handler({
+        method: 'POST',
+        body: {
+          initData,
+          [field]: field === 'expiresAt' ? NOW_SECONDS * 1000 + 900_000 : 'client-value',
+        },
+      } as never, res as never)
+
+      expect(res.headers).toEqual({ 'Cache-Control': 'no-store' })
+      expect(res.statusCode).toBe(400)
+      expect(res.body).toEqual({
+        ok: false,
+        error: 'Operator auth contains fields the server must own.',
+        code: 'client_controlled_operator_auth_field',
+      })
+    }
+  })
+
   test('stays disabled until the signing secret is configured', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
@@ -146,6 +187,11 @@ describe('Reality operator Telegram auth', () => {
       ok: false,
       error: 'missing_secret',
     })
+  })
+
+  test('rejects operator queue claims with unsafe token timing', () => {
+    expect(realityOperatorQueueTokenClaims('42424242', -1, 900_000)).toBeNull()
+    expect(realityOperatorQueueTokenClaims('42424242', Number.MAX_SAFE_INTEGER, 1)).toBeNull()
   })
 })
 

@@ -22,7 +22,7 @@
 | Education | $150–25k | Instant XP → levels → unlock better careers |
 | Leisure | $8–450 | Fun restoration |
 | Homes | $16k–450k | Placeable; better sleep, free hygiene |
-| Businesses | $18k–1.2M | Placeable passive income |
+| Businesses | $18k–1.2M | Placeable demand-led revenue |
 
 Wage gear totals under +60% even if you buy everything (enforced by test). Education is the bridge between wage-labor and capital: an MBA costs $25k and unlocks the top career instantly.
 
@@ -49,7 +49,7 @@ city apartment, not a mansion — exactly like $200k in the real world.
 
 ## Founder math
 
-$200k buys: a home + 2 mid businesses, or the Tech Startup + margin, or a diversified small-cap portfolio. A founder playing 1 real hour/day reaches self-sustaining passive income in ~2–3 days of real time. A non-founder ($2,500) needs ~10 shifts to afford the Food Cart — the founder head start is real but not insurmountable, which keeps the post-founder game fair.
+$200k buys: a home + 2 mid businesses, or the Tech Startup + margin, or a diversified small-cap portfolio. A founder playing 1 real hour/day reaches self-sustaining local business cash flow in ~2–3 days of real time. A non-founder ($2,500) needs ~10 shifts to afford the Food Cart — the founder head start is real but not insurmountable, which keeps the post-founder game fair.
 
 ## Online-release levers (planned)
 
