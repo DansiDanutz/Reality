@@ -5,6 +5,7 @@ import type {
   AreaEventDashboard,
   AreaEventsDashboard,
   AreaFounderCovenantDashboard,
+  AreaJobsDashboard,
   AreaLedgerDashboard,
   AreaTransactionDashboard,
   CitizenSurvivalSignal,
@@ -246,6 +247,43 @@ export function founderBusinessAlertSummaryText(
 ): string | null {
   if (business.alerts.length === 0) return null
   return business.alerts.map(founderBusinessAlertText).join(' · ')
+}
+
+export function founderFirstBuildReasonText(
+  recommendation: Pick<
+    RealityAreaDashboard['firstBuild'][number],
+    'reason' | 'canBuildNow' | 'founderCanAfford' | 'blockers'
+  >,
+): string {
+  if (recommendation.canBuildNow) return recommendation.reason
+  if (recommendation.blockers.includes('actor_unavailable')) return 'Founder is recovering and cannot build yet'
+  if (recommendation.blockers.includes('insufficient_funds') || !recommendation.founderCanAfford) {
+    return 'Founder cash is too low for this build'
+  }
+  if (recommendation.blockers.includes('license_unavailable')) return 'Starter license is already taken in this area'
+  return recommendation.reason
+}
+
+export function founderWorkerCandidateActionText(
+  candidate: Pick<
+    AreaJobsDashboard['candidates'][number],
+    'action' | 'recommendedBusinessName' | 'recommendedBusinessKind'
+  >,
+): string {
+  switch (candidate.action) {
+    case 'hire_now':
+      return candidate.recommendedBusinessName
+        ? `Ready for ${candidate.recommendedBusinessName}`
+        : 'Ready to hire'
+    case 'founder_unavailable':
+      return 'Founder recovering before hiring resumes'
+    case 'requires_acceptance':
+      return candidate.recommendedBusinessKind
+        ? `${candidate.recommendedBusinessKind} role needs worker acceptance`
+        : 'Worker acceptance required'
+    case 'waiting_for_position':
+      return 'No open staffed role right now'
+  }
 }
 
 export function founderGrowthStatusLabel(

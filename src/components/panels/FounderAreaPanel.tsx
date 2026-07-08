@@ -70,6 +70,7 @@ import {
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
   founderCitizenProtectionText,
+  founderFirstBuildReasonText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -96,6 +97,7 @@ import {
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
+  founderWorkerCandidateActionText,
 } from './founderAreaPanelView'
 
 type PanelState =
@@ -842,6 +844,7 @@ export default function FounderAreaPanel() {
                     <span className="item-desc">
                       demand {recommendation.currentDemand} · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
                     </span>
+                    <span className="item-desc">{founderFirstBuildReasonText(recommendation)}</span>
                     <span className={recommendation.estimatedHourlyProfit >= 0 ? 'item-yield mono' : 'item-locked mono'}>
                       {recommendation.estimatedHourlyProfit >= 0 ? '+' : '-'}
                       {formatMoney(Math.abs(recommendation.estimatedHourlyProfit))}/hour
@@ -970,6 +973,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">
                         {candidate.participantLabel} · {candidate.recommendedBusinessName ?? 'no open business'}
                       </span>
+                      <span className="item-desc">{founderWorkerCandidateActionText(candidate)}</span>
                       {candidate.recommendedBusinessKind && (
                         <span className="item-yield mono">{candidate.recommendedBusinessKind} worker</span>
                       )}

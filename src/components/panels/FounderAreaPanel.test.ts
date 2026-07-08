@@ -63,6 +63,7 @@ import {
   founderLegacyRoyaltySummaryItems,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderFirstBuildReasonText,
   founderPayoutReadinessBlockerText,
   founderPayoutReadinessPolicyText,
   founderPayoutReadinessStatusLabel,
@@ -70,6 +71,7 @@ import {
   founderSettlementBlockerText,
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
+  founderWorkerCandidateActionText,
 } from './founderAreaPanelView'
 
 describe('FounderAreaPanel covenant presenters', () => {
@@ -207,6 +209,39 @@ describe('FounderAreaPanel covenant presenters', () => {
         severity: 'warning',
       }],
     })).toBe('No active staff on shift · Spending is outpacing revenue')
+
+    expect(founderFirstBuildReasonText({
+      reason: 'Local demand is waiting for this service.',
+      canBuildNow: true,
+      founderCanAfford: true,
+      blockers: [],
+    })).toBe('Local demand is waiting for this service.')
+
+    expect(founderFirstBuildReasonText({
+      reason: 'No starter license remains for this business kind.',
+      canBuildNow: false,
+      founderCanAfford: true,
+      blockers: ['actor_unavailable'],
+    })).toBe('Founder is recovering and cannot build yet')
+
+    expect(founderFirstBuildReasonText({
+      reason: 'Low current demand; consider it after the area grows.',
+      canBuildNow: false,
+      founderCanAfford: false,
+      blockers: ['insufficient_funds'],
+    })).toBe('Founder cash is too low for this build')
+
+    expect(founderWorkerCandidateActionText({
+      action: 'hire_now',
+      recommendedBusinessName: 'Founder Water',
+      recommendedBusinessKind: 'water',
+    })).toBe('Ready for Founder Water')
+
+    expect(founderWorkerCandidateActionText({
+      action: 'founder_unavailable',
+      recommendedBusinessName: 'Founder Water',
+      recommendedBusinessKind: 'water',
+    })).toBe('Founder recovering before hiring resumes')
   })
 
   test('summarizes disabled Telegram growth tracking for founder review', () => {
