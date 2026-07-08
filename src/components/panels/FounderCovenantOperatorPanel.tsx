@@ -47,6 +47,7 @@ import {
   queueResumeText,
   queueSortChipTone,
   queueSortLabel,
+  queueTelegramOutputsSummary,
   queueTelegramScaffoldText,
   queueViewChipTone,
   queueViewLabel,
@@ -136,6 +137,13 @@ export default function FounderCovenantOperatorPanel({
   const operatorToken = manualOperatorToken.trim() || telegramOperatorToken.trim()
   const cadenceReady = queue ? founderCovenantOperatorQueueCadenceReadyMix(queue) : null
   const activityRisk = queue ? founderCovenantOperatorQueueActivityRiskMix(queue) : null
+  const manualReviewTelegramDraft = queue?.items.flatMap((item) => item.pendingNotificationDrafts).find((item) => item.kind === 'manual_review_required') ?? null
+  const founderWarningTelegramDraft = queue?.items.flatMap((item) => item.pendingApprovalRequests).find((item) => item.kind === 'send_warning') ?? null
+  const telegramOutputsSummary = queueTelegramOutputsSummary({
+    hasQueue: Boolean(queue),
+    hasManualReviewDraft: Boolean(manualReviewTelegramDraft),
+    hasFounderWarningDraft: Boolean(founderWarningTelegramDraft),
+  })
 
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
@@ -439,7 +447,7 @@ export default function FounderCovenantOperatorPanel({
 
   const copyManualReviewTelegramDraft = async () => {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
-    const draft = queue?.items.flatMap((item) => item.pendingNotificationDrafts).find((item) => item.kind === 'manual_review_required')
+    const draft = manualReviewTelegramDraft
     const queueSummary = queue
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
@@ -484,7 +492,7 @@ export default function FounderCovenantOperatorPanel({
 
   const copyFounderWarningTelegramDraft = async () => {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
-    const request = queue?.items.flatMap((item) => item.pendingApprovalRequests).find((item) => item.kind === 'send_warning')
+    const request = founderWarningTelegramDraft
     const queueSummary = queue
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
@@ -1100,6 +1108,13 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Monthly ready</span>
               <strong>{cadenceReady?.monthly ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${manualReviewTelegramDraft || founderWarningTelegramDraft ? 'warning' : 'stable'}`}
+              title={telegramOutputsSummary}
+            >
+              <span>Telegram</span>
+              <strong>{manualReviewTelegramDraft || founderWarningTelegramDraft ? 'ready' : 'none'}</strong>
             </span>
           </div>
           <FounderCovenantQueuePanel

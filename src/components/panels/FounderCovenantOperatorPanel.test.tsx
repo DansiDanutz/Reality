@@ -16,6 +16,7 @@ import {
   queuePriorityPresetLabel,
   queuePresetChipTone,
   queueSortChipTone,
+  queueTelegramOutputsSummary,
   queueTelegramScaffoldText,
   queueViewChipTone,
 } from './founderCovenantOperatorQueueView'
@@ -76,6 +77,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('<span>Resume</span><strong>more</strong>')
     expect(html).toContain('<span>Weekly ready</span><strong>0</strong>')
     expect(html).toContain('<span>Monthly ready</span><strong>0</strong>')
+    expect(html).toContain('title="Telegram outputs: review update · manual review draft · warning draft"')
+    expect(html).toContain('class="founder-ledger-chip warning" title="Telegram outputs: review update · manual review draft · warning draft"><span>Telegram</span><strong>ready</strong>')
     expect(html).toContain('Record evidence')
     expect(html).toContain('Copy view')
     expect(html).toContain('Copy digest')
@@ -388,6 +391,16 @@ describe('FounderCovenantOperatorPanel', () => {
     })).toBe(
       'Send warning (telegram)\nFounder covenant signals suggest a warning.\n2 delivery blockers remain before send\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
     )
+    expect(queueTelegramOutputsSummary({
+      hasQueue: true,
+      hasManualReviewDraft: true,
+      hasFounderWarningDraft: true,
+    })).toBe('Telegram outputs: review update · manual review draft · warning draft')
+    expect(queueTelegramOutputsSummary({
+      hasQueue: false,
+      hasManualReviewDraft: false,
+      hasFounderWarningDraft: false,
+    })).toBe('Telegram outputs: none')
   })
 })
 

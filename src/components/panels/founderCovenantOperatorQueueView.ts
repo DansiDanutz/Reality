@@ -194,6 +194,20 @@ export function queueTelegramScaffoldText({
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n')
 }
 
+export function queueTelegramOutputsSummary(options: {
+  hasQueue: boolean
+  hasManualReviewDraft: boolean
+  hasFounderWarningDraft: boolean
+}): string {
+  const outputs: string[] = []
+  if (options.hasQueue) outputs.push('review update')
+  if (options.hasManualReviewDraft) outputs.push('manual review draft')
+  if (options.hasFounderWarningDraft) outputs.push('warning draft')
+  return outputs.length > 0
+    ? `Telegram outputs: ${outputs.join(' · ')}`
+    : 'Telegram outputs: none'
+}
+
 export function queueManualReviewTelegramText({
   draft,
   queueSummary,
