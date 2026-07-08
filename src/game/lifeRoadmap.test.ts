@@ -94,7 +94,7 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.constructionProjects.length).toBe(1)
   })
 
-  test('smokes the early ownership arc from survival habits into the first business shell', () => {
+  test('smokes the early ownership arc from survival habits into the first business foundation', () => {
     const roadmap = planLifeRoadmap(snap(), 60)
     const primaryIds = roadmap.days.map((day) => day.primary.id)
     const firstIndex = (id: string) => primaryIds.indexOf(id)
@@ -112,7 +112,7 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'business')).toBe(false)
 
-    const shell = planLifeRoadmap(snap({
+    const launchRoadmap = planLifeRoadmap(snap({
       lifeDay: roadmap.finalSnapshot.lifeDay,
       money: 30_000,
       level: roadmap.finalSnapshot.level,
@@ -128,12 +128,12 @@ describe('planLifeRoadmap', () => {
       communityFriendship: roadmap.finalSnapshot.communityFriendship,
       communityTrust: roadmap.finalSnapshot.communityTrust,
     }), 1)
-    expect(shell.days[0].primary).toMatchObject({
+    expect(launchRoadmap.days[0].primary).toMatchObject({
       id: 'build-first-business',
       route: { kind: 'market', focus: 'business' },
     })
-    expect(shell.finalSnapshot.assets.some((asset) => asset.kind === 'business')).toBe(false)
-    expect(shell.finalSnapshot.constructionProjects.some((project) => project.resultKind === 'business')).toBe(true)
+    expect(launchRoadmap.finalSnapshot.assets.some((asset) => asset.kind === 'business')).toBe(false)
+    expect(launchRoadmap.finalSnapshot.constructionProjects.some((project) => project.resultKind === 'business')).toBe(true)
   })
 
   test('uses free time after work starts to move the home build without making it the primary task', () => {
@@ -768,7 +768,7 @@ describe('planLifeRoadmap', () => {
     )).toHaveLength(1)
   })
 
-  test('clears stale completed business shell construction without duplicating the roadmap asset', () => {
+  test('clears stale completed business foundation construction without duplicating the roadmap asset', () => {
     const project = {
       ...createConstructionProjectFromRecipe(
         businessConstructionRecipe({ id: 'foodcart', name: 'Food Cart', price: 15_000, incomePerDay: 200 }),
@@ -938,7 +938,7 @@ describe('planLifeRoadmap', () => {
     })
   })
 
-  test('projects the first business from map shell into interior development', () => {
+  test('projects the first business from map placement into interior development', () => {
     const launchSnapshot = snap({
       lifeDay: 8,
       money: 30_000,
@@ -955,17 +955,17 @@ describe('planLifeRoadmap', () => {
       communityTrust: 5,
     })
 
-    const shell = planLifeRoadmap(launchSnapshot, 1)
-    expect(shell.days[0].primary).toMatchObject({
+    const roadmap = planLifeRoadmap(launchSnapshot, 1)
+    expect(roadmap.days[0].primary).toMatchObject({
       id: 'build-first-business',
       route: { kind: 'market', focus: 'business' },
     })
-    expect(shell.finalSnapshot.money).toBeLessThan(16_000)
-    expect(shell.finalSnapshot.money).toBeGreaterThan(15_000)
-    expect(shell.finalSnapshot.assets.filter((asset) => asset.kind === 'business')).toEqual([])
-    expect(shell.finalSnapshot.businessDevelopmentProjects).toEqual([])
-    expect(shell.finalSnapshot.constructionProjects).toHaveLength(1)
-    expect(shell.days[0]).toMatchObject({
+    expect(roadmap.finalSnapshot.money).toBeLessThan(16_000)
+    expect(roadmap.finalSnapshot.money).toBeGreaterThan(15_000)
+    expect(roadmap.finalSnapshot.assets.filter((asset) => asset.kind === 'business')).toEqual([])
+    expect(roadmap.finalSnapshot.businessDevelopmentProjects).toEqual([])
+    expect(roadmap.finalSnapshot.constructionProjects).toHaveLength(1)
+    expect(roadmap.days[0]).toMatchObject({
       startingAssetCount: 1,
       endingAssetCount: 1,
       assetCountDelta: 0,
@@ -973,7 +973,7 @@ describe('planLifeRoadmap', () => {
       endingConstructionProjectCount: 1,
       constructionProjectCountDelta: 1,
     })
-    expect(shell.finalSnapshot.constructionProjects[0]).toMatchObject({
+    expect(roadmap.finalSnapshot.constructionProjects[0]).toMatchObject({
       name: 'Food Cart',
       resultKind: 'business',
       incomePerDay: 200,
