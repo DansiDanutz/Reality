@@ -28,6 +28,7 @@ import {
   founderCovenantOperatorQueueItemTitle,
   founderCovenantOperatorQueueApprovalRequestText,
   founderCovenantOperatorQueueChecklistText,
+  founderCovenantOperatorQueueChecklistReasonText,
   founderCovenantOperatorQueueEvidenceInputText,
   founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftGateText,
@@ -72,6 +73,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Stage reasons: Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
+    expect(html).toContain('Checklist reasons: Active: Founder is unavailable and needs manual review. · Useful: Founder needs useful activity serving local demand. · Building: Founder owns at least one local business. · Staffed: Founder businesses need staff before review can clear. · Debt: Founder has unpaid debt to review before profit or succession. · Hospital: Founder is hospitalized; replacement remains manual. · At risk: Covenant signals need weekly/monthly review. · Manual authority: Automatic removal and waitlist handoff are disabled.')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Evidence reasons: Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
@@ -186,6 +188,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueChecklistText(manual)).toBe(
       'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',
     )
+    expect(founderCovenantOperatorQueueChecklistReasonText(manual)).toBe(
+      'Active: Founder is unavailable and needs manual review. · Useful: Founder needs useful activity serving local demand. · Building: Founder owns at least one local business. · Staffed: Founder businesses need staff before review can clear. · Debt: Founder has unpaid debt to review before profit or succession. · Hospital: Founder is hospitalized; replacement remains manual. · At risk: Covenant signals need weekly/monthly review. · Manual authority: Automatic removal and waitlist handoff are disabled.',
+    )
     expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
       'Population growth, External contribution, Ideas and feedback',
     )
@@ -252,6 +257,7 @@ describe('FounderCovenantQueuePanel', () => {
       recommendedActionText: 'Send warning',
       activityReasonText: 'Active: No recent founder activity is visible. · Useful: Usefulness needs reviewer evidence. · Building: Founder has built or owns local business activity. · Staffed: Founder businesses need staffing attention. · Indebted: Founder has outstanding debt. · Hospitalized: Founder is unavailable in hospital. · At risk: Founder covenant status requires manual attention.',
       stageReasonText: 'Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.',
+      checklistReasonText: 'Active: Founder is unavailable and needs manual review. · Useful: Founder needs useful activity serving local demand. · Building: Founder owns at least one local business. · Staffed: Founder businesses need staff before review can clear. · Debt: Founder has unpaid debt to review before profit or succession. · Hospital: Founder is hospitalized; replacement remains manual. · At risk: Covenant signals need weekly/monthly review. · Manual authority: Automatic removal and waitlist handoff are disabled.',
       latestReviewAuthorityText: null,
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',

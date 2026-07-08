@@ -140,6 +140,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   stageReasonText: string
   reviewReadinessText: string
   checklistText: string
+  checklistReasonText: string
   evidenceInputText: string
   evidenceReasonText: string
   manualActionText: string
@@ -1359,6 +1360,7 @@ export function founderCovenantOperatorQueueReviewRows(
       stageReasonText: founderCovenantOperatorQueueStageReasonText(item),
       reviewReadinessText: founderCovenantOperatorQueueReviewReadinessText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
+      checklistReasonText: founderCovenantOperatorQueueChecklistReasonText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       evidenceReasonText: founderCovenantOperatorQueueEvidenceReasonText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
@@ -1511,6 +1513,13 @@ export function founderCovenantOperatorQueueChecklistText(
   if (manual.length > 0) parts.push(`Manual: ${manual.map((entry) => entry.label).join(', ')}`)
   if (watch.length > 0) parts.push(`Watch: ${watch.map((entry) => entry.label).join(', ')}`)
   return parts.join(' · ')
+}
+
+export function founderCovenantOperatorQueueChecklistReasonText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewChecklist'>,
+): string {
+  if (item.reviewChecklist.length === 0) return 'none'
+  return item.reviewChecklist.map((entry) => `${entry.label}: ${entry.evidence}`).join(' · ')
 }
 
 export function founderCovenantOperatorQueueEvidenceInputText(
