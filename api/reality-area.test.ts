@@ -906,7 +906,7 @@ describe('reality area authority API', () => {
       actions: [{
         warning: 'water',
         intent: 'buyWater',
-        clientPayload: { type: 'buyWater' },
+        clientPayload: null,
         serviceKind: 'water',
         available: false,
         lowestPrice: null,
@@ -1905,6 +1905,7 @@ describe('reality area authority API', () => {
       actions: [{
         warning: 'water',
         intent: 'buyWater',
+        clientPayload: { type: 'buyWater' },
         serviceKind: 'water',
         available: true,
         lowestPrice: 2,

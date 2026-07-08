@@ -717,7 +717,7 @@ export interface RealityAreaCitizenDashboard {
 export interface RealityAreaSurvivalAction {
   warning: WorldSurvivalWarningKind
   intent: WorldSurvivalActionIntent
-  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }> | null
   serviceKind: Exclude<WorldBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -1636,7 +1636,7 @@ function mergeRealityAreaSurvivalSignal(signal: RealityAreaSurvivalSignal): Citi
     actions: signal.actions.map((action) => ({
       ...action,
       blockers: [...action.blockers],
-      clientPayload: { ...action.clientPayload },
+      clientPayload: action.clientPayload ? { ...action.clientPayload } : null,
     })),
     warnings: [...signal.warnings],
     hospitalizedUntil: signal.hospitalizedUntil ? parseInstant(signal.hospitalizedUntil) : undefined,
@@ -2889,7 +2889,7 @@ function isRealityAreaSurvivalAction(value: unknown): value is RealityAreaSurviv
   return isRecord(value) &&
     isSurvivalWarning(value.warning) &&
     isSurvivalActionIntent(value.intent) &&
-    isRealityAreaSurvivalPayload(value.clientPayload) &&
+    (isRealityAreaSurvivalPayload(value.clientPayload) || value.clientPayload === null) &&
     isBusinessKind(value.serviceKind) &&
     value.serviceKind !== 'insurance' &&
     typeof value.available === 'boolean' &&

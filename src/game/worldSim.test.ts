@@ -2911,7 +2911,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         warning: 'rest',
         intent: 'buyHousing',
-        clientPayload: { type: 'buyHousing' },
+        clientPayload: null,
         serviceKind: 'housing',
         available: false,
         lowestPrice: null,
@@ -2921,7 +2921,7 @@ describe('advanceWorldArea — local real-time economy', () => {
       {
         warning: 'health',
         intent: 'visitClinic',
-        clientPayload: { type: 'visitClinic' },
+        clientPayload: null,
         serviceKind: 'clinic',
         available: true,
         lowestPrice: 90,
