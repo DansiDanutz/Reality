@@ -1251,6 +1251,8 @@ interface FounderCovenantReviewQueueDashboard {
     neverReviewed: number
     freshReviewed: number
     staleReviewed: number
+    staleWeeklyDue: number
+    staleMonthlyDue: number
     scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
@@ -4644,6 +4646,8 @@ function founderCovenantReviewQueueTotals(
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
     freshReviewed: items.filter((item) => item.reviewFreshness === 'fresh').length,
     staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
+    staleWeeklyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue).length,
+    staleMonthlyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.monthlyReviewDue).length,
     scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,

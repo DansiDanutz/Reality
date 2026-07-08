@@ -939,6 +939,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     neverReviewed: number
     freshReviewed: number
     staleReviewed: number
+    staleWeeklyDue: number
+    staleMonthlyDue: number
     scanAnomalies: number
     weeklyDue: number
     monthlyDue: number
@@ -2247,6 +2249,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.neverReviewed === 'number' &&
     typeof value.freshReviewed === 'number' &&
     typeof value.staleReviewed === 'number' &&
+    typeof value.staleWeeklyDue === 'number' &&
+    typeof value.staleMonthlyDue === 'number' &&
     typeof value.scanAnomalies === 'number' &&
     typeof value.weeklyDue === 'number' &&
     typeof value.monthlyDue === 'number' &&

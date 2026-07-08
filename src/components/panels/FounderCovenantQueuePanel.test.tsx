@@ -39,7 +39,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('approval workflow disabled')
     expect(html).toContain('replacement disabled')
     expect(html).toContain('waitlist disabled')
-    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
+    expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 stale weekly · 0 stale monthly · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
@@ -493,18 +493,24 @@ describe('FounderCovenantQueuePanel', () => {
       neverReviewed: 3,
       freshReviewed: 0,
       staleReviewed: 0,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
     })
     expect(founderCovenantOperatorQueueSliceTotals(queueWithStale, 'stale_reviewed')).toMatchObject({
       founders: 1,
       neverReviewed: 0,
       freshReviewed: 0,
       staleReviewed: 1,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
     })
     expect(founderCovenantOperatorQueueSliceTotals(queueWithCoverage, 'fresh_reviewed')).toMatchObject({
       founders: 1,
       neverReviewed: 0,
       freshReviewed: 1,
       staleReviewed: 0,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
     })
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'manual_review')).toMatchObject({
       founders: 1,
@@ -534,6 +540,8 @@ describe('FounderCovenantQueuePanel', () => {
         neverReviewed: 0,
         freshReviewed: 0,
         staleReviewed: 0,
+        staleWeeklyDue: 0,
+        staleMonthlyDue: 0,
         scanAnomalies: 0,
         weeklyDue: 0,
         monthlyDue: 0,
@@ -552,7 +560,7 @@ describe('FounderCovenantQueuePanel', () => {
 
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel queue={empty} />)
 
-    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 scan anomalies · 0 weekly due · 0 monthly due · 0 warning approvals · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 0 manual-review drafts · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
+    expect(html).toContain('0 founders · 0 manual reviews · 0 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 stale weekly · 0 stale monthly · 0 scan anomalies · 0 weekly due · 0 monthly due · 0 warning approvals · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 0 manual-review drafts · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
     expect(html).toContain('No founders in this review page.')
   })
 })
@@ -626,6 +634,8 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       neverReviewed: 1,
       freshReviewed: 0,
       staleReviewed: 0,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
       scanAnomalies: 0,
       weeklyDue: 0,
       monthlyDue: 0,

@@ -176,6 +176,8 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       neverReviewed: 1,
       freshReviewed: 0,
       staleReviewed: 0,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
       scanAnomalies: 0,
       weeklyDue: 0,
       monthlyDue: 0,

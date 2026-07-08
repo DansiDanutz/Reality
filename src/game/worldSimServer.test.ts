@@ -1461,6 +1461,8 @@ describe('runWorldServerCommand', () => {
       neverReviewed: 2,
       freshReviewed: 0,
       staleReviewed: 0,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
       scanAnomalies: 0,
       totalOutstandingDebt: 350,
     })

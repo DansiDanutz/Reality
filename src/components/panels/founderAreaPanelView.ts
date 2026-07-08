@@ -118,6 +118,8 @@ export interface FounderCovenantOperatorQueueSliceTotals {
   neverReviewed: number
   freshReviewed: number
   staleReviewed: number
+  staleWeeklyDue: number
+  staleMonthlyDue: number
   scanAnomalies: number
   weeklyDue: number
   monthlyDue: number
@@ -752,6 +754,8 @@ export function founderCovenantOperatorQueueSummary(
     `${totals.neverReviewed} never reviewed`,
     `${totals.freshReviewed} freshly reviewed`,
     `${totals.staleReviewed} stale review${totals.staleReviewed === 1 ? '' : 's'}`,
+    `${totals.staleWeeklyDue} stale weekly`,
+    `${totals.staleMonthlyDue} stale monthly`,
     `${totals.scanAnomalies} scan anomal${totals.scanAnomalies === 1 ? 'y' : 'ies'}`,
     `${totals.weeklyDue} weekly due`,
     `${totals.monthlyDue} monthly due`,
@@ -977,6 +981,8 @@ export function founderCovenantOperatorQueueSliceTotals(
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
     freshReviewed: items.filter((item) => item.reviewFreshness === 'fresh').length,
     staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
+    staleWeeklyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue).length,
+    staleMonthlyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.monthlyReviewDue).length,
     scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
