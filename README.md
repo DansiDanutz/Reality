@@ -1,8 +1,8 @@
 # REALITY
 
-**A life simulation on a living 3D Earth.** Eat, sleep, work, shop, and build businesses anywhere on the planet — a playable society with a real economy.
+**A life simulation on a living 3D Earth.** Eat, sleep, work, shop, and build businesses anywhere on the planet — a playable society with an in-game, server-ready economy.
 
-The first **2,000 founders** receive **$200,000** in-game to bootstrap the world's economy: buy property, open businesses, hire, trade, and build.
+The first **2,000 founders** receive **$200,000 in-game credits** to bootstrap the world's economy: claim an area, open businesses, hire, trade, and build. Real payouts, withdrawals, land sales, and crypto settlement are disabled until server authority and compliance review are ready.
 
 ![status](https://img.shields.io/badge/status-open%20beta-f0b429) ![stack](https://img.shields.io/badge/stack-React%20%2B%20Three.js-5b8def)
 
@@ -29,13 +29,13 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | Jobs & shifts — 5 careers, XP, level-ups | ✅ |
 | The Market — 78 items in 10 categories with search: food, drinks, clothing, electronics, furniture, vehicles, education, leisure, homes, businesses | ✅ |
 | Career gear with wage bonuses · education with instant XP · endgame purchases up to a $1.2M airline | ✅ |
-| Businesses placed anywhere on Earth, passive income | ✅ |
+| Businesses placed anywhere on Earth, in-game operating income | ✅ |
 | **Real founder registry** — exactly 2,000 slots, first-come, live counter | ✅ online |
 | **Shared world map** — see every citizen's businesses on the globe | ✅ online |
 | **Global net-worth leaderboard** | ✅ online |
 | Founder grant ($200,000) | ✅ |
 | Guided onboarding — 7 objectives with XP rewards | ✅ |
-| Offline earnings — businesses pay while you're away (capped at 3 game days) | ✅ |
+| Offline in-game accrual — businesses simulate while you're away (capped at 3 game days) | ✅ |
 | Random life events | ✅ |
 | Trade-route arcs between your holdings on the globe | ✅ |
 | Save game (browser localStorage) | ✅ |
@@ -52,7 +52,7 @@ Open http://localhost:5173, claim your founder slot, and start living.
 
 ## The vision
 
-Reality is a society simulator: every mechanic mirrors a real-world loop. You must eat and sleep. You work to earn. You spend to live. Surplus becomes capital; capital becomes businesses; businesses pay you while you sleep. When the server release lands, those businesses sell to *other players* — and the economy becomes real.
+Reality is a society simulator: every mechanic mirrors a real-world loop. You must eat and sleep. You work to earn game credits. You spend to live. Surplus becomes capital; capital becomes businesses; businesses serve citizens and create ledger events. The server-authoritative release turns that loop into local demand-driven gameplay before any crypto, payout, or land-sale feature can be enabled.
 
 The founder cohort exists to solve the cold-start problem every player economy has: someone has to be able to build the first coffee shop before anyone can buy coffee.
 
