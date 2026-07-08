@@ -5502,6 +5502,67 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('recordCovenantReview persists repeated same-time reviews with unique ids', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const existing = {
+      ...existingState(),
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
+    }
+    let persistedState: ReturnType<typeof existingState> | null = existing
+    vi.mocked(list)
+      .mockResolvedValue(blobList([FOUNDER_PATH]))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(persistedState), { status: 200 })))
+    vi.mocked(put).mockImplementation(async (_pathname, body) => {
+      persistedState = JSON.parse(body as string) as ReturnType<typeof existingState>
+      return { url: 'blob://reality-areas/founder.json' } as never
+    })
+
+    const firstRes = responseRecorder()
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          note: 'First review.',
+        },
+      },
+    } as never, firstRes as never)
+
+    expect(firstRes.statusCode).toBe(200)
+
+    const secondRes = responseRecorder()
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: {
+          type: 'recordCovenantReview',
+          actionKind: 'record_review',
+          note: 'Second review at the same server time.',
+        },
+      },
+    } as never, secondRes as never)
+
+    expect(secondRes.statusCode).toBe(200)
+    const secondBody = secondRes.body as {
+      ok: true
+      state: ReturnType<typeof existingState> & {
+        founderReviewHistory: { id: string }[]
+      }
+    }
+    expect(secondBody.state.founderReviewHistory.map((entry) => entry.id)).toEqual([
+      `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}`,
+      `founder-area-0012:${Date.parse('2026-07-06T08:00:00.000Z')}:founder-review:${CITIZEN_ID}:2`,
+    ])
+    expect(new Set(secondBody.state.founderReviewHistory.map((entry) => entry.id)).size).toBe(2)
+  })
+
   test('recordCovenantReview captures and clears reviewed Sim departure signals', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))

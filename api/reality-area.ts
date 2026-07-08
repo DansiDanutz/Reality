@@ -5558,7 +5558,7 @@ function applyRecordCovenantReviewIntent(
   const at = now.toISOString()
   const review = founderCovenantReview(state)
   const entry: FounderAreaCovenantReviewHistoryItem = {
-    id: `${state.areaId}:${now.getTime()}:founder-review:${reviewerId}`,
+    id: founderCovenantReviewHistoryId(state, now.getTime(), reviewerId),
     at,
     reviewerId,
     actionKind: intent.actionKind,
@@ -5588,6 +5588,20 @@ function applyRecordCovenantReviewIntent(
       updatedAt: at,
     },
   }
+}
+
+function founderCovenantReviewHistoryId(
+  state: FounderAreaState,
+  reviewedAtMs: number,
+  reviewerId: string,
+): string {
+  const baseId = `${state.areaId}:${reviewedAtMs}:founder-review:${reviewerId}`
+  const existingIds = new Set((state.founderReviewHistory ?? []).map((entry) => entry.id))
+  if (!existingIds.has(baseId)) return baseId
+
+  let suffix = 2
+  while (existingIds.has(`${baseId}:${suffix}`)) suffix += 1
+  return `${baseId}:${suffix}`
 }
 
 function applyFounderHour(
