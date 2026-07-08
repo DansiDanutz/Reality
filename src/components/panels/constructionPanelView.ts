@@ -22,6 +22,11 @@ export function constructionFinalStageView(
   }
 }
 
+export function constructionCompletionActionLabel(planKind: AssetKind, complete: boolean): string {
+  if (!complete) return 'Complete'
+  return planKind === 'business' ? 'Open business' : 'Enter house'
+}
+
 export function constructionForecastCards(forecast: ConstructionDayForecast): ForecastCardView[] {
   const cards: ForecastCardView[] = []
   if (forecast.upfrontCostRemaining > 0) {

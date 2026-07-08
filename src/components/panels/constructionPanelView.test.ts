@@ -6,6 +6,7 @@ import { freshResources } from '../../game/resources'
 import type { PlacedAsset } from '../../game/types'
 import {
   businessDevelopmentForecastCards,
+  constructionCompletionActionLabel,
   constructionFinalStageView,
   constructionForecastCards,
 } from './constructionPanelView'
@@ -43,6 +44,18 @@ describe('constructionFinalStageView', () => {
       className: 'chip',
       label: 'open',
     })
+  })
+})
+
+describe('constructionCompletionActionLabel', () => {
+  test('keeps incomplete builds as a generic completion action', () => {
+    expect(constructionCompletionActionLabel('home', false)).toBe('Complete')
+    expect(constructionCompletionActionLabel('business', false)).toBe('Complete')
+  })
+
+  test('labels ready builds by the place the player can enter next', () => {
+    expect(constructionCompletionActionLabel('home', true)).toBe('Enter house')
+    expect(constructionCompletionActionLabel('business', true)).toBe('Open business')
   })
 })
 

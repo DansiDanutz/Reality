@@ -13,7 +13,7 @@ import { availableCommunityHelperMinutes } from '../../game/community'
 import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
-import { constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
+import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
 import { selectedWorkerHours, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
@@ -312,6 +312,7 @@ export default function ConstructionPanel() {
               const progress = constructionProgress(project)
               const missing = constructionShortfall(project)
               const labor = constructionLaborBreakdown(project)
+              const completionLabel = constructionCompletionActionLabel(project.resultKind, progress.complete)
               const canWork = progress.resourcesComplete && progress.permitComplete && !progress.laborComplete
               const workLabel = !progress.resourcesComplete
                 ? 'Deposit first'
@@ -357,7 +358,7 @@ export default function ConstructionPanel() {
                       {workLabel}
                     </button>
                     <button className="btn small primary" disabled={!progress.complete} onClick={() => completeConstructionIfReady(project.id)}>
-                      Complete
+                      {completionLabel}
                     </button>
                   </div>
                 </li>
