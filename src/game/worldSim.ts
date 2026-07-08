@@ -2447,8 +2447,13 @@ function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKin
 
 function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
   if (citizen.state.kind !== 'active' || !citizen.jobBusinessId) return false
+  return !hasStaleJobAssignment(area, citizen)
+}
+
+function hasStaleJobAssignment(area: WorldArea, citizen: WorldCitizen): boolean {
+  if (!citizen.jobBusinessId) return false
   const business = area.businesses.find((candidate) => candidate.id === citizen.jobBusinessId)
-  return Boolean(business?.staffCitizenIds.includes(citizen.id))
+  return !business?.staffCitizenIds.includes(citizen.id)
 }
 
 function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderCanManage = true): AreaJobsDashboard {
@@ -2465,7 +2470,11 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderC
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
   const candidates = activeCitizens
-    .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
+    .filter((citizen) =>
+      citizen.id !== area.claim?.founderCitizenId &&
+      !hasActiveJob(area, citizen) &&
+      (!citizen.jobBusinessId || hasStaleJobAssignment(area, citizen))
+    )
     .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
   return {
     employedCitizens,
@@ -2841,7 +2850,9 @@ function hireWorkerFromIntent(
   const worker = area.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
   if (!worker) return { ok: false, area, error: 'worker_not_found' }
   if (worker.kind === 'real') return { ok: false, area, error: 'real_worker_requires_acceptance' }
-  if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
+  if (worker.state.kind !== 'active') return { ok: false, area, error: 'worker_unavailable' }
+  if (hasStaleJobAssignment(area, worker)) delete worker.jobBusinessId
+  if (worker.jobBusinessId && worker.jobBusinessId !== business.id) {
     return { ok: false, area, error: 'worker_unavailable' }
   }
   if (activeStaffCount(area, business) >= TARGET_STAFF_BY_KIND[business.kind]) {
