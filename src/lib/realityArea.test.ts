@@ -747,6 +747,41 @@ describe('Reality area client', () => {
     expect(body.transactions).toBeUndefined()
   })
 
+  test('strips client-owned state from buildBusiness payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: 'water-1',
+      name: 'Founder Water',
+      money: 999_999,
+      debt: 120,
+      reviewQueue: 'client-value',
+    } as unknown as Parameters<typeof applyRealityFounderAreaIntent>[1], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: {
+        type: 'buildBusiness',
+        businessKind: 'water',
+        businessId: 'water-1',
+        name: 'Founder Water',
+      },
+    })
+  })
+
   test('sends survival service purchases through the server area authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
@@ -787,6 +822,35 @@ describe('Reality area client', () => {
         token: 'token-1',
         intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
       }),
+    })
+  })
+
+  test('strips client-owned state from repayDebt payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 120,
+      money: 999_999,
+      state: { kind: 'active' },
+      signals: ['client-value'],
+    } as unknown as Parameters<typeof applyRealityFounderAreaIntent>[1], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
     })
   })
 

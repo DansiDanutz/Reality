@@ -1097,7 +1097,7 @@ export async function applyRealityFounderAreaIntent(
   payload: RealityAreaServerPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
-  return applyRealityAreaPayload(citizen, payload, fetchImpl)
+  return applyRealityAreaPayload(citizen, sanitizeRealityAreaServerPayload(payload), fetchImpl)
 }
 
 export async function advanceRealityFounderArea(
@@ -1267,6 +1267,40 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'hireWorker' ||
     payload.type === 'repayDebt' ||
     payload.type === 'buyInsurance'
+}
+
+function sanitizeRealityAreaServerPayload(payload: RealityAreaServerPayload): RealityAreaServerPayload {
+  switch (payload.type) {
+    case 'buildBusiness':
+      return {
+        type: 'buildBusiness',
+        businessKind: payload.businessKind,
+        businessId: payload.businessId,
+        ...(payload.name ? { name: payload.name } : {}),
+      }
+    case 'buyWater':
+    case 'buyFood':
+    case 'buyHousing':
+    case 'visitClinic':
+      return { type: payload.type }
+    case 'hireWorker':
+      return {
+        type: 'hireWorker',
+        businessId: payload.businessId,
+        workerCitizenId: payload.workerCitizenId,
+      }
+    case 'buyInsurance':
+      return {
+        type: 'buyInsurance',
+        insuranceBusinessId: payload.insuranceBusinessId,
+      }
+    case 'repayDebt':
+      return {
+        type: 'repayDebt',
+        debtId: payload.debtId,
+        amount: payload.amount,
+      }
+  }
 }
 
 export function founderAreaProfileWithServerClaim(
