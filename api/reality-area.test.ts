@@ -91,6 +91,8 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
     buildCost: number
     cashShortfall: number
     currentDemand: number
+    simDemand: number
+    realDemand: number
     currentSupply: number
     licenseSlots: number
     licensesRemaining: number
@@ -792,6 +794,8 @@ describe('reality area authority API', () => {
       buildCost: 8_000,
       cashShortfall: 0,
       currentDemand: 1,
+      simDemand: 1,
+      realDemand: 0,
       currentSupply: 0,
       licenseSlots: 1,
       licensesRemaining: 1,

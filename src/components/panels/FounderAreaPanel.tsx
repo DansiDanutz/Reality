@@ -834,7 +834,7 @@ export default function FounderAreaPanel() {
                   <div className="item-info">
                     <span className="item-name">{recommendation.name}</span>
                     <span className="item-desc">
-                      demand {recommendation.currentDemand} · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
+                      demand {recommendation.currentDemand} ({recommendation.simDemand} sim · {recommendation.realDemand} real) · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
                     </span>
                     <span className={recommendation.estimatedHourlyProfit >= 0 ? 'item-yield mono' : 'item-locked mono'}>
                       {recommendation.estimatedHourlyProfit >= 0 ? '+' : '-'}

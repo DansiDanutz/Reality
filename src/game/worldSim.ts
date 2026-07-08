@@ -152,6 +152,8 @@ export interface FirstBuildRecommendation {
   buildCost: number
   cashShortfall: number
   currentDemand: number
+  simDemand: number
+  realDemand: number
   currentSupply: number
   licenseSlots: number
   licensesRemaining: number
@@ -1053,6 +1055,8 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
     firstBuild: firstBuildGuidance({
       areaId: area.claim ? area.id : undefined,
       demand,
+      simDemand,
+      realDemand,
       supply,
       licenseSlots,
       saturation,
@@ -1121,7 +1125,7 @@ function founderCovenantReviewId(area: WorldArea, reviewedAt: number, reviewerId
 }
 
 export function firstBuildGuidance(
-  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
+  input: Pick<AreaNeedsDashboard, 'demand' | 'simDemand' | 'realDemand' | 'supply' | 'licenseSlots' | 'saturation'> & {
     areaId?: string
     founderMoney?: number
     founderCanAct?: boolean
@@ -1181,7 +1185,7 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
 
 function buildRecommendation(
   kind: WorldBusinessKind,
-  input: Pick<AreaNeedsDashboard, 'demand' | 'supply' | 'licenseSlots' | 'saturation'> & {
+  input: Pick<AreaNeedsDashboard, 'demand' | 'simDemand' | 'realDemand' | 'supply' | 'licenseSlots' | 'saturation'> & {
     areaId?: string
     founderMoney?: number
     founderCanAct?: boolean
@@ -1244,6 +1248,8 @@ function buildRecommendation(
     buildCost: blueprint.buildCost,
     cashShortfall,
     currentDemand: demand,
+    simDemand: input.simDemand[kind],
+    realDemand: input.realDemand[kind],
     currentSupply: supply,
     licenseSlots,
     licensesRemaining,
