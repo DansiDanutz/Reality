@@ -247,7 +247,7 @@ describe('decodeClientWorldIntentPayload', () => {
       },
       citizens: [
         citizen('founder', {
-          money: 75,
+          money: 20_000,
           needs: needs({ hydration: 45 }),
           debt: 20,
           debts: [{

@@ -66,6 +66,32 @@ describe('Telegram Mini App client bridge', () => {
     })
   })
 
+  test('rejects successful-looking sessions with incoherent identity fields', async () => {
+    const session = verifiedSession()
+    const cases = [
+      { ...session, realityAccountId: 'telegram:777' },
+      { ...session, authDate: -1 },
+      { ...session, authDate: 1.5 },
+      { ...session, telegramUser: { ...session.telegramUser, id: '' } },
+      { ...session, telegramUser: { ...session.telegramUser, firstName: '   ' } },
+      { ...session, telegramUser: { ...session.telegramUser, username: '' } },
+    ]
+
+    for (const payload of cases) {
+      const fetchImpl = vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ ok: true, ...payload }),
+      }))
+
+      await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+        ok: false,
+        reason: 'invalid_session',
+        error: 'Telegram session could not be verified.',
+        code: undefined,
+      })
+    }
+  })
+
   test('maps a verified Telegram session onto a local citizen', () => {
     const citizen: Citizen = {
       name: 'David',
