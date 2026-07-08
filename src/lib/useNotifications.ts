@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { track } from './analytics'
 import { zoneFor } from '../game/clock'
-import { challengesForDay, challengeProgress } from '../game/dailyChallenges'
+import { challengesForDay, challengeProgress, type ChallengeDef, type DailyChallengeSnapshot } from '../game/dailyChallenges'
 import { decideNotifications, markNotified, NOTIFICATION_REASONS, type NotificationLog, type NotificationSnapshot } from '../game/notifications'
 import { dailyChallengeContextOf, msToLocalMidnight, useGame } from '../store/gameStore'
 
@@ -80,6 +80,7 @@ export function useNotifications(): void {
     const anchorLat = home ? home.lat : s.citizen.spawnLat
     const anchorLng = home ? home.lng : s.citizen.spawnLng
     const todayDay = dayIndexOf(lastSeenAt, anchorLat, anchorLng)
+    const dailyProgress = dailyChallengeNotificationProgressForState(s, todayDay)
 
     const snap: NotificationSnapshot = {
       now: lastSeenAt,
@@ -90,12 +91,8 @@ export function useNotifications(): void {
       activity: s.activity,
       needs: s.needs,
       money: s.money,
-      dailyDone: s.dailyCounters.day === todayDay
-        // Count complete + claimed (matches what the panel shows). Imported
-        // lazily to avoid a static cycle when this hook is first loaded.
-        ? countDailyDone(s, todayDay)
-        : 0,
-      dailyTotal: 3,
+      dailyDone: dailyProgress.done,
+      dailyTotal: dailyProgress.total,
       dailyBonusClaimed: s.dailyBonusClaimed,
     }
 
@@ -142,16 +139,14 @@ function dayIndexOf(now: number, lat?: number, lng?: number): number {
   return Math.floor(Date.parse(ymd + 'T00:00:00Z') / 86_400_000)
 }
 
-/**
- * Count how many of today's challenges are done (claimed OR complete). Mirrors
- * the AchievementsPanel logic. Kept here (not exported from dailyChallenges)
- * because it needs the live store's dailyCounters, which the engine module
- * can't import without a cycle.
- */
-function countDailyDone(s: ReturnType<typeof useGame.getState>, todayDay: number): number {
-  if (!s.citizen) return 0
+function dailyChallengeNotificationProgressForState(
+  s: ReturnType<typeof useGame.getState>,
+  todayDay: number,
+): { done: number; total: number } {
+  if (!s.citizen) return { done: 0, total: 0 }
   const challenges = challengesForDay(s.citizen.citizenId ?? 'anon', todayDay, dailyChallengeContextOf(s))
-  const snap = {
+  if (s.dailyCounters.day !== todayDay) return { done: 0, total: challenges.length }
+  const snap: DailyChallengeSnapshot = {
     mealsToday: s.dailyCounters.mealsToday,
     drinksToday: s.dailyCounters.drinksToday,
     hygieneToday: s.dailyCounters.hygieneToday,
@@ -166,7 +161,23 @@ function countDailyDone(s: ReturnType<typeof useGame.getState>, todayDay: number
     communityToday: s.dailyCounters.communityToday,
     businessDevelopmentMinutesToday: s.dailyCounters.businessDevelopmentMinutesToday,
   }
-  return challenges.filter((c) => s.dailyClaimed.includes(c.id) || challengeProgress(c, snap).complete).length
+  return notificationDailyChallengeProgress(challenges, s.dailyClaimed, snap)
+}
+
+/**
+ * Count how many of today's challenges are done (claimed OR complete). Mirrors
+ * the AchievementsPanel logic while keeping the total tied to the generated
+ * challenge list instead of a hardcoded count.
+ */
+export function notificationDailyChallengeProgress(
+  challenges: readonly ChallengeDef[],
+  claimedIds: readonly string[],
+  snap: DailyChallengeSnapshot,
+): { done: number; total: number } {
+  return {
+    done: challenges.filter((c) => claimedIds.includes(c.id) || challengeProgress(c, snap).complete).length,
+    total: challenges.length,
+  }
 }
 
 export { NOTIFICATION_REASONS }
