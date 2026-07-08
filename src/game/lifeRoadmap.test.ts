@@ -205,11 +205,17 @@ describe('planLifeRoadmap', () => {
 
     expect(workday.days[0]).toMatchObject({
       primary: { value: 'capital' },
+      startingMoney: 500,
+      endingMoney: 582,
       projectedCashDelta: 82,
+      actualCashDelta: 82,
     })
     expect(recoveryDay.days[0]).toMatchObject({
       primary: { value: 'body' },
+      startingMoney: 500,
+      endingMoney: 461,
       projectedCashDelta: -38,
+      actualCashDelta: -39,
     })
   })
 
@@ -343,6 +349,12 @@ describe('planLifeRoadmap', () => {
       courseId: 'course',
       studiedMinutes: 0,
       completedAt: null,
+    })
+    expect(roadmap.days[0]).toMatchObject({
+      startingMoney: 500,
+      endingMoney: 502,
+      projectedCashDelta: 82,
+      actualCashDelta: 2,
     })
   })
 

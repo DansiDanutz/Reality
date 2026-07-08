@@ -56,7 +56,10 @@ export interface LifeRoadmapDay {
   millionaireGap: number
   daysToMillionaire: number | null
   netWorth: number
+  startingMoney: number
+  endingMoney: number
   projectedCashDelta: number
+  actualCashDelta: number
   buildEta: string | null
   interiorEta: string | null
 }
@@ -248,7 +251,7 @@ function asPlacedAsset(asset: LifeLadderAsset, index: number): PlacedAsset {
   }
 }
 
-function roadmapDay(plan: LifePlan): LifeRoadmapDay {
+function roadmapDay(plan: LifePlan, startingMoney: number, endingMoney: number): LifeRoadmapDay {
   const routineValues = plan.routine.map((block) => block.value)
   return {
     lifeDay: plan.lifeDay,
@@ -261,7 +264,10 @@ function roadmapDay(plan: LifePlan): LifeRoadmapDay {
     millionaireGap: plan.millionairePath.millionaireGap,
     daysToMillionaire: plan.millionairePath.daysToMillionaire,
     netWorth: plan.millionairePath.netWorth,
+    startingMoney,
+    endingMoney,
     projectedCashDelta: projectedDailyCashDelta(plan),
+    actualCashDelta: endingMoney - startingMoney,
     buildEta: buildEtaSummary(plan.constructionForecast),
     interiorEta: interiorEtaSummary(plan.businessDevelopmentForecast),
   }
@@ -602,8 +608,9 @@ export function planLifeRoadmap(snapshot: LifeLadderSnapshot, days = DEFAULT_ROA
 
   for (let index = 0; index < horizonDays; index += 1) {
     const plan = planLifeDay(current)
-    roadmapDays.push(roadmapDay(plan))
-    current = applyRoute(current, plan)
+    const next = applyRoute(current, plan)
+    roadmapDays.push(roadmapDay(plan, current.money, next.money))
+    current = next
   }
 
   const finalPlan = planLifeDay(current)
