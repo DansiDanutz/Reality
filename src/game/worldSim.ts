@@ -836,6 +836,7 @@ export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
 export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+export const PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER = 0.03
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
 const SIM_DEBT_REPAYMENT_CASH_RESERVE = 50
@@ -3086,6 +3087,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
     const due = roundMoney(wage * context.hours)
     if (due <= 0) continue
     const retainedStaffIds: string[] = []
+    let payrollDefaults = 0
     for (const workerId of business.staffCitizenIds) {
       const worker = area.citizens.find((c) => c.id === workerId)
       if (!worker) continue
@@ -3095,6 +3097,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       }
       if (worker.jobBusinessId !== business.id) continue
       const paid = Math.min(due, business.cash)
+      if (paid < due) payrollDefaults += 1
       if (paid <= 0) continue
       business.cash = roundMoney(business.cash - paid)
       worker.money = roundMoney(worker.money + paid)
@@ -3118,6 +3121,13 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       if (worker?.state.kind === 'active' && worker.jobBusinessId === business.id) delete worker.jobBusinessId
     }
     business.staffCitizenIds = retainedStaffIds
+    if (payrollDefaults > 0) {
+      const loss = PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER * payrollDefaults * context.hours
+      const quality = business.quality ?? 1
+      business.quality = roundMoney(
+        quality <= MIN_BUSINESS_QUALITY ? quality : Math.max(MIN_BUSINESS_QUALITY, quality - loss),
+      )
+    }
   }
 }
 
