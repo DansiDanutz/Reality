@@ -180,6 +180,7 @@ describe('FounderCovenantOperatorPanel', () => {
           lastTelegramFilter: 'Next record',
           lastTelegramOutput: 'Manual review draft',
           telegramSummary: 'Manual review Telegram draft',
+          telegramRationale: 'Main founder approval required / Delivery disabled',
           focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
           activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
           actionSummary: 'Action: monitor · monitor current founders',
@@ -194,6 +195,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied from filter: Next record')
     expect(html).toContain('Last Telegram output: Manual review draft')
     expect(html).toContain('Copied Telegram scaffold: Manual review Telegram draft')
+    expect(html).toContain('Copied Telegram rationale: Main founder approval required / Delivery disabled')
     expect(html).toContain('Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(html).toContain('Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(html).toContain('Copied action: Action: monitor · monitor current founders')
@@ -335,6 +337,7 @@ describe('FounderCovenantOperatorPanel', () => {
       lastTelegramFilter: 'Next record',
       lastTelegramOutput: 'Manual review draft',
       telegramSummary: 'Manual review Telegram draft',
+      telegramRationale: 'Main founder approval required / Delivery disabled',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
@@ -345,6 +348,7 @@ describe('FounderCovenantOperatorPanel', () => {
       'Copied from filter: Next record',
       'Last Telegram output: Manual review draft',
       'Copied Telegram scaffold: Manual review Telegram draft',
+      'Copied Telegram rationale: Main founder approval required / Delivery disabled',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       'Copied action: Action: monitor · monitor current founders',

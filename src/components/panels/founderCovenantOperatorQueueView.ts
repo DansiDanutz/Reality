@@ -18,6 +18,7 @@ export interface CopiedQueueViewState {
   lastTelegramFilter?: string | null
   lastTelegramOutput?: string | null
   telegramSummary?: string | null
+  telegramRationale?: string | null
   focusSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
@@ -271,6 +272,7 @@ export function queueCopiedStatusSummary({
   lastTelegramFilter,
   lastTelegramOutput,
   telegramSummary,
+  telegramRationale,
   focusSummary,
   activitySummary,
   actionSummary,
@@ -287,6 +289,7 @@ export function queueCopiedStatusSummary({
     lastTelegramFilter ? `Copied from filter: ${lastTelegramFilter}` : null,
     lastTelegramOutput ? `Last Telegram output: ${lastTelegramOutput}` : null,
     telegramSummary ? `Copied Telegram scaffold: ${telegramSummary}` : null,
+    telegramRationale ? `Copied Telegram rationale: ${telegramRationale}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,
     actionSummary ? `Copied action: ${actionSummary}` : null,
