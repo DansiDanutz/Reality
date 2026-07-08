@@ -146,7 +146,11 @@ export type MapTarget =
   | { kind: 'asset'; id: string }
   | { kind: 'construction'; id: string }
 
-type DailyCounters = DailyChallengeSnapshot & { day: number }
+type DailyCounters = DailyChallengeSnapshot & {
+  day: number
+  cookedToday: number
+  consumedItemCountsToday: Partial<Record<string, number>>
+}
 
 function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): DailyCounters {
   return {
@@ -163,6 +167,8 @@ function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): Da
     workersHiredToday: 0,
     communityToday: 0,
     businessDevelopmentMinutesToday: 0,
+    cookedToday: 0,
+    consumedItemCountsToday: {},
     day,
     ...overrides,
   }
@@ -183,6 +189,10 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
     workersHiredToday: Math.max(0, Math.floor(Number(counters?.workersHiredToday ?? 0))),
     communityToday: Math.max(0, Math.floor(Number(counters?.communityToday ?? 0))),
     businessDevelopmentMinutesToday: Math.max(0, Math.floor(Number(counters?.businessDevelopmentMinutesToday ?? 0))),
+    cookedToday: Math.max(0, Math.floor(Number(counters?.cookedToday ?? 0))),
+    consumedItemCountsToday: Object.fromEntries(
+      Object.entries(counters?.consumedItemCountsToday ?? {}).map(([itemId, count]) => [itemId, Math.max(0, Math.floor(Number(count) || 0))]),
+    ),
   })
 }
 
@@ -995,6 +1005,8 @@ function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dai
     timesSlept: s.timesSlept,
     boughtToday: s.dailyCounters.boughtToday,
     workersHiredToday: s.dailyCounters.workersHiredToday,
+    cookedToday: s.dailyCounters.cookedToday,
+    consumedItemCountsToday: s.dailyCounters.consumedItemCountsToday,
     sawStreetMode: s.sawStreetMode,
     resources: s.resources,
     constructionProjects: s.constructionProjects,
@@ -1870,6 +1882,8 @@ export const useGame = create<GameState>()(
           timesSlept: s.timesSlept,
           boughtToday: s.dailyCounters.boughtToday,
           workersHiredToday: s.dailyCounters.workersHiredToday,
+          cookedToday: s.dailyCounters.cookedToday,
+          consumedItemCountsToday: s.dailyCounters.consumedItemCountsToday,
           sawStreetMode: s.sawStreetMode,
           resources,
           constructionProjects,
@@ -2024,6 +2038,7 @@ export const useGame = create<GameState>()(
         // TODAY'S engagement, and a multi-day absence compressed into one
         // tick would auto-complete "eat 2 meals" / "work a shift" on return.
         const mealsDelta = wasAway ? 0 : out.mealsCooked
+        const cookedDelta = wasAway ? 0 : out.mealsCooked
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
         const sleptDelta = 0
         if (
@@ -2035,11 +2050,13 @@ export const useGame = create<GameState>()(
           gatheredDelta ||
           constructionMinutesDelta ||
           communityDelta ||
-          businessDevelopmentMinutesDelta
+          businessDevelopmentMinutesDelta ||
+          cookedDelta
         ) {
           dailyCounters = {
             ...dailyCounters,
             mealsToday: dailyCounters.mealsToday + mealsDelta,
+            cookedToday: dailyCounters.cookedToday + cookedDelta,
             shiftsToday: dailyCounters.shiftsToday + shiftsDelta,
             earnedToday: dailyCounters.earnedToday + cashEarnedThisTick,
             sleptToday: dailyCounters.sleptToday + sleptDelta,
@@ -2932,13 +2949,23 @@ export const useGame = create<GameState>()(
         const ate = (item.effects.hunger ?? 0) > 0
         const drank = item.category === 'drinks' && (item.effects.hydration ?? 0) > 0
         const cleaned = (item.effects.hygiene ?? 0) > 0
-        const dailyCounters = ate
+        const baseDailyCounters = ate
           ? bumpMealsToday(s)
           : drank
             ? bumpDrinksToday(s)
             : cleaned
               ? bumpHygieneToday(s)
               : s.dailyCounters
+        const todayDay = dailyCounterDayFor(s)
+        const dailyCounters = baseDailyCounters.day === todayDay
+          ? {
+              ...baseDailyCounters,
+              consumedItemCountsToday: {
+                ...baseDailyCounters.consumedItemCountsToday,
+                [itemId]: (baseDailyCounters.consumedItemCountsToday[itemId] ?? 0) + 1,
+              },
+            }
+          : freshDailyCounters(todayDay, { consumedItemCountsToday: { [itemId]: 1 } })
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },

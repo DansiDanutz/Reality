@@ -22,6 +22,7 @@ export default function CourierPackagePrompt() {
   const shiftsWorked = useGame((s) => s.shiftsWorked)
   const educationProgress = useGame((s) => s.educationProgress)
   const community = useGame((s) => s.community)
+  const dailyCounters = useGame((s) => s.dailyCounters)
   const resources = useGame((s) => s.resources)
   const constructionProjects = useGame((s) => s.constructionProjects)
   const hasHome = useGame((s) => s.assets.some((asset) => asset.kind === 'home'))
@@ -40,6 +41,12 @@ export default function CourierPackagePrompt() {
 
   const ready = courierRequirementMet(pkg, {
     timesEaten,
+    cookedToday: dailyCounters.cookedToday,
+    consumedItemCountsToday: dailyCounters.consumedItemCountsToday,
+    drinksToday: dailyCounters.drinksToday,
+    hygieneToday: dailyCounters.hygieneToday,
+    boughtToday: dailyCounters.boughtToday,
+    workersHiredToday: dailyCounters.workersHiredToday,
     sawStreetMode,
     resources,
     constructionProjects,
@@ -62,6 +69,12 @@ export default function CourierPackagePrompt() {
     }
     switch (pkg.requirement.kind) {
       case 'food':
+        openMarket('food')
+        return
+      case 'cooked-meal':
+        setPanel('cook')
+        return
+      case 'item-consumed':
         openMarket('food')
         return
       case 'job':
@@ -107,6 +120,10 @@ export default function CourierPackagePrompt() {
     ? 'Claim reward'
     : pkg.requirement.kind === 'food'
       ? 'Find food'
+      : pkg.requirement.kind === 'cooked-meal'
+        ? 'Cook meal'
+        : pkg.requirement.kind === 'item-consumed'
+          ? 'Use item'
       : pkg.requirement.kind === 'job'
         ? 'Find work'
         : pkg.requirement.kind === 'shift'

@@ -330,6 +330,8 @@ describe('migrateSave - backfills every field added after v1', () => {
       workersHiredToday: 0,
       communityToday: 0,
       businessDevelopmentMinutesToday: 0,
+      cookedToday: 0,
+      consumedItemCountsToday: {},
       day: 20_000,
     })
   })

@@ -91,6 +91,8 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
     workersHiredToday: 0,
     communityToday: 0,
     businessDevelopmentMinutesToday: 0,
+    cookedToday: 0,
+    consumedItemCountsToday: {},
   }
 }
 
@@ -562,22 +564,7 @@ describe('sleep daily counter', () => {
     useGame.setState({
       citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
       activity: null,
-      dailyCounters: {
-        day: 0,
-        mealsToday: 0,
-        drinksToday: 0,
-        hygieneToday: 0,
-        shiftsToday: 0,
-        earnedToday: 0,
-        sleptToday: 0,
-        boughtToday: 0,
-        studiedToday: 0,
-        gatheredToday: 0,
-        constructionMinutesToday: 0,
-        workersHiredToday: 0,
-        communityToday: 0,
-        businessDevelopmentMinutesToday: 0,
-      },
+      dailyCounters: emptyDailyCounters(),
       timesSlept: 0,
       log: [],
     })
@@ -604,22 +591,7 @@ describe('sleep daily counter', () => {
       health: 100,
       activity: null,
       lastSeenAt: now,
-      dailyCounters: {
-        day: 0,
-        mealsToday: 0,
-        drinksToday: 0,
-        hygieneToday: 0,
-        shiftsToday: 0,
-        earnedToday: 0,
-        sleptToday: 0,
-        boughtToday: 0,
-        studiedToday: 0,
-        gatheredToday: 0,
-        constructionMinutesToday: 0,
-        workersHiredToday: 0,
-        communityToday: 0,
-        businessDevelopmentMinutesToday: 0,
-      },
+      dailyCounters: emptyDailyCounters(),
       log: [],
       toasts: [],
     })
@@ -656,6 +628,7 @@ describe('meal daily counter', () => {
     useGame.getState().consume('noodles')
     expect(useGame.getState().timesEaten).toBe(1)
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+    expect(useGame.getState().dailyCounters.consumedItemCountsToday).toEqual({ noodles: 1 })
     expect(useGame.getState().dailyCounters.drinksToday).toBe(0)
     expect(useGame.getState().dailyCounters.hygieneToday).toBe(0)
 
@@ -663,6 +636,7 @@ describe('meal daily counter', () => {
     expect(useGame.getState().timesEaten).toBe(1)
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
     expect(useGame.getState().dailyCounters.drinksToday).toBe(1)
+    expect(useGame.getState().dailyCounters.consumedItemCountsToday).toEqual({ noodles: 1, water: 1 })
     expect(useGame.getState().dailyCounters.hygieneToday).toBe(0)
 
     useGame.getState().quickDrink()
@@ -674,6 +648,7 @@ describe('meal daily counter', () => {
     expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
     expect(useGame.getState().dailyCounters.drinksToday).toBe(2)
     expect(useGame.getState().dailyCounters.hygieneToday).toBe(1)
+    expect(useGame.getState().dailyCounters.consumedItemCountsToday).toEqual({ noodles: 1, water: 1, shower_public: 1 })
   })
 })
 
@@ -720,11 +695,19 @@ describe('completed home benefits', () => {
   })
 
   test('active construction does not grant a kitchen until the home is complete', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
     const now = Date.now()
     const project = createConstructionProject('starter-house', 45.7, 21.2, now)
     const base = {
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
       inventory: { bread: 1, cheese: 1 },
       activity: null,
+      dailyCounters: emptyDailyCounters(),
+      timesEaten: 0,
+      needs: { hunger: 50, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      lastSeenAt: now,
       log: [],
       toasts: [],
     }
@@ -751,6 +734,14 @@ describe('completed home benefits', () => {
       recipeId: 'grilledcheese',
     })
     expect(useGame.getState().inventory).toMatchObject({ bread: 0, cheese: 0 })
+
+    const cookEndsAt = useGame.getState().activity!.endsAt
+    useGame.setState({ lastSeenAt: cookEndsAt - 1_000 })
+    vi.setSystemTime(cookEndsAt)
+    useGame.getState().tick()
+    expect(useGame.getState().timesEaten).toBe(1)
+    expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+    expect(useGame.getState().dailyCounters.cookedToday).toBe(1)
   })
 })
 

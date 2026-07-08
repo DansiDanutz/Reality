@@ -330,6 +330,38 @@ describe('courierPackages', () => {
       constructionProjects: [],
       hasHome: false,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'cooked-meal', cookedToday: 1 } }, {
+      timesEaten: 3,
+      cookedToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'cooked-meal', cookedToday: 1 } }, {
+      timesEaten: 0,
+      cookedToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'item-consumed', itemId: 'shower_public', consumedToday: 1 } }, {
+      timesEaten: 0,
+      consumedItemCountsToday: { noodles: 1 },
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'item-consumed', itemId: 'shower_public', consumedToday: 1 } }, {
+      timesEaten: 0,
+      consumedItemCountsToday: { shower_public: 1 },
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('checks business development requirements', () => {
@@ -710,7 +742,7 @@ describe('courierPackages', () => {
     })
   })
 
-  test('wraps generated hygiene tasks with clearable self-care requirements', () => {
+  test('wraps generated consume tasks with exact item requirements', () => {
     const pkg = courierPackageForLifePlan(16, {
       id: 'support-body',
       title: 'Protect hygiene',
@@ -721,6 +753,7 @@ describe('courierPackages', () => {
     }, {
       timesEaten: 0,
       hygieneToday: 1,
+      consumedItemCountsToday: { noodles: 1 },
       sawStreetMode: false,
       resources: freshResources(),
       constructionProjects: [],
@@ -729,7 +762,30 @@ describe('courierPackages', () => {
 
     expect(pkg).toMatchObject({
       day: 16,
-      requirement: { kind: 'hygiene', hygieneToday: 2 },
+      requirement: { kind: 'item-consumed', itemId: 'shower_public', consumedToday: 1 },
+    })
+  })
+
+  test('wraps generated cook tasks with cooked meal requirements', () => {
+    const pkg = courierPackageForLifePlan(16, {
+      id: 'support-body',
+      title: 'Cook a home meal',
+      detail: 'A cooked meal is cheaper and steadier than buying every bite.',
+      value: 'body',
+      minutes: 30,
+      route: { kind: 'cook-action', recipeId: 'grilledcheese' },
+    }, {
+      timesEaten: 4,
+      cookedToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: true,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 16,
+      requirement: { kind: 'cooked-meal', cookedToday: 1 },
     })
   })
 

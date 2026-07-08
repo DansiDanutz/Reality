@@ -1,5 +1,4 @@
 import { RESOURCE_META, type ResourceKind } from './resources'
-import { itemById } from './catalog'
 import type { CommunityActionId } from './community'
 import type { ConstructionProject } from './construction'
 import type { BusinessDevelopmentProject } from './businessDevelopment'
@@ -17,6 +16,8 @@ export type CourierActivityKind = 'sleep' | 'shift' | 'cook' | 'gather' | 'const
 export type CourierRequirement =
   | { kind: 'none' }
   | { kind: 'food'; timesEaten: number }
+  | { kind: 'cooked-meal'; cookedToday: number }
+  | { kind: 'item-consumed'; itemId: string; consumedToday: number }
   | { kind: 'drink'; drinksToday: number }
   | { kind: 'hygiene'; hygieneToday: number }
   | { kind: 'sleep'; timesSlept: number }
@@ -61,6 +62,8 @@ export interface CourierSnapshot {
   timesSlept?: number
   boughtToday?: number
   workersHiredToday?: number
+  cookedToday?: number
+  consumedItemCountsToday?: Partial<Record<string, number>>
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
@@ -196,6 +199,10 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return true
     case 'food':
       return snapshot.timesEaten >= requirement.timesEaten
+    case 'cooked-meal':
+      return (snapshot.cookedToday ?? 0) >= requirement.cookedToday
+    case 'item-consumed':
+      return (snapshot.consumedItemCountsToday?.[requirement.itemId] ?? 0) >= requirement.consumedToday
     case 'drink':
       return (snapshot.drinksToday ?? 0) >= requirement.drinksToday
     case 'hygiene':
@@ -380,10 +387,14 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   if (route.kind === 'survival-action' && route.action === 'drink-water') return { kind: 'drink', drinksToday: (snapshot.drinksToday ?? 0) + 1 }
   if (route.kind === 'survival-action' && route.action === 'sleep') return { kind: 'sleep', timesSlept: (snapshot.timesSlept ?? 0) + 1 }
   if (route.kind === 'consume-action') {
-    const item = itemById(route.itemId)
-    if ((item?.effects?.hygiene ?? 0) > 0) return { kind: 'hygiene', hygieneToday: (snapshot.hygieneToday ?? 0) + 1 }
+    return {
+      kind: 'item-consumed',
+      itemId: route.itemId,
+      consumedToday: (snapshot.consumedItemCountsToday?.[route.itemId] ?? 0) + 1,
+    }
   }
-  if (route.kind === 'consume-action' || route.kind === 'cook-action' || (route.kind === 'market' && route.focus === 'food')) {
+  if (route.kind === 'cook-action') return { kind: 'cooked-meal', cookedToday: (snapshot.cookedToday ?? 0) + 1 }
+  if (route.kind === 'market' && route.focus === 'food') {
     return { kind: 'food', timesEaten: snapshot.timesEaten + 1 }
   }
   return null
