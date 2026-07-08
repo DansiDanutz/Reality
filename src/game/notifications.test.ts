@@ -169,6 +169,20 @@ describe('decideNotifications — daily challenges incomplete', () => {
     const out = ok(s)
     expect(out).toHaveLength(1)
     expect(out[0].title).toMatch(/1\/3 daily challenges/)
+    expect(out[0].body).toBe(`2 more actions complete today's set and the bonus reward.`)
+  })
+
+  test('uses one-more copy only when one challenge remains', () => {
+    const s = base({
+      now: 19_000 * DAY_MS + 22 * 3_600_000,
+      msToMidnight: 2 * 3_600_000,
+      dailyDone: 2,
+      dailyTotal: 3,
+      dailyBonusClaimed: false,
+    })
+    const out = ok(s)
+    expect(out).toHaveLength(1)
+    expect(out[0].body).toBe(`One more action completes today's set and the bonus reward.`)
   })
 
   test('does not fire if all challenges are done (bonus claimed)', () => {
