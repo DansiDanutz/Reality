@@ -331,6 +331,25 @@ describe('courierPackages', () => {
     })).toBe(true)
   })
 
+  test('checks active commitment requirements', () => {
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'active-commitment', activityKind: 'shift' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      activityKind: 'shift',
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'active-commitment', activityKind: 'shift' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      activityKind: null,
+      hasHome: false,
+    })).toBe(true)
+  })
+
   test('wraps the current Life Ladder primary task as the courier objective', () => {
     const pkg = courierPackageForLifePlan(2, {
       id: 'first-shift',
@@ -553,6 +572,30 @@ describe('courierPackages', () => {
     expect(groceries).toMatchObject({
       day: 18,
       requirement: { kind: 'purchase', boughtToday: 1 },
+    })
+  })
+
+  test('wraps generated active commitment tasks with clearable activity requirements', () => {
+    const pkg = courierPackageForLifePlan(19, {
+      id: 'finish-active-shift',
+      title: 'Finish the work shift',
+      detail: 'Income is already in motion. Complete the shift so food, permits, workers, and savings stay funded.',
+      value: 'work',
+      minutes: 0,
+      route: { kind: 'none' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      activityKind: 'shift',
+      hasHome: false,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 19,
+      title: 'Finish the work shift',
+      requirement: { kind: 'active-commitment', activityKind: 'shift' },
     })
   })
 

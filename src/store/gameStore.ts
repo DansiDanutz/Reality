@@ -987,7 +987,7 @@ function communityWorkerCreditMinutes(community: CommunityStats, shiftsWorked: n
   return availableCommunityHelperMinutes(community, advantage.weeklyHelperMinutes, now)
 }
 
-function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dailyCounters' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'businessDevelopmentProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community'>) {
+function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dailyCounters' | 'sawStreetMode' | 'resources' | 'constructionProjects' | 'businessDevelopmentProjects' | 'assets' | 'jobId' | 'shiftsWorked' | 'educationProgress' | 'community' | 'activity'>) {
   return {
     timesEaten: s.timesEaten,
     drinksToday: s.dailyCounters.drinksToday,
@@ -998,6 +998,7 @@ function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dai
     resources: s.resources,
     constructionProjects: s.constructionProjects,
     businessDevelopmentProjects: s.businessDevelopmentProjects,
+    activityKind: s.activity?.kind ?? null,
     hasHome: s.assets.some((asset) => asset.kind === 'home'),
     jobId: s.jobId,
     shiftsWorked: s.shiftsWorked,
@@ -1869,6 +1870,7 @@ export const useGame = create<GameState>()(
           resources,
           constructionProjects,
           businessDevelopmentProjects,
+          activityKind: out.activity?.kind ?? null,
           hasHome: out.assets.some((asset) => asset.kind === 'home'),
           jobId: s.jobId,
           shiftsWorked: s.shiftsWorked + out.shiftsCompleted,

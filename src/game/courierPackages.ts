@@ -10,6 +10,8 @@ import {
 } from './education'
 import type { LifePlanTask } from './lifeLadder'
 
+export type CourierActivityKind = 'sleep' | 'shift' | 'cook' | 'gather' | 'construction' | 'study' | 'community' | 'business-development'
+
 export type CourierRequirement =
   | { kind: 'none' }
   | { kind: 'food'; timesEaten: number }
@@ -34,6 +36,7 @@ export type CourierRequirement =
   | { kind: 'business-development-deposit'; resources: Partial<Record<ResourceKind, number>> }
   | { kind: 'business-development-budget' }
   | { kind: 'business-development-labor'; minutes: number }
+  | { kind: 'active-commitment'; activityKind: CourierActivityKind }
 
 export interface CourierPackage {
   day: number
@@ -56,6 +59,7 @@ export interface CourierSnapshot {
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
   businessDevelopmentProjects?: BusinessDevelopmentProject[]
+  activityKind?: CourierActivityKind | null
   hasHome: boolean
   jobId?: string | null
   shiftsWorked?: number
@@ -236,6 +240,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.budgetPaid)
     case 'business-development-labor':
       return (snapshot.businessDevelopmentProjects ?? []).some((project) => project.laborDoneMinutes >= requirement.minutes)
+    case 'active-commitment':
+      return snapshot.activityKind !== requirement.activityKind
   }
 }
 
@@ -267,6 +273,9 @@ export function courierPackageForLifePlan(citizenAgeDay: number, primary: LifePl
 
 function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierSnapshot): CourierRequirement | null {
   const route = primary.route
+  if (route.kind === 'none' && primary.id.startsWith('finish-active-') && snapshot.activityKind) {
+    return { kind: 'active-commitment', activityKind: snapshot.activityKind }
+  }
   if (route.kind === 'panel' && route.panel === 'work') return { kind: 'job' }
   if (route.kind === 'work-action') return { kind: 'shift', shiftsWorked: (snapshot.shiftsWorked ?? 0) + 1 }
   if (route.kind === 'market' && route.focus === 'education') return { kind: 'education-enrolled', courseId: 'course' }
