@@ -833,6 +833,29 @@ describe('construction worker contracts', () => {
     expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: builtBusiness!.id })
     expect(state.panel).toBe('business')
 
+    useGame.setState({
+      constructionProjects: [{
+        ...ready,
+        laborDoneMinutes: ready.laborRequiredMinutes,
+      }],
+      selectedMapTarget: { kind: 'construction', id: ready.id },
+      panel: 'construction',
+      toasts: [],
+    })
+    useGame.getState().completeConstructionIfReady(ready.id)
+
+    state = useGame.getState()
+    expect(state.constructionProjects).toEqual([])
+    expect(state.assets.filter((asset) => asset.id === builtBusiness!.id)).toHaveLength(1)
+    expect(state.assets.filter((asset) =>
+      asset.kind === 'business' &&
+      asset.itemId === builtBusiness!.itemId &&
+      asset.lat === builtBusiness!.lat &&
+      asset.lng === builtBusiness!.lng
+    )).toHaveLength(1)
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: builtBusiness!.id })
+    expect(state.panel).toBe('business')
+
     useGame.getState().upgradeBusiness(builtBusiness!.id)
     state = useGame.getState()
     expect(state.businessDevelopmentProjects).toHaveLength(1)
