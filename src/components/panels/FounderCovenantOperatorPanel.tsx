@@ -850,6 +850,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'all' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('all')}
+              title={queueSelectionTitle('all', queueSort)}
               type="button"
             >
               All
@@ -858,6 +859,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'never_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('never_reviewed')}
+              title={queueSelectionTitle('never_reviewed', queueSort)}
               type="button"
             >
               Never
@@ -866,6 +868,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'stale_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('stale_reviewed')}
+              title={queueSelectionTitle('stale_reviewed', queueSort)}
               type="button"
             >
               Stale
@@ -874,6 +877,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'stale_weekly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('stale_weekly_due')}
+              title={queueSelectionTitle('stale_weekly_due', queueSort)}
               type="button"
             >
               Stale week
@@ -882,6 +886,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'stale_monthly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('stale_monthly_due')}
+              title={queueSelectionTitle('stale_monthly_due', queueSort)}
               type="button"
             >
               Stale month
@@ -890,6 +895,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'weekly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('weekly_due')}
+              title={queueSelectionTitle('weekly_due', queueSort)}
               type="button"
             >
               Weekly due
@@ -898,6 +904,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'monthly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('monthly_due')}
+              title={queueSelectionTitle('monthly_due', queueSort)}
               type="button"
             >
               Monthly due
@@ -906,6 +913,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('fresh_reviewed')}
+              title={queueSelectionTitle('fresh_reviewed', queueSort)}
               type="button"
             >
               Fresh
@@ -914,6 +922,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'manual_review' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('manual_review')}
+              title={queueSelectionTitle('manual_review', queueSort)}
               type="button"
             >
               Manual
@@ -922,6 +931,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'needs_evidence' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('needs_evidence')}
+              title={queueSelectionTitle('needs_evidence', queueSort)}
               type="button"
             >
               Evidence
@@ -975,6 +985,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'overdue' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('overdue')}
+              title={queueSelectionTitle('overdue', queueSort)}
               type="button"
             >
               Overdue
@@ -983,6 +994,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'blocked' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('blocked')}
+              title={queueSelectionTitle('blocked', queueSort)}
               type="button"
             >
               Blocked
@@ -991,6 +1003,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'hospitalized' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('hospitalized')}
+              title={queueSelectionTitle('hospitalized', queueSort)}
               type="button"
             >
               Hospital
@@ -999,6 +1012,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'inactive' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('inactive')}
+              title={queueSelectionTitle('inactive', queueSort)}
               type="button"
             >
               Inactive
@@ -1007,6 +1021,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'debt_risk' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('debt_risk')}
+              title={queueSelectionTitle('debt_risk', queueSort)}
               type="button"
             >
               Debt
@@ -1015,6 +1030,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'at_risk' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('at_risk')}
+              title={queueSelectionTitle('at_risk', queueSort)}
               type="button"
             >
               Risk
@@ -1023,6 +1039,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'telegram_ready' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('telegram_ready')}
+              title={queueSelectionTitle('telegram_ready', queueSort)}
               type="button"
             >
               Telegram
@@ -1031,6 +1048,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${queueFilter === 'scan_anomaly' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('scan_anomaly')}
+              title={queueSelectionTitle('scan_anomaly', queueSort)}
               type="button"
             >
               Scan
@@ -1049,6 +1067,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'all' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('all')}
+              title={queueSelectionTitle('all', 'coverage')}
               type="button"
             >
               Coverage All
@@ -1075,6 +1094,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'stale_weekly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('stale_weekly_due')}
+              title={queueSelectionTitle('stale_weekly_due', 'coverage')}
               type="button"
             >
               Cleanup Stale Week
@@ -1083,6 +1103,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activeCoveragePreset === 'stale_monthly_due' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('stale_monthly_due')}
+              title={queueSelectionTitle('stale_monthly_due', 'coverage')}
               type="button"
             >
               Cleanup Stale Month
