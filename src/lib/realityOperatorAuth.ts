@@ -47,7 +47,7 @@ export async function requestRealityOperatorQueueToken(
       body: JSON.stringify({ initData }),
     })
     const data = await response.json() as Record<string, unknown>
-    if (response.ok && data.ok === true && isRealityOperatorQueueAuthResponse(data)) {
+    if (response.ok && data.ok === true && isRealityOperatorQueueAuthResponse(data, Date.now())) {
       return {
         ok: true,
         operator: data.operator,
@@ -81,21 +81,27 @@ function operatorAuthFailureReason(
   return 'server_rejected'
 }
 
-function isRealityOperatorQueueAuthResponse(value: Record<string, unknown>): value is Record<string, unknown> & {
+function isRealityOperatorQueueAuthResponse(
+  value: Record<string, unknown>,
+  nowMs = Date.now(),
+): value is Record<string, unknown> & {
   operator: RealityOperatorQueueAuthOperator
   operatorToken: string
   expiresAt: number
   expiresInSeconds: number
 } {
   const { expiresAt, expiresInSeconds } = value
+  if (typeof expiresInSeconds !== 'number' || !Number.isSafeInteger(expiresInSeconds) || expiresInSeconds <= 0) {
+    return false
+  }
+  const maxExpectedExpiry = nowMs + expiresInSeconds * 1000 + 5_000
   return isRealityOperatorQueueAuthOperator(value.operator) &&
     typeof value.operatorToken === 'string' &&
     value.operatorToken.trim().length > 0 &&
     typeof expiresAt === 'number' &&
     Number.isSafeInteger(expiresAt) &&
-    typeof expiresInSeconds === 'number' &&
-    Number.isSafeInteger(expiresInSeconds) &&
-    expiresInSeconds > 0
+    expiresAt > nowMs &&
+    expiresAt <= maxExpectedExpiry
 }
 
 function isRealityOperatorQueueAuthOperator(value: unknown): value is RealityOperatorQueueAuthOperator {
