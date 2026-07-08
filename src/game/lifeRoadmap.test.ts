@@ -406,7 +406,7 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.educationProgress[0].completedAt).toBeTypeOf('number')
   })
 
-  test('keeps the first-month life loop clear from survival routine to house and business shell', () => {
+  test('keeps the first-month life loop clear from survival routine to house and business foundation', () => {
     const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 30)
     const primaryIds = roadmap.days.map((day) => day.primary.id)
 
@@ -466,7 +466,7 @@ describe('planLifeRoadmap', () => {
     expect(businessBuild?.laborDoneMinutes ?? 0).toBeGreaterThanOrEqual(0)
   })
 
-  test('exposes the first business saving step before the shell purchase becomes affordable', () => {
+  test('exposes the first business saving step before the foundation purchase becomes affordable', () => {
     const roadmap = planLifeRoadmap(snap({
       money: 12_000,
       assets: [home()],
@@ -481,7 +481,7 @@ describe('planLifeRoadmap', () => {
     expect(primaryIds.indexOf('work-for-first-business-foundation')).toBeGreaterThanOrEqual(0)
   })
 
-  test('projects the second month through business shell labor and interior upgrade', () => {
+  test('projects the second month through business foundation labor and interior upgrade', () => {
     const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 54)
     const primaryIds = roadmap.days.map((day) => day.primary.id)
 

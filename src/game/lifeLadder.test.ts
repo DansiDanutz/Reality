@@ -700,7 +700,7 @@ describe('planLifeDay', () => {
     expect(plan.millionairePath.nextActionDetail).toContain('Local trust adds about $22/day')
   })
 
-  test('shows the first business as a cash-gated construction shell before it exists', () => {
+  test('shows the first business as a cash-gated foundation before it exists', () => {
     const plan = planLifeDay(snap({
       lifeDay: 8,
       money: 500,
@@ -716,7 +716,7 @@ describe('planLifeDay', () => {
     expect(plan.primary.title).toBe('Save for Food Cart foundation')
     expect(plan.primary.value).toBe('work')
     expect(plan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })
-    expect(plan.primary.detail).toContain('Food Cart costs $15,000 before the map shell')
+    expect(plan.primary.detail).toContain('Food Cart costs $15,000 before placement')
     expect(plan.constructionForecast).toMatchObject({
       upfrontCostRemaining: 15_000,
       upfrontCashNeeded: 14_600,
@@ -730,7 +730,7 @@ describe('planLifeDay', () => {
     expect(trips).toEqual({ wood: 2, stone: 2, metal: 4, glass: 2 })
   })
 
-  test('routes the first business into Market placement once the shell cost is safe', () => {
+  test('routes the first business into Market placement once the foundation cost is safe', () => {
     const plan = planLifeDay(snap({
       lifeDay: 8,
       money: 20_000,

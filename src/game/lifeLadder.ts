@@ -651,7 +651,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
     return task(
       'work-for-first-business-foundation',
       `Save for ${shell.item.name} foundation`,
-      `${shell.item.name} costs $${shell.item.price.toLocaleString()} before the map shell. Save $${cashNeeded.toLocaleString()} more, then place it and build through materials, permit, and labor.`,
+      `${shell.item.name} costs $${shell.item.price.toLocaleString()} before placement. Save $${cashNeeded.toLocaleString()} more, then place the foundation and build through materials, permit, and labor.`,
       'work',
       snapshot.jobId ? { kind: 'work-action', action: 'shift' } : { kind: 'panel', panel: 'work' },
       snapshot.jobId ? STANDARD_DAY_BUDGET.workMinutes : 30,
@@ -660,7 +660,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   return task(
     'build-first-business',
     `Place ${shell.item.name} foundation`,
-    `Buy ${shell.item.name} from Market > Businesses, place the map shell, then gather ingredients, pay the permit, and build it before it earns.`,
+    `Buy ${shell.item.name} from Market > Businesses, place the foundation on the map, then gather ingredients, pay the permit, and build it before it earns.`,
     'capital',
     { kind: 'market', focus: 'business' },
     45,
