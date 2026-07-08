@@ -113,6 +113,39 @@ describe('createMemoryWorldAreaRepository', () => {
     })
   })
 
+  test('normalizes malformed area record page limits to empty safe pages', async () => {
+    const repo = createMemoryWorldAreaRepository([
+      area('area-a', 'founder-a'),
+      area('area-b', 'founder-b'),
+    ])
+
+    for (const limit of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(repo.listAreaRecords({ limit })).resolves.toEqual({
+        records: [],
+        cursor: null,
+        nextCursor: null,
+        hasMore: false,
+      })
+    }
+  })
+
+  test('floors fractional area record page limits deterministically', async () => {
+    const repo = createMemoryWorldAreaRepository([
+      area('area-c', 'founder-c'),
+      area('area-a', 'founder-a'),
+      area('area-b', 'founder-b'),
+    ])
+
+    const page = await repo.listAreaRecords({ limit: 1.8 })
+
+    expect(page.records.map((record) => record.area.id)).toEqual(['area-a'])
+    expect(page).toMatchObject({
+      cursor: null,
+      nextCursor: 'area-a',
+      hasMore: true,
+    })
+  })
+
   test('rejects stale revisions and duplicate area creation expectations', async () => {
     const repo = createMemoryWorldAreaRepository([area('area-1', 'founder')])
 

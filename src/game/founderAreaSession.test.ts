@@ -53,6 +53,32 @@ describe('Founder Area session', () => {
       .toBe(true)
   })
 
+  test('uses Telegram claim source only for coherent verified identity fields', () => {
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-1',
+      name: 'David',
+      spawnLat: 44.45,
+      spawnLng: 26.08,
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+    }).claimSource).toBe('telegram')
+
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-1',
+      name: 'David',
+      spawnLat: 44.45,
+      spawnLng: 26.08,
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:777',
+    }).claimSource).toBe('geolocation')
+
+    expect(founderAreaProfileFromCitizen({
+      citizenId: 'founder-1',
+      name: 'David',
+      telegramAccountId: 'telegram:42424242',
+    }).claimSource).toBe('manual')
+  })
+
   test('applies dashboard build payloads and advances real time through server commands', async () => {
     const session = createFounderAreaSession(founderAreaProfileFromCitizen({ name: 'Founder' }))
     const claimed = await claimFounderArea(session, HOUR)
