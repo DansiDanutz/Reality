@@ -1797,7 +1797,8 @@ export const useGame = create<GameState>()(
           lng,
           incomePerDay: item.incomePerDay ?? 0,
           pendingIncome: 0,
-          placedAtMinute: 0,
+          placedAtMinute: Date.now(),
+          constructionEndsAt: Date.now() + (item.category === 'home' ? 4 * 3_600_000 : 8 * 3_600_000),
         }
         set({
           assets: [...s.assets, asset],
@@ -1805,7 +1806,7 @@ export const useGame = create<GameState>()(
           // The placeable purchase COMPLETES here (buy was refundable until
           // placement) — this is where it counts for "Buy N items" challenges.
           dailyCounters: bumpBoughtToday(s),
-          log: note(s.log, `${item.name} opened at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
+          log: note(s.log, `${item.name} construction started at ${lat.toFixed(1)}°, ${lng.toFixed(1)}°.`),
         })
         track(asset.kind === 'home' ? 'first_home_placed' : 'first_business_placed')
         if (s.citizen?.token) {

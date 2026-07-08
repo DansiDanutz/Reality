@@ -36,6 +36,10 @@ interface WorldAsset {
   lng: number
 }
 
+function isUnderConstruction(asset: { constructionEndsAt?: number }): boolean {
+  return Boolean(asset.constructionEndsAt && Date.now() < asset.constructionEndsAt)
+}
+
 /** Interpolate a great-circle route between two points for the empire arcs */
 function greatCircle(from: [number, number], to: [number, number], steps = 64): [number, number][] {
   const rad = Math.PI / 180
@@ -56,14 +60,19 @@ function greatCircle(from: [number, number], to: [number, number], steps = 64): 
   return points
 }
 
-function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0): HTMLDivElement {
+function beaconElement(kind: string, name: string, own: boolean, pendingIncome = 0, underConstruction = false): HTMLDivElement {
   const el = document.createElement('div')
   // 'ready' modifier lights up business beacons with a ring when they have
   // collectable income — surfaces the economy loop on the map so the player
   // sees which holdings need attention at a glance.
   const ready = own && kind === 'business' && pendingIncome >= 1 ? ' ready' : ''
-  el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}${ready}`
-  el.title = ready ? `${name} — ${Math.floor(pendingIncome)} ready to collect` : name
+  const building = own && underConstruction ? ' building' : ''
+  el.className = `map-beacon ${own ? (kind === 'home' ? 'home' : 'biz') : 'other'}${ready}${building}`
+  el.title = underConstruction
+    ? `${name} — under construction`
+    : ready
+      ? `${name} — ${Math.floor(pendingIncome)} ready to collect`
+      : name
   return el
 }
 
@@ -221,7 +230,7 @@ export default function WorldMap() {
     const seen = new Set<string>()
     for (const a of assets) {
       seen.add(a.id)
-      const fresh = beaconElement(a.kind, a.name, true, a.pendingIncome)
+      const fresh = beaconElement(a.kind, a.name, true, a.pendingIncome, isUnderConstruction(a))
       const existing = markers.get(a.id)
       if (existing) {
         const el = existing.getElement()

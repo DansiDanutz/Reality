@@ -4,6 +4,14 @@ import { MAX_BUSINESS_LEVEL, upgradeOutcome } from '../../game/businessUpgrades'
 import ConfirmDialog from '../hud/ConfirmDialog'
 import { useGame } from '../../store/gameStore'
 
+function underConstructionLabel(constructionEndsAt?: number): string | null {
+  if (!constructionEndsAt) return null
+  const msLeft = constructionEndsAt - Date.now()
+  if (msLeft <= 0) return null
+  const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000))
+  return hoursLeft > 1 ? `under construction · ${hoursLeft}h left` : 'under construction · <1h left'
+}
+
 export default function AssetsPanel() {
   const assets = useGame((s) => s.assets)
   const money = useGame((s) => s.money)
@@ -39,6 +47,7 @@ export default function AssetsPanel() {
             {assets.map((a) => {
               const level = a.level ?? 1
               const isBusiness = a.kind === 'business' && a.incomePerDay > 0
+              const construction = underConstructionLabel(a.constructionEndsAt)
               // baseIncome derives from current income / level (incomePerDay
               // stores the level-adjusted value so the engine reads it directly).
               const baseIncome = isBusiness ? a.incomePerDay / level : 0
@@ -53,6 +62,7 @@ export default function AssetsPanel() {
                       {isBusiness && <span className="asset-level mono">L{level}</span>}
                     </span>
                     <span className="item-desc mono">{a.lat.toFixed(2)}°, {a.lng.toFixed(2)}°</span>
+                    {construction && <span className="item-locked mono">{construction}</span>}
                     {isBusiness && (
                       <span className="asset-income mono">+{formatMoney(a.incomePerDay)}/day</span>
                     )}

@@ -122,6 +122,8 @@ export interface PlacedAsset {
   incomePerDay: number
   pendingIncome: number
   placedAtMinute: number
+  /** ms timestamp when construction finishes; before that the asset is visibly under construction */
+  constructionEndsAt?: number
   /** Upgrade level (1 = base). Each level multiplies income. See businessUpgrades.ts */
   level?: number
 }
