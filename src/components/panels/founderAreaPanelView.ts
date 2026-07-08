@@ -856,6 +856,23 @@ export function founderCovenantOperatorQueueEvidenceSummary(
   return `Evidence: ${evidenceFounders} founder${evidenceFounders === 1 ? '' : 's'} queued · ${evidenceGaps} gap${evidenceGaps === 1 ? '' : 's'} · ${recordReadyFounders} record ready`
 }
 
+export function founderCovenantOperatorQueueRecordReadySummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const recordReadyFounders = queue.items.filter((item) =>
+    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
+  ).length
+  const weeklyReady = queue.items.filter((item) =>
+    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item)) &&
+      item.weeklyReviewDue
+  ).length
+  const monthlyReady = queue.items.filter((item) =>
+    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item)) &&
+      item.monthlyReviewDue
+  ).length
+  return `Record ready: ${recordReadyFounders} founder${recordReadyFounders === 1 ? '' : 's'} · ${weeklyReady} weekly · ${monthlyReady} monthly`
+}
+
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {
