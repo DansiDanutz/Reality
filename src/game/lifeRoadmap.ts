@@ -309,6 +309,17 @@ function applyConstructionCompletion(snapshot: LifeLadderSnapshot, projectId: st
   let completedAsset: LifeLadderAsset | null = null
   const projects = snapshot.constructionProjects.flatMap((project) => {
     if (project.id !== projectId) return [project]
+    const existingAsset = snapshot.assets.find((asset) =>
+      asset.kind === project.resultKind &&
+      asset.itemId === project.itemId &&
+      asset.name === project.name &&
+      (asset.lat ?? 0) === project.lat &&
+      (asset.lng ?? 0) === project.lng
+    ) ?? null
+    if (existingAsset) {
+      completedAsset = existingAsset
+      return []
+    }
     const complete = completeConstructionProject(project)
     if (!complete.asset) return [project]
     completedAsset = {
@@ -319,7 +330,11 @@ function applyConstructionCompletion(snapshot: LifeLadderSnapshot, projectId: st
     return []
   })
   return completedAsset
-    ? { ...snapshot, constructionProjects: projects, assets: [...snapshot.assets, completedAsset] }
+    ? {
+        ...snapshot,
+        constructionProjects: projects,
+        assets: snapshot.assets.some((asset) => asset === completedAsset) ? snapshot.assets : [...snapshot.assets, completedAsset],
+      }
     : { ...snapshot, constructionProjects: projects }
 }
 
