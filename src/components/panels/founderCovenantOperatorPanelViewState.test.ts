@@ -14,6 +14,9 @@ describe('founderCovenantOperatorPanelViewState', () => {
       cursor: null,
       filter: 'all',
       sort: 'priority',
+      lastCopiedAt: null,
+      lastCopiedText: null,
+      lastCopiedQueueView: null,
     })
   })
 
@@ -25,12 +28,40 @@ describe('founderCovenantOperatorPanelViewState', () => {
       cursor: 'review-cursor-2',
       filter: 'hospitalized',
       sort: 'founder',
+      lastCopiedAt: '2026-07-08T14:00:00.000Z',
+      lastCopiedText: 'Founder warning Telegram copied',
+      lastCopiedQueueView: {
+        filter: 'telegram_ready',
+        sort: 'priority',
+        scanCursor: 'review-cursor-2',
+        nextCursor: 'review-cursor-3',
+        lastTelegramFilter: 'Telegram',
+        lastTelegramOutput: 'Founder warning draft',
+        telegramSummary: 'Founder warning Telegram draft',
+        telegramRationale: 'Blocked by approval workflow, Telegram delivery',
+      },
     })
 
     expect(readOperatorQueueViewState()).toEqual({
       cursor: 'review-cursor-2',
       filter: 'hospitalized',
       sort: 'founder',
+      lastCopiedAt: '2026-07-08T14:00:00.000Z',
+      lastCopiedText: 'Founder warning Telegram copied',
+      lastCopiedQueueView: {
+        filter: 'telegram_ready',
+        sort: 'priority',
+        scanCursor: 'review-cursor-2',
+        nextCursor: 'review-cursor-3',
+        digestSummary: null,
+        lastTelegramFilter: 'Telegram',
+        lastTelegramOutput: 'Founder warning draft',
+        telegramSummary: 'Founder warning Telegram draft',
+        telegramRationale: 'Blocked by approval workflow, Telegram delivery',
+        focusSummary: null,
+        activitySummary: null,
+        actionSummary: null,
+      },
     })
   })
 
@@ -43,6 +74,38 @@ describe('founderCovenantOperatorPanelViewState', () => {
       cursor: null,
       filter: 'all',
       sort: 'priority',
+      lastCopiedAt: null,
+      lastCopiedText: null,
+      lastCopiedQueueView: null,
+    })
+  })
+
+  test('drops invalid copied queue snapshots while preserving queue view state', () => {
+    const storage = createStorage()
+    storage.setItem(
+      'reality-founder-covenant-operator-view-v1',
+      JSON.stringify({
+        cursor: 'review-cursor-8',
+        filter: 'inactive',
+        sort: 'priority',
+        lastCopiedAt: '2026-07-08T14:30:00.000Z',
+        lastCopiedText: 'Manual review copied',
+        lastCopiedQueueView: {
+          filter: 'bad-filter',
+          sort: 'priority',
+          scanCursor: 'review-cursor-8',
+        },
+      }),
+    )
+    ;(globalThis as { window?: { localStorage: Storage } }).window = { localStorage: storage }
+
+    expect(readOperatorQueueViewState()).toEqual({
+      cursor: 'review-cursor-8',
+      filter: 'inactive',
+      sort: 'priority',
+      lastCopiedAt: '2026-07-08T14:30:00.000Z',
+      lastCopiedText: 'Manual review copied',
+      lastCopiedQueueView: null,
     })
   })
 })

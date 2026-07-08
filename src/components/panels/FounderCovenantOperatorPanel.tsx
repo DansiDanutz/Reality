@@ -108,15 +108,17 @@ export default function FounderCovenantOperatorPanel({
   recordReview = recordRealityFounderCovenantOperatorReview,
   requestOperatorToken = requestRealityOperatorQueueToken,
 }: FounderCovenantOperatorPanelProps) {
+  const initialQueueView = useRef(readOperatorQueueViewState())
   const [manualOperatorToken, setManualOperatorToken] = useState('')
   const [telegramOperatorToken, setTelegramOperatorToken] = useState('')
   const [operatorAuthState, setOperatorAuthState] = useState<FounderCovenantOperatorAuthState>(
     initialOperatorAuth ?? { status: 'idle' },
   )
-  const initialQueueView = useRef(readOperatorQueueViewState())
-  const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(null)
-  const [lastCopiedText, setLastCopiedText] = useState<string | null>(null)
-  const [lastCopiedQueueView, setLastCopiedQueueView] = useState<CopiedQueueViewState | null>(initialCopiedQueueView)
+  const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(initialQueueView.current.lastCopiedAt)
+  const [lastCopiedText, setLastCopiedText] = useState<string | null>(initialQueueView.current.lastCopiedText)
+  const [lastCopiedQueueView, setLastCopiedQueueView] = useState<CopiedQueueViewState | null>(
+    initialCopiedQueueView ?? initialQueueView.current.lastCopiedQueueView,
+  )
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
@@ -255,8 +257,15 @@ export default function FounderCovenantOperatorPanel({
   }, [applyOperatorAuthResult, initialOperatorAuth, requestOperatorToken])
 
   useEffect(() => {
-    writeOperatorQueueViewState({ cursor: scanCursor, filter: queueFilter, sort: queueSort })
-  }, [queueFilter, queueSort, scanCursor])
+    writeOperatorQueueViewState({
+      cursor: scanCursor,
+      filter: queueFilter,
+      sort: queueSort,
+      lastCopiedAt,
+      lastCopiedText,
+      lastCopiedQueueView,
+    })
+  }, [lastCopiedAt, lastCopiedQueueView, lastCopiedText, queueFilter, queueSort, scanCursor])
 
   const loadQueue = async (cursor: string | null = null) => {
     if (!operatorToken) {
