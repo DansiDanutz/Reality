@@ -1990,7 +1990,7 @@ describe('reality area authority API', () => {
       issuedAt: '2026-07-06T07:00:00.000Z',
       memo: 'Founder #0012 owes medical debt to system:hospital.',
       repaymentIntent: 'repayDebt',
-      clientPayload: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 50 },
+      clientPayload: null,
       recommendedPayment: 50,
       maxAffordablePayment: 50,
       canRepayNow: false,
