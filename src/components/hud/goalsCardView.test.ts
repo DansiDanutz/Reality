@@ -114,6 +114,20 @@ describe('buildEtaSummary', () => {
     expect(buildEtaSummary(forecast)).toContain('save')
   })
 
+  test('shows place today when the first foundation cost is already affordable', () => {
+    const forecast = constructionDayForecast(
+      createConstructionProject('starter-house', 45, 21, 1),
+      freshResources(),
+      20_000,
+      100,
+      15_000,
+      8,
+    )
+
+    expect(buildEtaSummary(forecast)).toContain('foundation')
+    expect(buildEtaSummary(forecast)).toContain('place today')
+  })
+
   test('does not treat active paid worker labor as a repeating daily forecast', () => {
     const project = createConstructionProject('starter-house', 45, 21, 1)
     const forecast = constructionDayForecast(
