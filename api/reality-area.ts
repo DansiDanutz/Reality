@@ -4942,7 +4942,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
+    let citizen: CitizenAuthRecord | null
+    try {
+      citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
+    } catch {
+      res.status(503).json({
+        ok: false,
+        error: 'Citizen credentials are temporarily unavailable.',
+        code: 'citizen_verification_unavailable',
+      })
+      return
+    }
     if (!citizen) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
