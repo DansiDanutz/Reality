@@ -196,6 +196,13 @@ describe('worldSim snapshot codec', () => {
       version: WORLD_AREA_SNAPSHOT_VERSION,
       area: { id: 'area-1', name: 'bad', now: 1_000 },
     }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const negativeClock = area()
+    negativeClock.now = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: negativeClock,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('accepts older snapshots without area event evidence', () => {
@@ -223,6 +230,17 @@ describe('worldSim snapshot codec', () => {
     const reviewed = area()
     reviewed.founderReviewHistory = [founderReview()]
     reviewed.founderReviewHistory[0].authorityGate.executionEnabled = true
+
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: reviewed,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
+  test('rejects negative founder covenant review timestamps', () => {
+    const reviewed = area()
+    reviewed.founderReviewHistory = [founderReview()]
+    reviewed.founderReviewHistory[0].at = -1
 
     expect(decodeWorldAreaSnapshot(JSON.stringify({
       version: WORLD_AREA_SNAPSHOT_VERSION,
@@ -364,9 +382,17 @@ describe('worldSim snapshot codec', () => {
     badClaim.claim!.centerLat = 120
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badClaim }))).toEqual({ ok: false, error: 'invalid_area' })
 
+    const negativeClaimTime = area()
+    negativeClaimTime.claim!.claimedAt = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeClaimTime }))).toEqual({ ok: false, error: 'invalid_area' })
+
     const badTransaction = area()
     badTransaction.transactions[0].kind = 'free_money' as never
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const negativeTransactionTime = area()
+    negativeTransactionTime.transactions[0].at = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeTransactionTime }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const zeroTransaction = area()
     zeroTransaction.transactions[0].amount = 0
@@ -380,6 +406,10 @@ describe('worldSim snapshot codec', () => {
     badAreaEvent.areaEvents![0].serviceKind = 'water'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badAreaEvent }))).toEqual({ ok: false, error: 'invalid_area' })
 
+    const negativeAreaEventTime = area()
+    negativeAreaEventTime.areaEvents![0].at = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeAreaEventTime }))).toEqual({ ok: false, error: 'invalid_area' })
+
     const nonSimDeparture = area()
     nonSimDeparture.areaEvents![0].simulated = false
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: nonSimDeparture }))).toEqual({ ok: false, error: 'invalid_area' })
@@ -389,6 +419,10 @@ describe('worldSim snapshot codec', () => {
     const badState = area()
     badState.citizens[0].state = { kind: 'hospitalized', until: Number.NaN }
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badState }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const negativeRecovery = area()
+    negativeRecovery.citizens[0].state = { kind: 'hospitalized', until: -1 }
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeRecovery }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const badBusiness = area()
     badBusiness.businesses[0].staffCitizenIds = ['']
@@ -409,6 +443,10 @@ describe('worldSim snapshot codec', () => {
     const badDebt = area()
     badDebt.citizens[0].debts![0].creditorId = ''
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const negativeDebtIssuedAt = area()
+    negativeDebtIssuedAt.citizens[0].debts![0].issuedAt = -1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: negativeDebtIssuedAt }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const badDebtTotal = area()
     badDebtTotal.citizens[0].debt = 1

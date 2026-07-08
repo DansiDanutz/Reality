@@ -120,6 +120,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   statusLabel: string
   summary: string
   dateSummary: string
+  cadenceText: string
   latestReviewText: string | null
   activitySignalText: string
   economicExposureText: string
@@ -788,6 +789,16 @@ export function founderCovenantOperatorQueueItemDateSummary(
   return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · weekly ${shortDate(item.nextWeeklyReviewAt)} · monthly ${shortDate(item.nextMonthlyReviewAt)}`
 }
 
+export function founderCovenantOperatorQueueCadenceText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewSchedule'>,
+): string {
+  const schedule = item.reviewSchedule
+  const weekly = schedule.weeklyReviewDue ? 'weekly due' : `weekly ${shortDate(schedule.nextWeeklyReviewAt)}`
+  const monthly = schedule.monthlyReviewDue ? 'monthly due' : `monthly ${shortDate(schedule.nextMonthlyReviewAt)}`
+  const overdue = schedule.overdue ? 'overdue' : 'current'
+  return `${weekly} · ${monthly} · ${overdue} · automation disabled`
+}
+
 export function founderCovenantOperatorQueueSignalText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'signalKinds'>,
 ): string {
@@ -808,6 +819,7 @@ export function founderCovenantOperatorQueueReviewRows(
       statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
+      cadenceText: founderCovenantOperatorQueueCadenceText(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
       economicExposureText: founderCovenantOperatorQueueEconomicExposureText(item),
@@ -1143,6 +1155,8 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
   switch (signal.kind) {
     case 'founder_unavailable':
       return 'Founder unavailable'
+    case 'stale_founder_activity':
+      return 'Stale activity'
     case 'no_business_built':
       return 'No business built'
     case 'understaffed_businesses':
