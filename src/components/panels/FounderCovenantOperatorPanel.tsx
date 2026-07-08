@@ -443,6 +443,14 @@ export default function FounderCovenantOperatorPanel({
             <button
               className="btn small ghost"
               disabled={loading}
+              onClick={() => applyCoveragePreset('all')}
+              type="button"
+            >
+              Coverage All
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
               onClick={() => applyCoveragePreset('never_reviewed')}
               type="button"
             >

@@ -68,6 +68,8 @@ export function queueCoveragePresetLabel(
 ): string | null {
   if (sort !== 'coverage') return null
   switch (filter) {
+    case 'all':
+      return 'Coverage All'
     case 'never_reviewed':
       return 'Cleanup Never'
     case 'stale_reviewed':

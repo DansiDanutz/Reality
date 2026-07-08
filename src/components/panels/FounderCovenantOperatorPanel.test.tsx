@@ -60,6 +60,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Never')
     expect(html).toContain('Stale')
     expect(html).toContain('Fresh')
+    expect(html).toContain('Coverage All')
     expect(html).toContain('Cleanup Never')
     expect(html).toContain('Cleanup Stale')
     expect(html).toContain('Audit Fresh')
@@ -110,10 +111,14 @@ describe('FounderCovenantOperatorPanel', () => {
   })
 
   test('derives coverage preset context from filter and sort state', () => {
+    expect(queueCoveragePresetLabel('all', 'coverage')).toBe('Coverage All')
     expect(queueCoveragePresetLabel('never_reviewed', 'coverage')).toBe('Cleanup Never')
     expect(queueCoveragePresetLabel('stale_reviewed', 'coverage')).toBe('Cleanup Stale')
     expect(queueCoveragePresetLabel('fresh_reviewed', 'coverage')).toBe('Audit Fresh')
     expect(queueCoveragePresetLabel('manual_review', 'coverage')).toBeNull()
+    expect(queueContextText('all', 'coverage', null)).toBe(
+      'View: All / Coverage / start · Preset: Coverage All',
+    )
     expect(queueContextText('stale_reviewed', 'coverage', 'cursor-2')).toBe(
       'View: Stale / Coverage / cursor-2 · Preset: Cleanup Stale',
     )
