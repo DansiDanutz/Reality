@@ -143,6 +143,11 @@ describe('Reality operator Telegram auth', () => {
       error: 'missing_secret',
     })
   })
+
+  test('rejects operator queue claims with unsafe token timing', () => {
+    expect(realityOperatorQueueTokenClaims('42424242', -1, 900_000)).toBeNull()
+    expect(realityOperatorQueueTokenClaims('42424242', Number.MAX_SAFE_INTEGER, 1)).toBeNull()
+  })
 })
 
 function signedInitData(fields: Record<string, string>, botToken = BOT_TOKEN): string {
