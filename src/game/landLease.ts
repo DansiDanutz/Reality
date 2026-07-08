@@ -173,7 +173,8 @@ function landLeaseRentDraft(input: {
 function normalizedOptionalMoney(value: number | null): number | null {
   if (value === null) return null
   if (!Number.isFinite(value) || value <= 0) return null
-  return roundMoney(value)
+  const rounded = roundMoney(value)
+  return rounded > 0 ? rounded : null
 }
 
 function normalizedTermDays(value: number | null): number {

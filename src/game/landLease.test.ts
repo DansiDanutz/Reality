@@ -173,4 +173,19 @@ describe('land lease policy', () => {
     expect(assessment.rentDraft).toBeNull()
     expect(assessment.blockers).toContain('local_demand_required')
   })
+
+  test('does not draft zero-credit rent from sub-cent inputs', () => {
+    const assessment = assessLandLeasePolicy({
+      landOwnerCitizenId: 'owner-1',
+      operatorCitizenId: 'operator-1',
+      operatorBusinessId: 'business-water',
+      operatorBusinessUsesLand: true,
+      localDemandServed: 5,
+      fixedMonthlyRent: 0.001,
+    })
+
+    expect(assessment.fixedMonthlyRent).toBeNull()
+    expect(assessment.readyForManualReview).toBe(false)
+    expect(assessment.rentDraft).toBeNull()
+  })
 })
