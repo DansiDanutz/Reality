@@ -451,7 +451,26 @@ describe('decodeClientFounderCovenantReviewPayload', () => {
   })
 
   test('rejects client-controlled review state', () => {
-    for (const field of ['reviewerId', 'now', 'status', 'signals', 'reviewQueue', 'manualActions', 'transactions']) {
+    for (const field of [
+      'reviewerId',
+      'now',
+      'status',
+      'signals',
+      'reviewQueue',
+      'manualActions',
+      'money',
+      'cash',
+      'debt',
+      'debts',
+      'needs',
+      'health',
+      'state',
+      'jobBusinessId',
+      'homeBusinessId',
+      'insurancePaidUntil',
+      'heirCitizenId',
+      'transactions',
+    ]) {
       expect(decodeClientFounderCovenantReviewPayload({
         type: 'recordCovenantReview',
         actionKind: 'record_review',
