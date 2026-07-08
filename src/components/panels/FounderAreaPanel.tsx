@@ -64,6 +64,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderExecutableDebtAction,
+  founderExecutableInsurancePayload,
+  founderExecutableSurvivalAction,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -834,7 +837,7 @@ export default function FounderAreaPanel() {
                   <div className="item-info">
                     <span className="item-name">{recommendation.name}</span>
                     <span className="item-desc">
-                      demand {recommendation.currentDemand} · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
+                      demand {recommendation.currentDemand} ({recommendation.simDemand} sim · {recommendation.realDemand} real) · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
                     </span>
                     <span className={recommendation.estimatedHourlyProfit >= 0 ? 'item-yield mono' : 'item-locked mono'}>
                       {recommendation.estimatedHourlyProfit >= 0 ? '+' : '-'}
@@ -861,9 +864,9 @@ export default function FounderAreaPanel() {
             <ul className="item-list">
               {dashboard.citizens.slice(0, 6).map((resident) => {
                 const survival = dashboard.survival.signals.find((signal) => signal.citizenId === resident.id)
-                const survivalAction = survival?.actions.find((action) => action.available && action.canAfford)
-                const debtAction = resident.debts.find((debt) => debt.canRepayNow)
-                const canBuyInsurance = resident.id === profile.founderId && resident.insuranceAction.canBuyNow
+                const survivalAction = founderExecutableSurvivalAction(profile.founderId, resident, survival)
+                const debtAction = founderExecutableDebtAction(profile.founderId, resident)
+                const insurancePayload = founderExecutableInsurancePayload(profile.founderId, resident)
                 return (
                   <li className={`item founder-citizen ${resident.visualTone}`} key={resident.id}>
                     <div className="item-info">
@@ -883,11 +886,11 @@ export default function FounderAreaPanel() {
                           {survivalAction.intent}
                         </button>
                       )}
-                      {canBuyInsurance && (
+                      {insurancePayload && (
                         <button
                           className="btn small"
                           disabled={busy}
-                          onClick={() => void submitPayload(resident.insuranceAction.clientPayload, 'Insurance bought.')}
+                          onClick={() => void submitPayload(insurancePayload, 'Insurance bought.')}
                         >
                           Insure
                         </button>
