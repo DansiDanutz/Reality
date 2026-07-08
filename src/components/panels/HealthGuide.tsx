@@ -70,6 +70,9 @@ export default function HealthGuide() {
         Reality runs on real rules. Every number below is calibrated to real human physiology — the same
         figures the WHO, CDC and EFSA publish — compressed onto your real clock.
       </p>
+      <p className="panel-sub">
+        The daily loop is simple: survive first, then work, study, help your neighborhood, and build the home or business that makes the next day easier.
+      </p>
 
       {SECTIONS.map((s) => (
         <article className="guide-section" key={s.title}>
