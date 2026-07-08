@@ -3,6 +3,7 @@ import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } fr
 import { missedSeriousWorkYesterday } from '../../game/community'
 import { educationActionCount } from '../../game/education'
 import { lifeDayFromCreatedAt, planLifeDay } from '../../game/lifeLadder'
+import { planLifeRoadmap } from '../../game/lifeRoadmap'
 import { MILLIONAIRE_STAGE_META, MILLIONAIRE_STAGE_ORDER, millionaireStageProgress } from '../../game/millionairePath'
 import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
 import { track } from '../../lib/analytics'
@@ -139,6 +140,31 @@ export default function GoalsCard() {
     brokenCommitments: community.brokenCommitments,
     seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
   })
+  const roadmapPreview = planLifeRoadmap({
+    lifeDay: lifePlan.lifeDay,
+    money,
+    needs,
+    health,
+    level,
+    xp,
+    jobId,
+    shiftsWorked,
+    activityKind: activity?.kind ?? null,
+    assets,
+    inventory,
+    resources,
+    constructionProjects,
+    businessDevelopmentProjects,
+    educationActions: educationActionCount(educationProgress),
+    educationProgress,
+    communityActionsThisWeek: community.actionsThisWeek,
+    communityActionsToday: community.actionsToday,
+    communityRespect: community.respect,
+    communityFriendship: community.friendship,
+    communityTrust: community.trust,
+    brokenCommitments: community.brokenCommitments,
+    seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
+  }, 3)
 
   const openRoute = (route: typeof lifePlan.primary.route) => dispatchLifePlanRoute(route, {
     resourceNodes,
@@ -215,6 +241,25 @@ export default function GoalsCard() {
         </span>
       )
     : null
+  const nextDays = roadmapPreview.days.length > 1
+    ? (
+        <span className="goals-card-agenda">
+          {roadmapPreview.days.slice(1).map((day) => (
+            <button
+              type="button"
+              className="goals-card-agenda-item"
+              key={day.dayLabel}
+              onClick={() => setPanel('construction')}
+              aria-label={`${day.dayLabel}. ${day.primary.title}. ${day.primary.detail}`}
+            >
+              <span className="goals-card-agenda-index">{day.dayLabel}</span>
+              <span>{day.primary.title}</span>
+              <span className="goals-card-agenda-time">{formatPlanMinutes(day.primary.minutes)}</span>
+            </button>
+          ))}
+        </span>
+      )
+    : null
 
   return (
     <section
@@ -262,6 +307,7 @@ export default function GoalsCard() {
         <span className="goals-card-detail">{lifePlan.primary.value} · {formatPlanMinutes(lifePlan.primary.minutes)} · Day {lifePlan.lifeDay}</span>
       </button>
       {agenda}
+      {nextDays}
       {routine}
     </section>
   )
