@@ -10,6 +10,9 @@ vi.mock('@vercel/blob', () => ({
 
 const BOT_TOKEN = '123456:telegram-secret'
 const NOW_SECONDS = 1_783_307_000
+const REGISTER_IP = '203.0.113.42'
+const REGISTER_IP_HASH = createHash('sha256').update(REGISTER_IP).digest('hex').slice(0, 16)
+const REGISTER_DAY = new Date(NOW_SECONDS * 1000).toISOString().slice(0, 10)
 
 afterEach(() => {
   vi.useRealTimers()
@@ -148,6 +151,62 @@ describe('register API Telegram identity bridge', () => {
       name: 'David',
       createdAt: expect.any(String),
     })
+  })
+
+  test('returns structured storage failure when registration safety scan is unavailable', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.mocked(list).mockRejectedValueOnce(new Error('registration safety list unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
+      code: 'registration_safety_unavailable',
+    })
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledWith({ prefix: `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}`, limit: 6 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('returns structured storage failure when registration safety marker cannot be written', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    vi.mocked(put).mockRejectedValueOnce(new Error('registration safety marker unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
+      code: 'registration_safety_unavailable',
+    })
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledWith({ prefix: `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}`, limit: 6 })
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenCalledWith(
+      `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}__${NOW_SECONDS * 1000}.json`,
+      '1',
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+    expect(vi.mocked(put).mock.calls.some(([pathname]) =>
+      typeof pathname === 'string' &&
+      (pathname.startsWith('names/') || pathname.startsWith('founders/') || pathname.startsWith('citizens/') || pathname.startsWith('telegram-users/'))
+    )).toBe(false)
   })
 })
 
