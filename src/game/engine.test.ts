@@ -500,6 +500,40 @@ describe('dailyStepsOf', async () => {
   })
 })
 
+describe('lifeMilestonesOf', async () => {
+  const { lifeMilestonesOf } = await import('./engine')
+
+  test('spells out the next days as a concrete ladder', () => {
+    const milestones = lifeMilestonesOf({
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      money: 25_000,
+      jobId: 'barista',
+      respect: 2,
+      activity: null,
+      hasHome: true,
+      businesses: 1,
+      workersHall: true,
+      pendingIncome: 0,
+    })
+
+    expect(milestones).toEqual([
+      {
+        label: 'Today: survive cleanly',
+        detail: 'Stay fed, hydrated, and rested so the day stays productive.',
+      },
+      {
+        label: 'Next: staff the business',
+        detail: 'Hire AI workers so the business keeps growing while you build again.',
+      },
+      {
+        label: 'Soon: belong and expand',
+        detail: 'Use friendship, community, and repeat work to reach the next tier.',
+      },
+    ])
+  })
+})
+
 describe('mood & tiers', async () => {
   const { moodOf, tierOf } = await import('./engine')
   const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }

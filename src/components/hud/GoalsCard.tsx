@@ -1,5 +1,5 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
-import { adviceOf, dailyStepsOf, formatMoney, netWorthOf } from '../../game/engine'
+import { adviceOf, dailyStepsOf, formatMoney, lifeMilestonesOf, netWorthOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -61,6 +61,18 @@ export default function GoalsCard() {
     workersHall,
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
+  const milestones = lifeMilestonesOf({
+    needs,
+    health,
+    money,
+    jobId,
+    respect,
+    activity,
+    hasHome: assets.some((a) => a.kind === 'home'),
+    businesses,
+    workersHall,
+    pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+  })
   const routine = dailyStepsOf({
     needs,
     health,
@@ -90,6 +102,7 @@ export default function GoalsCard() {
         <span className="goals-card-plan-head mono">Plan</span>
         <span className="goals-card-plan-text">{advice.text}</span>
         <span className="goals-card-plan-steps mono">{routine.slice(0, 4).map((step) => step.label).join(' · ')}</span>
+        <span className="goals-card-plan-steps mono">{milestones.map((milestone) => milestone.label).join(' · ')}</span>
         {hallNext && <span className="goals-card-plan-steps mono">Build Workers Hall · staff what you built</span>}
         <span className="goals-card-plan-work mono">Net worth {formatMoney(netWorthOf(money, inventory, assets))}</span>
       </div>

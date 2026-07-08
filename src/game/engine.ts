@@ -788,6 +788,11 @@ export interface DailyStep {
   label: string
 }
 
+export interface LifeMilestone {
+  label: string
+  detail: string
+}
+
 export interface AdviceInput {
   needs: Needs
   health: number
@@ -895,6 +900,58 @@ export function dailyStepsOf(i: AdviceInput): DailyStep[] {
   }
 
   return steps
+}
+
+export function lifeMilestonesOf(i: AdviceInput): LifeMilestone[] {
+  const milestones: LifeMilestone[] = []
+
+  milestones.push({
+    label: 'Today: survive cleanly',
+    detail: i.health < 35 || (i.needs.hydration ?? 75) < 30 || i.needs.hunger < 30 || i.needs.energy < 28
+      ? 'Eat, drink, and sleep before anything else.'
+      : 'Stay fed, hydrated, and rested so the day stays productive.',
+  })
+
+  if (!i.jobId) {
+    milestones.push({
+      label: 'Next: get a job',
+      detail: 'Income starts the whole ladder. Find work first.',
+    })
+  } else if (!i.hasHome && i.money >= CHEAPEST_HOME) {
+    milestones.push({
+      label: 'Next: buy a home',
+      detail: 'A home makes sleep, recovery, and the next build easier.',
+    })
+  } else if (i.businesses > 0 && !i.workersHall && i.money >= 18_000) {
+    milestones.push({
+      label: 'Next: build a Workers Hall',
+      detail: 'Open roles become real hires only after the hall exists.',
+    })
+  } else if (i.businesses > 0 && i.workersHall) {
+    milestones.push({
+      label: 'Next: staff the business',
+      detail: 'Hire AI workers so the business keeps growing while you build again.',
+    })
+  } else if (i.money >= 80 && i.hasHome) {
+    milestones.push({
+      label: 'Next: study up',
+      detail: 'School and certifications turn wage income into leverage.',
+    })
+  } else {
+    milestones.push({
+      label: 'Next: save and build',
+      detail: 'Hold money for the next house, business, or upgrade.',
+    })
+  }
+
+  milestones.push({
+    label: 'Soon: belong and expand',
+    detail: i.businesses >= 2 && i.respect < 5
+      ? 'Help the neighborhood to grow respect and stability.'
+      : 'Use friendship, community, and repeat work to reach the next tier.',
+  })
+
+  return milestones
 }
 
 /**
