@@ -67,6 +67,7 @@ export function FounderCovenantQueuePanel({
                 <span className="item-name">{row.title}</span>
                 <span className="item-desc">{row.founderCitizenId} · {row.summary}</span>
                 <span className="item-desc">{row.dateSummary}</span>
+                <span className="item-desc">Cadence: {row.cadenceText}</span>
                 {row.latestReviewText && <span className="item-desc">{row.latestReviewText}</span>}
                 <span className="item-desc">Activity: {row.activitySignalText}</span>
                 <span className="item-desc">Exposure: {row.economicExposureText}</span>
