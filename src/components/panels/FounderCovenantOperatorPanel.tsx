@@ -147,8 +147,14 @@ export default function FounderCovenantOperatorPanel({
   const manualReviewTelegramDraft = queue?.items.flatMap((item) => item.pendingNotificationDrafts).find((item) => item.kind === 'manual_review_required') ?? null
   const founderWarningTelegramDraft = queue?.items.flatMap((item) => item.pendingApprovalRequests).find((item) => item.kind === 'send_warning') ?? null
   const hasReviewDraft = reviewNote.trim().length > 0 || reviewEvidenceKinds.length > 0
+  const reviewDraftEvidenceSummary = reviewEvidenceKinds.length > 0
+    ? OPERATOR_REVIEW_EVIDENCE_OPTIONS
+      .filter((option) => reviewEvidenceKinds.includes(option.kind))
+      .map((option) => option.label)
+      .join(', ')
+    : 'no evidence tags'
   const reviewDraftSummary = hasReviewDraft
-    ? `Local draft: ${reviewEvidenceKinds.length} evidence tag${reviewEvidenceKinds.length === 1 ? '' : 's'} · ${reviewNote.trim().length > 0 ? 'note saved' : 'no note'}`
+    ? `Local draft: ${reviewDraftEvidenceSummary} · ${reviewNote.trim().length > 0 ? 'note saved' : 'no note'}`
     : null
   const telegramOutputsSummary = queueTelegramOutputsSummary({
     hasQueue: Boolean(queue),

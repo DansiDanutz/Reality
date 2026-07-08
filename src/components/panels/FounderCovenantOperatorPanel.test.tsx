@@ -42,7 +42,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Need a clearer proof of activity.')
     expect(html).toContain('checked=""')
     expect(html).toContain('Clear draft')
-    expect(html).toContain('Local draft: 2 evidence tags · note saved')
+    expect(html).toContain('Local draft: Population, Ideas · note saved')
   })
 
   test('renders an isolated operator queue shell without a loaded token', () => {
