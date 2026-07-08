@@ -1120,6 +1120,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'manual_review' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('manual_review')}
+              title={queueSelectionTitle('manual_review', 'priority')}
               type="button"
             >
               Triage Manual
@@ -1128,6 +1129,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'needs_evidence' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('needs_evidence')}
+              title={queueSelectionTitle('needs_evidence', 'priority')}
               type="button"
             >
               Triage Evidence
@@ -1178,6 +1180,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'overdue' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('overdue')}
+              title={queueSelectionTitle('overdue', 'priority')}
               type="button"
             >
               Triage Overdue
@@ -1186,6 +1189,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'blocked' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('blocked')}
+              title={queueSelectionTitle('blocked', 'priority')}
               type="button"
             >
               Triage Blocked
@@ -1194,6 +1198,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'hospitalized' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('hospitalized')}
+              title={queueSelectionTitle('hospitalized', 'priority')}
               type="button"
             >
               Triage Hospital
@@ -1202,6 +1207,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'inactive' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('inactive')}
+              title={queueSelectionTitle('inactive', 'priority')}
               type="button"
             >
               Triage Inactive
@@ -1210,6 +1216,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'debt_risk' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('debt_risk')}
+              title={queueSelectionTitle('debt_risk', 'priority')}
               type="button"
             >
               Triage Debt
@@ -1218,6 +1225,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'at_risk' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('at_risk')}
+              title={queueSelectionTitle('at_risk', 'priority')}
               type="button"
             >
               Triage Risk
@@ -1226,6 +1234,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'telegram_ready' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('telegram_ready')}
+              title={queueSelectionTitle('telegram_ready', 'priority')}
               type="button"
             >
               Triage Telegram
@@ -1234,6 +1243,7 @@ export default function FounderCovenantOperatorPanel({
               className={`btn small ${activePriorityPreset === 'scan_anomaly' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyPriorityPreset('scan_anomaly')}
+              title={queueSelectionTitle('scan_anomaly', 'priority')}
               type="button"
             >
               Triage Scan
