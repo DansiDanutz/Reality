@@ -27,8 +27,8 @@ export function roadmapValueLabel(value: string): string {
 export function roadmapRouteLabel(route: LifePlanRoute): string {
   if (route.kind === 'market') return 'Market'
   if (route.kind === 'gather') return 'Gather'
-  if (route.kind === 'construction-action') return route.action === 'work' ? 'Build' : 'Build'
-  if (route.kind === 'business-development-action') return route.action === 'work' ? 'Biz' : 'Biz'
+  if (route.kind === 'construction-action') return 'Build'
+  if (route.kind === 'business-development-action') return 'Biz'
   if (route.kind === 'work-action') return 'Work'
   if (route.kind === 'community-action') return 'Community'
   if (route.kind === 'education-action') return 'School'

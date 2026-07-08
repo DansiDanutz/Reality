@@ -225,7 +225,7 @@ export default function GoalsCard() {
   const nextDays = roadmapPreview.days.length > 1
     ? (
         <span className="goals-card-agenda" aria-label={roadmapPreviewHeading(roadmapPreview.days.length - 1)}>
-          <span className="goals-card-agenda-index">{roadmapPreviewHeading(roadmapPreview.days.length - 1)}</span>
+          <span className="goals-card-agenda-heading">{roadmapPreviewHeading(roadmapPreview.days.length - 1)}</span>
           {roadmapPreview.days.slice(1).map((day) => (
             <button
               type="button"
