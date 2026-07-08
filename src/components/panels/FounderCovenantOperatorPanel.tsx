@@ -20,11 +20,13 @@ import type {
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
 import {
+  founderCovenantApprovalBlockerText,
   founderCovenantOperatorQueueActivityRiskMix,
   founderCovenantOperatorQueueActivityRiskSummary,
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueActionSummary,
+  founderCovenantNotificationDraftGateText,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
@@ -144,6 +146,12 @@ export default function FounderCovenantOperatorPanel({
     hasManualReviewDraft: Boolean(manualReviewTelegramDraft),
     hasFounderWarningDraft: Boolean(founderWarningTelegramDraft),
   })
+  const manualTelegramRationale = manualReviewTelegramDraft
+    ? founderCovenantNotificationDraftGateText(manualReviewTelegramDraft)
+    : 'No manual review Telegram draft in current queue'
+  const warningTelegramRationale = founderWarningTelegramDraft
+    ? founderCovenantApprovalBlockerText(founderWarningTelegramDraft)
+    : 'No founder warning Telegram draft in current queue'
 
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
@@ -1178,6 +1186,9 @@ export default function FounderCovenantOperatorPanel({
             >
               Clear copied
             </button>
+            <span className="item-desc">{telegramOutputsSummary}</span>
+            <span className="item-desc">Manual Telegram: {manualTelegramRationale}</span>
+            <span className="item-desc">Warning Telegram: {warningTelegramRationale}</span>
             <button
               className="btn small ghost"
               disabled={loading || operatorToken.length === 0}
