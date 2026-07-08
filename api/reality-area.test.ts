@@ -4291,6 +4291,33 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('refreshArea returns structured storage failure when the founder area cannot load', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockRejectedValueOnce(new Error('blob list failed'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'refreshArea' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Founder area is temporarily unavailable for refresh.',
+      code: 'area_load_unavailable',
+      state: null,
+    })
+    expect(list).toHaveBeenNthCalledWith(1, { prefix: `citizens/${CITIZEN_ID}__${TOKEN_HASH}`, limit: 1 })
+    expect(list).toHaveBeenNthCalledWith(2, { prefix: areaStatePath(CITIZEN_ID), limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('refreshArea rejects client-controlled state fields without mutating the area', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
@@ -4313,6 +4340,8 @@ describe('reality area authority API', () => {
       code: 'client_controlled_server_field',
       error: 'Invalid refreshArea intent.',
     })
+    expect(list).toHaveBeenCalledTimes(1)
+    expect(list).toHaveBeenCalledWith({ prefix: `citizens/${CITIZEN_ID}__${TOKEN_HASH}`, limit: 1 })
     expect(put).not.toHaveBeenCalled()
   })
 
