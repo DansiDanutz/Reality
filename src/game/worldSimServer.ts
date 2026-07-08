@@ -289,6 +289,7 @@ export interface WorldFounderCovenantReviewQueueItem {
 
 export interface WorldFounderCovenantReviewQueueScanResult {
   areaId: string
+  founderCitizenId: string | null
   status: WorldFounderCovenantReviewQueueScanStatus
   checkedAt: number | null
   transactionsAdded: number
@@ -687,6 +688,7 @@ async function founderCovenantReviewQueueRecord(
     return {
       result: {
         areaId: area.id,
+        founderCitizenId: area.claim?.founderCitizenId ?? null,
         status: 'time_moved_backward',
         checkedAt: area.now,
         transactionsAdded: 0,
@@ -706,6 +708,7 @@ async function founderCovenantReviewQueueRecord(
       return {
         result: {
           areaId: area.id,
+          founderCitizenId: area.claim?.founderCitizenId ?? null,
           status: 'write_conflict',
           checkedAt: area.now,
           transactionsAdded: 0,
@@ -721,6 +724,7 @@ async function founderCovenantReviewQueueRecord(
     return {
       result: {
         areaId: reviewArea.id,
+        founderCitizenId: reviewArea.claim?.founderCitizenId ?? null,
         status: scanStatus,
         checkedAt: reviewArea.now,
         transactionsAdded,
@@ -732,6 +736,7 @@ async function founderCovenantReviewQueueRecord(
   return {
     result: {
       areaId: reviewArea.id,
+      founderCitizenId,
       status: scanStatus,
       checkedAt: reviewArea.now,
       transactionsAdded,

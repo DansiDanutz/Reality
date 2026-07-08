@@ -1494,8 +1494,8 @@ describe('runWorldServerCommand', () => {
       totalOutstandingDebt: 350,
     })
     expect(queue.results).toEqual([
-      { areaId: 'area-1', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },
-      { areaId: 'area-2', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },
+      { areaId: 'area-1', founderCitizenId: 'founder', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },
+      { areaId: 'area-2', founderCitizenId: 'founder-2', status: 'caught_up', checkedAt: now, transactionsAdded: 0 },
     ])
     expect(savedSafe?.now).toBe(now)
     expect(savedRisk?.now).toBe(now)
@@ -1591,6 +1591,8 @@ describe('runWorldServerCommand', () => {
     })
     expect(firstResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
       .toEqual(['area-1', 'area-2'])
+    expect(firstResult.founderCovenantReviewQueue.results.map((result) => result.founderCitizenId))
+      .toEqual(['founder-1', 'founder-2'])
 
     const secondResult = await readWorldFounderCovenantReviewQueue(repo, now, {
       limit: 2,
@@ -1612,6 +1614,8 @@ describe('runWorldServerCommand', () => {
     })
     expect(secondResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
       .toEqual(['area-3'])
+    expect(secondResult.founderCovenantReviewQueue.results.map((result) => result.founderCitizenId))
+      .toEqual(['founder-3'])
 
     const combinedResult = await readWorldFounderCovenantReviewQueue(repo, now, { limit: 1, pages: 2 })
     expect(combinedResult.ok).toBe(true)
@@ -1630,6 +1634,8 @@ describe('runWorldServerCommand', () => {
     })
     expect(combinedResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
       .toEqual(['area-1', 'area-2'])
+    expect(combinedResult.founderCovenantReviewQueue.results.map((result) => result.founderCitizenId))
+      .toEqual(['founder-1', 'founder-2'])
 
     await expect(readWorldFounderCovenantReviewQueue(repo, now, { limit: 0 }))
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_limit' })
@@ -1681,7 +1687,7 @@ describe('runWorldServerCommand', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error(`expected queue to build: ${result.error}`)
     expect(result.founderCovenantReviewQueue.results).toEqual([
-      { areaId: 'area-1', status: 'write_conflict', checkedAt: now, transactionsAdded: 0 },
+      { areaId: 'area-1', founderCitizenId: 'founder-1', status: 'write_conflict', checkedAt: now, transactionsAdded: 0 },
     ])
     expect(result.founderCovenantReviewQueue).toMatchObject({
       scanned: 1,
