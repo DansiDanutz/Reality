@@ -708,6 +708,7 @@ export interface RealityAreaCitizenDashboard {
   homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
+  insurancePaidUntil?: string
   heirCitizenId?: string
   insuranceActive: boolean
   insuranceAction: RealityAreaInsuranceActionDashboard
@@ -1665,6 +1666,7 @@ function mergeRealityAreaCitizenDashboard(
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
+    insurancePaidUntil: citizen.insurancePaidUntil ? parseInstant(citizen.insurancePaidUntil) : undefined,
     heirCitizenId: citizen.heirCitizenId,
     insuranceActive: citizen.insuranceActive,
     insuranceAction: mergeRealityAreaInsuranceAction(citizen.insuranceAction),
@@ -2797,6 +2799,7 @@ function isRealityAreaCitizenDashboard(value: unknown): value is RealityAreaCiti
     (typeof value.homeBusinessId === 'string' || value.homeBusinessId === undefined) &&
     (typeof value.jobBusinessId === 'string' || value.jobBusinessId === undefined) &&
     (typeof value.insuranceBusinessId === 'string' || value.insuranceBusinessId === undefined) &&
+    (typeof value.insurancePaidUntil === 'string' || value.insurancePaidUntil === undefined) &&
     (typeof value.heirCitizenId === 'string' || value.heirCitizenId === undefined) &&
     typeof value.insuranceActive === 'boolean' &&
     isRealityAreaInsuranceAction(value.insuranceAction) &&

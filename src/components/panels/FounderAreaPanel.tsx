@@ -64,6 +64,8 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderCitizenConditionText,
+  founderCitizenProtectionText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -869,8 +871,9 @@ export default function FounderAreaPanel() {
                     <div className="item-info">
                       <span className="item-name">{resident.displayName}</span>
                       <span className="item-desc">
-                        {resident.state} · health {Math.round(resident.health)} · {resident.participantLabel}
+                        {founderCitizenConditionText(resident)}
                       </span>
+                      <span className="item-desc">{founderCitizenProtectionText(resident, survival)}</span>
                       {resident.debt > 0 && <span className="item-locked mono">debt {formatMoney(resident.debt)}</span>}
                     </div>
                     <div className="item-buy">

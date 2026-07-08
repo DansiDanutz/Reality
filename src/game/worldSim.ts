@@ -396,6 +396,7 @@ export interface AreaCitizenDashboard {
   homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
+  insurancePaidUntil?: number
   heirCitizenId?: string
   insuranceActive: boolean
   insuranceAction: AreaInsuranceActionDashboard
@@ -1357,6 +1358,7 @@ function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): A
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
+    insurancePaidUntil: citizen.insurancePaidUntil,
     heirCitizenId: citizen.heirCitizenId,
     insuranceActive: hasActiveInsurance(citizen, at),
     insuranceAction: insuranceActionDashboard(area, citizen, at),

@@ -1,10 +1,12 @@
 import { formatMoney } from '../../game/engine'
 import type {
+  AreaCitizenDashboard,
   AreaEventDashboard,
   AreaEventsDashboard,
   AreaFounderCovenantDashboard,
   AreaLedgerDashboard,
   AreaTransactionDashboard,
+  CitizenSurvivalSignal,
   FounderCovenantActivityReview,
   FounderCovenantApprovalRequest,
   FounderCovenantManualAction,
@@ -162,6 +164,27 @@ export function founderIdentityTelegramStatusLabel(
   if (identity.telegramUserId) return `Telegram linked ${identity.telegramUserId}`
   if (identity.telegramAccountId) return `Telegram linked ${identity.telegramAccountId.replace(/^telegram:/, '')}`
   return 'Telegram pending'
+}
+
+export function founderCitizenConditionText(
+  citizen: Pick<AreaCitizenDashboard, 'state' | 'health' | 'participantLabel'>,
+): string {
+  return `${citizen.state} · health ${Math.round(citizen.health)} · ${citizen.participantLabel}`
+}
+
+export function founderCitizenProtectionText(
+  citizen: Pick<AreaCitizenDashboard, 'insuranceActive' | 'insurancePaidUntil' | 'insuranceBusinessId' | 'insuranceAction'>,
+  survival?: Pick<CitizenSurvivalSignal, 'hospitalizedUntil'>,
+): string {
+  if (survival?.hospitalizedUntil) return `Hospital until ${founderUtcMinuteText(survival.hospitalizedUntil)}`
+  if (citizen.insuranceActive && citizen.insurancePaidUntil) {
+    return `Insured until ${founderUtcMinuteText(citizen.insurancePaidUntil)}`
+  }
+  if (citizen.insuranceBusinessId) return 'Insurance expired'
+  if (citizen.insuranceAction.available && citizen.insuranceAction.premium !== null) {
+    return `Uninsured · premium ${formatMoney(citizen.insuranceAction.premium)}`
+  }
+  return 'Uninsured'
 }
 
 export function founderGrowthStatusLabel(
@@ -1045,6 +1068,11 @@ function founderCovenantOperatorQueueScanStatusLabel(
 
 function shortDate(value: string): string {
   return value.slice(0, 10)
+}
+
+function founderUtcMinuteText(value: string | number): string {
+  const iso = new Date(value).toISOString()
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`
 }
 
 function founderCovenantNextActionLabel(

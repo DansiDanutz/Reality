@@ -37,6 +37,8 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderCitizenConditionText,
+  founderCitizenProtectionText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -87,6 +89,56 @@ describe('FounderAreaPanel covenant presenters', () => {
       telegramUserId: null,
       telegramAccountId: null,
     })).toBe('Telegram pending')
+  })
+
+  test('summarizes founder citizen condition and insurance or recovery state', () => {
+    expect(founderCitizenConditionText({
+      state: 'active',
+      health: 89.6,
+      participantLabel: 'Real Citizen',
+    })).toBe('active · health 90 · Real Citizen')
+
+    expect(founderCitizenProtectionText({
+      insuranceActive: true,
+      insurancePaidUntil: Date.parse('2026-08-06T03:30:00.000Z'),
+      insuranceBusinessId: 'insurance-1',
+      insuranceAction: {
+        available: true,
+        premium: 45,
+      } as never,
+    })).toBe('Insured until 2026-08-06 03:30 UTC')
+
+    expect(founderCitizenProtectionText({
+      insuranceActive: false,
+      insurancePaidUntil: undefined,
+      insuranceBusinessId: 'insurance-1',
+      insuranceAction: {
+        available: true,
+        premium: 45,
+      } as never,
+    })).toBe('Insurance expired')
+
+    expect(founderCitizenProtectionText({
+      insuranceActive: false,
+      insurancePaidUntil: undefined,
+      insuranceBusinessId: undefined,
+      insuranceAction: {
+        available: true,
+        premium: 45,
+      } as never,
+    }, {
+      hospitalizedUntil: Date.parse('2026-07-06T11:45:00.000Z'),
+    })).toBe('Hospital until 2026-07-06 11:45 UTC')
+
+    expect(founderCitizenProtectionText({
+      insuranceActive: false,
+      insurancePaidUntil: undefined,
+      insuranceBusinessId: undefined,
+      insuranceAction: {
+        available: true,
+        premium: 45,
+      } as never,
+    })).toBe('Uninsured · premium $45')
   })
 
   test('summarizes disabled Telegram growth tracking for founder review', () => {

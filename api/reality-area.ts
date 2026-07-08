@@ -652,6 +652,7 @@ interface FounderAreaCitizenDashboard {
   homeBusinessId?: string
   jobBusinessId?: string
   insuranceBusinessId?: string
+  insurancePaidUntil?: string
   heirCitizenId?: string
   insuranceActive: boolean
   insuranceAction: FounderAreaInsuranceActionDashboard
@@ -3959,6 +3960,7 @@ function citizenDashboard(state: FounderAreaState, citizen: FounderAreaCitizen):
     homeBusinessId: citizen.homeBusinessId,
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
+    insurancePaidUntil: citizen.insurancePaidUntil,
     heirCitizenId: citizen.heirCitizenId,
     insuranceActive: hasActiveInsurance(citizen, now),
     insuranceAction: insuranceActionDashboard(state, citizen, now),

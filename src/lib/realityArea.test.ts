@@ -1598,6 +1598,7 @@ describe('Reality area client', () => {
       visualTone: 'simulated',
       jobBusinessId: 'water-1',
       insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: Date.parse('2026-08-06T03:30:00.000Z'),
       insuranceActive: true,
     })
     expect(merged.survival).toMatchObject({
@@ -2624,6 +2625,7 @@ function serverDashboard(): RealityAreaDashboard {
       debts: [],
       jobBusinessId: 'water-1',
       insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-08-06T03:30:00.000Z',
       insuranceActive: true,
       insuranceAction: {
         intent: 'buyInsurance',
