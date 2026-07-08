@@ -48,6 +48,8 @@ Open http://localhost:5173, claim your founder slot, and start living.
 - [Economy](docs/ECONOMY.md) — money supply, prices, yields, sinks & faucets
 - [Architecture](docs/ARCHITECTURE.md) — code layout today, server design for v1
 - [Roadmap](docs/ROADMAP.md) — beta → online launch → society
+- [All roadmaps & implementation status](docs/ROADMAPS.md) — one consolidated view of product, technical, content, and monetization roadmaps
+- [Presentation page](https://reality-gamma.vercel.app/presentation.html) — shareable one-page pitch for the game (`/presentation.html`)
 - [Contributing](CONTRIBUTING.md) — the game is built in the open; PRs welcome
 
 ## The vision
