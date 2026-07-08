@@ -143,6 +143,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   evidenceInputText: string
   evidenceReasonText: string
   manualActionText: string
+  manualActionReasonText: string
   approvalRequestText: string
   approvalReasonText: string
   approvalGateText: string
@@ -1361,6 +1362,7 @@ export function founderCovenantOperatorQueueReviewRows(
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       evidenceReasonText: founderCovenantOperatorQueueEvidenceReasonText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
+      manualActionReasonText: founderCovenantOperatorQueueManualActionReasonText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       approvalReasonText: founderCovenantOperatorQueueApprovalReasonText(item),
       approvalGateText: founderCovenantOperatorQueueApprovalGateText(item),
@@ -1540,6 +1542,14 @@ export function founderCovenantOperatorQueueManualActionText(
       return `${founderCovenantManualActionKindLabel(action.kind)} ${status}`
     })
     .join(', ')
+}
+
+export function founderCovenantOperatorQueueManualActionReasonText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'manualActions'>,
+): string {
+  const suggested = item.manualActions.filter((action) => action.recommended)
+  if (suggested.length === 0) return 'none'
+  return suggested.map((action) => `${founderCovenantManualActionKindLabel(action.kind)}: ${action.reason}`).join(' · ')
 }
 
 export function founderCovenantOperatorQueueApprovalRequestText(

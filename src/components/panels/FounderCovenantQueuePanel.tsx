@@ -86,6 +86,7 @@ export function FounderCovenantQueuePanel({
                 <span className="item-desc">Evidence: {row.evidenceInputText}</span>
                 <span className="item-desc">Evidence reasons: {row.evidenceReasonText}</span>
                 <span className="item-desc">Actions: {row.manualActionText}</span>
+                <span className="item-desc">Action reasons: {row.manualActionReasonText}</span>
                 <span className="item-desc">Approvals: {row.approvalRequestText}</span>
                 <span className="item-desc">Approval reasons: {row.approvalReasonText}</span>
                 <span className="item-desc">Approval gates: {row.approvalGateText}</span>

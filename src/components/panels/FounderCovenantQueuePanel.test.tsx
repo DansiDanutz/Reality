@@ -16,6 +16,7 @@ import {
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueLatestReviewAuthorityText,
   founderCovenantOperatorQueueLatestReviewText,
+  founderCovenantOperatorQueueManualActionReasonText,
   founderCovenantOperatorQueueNextActionText,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
@@ -74,6 +75,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Evidence reasons: Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
+    expect(html).toContain('Action reasons: Record review: Reviewer notes are manual evidence only; no automatic enforcement runs. · Send warning: Covenant signals suggest a manual founder warning.')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Approval reasons: Send warning: Founder covenant signals suggest a warning.')
     expect(html).toContain('Approval gates: Main founder approval · 2 blockers')
@@ -193,6 +195,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
       'Record review evidence-only, Send warning locked',
     )
+    expect(founderCovenantOperatorQueueManualActionReasonText(manual)).toBe(
+      'Record review: Reviewer notes are manual evidence only; no automatic enforcement runs. · Send warning: Covenant signals suggest a manual founder warning.',
+    )
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
     expect(founderCovenantOperatorQueueApprovalReasonText(manual)).toBe(
       'Send warning: Founder covenant signals suggest a warning.',
@@ -252,6 +257,7 @@ describe('FounderCovenantQueuePanel', () => {
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
       reviewQueueStatusText: 'Evidence only',
       evidenceReasonText: 'Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+      manualActionReasonText: 'Record review: Reviewer notes are manual evidence only; no automatic enforcement runs. · Send warning: Covenant signals suggest a manual founder warning.',
       approvalReasonText: 'Send warning: Founder covenant signals suggest a warning.',
       approvalGateText: 'Main founder approval · 2 blockers',
       approvalBlockerText: 'approval workflow, Telegram delivery',
