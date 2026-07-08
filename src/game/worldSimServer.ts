@@ -165,6 +165,7 @@ export type WorldServerCommandError =
 export type WorldFounderCovenantReviewQueueError =
   | 'invalid_command_time'
   | 'invalid_review_queue_limit'
+  | 'invalid_pages'
   | 'invalid_review_queue_cursor'
   | 'review_queue_unavailable'
 
@@ -302,6 +303,8 @@ export interface WorldFounderCovenantReviewQueueDashboard {
   waitlistHandoffEnabled: false
   approvalWorkflowEnabled: false
   limit: number
+  pages: number
+  pagesScanned: number
   cursor: string | null
   nextCursor: string | null
   hasMore: boolean
@@ -377,11 +380,13 @@ export type WorldFounderCovenantReviewQueueResult =
 
 export interface ReadWorldFounderCovenantReviewQueueOptions {
   limit?: number
+  pages?: number
   cursor?: string
 }
 
 export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_LIMIT = 25
 export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT = 100
+export const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_PAGES = 5
 const WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_CURSOR_MAX_LENGTH = 256
 
 export type WorldServerCommandResult =
@@ -435,12 +440,16 @@ export async function readWorldFounderCovenantReviewQueue(
   if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
   if (!repo.listAreaRecords) return { ok: false, error: 'review_queue_unavailable' }
   const limit = options.limit ?? WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_DEFAULT_LIMIT
+  const pages = options.pages ?? 1
   if (
     !Number.isInteger(limit) ||
     limit < 1 ||
     limit > WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_LIMIT
   ) {
     return { ok: false, error: 'invalid_review_queue_limit' }
+  }
+  if (!Number.isInteger(pages) || pages < 1 || pages > WORLD_FOUNDER_COVENANT_REVIEW_QUEUE_MAX_PAGES) {
+    return { ok: false, error: 'invalid_pages' }
   }
   const cursor = options.cursor?.trim()
   if (
@@ -450,14 +459,27 @@ export async function readWorldFounderCovenantReviewQueue(
     return { ok: false, error: 'invalid_review_queue_cursor' }
   }
 
-  const page = await repo.listAreaRecords({ limit, ...(cursor ? { cursor } : {}) })
   const items: WorldFounderCovenantReviewQueueItem[] = []
   const results: WorldFounderCovenantReviewQueueScanResult[] = []
+  let nextCursor: string | null = null
+  let hasMore = false
+  let pagesScanned = 0
+  let requestCursor = cursor ?? null
 
-  for (const record of page.records) {
-    const result = await founderCovenantReviewQueueRecord(repo, record, now)
-    results.push(result.result)
-    if (result.item) items.push(result.item)
+  for (let pageIndex = 0; pageIndex < pages; pageIndex += 1) {
+    const page = await repo.listAreaRecords({ limit, ...(requestCursor ? { cursor: requestCursor } : {}) })
+    pagesScanned += 1
+    nextCursor = page.nextCursor
+    hasMore = page.hasMore
+
+    for (const record of page.records) {
+      const result = await founderCovenantReviewQueueRecord(repo, record, now)
+      results.push(result.result)
+      if (result.item) items.push(result.item)
+    }
+
+    if (!page.hasMore || !page.nextCursor) break
+    requestCursor = page.nextCursor
   }
 
   const sortedItems = [...items].sort(compareFounderCovenantReviewQueueItems)
@@ -472,9 +494,11 @@ export async function readWorldFounderCovenantReviewQueue(
       waitlistHandoffEnabled: false,
       approvalWorkflowEnabled: false,
       limit,
-      cursor: page.cursor,
-      nextCursor: page.nextCursor,
-      hasMore: page.hasMore,
+      pages,
+      pagesScanned,
+      cursor: cursor ?? null,
+      nextCursor,
+      hasMore,
       scanned: results.length,
       caughtUp: results.filter((result) => result.status === 'caught_up').length,
       current: results.filter((result) => result.status === 'current').length,

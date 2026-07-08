@@ -182,6 +182,8 @@ describe('Founder Area session', () => {
       waitlistHandoffEnabled: false,
       approvalWorkflowEnabled: false,
       limit: 1,
+      pages: 1,
+      pagesScanned: 1,
       cursor: null,
       nextCursor: first.profile.areaId,
       hasMore: true,
@@ -199,6 +201,8 @@ describe('Founder Area session', () => {
     if (!secondPage.ok) throw new Error(`expected second queue page: ${secondPage.error}`)
     expect(secondPage.founderCovenantReviewQueue).toMatchObject({
       limit: 1,
+      pages: 1,
+      pagesScanned: 1,
       cursor: first.profile.areaId,
       nextCursor: null,
       hasMore: false,
@@ -208,8 +212,26 @@ describe('Founder Area session', () => {
     expect(secondPage.founderCovenantReviewQueue.items.map((item) => item.founderCitizenId))
       .toEqual([second.profile.founderId])
 
+    const combined = await first.reviewQueue(HOUR, { limit: 1, pages: 2 })
+    expect(combined.ok).toBe(true)
+    if (!combined.ok) throw new Error(`expected combined queue page: ${combined.error}`)
+    expect(combined.founderCovenantReviewQueue).toMatchObject({
+      limit: 1,
+      pages: 2,
+      pagesScanned: 2,
+      cursor: null,
+      nextCursor: null,
+      hasMore: false,
+      scanned: 2,
+      current: 2,
+    })
+    expect(combined.founderCovenantReviewQueue.items.map((item) => item.founderCitizenId))
+      .toEqual([first.profile.founderId, second.profile.founderId])
+
     await expect(first.reviewQueue(HOUR, { limit: 0 }))
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_limit' })
+    await expect(first.reviewQueue(HOUR, { pages: 0 }))
+      .resolves.toEqual({ ok: false, error: 'invalid_pages' })
   })
 
   test('reads a restored server-seeded founder area without claiming it again', async () => {

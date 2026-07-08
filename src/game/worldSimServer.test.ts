@@ -1332,6 +1332,8 @@ describe('runWorldServerCommand', () => {
       replacementEnabled: false,
       waitlistHandoffEnabled: false,
       approvalWorkflowEnabled: false,
+      pages: 1,
+      pagesScanned: 1,
       scanned: 2,
       caughtUp: 2,
       current: 0,
@@ -1571,6 +1573,8 @@ describe('runWorldServerCommand', () => {
     if (!firstResult.ok) throw new Error(`expected first queue page: ${firstResult.error}`)
     expect(firstResult.founderCovenantReviewQueue).toMatchObject({
       limit: 2,
+      pages: 1,
+      pagesScanned: 1,
       cursor: null,
       nextCursor: 'area-2',
       hasMore: true,
@@ -1596,6 +1600,8 @@ describe('runWorldServerCommand', () => {
     if (!secondResult.ok) throw new Error(`expected second queue page: ${secondResult.error}`)
     expect(secondResult.founderCovenantReviewQueue).toMatchObject({
       limit: 2,
+      pages: 1,
+      pagesScanned: 1,
       cursor: 'area-2',
       nextCursor: null,
       hasMore: false,
@@ -1607,8 +1613,28 @@ describe('runWorldServerCommand', () => {
     expect(secondResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
       .toEqual(['area-3'])
 
+    const combinedResult = await readWorldFounderCovenantReviewQueue(repo, now, { limit: 1, pages: 2 })
+    expect(combinedResult.ok).toBe(true)
+    if (!combinedResult.ok) throw new Error(`expected combined queue scan: ${combinedResult.error}`)
+    expect(combinedResult.founderCovenantReviewQueue).toMatchObject({
+      limit: 1,
+      pages: 2,
+      pagesScanned: 2,
+      cursor: null,
+      nextCursor: 'area-2',
+      hasMore: true,
+      scanned: 2,
+      current: 2,
+      caughtUp: 0,
+      failed: 0,
+    })
+    expect(combinedResult.founderCovenantReviewQueue.results.map((result) => result.areaId))
+      .toEqual(['area-1', 'area-2'])
+
     await expect(readWorldFounderCovenantReviewQueue(repo, now, { limit: 0 }))
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_limit' })
+    await expect(readWorldFounderCovenantReviewQueue(repo, now, { pages: 0 }))
+      .resolves.toEqual({ ok: false, error: 'invalid_pages' })
     await expect(readWorldFounderCovenantReviewQueue(repo, now, { cursor: `area-1\narea-2` }))
       .resolves.toEqual({ ok: false, error: 'invalid_review_queue_cursor' })
   })
