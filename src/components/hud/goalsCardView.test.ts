@@ -19,6 +19,7 @@ import {
   roadmapDisplayDayLabel,
   roadmapFocusSummary,
   roadmapPreviewSummary,
+  roadmapStageSummary,
   roadmapRouteLabel,
   roadmapValueLabel,
   routineShortLabel,
@@ -81,6 +82,12 @@ describe('roadmapPreviewSummary', () => {
 describe('roadmapFocusSummary', () => {
   test('summarizes the next-day focus in plain language', () => {
     expect(roadmapFocusSummary('Day 2', 'School day', 'Study Course', 60)).toBe('Day 2: School day - Study Course (1h)')
+  })
+})
+
+describe('roadmapStageSummary', () => {
+  test('summarizes the next-day focus and millionaire stage in plain language', () => {
+    expect(roadmapStageSummary('Day 2', 'School day', 'Stable cash', 'Study Course', 60)).toBe('Day 2: School day, Stable cash - Study Course (1h)')
   })
 })
 

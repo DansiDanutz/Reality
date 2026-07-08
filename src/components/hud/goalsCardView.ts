@@ -19,6 +19,10 @@ export function roadmapFocusSummary(dayLabel: string, focusLabel: string, title:
   return `${dayLabel}: ${focusLabel} - ${title} (${formatPlanMinutes(minutes)})`
 }
 
+export function roadmapStageSummary(dayLabel: string, focusLabel: string, stageLabel: string, title: string, minutes: number): string {
+  return `${dayLabel}: ${focusLabel}, ${stageLabel} - ${title} (${formatPlanMinutes(minutes)})`
+}
+
 export function roadmapDisplayDayLabel(dayLabel: string, index: number): string {
   if (index === 0) return 'Tomorrow'
   if (index === 1) return 'Day after'

@@ -14,9 +14,9 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapDisplayDayLabel,
-  roadmapFocusSummary,
   roadmapRouteLabel,
   routineShortLabel,
+  roadmapStageSummary,
 } from './goalsCardView'
 import { dispatchLifePlanRoute } from './goalsCardActions'
 
@@ -232,7 +232,7 @@ export default function GoalsCard() {
               className="goals-card-agenda-item"
               key={day.dayLabel}
               onClick={() => openRoute(day.primary.route)}
-              aria-label={roadmapFocusSummary(day.dayLabel, day.dayFocusLabel, day.primary.title, day.primary.minutes)}
+              aria-label={roadmapStageSummary(day.dayLabel, day.dayFocusLabel, day.millionaireStageLabel, day.primary.title, day.primary.minutes)}
             >
               <span className="goals-card-agenda-index">{roadmapDisplayDayLabel(day.dayLabel, index)}</span>
               <span>{day.primary.title}</span>
