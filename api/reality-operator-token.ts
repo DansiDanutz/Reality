@@ -13,7 +13,7 @@ export interface RealityOperatorQueueTokenClaims {
 
 export type VerifyRealityOperatorQueueTokenResult =
   | { ok: true; claims: RealityOperatorQueueTokenClaims }
-  | { ok: false; error: 'missing_secret' | 'invalid_token' | 'expired_token' }
+  | { ok: false; error: 'missing_secret' | 'invalid_token' | 'expired_token' | 'issued_in_future' }
 
 export function realityOperatorTelegramIds(raw: string | undefined): Set<string> {
   return new Set(
@@ -55,6 +55,7 @@ export function verifyRealityOperatorQueueToken(
 
   const claims = parseClaims(payload)
   if (!claims) return { ok: false, error: 'invalid_token' }
+  if (claims.issuedAt > nowMs) return { ok: false, error: 'issued_in_future' }
   if (claims.expiresAt <= nowMs) return { ok: false, error: 'expired_token' }
   return { ok: true, claims }
 }
