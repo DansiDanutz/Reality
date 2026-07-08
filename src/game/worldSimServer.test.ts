@@ -321,6 +321,7 @@ describe('runWorldServerCommand', () => {
       authenticatedFounderId: ' founder ',
       authenticatedFounderName: ' Founder ',
       claimSource: 'geolocation',
+      includeReceipt: true,
       payload: {
         label: ' Founder District ',
         centerLat: 44.45,
@@ -361,6 +362,22 @@ describe('runWorldServerCommand', () => {
       'sim_citizen_credit',
       'sim_citizen_credit',
     ])
+    expect(result.receipt).toMatchObject({
+      command: 'claim_area',
+      areaId: 'area-1',
+      actorCitizenId: 'founder',
+      reviewerId: null,
+      acceptedAt: 1_000,
+      serverAuthority: 'world_sim_server',
+      gameCreditsOnly: true,
+      realWithdrawalEligible: false,
+      tonSettlementEnabled: false,
+      manualPayoutReviewRequired: true,
+      transactionsAdded: 4,
+      transactionIds: result.transactions.map((transaction) => transaction.id),
+      payoutEligibleTransactionCount: 0,
+    })
+    expect(result.receipt?.id).toContain('server-receipt:claim_area')
     expect(saved?.claim?.founderCitizenId).toBe('founder')
     expect(repo.saves).toBe(1)
   })
@@ -1137,6 +1154,7 @@ describe('runWorldServerCommand', () => {
       areaId: ' area-1 ',
       now: 1_000,
       authenticatedReviewerId: ' reviewer-1 ',
+      includeReceipt: true,
       payload: {
         type: 'recordCovenantReview',
         actionKind: 'record_review',
@@ -1165,6 +1183,22 @@ describe('runWorldServerCommand', () => {
       manualEvidenceRequired: false,
     })
     expect(result.transactions).toEqual([])
+    expect(result.receipt).toMatchObject({
+      command: 'record_covenant_review',
+      areaId: 'area-1',
+      actorCitizenId: null,
+      reviewerId: 'reviewer-1',
+      acceptedAt: 1_000,
+      serverAuthority: 'world_sim_server',
+      gameCreditsOnly: true,
+      realWithdrawalEligible: false,
+      tonSettlementEnabled: false,
+      manualPayoutReviewRequired: true,
+      transactionsAdded: 0,
+      transactionIds: [],
+      payoutEligibleTransactionCount: 0,
+    })
+    expect(result.receipt?.id).toContain('server-receipt:record_covenant_review')
     expect(saved?.founderReviewHistory).toEqual(result.area.founderReviewHistory)
   })
 
@@ -1340,6 +1374,10 @@ describe('runWorldServerCommand', () => {
     expect(queue.items.map((item) => item.founderCitizenId)).toEqual(['founder-2', 'founder'])
     expect(queue.items[0]).toMatchObject({
       areaId: 'area-2',
+      nextReviewDueAt: 1_000 + 7 * 24 * HOUR,
+      reviewDueCadence: 'weekly',
+      reviewDueInMs: 7 * 24 * HOUR - HOUR,
+      reviewOverdueByMs: 0,
       covenantStatus: 'manual_review',
       nextAction: 'manual_review',
       manualReviewRequired: true,
@@ -1365,6 +1403,13 @@ describe('runWorldServerCommand', () => {
       },
       signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
     })
+    expect(queue.items[0].reviewSchedule).toEqual(expect.objectContaining({
+      lastReviewAt: null,
+      weeklyReviewDue: false,
+      monthlyReviewDue: false,
+      overdue: false,
+      automationEnabled: false,
+    }))
     expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
       expect.objectContaining({ key: 'indebted', value: true, status: 'watch', executionEnabled: false }),
@@ -1466,6 +1511,32 @@ describe('runWorldServerCommand', () => {
     ])
     expect(savedSafe?.now).toBe(now)
     expect(savedRisk?.now).toBe(now)
+  })
+
+  test('exposes overdue monthly review windows in the founder covenant review queue', async () => {
+    const repo = new MemoryWorldRepo()
+    await createArea(repo)
+    const area = await repo.loadArea('area-1')
+    if (!area) throw new Error('expected area to exist')
+    const now = 1_000 + 31 * 24 * HOUR
+    await repo.saveArea({ ...area, now })
+
+    const result = await readWorldFounderCovenantReviewQueue(repo, now)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected review queue to build: ${result.error}`)
+    expect(result.founderCovenantReviewQueue.items[0]).toMatchObject({
+      lastReviewAt: null,
+      nextWeeklyReviewAt: 1_000 + 7 * 24 * HOUR,
+      nextMonthlyReviewAt: 1_000 + 30 * 24 * HOUR,
+      nextReviewDueAt: 1_000 + 30 * 24 * HOUR,
+      reviewDueCadence: 'monthly',
+      reviewDueInMs: 0,
+      reviewOverdueByMs: 24 * HOUR,
+      overdue: true,
+      replacementEnabled: false,
+      waitlistHandoffEnabled: false,
+    })
   })
 
   test('includes latest founder covenant review evidence in the review queue', async () => {
@@ -1734,6 +1805,7 @@ describe('runWorldServerCommand', () => {
       type: 'applyClientFounderIntent',
       authenticatedFounderId: ' founder ',
       now: 1_000 + HOUR,
+      includeReceipt: true,
       payload: {
         type: 'buildBusiness',
         businessKind: 'water',
@@ -1761,6 +1833,22 @@ describe('runWorldServerCommand', () => {
     expect(result.transactions).toMatchObject([
       { kind: 'business_build', fromId: 'founder', toId: 'system:builders', amount: 8_000 },
     ])
+    expect(result.receipt).toMatchObject({
+      command: 'apply_intent',
+      areaId: 'area-1',
+      actorCitizenId: 'founder',
+      reviewerId: null,
+      acceptedAt: 1_000 + HOUR,
+      serverAuthority: 'world_sim_server',
+      gameCreditsOnly: true,
+      realWithdrawalEligible: false,
+      tonSettlementEnabled: false,
+      manualPayoutReviewRequired: true,
+      transactionsAdded: 1,
+      transactionIds: result.transactions.map((transaction) => transaction.id),
+      payoutEligibleTransactionCount: 0,
+    })
+    expect(result.receipt?.id).toContain('server-receipt:apply_intent')
     expect(saved?.businesses[0]).toMatchObject({ id: 'water-a', ownerId: 'founder' })
     expect(repo.saves).toBe(2)
   })
