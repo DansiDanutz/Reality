@@ -626,6 +626,26 @@ describe('advanceWorldArea — local real-time economy', () => {
     })).toMatchObject({ ok: false, error: 'actor_unavailable' })
   })
 
+  test('buyInsurance intent rejects unattended insurers while the owner is hospitalized', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', cash: 10, price: 45 })],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.state = { kind: 'hospitalized', until: 10 * HOUR }
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(500)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(10)
+    expect(result.area.transactions).toEqual([])
+  })
+
   test('insurance renews monthly with a real premium payment', () => {
     const start = area({
       citizens: [sim('resident', {
@@ -710,6 +730,24 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toEqual([])
   })
 
+  test('simulation does not buy services from unattended businesses while the owner is hospitalized', () => {
+    const start = area({
+      citizens: [
+        sim('owner', { state: { kind: 'hospitalized', until: 5 * HOUR } }),
+        sim('resident', { money: 20, needs: fullNeeds({ hydration: 20 }) }),
+      ],
+      businesses: [business('water', 'water1', { ownerId: 'owner', cash: 5, price: 2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+
+    expect(out.citizens.find((c) => c.id === 'resident')!.money).toBe(20)
+    expect(out.citizens.find((c) => c.id === 'resident')!.needs.hydration).toBeCloseTo(15.2)
+    expect(out.businesses.find((b) => b.id === 'water1')!.cash).toBe(5)
+    expect(summary.purchases).toBe(0)
+    expect(out.transactions).toEqual([])
+  })
+
   test('buyWater intent routes a player purchase to a local water business', () => {
     const start = claimedArea({
       citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
@@ -726,6 +764,22 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toMatchObject([
       { kind: 'customer_purchase', fromId: 'resident', toId: 'water1', amount: 2 },
     ])
+  })
+
+  test('buyWater intent rejects unattended businesses while the owner is hospitalized', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder', cash: 5, price: 2 })],
+    })
+    start.citizens.find((citizen) => citizen.id === 'founder')!.state = { kind: 'hospitalized', until: 5 * HOUR }
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(20)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.needs.hydration).toBe(20)
+    expect(result.area.businesses.find((b) => b.id === 'water1')!.cash).toBe(5)
+    expect(result.area.transactions).toEqual([])
   })
 
   test('buyHousing intent routes rest to a local housing business', () => {
@@ -1618,6 +1672,38 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(dash.demand.water).toBe(30)
     expect(dash.capacity.water).toBe(4)
     expect(dash.shortage.water).toBe(26)
+  })
+
+  test('dashboard removes capacity from unattended businesses while the owner is hospitalized', () => {
+    const dash = areaNeedsDashboard(area({
+      citizens: [
+        sim('owner', { state: { kind: 'hospitalized', until: 5 * HOUR } }),
+        sim('worker', { jobBusinessId: 'food1' }),
+        sim('resident', { needs: fullNeeds({ hydration: 40 }) }),
+      ],
+      businesses: [
+        business('water', 'water1', { ownerId: 'owner', quality: 1 }),
+        business('food', 'food1', { ownerId: 'owner', staffCitizenIds: ['worker'], quality: 1 }),
+      ],
+    }))
+
+    expect(dash.demand.water).toBe(1)
+    expect(dash.capacity.water).toBe(0)
+    expect(dash.shortage.water).toBe(1)
+    expect(dash.existingBusinesses.find((candidate) => candidate.id === 'water1')).toMatchObject({
+      hourlyCapacity: 0,
+      status: 'critical',
+      alerts: expect.arrayContaining([
+        { kind: 'owner_unavailable', severity: 'critical' },
+        { kind: 'quality_degraded', severity: 'critical' },
+      ]),
+    })
+
+    const staffedFood = dash.existingBusinesses.find((candidate) => candidate.id === 'food1')!
+    expect(staffedFood.hourlyCapacity).toBeGreaterThan(0)
+    expect(staffedFood.alerts).not.toEqual(
+      expect.arrayContaining([{ kind: 'owner_unavailable', severity: 'critical' }]),
+    )
   })
 
   test('dashboard suppresses sim-worker hire payloads while the founder is hospitalized', () => {
@@ -2772,6 +2858,24 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     const noInsurer = areaNeedsDashboard(area({ citizens: [sim('buyer', { money: 50 })] }))
     expect(noInsurer.citizens[0].insuranceAction).toEqual({
+      intent: 'buyInsurance',
+      clientPayload: null,
+      insuranceBusinessId: null,
+      premium: null,
+      available: false,
+      canAfford: false,
+      canBuyNow: false,
+      blockers: ['service_unavailable'],
+    })
+
+    const unattendedInsurer = areaNeedsDashboard(area({
+      citizens: [
+        sim('owner', { state: { kind: 'hospitalized', until: 3 * HOUR } }),
+        sim('buyer', { money: 50 }),
+      ],
+      businesses: [business('insurance', 'ins1', { ownerId: 'owner', price: 45 })],
+    }))
+    expect(unattendedInsurer.citizens.find((citizen) => citizen.id === 'buyer')!.insuranceAction).toEqual({
       intent: 'buyInsurance',
       clientPayload: null,
       insuranceBusinessId: null,
