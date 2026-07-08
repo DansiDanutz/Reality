@@ -3,7 +3,7 @@ import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 // Self-contained (api/ cannot import from src/): keep in sync with src/lib/analytics.ts
-const FUNNEL_EVENTS = new Set([
+export const ACCEPTED_FUNNEL_EVENTS = [
   'welcome_seen',
   'spawn_detected',
   'citizen_created',
@@ -16,7 +16,19 @@ const FUNNEL_EVENTS = new Set([
   'first_business_placed',
   'first_collect',
   'd7_return',
-])
+  'tutorial_complete',
+  'first_achievement',
+  'first_lucky',
+  'streak_7',
+  'daily_complete',
+  'first_upgrade',
+  'business_maxed',
+  'week_milestone',
+  'notifications_enabled',
+  'telegram_linked',
+] as const
+
+const FUNNEL_EVENTS = new Set<string>(ACCEPTED_FUNNEL_EVENTS)
 
 /**
  * Funnel milestone tracking. One blob per (event, anonymous id), claim-once:
