@@ -77,6 +77,58 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.constructionProjects.length).toBe(1)
   })
 
+  test('keeps the first-month life loop clear from survival routine to house and business shell', () => {
+    const roadmap = planLifeRoadmap(snap({ money: 30_000 }), 30)
+    const primaryIds = roadmap.days.map((day) => day.primary.id)
+
+    expect(primaryIds.slice(0, 4)).toEqual([
+      'find-job',
+      'first-shift',
+      'study-first-course',
+      'place-home-foundation',
+    ])
+    expect(primaryIds).toEqual(expect.arrayContaining([
+      'deposit-house-materials',
+      'pay-house-permit',
+      'hire-house-worker-hour',
+      'build-first-business',
+      'deposit-business-building-materials',
+      'pay-business-building-permit',
+      'hire-business-building-worker-hour',
+    ]))
+    expect(primaryIds.some((id) => id.startsWith('gather-'))).toBe(true)
+
+    for (const day of roadmap.days) {
+      expect(day.routine.map((block) => block.id)).toEqual([
+        'sleep-block',
+        'body-block',
+        'work-block',
+        'growth-block',
+        'free-time-block',
+      ])
+      expect(day.routine[0].route).toEqual({ kind: 'survival-action', action: 'sleep' })
+      expect(day.routineValues).toEqual(expect.arrayContaining(['body', 'work', 'capital']))
+    }
+
+    expect(roadmap.finalSnapshot.jobId).toBe('barista')
+    expect(roadmap.finalSnapshot.shiftsWorked).toBeGreaterThan(0)
+    expect(roadmap.finalSnapshot.educationActions).toBeGreaterThan(0)
+    expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
+
+    const businessBuild = roadmap.finalSnapshot.constructionProjects.find((project) => project.resultKind === 'business')
+    expect(businessBuild).toMatchObject({
+      name: 'Food Cart',
+      resultKind: 'business',
+      permitFeePaid: true,
+    })
+    expect(businessBuild?.workerContracts[0]).toMatchObject({
+      source: 'workers-hall',
+      workerId: 'helper',
+      paidMinutes: 120,
+      workedMinutes: 120,
+    })
+  })
+
   test('projects routed Workers Hall helper hours into a completed house asset', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const readyForFinalHelperBlock = {

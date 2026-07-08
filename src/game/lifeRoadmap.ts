@@ -26,6 +26,7 @@ import {
   type LifeLadderAsset,
   type LifeLadderSnapshot,
   type LifePlan,
+  type LifeRoutineBlock,
   type LifePlanTask,
   type LifeValue,
 } from './lifeLadder'
@@ -35,6 +36,7 @@ export interface LifeRoadmapDay {
   lifeDay: number
   primary: LifePlanTask
   agenda: LifePlanTask[]
+  routine: LifeRoutineBlock[]
   routineValues: LifeValue[]
   millionaireStage: MillionaireStage
   millionaireGap: number
@@ -106,6 +108,7 @@ function roadmapDay(plan: LifePlan): LifeRoadmapDay {
     lifeDay: plan.lifeDay,
     primary: plan.primary,
     agenda: plan.agenda,
+    routine: plan.routine,
     routineValues: plan.routine.map((block) => block.value),
     millionaireStage: plan.millionairePath.stage,
     millionaireGap: plan.millionairePath.millionaireGap,
