@@ -21,7 +21,7 @@ founder scarcity + the audacity of "the real Earth."
 3. Two paths:
    - **New citizen**: type a name → *Claim founder slot*.
    - **Returning citizen** (new device): *Continue with Google* → cloud save restores.
-4. Registration claims a real, permanent founder number. Money is deposited. The camera
+4. Registration claims a real Founder Covenant operating seat number. Money is deposited. The camera
    begins the signature move: a 6-second flight from orbit down to their real hometown.
 
 **Design intent:** in under 30 seconds the player has an identity, money, a hometown and
@@ -56,7 +56,7 @@ A single screen — **"How Reality works"** — shown once, revisitable from the
 > physiology behind every bar.)
 > **Get a roof.** A home makes every night count.
 > **Get a job.** Shifts are real hours; wages are real wages.
-> **Build.** Turn savings into businesses on real streets. They pay you while you live.
+> **Build.** Turn savings into businesses on real streets. They serve customers while you live.
 > **The ladder has no top.** From a $15,000 food cart to a $12M airline — and one day,
 > mayor of your real city.
 

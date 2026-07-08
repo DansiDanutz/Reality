@@ -1,0 +1,51 @@
+{
+  "stillTestingFallback": [
+    {
+      "title": "Server-authoritative economy",
+      "detail": "Move the core simulation from client trust to validated server intents and ledger projections.",
+      "source": "docs/ROADMAP.md Phase 1b"
+    },
+    {
+      "title": "Player-to-player trading",
+      "detail": "Let shop inventory, jobs, prices, and wages come from player-owned businesses.",
+      "source": "docs/ROADMAP.md Phase 2"
+    },
+    {
+      "title": "Postgres world storage",
+      "detail": "Replace Blob-backed registry, map, leaderboard, and area state with durable relational storage.",
+      "source": "docs/ARCHITECTURE.md v1"
+    },
+    {
+      "title": "Founder covenant operations",
+      "detail": "Continue testing review queues, approval gates, manual evidence, and operator flows before automation is trusted.",
+      "source": "src/game/worldSim.ts"
+    },
+    {
+      "title": "Street Mode QA",
+      "detail": "Keep testing map-service failures, low-detail neighborhoods, mobile controls, weather, and performance.",
+      "source": "src/components/street"
+    }
+  ],
+  "thisWeekPlan": [
+    {
+      "title": "Stabilize the PR pipeline",
+      "detail": "Keep preview deployments green, clear branch/worktree blockers, and merge only verified branches."
+    },
+    {
+      "title": "Publish daily roadmap snapshots",
+      "detail": "Refresh the public roadmap page every day from source, tests, git history, and open PR status."
+    },
+    {
+      "title": "Finish achievement visibility",
+      "detail": "Make the 28 implemented achievements easy to inspect, prove, and explain from the game and roadmap."
+    },
+    {
+      "title": "Harden founder-area simulation",
+      "detail": "Test survival actions, essential-business gaps, insurance, debt repayment, and covenant review evidence."
+    },
+    {
+      "title": "Prepare Phase 1b shape",
+      "detail": "Keep carving the server-authoritative path: intents, ledgers, storage migration, and anti-cheat boundaries."
+    }
+  ]
+}
