@@ -45,7 +45,7 @@ Reality runs on the actual clock. This is the game's founding rule and its name.
 ## Property & businesses
 
 - Homes and businesses are bought in the shop, then **placed by clicking anywhere on Earth**. Location is cosmetic in beta; in the online release location becomes strategy (foot traffic, city districts, land scarcity, rent).
-- Homes: better sleep, free hygiene. Businesses: passive income accrued per tick, collected manually (a deliberate check-in loop).
+- Homes: better sleep, free hygiene. Businesses: collectable local revenue in beta; the online economy routes revenue through customer demand and ledger events.
 
 ## The founder cohort
 

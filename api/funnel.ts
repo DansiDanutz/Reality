@@ -15,6 +15,16 @@ const FUNNEL_EVENTS = [
   'first_business_placed',
   'first_collect',
   'd7_return',
+  'tutorial_complete',
+  'first_achievement',
+  'first_lucky',
+  'streak_7',
+  'daily_complete',
+  'first_upgrade',
+  'business_maxed',
+  'week_milestone',
+  'notifications_enabled',
+  'telegram_linked',
 ]
 
 async function countPrefix(prefix: string): Promise<number> {
