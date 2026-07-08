@@ -97,7 +97,7 @@ export const PET_AUTOFEED_THRESHOLD = 25
 export const clamp = (v: number, min = 0, max = 100) => Math.min(max, Math.max(min, v))
 
 export interface Activity {
-  kind: 'sleep' | 'shift' | 'cook' | 'study'
+  kind: 'sleep' | 'shift' | 'cook' | 'study' | 'community'
   startedAt: number
   endsAt: number
   /** Hourly wage for shifts, already excluding gear bonus */
@@ -222,7 +222,7 @@ export interface LiveOutput extends WorldSlice {
 const modeOf = (activity: Activity | null, hasHome: boolean): LifeMode => {
   if (!activity) return 'awake'
   if (activity.kind === 'shift') return 'working'
-  if (activity.kind === 'cook' || activity.kind === 'study') return 'awake'
+  if (activity.kind === 'cook' || activity.kind === 'study' || activity.kind === 'community') return 'awake'
   return hasHome ? 'sleepingHome' : 'sleepingRough'
 }
 
@@ -341,6 +341,9 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
       } else if (activity.kind === 'study') {
         const studyXp = activity.xpMult ? Math.max(1, Math.round(120 * activity.xpMult)) : 120
         xpGained += studyXp
+      } else if (activity.kind === 'community') {
+        const communityXp = activity.xpMult ? Math.max(1, Math.round(80 * activity.xpMult)) : 80
+        xpGained += communityXp
       }
       activity = null
     }
@@ -766,6 +769,7 @@ export type AdviceAction =
   | 'find-job'
   | 'start-shift'
   | 'study'
+  | 'community'
   | 'leisure'
   | 'collect'
   | 'buy-home'
@@ -783,6 +787,7 @@ export interface AdviceInput {
   health: number
   money: number
   jobId: string | null
+  respect: number
   activity: Activity | null
   hasHome: boolean
   businesses: number
@@ -818,6 +823,8 @@ export function adviceOf(i: AdviceInput): Advice {
     return { text: "I need work — everything in this city starts with a paycheck.", action: 'find-job', cta: 'Find me a job' }
   if (i.money >= 80 && i.money < CHEAPEST_BUSINESS && i.needs.fun >= 25 && i.needs.energy >= 25 && i.businesses === 0 && i.hasHome)
     return { text: "School and certifications turn wages into leverage. Let's study while the bills are light.", action: 'study', cta: 'Study' }
+  if (i.businesses >= 2 && i.respect < 5)
+    return { text: 'The neighborhood learns your name by seeing you help. Let us do some community work.', action: 'community', cta: 'Help out' }
   if (!i.hasHome && i.money >= CHEAPEST_HOME)
     return { text: "We can afford our own door now. A home makes every night count.", action: 'buy-home', cta: 'Buy a home' }
   if (i.businesses === 0 && i.money >= CHEAPEST_BUSINESS)

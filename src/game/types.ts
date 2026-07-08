@@ -128,6 +128,11 @@ export interface PlacedAsset {
   level?: number
 }
 
+/** Social standing in the local neighborhood — grows through community work. */
+export interface SocialState {
+  respect: number
+}
+
 export interface Citizen {
   name: string
   founderNumber: number

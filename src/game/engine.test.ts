@@ -220,6 +220,17 @@ describe('liveRealtime — the single simulation path', () => {
     expect(done.xpGained).toBeGreaterThan(0)
   })
 
+  test('community work pays out respect and XP only after the session ends', () => {
+    const community: Activity = { kind: 'community', startedAt: 0, endsAt: 2 * HOUR }
+    const midway = liveRealtime(base({ activity: community }), 0, HOUR)
+    expect(midway.activity).not.toBeNull()
+    expect(midway.xpGained).toBe(0)
+
+    const done = liveRealtime(base({ activity: community }), 0, 2 * HOUR + 1000)
+    expect(done.activity).toBeNull()
+    expect(done.xpGained).toBeGreaterThan(0)
+  })
+
   test('the dignity floor: a broke, parched citizen gets the fountain once a day', () => {
     const broke = base({ money: 0, needs: { hunger: 60, hydration: 5, energy: 60, hygiene: 60, fun: 60 } })
     const out = liveRealtime(broke, 0, 6 * HOUR)
@@ -360,6 +371,7 @@ describe('the guide (adviceOf)', async () => {
     health: 100,
     money: 500,
     jobId: 'barista' as string | null,
+    respect: 0,
     activity: null,
     hasHome: true,
     businesses: 1,
@@ -384,6 +396,7 @@ describe('the guide (adviceOf)', async () => {
     expect(adviceOf({ ...base, jobId: 'barista', money: 200, hasHome: true, businesses: 0 }).action).toBe('study')
     expect(adviceOf({ ...base, hasHome: false, money: 60_000 }).action).toBe('buy-home')
     expect(adviceOf({ ...base, businesses: 0, money: 20_000 }).action).toBe('buy-business')
+    expect(adviceOf({ ...base, businesses: 2, respect: 0 }).action).toBe('community')
   })
 
   test('during activities he narrates instead of nagging', () => {

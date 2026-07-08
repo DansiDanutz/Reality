@@ -75,7 +75,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 7
+export const SAVE_VERSION = 8
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -88,6 +88,7 @@ export const SAVE_VERSION = 7
  *   v3 → v4: illness + lastIllnessRollAt
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
  *   v6 → v7: itemLastUsedAt (per-item use cooldown for durable effects)
+ *   v7 → v8: respect (community progression)
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -140,7 +141,8 @@ export function migrateSave(persisted: unknown): GameState {
         }
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
-        // v7: per-item use cooldown clock (durable-effects exploit fix)
+        if (state && state.respect === undefined) state.respect = 0
+        // v8: per-item use cooldown clock (durable-effects exploit fix)
         if (state && !state.itemLastUsedAt) state.itemLastUsedAt = {}
         return state
 }
@@ -297,6 +299,7 @@ interface GameState {
    */
   itemLastUsedAt: Record<string, number>
   lastSeenAt: number
+  respect: number
   inventory: Record<string, number>
   assets: PlacedAsset[]
   /** Pets the citizen owns — each alive on its own hunger meter (issue #9) */
@@ -413,6 +416,7 @@ interface GameState {
   playWithPet: (petId: string) => void
   cook: (recipeId: string) => void
   study: () => void
+  community: () => void
   startSleep: () => void
   startShift: () => void
   leaveActivity: () => void
@@ -469,6 +473,7 @@ const FRESH = {
   lastCompletedActivity: null as GameState['lastCompletedActivity'],
   itemLastUsedAt: {} as Record<string, number>,
   lastSeenAt: 0,
+  respect: 0,
   inventory: {} as Record<string, number>,
   assets: [] as PlacedAsset[],
   pets: [] as Pet[],
@@ -1261,6 +1266,7 @@ export const useGame = create<GameState>()(
         const mealsDelta = wasAway ? 0 : out.mealsCooked
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
         const sleptDelta = !wasAway && s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
+        const respectDelta = !wasAway && s.activity?.kind === 'community' && out.activity?.kind !== 'community' ? 1 : 0
         if (mealsDelta || shiftsDelta || cashEarnedThisTick || sleptDelta) {
           dailyCounters = {
             ...dailyCounters,
@@ -1348,6 +1354,7 @@ export const useGame = create<GameState>()(
           pets: out.pets,
           inventory: out.inventory,
           groceryRestockedAt: out.groceryRestockedAt,
+          respect: s.respect + respectDelta,
           timesEaten,
           achievementsClaimed: achievementsClaimed,
           reachTier,
@@ -1600,6 +1607,20 @@ export const useGame = create<GameState>()(
         })
       },
 
+      community: () => {
+        const s = get()
+        if (s.activity) return
+        if (s.needs.energy < 20 || s.needs.hunger < 20 || s.health < 30) {
+          set({ log: note(s.log, 'Too worn down to help the neighborhood today. Eat and sleep first.') })
+          return
+        }
+        const now = Date.now()
+        set({
+          activity: { kind: 'community', startedAt: now, endsAt: now + 2 * 3_600_000 },
+          log: note(s.log, 'Community work started — two real hours helping the neighborhood.'),
+        })
+      },
+
       startSleep: () => {
         const s = get()
         if (s.activity) return
@@ -1666,6 +1687,10 @@ export const useGame = create<GameState>()(
         if (a.kind === 'cook') {
           // Ingredients went in already — walk away from the stove and the meal is wasted, not refunded.
           set({ activity: null, log: note(s.log, `Left the stove — ${a.title ?? 'the meal'} went to waste.`) })
+          return
+        }
+        if (a.kind === 'study' || a.kind === 'community') {
+          set({ activity: null, log: note(s.log, a.kind === 'study' ? 'Stopped studying early.' : 'Left community work early.') })
           return
         }
         // Leaving a shift early: pro-rata pay, no XP. The stamped wage

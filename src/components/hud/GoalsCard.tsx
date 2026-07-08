@@ -18,6 +18,7 @@ export default function GoalsCard() {
   const needs = useGame((s) => s.needs)
   const health = useGame((s) => s.health)
   const money = useGame((s) => s.money)
+  const respect = useGame((s) => s.respect)
   const jobId = useGame((s) => s.jobId)
   const activity = useGame((s) => s.activity)
   const inventory = useGame((s) => s.inventory)
@@ -51,6 +52,7 @@ export default function GoalsCard() {
     health,
     money,
     jobId,
+    respect,
     activity,
     hasHome: assets.some((a) => a.kind === 'home'),
     businesses,
@@ -63,6 +65,7 @@ export default function GoalsCard() {
     !jobId ? 'Get a job' : null,
     assets.some((a) => a.kind === 'home') ? 'Sleep at home' : 'Build a home',
     businesses > 0 ? 'Collect income' : 'Open a business',
+    respect < 5 ? 'Help the neighborhood' : null,
   ].filter((step): step is string => Boolean(step))
 
   return (

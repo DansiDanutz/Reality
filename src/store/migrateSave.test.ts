@@ -31,6 +31,7 @@ const v1Save = {
   tutorialHidden: false,
   activity: null,
   lastSeenAt: 1_700_000_100_000,
+  respect: 2,
   inventory: { noodles: 2 },
   assets: [],
   groceryRestockedAt: {},
@@ -63,6 +64,8 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.streakLength).toBe(0)
     // v7: per-item use cooldown clock
     expect(out.itemLastUsedAt).toEqual({})
+    // v8: respect
+    expect(out.respect).toBe(2)
     expect(out.streakLastClaimDay).toBe(0)
     expect(out.streakBest).toBe(0)
     expect(out.luckyMomentsSeen).toBe(0)
@@ -199,7 +202,7 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(7)
+    expect(SAVE_VERSION).toBe(8)
   })
 })
 

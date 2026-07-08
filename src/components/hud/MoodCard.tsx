@@ -17,6 +17,7 @@ export default function MoodCard() {
   const illness = useGame((s) => s.illness)
   const level = useGame((s) => s.level)
   const money = useGame((s) => s.money)
+  const respect = useGame((s) => s.respect)
   const jobId = useGame((s) => s.jobId)
   const activity = useGame((s) => s.activity)
   const inventory = useGame((s) => s.inventory)
@@ -33,6 +34,7 @@ export default function MoodCard() {
     health,
     money,
     jobId,
+    respect,
     activity,
     hasHome: assets.some((a) => a.kind === 'home'),
     businesses,
@@ -65,6 +67,9 @@ export default function MoodCard() {
         break
       case 'study':
         s.study()
+        break
+      case 'community':
+        s.community()
         break
       case 'start-shift':
         if (s.jobId) s.startShift()
