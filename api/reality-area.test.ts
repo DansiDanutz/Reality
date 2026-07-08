@@ -2462,6 +2462,43 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('service purchases require usable provider capacity', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      health: 55,
+    })
+    const existing = withBusiness({ ...fragileFounder, updatedAt: '2026-07-06T05:00:00.000Z' }, {
+      id: 'clinic-1',
+      name: 'Exhausted Clinic',
+      kind: 'clinic',
+      price: 90,
+      cash: 5,
+      quality: 0.15,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://zero-capacity-clinic-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'visitClinic' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    const body = res.body as { ok: false; state: ReturnType<typeof withBusiness> }
+    expect(body).toMatchObject({ ok: false, code: 'service_not_available' })
+    expect(body.state.businesses[0]).toMatchObject({ id: 'clinic-1', cash: 5, quality: 0.15 })
+    expect(body.state.transactions.some((transaction) => transaction.kind === 'customer_purchase')).toBe(false)
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('service purchases catch up stale area state and reject a hospitalized founder', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
