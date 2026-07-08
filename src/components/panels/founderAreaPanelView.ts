@@ -1307,7 +1307,7 @@ export function founderCovenantOperatorQueueItemDateSummary(
 export function founderCovenantOperatorQueueSignalText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'signalKinds'>,
 ): string {
-  return item.signalKinds.length > 0 ? item.signalKinds.join(', ') : 'none'
+  return item.signalKinds.length > 0 ? item.signalKinds.map(founderCovenantSignalKindLabel).join(', ') : 'none'
 }
 
 export function founderCovenantOperatorQueueSignalCountText(
@@ -1647,6 +1647,27 @@ function founderCovenantOperatorQueueScanStatusLabel(
       return 'invalid'
     case 'unavailable':
       return 'unavailable'
+  }
+}
+
+function founderCovenantSignalKindLabel(
+  kind: RealityFounderCovenantReviewQueueItem['signalKinds'][number],
+): string {
+  switch (kind) {
+    case 'founder_unavailable':
+      return 'Founder unavailable'
+    case 'no_business_built':
+      return 'No business built'
+    case 'understaffed_businesses':
+      return 'Understaffed businesses'
+    case 'essential_shortage':
+      return 'Essential shortage'
+    case 'sim_departure':
+      return 'Sim departure'
+    case 'founder_debt':
+      return 'Founder debt'
+    case 'review_due':
+      return 'Review due'
   }
 }
 

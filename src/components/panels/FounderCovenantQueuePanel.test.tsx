@@ -16,6 +16,7 @@ import {
   founderCovenantOperatorQueueNextActionText,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
+  founderCovenantOperatorQueueSignalText,
   founderCovenantOperatorQueueSignalCountText,
   founderCovenantOperatorQueueUpdatedAtText,
   founderCovenantOperatorQueueItemStatusClass,
@@ -72,7 +73,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Draft status: Disabled')
     expect(html).toContain('Signal counts: 2 total · 1 warning · 1 critical')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
-    expect(html).toContain('Signals: founder_debt, review_due')
+    expect(html).toContain('Signals: Founder debt, Review due')
     expect(html).toContain('manual only')
     expect(html).not.toContain('Approve')
     expect(html).not.toContain('Replace')
@@ -208,6 +209,7 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueNextActionText(manual)).toBe('Manual review')
     expect(founderCovenantOperatorQueueRecommendedActionText(manual)).toBe('Send warning')
+    expect(founderCovenantOperatorQueueSignalText(manual)).toBe('Founder debt, Review due')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
       updatedAtText: '2026-07-06 · 1 tx',
       reviewQueueBlockerText: 'approval workflow, Telegram delivery, replacement',
@@ -222,6 +224,7 @@ describe('FounderCovenantQueuePanel', () => {
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
       signalCountText: '2 total · 1 warning · 1 critical',
+      signalText: 'Founder debt, Review due',
     })
   })
 
