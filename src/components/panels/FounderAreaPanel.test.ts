@@ -66,6 +66,7 @@ import {
   founderJobsMetricDetailText,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderFirstBuildEconomicsText,
   founderFirstBuildReasonText,
   founderNeedMetricDetailText,
   founderPayoutReadinessBlockerText,
@@ -174,6 +175,20 @@ describe('FounderAreaPanel covenant presenters', () => {
       openPositions: 2,
       understaffedBusinesses: 1,
     })).toBe('hireable 1 · open 2 · unstaffed 1')
+
+    expect(founderFirstBuildEconomicsText({
+      currentSupply: 0,
+      estimatedPaybackHours: 18.6,
+      cashShortfall: 0,
+      citizensUntilNextLicense: 6,
+    })).toBe('supply 0 · payback 19h · cash ready · next license 6 citizens')
+
+    expect(founderFirstBuildEconomicsText({
+      currentSupply: 1,
+      estimatedPaybackHours: null,
+      cashShortfall: 2500,
+      citizensUntilNextLicense: 0,
+    })).toBe('supply 1 · payback unknown · short $2,500 · next license 0 citizens')
 
     expect(founderCitizenProtectionText({
       insuranceActive: true,

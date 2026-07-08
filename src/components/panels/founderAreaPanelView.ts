@@ -239,6 +239,26 @@ export function founderJobsMetricDetailText(
   ].join(' · ')
 }
 
+export function founderFirstBuildEconomicsText(
+  recommendation: Pick<
+    RealityAreaDashboard['firstBuild'][number],
+    'currentSupply' | 'estimatedPaybackHours' | 'cashShortfall' | 'citizensUntilNextLicense'
+  >,
+): string {
+  const payback = recommendation.estimatedPaybackHours === null
+    ? 'payback unknown'
+    : `payback ${Math.round(recommendation.estimatedPaybackHours)}h`
+  const shortfall = recommendation.cashShortfall > 0
+    ? `short ${formatMoney(recommendation.cashShortfall)}`
+    : 'cash ready'
+  return [
+    `supply ${recommendation.currentSupply}`,
+    payback,
+    shortfall,
+    `next license ${recommendation.citizensUntilNextLicense} citizens`,
+  ].join(' · ')
+}
+
 export function founderCitizenProtectionText(
   citizen: Pick<AreaCitizenDashboard, 'insuranceActive' | 'insurancePaidUntil' | 'insuranceBusinessId' | 'insuranceAction'>,
   survival?: Pick<CitizenSurvivalSignal, 'hospitalizedUntil'>,

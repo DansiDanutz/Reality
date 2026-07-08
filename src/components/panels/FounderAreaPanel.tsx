@@ -73,6 +73,7 @@ import {
   founderCitizenNeedText,
   founderCitizenProtectionText,
   founderFirstBuildReasonText,
+  founderFirstBuildEconomicsText,
   founderGrowthBlockerText,
   founderGrowthStatusLabel,
   founderGrowthSummaryItems,
@@ -896,6 +897,7 @@ export default function FounderAreaPanel() {
                     <span className="item-desc">
                       demand {recommendation.currentDemand} · licenses {recommendation.licensesRemaining}/{recommendation.licenseSlots}
                     </span>
+                    <span className="item-desc">{founderFirstBuildEconomicsText(recommendation)}</span>
                     <span className="item-desc">{founderFirstBuildReasonText(recommendation)}</span>
                     <span className={recommendation.estimatedHourlyProfit >= 0 ? 'item-yield mono' : 'item-locked mono'}>
                       {recommendation.estimatedHourlyProfit >= 0 ? '+' : '-'}
