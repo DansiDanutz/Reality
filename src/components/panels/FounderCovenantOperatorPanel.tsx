@@ -14,7 +14,11 @@ import {
   type RealityFounderCovenantReviewQueueResult,
 } from '../../lib/realityArea'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
-import type { FounderCovenantOperatorQueueReviewRow } from './founderAreaPanelView'
+import type {
+  FounderCovenantOperatorQueueFilter,
+  FounderCovenantOperatorQueueReviewRow,
+  FounderCovenantOperatorQueueSort,
+} from './founderAreaPanelView'
 
 const OPERATOR_REVIEW_EVIDENCE_OPTIONS: { kind: RealityAreaCovenantManualEvidenceKind; label: string }[] = [
   { kind: 'population_growth', label: 'Population' },
@@ -71,6 +75,8 @@ export default function FounderCovenantOperatorPanel({
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
   const [reviewNote, setReviewNote] = useState('')
+  const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>('all')
+  const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>('priority')
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
   const [panelState, setPanelState] = useState<OperatorQueuePanelState>(() => {
@@ -317,11 +323,60 @@ export default function FounderCovenantOperatorPanel({
       {operatorReviewMessage && <p className="panel-sub">{operatorReviewMessage}</p>}
       {queue && (
         <>
+          <div className="founder-operator-actions" aria-label="Founder operator queue filters">
+            <button className="btn small ghost" disabled={loading} onClick={() => setQueueFilter('all')} type="button">
+              All
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => setQueueFilter('manual_review')}
+              type="button"
+            >
+              Manual
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => setQueueFilter('hospitalized')}
+              type="button"
+            >
+              Hospital
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => setQueueFilter('scan_anomaly')}
+              type="button"
+            >
+              Scan
+            </button>
+          </div>
+          <div className="founder-operator-actions" aria-label="Founder operator queue sort">
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => setQueueSort('priority')}
+              type="button"
+            >
+              Priority
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => setQueueSort('founder')}
+              type="button"
+            >
+              Founder #
+            </button>
+          </div>
           <FounderCovenantQueuePanel
             canRecordReview={operatorToken.length > 0 && !loading && !recordingReviewKey}
+            filter={queueFilter}
             onRecordReview={(row) => void recordOperatorReview(row)}
             queue={queue}
             recordingReviewKey={recordingReviewKey}
+            sort={queueSort}
           />
           <div className="founder-operator-actions">
             <button

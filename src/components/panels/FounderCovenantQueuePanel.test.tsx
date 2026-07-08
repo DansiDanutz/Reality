@@ -8,6 +8,9 @@ import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
   founderCovenantOperatorQueueActivitySignalText,
   founderCovenantOperatorQueueEconomicExposureText,
+  founderCovenantOperatorQueueFilterCountsSummary,
+  founderCovenantOperatorQueueFilteredReviewRows,
+  founderCovenantOperatorQueueFilterSummary,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
@@ -18,6 +21,7 @@ import {
   founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftText,
   founderCovenantOperatorQueueReviewReadinessText,
+  founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueStageText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
@@ -37,6 +41,16 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('waitlist disabled')
     expect(html).toContain('2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
+    expect(html).toContain('Filter: All')
+    expect(html).toContain('2 founders in current page')
+    expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('Sort: Priority')
+    expect(html).toContain('aria-label="Founder operator queue coverage"')
+    expect(html).toContain('<span>Active</span><strong>1</strong>')
+    expect(html).toContain('<span>Useful</span><strong>1</strong>')
+    expect(html).toContain('<span>Building</span><strong>2</strong>')
+    expect(html).toContain('<span>Staffed</span><strong>1</strong>')
+    expect(html).toContain('<span>At risk</span><strong>1</strong>')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
@@ -219,6 +233,59 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
   })
 
+  test('filters queue rows for manual review, hospitalization, and scan anomalies', () => {
+    const invalid = founderQueueItem({
+      areaId: 'founder-area-0014',
+      areaLabel: 'Timisoara Founder Block',
+      founderCitizenId: 'founder-14',
+      founderNumber: 14,
+      manualReviewRequired: false,
+      covenantStatus: 'watch',
+      overdue: false,
+      scanStatus: 'invalid',
+      activityReview: {
+        ...founderQueueItem().activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        score: 81,
+      },
+      economicExposure: {
+        ...founderQueueItem().economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      blockerCount: 0,
+      signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+      signalKinds: [],
+    })
+    const queue = {
+      ...founderQueue(),
+      items: [founderQueueItem(), founderQueue().items[1], invalid],
+    }
+
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly', 'founder').map((row) => row.founderCitizenId)).toEqual(['founder-14'])
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'manual_review')).toBe('1 founder need manual review')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'hospitalized')).toBe('1 founder hospitalized')
+    expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Manual 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueSliceTotals(queue, 'manual_review')).toMatchObject({
+      founders: 1,
+      manualReviewRequired: 1,
+      hospitalized: 1,
+      active: 0,
+      building: 1,
+      staffed: 0,
+      atRisk: 1,
+    })
+  })
+
   test('renders an empty page as evidence-only review state', () => {
     const empty = {
       ...founderQueue(),
@@ -258,6 +325,16 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
     covenantStatus: 'active',
     manualReviewRequired: false,
     overdue: false,
+    activityReview: {
+      ...item.activityReview,
+      active: true,
+      useful: true,
+      staffed: true,
+      indebted: false,
+      hospitalized: false,
+      atRisk: false,
+      score: 92,
+    },
     economicExposure: {
       ...item.economicExposure,
       founderCash: 200_000,

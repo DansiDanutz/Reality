@@ -109,6 +109,22 @@ export interface FounderCovenantScheduleItem {
 }
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
+export type FounderCovenantOperatorQueueFilter = 'all' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
+export type FounderCovenantOperatorQueueSort = 'priority' | 'founder'
+
+export interface FounderCovenantOperatorQueueSliceTotals {
+  founders: number
+  manualReviewRequired: number
+  overdue: number
+  hospitalized: number
+  indebted: number
+  blockers: number
+  active: number
+  useful: number
+  building: number
+  staffed: number
+  atRisk: number
+}
 
 export interface FounderCovenantOperatorQueueReviewRow {
   key: string
@@ -821,6 +837,89 @@ export function founderCovenantOperatorQueueReviewRows(
       priorityReasons: founderCovenantOperatorQueuePriorityReasons(item),
     }))
     .sort((a, b) => b.priorityScore - a.priorityScore || a.title.localeCompare(b.title))
+}
+
+export function founderCovenantOperatorQueueFilteredReviewRows(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
+): FounderCovenantOperatorQueueReviewRow[] {
+  const items = queue.items.filter((item) => {
+    switch (filter) {
+      case 'all':
+        return true
+      case 'manual_review':
+        return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'hospitalized':
+        return item.activityReview.hospitalized
+      case 'scan_anomaly':
+        return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
+    }
+  })
+
+  const rows = founderCovenantOperatorQueueReviewRows({ items })
+  if (sort === 'priority') return rows
+  return [...rows].sort((a, b) => a.title.localeCompare(b.title))
+}
+
+export function founderCovenantOperatorQueueFilterSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
+): string {
+  const count = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort).length
+  switch (filter) {
+    case 'all':
+      return `${count} founder${count === 1 ? '' : 's'} in current page`
+    case 'manual_review':
+      return `${count} founder${count === 1 ? '' : 's'} need manual review`
+    case 'hospitalized':
+      return `${count} founder${count === 1 ? '' : 's'} hospitalized`
+    case 'scan_anomaly':
+      return `${count} founder${count === 1 ? '' : 's'} with scan anomalies`
+  }
+}
+
+export function founderCovenantOperatorQueueFilterCountsSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const all = founderCovenantOperatorQueueFilteredReviewRows(queue, 'all').length
+  const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
+  const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
+  const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
+  return `All ${all} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
+}
+
+export function founderCovenantOperatorQueueSliceTotals(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+): FounderCovenantOperatorQueueSliceTotals {
+  const items = queue.items.filter((item) => {
+    switch (filter) {
+      case 'all':
+        return true
+      case 'manual_review':
+        return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'hospitalized':
+        return item.activityReview.hospitalized
+      case 'scan_anomaly':
+        return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
+    }
+  })
+
+  return {
+    founders: items.length,
+    manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
+    overdue: items.filter((item) => item.overdue).length,
+    hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
+    indebted: items.filter((item) => item.economicExposure.outstandingDebt > 0).length,
+    blockers: items.reduce((sum, item) => sum + item.blockerCount, 0),
+    active: items.filter((item) => item.activityReview.active).length,
+    useful: items.filter((item) => item.activityReview.useful).length,
+    building: items.filter((item) => item.activityReview.building).length,
+    staffed: items.filter((item) => item.activityReview.staffed).length,
+    atRisk: items.filter((item) => item.activityReview.atRisk).length,
+  }
 }
 
 export function founderCovenantOperatorQueueLatestReviewText(

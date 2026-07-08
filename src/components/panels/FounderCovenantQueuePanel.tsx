@@ -1,25 +1,35 @@
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import {
+  founderCovenantOperatorQueueFilterCountsSummary,
+  founderCovenantOperatorQueueFilteredReviewRows,
+  founderCovenantOperatorQueueFilterSummary,
   type FounderCovenantOperatorQueueReviewRow,
+  type FounderCovenantOperatorQueueFilter,
+  type FounderCovenantOperatorQueueSort,
   founderCovenantOperatorQueuePageSummary,
-  founderCovenantOperatorQueueReviewRows,
+  founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
 } from './founderAreaPanelView'
 
 export interface FounderCovenantQueuePanelProps {
   canRecordReview?: boolean
+  filter?: FounderCovenantOperatorQueueFilter
   onRecordReview?: (row: FounderCovenantOperatorQueueReviewRow) => void
   queue: RealityFounderCovenantReviewQueueDashboard
   recordingReviewKey?: string | null
+  sort?: FounderCovenantOperatorQueueSort
 }
 
 export function FounderCovenantQueuePanel({
   canRecordReview = false,
+  filter = 'all',
   onRecordReview,
   queue,
   recordingReviewKey = null,
+  sort = 'priority',
 }: FounderCovenantQueuePanelProps) {
-  const reviewRows = founderCovenantOperatorQueueReviewRows(queue)
+  const reviewRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
+  const sliceTotals = founderCovenantOperatorQueueSliceTotals(queue, filter)
 
   return (
     <section className="founder-section founder-covenant-operator-queue" aria-label="Founder covenant operator queue">
@@ -38,24 +48,39 @@ export function FounderCovenantQueuePanel({
         <span>{founderCovenantOperatorQueueSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
       </div>
+      <div className="founder-covenant-meta" aria-label="Founder operator queue filters">
+        <span>Filter: {queueFilterLabel(filter)}</span>
+        <span>{founderCovenantOperatorQueueFilterSummary(queue, filter, sort)}</span>
+        <span>{founderCovenantOperatorQueueFilterCountsSummary(queue)}</span>
+      </div>
+      <div className="founder-covenant-meta" aria-label="Founder operator queue sort">
+        <span>Sort: {queueSortLabel(sort)}</span>
+      </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip
           label="Manual"
-          tone={queue.totals.manualReviewRequired > 0 ? 'critical' : 'stable'}
-          value={queue.totals.manualReviewRequired}
+          tone={sliceTotals.manualReviewRequired > 0 ? 'critical' : 'stable'}
+          value={sliceTotals.manualReviewRequired}
         />
-        <QueueTotalChip label="Overdue" tone={queue.totals.overdue > 0 ? 'warning' : 'stable'} value={queue.totals.overdue} />
+        <QueueTotalChip label="Overdue" tone={sliceTotals.overdue > 0 ? 'warning' : 'stable'} value={sliceTotals.overdue} />
         <QueueTotalChip
           label="Hospital"
-          tone={queue.totals.hospitalized > 0 ? 'critical' : 'stable'}
-          value={queue.totals.hospitalized}
+          tone={sliceTotals.hospitalized > 0 ? 'critical' : 'stable'}
+          value={sliceTotals.hospitalized}
         />
-        <QueueTotalChip label="Debt" tone={queue.totals.indebted > 0 ? 'warning' : 'stable'} value={queue.totals.indebted} />
+        <QueueTotalChip label="Debt" tone={sliceTotals.indebted > 0 ? 'warning' : 'stable'} value={sliceTotals.indebted} />
         <QueueTotalChip
           label="Blockers"
-          tone={queue.totals.blockers > 0 ? 'warning' : 'stable'}
-          value={queue.totals.blockers}
+          tone={sliceTotals.blockers > 0 ? 'warning' : 'stable'}
+          value={sliceTotals.blockers}
         />
+      </div>
+      <div className="founder-ledger-summary" aria-label="Founder operator queue coverage">
+        <QueueTotalChip label="Active" tone={sliceTotals.active === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.active} />
+        <QueueTotalChip label="Useful" tone={sliceTotals.useful === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.useful} />
+        <QueueTotalChip label="Building" tone={sliceTotals.building === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.building} />
+        <QueueTotalChip label="Staffed" tone={sliceTotals.staffed === sliceTotals.founders ? 'stable' : 'warning'} value={sliceTotals.staffed} />
+        <QueueTotalChip label="At risk" tone={sliceTotals.atRisk > 0 ? 'critical' : 'stable'} value={sliceTotals.atRisk} />
       </div>
       {reviewRows.length === 0 ? (
         <p className="panel-sub">No founders in this review page.</p>
@@ -103,6 +128,28 @@ export function FounderCovenantQueuePanel({
       )}
     </section>
   )
+}
+
+function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
+  switch (filter) {
+    case 'all':
+      return 'All'
+    case 'manual_review':
+      return 'Manual'
+    case 'hospitalized':
+      return 'Hospital'
+    case 'scan_anomaly':
+      return 'Scan'
+  }
+}
+
+function queueSortLabel(sort: FounderCovenantOperatorQueueSort): string {
+  switch (sort) {
+    case 'priority':
+      return 'Priority'
+    case 'founder':
+      return 'Founder #'
+  }
 }
 
 function QueueTotalChip({
