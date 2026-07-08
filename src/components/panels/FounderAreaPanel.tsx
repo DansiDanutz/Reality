@@ -954,9 +954,12 @@ export default function FounderAreaPanel() {
             <ul className="item-list">
               {dashboard.citizens.slice(0, 6).map((resident) => {
                 const survival = dashboard.survival.signals.find((signal) => signal.citizenId === resident.id)
-                const survivalAction = survival?.actions.find((action) => action.available && action.canAfford)
+                const founderCanAct = resident.id === profile.founderId ? resident.state === 'active' : true
+                const survivalAction = founderCanAct
+                  ? survival?.actions.find((action) => action.available && action.canAfford)
+                  : undefined
                 const founderSurvivalDetail = resident.id === profile.founderId
-                  ? founderSurvivalActionText(survival?.actions[0])
+                  ? founderSurvivalActionText(survival?.actions[0], survival)
                   : null
                 const founderWarningDetail = resident.id === profile.founderId
                   ? founderSurvivalWarningText(survival)

@@ -378,6 +378,17 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderSurvivalActionText({
       intent: 'visitClinic',
       serviceKind: 'clinic',
+      lowestPrice: 90,
+      available: true,
+      canAfford: true,
+      blockers: [],
+    }, {
+      risk: 'hospitalized',
+    })).toBe('Clinic locked during recovery')
+
+    expect(founderSurvivalActionText({
+      intent: 'visitClinic',
+      serviceKind: 'clinic',
       lowestPrice: null,
       available: false,
       canAfford: false,

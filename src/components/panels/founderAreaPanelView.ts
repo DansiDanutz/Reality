@@ -398,8 +398,10 @@ export function founderWorkerCandidateActionText(
 
 export function founderSurvivalActionText(
   action: Pick<CitizenSurvivalSignal['actions'][number], 'intent' | 'serviceKind' | 'lowestPrice' | 'available' | 'canAfford' | 'blockers'> | undefined,
+  survival?: Pick<CitizenSurvivalSignal, 'risk'>,
 ): string | null {
   if (!action) return null
+  if (survival?.risk === 'hospitalized') return `${founderSurvivalIntentLabel(action.intent)} locked during recovery`
   if (action.available && action.canAfford && action.lowestPrice !== null) {
     return `${founderSurvivalIntentLabel(action.intent)} ready · ${formatMoney(action.lowestPrice)}`
   }
