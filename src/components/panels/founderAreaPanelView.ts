@@ -884,6 +884,17 @@ export function founderCovenantOperatorQueueOverdueCleanupSummary(
   return `Overdue cleanup: ${overdueCleanupFounders} founder${overdueCleanupFounders === 1 ? '' : 's'} · ${overdueFounders} overdue · ${staleFounders} stale`
 }
 
+export function founderCovenantOperatorQueueMonitorSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const monitorFounders = queue.items.filter((item) =>
+    founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor current founders'
+  ).length
+  const freshFounders = queue.items.filter((item) => item.reviewFreshness === 'fresh').length
+  const activeFounders = queue.items.filter((item) => item.activityReview.active).length
+  return `Monitor: ${monitorFounders} founder${monitorFounders === 1 ? '' : 's'} · ${freshFounders} fresh · ${activeFounders} active`
+}
+
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {

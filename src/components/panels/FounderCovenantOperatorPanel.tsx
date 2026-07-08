@@ -29,6 +29,7 @@ import {
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
+  founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecommendedNextText,
   founderCovenantOperatorQueueRecordReadySummary,
@@ -1258,6 +1259,17 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Record ready</span>
               <strong>{queue.items.filter((item) => item.reviewReadiness.evidenceRequiredCount === 0 && item.reviewReadiness.approvalRequestCount === 0).length}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.items.some((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor current founders')
+                  ? 'stable'
+                  : 'warning'
+              }`}
+              title={founderCovenantOperatorQueueMonitorSummary(queue)}
+            >
+              <span>Monitor</span>
+              <strong>{queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor current founders').length}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
