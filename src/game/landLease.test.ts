@@ -102,6 +102,30 @@ describe('land lease policy', () => {
     expect(assessment.blockers).toContain('operator_must_be_distinct')
   })
 
+  test('requires a land owner identity before a fixed-rent draft can be reviewed', () => {
+    const assessment = assessLandLeasePolicy({
+      landOwnerCitizenId: ' ',
+      operatorCitizenId: 'operator-1',
+      operatorBusinessId: 'business-water',
+      operatorBusinessUsesLand: true,
+      localDemandServed: 12,
+      fixedMonthlyRent: 1_200,
+    })
+
+    expect(assessment.landOwnerCitizenId).toBe('')
+    expect(assessment.readyForManualReview).toBe(false)
+    expect(assessment.rentDraft).toBeNull()
+    expect(assessment.blockers).toEqual([
+      'reservations_disabled',
+      'leases_disabled',
+      'rent_collection_disabled',
+      'operator_acceptance_disabled',
+      'manual_review_required',
+      'compliance_review_required',
+      'land_owner_required',
+    ])
+  })
+
   test('requires an operator business that serves local demand before rent can be reviewed', () => {
     const assessment = assessLandLeasePolicy({
       landOwnerCitizenId: 'owner-1',
