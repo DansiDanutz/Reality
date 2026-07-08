@@ -124,6 +124,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   statusLabel: string
   summary: string
   dateSummary: string
+  updatedAtText: string
   latestReviewText: string | null
   latestReviewAuthorityText: string | null
   reviewQueueSummaryText: string
@@ -1308,6 +1309,12 @@ export function founderCovenantOperatorQueueSignalText(
   return item.signalKinds.length > 0 ? item.signalKinds.join(', ') : 'none'
 }
 
+export function founderCovenantOperatorQueueUpdatedAtText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'updatedAt' | 'transactionsAdded'>,
+): string {
+  return `${shortDate(item.updatedAt)} · ${item.transactionsAdded} tx`
+}
+
 export function founderCovenantOperatorQueueReviewRows(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueReviewRow[] {
@@ -1322,6 +1329,7 @@ export function founderCovenantOperatorQueueReviewRows(
       statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
+      updatedAtText: founderCovenantOperatorQueueUpdatedAtText(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       latestReviewAuthorityText: founderCovenantOperatorQueueLatestReviewAuthorityText(item),
       reviewQueueSummaryText: founderCovenantReviewQueueSummary(item.reviewQueue),

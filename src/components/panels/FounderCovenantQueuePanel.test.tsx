@@ -16,6 +16,7 @@ import {
   founderCovenantOperatorQueueNextActionText,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
+  founderCovenantOperatorQueueUpdatedAtText,
   founderCovenantOperatorQueueItemStatusClass,
   founderCovenantOperatorQueueItemStatusLabel,
   founderCovenantOperatorQueueItemTitle,
@@ -48,6 +49,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('#0012 · Bucharest Founder Block')
     expect(html).toContain('founder-12 · Manual review · manual review · score 35/100 · $350 debt')
+    expect(html).toContain('Updated: 2026-07-06 · 1 tx')
     expect(html).toContain('Queue: Main founder approval · 1 approval · 1 draft')
     expect(html).toContain('Queue detail: Approvals: Send warning · Drafts: Manual review')
     expect(html).toContain('Queue status: Evidence only')
@@ -197,12 +199,14 @@ describe('FounderCovenantQueuePanel', () => {
         automationEnabled: false,
       },
     })).toBe('Area reviewer / Evidence only')
+    expect(founderCovenantOperatorQueueUpdatedAtText(manual)).toBe('2026-07-06 · 1 tx')
     expect(founderCovenantOperatorQueueReviewQueueBlockerText(manual)).toBe(
       'approval workflow, Telegram delivery, replacement',
     )
     expect(founderCovenantOperatorQueueNextActionText(manual)).toBe('Manual review')
     expect(founderCovenantOperatorQueueRecommendedActionText(manual)).toBe('Send warning')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
+      updatedAtText: '2026-07-06 · 1 tx',
       reviewQueueBlockerText: 'approval workflow, Telegram delivery, replacement',
       nextActionText: 'Manual review',
       recommendedActionText: 'Send warning',
