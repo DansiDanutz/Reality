@@ -202,15 +202,15 @@
           <p>Daily generated status for what is already on main, what is implemented and tested, what is still under review, and what the team is focusing on this week.</p>
         </div>
         <div class="stamp">
-          <strong>Wed, 08 Jul 2026 17:33:04 GMT</strong>
-          Branch <span class="mono">roadmap879</span> at <span class="mono">f95a323</span><br />
+          <strong>Wed, 08 Jul 2026 17:49:51 GMT</strong>
+          Branch <span class="mono">roadmap879</span> at <span class="mono">afbda78</span><br />
           Source: local repo plus GitHub PRs when the cron runs in CI.
         </div>
       </div>
       <section class="stats" aria-label="Roadmap summary">
         <div class="stat"><span>Achievements</span><strong>28</strong><small>Implemented in <span class="mono">src/game/achievements.ts</span></small></div>
         <div class="stat"><span>Market Items</span><strong>144</strong><small>10 jobs, 6 recipes, 48 life events</small></div>
-        <div class="stat"><span>Test Files</span><strong>48</strong><small>Unit and API coverage discovered in source</small></div>
+        <div class="stat"><span>Test Files</span><strong>55</strong><small>Unit and API coverage discovered in source</small></div>
         <div class="stat"><span>Verify</span><strong>pending</strong><small>Tests: not-run-locally &middot; Build: not-run-locally</small></div>
       </section>
     </header>
@@ -475,6 +475,66 @@
           <ul class="commit-list">
             
               <li class="commit-row">
+                <strong>Fail closed when area claims cannot persist (#484)</strong>
+                <span><span class="mono">e1a8839</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Classify Google restore infrastructure failures (#425)</strong>
+                <span><span class="mono">92f474c</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Report cloud save storage outages explicitly (#423)</strong>
+                <span><span class="mono">e967bc6</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Expose Telegram identity storage outages (#420)</strong>
+                <span><span class="mono">9defcfc</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Fail closed when leaderboard storage is unavailable (#418)</strong>
+                <span><span class="mono">07429f9</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep funnel analytics contracts in sync (#416)</strong>
+                <span><span class="mono">2a87395</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Surface Telegram-linked growth in the server funnel (#415)</strong>
+                <span><span class="mono">10a144b</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep founder spawn anchors inside real coordinates (#412)</strong>
+                <span><span class="mono">9d90180</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Keep registration safety outages explicit (#407)</strong>
+                <span><span class="mono">7188db9</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Expose citizen verification storage outages (#405)</strong>
+                <span><span class="mono">6c2c868</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Make founder area refresh outages explicit (#403)</strong>
+                <span><span class="mono">e842a49</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
+                <strong>Surface operator review area load outages (#401)</strong>
+                <span><span class="mono">f503d89</span> &middot; 2026-07-08</span>
+              </li>
+
+              <li class="commit-row">
                 <strong>Make covenant queue storage outages explicit (#399)</strong>
                 <span><span class="mono">8f65628</span> &middot; 2026-07-08</span>
               </li>
@@ -502,66 +562,6 @@
               <li class="commit-row">
                 <strong>Keep world ledger account ids unambiguous (#385)</strong>
                 <span><span class="mono">0a397dc</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Keep persisted founder areas inside claim bounds (#383)</strong>
-                <span><span class="mono">7f4e362</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject non-positive Telegram identities (#381)</strong>
-                <span><span class="mono">a515277</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject Telegram bot identities (#379)</strong>
-                <span><span class="mono">138869a</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Expose manual review due windows (#376)</strong>
-                <span><span class="mono">0f1442f</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject impossible covenant review schedule times (#370)</strong>
-                <span><span class="mono">6162df6</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Aggregate covenant queue signal counts (#344)</strong>
-                <span><span class="mono">cdac995</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Flag stale founder activity for covenant review (#342)</strong>
-                <span><span class="mono">04f9626</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject negative area event timestamps in snapshots (#340)</strong>
-                <span><span class="mono">4f56153</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject negative ledger transaction timestamps (#338)</strong>
-                <span><span class="mono">0a1db7f</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject negative hospitalization recovery timestamps (#336)</strong>
-                <span><span class="mono">4244253</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject negative debt issuance timestamps in snapshots (#334)</strong>
-                <span><span class="mono">68ee828</span> &middot; 2026-07-08</span>
-              </li>
-
-              <li class="commit-row">
-                <strong>Reject negative area clocks in snapshots (#332)</strong>
-                <span><span class="mono">e527862</span> &middot; 2026-07-08</span>
               </li>
           </ul>
         </section>
@@ -705,10 +705,35 @@
               <h2>Tested Areas</h2>
               <p>Detected test files that protect source behavior.</p>
             </div>
-            <span class="chip">48 files</span>
+            <span class="chip">55 files</span>
           </div>
           <ul class="test-list">
             
+              <li class="test-row">
+                <strong>Auth Google</strong>
+                <span class="mono">api/auth-google.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Cloud Save</strong>
+                <span class="mono">api/cloud-save.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Funnel</strong>
+                <span class="mono">api/funnel.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Geo</strong>
+                <span class="mono">api/geo.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Leaderboard</strong>
+                <span class="mono">api/leaderboard.test.ts</span>
+              </li>
+
               <li class="test-row">
                 <strong>Reality Area</strong>
                 <span class="mono">api/reality-area.test.ts</span>
@@ -727,6 +752,11 @@
               <li class="test-row">
                 <strong>Telegram Auth</strong>
                 <span class="mono">api/telegram-auth.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Track</strong>
+                <span class="mono">api/track.test.ts</span>
               </li>
 
               <li class="test-row">
@@ -817,36 +847,6 @@
               <li class="test-row">
                 <strong>Founder Area Session</strong>
                 <span class="mono">src/game/founderAreaSession.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Founder Covenant Enforcement</strong>
-                <span class="mono">src/game/founderCovenantEnforcement.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Founder Legacy Royalty</strong>
-                <span class="mono">src/game/founderLegacyRoyalty.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Founder Seat Registry</strong>
-                <span class="mono">src/game/founderSeatRegistry.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Golden Opportunity</strong>
-                <span class="mono">src/game/goldenOpportunity.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Land Lease</strong>
-                <span class="mono">src/game/landLease.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Land Reservation</strong>
-                <span class="mono">src/game/landReservation.test.ts</span>
               </li>
           </ul>
         </section>
