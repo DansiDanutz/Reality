@@ -332,6 +332,7 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
         studiedMinutes: progress.studiedMinutes + nextStudyBlockMinutes(course, progress),
       }
     }
+    if (course) return { kind: 'education-enrolled', courseId: route.courseId }
     return { kind: 'education', educationActions: (snapshot.educationActions ?? 0) + 1 }
   }
   if (route.kind === 'community-action') {

@@ -907,6 +907,48 @@ describe('courierPackages', () => {
     })
   })
 
+  test('turns missing study enrollment into exact course enrollment requirements', () => {
+    const pkg = courierPackageForLifePlan(2, {
+      id: 'study-certification',
+      title: 'Study Professional Certification',
+      detail: 'Enroll first, then study the credential that moves work forward.',
+      value: 'school',
+      minutes: 60,
+      route: { kind: 'education-action', courseId: 'certification' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationActions: 3,
+      educationProgress: [createEducationProgress(EDUCATION_COURSES.course, 1_000)],
+    })
+
+    expect(pkg).toMatchObject({
+      day: 2,
+      title: 'Study Professional Certification',
+      requirement: { kind: 'education-enrolled', courseId: 'certification' },
+    })
+    expect(courierRequirementMet(pkg!, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationActions: 3,
+      educationProgress: [createEducationProgress(EDUCATION_COURSES.course, 1_000)],
+    })).toBe(false)
+    expect(courierRequirementMet(pkg!, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+      educationProgress: [createEducationProgress(EDUCATION_COURSES.certification, 1_000)],
+    })).toBe(true)
+  })
+
   test('keeps repeated long-course study objectives clearable by minutes', () => {
     const progress = {
       ...createEducationProgress(EDUCATION_COURSES.certification, 1_000),
