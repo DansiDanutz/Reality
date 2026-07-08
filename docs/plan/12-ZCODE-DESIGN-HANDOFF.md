@@ -10,15 +10,15 @@ Make ownership feel like Age of Empires plus Heroes: buildings start as visible 
 
 ## Canonical Panels
 
-- `ConstructionPanel`: unfinished house or business shell construction.
+- `ConstructionPanel`: unfinished house or business foundation construction.
 - `HousePanel`: completed home interior only.
-- `BusinessPanel`: business shell construction preview, completed business, and active interior development.
+- `BusinessPanel`: business foundation construction preview, completed business, and active interior development.
 - `AssetsPanel`: permanent assets plus active construction/interior projects.
 - `WorldMap`: map markers for construction projects, finished assets, and Workers Hall.
 
 Map selection uses:
 
-- `{ kind: 'construction', id }` for unfinished house or business shell construction.
+- `{ kind: 'construction', id }` for unfinished house or business foundation construction.
 - `{ kind: 'asset', id }` for completed homes and businesses.
 
 ## House Visual States
@@ -38,14 +38,14 @@ Do not show a finished home interior before the permanent home asset exists.
 
 There are two business phases.
 
-Business shell construction uses `ConstructionProject.resultKind === 'business'`:
+Business foundation construction uses `ConstructionProject.resultKind === 'business'`:
 
-- `business-shell-planned`
-- `business-shell-materials-ready`
-- `business-shell-building`
-- `business-shell-worker-active`
-- `business-shell-ready-to-complete`
-- `completed-business-shell`: construction project is removed, permanent `asset.kind === 'business'` exists.
+- `business-foundation-planned`
+- `business-foundation-materials-ready`
+- `business-foundation-building`
+- `business-foundation-worker-active`
+- `business-foundation-ready-to-complete`
+- `completed-business-foundation`: construction project is removed, permanent `asset.kind === 'business'` exists.
 
 Business interior development uses `BusinessDevelopmentProject`:
 
@@ -56,7 +56,7 @@ Business interior development uses `BusinessDevelopmentProject`:
 - `interior-ready-to-complete`: materials, budget, and labor are complete.
 - `interior-upgraded`: project is removed, business asset level and `incomePerDay` increase.
 
-Do not design a business purchase as instant income. The first business must appear as shell construction before it becomes a finished asset.
+Do not design a business purchase as instant income. The first business must appear as foundation construction before it becomes a finished asset.
 
 ## Workers Hall Visual States
 
@@ -102,7 +102,7 @@ These task ids are stable hooks for copy, icons, and motion:
 
 Design these without changing rules:
 
-- no active construction: direct the player to place a home or business shell;
+- no active construction: direct the player to place a home or business foundation;
 - missing materials: show resource shortfall and gather route;
 - unpaid permit: show permit fee and safe cash requirement;
 - no labor: show player work and Workers Hall hire options;
@@ -117,4 +117,3 @@ Design these without changing rules:
 - Never make respect/trust/friendship purchasable.
 - Never let design imply a worker is free unless community backing explicitly covers part of the contract.
 - If a design needs a new state, request the state name and transition from Codex first.
-

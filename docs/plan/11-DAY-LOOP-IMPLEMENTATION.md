@@ -31,7 +31,7 @@ Own the design language and visual feel of the house/business/worker fantasy.
 Zcode should not need to solve gameplay state. Its job is to make the existing state feel like Age of Empires plus Heroes-style ownership:
 
 - House on the map reads as a buildable castle-like asset: foundation, frame, finished exterior, enterable interior.
-- Business reads as a building first, then an inside workspace: shell, fit-out, service counters/tools, upgraded interior levels.
+- Business reads as a building first, then an inside workspace: foundation, fit-out, service counters/tools, upgraded interior levels.
 - Workers Hall is a recognizable civic building on the map, with AI workers presented as recruitable people/contracts.
 - Animation states are clear: material deposit, permit paid, worker active, labor progress, completed, entered inside.
 - Assets menu communicates permanence: active construction, active interiors, completed homes/businesses, "show on map," and "enter" are visually distinct.
@@ -65,7 +65,7 @@ Already open and green:
 - #634 proves player-only house completion in the roadmap.
 - #643 proves a bought business becomes a construction project before interior development.
 - #646 locks asset menu navigation for construction, map targeting, and completed inside entry.
-- #650 proves the first Food Cart roadmap lifecycle from shell to construction to interior upgrade.
+- #650 proves the first Food Cart roadmap lifecycle from foundation to construction to interior upgrade.
 - #654 locks clear Today routine labels and ETA helpers for build/interior days.
 
 ## 8-Day Execution Plan
@@ -97,7 +97,7 @@ Day 4 - House inside loop:
 Day 5 - Business inside loop:
 
 - Codex: lock business interior levels, budget/resource/labor gates, and income deltas.
-- Zcode: design business shell and interior development stages.
+- Zcode: design business foundation and interior development stages.
 - Gate: finished business can be entered; unfinished construction opens build plan; active interior opens business plan.
 
 Day 6 - Daily life clarity:
@@ -113,7 +113,7 @@ Day 7 - Community and seriousness:
 
 Day 8 - Integrated smoke and handoff:
 
-- Add or update an end-to-end first-week scenario: find job, eat/drink/sleep, study, gather, build house, hire worker, finish house, start business shell.
+- Add or update an end-to-end first-week scenario: find job, eat/drink/sleep, study, gather, build house, hire worker, finish house, start business foundation.
 - Run full verify, targeted e2e, and visual smoke for the current browser path.
 - Produce Zcode handoff notes for remaining design-only polish.
 
@@ -133,4 +133,3 @@ Zcode can call a design slice complete only when:
 - Mobile and desktop states are covered.
 - No design decision requires instant asset creation, skipped workers, skipped materials, or skipped survival gates.
 - Codex has enough names, states, and transitions to wire the design without guessing.
-
