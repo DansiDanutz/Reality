@@ -71,8 +71,11 @@ describe('FounderAreaPanel covenant presenters', () => {
   test('spells out the founder-area next steps in order', () => {
     const dashboard = {
       survival: { signals: [{ citizenId: 'c1' }] },
-      businesses: { existingBusinesses: [] },
-      jobs: { openPositions: 0, hireableSimWorkers: 0 },
+      existingBusinesses: [
+        { kind: 'business' },
+        { kind: 'workers_hall' },
+      ],
+      jobs: { openPositions: 2, hireableSimWorkers: 1 },
       growth: { realPopulation: 1, simPopulation: 3 },
     } as unknown as RealityAreaDashboard
 
@@ -82,8 +85,12 @@ describe('FounderAreaPanel covenant presenters', () => {
         detail: 'Eat, drink, or sleep before you try to scale anything else.',
       },
       {
-        label: 'Place the first build',
-        detail: 'Start with a home or a starter business, then let it construct in real time.',
+        label: 'Hire sim workers',
+        detail: 'Tap Hire on a ready sim worker to keep your business running while you build the next thing.',
+      },
+      {
+        label: 'Grow the neighborhood',
+        detail: 'Study, work, and community actions push respect, skills, and stability upward.',
       },
     ])
   })
