@@ -950,6 +950,43 @@ describe('runWorldServerCommand', () => {
     expect(repo.saves).toBe(1)
   })
 
+  test('ignores mismatched founder lookup records when creating a claimed area', async () => {
+    const baseRepo = new MemoryWorldRepo()
+    await createArea(baseRepo, citizen('other-founder'))
+    const repo: WorldAreaRepository = {
+      loadArea: baseRepo.loadArea.bind(baseRepo),
+      loadAreaRecord: baseRepo.loadAreaRecord.bind(baseRepo),
+      listAreaRecords: baseRepo.listAreaRecords.bind(baseRepo),
+      loadAreaByFounder: async () => baseRepo.loadAreaRecord('area-1'),
+      saveArea: baseRepo.saveArea.bind(baseRepo),
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'createClaimedArea',
+      areaId: 'area-2',
+      name: 'Founder District 2',
+      now: 2_000,
+      authenticatedFounderId: 'founder',
+      founder: citizen('founder'),
+      claim: {
+        founderCitizenId: 'founder',
+        label: 'Founder District 2',
+        centerLat: 45,
+        centerLng: 27,
+        radiusKm: 2,
+        claimedAt: 2_000,
+        source: 'manual',
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(`expected area creation to succeed: ${result.error}`)
+    expect(result.area.claim?.founderCitizenId).toBe('founder')
+    expect(await baseRepo.loadArea('area-2')).toMatchObject({
+      claim: { founderCitizenId: 'founder' },
+    })
+  })
+
   test('advances stored area time and persists server-simulated need decay', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
@@ -1724,6 +1761,26 @@ describe('runWorldServerCommand', () => {
     expect(blankRepo.saves + missingRepo.saves).toBe(0)
   })
 
+  test('rejects founder area reads when repository founder lookups return a mismatched claimed area', async () => {
+    const baseRepo = new MemoryWorldRepo()
+    await createArea(baseRepo, citizen('other-founder'))
+    const repo: WorldAreaRepository = {
+      loadArea: baseRepo.loadArea.bind(baseRepo),
+      loadAreaRecord: baseRepo.loadAreaRecord.bind(baseRepo),
+      listAreaRecords: baseRepo.listAreaRecords.bind(baseRepo),
+      loadAreaByFounder: async () => baseRepo.loadAreaRecord('area-1'),
+      saveArea: baseRepo.saveArea.bind(baseRepo),
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'readFounderArea',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_not_found' })
+  })
+
   test('rejects write conflicts while reading and advancing a founder area', async () => {
     const repo = new MemoryWorldRepo()
     await createArea(repo, citizen('founder', { needs: needs({ hydration: 50 }) }))
@@ -1990,6 +2047,31 @@ describe('runWorldServerCommand', () => {
     expect(result).toEqual({ ok: false, error: 'area_not_found' })
     expect(repo.loads).toBe(1)
     expect(repo.saves).toBe(0)
+  })
+
+  test('rejects founder intents when repository founder lookups return a mismatched claimed area', async () => {
+    const baseRepo = new MemoryWorldRepo()
+    await createArea(baseRepo, citizen('other-founder', { needs: needs({ hydration: 80 }) }))
+    const repo: WorldAreaRepository = {
+      loadArea: baseRepo.loadArea.bind(baseRepo),
+      loadAreaRecord: baseRepo.loadAreaRecord.bind(baseRepo),
+      listAreaRecords: baseRepo.listAreaRecords.bind(baseRepo),
+      loadAreaByFounder: async () => baseRepo.loadAreaRecord('area-1'),
+      saveArea: baseRepo.saveArea.bind(baseRepo),
+    }
+
+    const result = await runWorldServerCommand(repo, {
+      type: 'applyFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000 + HOUR,
+      intent: { type: 'buyWater', actorCitizenId: 'founder' },
+    })
+
+    expect(result).toEqual({ ok: false, error: 'area_not_found' })
+    expect(await baseRepo.loadArea('area-1')).toMatchObject({
+      claim: { founderCitizenId: 'other-founder' },
+      now: 1_000,
+    })
   })
 
   test('rejects write conflicts before persisting founder intent mutations', async () => {

@@ -540,7 +540,10 @@ async function createClaimedArea(
   if (!simCitizens) return { ok: false, error: 'invalid_sim_citizen_seed' }
 
   if (await loadStoredArea(repo, areaId)) return { ok: false, error: 'area_exists' }
-  const founderArea = await repo.loadAreaByFounder(command.authenticatedFounderId)
+  const founderArea = founderOwnedAreaRecord(
+    await repo.loadAreaByFounder(command.authenticatedFounderId),
+    command.authenticatedFounderId,
+  )
   if (founderArea) {
     return {
       ok: false,
@@ -637,7 +640,7 @@ async function readFounderArea(
   if (!founderId) return { ok: false, error: 'founder_not_found' }
   if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
 
-  const loaded = await repo.loadAreaByFounder(founderId)
+  const loaded = founderOwnedAreaRecord(await repo.loadAreaByFounder(founderId), founderId)
   if (!loaded) return { ok: false, error: 'area_not_found' }
   const { area } = loaded
   if (now < area.now) return { ok: false, error: 'time_moved_backward', area, dashboard: areaNeedsDashboard(area) }
@@ -659,6 +662,14 @@ async function loadStoredArea(repo: WorldAreaRepository, areaId: string): Promis
   if (repo.loadAreaRecord) return repo.loadAreaRecord(areaId)
   const area = await repo.loadArea(areaId)
   return area ? { area } : null
+}
+
+function founderOwnedAreaRecord(
+  record: WorldAreaRecord | null,
+  founderCitizenId: string,
+): WorldAreaRecord | null {
+  if (!record) return null
+  return record.area.claim?.founderCitizenId === founderCitizenId ? record : null
 }
 
 async function saveStoredArea(
@@ -1381,7 +1392,7 @@ async function applyFounderIntentToStoredArea(
   if (intent.actorCitizenId !== founderId) return { ok: false, error: 'actor_mismatch' }
   if (!isValidCommandTime(now)) return { ok: false, error: 'invalid_command_time' }
 
-  const loaded = await repo.loadAreaByFounder(founderId)
+  const loaded = founderOwnedAreaRecord(await repo.loadAreaByFounder(founderId), founderId)
   if (!loaded) return { ok: false, error: 'area_not_found' }
   return applyIntentToAreaRecord(repo, loaded, now, intent)
 }
