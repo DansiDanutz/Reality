@@ -116,6 +116,8 @@ export interface FounderCovenantOperatorQueueSliceTotals {
   founders: number
   manualReviewRequired: number
   neverReviewed: number
+  weeklyDue: number
+  monthlyDue: number
   overdue: number
   hospitalized: number
   indebted: number
@@ -744,6 +746,8 @@ export function founderCovenantOperatorQueueSummary(
   const riskParts = [
     `${totals.manualReviewRequired} manual review${totals.manualReviewRequired === 1 ? '' : 's'}`,
     `${totals.neverReviewed} never reviewed`,
+    `${totals.weeklyDue} weekly due`,
+    `${totals.monthlyDue} monthly due`,
     `${totals.overdue} overdue`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,
@@ -913,6 +917,8 @@ export function founderCovenantOperatorQueueSliceTotals(
     founders: items.length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
+    monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     overdue: items.filter((item) => item.overdue).length,
     hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
     indebted: items.filter((item) => item.economicExposure.outstandingDebt > 0).length,

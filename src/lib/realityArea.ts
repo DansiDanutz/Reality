@@ -870,6 +870,8 @@ export interface RealityFounderCovenantReviewQueueItem {
   latestReview: RealityFounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
+  weeklyReviewDue: boolean
+  monthlyReviewDue: boolean
   overdue: boolean
   covenantStatus: RealityAreaCovenantStatus
   nextAction: RealityAreaCovenantNextAction
@@ -934,6 +936,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    weeklyDue: number
+    monthlyDue: number
     overdue: number
     totalFounderCash: number
     totalOutstandingDebt: number
@@ -2232,6 +2236,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.atRisk === 'number' &&
     typeof value.manualReviewRequired === 'number' &&
     typeof value.neverReviewed === 'number' &&
+    typeof value.weeklyDue === 'number' &&
+    typeof value.monthlyDue === 'number' &&
     typeof value.overdue === 'number' &&
     typeof value.totalFounderCash === 'number' &&
     typeof value.totalOutstandingDebt === 'number' &&
@@ -2257,6 +2263,8 @@ function isRealityFounderCovenantReviewQueueItem(
     (value.latestReview === null || isRealityFounderCovenantReviewQueueLatestReview(value.latestReview)) &&
     typeof value.nextWeeklyReviewAt === 'string' &&
     typeof value.nextMonthlyReviewAt === 'string' &&
+    typeof value.weeklyReviewDue === 'boolean' &&
+    typeof value.monthlyReviewDue === 'boolean' &&
     typeof value.overdue === 'boolean' &&
     isRealityAreaCovenantStatus(value.covenantStatus) &&
     isRealityAreaCovenantNextAction(value.nextAction) &&

@@ -1182,6 +1182,8 @@ interface FounderCovenantReviewQueueItem {
   latestReview: FounderCovenantReviewQueueLatestReview | null
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
+  weeklyReviewDue: boolean
+  monthlyReviewDue: boolean
   overdue: boolean
   covenantStatus: FounderAreaCovenantStatus
   nextAction: FounderAreaCovenantNextAction
@@ -1246,6 +1248,8 @@ interface FounderCovenantReviewQueueDashboard {
     atRisk: number
     manualReviewRequired: number
     neverReviewed: number
+    weeklyDue: number
+    monthlyDue: number
     overdue: number
     totalFounderCash: number
     totalOutstandingDebt: number
@@ -4532,6 +4536,8 @@ function founderCovenantReviewQueueItem(
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
+    weeklyReviewDue: review.reviewSchedule.weeklyReviewDue,
+    monthlyReviewDue: review.reviewSchedule.monthlyReviewDue,
     overdue: review.reviewSchedule.overdue,
     covenantStatus: review.status,
     nextAction: review.nextAction,
@@ -4624,6 +4630,8 @@ function founderCovenantReviewQueueTotals(
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
+    weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
+    monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     overdue: items.filter((item) => item.overdue).length,
     totalFounderCash: roundMoney(items.reduce((total, item) => total + item.economicExposure.founderCash, 0)),
     totalOutstandingDebt: roundMoney(items.reduce((total, item) => total + item.economicExposure.outstandingDebt, 0)),

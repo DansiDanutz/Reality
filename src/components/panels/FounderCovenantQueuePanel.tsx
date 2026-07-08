@@ -67,6 +67,16 @@ export function FounderCovenantQueuePanel({
           tone={sliceTotals.neverReviewed > 0 ? 'warning' : 'stable'}
           value={sliceTotals.neverReviewed}
         />
+        <QueueTotalChip
+          label="Weekly"
+          tone={sliceTotals.weeklyDue > 0 ? 'warning' : 'stable'}
+          value={sliceTotals.weeklyDue}
+        />
+        <QueueTotalChip
+          label="Monthly"
+          tone={sliceTotals.monthlyDue > 0 ? 'warning' : 'stable'}
+          value={sliceTotals.monthlyDue}
+        />
         <QueueTotalChip label="Overdue" tone={sliceTotals.overdue > 0 ? 'warning' : 'stable'} value={sliceTotals.overdue} />
         <QueueTotalChip
           label="Hospital"
