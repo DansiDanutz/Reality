@@ -4233,9 +4233,31 @@ async function catchUpPersistedAreaState(
   citizenId: string,
   state: FounderAreaState,
   now: Date,
+  citizen?: Pick<CitizenAuthRecord, 'telegramUserId' | 'telegramAccountId'>,
 ): Promise<FounderAreaState> {
   const caughtUp = catchUpAreaClock(state, now)
-  return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
+  const next = citizen ? syncFounderAreaTelegramIdentity(caughtUp ?? state, citizen) : caughtUp ?? state
+  return caughtUp || next !== state ? persistAreaState(citizenId, next, true) : state
+}
+
+function syncFounderAreaTelegramIdentity(
+  state: FounderAreaState,
+  citizen: Pick<CitizenAuthRecord, 'telegramUserId' | 'telegramAccountId'>,
+): FounderAreaState {
+  if (state.claim.telegramUserId === citizen.telegramUserId && state.claim.telegramAccountId === citizen.telegramAccountId) {
+    return state
+  }
+  const claim = {
+    ...state.claim,
+    ...(citizen.telegramUserId ? { telegramUserId: citizen.telegramUserId } : {}),
+    ...(citizen.telegramAccountId ? { telegramAccountId: citizen.telegramAccountId } : {}),
+  }
+  if (!citizen.telegramUserId) delete claim.telegramUserId
+  if (!citizen.telegramAccountId) delete claim.telegramAccountId
+  return {
+    ...state,
+    claim,
+  }
 }
 
 async function handleServerClockTickAreas(
@@ -4781,7 +4803,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
+    const citizen = await verifyCitizen(auth.citizenId, auth.token, {
+      includeRecord: intentType === 'claimArea' || intentType === 'refreshArea',
+    })
     if (!citizen) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
@@ -4986,7 +5010,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date()) : null
+      const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date(), citizen) : null
       if (!state) {
         res.status(refreshAreaStatus('area_not_claimed')).json({
           ok: false,

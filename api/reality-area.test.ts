@@ -3901,6 +3901,63 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('refreshArea syncs linked Telegram identity into persisted founder-area claim state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const staleIdentity = {
+      ...existingState(),
+      claim: {
+        ...existingState().claim,
+        telegramUserId: undefined,
+        telegramAccountId: undefined,
+      },
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://refresh-area'))
+    vi.stubGlobal('fetch', vi.fn(async (input) => {
+      if (input === 'blob://citizen-record') {
+        return new Response(JSON.stringify({
+          telegramUserId: '42424242',
+          telegramAccountId: 'telegram:42424242',
+          telegramUsername: 'davidreality',
+          telegramName: 'David Reality',
+          telegramLinkedAt: '2026-07-06T03:25:00.000Z',
+        }), { status: 200 })
+      }
+      return new Response(JSON.stringify(staleIdentity), { status: 200 })
+    }))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'refreshArea' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof existingState>; dashboard: DashboardWithBuildGuidance }
+    expect(body.state.updatedAt).toBe(staleIdentity.updatedAt)
+    expect(body.state.claim.telegramUserId).toBe('42424242')
+    expect(body.state.claim.telegramAccountId).toBe('telegram:42424242')
+    expect(body.dashboard.founderIdentity).toEqual({
+      citizenId: CITIZEN_ID,
+      founderNumber: 12,
+      claimSource: 'telegram',
+      telegramUserId: '42424242',
+      telegramAccountId: 'telegram:42424242',
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(put).toHaveBeenLastCalledWith(
+      areaStatePath(CITIZEN_ID),
+      JSON.stringify(body.state),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
   test('refreshArea rejects client-controlled state fields without mutating the area', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
