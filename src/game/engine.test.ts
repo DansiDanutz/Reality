@@ -674,6 +674,7 @@ describe('tutorial', async () => {
     expect(ids).toContain('groceries')
     expect(ids).toContain('cook')
     expect(ids).toContain('hall')
+    expect(TUTORIAL_STEPS.find((s) => s.id === 'business')?.detail).toContain('Workers Hall')
     for (const step of TUTORIAL_STEPS) {
       expect(step.isDone(fresh), step.id).toBe(false)
       expect(step.xp, step.id).toBeGreaterThan(0)

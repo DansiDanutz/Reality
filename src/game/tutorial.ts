@@ -106,7 +106,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'business',
     title: 'Build your first business',
-    detail: 'Market → Businesses. A real place on the map, then workers and revenue.',
+    detail: 'Market → Businesses. A real place on the map, then build a Workers Hall to staff it.',
     xp: 75,
     isDone: (s) => s.assets.some((a) => a.kind === 'business'),
   },
