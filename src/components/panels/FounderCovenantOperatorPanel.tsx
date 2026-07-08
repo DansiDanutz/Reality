@@ -40,6 +40,7 @@ import {
 import {
   type CopiedQueueViewState,
   copiedAtText,
+  formatQueueLoadMessage,
   formatCopiedContextClearedMessage,
   formatDraftNotePreview,
   formatOperatorSessionClearedMessage,
@@ -288,7 +289,10 @@ export default function FounderCovenantOperatorPanel({
     })
   }, [lastCopiedAt, lastCopiedQueueView, lastCopiedText, queueFilter, queueSort, reviewEvidenceKinds, reviewNote, scanCursor])
 
-  const loadQueue = async (cursor: string | null = null) => {
+  const loadQueue = async (
+    cursor: string | null = null,
+    action: 'scan' | 'refresh' | 'restart' | 'next_page' = 'scan',
+  ) => {
     if (!operatorToken) {
       setPanelState({ status: 'error', message: 'Operator token is required.', queue })
       return
@@ -298,6 +302,11 @@ export default function FounderCovenantOperatorPanel({
     if (result.ok) {
       setScanCursor(cursor)
       setPanelState({ status: 'ready', queue: result.founderCovenantReviewQueue })
+      setOperatorReviewMessage(formatQueueLoadMessage({
+        action,
+        scanCursor: cursor,
+        nextCursor: result.founderCovenantReviewQueue.nextCursor,
+      }))
     } else {
       setPanelState({ status: 'error', message: result.error, queue })
     }
@@ -305,7 +314,7 @@ export default function FounderCovenantOperatorPanel({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void loadQueue()
+    void loadQueue(null, 'scan')
   }
 
   const recordOperatorReview = async (row: FounderCovenantOperatorQueueReviewRow) => {
@@ -1325,7 +1334,7 @@ export default function FounderCovenantOperatorPanel({
             <button
               className="btn small ghost"
               disabled={loading || operatorToken.length === 0}
-              onClick={() => void loadQueue(scanCursor)}
+              onClick={() => void loadQueue(scanCursor, 'refresh')}
               type="button"
             >
               Refresh page
@@ -1333,7 +1342,7 @@ export default function FounderCovenantOperatorPanel({
             <button
               className="btn small ghost"
               disabled={loading || operatorToken.length === 0 || scanCursor === null}
-              onClick={() => void loadQueue(null)}
+              onClick={() => void loadQueue(null, 'restart')}
               type="button"
             >
               Restart scan
@@ -1341,7 +1350,7 @@ export default function FounderCovenantOperatorPanel({
             <button
               className="btn small ghost"
               disabled={loading || !queue.nextCursor || operatorToken.length === 0}
-              onClick={() => void loadQueue(queue.nextCursor)}
+              onClick={() => void loadQueue(queue.nextCursor, 'next_page')}
               type="button"
             >
               Next page

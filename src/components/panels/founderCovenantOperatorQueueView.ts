@@ -115,6 +115,21 @@ export function queueResumeText(scanCursor: string | null, nextCursor: string | 
   return nextCursor ? 'Start of queue · more founders available' : 'Start of queue · end of current queue'
 }
 
+export function formatQueueLoadMessage(options: {
+  action: 'scan' | 'refresh' | 'restart' | 'next_page'
+  scanCursor: string | null
+  nextCursor: string | null
+}): string {
+  const actionLabel = options.action === 'scan'
+    ? 'Queue scanned'
+    : options.action === 'refresh'
+      ? 'Queue refreshed'
+      : options.action === 'restart'
+        ? 'Queue restarted'
+        : 'Next queue page loaded'
+  return `${actionLabel}: ${queueCursorContextText(options.scanCursor, options.nextCursor)} · ${queueResumeText(options.scanCursor, options.nextCursor)}`
+}
+
 export function queueHandoffText({
   filter,
   sort,

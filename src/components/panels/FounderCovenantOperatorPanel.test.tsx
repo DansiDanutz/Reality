@@ -5,6 +5,7 @@ import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
   formatCopiedContextClearedMessage,
+  formatQueueLoadMessage,
   formatReviewRecordSuccessMessage,
   formatOperatorSessionClearedMessage,
   queueFounderWarningTelegramText,
@@ -272,6 +273,26 @@ describe('FounderCovenantOperatorPanel', () => {
   })
 
   test('derives coverage preset context from filter and sort state', () => {
+    expect(formatQueueLoadMessage({
+      action: 'scan',
+      scanCursor: null,
+      nextCursor: 'next-review-cursor',
+    })).toBe('Queue scanned: Cursor: start -> next-review-cursor · Start of queue · more founders available')
+    expect(formatQueueLoadMessage({
+      action: 'refresh',
+      scanCursor: 'cursor-5',
+      nextCursor: 'cursor-6',
+    })).toBe('Queue refreshed: Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available')
+    expect(formatQueueLoadMessage({
+      action: 'restart',
+      scanCursor: null,
+      nextCursor: null,
+    })).toBe('Queue restarted: Cursor: start -> end · Start of queue · end of current queue')
+    expect(formatQueueLoadMessage({
+      action: 'next_page',
+      scanCursor: 'cursor-6',
+      nextCursor: null,
+    })).toBe('Next queue page loaded: Cursor: cursor-6 -> end · Resumed after cursor-6 · end of current queue')
     expect(formatCopiedContextClearedMessage({
       hadTelegramContext: true,
       hadDigestOrViewContext: true,
