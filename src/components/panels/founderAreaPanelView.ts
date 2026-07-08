@@ -1787,10 +1787,19 @@ function founderCovenantOperatorQueueLatestReviewReference(
   row: Pick<FounderCovenantOperatorQueueReviewRow, 'latestReviewText'>,
 ): string | null {
   if (!row.latestReviewText) return null
-  const [label, _actionLabel, reviewerId, reviewKey] = row.latestReviewText.split(' · ')
+  const [label, actionLabel, reviewerId, reviewKey] = row.latestReviewText.split(' · ')
   const reviewedAt = label.replace(/^Latest review /, '')
   if (!reviewedAt) return null
-  return reviewKey ? `${reviewedAt}/${reviewKey}` : reviewerId ? `${reviewedAt}/${reviewerId}` : reviewedAt
+  const compactAction = actionLabel
+    .replace(/^Record review$/i, 'record')
+    .replace(/^Send warning$/i, 'warning')
+    .replace(/^Start probation$/i, 'probation')
+    .replace(/^Recommend replacement$/i, 'replacement')
+  return reviewKey
+    ? `${reviewedAt}/${compactAction}/${reviewKey}`
+    : reviewerId
+      ? `${reviewedAt}/${compactAction}/${reviewerId}`
+      : `${reviewedAt}/${compactAction}`
 }
 
 function founderCovenantOperatorQueueFreshnessCoverageText(

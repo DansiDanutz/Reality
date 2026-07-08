@@ -1609,7 +1609,7 @@ describe('FounderCovenantQueuePanel', () => {
           },
         }),
       ],
-    }, 'all')).toBe('Recent reviews: #0017 2026-07-05/99999999 · #0016 2026-07-06/42424242 · +1 more')
+    }, 'all')).toBe('Recent reviews: #0017 2026-07-05/record/99999999 · #0016 2026-07-06/record/42424242 · +1 more')
     expect(founderCovenantOperatorQueueReviewRows({ items: [weeklyDue] })[0]?.recommendedNextText).toBe('Record weekly review')
     expect(founderCovenantOperatorQueueReviewRows({ items: [monthlyDue] })[0]?.recommendedNextText).toBe('Record monthly review')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 2 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Inactive 1 · Debt 1 · Risk 1 · Telegram 1 · Scan 1')

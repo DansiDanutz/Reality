@@ -268,7 +268,7 @@ describe('FounderCovenantOperatorPanel', () => {
           telegramSummary: 'Manual review Telegram draft',
           telegramRationale: 'Main founder approval required / Delivery disabled',
           telegramReviewReference: 'Review ref: 42424242',
-          reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/42424242',
+          reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/record/42424242',
           focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
           activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
           actionSummary: 'Action: monitor · monitor current founders',
@@ -285,7 +285,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied Telegram scaffold: Manual review Telegram draft')
     expect(html).toContain('Copied Telegram rationale: Main founder approval required / Delivery disabled')
     expect(html).toContain('Copied Telegram review: Review ref: 42424242')
-    expect(html).toContain('Copied reviews: Recent reviews: #0016 2026-07-06/42424242')
+    expect(html).toContain('Copied reviews: Recent reviews: #0016 2026-07-06/record/42424242')
     expect(html).toContain('Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(html).toContain('Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(html).toContain('Copied action: Action: monitor · monitor current founders')
@@ -652,7 +652,7 @@ describe('FounderCovenantOperatorPanel', () => {
       telegramSummary: 'Manual review Telegram draft',
       telegramRationale: 'Main founder approval required / Delivery disabled',
       telegramReviewReference: 'Review ref: 42424242',
-      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/42424242',
+      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/record/42424242',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
@@ -666,7 +666,7 @@ describe('FounderCovenantOperatorPanel', () => {
       'Copied Telegram scaffold: Manual review Telegram draft',
       'Copied Telegram rationale: Main founder approval required / Delivery disabled',
       'Copied Telegram review: Review ref: 42424242',
-      'Copied reviews: Recent reviews: #0016 2026-07-06/42424242',
+      'Copied reviews: Recent reviews: #0016 2026-07-06/record/42424242',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       'Copied escalation: Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
@@ -678,38 +678,38 @@ describe('FounderCovenantOperatorPanel', () => {
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
-      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/42424242',
+      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/record/42424242',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Recent reviews: #0016 2026-07-06/42424242 · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
+      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Recent reviews: #0016 2026-07-06/record/42424242 · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
     )
     expect(queueDigestText({
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
-      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/42424242',
+      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/record/42424242',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'Weekly/monthly founder review digest · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Recent reviews: #0016 2026-07-06/42424242 · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
+      'Weekly/monthly founder review digest · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Recent reviews: #0016 2026-07-06/record/42424242 · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
     )
     expect(queueTelegramScaffoldText({
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
-      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/42424242',
+      reviewProvenanceSummary: 'Recent reviews: #0016 2026-07-06/record/42424242',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       escalationSummary: 'Escalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
       telegramSummary: 'Telegram drafts: 0 warning · 1 manual review · 1 total',
     })).toBe(
-      'Reality founder review update\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nRecent reviews: #0016 2026-07-06/42424242\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders\nTelegram drafts: 0 warning · 1 manual review · 1 total\nCursor: cursor-5 -> cursor-6\nResumed after cursor-5 · more founders available',
+      'Reality founder review update\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nRecent reviews: #0016 2026-07-06/record/42424242\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders\nTelegram drafts: 0 warning · 1 manual review · 1 total\nCursor: cursor-5 -> cursor-6\nResumed after cursor-5 · more founders available',
     )
     expect(queueManualReviewTelegramText({
       draft: {
