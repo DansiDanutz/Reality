@@ -86,6 +86,14 @@ export interface WorldTransaction {
   memo: string
 }
 
+const FOUNDER_ACTIVITY_TRANSACTION_KINDS: readonly WorldTransactionKind[] = [
+  'business_build',
+  'customer_purchase',
+  'worker_wage',
+  'insurance_premium',
+  'debt_repayment',
+]
+
 export type WorldAreaEventKind = 'sim_citizen_departure'
 export type WorldAreaEventSeverity = 'info' | 'warning' | 'critical'
 export type WorldDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
@@ -253,7 +261,7 @@ export type WorldClientIntentPayload =
 export interface CitizenSurvivalAction {
   warning: WorldSurvivalWarningKind
   intent: WorldSurvivalActionIntent
-  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }>
+  clientPayload: Extract<WorldClientIntentPayload, { type: WorldSurvivalActionIntent }> | null
   serviceKind: Exclude<WorldBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -455,6 +463,7 @@ export type FounderCovenantManualActionKind =
   | 'recommend_replacement'
 export type FounderCovenantSignalKind =
   | 'founder_unavailable'
+  | 'stale_founder_activity'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -836,8 +845,11 @@ export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
 export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+export const PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER = 0.03
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
+const SIM_DEBT_REPAYMENT_CASH_RESERVE = 50
+const SIM_DEBT_REPAYMENT_PER_HOUR = 25
 
 const SURVIVAL_WARNING_HYDRATION = 50
 const SURVIVAL_WARNING_HUNGER = 50
@@ -944,7 +956,9 @@ export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWo
   ) {
     return { ok: false, area, error: 'invalid_location' }
   }
-  if (claim.radiusKm < MIN_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_small' }
+  if (!Number.isFinite(claim.radiusKm) || claim.radiusKm < MIN_FOUNDER_AREA_RADIUS_KM) {
+    return { ok: false, area, error: 'area_too_small' }
+  }
   if (claim.radiusKm > MAX_FOUNDER_AREA_RADIUS_KM) return { ok: false, area, error: 'area_too_large' }
 
   area.claim = { ...claim, label }
@@ -976,11 +990,17 @@ export function applyWorldIntent(input: WorldArea, intent: WorldIntent): ApplyWo
 export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAreaResult {
   const area = cloneArea(input)
   const summary = emptyWorldAreaSummary()
-  if (toMs <= area.now) return { area, summary }
+  const targetTime = normalizedWorldTime(toMs)
+  const storedTime = normalizedWorldTime(area.now)
+  if (storedTime === null) {
+    area.now = targetTime ?? 0
+    return { area, summary }
+  }
+  if (targetTime === null || targetTime <= area.now) return { area, summary }
 
   let t = area.now
-  while (t < toMs) {
-    const next = Math.min(toMs, t + WORLD_SIM_HOUR_MS)
+  while (t < targetTime) {
+    const next = Math.min(targetTime, t + WORLD_SIM_HOUR_MS)
     const context: StepContext = {
       at: next,
       hours: (next - t) / WORLD_SIM_HOUR_MS,
@@ -994,6 +1014,10 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
   }
 
   return { area, summary }
+}
+
+function normalizedWorldTime(value: number): number | null {
+  return Number.isFinite(value) && value >= 0 ? value : null
 }
 
 export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
@@ -1012,7 +1036,7 @@ export function areaNeedsDashboard(area: WorldArea): AreaNeedsDashboard {
   const realDemand = zeroKindRecord()
   const shortage = zeroKindRecord()
   for (const citizen of activeCitizens) {
-    addCitizenDemand(citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
+    addCitizenDemand(area, citizen, citizen.kind === 'sim' ? simDemand : realDemand, area.now)
   }
   for (const kind of BUSINESS_KINDS) {
     demand[kind] = simDemand[kind] + realDemand[kind]
@@ -1104,7 +1128,7 @@ export function recordFounderCovenantReview(
     ok: true,
     area: {
       ...area,
-      founderReviewHistory: [...(area.founderReviewHistory ?? []), entry],
+      founderReviewHistory: [...(area.founderReviewHistory ?? []).map(founderCovenantReviewHistoryItem), entry],
     },
     entry,
   }
@@ -1144,13 +1168,33 @@ function areaEventsDashboard(area: WorldArea): AreaEventsDashboard {
       const simulated = event.simulated
       return {
         ...event,
-        needs: { ...event.needs },
+        at: areaEventDashboardTime(event.at),
+        health: areaEventDashboardPercent(event.health, 100),
+        needs: areaEventDashboardNeeds(event.needs),
         displayName: simulated ? `${event.citizenName} (Sim)` : event.citizenName,
         participantLabel: simulated ? 'Sim Citizen' : 'Real Citizen',
         visualTone: simulated ? 'simulated' : 'real',
       }
     }),
   }
+}
+
+function areaEventDashboardTime(at: number): number | string {
+  return Number.isFinite(at) && at >= 0 ? at : 'invalid_event_time'
+}
+
+function areaEventDashboardNeeds(needs: Needs): Needs {
+  return {
+    hunger: areaEventDashboardPercent(needs.hunger, 90),
+    hydration: areaEventDashboardPercent(needs.hydration, 90),
+    energy: areaEventDashboardPercent(needs.energy, 90),
+    hygiene: areaEventDashboardPercent(needs.hygiene, 90),
+    fun: areaEventDashboardPercent(needs.fun, 90),
+  }
+}
+
+function areaEventDashboardPercent(value: number, fallback: number): number {
+  return Number.isFinite(value) ? clamp(value) : fallback
 }
 
 function founderMoneyForArea(area: WorldArea): number | undefined {
@@ -1176,7 +1220,12 @@ export function effectiveBusinessQuality(business: WorldBusiness, area: WorldAre
   const activeStaff = activeStaffCount(area, business)
   const ownerUnavailable = owner?.state.kind === 'hospitalized'
   const unmanagedPenalty = ownerUnavailable && activeStaff === 0 ? 0.35 : 1
-  return clamp((business.quality ?? 1) * unmanagedPenalty, 0.15, 1.5)
+  return clamp(storedBusinessQuality(business) * unmanagedPenalty, 0.15, 1.5)
+}
+
+function storedBusinessQuality(business: WorldBusiness): number {
+  const quality = business.quality ?? 1
+  return Number.isFinite(quality) ? quality : 1
 }
 
 function buildRecommendation(
@@ -1232,7 +1281,7 @@ function buildRecommendation(
       founderCanAfford,
       founderCanAct: input.founderCanAct,
     }),
-    clientPayload: proposedBusinessId
+    clientPayload: canBuildNow && proposedBusinessId
       ? {
         type: 'buildBusiness',
         businessKind: kind,
@@ -1297,7 +1346,7 @@ function firstBuildBlockers(input: {
 function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
   const totalsByKind = zeroTransactionKindRecord()
   for (const transaction of area.transactions) {
-    totalsByKind[transaction.kind] = roundMoney(totalsByKind[transaction.kind] + transaction.amount)
+    totalsByKind[transaction.kind] = roundMoney(totalsByKind[transaction.kind] + transactionAmount(transaction))
   }
 
   return {
@@ -1309,7 +1358,7 @@ function ledgerDashboard(area: WorldArea): AreaLedgerDashboard {
 }
 
 function transactionDashboard(transaction: WorldTransaction): AreaTransactionDashboard {
-  return { ...transaction }
+  return { ...transaction, amount: transactionAmount(transaction) }
 }
 
 function ledgerPayoutClassification(transactions: WorldTransaction[]): AreaLedgerPayoutClassificationDashboard {
@@ -1321,10 +1370,10 @@ function ledgerPayoutClassification(transactions: WorldTransaction[]): AreaLedge
   for (const transaction of transactions) {
     if (transaction.payoutEligibility === 'game_only') {
       gameOnlyTransactionCount += 1
-      gameOnlyAmount = roundMoney(gameOnlyAmount + transaction.amount)
+      gameOnlyAmount = roundMoney(gameOnlyAmount + transactionAmount(transaction))
     } else {
       payoutEligibleTransactionCount += 1
-      payoutEligibleAmount = roundMoney(payoutEligibleAmount + transaction.amount)
+      payoutEligibleAmount = roundMoney(payoutEligibleAmount + transactionAmount(transaction))
     }
   }
 
@@ -1358,7 +1407,7 @@ function citizenDashboard(area: WorldArea, citizen: WorldCitizen, at: number): A
     jobBusinessId: citizen.jobBusinessId,
     insuranceBusinessId: citizen.insuranceBusinessId,
     heirCitizenId: citizen.heirCitizenId,
-    insuranceActive: hasActiveInsurance(citizen, at),
+    insuranceActive: hasActiveInsurance(area, citizen, at),
     insuranceAction: insuranceActionDashboard(area, citizen, at),
     estateProtection: estateProtectionDashboard(area, citizen, at),
   }
@@ -1376,7 +1425,7 @@ function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: n
     manualReviewRequired: true,
     namedHeirCitizenId: heir?.id ?? null,
     namedHeirName: heir?.name ?? null,
-    protectedByInsurance: hasActiveInsurance(citizen, at),
+    protectedByInsurance: hasActiveInsurance(area, citizen, at),
     status: 'disabled_until_death_enabled',
     blockers: [
       'death_disabled',
@@ -1389,39 +1438,48 @@ function estateProtectionDashboard(area: WorldArea, citizen: WorldCitizen, at: n
 }
 
 function debtDashboard(citizen: WorldCitizen): AreaDebtDashboard[] {
-  return (citizen.debts ?? []).map((debt) => {
+  return payableDebts(citizen).map((debt) => {
     const maxAffordablePayment = roundMoney(Math.min(citizen.money, debt.amount))
     const blockers: AreaDebtRepaymentBlocker[] = []
     if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
     if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
+    const canRepayNow = blockers.length === 0
     return {
       ...debt,
       repaymentIntent: 'repayDebt',
-      clientPayload: maxAffordablePayment > 0
+      clientPayload: canRepayNow
         ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
         : null,
       recommendedPayment: maxAffordablePayment,
       maxAffordablePayment,
-      canRepayNow: blockers.length === 0,
+      canRepayNow,
       blockers,
     }
   })
 }
 
 function totalDebt(citizen: WorldCitizen): number {
-  const itemizedDebt = (citizen.debts ?? []).reduce((total, debt) => total + debt.amount, 0)
-  return roundMoney(Math.max(citizen.debt, itemizedDebt))
+  const itemizedDebt = payableDebts(citizen).reduce((total, debt) => total + debt.amount, 0)
+  return roundMoney(Math.max(payableMoney(citizen.debt), itemizedDebt))
+}
+
+function payableDebts(citizen: WorldCitizen): WorldDebt[] {
+  return (citizen.debts ?? []).filter((debt) => payableMoney(debt.amount) > 0)
+}
+
+function payableMoney(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0
 }
 
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
   const insurers = area.businesses
-    .filter((business) => business.kind === 'insurance')
+    .filter((business) => business.kind === 'insurance' && serviceCapacity(area, business, 1) > 0)
     .sort((a, b) =>
       (a.price ?? DEFAULT_PRICES.insurance) - (b.price ?? DEFAULT_PRICES.insurance) || a.id.localeCompare(b.id),
     )
   const insurer = insurers[0]
   const premium = insurer ? insurer.price ?? DEFAULT_PRICES.insurance : null
-  const activeInsurance = hasActiveInsurance(citizen, at)
+  const activeInsurance = hasActiveInsurance(area, citizen, at)
   const canAfford = premium !== null && citizen.money >= premium
   const blockers: AreaInsuranceActionBlocker[] = []
 
@@ -1429,15 +1487,16 @@ function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: nu
   if (activeInsurance) blockers.push('already_insured')
   if (!insurer) blockers.push('service_unavailable')
   if (insurer && !canAfford) blockers.push('insufficient_funds')
+  const canBuyNow = blockers.length === 0
 
   return {
     intent: 'buyInsurance',
-    clientPayload: insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
+    clientPayload: canBuyNow && insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
     insuranceBusinessId: insurer?.id ?? null,
     premium,
     available: Boolean(insurer),
     canAfford,
-    canBuyNow: blockers.length === 0,
+    canBuyNow,
     blockers,
   }
 }
@@ -1530,6 +1589,14 @@ function founderCovenantDashboard(
       kind: 'founder_unavailable',
       severity: 'critical',
       message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+
+  if (founderActive && reviewSchedule?.overdue && !hasRecentFounderActivity(area, founderBusinessIds, reviewSchedule)) {
+    signals.push({
+      kind: 'stale_founder_activity',
+      severity: 'warning',
+      message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
     })
   }
 
@@ -1791,6 +1858,30 @@ function unreviewedSimDepartureEvents(area: WorldArea, lastReviewAt: number | nu
     if (lastReviewAt === null || !Number.isFinite(lastReviewAt)) return true
     return Number.isFinite(event.at) && event.at > lastReviewAt
   })
+}
+
+function hasRecentFounderActivity(
+  area: WorldArea,
+  founderBusinessIds: ReadonlySet<string>,
+  reviewSchedule: FounderCovenantReviewSchedule,
+): boolean {
+  const founderCitizenId = area.claim?.founderCitizenId
+  const claimedAt = area.claim?.claimedAt ?? area.now
+  const anchor = Math.max(
+    reviewSchedule.lastReviewAt ?? claimedAt,
+    area.now - FOUNDER_COVENANT_WEEKLY_REVIEW_MS,
+  )
+
+  return area.transactions.some((transaction) =>
+    FOUNDER_ACTIVITY_TRANSACTION_KINDS.includes(transaction.kind) &&
+    transaction.at > anchor &&
+    (
+      transaction.fromId === founderCitizenId ||
+      transaction.toId === founderCitizenId ||
+      founderBusinessIds.has(transaction.fromId) ||
+      founderBusinessIds.has(transaction.toId)
+    )
+  )
 }
 
 function uniqueDepartureServiceKinds(kinds: readonly WorldDepartureServiceKind[]): WorldBusinessKind[] {
@@ -2434,18 +2525,23 @@ function citizenPresentation(citizen: WorldCitizen): {
   }
 }
 
-function addCitizenDemand(citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
+function addCitizenDemand(area: WorldArea, citizen: WorldCitizen, demand: Record<WorldBusinessKind, number>, at: number): void {
   if (citizen.needs.hydration < 70) demand.water += 1
   if (citizen.needs.hunger < 70) demand.food += 1
   if (!citizen.homeBusinessId || citizen.needs.energy < 60) demand.housing += 1
   if (citizen.health < 80) demand.clinic += 1
-  if (!hasActiveInsurance(citizen, at)) demand.insurance += 1
+  if (!hasActiveInsurance(area, citizen, at)) demand.insurance += 1
 }
 
 function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
   if (citizen.state.kind !== 'active' || !citizen.jobBusinessId) return false
+  return !hasStaleJobAssignment(area, citizen)
+}
+
+function hasStaleJobAssignment(area: WorldArea, citizen: WorldCitizen): boolean {
+  if (!citizen.jobBusinessId) return false
   const business = area.businesses.find((candidate) => candidate.id === citizen.jobBusinessId)
-  return Boolean(business?.staffCitizenIds.includes(citizen.id))
+  return !business?.staffCitizenIds.includes(citizen.id)
 }
 
 function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderCanManage = true): AreaJobsDashboard {
@@ -2462,7 +2558,11 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderC
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
   const candidates = activeCitizens
-    .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
+    .filter((citizen) =>
+      citizen.id !== area.claim?.founderCitizenId &&
+      !hasActiveJob(area, citizen) &&
+      (!citizen.jobBusinessId || hasStaleJobAssignment(area, citizen))
+    )
     .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
   return {
     employedCitizens,
@@ -2592,12 +2692,14 @@ function businessLedgerDashboard(area: WorldArea, business: WorldBusiness): Area
 
   for (const transaction of relatedTransactions) {
     if (transaction.toId === business.id) {
-      if (isCashRevenue(transaction.kind)) revenue = roundMoney(revenue + transaction.amount)
-      if (transaction.kind === 'medical_debt') receivablesIssued = roundMoney(receivablesIssued + transaction.amount)
+      const amount = transactionAmount(transaction)
+      if (isCashRevenue(transaction.kind)) revenue = roundMoney(revenue + amount)
+      if (transaction.kind === 'medical_debt') receivablesIssued = roundMoney(receivablesIssued + amount)
     }
     if (transaction.fromId === business.id) {
-      if (transaction.kind === 'worker_wage') wagesPaid = roundMoney(wagesPaid + transaction.amount)
-      if (isCashExpense(transaction.kind)) expenses = roundMoney(expenses + transaction.amount)
+      const amount = transactionAmount(transaction)
+      if (transaction.kind === 'worker_wage') wagesPaid = roundMoney(wagesPaid + amount)
+      if (isCashExpense(transaction.kind)) expenses = roundMoney(expenses + amount)
     }
   }
 
@@ -2694,10 +2796,11 @@ function survivalActionForWarning(
   const blockers: WorldSurvivalActionBlocker[] = []
   if (!available) blockers.push('service_unavailable')
   if (available && !canAfford) blockers.push('insufficient_funds')
+  const canActNow = blockers.length === 0
   return {
     warning,
     intent,
-    clientPayload: { type: intent },
+    clientPayload: canActNow ? { type: intent } : null,
     serviceKind,
     available,
     lowestPrice,
@@ -2787,7 +2890,7 @@ function buildBusinessFromIntent(
   const blueprint = normalizeBlueprint(intent.blueprint)
   const businessId = intent.businessId.trim()
   if (!blueprint || !businessId) return { ok: false, area, error: 'invalid_business' }
-  if (area.businesses.some((business) => business.id === businessId)) {
+  if (area.businesses.some((business) => business.id.trim() === businessId)) {
     return { ok: false, area, error: 'business_id_taken' }
   }
 
@@ -2824,6 +2927,9 @@ function hireWorkerFromIntent(
   area: WorldArea,
   intent: Extract<WorldIntent, { type: 'hireWorker' }>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
@@ -2838,7 +2944,9 @@ function hireWorkerFromIntent(
   const worker = area.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
   if (!worker) return { ok: false, area, error: 'worker_not_found' }
   if (worker.kind === 'real') return { ok: false, area, error: 'real_worker_requires_acceptance' }
-  if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
+  if (worker.state.kind !== 'active') return { ok: false, area, error: 'worker_unavailable' }
+  if (hasStaleJobAssignment(area, worker)) delete worker.jobBusinessId
+  if (worker.jobBusinessId && worker.jobBusinessId !== business.id) {
     return { ok: false, area, error: 'worker_unavailable' }
   }
   if (activeStaffCount(area, business) >= TARGET_STAFF_BY_KIND[business.kind]) {
@@ -2854,14 +2962,18 @@ function buyInsuranceFromIntent(
   area: WorldArea,
   intent: Extract<WorldIntent, { type: 'buyInsurance' }>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
-  if (hasActiveInsurance(actor, area.now)) return { ok: false, area, error: 'already_insured' }
+  if (hasActiveInsurance(area, actor, area.now)) return { ok: false, area, error: 'already_insured' }
 
   const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
+  if (serviceCapacity(area, insurer, 1) <= 0) return { ok: false, area, error: 'service_not_available' }
 
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
@@ -2885,6 +2997,9 @@ function buyServiceFromIntent(
   intent: Extract<WorldIntent, { type: 'buyWater' | 'buyFood' | 'buyHousing' | 'visitClinic' }>,
   kind: Exclude<WorldBusinessKind, 'insurance'>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
@@ -2910,16 +3025,19 @@ function repayDebtFromIntent(
   area: WorldArea,
   intent: Extract<WorldIntent, { type: 'repayDebt' }>,
 ): ApplyWorldIntentResult {
+  const claimed = requireClaimedArea(area)
+  if (!claimed.ok) return claimed
+
   const actor = area.citizens.find((citizen) => citizen.id === intent.actorCitizenId)
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
 
-  if (!Number.isFinite(intent.amount) || intent.amount <= 0) {
+  if (!Number.isFinite(intent.amount) || intent.amount <= 0 || roundMoney(intent.amount) !== intent.amount) {
     return { ok: false, area, error: 'invalid_debt_payment' }
   }
 
   const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
-  if (!debt || debt.amount <= 0) return { ok: false, area, error: 'debt_not_found' }
+  if (!debt || payableMoney(debt.amount) <= 0) return { ok: false, area, error: 'debt_not_found' }
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, area, error: 'invalid_debt_payment' }
@@ -2940,6 +3058,10 @@ function repayDebtFromIntent(
     memo: `${actor.name} repaid debt to ${debt.creditorId}.`,
   })
   return { ok: true, area }
+}
+
+function requireClaimedArea(area: WorldArea): { ok: true } | { ok: false; area: WorldArea; error: WorldIntentError } {
+  return area.claim ? { ok: true } : { ok: false, area, error: 'area_not_claimed' }
 }
 
 function requireAreaFounder(area: WorldArea, actorCitizenId: string): RequireAreaFounderResult {
@@ -3002,6 +3124,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
       continue
     }
     if (shouldHospitalize(citizen)) hospitalize(area, citizen, context)
+    else repaySimMedicalDebt(area, citizen, context)
   }
   removeDepartingCitizens(area, departingCitizens, context)
 }
@@ -3025,13 +3148,13 @@ function degradeUnmanagedBusinesses(area: WorldArea, hours: number): void {
   for (const business of area.businesses) {
     const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
     if (owner?.state.kind !== 'hospitalized' || activeStaffCount(area, business) > 0) continue
-    business.quality = roundMoney(Math.max(MIN_BUSINESS_QUALITY, (business.quality ?? 1) - loss))
+    business.quality = roundMoney(Math.max(MIN_BUSINESS_QUALITY, storedBusinessQuality(business) - loss))
   }
 }
 
 function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
   for (const citizen of area.citizens) {
-    if (!citizen.insuranceBusinessId || hasActiveInsurance(citizen, context.at)) {
+    if (!citizen.insuranceBusinessId || hasActiveInsurance(area, citizen, context.at)) {
       continue
     }
 
@@ -3046,7 +3169,12 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
       lapseInsurance(citizen, context)
       continue
     }
+    if (!hasRemainingBusinessCapacity(area, insurer, context)) {
+      lapseInsurance(citizen, context)
+      continue
+    }
 
+    reserveBusinessCapacity(context, insurer)
     citizen.money = roundMoney(citizen.money - premium)
     citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
     insurer.cash = roundMoney(insurer.cash + premium)
@@ -3067,8 +3195,11 @@ function lapseInsurance(citizen: WorldCitizen, context: StepContext): void {
   context.summary.insurancePoliciesLapsed += 1
 }
 
-function hasActiveInsurance(citizen: WorldCitizen, at: number): boolean {
-  return Boolean(citizen.insuranceBusinessId && citizen.insurancePaidUntil !== undefined && citizen.insurancePaidUntil > at)
+function hasActiveInsurance(area: WorldArea, citizen: WorldCitizen, at: number): boolean {
+  if (!citizen.insuranceBusinessId || citizen.insurancePaidUntil === undefined || citizen.insurancePaidUntil <= at) {
+    return false
+  }
+  return area.businesses.some((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
 }
 
 function payWorkerWages(area: WorldArea, context: StepContext): void {
@@ -3077,6 +3208,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
     const due = roundMoney(wage * context.hours)
     if (due <= 0) continue
     const retainedStaffIds: string[] = []
+    let payrollDefaults = 0
     for (const workerId of business.staffCitizenIds) {
       const worker = area.citizens.find((c) => c.id === workerId)
       if (!worker) continue
@@ -3086,6 +3218,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       }
       if (worker.jobBusinessId !== business.id) continue
       const paid = Math.min(due, business.cash)
+      if (paid < due) payrollDefaults += 1
       if (paid <= 0) continue
       business.cash = roundMoney(business.cash - paid)
       worker.money = roundMoney(worker.money + paid)
@@ -3109,6 +3242,13 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       if (worker?.state.kind === 'active' && worker.jobBusinessId === business.id) delete worker.jobBusinessId
     }
     business.staffCitizenIds = retainedStaffIds
+    if (payrollDefaults > 0) {
+      const loss = PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER * payrollDefaults * context.hours
+      const quality = business.quality ?? 1
+      business.quality = roundMoney(
+        quality <= MIN_BUSINESS_QUALITY ? quality : Math.max(MIN_BUSINESS_QUALITY, quality - loss),
+      )
+    }
   }
 }
 
@@ -3135,7 +3275,7 @@ function buyNeededServices(area: WorldArea, citizen: WorldCitizen, context: Step
   if (citizen.needs.hunger <= 50) purchaseService(area, citizen, 'food', context)
   if (citizen.needs.energy <= 35) purchaseService(area, citizen, 'housing', context)
   if (citizen.health <= 65) purchaseService(area, citizen, 'clinic', context)
-  if (citizen.kind === 'sim' && !hasActiveInsurance(citizen, context.at)) purchaseInsurancePolicy(area, citizen, context)
+  if (citizen.kind === 'sim' && !hasActiveInsurance(area, citizen, context.at)) purchaseInsurancePolicy(area, citizen, context)
 }
 
 function simDepartureReason(area: WorldArea, citizen: WorldCitizen, context: StepContext): WorldDepartureReason | null {
@@ -3286,6 +3426,37 @@ function purchaseInsurancePolicy(
   return true
 }
 
+function repaySimMedicalDebt(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return
+  if (!citizen.debts || citizen.debts.length === 0) return
+
+  const available = roundMoney(citizen.money - SIM_DEBT_REPAYMENT_CASH_RESERVE)
+  if (available <= 0) return
+
+  const debt = [...citizen.debts]
+    .filter((candidate) => candidate.kind === 'medical' && candidate.amount > 0)
+    .sort((a, b) => a.issuedAt - b.issuedAt || a.id.localeCompare(b.id))[0]
+  if (!debt) return
+
+  const payment = roundMoney(Math.min(debt.amount, available, SIM_DEBT_REPAYMENT_PER_HOUR * context.hours))
+  if (payment <= 0) return
+
+  citizen.money = roundMoney(citizen.money - payment)
+  citizen.debt = roundMoney(Math.max(0, citizen.debt - payment))
+  debt.amount = roundMoney(debt.amount - payment)
+  if (debt.amount <= 0) citizen.debts = citizen.debts.filter((candidate) => candidate.id !== debt.id)
+
+  const creditor = area.businesses.find((business) => business.id === debt.creditorId)
+  if (creditor) creditor.cash = roundMoney(creditor.cash + payment)
+  recordTransaction(area, context.at, {
+    kind: 'debt_repayment',
+    fromId: citizen.id,
+    toId: debt.creditorId,
+    amount: payment,
+    memo: `${citizen.name} repaid medical debt to ${debt.creditorId}.`,
+  })
+}
+
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
   const candidates = area.businesses
     .filter((business) => business.kind === kind && serviceCapacity(area, business, context.hours) > 0)
@@ -3295,11 +3466,15 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
   const start = context.servedByKind[kind] % candidates.length
   for (let offset = 0; offset < candidates.length; offset++) {
     const business = candidates[(start + offset) % candidates.length]
-    const capacity = serviceCapacity(area, business, context.hours)
-    const used = context.capacityUsed[business.id] ?? 0
-    if (used < capacity) return business
+    if (hasRemainingBusinessCapacity(area, business, context)) return business
   }
   return null
+}
+
+function hasRemainingBusinessCapacity(area: WorldArea, business: WorldBusiness, context: StepContext): boolean {
+  const capacity = serviceCapacity(area, business, context.hours)
+  const used = context.capacityUsed[business.id] ?? 0
+  return used < capacity
 }
 
 function reserveBusinessCapacity(context: StepContext, business: WorldBusiness): void {
@@ -3309,9 +3484,16 @@ function reserveBusinessCapacity(context: StepContext, business: WorldBusiness):
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {
   const activeStaff = activeStaffCount(area, business)
+  if (ownerUnavailableWithoutStaff(area, business, activeStaff)) return 0
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+}
+
+function ownerUnavailableWithoutStaff(area: WorldArea, business: WorldBusiness, activeStaff: number): boolean {
+  if (activeStaff > 0) return false
+  const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
+  return owner?.state.kind === 'hospitalized'
 }
 
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
@@ -3343,12 +3525,13 @@ function hospitalize(area: WorldArea, citizen: WorldCitizen, context: StepContex
 }
 
 function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
-  const clinic = area.businesses.find((business) => business.kind === 'clinic')
+  const clinic = chooseBusiness(area, 'clinic', context)
+  if (clinic) reserveBusinessCapacity(context, clinic)
   const receiverId = clinic?.id ?? 'system:hospital'
   let remaining = HOSPITAL_BILL
   let insurancePaid = false
 
-  const insurer = hasActiveInsurance(citizen, context.at)
+  const insurer = hasActiveInsurance(area, citizen, context.at)
     ? area.businesses.find((business) => business.id === citizen.insuranceBusinessId && business.kind === 'insurance')
     : undefined
   if (insurer) {
@@ -3441,6 +3624,7 @@ function cloneArea(area: WorldArea): WorldArea {
       ...event,
       needs: { ...event.needs },
     })),
+    founderReviewHistory: area.founderReviewHistory?.map(founderCovenantReviewHistoryItem),
   }
 }
 
@@ -3486,6 +3670,10 @@ function emptyWorldAreaSummary(): WorldAreaSummary {
     debtsIssued: 0,
     revenueByBusiness: {},
   }
+}
+
+function transactionAmount(transaction: WorldTransaction): number {
+  return Number.isFinite(transaction.amount) ? transaction.amount : 0
 }
 
 function roundMoney(value: number): number {

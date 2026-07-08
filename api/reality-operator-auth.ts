@@ -7,10 +7,19 @@ import {
 import { verifyTelegramMiniAppInitData } from './telegram-auth'
 
 const OPERATOR_QUEUE_TOKEN_TTL_MS = 15 * 60 * 1000
+const OPERATOR_AUTH_REQUEST_FIELDS = new Set(['initData'])
 
-function readInitData(req: VercelRequest): string | null {
-  const body = req.body as { initData?: unknown } | undefined
-  return typeof body?.initData === 'string' && body.initData.trim().length > 0 ? body.initData : null
+function readOperatorAuthBody(req: VercelRequest): Record<string, unknown> {
+  const body = req.body
+  return body && typeof body === 'object' && !Array.isArray(body) ? body as Record<string, unknown> : {}
+}
+
+function hasUnexpectedOperatorAuthField(body: Record<string, unknown>): boolean {
+  return Object.keys(body).some((field) => !OPERATOR_AUTH_REQUEST_FIELDS.has(field))
+}
+
+function readInitData(body: Record<string, unknown>): string | null {
+  return typeof body.initData === 'string' && body.initData.trim().length > 0 ? body.initData : null
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -21,7 +30,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const initData = readInitData(req)
+  const body = readOperatorAuthBody(req)
+  if (hasUnexpectedOperatorAuthField(body)) {
+    res.status(400).json({
+      ok: false,
+      error: 'Operator auth contains fields the server must own.',
+      code: 'client_controlled_operator_auth_field',
+    })
+    return
+  }
+
+  const initData = readInitData(body)
   if (!initData) {
     res.status(400).json({ ok: false, error: 'Missing Telegram initData.' })
     return

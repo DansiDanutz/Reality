@@ -2467,13 +2467,20 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   position: absolute;
   inset: 0;
   display: grid;
+  /* minmax(0, 1fr): an auto track would grow to the card's min-content and
+     make the card's max-width:100% circular — pin the track to the padding
+     box so narrow phones actually constrain the card. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(5, 7, 14, 0.55), rgba(5, 7, 14, 0.9));
   z-index: 30;
   padding: 24px;
 }
 .welcome {
-  max-width: 560px;
+  /* min(…, 100%) keeps the card inside the backdrop's padding box on narrow
+     phones — its min-content (input row + wordmark) is ~374px and clips at
+     ≤390px viewports otherwise. */
+  max-width: min(560px, 100%);
   padding: 40px 44px;
   background: var(--surface);
   border: 1px solid var(--line-strong);
@@ -2511,6 +2518,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .welcome-row { display: flex; gap: 10px; }
 .welcome-row input {
   flex: 1;
+  min-width: 0; /* text inputs have ~200px intrinsic width and refuse to shrink in a flex row */
   font-family: var(--font-body);
   font-size: 15px;
   color: var(--text);
@@ -2520,6 +2528,22 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   padding: 10px 14px;
 }
 .welcome-row input::placeholder { color: var(--muted); }
+@media (max-width: 480px) {
+  /* The wordmark can't wrap; at the 2.4rem floor with 0.28em tracking it is
+     wider than a small phone's card. Scale with the viewport and ease the
+     tracking so REALITY fits down to 320px. */
+  .welcome-title {
+    font-size: clamp(1.5rem, 8vw, 2.4rem);
+    letter-spacing: 0.18em;
+    margin-right: -0.18em;
+  }
+  /* Stack input above button — side by side leaves the name field too
+     narrow to see what you're typing. (After the base rules: same
+     specificity, so source order decides.) */
+  .welcome-row { flex-wrap: wrap; }
+  .welcome-row input { flex: 1 1 100%; }
+  .welcome-row .btn { flex: 1; }
+}
 .welcome-note { font-size: 12px; color: var(--muted); }
 
 .welcome-slots { font-size: 11px; color: var(--gold); letter-spacing: 0.08em; text-align: left; }
