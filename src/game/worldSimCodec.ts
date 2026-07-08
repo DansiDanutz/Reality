@@ -1,3 +1,4 @@
+import { MAX_FOUNDER_AREA_RADIUS_KM, MIN_FOUNDER_AREA_RADIUS_KM } from './worldSim'
 import type {
   AreaClaimSource,
   FounderCovenantApprovalBlocker,
@@ -205,7 +206,8 @@ function isAreaClaim(value: unknown): value is WorldArea['claim'] {
     isLatitude(value.centerLat) &&
     isLongitude(value.centerLng) &&
     isFiniteNumber(value.radiusKm) &&
-    value.radiusKm > 0 &&
+    value.radiusKm >= MIN_FOUNDER_AREA_RADIUS_KM &&
+    value.radiusKm <= MAX_FOUNDER_AREA_RADIUS_KM &&
     isFiniteNumber(value.claimedAt) &&
     value.claimedAt >= 0 &&
     isOneOf(value.source, CLAIM_SOURCES)

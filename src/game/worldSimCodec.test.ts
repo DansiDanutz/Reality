@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { decodeWorldAreaSnapshot, encodeWorldAreaSnapshot, WORLD_AREA_SNAPSHOT_VERSION } from './worldSimCodec'
-import type { WorldArea } from './worldSim'
+import { MAX_FOUNDER_AREA_RADIUS_KM, MIN_FOUNDER_AREA_RADIUS_KM, type WorldArea } from './worldSim'
 
 const area = (): WorldArea => ({
   id: 'area-1',
@@ -354,6 +354,16 @@ describe('worldSim snapshot codec', () => {
     const selfHeir = area()
     selfHeir.citizens[0].heirCitizenId = 'founder'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: selfHeir }))).toEqual({ ok: false, error: 'invalid_area' })
+  })
+
+  test('rejects persisted area claims outside founder radius bounds', () => {
+    const tooSmall = area()
+    tooSmall.claim!.radiusKm = MIN_FOUNDER_AREA_RADIUS_KM - 0.01
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: tooSmall }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const tooLarge = area()
+    tooLarge.claim!.radiusKm = MAX_FOUNDER_AREA_RADIUS_KM + 0.01
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: tooLarge }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('accepts clinic and system hospital accounts as medical creditors', () => {
