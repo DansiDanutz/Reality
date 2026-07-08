@@ -249,8 +249,10 @@ export function founderAreaNextSteps(dashboard: FounderAreaNextStepsDashboard): 
     }
     if ((dashboard.jobs?.hireableSimWorkers ?? 0) > 0) {
       steps.push({
-        label: 'Hire sim workers',
-        detail: 'Tap Hire on a ready sim worker to keep your business running while you build the next thing.',
+        label: workersHall ? 'Staff the business' : 'Hire sim workers',
+        detail: workersHall
+          ? 'The hall is open. Tap Hire on a ready sim worker to keep the business running while you build the next thing.'
+          : 'Tap Hire on a ready sim worker after the Workers Hall is built.',
       })
     }
     if ((dashboard.growth?.realPopulation ?? 0) > 0 || (dashboard.growth?.simPopulation ?? 0) > 0) {

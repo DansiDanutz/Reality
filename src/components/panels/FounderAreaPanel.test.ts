@@ -70,7 +70,31 @@ import type { RealityAreaDashboard } from '../../lib/realityArea'
 
 describe('FounderAreaPanel covenant presenters', () => {
   test('spells out the founder-area next steps in order', () => {
-    const dashboard = {
+    const beforeHall = {
+      survival: { signals: [{ citizenId: 'c1' }] },
+      existingBusinesses: [
+        { kind: 'business' },
+      ],
+      jobs: { openPositions: 2, hireableSimWorkers: 1 },
+      growth: { realPopulation: 1, simPopulation: 3 },
+    } as unknown as RealityAreaDashboard
+
+    expect(founderAreaNextSteps(beforeHall)).toEqual([
+      {
+        label: 'Survive first',
+        detail: 'Eat, drink, or sleep before you try to scale anything else.',
+      },
+      {
+        label: 'Build a Workers Hall',
+        detail: 'The hall unlocks AI hiring so open roles can be staffed one by one.',
+      },
+      {
+        label: 'Hire sim workers',
+        detail: 'Tap Hire on a ready sim worker after the Workers Hall is built.',
+      },
+    ])
+
+    const afterHall = {
       survival: { signals: [{ citizenId: 'c1' }] },
       existingBusinesses: [
         { kind: 'business' },
@@ -80,14 +104,14 @@ describe('FounderAreaPanel covenant presenters', () => {
       growth: { realPopulation: 1, simPopulation: 3 },
     } as unknown as RealityAreaDashboard
 
-    expect(founderAreaNextSteps(dashboard)).toEqual([
+    expect(founderAreaNextSteps(afterHall)).toEqual([
       {
         label: 'Survive first',
         detail: 'Eat, drink, or sleep before you try to scale anything else.',
       },
       {
-        label: 'Hire sim workers',
-        detail: 'Tap Hire on a ready sim worker to keep your business running while you build the next thing.',
+        label: 'Staff the business',
+        detail: 'The hall is open. Tap Hire on a ready sim worker to keep the business running while you build the next thing.',
       },
       {
         label: 'Grow the neighborhood',
