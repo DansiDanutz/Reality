@@ -33,6 +33,7 @@ import {
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueuePrimaryWorkloadText,
+  founderCovenantOperatorQueueReviewProvenanceSummary,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueActionMix,
   founderCovenantOperatorQueueCadenceReadyMix,
@@ -1529,6 +1530,55 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueActivityRiskSummary(queueWithCadence)).toBe('Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(founderCovenantOperatorQueueWorkloadSummary(queueWithCadence)).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup')
     expect(founderCovenantOperatorQueueFocusSummary(queueWithCadence)).toBe('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
+    expect(founderCovenantOperatorQueueReviewProvenanceSummary({
+      items: [
+        founderQueueItem({
+          founderCitizenId: 'founder-16',
+          founderNumber: 16,
+          lastReviewAt: '2026-07-06T08:00:00.000Z',
+          reviewFreshness: 'fresh',
+          latestReview: {
+            id: 'founder-area-0016:1783306800000:founder-review:telegram-operator:42424242',
+            reviewedAt: '2026-07-06T08:00:00.000Z',
+            reviewerId: 'telegram-operator:42424242',
+            actionKind: 'record_review',
+            summary: 'Reviewed contribution and ideas evidence.',
+            evidenceOnly: true,
+            automationEnabled: false,
+          },
+        }),
+        founderQueueItem({
+          founderCitizenId: 'founder-17',
+          founderNumber: 17,
+          lastReviewAt: '2026-07-05T08:00:00.000Z',
+          reviewFreshness: 'stale',
+          latestReview: {
+            id: 'founder-area-0017:1783220400000:founder-review:telegram-operator:99999999',
+            reviewedAt: '2026-07-05T08:00:00.000Z',
+            reviewerId: 'telegram-operator:99999999',
+            actionKind: 'record_review',
+            summary: 'Reviewed staffing evidence.',
+            evidenceOnly: true,
+            automationEnabled: false,
+          },
+        }),
+        founderQueueItem({
+          founderCitizenId: 'founder-18',
+          founderNumber: 18,
+          lastReviewAt: '2026-07-04T08:00:00.000Z',
+          reviewFreshness: 'fresh',
+          latestReview: {
+            id: 'founder-area-0018:1783134000000:founder-review:telegram-operator:12312312',
+            reviewedAt: '2026-07-04T08:00:00.000Z',
+            reviewerId: 'telegram-operator:12312312',
+            actionKind: 'record_review',
+            summary: 'Reviewed local economy evidence.',
+            evidenceOnly: true,
+            automationEnabled: false,
+          },
+        }),
+      ],
+    }, 'all')).toBe('Recent reviews: #0017 2026-07-05/99999999 · #0016 2026-07-06/42424242 · +1 more')
     expect(founderCovenantOperatorQueueReviewRows({ items: [weeklyDue] })[0]?.recommendedNextText).toBe('Record weekly review')
     expect(founderCovenantOperatorQueueReviewRows({ items: [monthlyDue] })[0]?.recommendedNextText).toBe('Record monthly review')
     expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 2 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Inactive 1 · Debt 1 · Risk 1 · Telegram 1 · Scan 1')

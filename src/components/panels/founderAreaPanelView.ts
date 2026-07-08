@@ -1398,6 +1398,30 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
   return [...rows].sort((a, b) => a.title.localeCompare(b.title))
 }
 
+export function founderCovenantOperatorQueueReviewProvenanceSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
+): string | null {
+  const reviewedRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
+    .filter((row) => row.latestReviewText)
+
+  if (reviewedRows.length === 0) return null
+
+  const visibleRows = reviewedRows
+    .slice(0, 2)
+    .flatMap((row) => {
+      const reference = founderCovenantOperatorQueueLatestReviewReference(row)
+      if (!reference) return []
+      return [`${founderCovenantOperatorQueueSeatLabel(row.title)} ${reference}`]
+    })
+
+  if (visibleRows.length === 0) return null
+
+  const remaining = reviewedRows.length - visibleRows.length
+  return `Recent reviews: ${visibleRows.join(' · ')}${remaining > 0 ? ` · +${remaining} more` : ''}`
+}
+
 export function founderCovenantOperatorQueueFilterSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,
@@ -1620,6 +1644,20 @@ function founderCovenantOperatorQueueIsRecordRecommendation(recommendation: stri
   return recommendation === 'Record review' ||
     recommendation === 'Record weekly review' ||
     recommendation === 'Record monthly review'
+}
+
+function founderCovenantOperatorQueueSeatLabel(title: string): string {
+  return title.split(' · ')[0] ?? title
+}
+
+function founderCovenantOperatorQueueLatestReviewReference(
+  row: Pick<FounderCovenantOperatorQueueReviewRow, 'latestReviewText'>,
+): string | null {
+  if (!row.latestReviewText) return null
+  const [label, reviewerId, reviewKey] = row.latestReviewText.split(' · ')
+  const reviewedAt = label.replace(/^Latest review /, '')
+  if (!reviewedAt) return null
+  return reviewKey ? `${reviewedAt}/${reviewKey}` : reviewerId ? `${reviewedAt}/${reviewerId}` : reviewedAt
 }
 
 function founderCovenantOperatorQueueFreshnessCoverageText(

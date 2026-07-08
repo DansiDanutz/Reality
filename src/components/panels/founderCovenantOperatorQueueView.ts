@@ -21,6 +21,7 @@ export interface CopiedQueueViewState {
   telegramSummary?: string | null
   telegramRationale?: string | null
   telegramReviewReference?: string | null
+  reviewProvenanceSummary?: string | null
   focusSummary?: string | null
   escalationSummary?: string | null
   activitySummary?: string | null
@@ -138,6 +139,7 @@ export function queueHandoffText({
   scanCursor,
   nextCursor,
   queueSummary,
+  reviewProvenanceSummary,
   focusSummary,
   escalationSummary,
   activitySummary,
@@ -148,6 +150,7 @@ export function queueHandoffText({
   scanCursor: string | null
   nextCursor: string | null
   queueSummary: string
+  reviewProvenanceSummary?: string | null
   focusSummary?: string | null
   escalationSummary?: string | null
   activitySummary?: string | null
@@ -158,6 +161,7 @@ export function queueHandoffText({
     queueCursorContextText(scanCursor, nextCursor),
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
+    reviewProvenanceSummary,
     focusSummary,
     escalationSummary,
     activitySummary,
@@ -169,6 +173,7 @@ export function queueDigestText({
   scanCursor,
   nextCursor,
   queueSummary,
+  reviewProvenanceSummary,
   focusSummary,
   escalationSummary,
   activitySummary,
@@ -177,6 +182,7 @@ export function queueDigestText({
   scanCursor: string | null
   nextCursor: string | null
   queueSummary: string
+  reviewProvenanceSummary?: string | null
   focusSummary?: string | null
   escalationSummary?: string | null
   activitySummary?: string | null
@@ -187,6 +193,7 @@ export function queueDigestText({
     queueCursorContextText(scanCursor, nextCursor),
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
+    reviewProvenanceSummary,
     focusSummary,
     escalationSummary,
     activitySummary,
@@ -198,6 +205,7 @@ export function queueTelegramScaffoldText({
   scanCursor,
   nextCursor,
   queueSummary,
+  reviewProvenanceSummary,
   focusSummary,
   escalationSummary,
   activitySummary,
@@ -207,6 +215,7 @@ export function queueTelegramScaffoldText({
   scanCursor: string | null
   nextCursor: string | null
   queueSummary: string
+  reviewProvenanceSummary?: string | null
   focusSummary?: string | null
   escalationSummary?: string | null
   activitySummary?: string | null
@@ -216,6 +225,7 @@ export function queueTelegramScaffoldText({
   return [
     'Reality founder review update',
     `Queue: ${queueSummary}`,
+    reviewProvenanceSummary,
     focusSummary,
     escalationSummary,
     activitySummary,
@@ -311,6 +321,7 @@ export function queueCopiedStatusSummary({
   telegramSummary,
   telegramRationale,
   telegramReviewReference,
+  reviewProvenanceSummary,
   focusSummary,
   escalationSummary,
   activitySummary,
@@ -330,6 +341,7 @@ export function queueCopiedStatusSummary({
     telegramSummary ? `Copied Telegram scaffold: ${telegramSummary}` : null,
     telegramRationale ? `Copied Telegram rationale: ${telegramRationale}` : null,
     telegramReviewReference ? `Copied Telegram review: ${telegramReviewReference}` : null,
+    reviewProvenanceSummary ? `Copied reviews: ${reviewProvenanceSummary}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
     escalationSummary ? `Copied escalation: ${escalationSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,

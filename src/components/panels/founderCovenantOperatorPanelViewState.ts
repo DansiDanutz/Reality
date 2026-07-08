@@ -143,6 +143,7 @@ function parseCopiedQueueViewState(value: unknown): CopiedQueueViewState | null 
     telegramSummary?: string | null
     telegramRationale?: string | null
     telegramReviewReference?: string | null
+    reviewProvenanceSummary?: string | null
     focusSummary?: string | null
     activitySummary?: string | null
     actionSummary?: string | null
@@ -160,6 +161,7 @@ function parseCopiedQueueViewState(value: unknown): CopiedQueueViewState | null 
     telegramSummary: optionalTrimmedStringOrNull(parsed.telegramSummary),
     telegramRationale: optionalTrimmedStringOrNull(parsed.telegramRationale),
     telegramReviewReference: optionalTrimmedStringOrNull(parsed.telegramReviewReference),
+    reviewProvenanceSummary: optionalTrimmedStringOrNull(parsed.reviewProvenanceSummary),
     focusSummary: optionalTrimmedStringOrNull(parsed.focusSummary),
     activitySummary: optionalTrimmedStringOrNull(parsed.activitySummary),
     actionSummary: optionalTrimmedStringOrNull(parsed.actionSummary),
