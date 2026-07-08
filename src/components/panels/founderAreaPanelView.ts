@@ -829,6 +829,19 @@ export function founderCovenantOperatorQueueWorkloadSummary(
   return `${evidenceFounders} evidence queue · ${evidenceGaps} gaps · ${blockedFounders} blocked · ${approvalRequests} approvals · ${recordReadyFounders} record ready · ${overdueCleanupFounders} overdue cleanup`
 }
 
+export function founderCovenantOperatorQueueWorkflowSplitSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const blockedFounders = queue.items.filter((item) => item.pendingApprovalRequests.some((request) => request.blockers.length > 0)).length
+  const recordReadyFounders = queue.items.filter((item) =>
+    founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))
+  ).length
+  const overdueCleanupFounders = queue.items.filter((item) =>
+    founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+  ).length
+  return `Workflow split: ${blockedFounders} blocked approvals · ${recordReadyFounders} record ready · ${overdueCleanupFounders} overdue cleanup`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {
