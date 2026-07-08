@@ -3360,7 +3360,8 @@ function hospitalize(area: WorldArea, citizen: WorldCitizen, context: StepContex
 }
 
 function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
-  const clinic = area.businesses.find((business) => business.kind === 'clinic')
+  const clinic = chooseBusiness(area, 'clinic', context)
+  if (clinic) reserveBusinessCapacity(context, clinic)
   const receiverId = clinic?.id ?? 'system:hospital'
   let remaining = HOSPITAL_BILL
   let insurancePaid = false

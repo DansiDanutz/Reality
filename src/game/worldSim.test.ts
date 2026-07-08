@@ -1228,6 +1228,37 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions.map((tx) => tx.kind)).toEqual(['hospital_bill', 'medical_debt'])
   })
 
+  test('hospital bills use clinic capacity before falling back to the system hospital', () => {
+    const start = area({
+      citizens: [
+        sim('c1', { health: COLLAPSE_HEALTH - 10, money: 50 }),
+        sim('c2', { health: COLLAPSE_HEALTH - 10, money: 50 }),
+      ],
+      businesses: [business('clinic', 'clinic1', { quality: 0.2 })],
+    })
+
+    const { area: out, summary } = advanceWorldArea(start, HOUR)
+    const first = out.citizens.find((citizen) => citizen.id === 'c1')!
+    const second = out.citizens.find((citizen) => citizen.id === 'c2')!
+    const clinic = out.businesses[0]
+
+    expect(first.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'clinic1', amount: HOSPITAL_BILL - 50, issuedAt: HOUR },
+    ])
+    expect(second.debts).toMatchObject([
+      { kind: 'medical', creditorId: 'system:hospital', amount: HOSPITAL_BILL - 50, issuedAt: HOUR },
+    ])
+    expect(clinic.cash).toBe(50)
+    expect(summary.hospitalizations).toBe(2)
+    expect(summary.debtsIssued).toBe((HOSPITAL_BILL - 50) * 2)
+    expect(out.transactions).toMatchObject([
+      { kind: 'hospital_bill', fromId: 'c1', toId: 'clinic1', amount: 50 },
+      { kind: 'medical_debt', fromId: 'c1', toId: 'clinic1', amount: HOSPITAL_BILL - 50 },
+      { kind: 'hospital_bill', fromId: 'c2', toId: 'system:hospital', amount: 50 },
+      { kind: 'medical_debt', fromId: 'c2', toId: 'system:hospital', amount: HOSPITAL_BILL - 50 },
+    ])
+  })
+
   test('hospitalized citizens recover without acting during the hospital hour', () => {
     const start = area({
       citizens: [sim('c1', {
