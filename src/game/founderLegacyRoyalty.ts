@@ -10,6 +10,7 @@ export type FounderLegacyRoyaltyExclusionReason =
   | 'not_owned_by_successor'
   | 'not_created_by_previous_founder'
   | 'no_base_revenue'
+  | 'duplicate_asset_id'
 
 export interface FounderLegacyRoyaltyAssetInput {
   id: string
@@ -94,6 +95,7 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
   const successorCitizenId = input.successorCitizenId.trim()
   const eligibleAssets: FounderLegacyRoyaltyEligibleAsset[] = []
   const excludedAssets: FounderLegacyRoyaltyExcludedAsset[] = []
+  const seenAssetIds = new Set<string>()
 
   for (const asset of input.assets) {
     const assetId = asset.id.trim()
@@ -101,6 +103,16 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
 
     const baseNetRevenue = positiveMoney(asset.periodBaseNetRevenue)
     const successorUpgradeNetRevenue = positiveMoney(asset.periodSuccessorUpgradeNetRevenue ?? 0)
+
+    if (seenAssetIds.has(assetId)) {
+      excludedAssets.push({
+        id: assetId,
+        reason: 'duplicate_asset_id',
+        excludedNetRevenue: roundMoney(baseNetRevenue + successorUpgradeNetRevenue),
+      })
+      continue
+    }
+    seenAssetIds.add(assetId)
 
     if (asset.currentOwnerCitizenId !== successorCitizenId) {
       excludedAssets.push({

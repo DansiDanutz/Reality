@@ -105,6 +105,39 @@ describe('founder legacy royalty policy', () => {
     expect(assessment.ledgerDraft?.amount).toBe(120)
   })
 
+  test('excludes duplicate asset rows from predecessor royalty modeling', () => {
+    const assessment = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: 'founder-old',
+      successorCitizenId: 'founder-new',
+      assets: [{
+        id: 'business-water',
+        currentOwnerCitizenId: 'founder-new',
+        createdByCitizenId: 'founder-old',
+        periodBaseNetRevenue: 1_000,
+      }, {
+        id: ' business-water ',
+        currentOwnerCitizenId: 'founder-new',
+        createdByCitizenId: 'founder-old',
+        periodBaseNetRevenue: 500,
+        periodSuccessorUpgradeNetRevenue: 125,
+      }],
+    })
+
+    expect(assessment.eligibleAssets).toEqual([{
+      id: 'business-water',
+      baseNetRevenue: 1_000,
+      successorUpgradeNetRevenue: 0,
+      royaltyAmount: 100,
+    }])
+    expect(assessment.excludedAssets).toEqual([{
+      id: 'business-water',
+      reason: 'duplicate_asset_id',
+      excludedNetRevenue: 625,
+    }])
+    expect(assessment.totals.modeledRoyaltyAmount).toBe(100)
+    expect(assessment.ledgerDraft?.sourceAssetIds).toEqual(['business-water'])
+  })
+
   test('excludes assets that are not owned by the successor or not created by the previous founder', () => {
     const assessment = assessFounderLegacyRoyalty({
       previousFounderCitizenId: 'founder-old',
