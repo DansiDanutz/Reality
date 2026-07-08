@@ -20,6 +20,8 @@ import type {
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
 import {
+  founderCovenantOperatorQueueActivityRiskMix,
+  founderCovenantOperatorQueueActivityRiskSummary,
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueActionSummary,
@@ -128,6 +130,7 @@ export default function FounderCovenantOperatorPanel({
   const loading = panelState.status === 'loading'
   const operatorToken = manualOperatorToken.trim() || telegramOperatorToken.trim()
   const cadenceReady = queue ? founderCovenantOperatorQueueCadenceReadyMix(queue) : null
+  const activityRisk = queue ? founderCovenantOperatorQueueActivityRiskMix(queue) : null
 
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
@@ -303,6 +306,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
     const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
     const handoff = queueHandoffText({
       filter: queueFilter,
@@ -311,6 +315,7 @@ export default function FounderCovenantOperatorPanel({
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
       focusSummary,
+      activitySummary,
       actionSummary,
     })
     if (!clipboard?.writeText) {
@@ -325,6 +330,7 @@ export default function FounderCovenantOperatorPanel({
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
         focusSummary,
+        activitySummary,
         actionSummary,
       })
       setLastCopiedAt(new Date().toISOString())
@@ -818,6 +824,34 @@ export default function FounderCovenantOperatorPanel({
             <span className={`founder-ledger-chip ${queue.nextCursor ? 'warning' : 'stable'}`}>
               <span>Resume</span>
               <strong>{queue.nextCursor ? 'more' : 'end'}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.inactive > 0 ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>Inactive</span>
+              <strong>{activityRisk?.inactive ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.debtRisk > 0 ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>Debt risk</span>
+              <strong>{activityRisk?.debtRisk ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.hospitalized > 0 ? 'critical' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>Hospital</span>
+              <strong>{activityRisk?.hospitalized ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${activityRisk && activityRisk.atRisk > 0 ? 'critical' : 'stable'}`}
+              title={founderCovenantOperatorQueueActivityRiskSummary(queue)}
+            >
+              <span>At risk</span>
+              <strong>{activityRisk?.atRisk ?? 0}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${cadenceReady && cadenceReady.weekly > 0 ? 'warning' : 'stable'}`}

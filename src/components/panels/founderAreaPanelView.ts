@@ -195,6 +195,16 @@ export interface FounderCovenantOperatorQueueCadenceReadyMix {
   monthly: number
 }
 
+export interface FounderCovenantOperatorQueueActivityRiskMix {
+  inactive: number
+  usefulnessGaps: number
+  buildGaps: number
+  staffingGaps: number
+  debtRisk: number
+  hospitalized: number
+  atRisk: number
+}
+
 export function founderIdentitySeatLabel(
   identity: Pick<RealityAreaDashboard['founderIdentity'], 'founderNumber'>,
 ): string {
@@ -852,6 +862,36 @@ export function founderCovenantOperatorQueueActionSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {
   return `Action: ${founderCovenantOperatorQueuePrimaryWorkloadText(queue).replace('Primary workload: ', '')} · ${founderCovenantOperatorQueueRecommendedActionText(queue).replace('Recommended next: ', '')}`
+}
+
+export function founderCovenantOperatorQueueActivityRiskMix(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): FounderCovenantOperatorQueueActivityRiskMix {
+  return queue.items.reduce<FounderCovenantOperatorQueueActivityRiskMix>((totals, item) => {
+    if (!item.activityReview.active) totals.inactive += 1
+    if (!item.activityReview.useful) totals.usefulnessGaps += 1
+    if (!item.activityReview.building) totals.buildGaps += 1
+    if (!item.activityReview.staffed) totals.staffingGaps += 1
+    if (item.economicExposure.outstandingDebt > 0) totals.debtRisk += 1
+    if (item.activityReview.hospitalized) totals.hospitalized += 1
+    if (item.activityReview.atRisk) totals.atRisk += 1
+    return totals
+  }, {
+    inactive: 0,
+    usefulnessGaps: 0,
+    buildGaps: 0,
+    staffingGaps: 0,
+    debtRisk: 0,
+    hospitalized: 0,
+    atRisk: 0,
+  })
+}
+
+export function founderCovenantOperatorQueueActivityRiskSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const risks = founderCovenantOperatorQueueActivityRiskMix(queue)
+  return `Founder state: inactive ${risks.inactive} · usefulness gaps ${risks.usefulnessGaps} · build gaps ${risks.buildGaps} · staffing gaps ${risks.staffingGaps} · debt risk ${risks.debtRisk} · hospitalized ${risks.hospitalized} · at risk ${risks.atRisk}`
 }
 
 export function founderCovenantOperatorQueueCadenceReadyMix(

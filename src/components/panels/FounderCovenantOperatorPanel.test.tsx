@@ -153,6 +153,7 @@ describe('FounderCovenantOperatorPanel', () => {
           scanCursor: 'cursor-5',
           nextCursor: 'cursor-6',
           focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+          activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
           actionSummary: 'Action: monitor · monitor current founders',
         }}
         initialQueue={operatorQueue()}
@@ -162,11 +163,12 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied view: Action Record')
     expect(html).toContain('Copied cursor: cursor-5 -&gt; cursor-6')
     expect(html).toContain('Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
+    expect(html).toContain('Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(html).toContain('Copied action: Action: monitor · monitor current founders')
     expect(html).not.toContain('Last copied:')
   })
 
-  test('surfaces cadence-ready chips in the operator queue summary strip', () => {
+  test('surfaces founder-state and cadence chips in the operator queue summary strip', () => {
     const html = renderToStaticMarkup(
       <FounderCovenantOperatorPanel
         initialQueue={{
@@ -183,6 +185,11 @@ describe('FounderCovenantOperatorPanel', () => {
       />,
     )
 
+    expect(html).toContain('title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Inactive</span><strong>0</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Debt risk</span><strong>0</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Hospital</span><strong>0</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>At risk</span><strong>0</strong>')
     expect(html).toContain('title="Cadence ready: 1 weekly · 1 monthly"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Cadence ready: 1 weekly · 1 monthly"><span>Weekly ready</span><strong>1</strong>')
     expect(html).toContain('class="founder-ledger-chip critical" title="Cadence ready: 1 weekly · 1 monthly"><span>Monthly ready</span><strong>1</strong>')
@@ -282,11 +289,13 @@ describe('FounderCovenantOperatorPanel', () => {
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toEqual([
       'Copied view: Action Record',
       'Copied cursor: cursor-5 -> cursor-6',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       'Copied action: Action: monitor · monitor current founders',
     ])
     expect(queueHandoffText({
@@ -296,9 +305,10 @@ describe('FounderCovenantOperatorPanel', () => {
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Action: monitor · monitor current founders',
+      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
     )
   })
 })

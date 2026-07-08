@@ -34,6 +34,8 @@ import {
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueActionSummary,
+  founderCovenantOperatorQueueActivityRiskMix,
+  founderCovenantOperatorQueueActivityRiskSummary,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueueWorkflowSplitSummary,
   founderCovenantOperatorQueueRecommendedNextTone,
@@ -55,6 +57,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 founders · 1 manual review · 1 never reviewed · 0 freshly reviewed · 0 stale reviews · 0 stale weekly · 0 stale monthly · 0 scan anomalies · 0 weekly due · 0 monthly due · 1 warning approval · 0 probation approvals · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available')
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
     expect(html).toContain('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 0 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 0 record ready · 0 overdue cleanup · Cadence ready: 0 weekly · 0 monthly')
+    expect(html).toContain('Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(html).toContain('Action: collect evidence · attach missing manual evidence')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
@@ -334,6 +337,20 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueCadenceReadySummary({
       items: [manual],
     })).toBe('Cadence ready: 0 weekly · 0 monthly')
+    expect(founderCovenantOperatorQueueActivityRiskSummary({
+      items: [manual],
+    })).toBe('Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
+    expect(founderCovenantOperatorQueueActivityRiskMix({
+      items: [manual],
+    })).toEqual({
+      inactive: 1,
+      usefulnessGaps: 1,
+      buildGaps: 0,
+      staffingGaps: 1,
+      debtRisk: 1,
+      hospitalized: 1,
+      atRisk: 1,
+    })
     expect(founderCovenantOperatorQueueFocusSummary({
       items: [manual],
     })).toBe('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 0 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 0 record ready · 0 overdue cleanup · Cadence ready: 0 weekly · 0 monthly')
@@ -1334,6 +1351,7 @@ describe('FounderCovenantQueuePanel', () => {
     })
     expect(founderCovenantOperatorQueueWorkflowSplitSummary(queueWithCadence)).toBe('Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup')
     expect(founderCovenantOperatorQueueCadenceReadySummary(queueWithCadence)).toBe('Cadence ready: 2 weekly · 1 monthly')
+    expect(founderCovenantOperatorQueueActivityRiskSummary(queueWithCadence)).toBe('Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(founderCovenantOperatorQueueWorkloadSummary(queueWithCadence)).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup')
     expect(founderCovenantOperatorQueueFocusSummary(queueWithCadence)).toBe('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(founderCovenantOperatorQueueReviewRows({ items: [weeklyDue] })[0]?.recommendedNextText).toBe('Record weekly review')

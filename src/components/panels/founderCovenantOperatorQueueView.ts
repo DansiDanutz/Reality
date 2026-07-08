@@ -11,6 +11,7 @@ export interface CopiedQueueViewState {
   scanCursor: string | null
   nextCursor: string | null
   focusSummary?: string | null
+  activitySummary?: string | null
   actionSummary?: string | null
 }
 
@@ -103,6 +104,7 @@ export function queueHandoffText({
   nextCursor,
   queueSummary,
   focusSummary,
+  activitySummary,
   actionSummary,
 }: {
   filter: FounderCovenantOperatorQueueFilter
@@ -111,6 +113,7 @@ export function queueHandoffText({
   nextCursor: string | null
   queueSummary: string
   focusSummary?: string | null
+  activitySummary?: string | null
   actionSummary?: string | null
 }): string {
   return [
@@ -119,6 +122,7 @@ export function queueHandoffText({
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
     focusSummary,
+    activitySummary,
     actionSummary,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
 }
@@ -129,6 +133,7 @@ export function queueCopiedStatusSummary({
   scanCursor,
   nextCursor,
   focusSummary,
+  activitySummary,
   actionSummary,
 }: CopiedQueueViewState): string[] {
   const copiedView = queuePresetLabel(filter, sort) ?? `${queueViewLabel(filter)} / ${queueSortLabel(sort)}`
@@ -140,6 +145,7 @@ export function queueCopiedStatusSummary({
     `Copied view: ${copiedView}`,
     `Copied cursor: ${copiedCursor}`,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
+    activitySummary ? `Copied founder state: ${activitySummary}` : null,
     actionSummary ? `Copied action: ${actionSummary}` : null,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0)
 }

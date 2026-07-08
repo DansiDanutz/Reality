@@ -9,6 +9,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueActionMix,
   founderCovenantOperatorQueueActionSummary,
+  founderCovenantOperatorQueueActivityRiskSummary,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
@@ -52,6 +53,7 @@ export function FounderCovenantQueuePanel({
         <span>{founderCovenantOperatorQueueSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
         <span>{founderCovenantOperatorQueueFocusSummary(queue)}</span>
+        <span>{founderCovenantOperatorQueueActivityRiskSummary(queue)}</span>
         <span>{founderCovenantOperatorQueueActionSummary(queue)}</span>
       </div>
       <div className="founder-covenant-meta" aria-label="Founder operator queue filters">
