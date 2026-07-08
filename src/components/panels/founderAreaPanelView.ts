@@ -1,5 +1,6 @@
 import { formatMoney } from '../../game/engine'
 import type {
+  AreaBusinessDashboard,
   AreaCitizenDashboard,
   AreaEventDashboard,
   AreaEventsDashboard,
@@ -215,6 +216,36 @@ export function founderCitizenInsuranceActionText(
   }
   if (citizen.insuranceAction.blockers.includes('service_unavailable')) return 'No insurance provider available'
   return null
+}
+
+export function founderBusinessStatusText(
+  business: Pick<AreaBusinessDashboard, 'status' | 'activeStaff' | 'targetStaff' | 'hourlyCapacity'>,
+): string {
+  return `${business.status} · staff ${business.activeStaff}/${business.targetStaff} · capacity ${business.hourlyCapacity}/hour`
+}
+
+export function founderBusinessAlertText(
+  alert: AreaBusinessDashboard['alerts'][number],
+): string {
+  switch (alert.kind) {
+    case 'understaffed':
+      return alert.severity === 'critical' ? 'No active staff on shift' : 'Staffing below target'
+    case 'cash_risk':
+      return 'Cash at risk for next wage cycle'
+    case 'owner_unavailable':
+      return 'Owner unavailable during hospitalization'
+    case 'quality_degraded':
+      return alert.severity === 'critical' ? 'Service quality has broken down' : 'Service quality is slipping'
+    case 'negative_cash_flow':
+      return 'Spending is outpacing revenue'
+  }
+}
+
+export function founderBusinessAlertSummaryText(
+  business: Pick<AreaBusinessDashboard, 'alerts'>,
+): string | null {
+  if (business.alerts.length === 0) return null
+  return business.alerts.map(founderBusinessAlertText).join(' · ')
 }
 
 export function founderGrowthStatusLabel(

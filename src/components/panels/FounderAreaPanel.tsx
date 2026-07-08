@@ -64,6 +64,8 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderBusinessAlertSummaryText,
+  founderBusinessStatusText,
   founderCitizenConditionText,
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
@@ -937,8 +939,11 @@ export default function FounderAreaPanel() {
                     <div className="item-info">
                       <span className="item-name">{business.name}</span>
                       <span className="item-desc">
-                        {business.kind} · staff {business.activeStaff}/{business.targetStaff} · capacity {business.hourlyCapacity}/hour
+                        {business.kind} · {founderBusinessStatusText(business)}
                       </span>
+                      {founderBusinessAlertSummaryText(business) && (
+                        <span className="item-desc">{founderBusinessAlertSummaryText(business)}</span>
+                      )}
                     </div>
                     <span className="item-price mono">{formatMoney(business.cash)}</span>
                   </li>

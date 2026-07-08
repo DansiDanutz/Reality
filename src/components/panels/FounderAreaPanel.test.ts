@@ -37,6 +37,9 @@ import {
   founderCovenantStageTone,
   founderCovenantStatusLabel,
   founderCovenantTone,
+  founderBusinessAlertSummaryText,
+  founderBusinessAlertText,
+  founderBusinessStatusText,
   founderCitizenConditionText,
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
@@ -182,6 +185,28 @@ describe('FounderAreaPanel covenant presenters', () => {
       canRepayNow: false,
       blockers: ['insufficient_funds'],
     })).toBe('Debt due · repay up to $120 now')
+
+    expect(founderBusinessStatusText({
+      status: 'critical',
+      activeStaff: 0,
+      targetStaff: 1,
+      hourlyCapacity: 0,
+    })).toBe('critical · staff 0/1 · capacity 0/hour')
+
+    expect(founderBusinessAlertText({
+      kind: 'owner_unavailable',
+      severity: 'critical',
+    })).toBe('Owner unavailable during hospitalization')
+
+    expect(founderBusinessAlertSummaryText({
+      alerts: [{
+        kind: 'understaffed',
+        severity: 'critical',
+      }, {
+        kind: 'negative_cash_flow',
+        severity: 'warning',
+      }],
+    })).toBe('No active staff on shift · Spending is outpacing revenue')
   })
 
   test('summarizes disabled Telegram growth tracking for founder review', () => {
