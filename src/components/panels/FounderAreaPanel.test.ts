@@ -101,6 +101,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('Link Telegram before TON readiness can advance')
     expect(founderAreaPanelSource).toContain('Link Telegram before payout readiness can advance')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActorText')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(dashboard.founderCovenant.latestReview.reviewQueue)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(entry.reviewQueue)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
