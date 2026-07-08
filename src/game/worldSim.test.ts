@@ -581,6 +581,67 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(start.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
   })
 
+  test('buyInsurance intent normalizes requested insurance business ids before lookup', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: ' ins1 ',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected insurance purchase to succeed')
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(455)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBe('ins1')
+    expect(result.area.businesses.find((b) => b.id === 'ins1')!.cash).toBe(45)
+  })
+
+  test('buyInsurance intent matches trimmed imported insurer ids without rewriting them', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', ' ins1 ', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected insurance purchase to succeed')
+    expect(result.area.businesses[0].id).toBe(' ins1 ')
+    expect(result.area.businesses[0].cash).toBe(45)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBe(' ins1 ')
+    expect(result.area.transactions).toMatchObject([
+      { kind: 'insurance_premium', fromId: 'resident', toId: ' ins1 ', amount: 45 },
+    ])
+    expect(start.businesses[0].id).toBe(' ins1 ')
+  })
+
+  test('buyInsurance intent rejects blank normalized insurance business ids', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { money: 500 })],
+      businesses: [business('insurance', '   ', { ownerId: 'founder', price: 45 })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: '   ',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'business_not_found' })
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.money).toBe(500)
+    expect(result.area.citizens.find((c) => c.id === 'resident')!.insuranceBusinessId).toBeUndefined()
+    expect(result.area.businesses[0].cash).toBe(0)
+    expect(result.area.transactions).toEqual([])
+  })
+
   test('buyInsurance intent rejects duplicate coverage, wrong business type, and insufficient funds', () => {
     const insured = claimedArea({
       citizens: [sim('resident', { money: 500, insuranceBusinessId: 'ins1', insurancePaidUntil: HOUR })],

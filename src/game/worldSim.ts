@@ -2859,7 +2859,9 @@ function buyInsuranceFromIntent(
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
   if (hasActiveInsurance(actor, area.now)) return { ok: false, area, error: 'already_insured' }
 
-  const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
+  const insuranceBusinessId = intent.insuranceBusinessId.trim()
+  if (!insuranceBusinessId) return { ok: false, area, error: 'business_not_found' }
+  const insurer = area.businesses.find((business) => business.id.trim() === insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
 
