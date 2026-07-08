@@ -547,6 +547,10 @@ describe('lifeMilestonesOf', async () => {
         label: 'Soon: belong and expand',
         detail: 'Use friendship, community, and repeat work to reach the next tier.',
       },
+      {
+        label: 'Also: study for leverage',
+        detail: 'School and certifications turn wage income into higher-value work later.',
+      },
     ])
   })
 })

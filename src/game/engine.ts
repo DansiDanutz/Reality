@@ -933,17 +933,17 @@ export function lifeMilestonesOf(i: AdviceInput): LifeMilestone[] {
       label: 'Next: get a job',
       detail: 'Income starts the whole ladder. Find work first.',
     })
-    } else if (!i.hasHome && i.money >= CHEAPEST_HOME) {
-      milestones.push({
-        label: 'Next: buy a home',
-        detail: 'A home makes sleep, recovery, and the next build easier.',
-      })
-    } else if (i.hasHome && i.money >= 8) {
-      milestones.push({
-        label: 'Next: gather groceries',
-        detail: 'Buy ingredients, then cook at home instead of paying full price for every meal.',
-      })
-    } else if (i.businesses > 0 && !i.workersHall && i.money >= 18_000) {
+  } else if (!i.hasHome && i.money >= CHEAPEST_HOME) {
+    milestones.push({
+      label: 'Next: buy a home',
+      detail: 'A home makes sleep, recovery, and the next build easier.',
+    })
+  } else if (i.hasHome && i.money >= 8) {
+    milestones.push({
+      label: 'Next: gather groceries',
+      detail: 'Buy ingredients, then cook at home instead of paying full price for every meal.',
+    })
+  } else if (i.businesses > 0 && !i.workersHall && i.money >= 18_000) {
     milestones.push({
       label: 'Next: build a Workers Hall',
       detail: 'Open roles become real hires only after the hall exists.',
@@ -971,6 +971,18 @@ export function lifeMilestonesOf(i: AdviceInput): LifeMilestone[] {
       ? 'Help the neighborhood to grow respect and stability.'
       : 'Use friendship, community, and repeat work to reach the next tier.',
   })
+
+  if (i.hasHome && i.money >= 80 && i.needs.fun >= 25 && i.needs.energy >= 25) {
+    milestones.push({
+      label: 'Also: study for leverage',
+      detail: 'School and certifications turn wage income into higher-value work later.',
+    })
+  } else if (i.businesses >= 2 && i.respect < 5) {
+    milestones.push({
+      label: 'Also: help the neighborhood',
+      detail: 'Community work builds respect, stability, and better long-term opportunities.',
+    })
+  }
 
   return milestones
 }
