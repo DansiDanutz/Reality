@@ -1365,6 +1365,13 @@ describe('runWorldServerCommand', () => {
       },
       signalKinds: expect.arrayContaining(['founder_unavailable', 'founder_debt']),
     })
+    expect(queue.items[0].reviewSchedule).toEqual(expect.objectContaining({
+      lastReviewAt: null,
+      weeklyReviewDue: false,
+      monthlyReviewDue: false,
+      overdue: false,
+      automationEnabled: false,
+    }))
     expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
       expect.objectContaining({ key: 'indebted', value: true, status: 'watch', executionEnabled: false }),

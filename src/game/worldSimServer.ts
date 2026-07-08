@@ -19,6 +19,7 @@ import {
   type FounderCovenantReviewChecklistItem,
   type FounderCovenantReviewInput,
   type FounderCovenantReviewQueue,
+  type FounderCovenantReviewSchedule,
   type FounderCovenantSignalKind,
   type FounderCovenantStage,
   type FounderCovenantStatus,
@@ -251,6 +252,7 @@ export interface WorldFounderCovenantReviewQueueItem {
   checkedAt: number
   lastReviewAt: number | null
   latestReview: WorldFounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: FounderCovenantReviewSchedule | null
   nextWeeklyReviewAt: number | null
   nextMonthlyReviewAt: number | null
   overdue: boolean
@@ -687,6 +689,7 @@ function founderCovenantReviewQueueItem(
     checkedAt: review.activityReview.checkedAt,
     lastReviewAt: review.reviewSchedule?.lastReviewAt ?? null,
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
+    reviewSchedule: founderCovenantReviewScheduleSnapshot(review.reviewSchedule),
     nextWeeklyReviewAt: review.reviewSchedule?.nextWeeklyReviewAt ?? null,
     nextMonthlyReviewAt: review.reviewSchedule?.nextMonthlyReviewAt ?? null,
     overdue: review.reviewSchedule?.overdue ?? false,
@@ -837,6 +840,16 @@ function founderCovenantReviewQueueLatestReview(
     actionKind: 'record_review',
     summary: review.summary,
     evidenceOnly: true,
+    automationEnabled: false,
+  }
+}
+
+function founderCovenantReviewScheduleSnapshot(
+  schedule: AreaNeedsDashboard['founderCovenant']['reviewSchedule'],
+): FounderCovenantReviewSchedule | null {
+  if (!schedule) return null
+  return {
+    ...schedule,
     automationEnabled: false,
   }
 }
