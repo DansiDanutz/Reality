@@ -144,6 +144,7 @@ export default function FounderCovenantOperatorPanel({
   const activePriorityPreset =
     queueSort === 'priority' && (
       queueFilter === 'manual_review' ||
+      queueFilter === 'needs_evidence' ||
       queueFilter === 'overdue' ||
       queueFilter === 'blocked' ||
       queueFilter === 'hospitalized' ||
@@ -474,6 +475,14 @@ export default function FounderCovenantOperatorPanel({
               Manual
             </button>
             <button
+              className={`btn small ${queueFilter === 'needs_evidence' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('needs_evidence')}
+              type="button"
+            >
+              Evidence
+            </button>
+            <button
               className={`btn small ${queueFilter === 'overdue' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('overdue')}
@@ -572,6 +581,14 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Triage Manual
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'needs_evidence' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('needs_evidence')}
+              type="button"
+            >
+              Triage Evidence
             </button>
             <button
               className={`btn small ${activePriorityPreset === 'overdue' ? 'primary' : 'ghost'}`}

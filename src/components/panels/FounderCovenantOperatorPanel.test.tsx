@@ -48,7 +48,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Priority: manual review, never reviewed, overdue, hospitalized, at risk')
     expect(html).toContain('Filter: All')
     expect(html).toContain('1 founder in current page · 1 never · 0 stale · 0 fresh')
-    expect(html).toContain('All 1 · Never 1 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('All 1 · Never 1 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('Coverage')
     expect(html).toContain('<span>Never</span><strong>1</strong>')
@@ -80,6 +80,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Cleanup Stale Month')
     expect(html).toContain('Audit Fresh')
     expect(html).toContain('Triage Manual')
+    expect(html).toContain('Triage Evidence')
     expect(html).toContain('Triage Overdue')
     expect(html).toContain('Triage Blocked')
     expect(html).toContain('Triage Hospital')
@@ -141,11 +142,13 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queueCoveragePresetLabel('stale_monthly_due', 'coverage')).toBe('Cleanup Stale Month')
     expect(queueCoveragePresetLabel('fresh_reviewed', 'coverage')).toBe('Audit Fresh')
     expect(queuePriorityPresetLabel('manual_review', 'priority')).toBe('Triage Manual')
+    expect(queuePriorityPresetLabel('needs_evidence', 'priority')).toBe('Triage Evidence')
     expect(queuePriorityPresetLabel('overdue', 'priority')).toBe('Triage Overdue')
     expect(queuePriorityPresetLabel('blocked', 'priority')).toBe('Triage Blocked')
     expect(queuePriorityPresetLabel('hospitalized', 'priority')).toBe('Triage Hospital')
     expect(queuePriorityPresetLabel('scan_anomaly', 'priority')).toBe('Triage Scan')
     expect(queuePresetLabel('manual_review', 'priority')).toBe('Triage Manual')
+    expect(queuePresetLabel('needs_evidence', 'priority')).toBe('Triage Evidence')
     expect(queuePresetLabel('overdue', 'priority')).toBe('Triage Overdue')
     expect(queuePresetLabel('blocked', 'priority')).toBe('Triage Blocked')
     expect(queuePresetLabel('hospitalized', 'priority')).toBe('Triage Hospital')
@@ -168,6 +171,9 @@ describe('FounderCovenantOperatorPanel', () => {
     )
     expect(queueContextText('overdue', 'priority', 'cursor-9')).toBe(
       'View: Overdue / Priority / cursor-9 · Preset: Triage Overdue · filter overdue',
+    )
+    expect(queueContextText('needs_evidence', 'priority', 'cursor-7')).toBe(
+      'View: Evidence / Priority / cursor-7 · Preset: Triage Evidence · filter evidence',
     )
   })
 })

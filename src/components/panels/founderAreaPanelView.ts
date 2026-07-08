@@ -117,6 +117,7 @@ export type FounderCovenantOperatorQueueFilter =
   | 'stale_monthly_due'
   | 'fresh_reviewed'
   | 'manual_review'
+  | 'needs_evidence'
   | 'overdue'
   | 'blocked'
   | 'hospitalized'
@@ -909,6 +910,8 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
         return item.reviewFreshness === 'fresh'
       case 'manual_review':
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'needs_evidence':
+        return item.reviewReadiness.evidenceRequiredCount > 0
       case 'overdue':
         return item.overdue
       case 'blocked':
@@ -955,6 +958,8 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} fresh reviewed · ${freshness}`
     case 'manual_review':
       return `${count} founder${count === 1 ? '' : 's'} need manual review · ${freshness}`
+    case 'needs_evidence':
+      return `${count} founder${count === 1 ? '' : 's'} need manual evidence · ${freshness}`
     case 'overdue':
       return `${count} founder${count === 1 ? '' : 's'} overdue · ${freshness}`
     case 'blocked':
@@ -976,11 +981,12 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const staleMonthlyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_monthly_due').length
   const freshReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'fresh_reviewed').length
   const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
+  const evidence = founderCovenantOperatorQueueFilteredReviewRows(queue, 'needs_evidence').length
   const overdue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'overdue').length
   const blocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -1003,6 +1009,8 @@ export function founderCovenantOperatorQueueSliceTotals(
         return item.reviewFreshness === 'fresh'
       case 'manual_review':
         return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+      case 'needs_evidence':
+        return item.reviewReadiness.evidenceRequiredCount > 0
       case 'overdue':
         return item.overdue
       case 'blocked':

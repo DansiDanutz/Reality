@@ -21,6 +21,8 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'Fresh'
     case 'manual_review':
       return 'Manual'
+    case 'needs_evidence':
+      return 'Evidence'
     case 'overdue':
       return 'Overdue'
     case 'blocked':
@@ -104,6 +106,8 @@ export function queuePriorityPresetLabel(
   switch (filter) {
     case 'manual_review':
       return 'Triage Manual'
+    case 'needs_evidence':
+      return 'Triage Evidence'
     case 'overdue':
       return 'Triage Overdue'
     case 'blocked':
