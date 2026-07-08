@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dansidanutz.github.io/Reality/asset-metadata.schema.json",
+  "title": "Reality HD asset metadata",
+  "description": "One file per accepted source asset, written by the Nano Banana runner after the quality checklist passes. Schema mirrors docs/plan/11-ASSET-GENERATION.md.",
+  "type": "object",
+  "required": [
+    "assetId",
+    "kind",
+    "sourceCodeId",
+    "sourceFile",
+    "category",
+    "uiPurpose",
+    "generator",
+    "model",
+    "prompt",
+    "negativePrompt",
+    "sourcePng",
+    "sourceSize",
+    "sourceFormat",
+    "camera",
+    "layers",
+    "variants",
+    "qualityStatus",
+    "qualityChecks",
+    "generatedAt",
+    "usageNotes"
+  ],
+  "properties": {
+    "assetId": { "type": "string", "description": "Stable id; for market items this equals the catalog id." },
+    "kind": { "type": "string", "enum": ["dashboard-icon", "category-icon", "market-item"] },
+    "sourceCodeId": { "type": "string", "description": "The id in the source file (catalog.ts CARD/CATEGORY/SHOP_ITEMS)." },
+    "sourceFile": { "type": "string", "description": "Repo-relative path of the source-of-truth file." },
+    "category": { "type": "string", "description": "Category label or 'dashboard'." },
+    "uiPurpose": { "type": "string" },
+    "generator": { "type": "string", "const": "Nano Banana" },
+    "model": { "type": "string", "description": "The exact model id used, e.g. gemini-2.5-flash-image-preview." },
+    "prompt": { "type": "string", "description": "The full prompt sent to the generator." },
+    "negativePrompt": { "type": "string" },
+    "sourcePng": { "type": "string", "description": "Repo-relative path to the transparent PNG source." },
+    "sourceSize": { "type": "string", "enum": ["1024x1024", "2048x2048"] },
+    "sourceFormat": { "type": "string", "const": "png" },
+    "runtimeFormats": { "type": "array", "items": { "type": "string" }, "default": ["png", "webp"] },
+    "camera": { "type": "string", "const": "slight top-down 3/4" },
+    "layers": {
+      "type": "array",
+      "description": "Visual parts preserved for layered animation.",
+      "items": { "type": "string" },
+      "default": ["base", "movable-part", "highlight", "shadow", "effect"]
+    },
+    "variants": {
+      "type": "array",
+      "description": "State variants generated or planned.",
+      "items": { "type": "enum", "enum": ["idle", "active", "upgrade", "disabled"] }
+    },
+    "qualityStatus": { "type": "string", "enum": ["accepted", "rejected", "pending-review"] },
+    "qualityChecks": {
+      "type": "object",
+      "description": "Each check from the plan's quality checklist. Must all be true to accept.",
+      "required": [
+        "transparentBackground",
+        "noEmbeddedText",
+        "objectNotCropped",
+        "readsAt64px",
+        "cameraMatchesStandard",
+        "lightingMatchesPalette",
+        "shapeRecognizable",
+        "partsSeparable",
+        "variantsPreserveIdentity",
+        "noExtraProps",
+        "fileNameMatchesSourceId",
+        "metadataPointsToSource"
+      ],
+      "additionalProperties": { "type": "boolean" }
+    },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "acceptedAt": { "type": ["string", "null"], "format": "date-time" },
+    "usageNotes": { "type": "string" }
+  }
+}

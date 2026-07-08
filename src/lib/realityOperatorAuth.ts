@@ -22,6 +22,18 @@ export type RealityOperatorQueueAuthResult =
     code?: string
   }
 
+const TELEGRAM_SESSION_ERROR_CODES = new Set([
+  'invalid_init_data',
+  'missing_hash',
+  'invalid_hash',
+  'missing_auth_date',
+  'auth_date_expired',
+  'auth_date_from_future',
+  'missing_user',
+  'invalid_user',
+  'bot_user_not_allowed',
+])
+
 export async function requestRealityOperatorQueueToken(
   fetchImpl: typeof fetch = fetch,
   initData = telegramMiniAppInitData(),
@@ -63,7 +75,7 @@ function operatorAuthFailureReason(
 ): Exclude<RealityOperatorQueueAuthResult, { ok: true }>['reason'] {
   if (status === 403 || code === 'operator_not_allowed') return 'not_allowed'
   if (status === 503 || code === 'missing_bot_token' || code === 'operator_auth_not_configured') return 'not_configured'
-  if (status === 401 || code === 'invalid_hash' || code === 'expired_auth_date' || code === 'missing_hash') {
+  if (status === 401 || (code !== undefined && TELEGRAM_SESSION_ERROR_CODES.has(code))) {
     return 'invalid_session'
   }
   return 'server_rejected'
@@ -87,12 +99,11 @@ function isRealityOperatorQueueAuthResponse(value: Record<string, unknown>): val
 }
 
 function isRealityOperatorQueueAuthOperator(value: unknown): value is RealityOperatorQueueAuthOperator {
-  return isRecord(value) &&
-    value.role === 'founder_covenant_reviewer' &&
-    typeof value.telegramUserId === 'string' &&
-    value.telegramUserId.trim().length > 0 &&
-    typeof value.realityAccountId === 'string' &&
-    value.realityAccountId.startsWith('telegram:') &&
+  if (!isRecord(value) || typeof value.telegramUserId !== 'string') return false
+  const telegramUserId = value.telegramUserId.trim()
+  return value.role === 'founder_covenant_reviewer' &&
+    telegramUserId.length > 0 &&
+    value.realityAccountId === `telegram:${telegramUserId}` &&
     value.scope === 'founder_covenant_queue'
 }
 
