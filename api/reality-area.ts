@@ -59,6 +59,14 @@ type FounderAreaEventSeverity = 'info' | 'warning' | 'critical'
 type FounderAreaDepartureReason = 'water_unserved' | 'food_unserved' | 'housing_unserved'
 type FounderAreaDepartureServiceKind = 'water' | 'food' | 'housing'
 
+const FOUNDER_ACTIVITY_TRANSACTION_KINDS: readonly FounderAreaTransactionKind[] = [
+  'business_build',
+  'customer_purchase',
+  'worker_wage',
+  'insurance_premium',
+  'debt_repayment',
+]
+
 interface CitizenAuthRecord {
   citizenId: string
   founderNumber: number
@@ -182,6 +190,7 @@ type FounderAreaCovenantManualActionKind =
   | 'recommend_replacement'
 type FounderAreaCovenantSignalKind =
   | 'founder_unavailable'
+  | 'stale_founder_activity'
   | 'no_business_built'
   | 'understaffed_businesses'
   | 'essential_shortage'
@@ -666,7 +675,7 @@ type FounderAreaSurvivalActionBlocker = 'service_unavailable' | 'insufficient_fu
 interface FounderAreaSurvivalAction {
   warning: FounderAreaSurvivalWarningKind
   intent: FounderAreaSurvivalActionIntent
-  clientPayload: { type: FounderAreaSurvivalActionIntent }
+  clientPayload: { type: FounderAreaSurvivalActionIntent } | null
   serviceKind: Exclude<FounderAreaBusinessKind, 'insurance'>
   available: boolean
   lowestPrice: number | null
@@ -1043,6 +1052,7 @@ type RefreshAreaIntentError = 'unsupported_intent' | 'client_controlled_server_f
 type ApplyRefreshAreaError =
   | RefreshAreaIntentError
   | 'area_not_claimed'
+  | 'area_load_unavailable'
 
 type ServerClockTickAreasIntent =
   | { ok: true; limit: number; pages: number; cursor?: string }
@@ -1058,8 +1068,15 @@ type ServerClockTickAreasIntentError =
 type ServerClockTickAreasError =
   | ServerClockTickAreasIntentError
   | 'server_clock_unauthorized'
+  | 'area_list_unavailable'
 
 type ServerClockAreaTickStatus = 'caught_up' | 'current' | 'invalid' | 'unavailable'
+type ServerClockAreaTickFailureReason =
+  | 'invalid_area_path'
+  | 'missing_download_url'
+  | 'area_fetch_unavailable'
+  | 'invalid_area_state'
+  | 'area_fetch_failed'
 
 interface ServerClockAreaTickResult {
   citizenId: string | null
@@ -1067,6 +1084,7 @@ interface ServerClockAreaTickResult {
   status: ServerClockAreaTickStatus
   updatedAt: string | null
   transactionsAdded: number
+  failureReason?: ServerClockAreaTickFailureReason
 }
 
 interface ServerClockTickAreasSummary {
@@ -1084,6 +1102,12 @@ interface ServerClockTickAreasSummary {
   results: ServerClockAreaTickResult[]
 }
 
+class ServerClockAreaListFailure extends Error {
+  constructor() {
+    super('Server clock area list is unavailable.')
+  }
+}
+
 type FounderCovenantReviewQueueIntent =
   | { ok: true; limit: number; pages: number; cursor?: string }
   | { ok: false; error: FounderCovenantReviewQueueIntentError }
@@ -1098,6 +1122,19 @@ type FounderCovenantReviewQueueIntentError =
 type FounderCovenantReviewQueueError =
   | FounderCovenantReviewQueueIntentError
   | 'server_clock_unauthorized'
+  | 'area_list_unavailable'
+
+class FounderCovenantReviewQueueListFailure extends Error {
+  constructor() {
+    super('Founder covenant review queue area list is unavailable.')
+    this.name = 'FounderCovenantReviewQueueListFailure'
+  }
+}
+
+function isFounderCovenantReviewQueueListFailure(error: unknown): boolean {
+  return error instanceof FounderCovenantReviewQueueListFailure ||
+    (error instanceof Error && error.name === 'FounderCovenantReviewQueueListFailure')
+}
 
 interface FounderCovenantReviewQueueSignalCounts {
   total: number
@@ -1180,6 +1217,7 @@ interface FounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: FounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: FounderAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -1254,6 +1292,7 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    signalCounts: FounderCovenantReviewQueueSignalCounts
   }
   items: FounderCovenantReviewQueueItem[]
   results: FounderCovenantReviewQueueScanResult[]
@@ -1323,6 +1362,7 @@ type ApplyOperatorRecordCovenantReviewError =
   | OperatorRecordCovenantReviewIntentError
   | 'operator_unauthorized'
   | 'area_mismatch'
+  | 'area_load_unavailable'
 
 const SERVICE_PURCHASE_INTENTS: Record<ServicePurchaseIntentType, Exclude<FounderAreaBusinessKind, 'insurance'>> = {
   buyWater: 'water',
@@ -1645,6 +1685,15 @@ const FORBIDDEN_BUILD_FIELDS = new Set([
   'citizens',
 ])
 
+const CLAIM_AREA_ALLOWED_FIELDS = new Set(['type', 'label', 'centerLat', 'centerLng', 'radiusKm', 'source'])
+const BUILD_BUSINESS_ALLOWED_FIELDS = new Set(['type', 'businessKind', 'businessId', 'name'])
+const SERVICE_PURCHASE_ALLOWED_FIELDS = new Set(['type'])
+const BUY_INSURANCE_ALLOWED_FIELDS = new Set(['type', 'insuranceBusinessId'])
+const HIRE_WORKER_ALLOWED_FIELDS = new Set(['type', 'businessId', 'workerCitizenId'])
+const CLOCK_ACTION_ALLOWED_FIELDS = new Set(['type'])
+const REPAY_DEBT_ALLOWED_FIELDS = new Set(['type', 'debtId', 'amount'])
+const COVENANT_REVIEW_ALLOWED_FIELDS = new Set(['type', 'actionKind', 'note', 'evidenceKinds'])
+
 const BUSINESS_BLUEPRINTS: Record<FounderAreaBusinessKind, {
   name: string
   buildCost: number
@@ -1743,7 +1792,7 @@ export function areaStatePath(citizenId: string): string {
 
 export function normalizeClaimAreaIntent(input: unknown): ClaimAreaIntent {
   if (!isRecord(input) || input.type !== 'claimArea') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_CLAIM_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, CLAIM_AREA_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_CLAIM_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1777,7 +1826,7 @@ export function normalizeClaimAreaIntent(input: unknown): ClaimAreaIntent {
 
 export function normalizeBuildBusinessIntent(input: unknown): BuildBusinessIntent {
   if (!isRecord(input) || input.type !== 'buildBusiness') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_BUILD_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, BUILD_BUSINESS_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_BUILD_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1797,7 +1846,7 @@ export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseI
   if (!isRecord(input) || !isServicePurchaseIntentType(input.type)) {
     return { ok: false, error: 'unsupported_intent' }
   }
-  if (Object.keys(input).some((key) => FORBIDDEN_SERVICE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, SERVICE_PURCHASE_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_SERVICE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true, type: input.type, serviceKind: SERVICE_PURCHASE_INTENTS[input.type] }
@@ -1805,7 +1854,7 @@ export function normalizeServicePurchaseIntent(input: unknown): ServicePurchaseI
 
 export function normalizeBuyInsuranceIntent(input: unknown): BuyInsuranceIntent {
   if (!isRecord(input) || input.type !== 'buyInsurance') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_INSURANCE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, BUY_INSURANCE_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_INSURANCE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1817,7 +1866,7 @@ export function normalizeBuyInsuranceIntent(input: unknown): BuyInsuranceIntent 
 
 export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
   if (!isRecord(input) || input.type !== 'hireWorker') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_HIRE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, HIRE_WORKER_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_HIRE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1832,7 +1881,7 @@ export function normalizeHireWorkerIntent(input: unknown): HireWorkerIntent {
 
 export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
   if (!isRecord(input) || input.type !== 'advanceHour') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_ADVANCE_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, CLOCK_ACTION_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_ADVANCE_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
@@ -1840,7 +1889,7 @@ export function normalizeAdvanceHourIntent(input: unknown): AdvanceHourIntent {
 
 export function normalizeRefreshAreaIntent(input: unknown): RefreshAreaIntent {
   if (!isRecord(input) || input.type !== 'refreshArea') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => key !== 'type' || FORBIDDEN_REFRESH_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, CLOCK_ACTION_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_REFRESH_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
   return { ok: true }
@@ -1899,7 +1948,7 @@ export function normalizeFounderCovenantReviewQueueIntent(input: unknown): Found
 
 export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
   if (!isRecord(input) || input.type !== 'repayDebt') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_REPAY_DEBT_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, REPAY_DEBT_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_REPAY_DEBT_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -1914,7 +1963,7 @@ export function normalizeRepayDebtIntent(input: unknown): RepayDebtIntent {
 
 export function normalizeRecordCovenantReviewIntent(input: unknown): RecordCovenantReviewIntent {
   if (!isRecord(input) || input.type !== 'recordCovenantReview') return { ok: false, error: 'unsupported_intent' }
-  if (Object.keys(input).some((key) => FORBIDDEN_REVIEW_FIELDS.has(key))) {
+  if (hasUnexpectedIntentField(input, COVENANT_REVIEW_ALLOWED_FIELDS) || hasForbiddenIntentField(input, FORBIDDEN_REVIEW_FIELDS)) {
     return { ok: false, error: 'client_controlled_server_field' }
   }
 
@@ -2094,7 +2143,7 @@ function normalizeAreaCitizens(state: FounderAreaState): FounderAreaState {
     ...defaultSimCitizens(state.areaId),
   ]
   let citizens = state.citizens.map((citizen) =>
-    citizen.id === state.founderCitizenId ? { ...citizen, money: state.balance } : citizen
+    citizen.id === state.founderCitizenId ? { ...citizen, money: normalizedCitizenMoney(citizen.money, state.balance) } : citizen
   )
   const transactions = state.transactions.map(normalizeFounderAreaTransaction)
   const areaEvents = normalizeFounderAreaEvents(state.areaEvents)
@@ -2165,6 +2214,30 @@ function unreviewedSimDepartureEvents(
   })
 }
 
+function hasRecentFounderActivity(
+  state: FounderAreaStateInput,
+  founderBusinessIds: ReadonlySet<string>,
+  reviewSchedule: FounderAreaCovenantReviewSchedule,
+): boolean {
+  const updatedMs = safeDateMs(state.updatedAt, state.claim.claimedAt)
+  const claimedMs = safeDateMs(state.claim.claimedAt, state.updatedAt)
+  const lastReviewMs = reviewSchedule.lastReviewAt === null ? null : Date.parse(reviewSchedule.lastReviewAt)
+  const anchorMs = Math.max(
+    Number.isFinite(lastReviewMs) ? lastReviewMs : claimedMs,
+    updatedMs - FOUNDER_COVENANT_WEEKLY_REVIEW_MS,
+  )
+
+  return state.transactions.some((transaction) => {
+    if (!FOUNDER_ACTIVITY_TRANSACTION_KINDS.includes(transaction.kind)) return false
+    const transactionMs = Date.parse(transaction.at)
+    if (!Number.isFinite(transactionMs) || transactionMs <= anchorMs) return false
+    return transaction.fromId === state.founderCitizenId ||
+      transaction.toId === state.founderCitizenId ||
+      founderBusinessIds.has(transaction.fromId) ||
+      founderBusinessIds.has(transaction.toId)
+  })
+}
+
 function uniqueBusinessKinds(kinds: readonly FounderAreaDepartureServiceKind[]): FounderAreaBusinessKind[] {
   return BUSINESS_KINDS.filter((kind) => kinds.includes(kind))
 }
@@ -2201,6 +2274,13 @@ function founderCovenantReview(state: FounderAreaStateInput): FounderAreaCovenan
       kind: 'founder_unavailable',
       severity: 'critical',
       message: 'Founder is unavailable; review the seat manually before any replacement decision.',
+    })
+  }
+  if (founderActive && reviewSchedule.overdue && !hasRecentFounderActivity(state, founderBusinessIds, reviewSchedule)) {
+    signals.push({
+      kind: 'stale_founder_activity',
+      severity: 'warning',
+      message: 'Founder has no recent server-owned in-game activity evidence in the weekly review window.',
     })
   }
   if (!building) {
@@ -3200,8 +3280,16 @@ function emptyBusinessKindRecord(): Record<FounderAreaBusinessKind, number> {
 }
 
 function totalCitizenDebt(citizen: FounderAreaCitizen): number {
-  const itemizedDebt = (citizen.debts ?? []).reduce((total, debt) => total + debt.amount, 0)
-  return roundMoney(Math.max(citizen.debt, itemizedDebt))
+  const itemizedDebt = payableCitizenDebts(citizen).reduce((total, debt) => total + debt.amount, 0)
+  return roundMoney(Math.max(payableMoney(citizen.debt), itemizedDebt))
+}
+
+function payableCitizenDebts(citizen: FounderAreaCitizen): FounderAreaDebt[] {
+  return (citizen.debts ?? []).filter((debt) => payableMoney(debt.amount) > 0)
+}
+
+function payableMoney(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0
 }
 
 function founderActivityScore(input: {
@@ -3388,7 +3476,7 @@ function areaHandoffDashboard(state: FounderAreaState): FounderAreaHandoffDashbo
     .filter((business) => business.createdBy === state.founderCitizenId)
     .length
   const inheritedBusinessCount = founderBusinesses.length - founderCreatedBusinessCount
-  const debts = founder?.debts ?? []
+  const debts = founder ? payableCitizenDebts(founder) : []
 
   return {
     enabled: false,
@@ -3971,15 +4059,16 @@ function debtDashboard(citizen: FounderAreaCitizen, debt: FounderAreaDebt): Foun
   const blockers: FounderAreaDebtRepaymentBlocker[] = []
   if (citizen.state.kind !== 'active') blockers.push('actor_unavailable')
   if (maxAffordablePayment <= 0) blockers.push('insufficient_funds')
+  const canRepayNow = blockers.length === 0
   return {
     ...debt,
     repaymentIntent: 'repayDebt',
-    clientPayload: maxAffordablePayment > 0
+    clientPayload: canRepayNow
       ? { type: 'repayDebt', debtId: debt.id, amount: maxAffordablePayment }
       : null,
     recommendedPayment: maxAffordablePayment,
     maxAffordablePayment,
-    canRepayNow: blockers.length === 0,
+    canRepayNow,
     blockers,
   }
 }
@@ -4001,15 +4090,16 @@ function insuranceActionDashboard(
   if (activeInsurance) blockers.push('already_insured')
   if (!insurer) blockers.push('service_unavailable')
   if (insurer && !canAfford) blockers.push('insufficient_funds')
+  const canBuyNow = blockers.length === 0
 
   return {
     intent: 'buyInsurance',
-    clientPayload: insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
+    clientPayload: canBuyNow && insurer ? { type: 'buyInsurance', insuranceBusinessId: insurer.id } : null,
     insuranceBusinessId: insurer?.id ?? null,
     premium,
     available: Boolean(insurer),
     canAfford,
-    canBuyNow: blockers.length === 0,
+    canBuyNow,
     blockers,
   }
 }
@@ -4109,10 +4199,11 @@ function survivalActionForWarning(
   const blockers: FounderAreaSurvivalActionBlocker[] = []
   if (!available) blockers.push('service_unavailable')
   if (available && !canAfford) blockers.push('insufficient_funds')
+  const canActNow = blockers.length === 0
   return {
     warning,
     intent,
-    clientPayload: { type: intent },
+    clientPayload: canActNow ? { type: intent } : null,
     serviceKind,
     available,
     lowestPrice,
@@ -4225,6 +4316,20 @@ async function catchUpPersistedAreaState(
   return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
 }
 
+function areaStorageUnavailablePayload(state: FounderAreaState | null): {
+  ok: false
+  error: string
+  code: 'area_storage_unavailable'
+  state: FounderAreaState | null
+} {
+  return {
+    ok: false,
+    error: 'Reality area storage is briefly unavailable.',
+    code: 'area_storage_unavailable',
+    state,
+  }
+}
+
 async function handleServerClockTickAreas(
   req: VercelRequest,
   res: VercelResponse,
@@ -4249,7 +4354,20 @@ async function handleServerClockTickAreas(
     return
   }
 
-  const clock = await tickServerClockAreas(new Date(), intent.limit, intent.pages, intent.cursor)
+  let clock: ServerClockTickAreasSummary
+  try {
+    clock = await tickServerClockAreas(new Date(), intent.limit, intent.pages, intent.cursor)
+  } catch (error) {
+    if (error instanceof ServerClockAreaListFailure) {
+      res.status(serverClockTickAreasStatus('area_list_unavailable')).json({
+        ok: false,
+        error: serverClockTickAreasMessage('area_list_unavailable'),
+        code: 'area_list_unavailable',
+      })
+      return
+    }
+    throw error
+  }
   res.status(200).json({ ok: true, clock })
 }
 
@@ -4277,12 +4395,25 @@ async function handleFounderCovenantReviewQueue(
     return
   }
 
-  const founderCovenantReviewQueue = await scanFounderCovenantReviewQueue(
-    new Date(),
-    intent.limit,
-    intent.pages,
-    intent.cursor,
-  )
+  let founderCovenantReviewQueue: FounderCovenantReviewQueueDashboard
+  try {
+    founderCovenantReviewQueue = await scanFounderCovenantReviewQueue(
+      new Date(),
+      intent.limit,
+      intent.pages,
+      intent.cursor,
+    )
+  } catch (error) {
+    if (isFounderCovenantReviewQueueListFailure(error)) {
+      res.status(founderCovenantReviewQueueStatus('area_list_unavailable')).json({
+        ok: false,
+        error: founderCovenantReviewQueueMessage('area_list_unavailable'),
+        code: 'area_list_unavailable',
+      })
+      return
+    }
+    throw error
+  }
   res.status(200).json({ ok: true, founderCovenantReviewQueue })
 }
 
@@ -4320,7 +4451,17 @@ async function handleFounderCovenantOperatorReview(
   }
 
   const now = new Date()
-  const existing = await readAreaState(intent.founderCitizenId)
+  let existing: FounderAreaState | null
+  try {
+    existing = await readAreaState(intent.founderCitizenId)
+  } catch {
+    res.status(operatorRecordCovenantReviewStatus('area_load_unavailable')).json({
+      ok: false,
+      error: operatorRecordCovenantReviewMessage('area_load_unavailable'),
+      code: 'area_load_unavailable',
+    })
+    return
+  }
   const stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
   if (stateForReview && stateForReview.areaId !== intent.areaId) {
     res.status(operatorRecordCovenantReviewStatus('area_mismatch')).json({
@@ -4353,7 +4494,18 @@ async function handleFounderCovenantOperatorReview(
     return
   }
 
-  const state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  let state: FounderAreaState
+  try {
+    state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  } catch {
+    res.status(503).json({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      ...areaPayload(stateForReview),
+    })
+    return
+  }
   res.status(200).json({ ok: true, ...areaPayload(state) })
 }
 
@@ -4369,11 +4521,16 @@ async function tickServerClockAreas(
   let nextCursor: string | undefined = cursor
 
   for (let page = 0; page < pages; page += 1) {
-    const batch = await list({
-      prefix: 'reality-areas/',
-      limit,
-      ...(nextCursor ? { cursor: nextCursor } : {}),
-    })
+    let batch: Awaited<ReturnType<typeof list>>
+    try {
+      batch = await list({
+        prefix: 'reality-areas/',
+        limit,
+        ...(nextCursor ? { cursor: nextCursor } : {}),
+      })
+    } catch {
+      throw new ServerClockAreaListFailure()
+    }
     pagesScanned += 1
     for (const blob of batch.blobs) {
       results.push(await tickServerClockAreaBlob(blob, now))
@@ -4415,11 +4572,16 @@ async function scanFounderCovenantReviewQueue(
   let nextCursor: string | undefined = cursor
 
   for (let page = 0; page < pages; page += 1) {
-    const batch = await list({
-      prefix: 'reality-areas/',
-      limit,
-      ...(nextCursor ? { cursor: nextCursor } : {}),
-    })
+    let batch: Awaited<ReturnType<typeof list>>
+    try {
+      batch = await list({
+        prefix: 'reality-areas/',
+        limit,
+        ...(nextCursor ? { cursor: nextCursor } : {}),
+      })
+    } catch {
+      throw new FounderCovenantReviewQueueListFailure()
+    }
     pagesScanned += 1
     for (const blob of batch.blobs) {
       const result = await founderCovenantReviewQueueAreaBlob(blob, now)
@@ -4529,6 +4691,7 @@ function founderCovenantReviewQueueItem(
     checkedAt: review.activityReview.checkedAt,
     lastReviewAt: review.reviewSchedule.lastReviewAt,
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
+    reviewSchedule: founderCovenantReviewScheduleSnapshot(review.reviewSchedule),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
     overdue: review.reviewSchedule.overdue,
@@ -4565,7 +4728,7 @@ function founderCovenantReviewQueueEconomicExposure(
   const founder = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const founderBusinesses = state.businesses.filter((business) => business.ownerId === state.founderCitizenId)
   const outstandingDebt = founder ? totalCitizenDebt(founder) : 0
-  const itemizedDebtCount = founder?.debts?.length ?? 0
+  const itemizedDebtCount = founder ? payableCitizenDebts(founder).length : 0
   const checkedAt = new Date(state.updatedAt)
   return {
     founderCash: roundMoney(founder?.money ?? 0),
@@ -4609,6 +4772,15 @@ function founderCovenantReviewQueueLatestReview(
   }
 }
 
+function founderCovenantReviewScheduleSnapshot(
+  schedule: FounderAreaCovenantReviewSchedule,
+): FounderAreaCovenantReviewSchedule {
+  return {
+    ...schedule,
+    automationEnabled: false,
+  }
+}
+
 function founderCovenantReviewQueueTotals(
   items: FounderCovenantReviewQueueItem[],
 ): FounderCovenantReviewQueueDashboard['totals'] {
@@ -4631,7 +4803,19 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    signalCounts: founderCovenantReviewQueueAggregateSignalCounts(items),
   }
+}
+
+function founderCovenantReviewQueueAggregateSignalCounts(
+  items: FounderCovenantReviewQueueItem[],
+): FounderCovenantReviewQueueSignalCounts {
+  return items.reduce((totals, item) => ({
+    total: totals.total + item.signalCounts.total,
+    info: totals.info + item.signalCounts.info,
+    warning: totals.warning + item.signalCounts.warning,
+    critical: totals.critical + item.signalCounts.critical,
+  }), { total: 0, info: 0, warning: 0, critical: 0 })
 }
 
 function compareFounderCovenantReviewQueueItems(
@@ -4667,15 +4851,22 @@ async function tickServerClockAreaBlob(
   now: Date,
 ): Promise<ServerClockAreaTickResult> {
   const citizenId = citizenIdFromAreaStatePath(blob.pathname)
-  if (!citizenId || !blob.downloadUrl) {
-    return serverClockAreaTickResult(null, null, 'invalid', null, 0)
+  if (!citizenId) {
+    return serverClockAreaTickResult(null, null, 'invalid', null, 0, 'invalid_area_path')
+  }
+  if (!blob.downloadUrl) {
+    return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'missing_download_url')
   }
 
   try {
     const response = await fetch(blob.downloadUrl)
-    if (!response.ok) return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0)
+    if (!response.ok) {
+      return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0, 'area_fetch_unavailable')
+    }
     const value = await response.json() as unknown
-    if (!isFounderAreaState(value, citizenId)) return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0)
+    if (!isFounderAreaState(value, citizenId)) {
+      return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'invalid_area_state')
+    }
 
     const state = normalizeAreaCitizens(value)
     const previousUpdatedAt = state.updatedAt
@@ -4687,7 +4878,7 @@ async function tickServerClockAreaBlob(
       : 'caught_up'
     return serverClockAreaTickResult(citizenId, next.areaId, status, next.updatedAt, transactionsAdded)
   } catch {
-    return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0)
+    return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0, 'area_fetch_failed')
   }
 }
 
@@ -4697,8 +4888,16 @@ function serverClockAreaTickResult(
   status: ServerClockAreaTickStatus,
   updatedAt: string | null,
   transactionsAdded: number,
+  failureReason?: ServerClockAreaTickFailureReason,
 ): ServerClockAreaTickResult {
-  return { citizenId, areaId, status, updatedAt, transactionsAdded }
+  return {
+    citizenId,
+    areaId,
+    status,
+    updatedAt,
+    transactionsAdded,
+    ...(failureReason ? { failureReason } : {}),
+  }
 }
 
 function citizenIdFromAreaStatePath(pathname: string | undefined): string | null {
@@ -4757,15 +4956,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
+    let citizen: CitizenAuthRecord | null
+    try {
+      citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
+    } catch {
+      res.status(503).json({
+        ok: false,
+        error: 'Citizen credentials are temporarily unavailable.',
+        code: 'citizen_verification_unavailable',
+      })
+      return
+    }
     if (!citizen) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }
 
-    const existing = await readAreaState(citizen.citizenId)
+    let refreshAreaIntent: RefreshAreaIntent | null = null
+    if (req.method === 'POST' && intentType === 'refreshArea') {
+      const intent = normalizeRefreshAreaIntent(rawIntent)
+      if (!intent.ok) {
+        res.status(refreshAreaStatus(intent.error)).json({
+          ok: false,
+          error: refreshAreaMessage(intent.error),
+          code: intent.error,
+          state: null,
+        })
+        return
+      }
+      refreshAreaIntent = intent
+    }
+
+    let existing: FounderAreaState | null
+    try {
+      existing = await readAreaState(citizen.citizenId)
+    } catch (error) {
+      if (req.method === 'POST' && intentType === 'refreshArea') {
+        res.status(refreshAreaStatus('area_load_unavailable')).json({
+          ok: false,
+          error: refreshAreaMessage('area_load_unavailable'),
+          code: 'area_load_unavailable',
+          state: null,
+        })
+        return
+      }
+      throw error
+    }
     if (req.method === 'GET') {
-      const state = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, new Date()) : null
+      let state = existing
+      if (existing) {
+        try {
+          state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+            founderNumber: citizen.founderNumber,
+          })
+          return
+        }
+      }
       res.status(200).json({ ok: true, ...areaPayload(state), founderNumber: citizen.founderNumber })
       return
     }
@@ -4797,7 +5049,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (intentType === 'claimArea') {
       if (existing) {
-        const state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        let state: FounderAreaState
+        try {
+          state = await catchUpPersistedAreaState(citizen.citizenId, existing, new Date())
+        } catch {
+          res.status(503).json({
+            ok: false,
+            error: 'Reality area storage is briefly unavailable.',
+            code: 'area_storage_unavailable',
+            ...areaPayload(existing),
+          })
+          return
+        }
         res.status(409).json({
           ok: false,
           error: 'Area already claimed.',
@@ -4817,7 +5080,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      const state = await persistAreaState(citizen.citizenId, buildFounderAreaState(citizen, intent, new Date()), false)
+      let state: FounderAreaState
+      try {
+        state = await persistAreaState(citizen.citizenId, buildFounderAreaState(citizen, intent, new Date()), false)
+      } catch {
+        res.status(503).json(areaStorageUnavailablePayload(null))
+        return
+      }
       res.status(200).json({ ok: true, ...areaPayload(state) })
       return
     }
@@ -4836,7 +5105,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const now = new Date()
       const stateForBuild = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
-      const result = applyBuildBusinessIntent(stateForBuild, { type: 'buildBusiness', ...intent }, now)
+      const result = applyBuildBusinessIntent(
+        stateForBuild,
+        { type: 'buildBusiness', businessKind: intent.businessKind, businessId: intent.businessId, name: intent.name },
+        now,
+      )
       if (!result.ok) {
         res.status(buildBusinessStatus(result.error)).json({
           ok: false,
@@ -4964,7 +5237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (intentType === 'refreshArea') {
-      const intent = normalizeRefreshAreaIntent(rawIntent)
+      const intent = refreshAreaIntent ?? normalizeRefreshAreaIntent(rawIntent)
       if (!intent.ok) {
         res.status(refreshAreaStatus(intent.error)).json({
           ok: false,
@@ -5125,7 +5398,7 @@ function applyBuildBusinessIntent(
   }
 
   const blueprint = BUSINESS_BLUEPRINTS[intent.businessKind]
-  if (state.balance < blueprint.buildCost) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, founder, blueprint.buildCost)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const business: FounderAreaBusiness = {
@@ -5310,9 +5583,9 @@ function applyServicePurchaseIntent(
   const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
 
-  const business = chooseServiceBusiness(state, intent.serviceKind)
+  const business = chooseAvailableServiceBusiness(state.businesses, intent.serviceKind, state.citizens, new Map())
   if (!business) return { ok: false, error: 'service_not_available' }
-  if (state.balance < business.price) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, actor, business.price)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const nextBalance = roundMoney(state.balance - business.price)
@@ -5375,7 +5648,7 @@ function applyBuyInsuranceIntent(
   if (Number.isFinite(existingPolicyUntil) && existingPolicyUntil > now.getTime()) {
     return { ok: false, error: 'already_insured' }
   }
-  if (state.balance < insurer.price) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, actor, insurer.price)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const paidUntil = new Date(now.getTime() + INSURANCE_POLICY_PERIOD_MS).toISOString()
@@ -5431,7 +5704,7 @@ function applyRepayDebtIntent(
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
   if (payment <= 0) return { ok: false, error: 'invalid_debt_payment' }
-  if (actor.money < payment) return { ok: false, error: 'insufficient_funds' }
+  if (!founderHasSpendableFunds(state, actor, payment)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
   const nextDebtAmount = roundMoney(debt.amount - payment)
@@ -5957,13 +6230,6 @@ function applyServiceEffect(
   if (effect.health !== undefined) citizen.health = clampNeed(citizen.health + effect.health * quality)
 }
 
-function chooseServiceBusiness(
-  state: FounderAreaState,
-  kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
-): FounderAreaBusiness | null {
-  return chooseServiceBusinessFromBusinesses(state.businesses, kind)
-}
-
 function chooseServiceBusinessFromBusinesses(
   businesses: FounderAreaBusiness[],
   kind: Exclude<FounderAreaBusinessKind, 'insurance'>,
@@ -5978,6 +6244,14 @@ function setFounderCitizenMoney(state: FounderAreaState, money: number): Founder
   return state.citizens.map((citizen) =>
     citizen.id === state.founderCitizenId ? { ...citizen, money } : citizen
   )
+}
+
+function normalizedCitizenMoney(money: number, fallback: number): number {
+  return Number.isFinite(money) ? money : fallback
+}
+
+function founderHasSpendableFunds(state: FounderAreaState, founder: FounderAreaCitizen, amount: number): boolean {
+  return state.balance >= amount && founder.money >= amount
 }
 
 function servicePurchaseStatus(error: ApplyServicePurchaseError): number {
@@ -6098,6 +6372,7 @@ function hireWorkerMessage(error: ApplyHireWorkerError): string {
 }
 
 function refreshAreaStatus(error: ApplyRefreshAreaError): number {
+  if (error === 'area_load_unavailable') return 503
   if (error === 'area_not_claimed') return 409
   return error === 'unsupported_intent' ? 400 : 422
 }
@@ -6106,6 +6381,8 @@ function refreshAreaMessage(error: ApplyRefreshAreaError): string {
   switch (error) {
     case 'area_not_claimed':
       return 'Area must be claimed before refreshing the server area.'
+    case 'area_load_unavailable':
+      return 'Founder area is temporarily unavailable for refresh.'
     default:
       return 'Invalid refreshArea intent.'
   }
@@ -6113,6 +6390,7 @@ function refreshAreaMessage(error: ApplyRefreshAreaError): string {
 
 function serverClockTickAreasStatus(error: ServerClockTickAreasError): number {
   if (error === 'server_clock_unauthorized') return 403
+  if (error === 'area_list_unavailable') return 503
   return error === 'unsupported_intent' ? 400 : 422
 }
 
@@ -6126,6 +6404,8 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
       return 'Server clock pages must be between 1 and 5.'
     case 'invalid_cursor':
       return 'Server clock cursor is invalid.'
+    case 'area_list_unavailable':
+      return 'Server clock could not list Reality areas.'
     default:
       return 'Invalid tickAreas intent.'
   }
@@ -6133,6 +6413,7 @@ function serverClockTickAreasMessage(error: ServerClockTickAreasError): string {
 
 function founderCovenantReviewQueueStatus(error: FounderCovenantReviewQueueError): number {
   if (error === 'server_clock_unauthorized') return 403
+  if (error === 'area_list_unavailable') return 503
   return error === 'unsupported_intent' ? 400 : 422
 }
 
@@ -6146,6 +6427,8 @@ function founderCovenantReviewQueueMessage(error: FounderCovenantReviewQueueErro
       return 'Founder covenant review queue pages must be between 1 and 5.'
     case 'invalid_cursor':
       return 'Founder covenant review queue cursor is invalid.'
+    case 'area_list_unavailable':
+      return 'Founder covenant review queue could not list Reality areas.'
     default:
       return 'Invalid founder covenant review queue intent.'
   }
@@ -6225,6 +6508,7 @@ function recordCovenantReviewMessage(error: ApplyRecordCovenantReviewError): str
 
 function operatorRecordCovenantReviewStatus(error: ApplyOperatorRecordCovenantReviewError): number {
   if (error === 'operator_unauthorized') return 403
+  if (error === 'area_load_unavailable') return 503
   if (error === 'area_not_claimed' || error === 'area_mismatch' || error === 'review_action_disabled') return 409
   return error === 'unsupported_intent' ? 400 : 422
 }
@@ -6233,6 +6517,8 @@ function operatorRecordCovenantReviewMessage(error: ApplyOperatorRecordCovenantR
   switch (error) {
     case 'operator_unauthorized':
       return 'Founder covenant operator review requires a valid operator token.'
+    case 'area_load_unavailable':
+      return 'Founder covenant review target area is temporarily unavailable.'
     case 'area_mismatch':
       return 'Founder covenant review target does not match the stored founder area.'
     case 'invalid_founder_identity':
@@ -6327,6 +6613,14 @@ function field(source: unknown, key: string): string | null {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function hasUnexpectedIntentField(input: Record<string, unknown>, allowedFields: ReadonlySet<string>): boolean {
+  return Object.keys(input).some((key) => !allowedFields.has(key))
+}
+
+function hasForbiddenIntentField(input: Record<string, unknown>, forbiddenFields: ReadonlySet<string>): boolean {
+  return Object.keys(input).some((key) => forbiddenFields.has(key))
 }
 
 function isClaimSource(value: string): value is AreaClaimSource {
