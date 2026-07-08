@@ -3034,6 +3034,28 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('tickAreas returns structured storage failure when area listing is unavailable', async () => {
+    vi.mocked(list).mockRejectedValueOnce(new Error('blob list failed'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        intent: { type: 'tickAreas', limit: 1 },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      code: 'area_list_unavailable',
+      error: 'Server clock could not list Reality areas.',
+    })
+    expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas scans area blobs and persists caught-up server-clock state', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
