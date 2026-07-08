@@ -257,6 +257,22 @@ describe('courierPackages', () => {
       constructionProjects: [],
       hasHome: false,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'purchase', boughtToday: 2 } }, {
+      timesEaten: 0,
+      boughtToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'purchase', boughtToday: 2 } }, {
+      timesEaten: 0,
+      boughtToday: 2,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('checks business development requirements', () => {
@@ -495,6 +511,48 @@ describe('courierPackages', () => {
     expect(pkg).toMatchObject({
       day: 16,
       requirement: { kind: 'hygiene', hygieneToday: 2 },
+    })
+  })
+
+  test('wraps generated market tasks with clearable purchase requirements', () => {
+    const health = courierPackageForLifePlan(17, {
+      id: 'body-recover',
+      title: 'Recover your body first',
+      detail: 'Health is low. Drink, eat, and rest before chasing money.',
+      value: 'body',
+      minutes: 60,
+      route: { kind: 'market', focus: 'health' },
+    }, {
+      timesEaten: 0,
+      boughtToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })
+    const groceries = courierPackageForLifePlan(18, {
+      id: 'support-body',
+      title: 'Protect hunger',
+      detail: 'Drink, eat, clean up, or sleep before the day gets expensive.',
+      value: 'body',
+      minutes: 30,
+      route: { kind: 'market', focus: 'groceries' },
+    }, {
+      timesEaten: 0,
+      boughtToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })
+
+    expect(health).toMatchObject({
+      day: 17,
+      requirement: { kind: 'purchase', boughtToday: 2 },
+    })
+    expect(groceries).toMatchObject({
+      day: 18,
+      requirement: { kind: 'purchase', boughtToday: 1 },
     })
   })
 

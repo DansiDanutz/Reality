@@ -16,6 +16,7 @@ export type CourierRequirement =
   | { kind: 'drink'; drinksToday: number }
   | { kind: 'hygiene'; hygieneToday: number }
   | { kind: 'sleep'; timesSlept: number }
+  | { kind: 'purchase'; boughtToday: number }
   | { kind: 'job' }
   | { kind: 'shift'; shiftsWorked: number }
   | { kind: 'education-enrolled'; courseId: EducationCourseId }
@@ -50,6 +51,7 @@ export interface CourierSnapshot {
   drinksToday?: number
   hygieneToday?: number
   timesSlept?: number
+  boughtToday?: number
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
@@ -188,6 +190,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return (snapshot.hygieneToday ?? 0) >= requirement.hygieneToday
     case 'sleep':
       return (snapshot.timesSlept ?? 0) >= requirement.timesSlept
+    case 'purchase':
+      return (snapshot.boughtToday ?? 0) >= requirement.boughtToday
     case 'job':
       return Boolean(snapshot.jobId)
     case 'shift':
@@ -300,6 +304,7 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   }
   if (route.kind === 'panel' && route.panel === 'construction') return { kind: 'construction-site' }
   if (route.kind === 'market' && route.focus === 'business') return { kind: 'construction-site' }
+  if (route.kind === 'market' && route.focus !== 'food') return { kind: 'purchase', boughtToday: (snapshot.boughtToday ?? 0) + 1 }
   if (route.kind === 'panel' && route.panel === 'business') return { kind: 'business-development-site' }
   if (route.kind === 'business-development-action') {
     const project = (snapshot.businessDevelopmentProjects ?? []).find((candidate) => candidate.id === route.projectId)
