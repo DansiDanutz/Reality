@@ -660,6 +660,21 @@ function communityPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   return task('help-local-person', 'Help one local person', 'Respect and friendship grow from showing up before anyone owes you.', 'community', { kind: 'community-action', actionId: 'help-errand' }, 35)
 }
 
+function activeCommitmentTask(activityKind: LifeLadderSnapshot['activityKind']): LifePlanTask | null {
+  if (!activityKind) return null
+  const taskByActivity: Record<NonNullable<LifeLadderSnapshot['activityKind']>, LifePlanTask> = {
+    sleep: task('finish-active-sleep', 'Finish sleeping', 'Recovery is the current commitment. Let the rest block finish before work, school, or building.', 'body', { kind: 'none' }, 0),
+    shift: task('finish-active-shift', 'Finish the work shift', 'Income is already in motion. Complete the shift so food, permits, workers, and savings stay funded.', 'work', { kind: 'none' }, 0),
+    cook: task('finish-active-cook', 'Finish cooking the meal', 'Food is already being prepared. Finish it before starting another serious task.', 'body', { kind: 'none' }, 0),
+    gather: task('finish-active-gather', 'Finish the resource trip', 'Wood, stone, metal, or glass is already on the day plan. Bring it back before changing focus.', 'capital', { kind: 'none' }, 0),
+    construction: task('finish-active-construction', 'Finish the build block', 'House or business labor is already underway. Complete this block before hiring more help or starting work.', 'capital', { kind: 'none' }, 0),
+    study: task('finish-active-study', 'Finish the study block', 'School compounds future wages. Finish the current lesson before switching tasks.', 'school', { kind: 'none' }, 0),
+    community: task('finish-active-community', 'Finish helping locally', 'Respect and friendship grow by finishing the help you started.', 'community', { kind: 'none' }, 0),
+    'business-development': task('finish-active-business-development', 'Finish the business interior block', 'The business upgrade is already in progress. Finish this interior work before opening a new task.', 'capital', { kind: 'none' }, 0),
+  }
+  return taskByActivity[activityKind]
+}
+
 function placedAssetForPath(asset: LifeLadderAsset, index: number): PlacedAsset {
   const fallback = asset.kind === 'home'
     ? { itemId: 'studio', name: 'Studio Apartment' }
@@ -1051,9 +1066,7 @@ export function businessDevelopmentDayForecast(
 }
 
 export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
-  const active = snapshot.activityKind
-    ? task('finish-active-commitment', 'Finish the current commitment', 'Respect grows when you finish what you start.', 'respect', { kind: 'none' }, 0)
-    : null
+  const active = activeCommitmentTask(snapshot.activityKind)
   const body = bodyRecoveryTask(snapshot)
   const seriousWorkRepair = seriousWorkRepairPrimary(snapshot)
   const work = workPrimary(snapshot)

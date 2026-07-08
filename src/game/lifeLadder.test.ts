@@ -108,6 +108,58 @@ describe('planLifeDay', () => {
     expect(plan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({ minutes: 360, value: 'capital' })
   })
 
+  test('names the active daily commitment before suggesting a new task', () => {
+    const base = {
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home' as const, incomePerDay: 0 }],
+      communityActionsThisWeek: 1,
+    }
+
+    expect(planLifeDay(snap({ ...base, activityKind: 'sleep' })).primary).toMatchObject({
+      id: 'finish-active-sleep',
+      title: 'Finish sleeping',
+      value: 'body',
+      route: { kind: 'none' },
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'shift' })).primary).toMatchObject({
+      id: 'finish-active-shift',
+      title: 'Finish the work shift',
+      value: 'work',
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'cook' })).primary).toMatchObject({
+      id: 'finish-active-cook',
+      title: 'Finish cooking the meal',
+      value: 'body',
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'gather' })).primary).toMatchObject({
+      id: 'finish-active-gather',
+      title: 'Finish the resource trip',
+      value: 'capital',
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'construction' })).primary).toMatchObject({
+      id: 'finish-active-construction',
+      title: 'Finish the build block',
+      value: 'capital',
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'study' })).primary).toMatchObject({
+      id: 'finish-active-study',
+      title: 'Finish the study block',
+      value: 'school',
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'community' })).primary).toMatchObject({
+      id: 'finish-active-community',
+      title: 'Finish helping locally',
+      value: 'community',
+    })
+    expect(planLifeDay(snap({ ...base, activityKind: 'business-development' })).primary).toMatchObject({
+      id: 'finish-active-business-development',
+      title: 'Finish the business interior block',
+      value: 'capital',
+    })
+  })
+
   test('puts body recovery before work and construction while preserving the next step', () => {
     const plan = planLifeDay(snap({
       jobId: 'barista',
