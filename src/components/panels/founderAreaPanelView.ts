@@ -16,6 +16,7 @@ import type {
   FounderCovenantReviewSchedule,
   FounderCovenantSignal,
   FounderCovenantStage,
+  WorldClientIntentPayload,
   WorldTransactionKind,
 } from '../../game/worldSim'
 import type {
@@ -57,6 +58,53 @@ export interface FounderAreaEventSummaryItem {
   label: string
   value: string
   tone: FounderCovenantReviewTone
+}
+
+type FounderPanelPayloadCarrier = {
+  clientPayload: WorldClientIntentPayload | null
+}
+
+type FounderPanelExecutable<T extends FounderPanelPayloadCarrier> = T & {
+  clientPayload: WorldClientIntentPayload
+}
+
+function hasExecutablePayload<T extends FounderPanelPayloadCarrier>(
+  action: T,
+): action is FounderPanelExecutable<T> {
+  return action.clientPayload !== null
+}
+
+export function founderExecutableSurvivalAction<T extends FounderPanelPayloadCarrier & { available: boolean; canAfford: boolean }>(
+  founderCitizenId: string,
+  resident: { id: string },
+  survival: { actions: T[] } | null | undefined,
+): FounderPanelExecutable<T> | null {
+  if (resident.id !== founderCitizenId) return null
+  for (const action of survival?.actions ?? []) {
+    if (action.available && action.canAfford && hasExecutablePayload(action)) return action
+  }
+  return null
+}
+
+export function founderExecutableDebtAction<T extends FounderPanelPayloadCarrier & { canRepayNow: boolean }>(
+  founderCitizenId: string,
+  resident: { id: string; debts: T[] },
+): FounderPanelExecutable<T> | null {
+  if (resident.id !== founderCitizenId) return null
+  for (const debt of resident.debts) {
+    if (debt.canRepayNow && hasExecutablePayload(debt)) return debt
+  }
+  return null
+}
+
+export function founderExecutableInsurancePayload<T extends FounderPanelPayloadCarrier & { canBuyNow: boolean }>(
+  founderCitizenId: string,
+  resident: { id: string; insuranceAction: T },
+): WorldClientIntentPayload | null {
+  if (resident.id !== founderCitizenId) return null
+  return resident.insuranceAction.canBuyNow && resident.insuranceAction.clientPayload !== null
+    ? resident.insuranceAction.clientPayload
+    : null
 }
 
 export interface FounderSettlementSummaryItem {
@@ -120,6 +168,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   statusLabel: string
   summary: string
   dateSummary: string
+  cadenceText: string
   latestReviewText: string | null
   activitySignalText: string
   economicExposureText: string
@@ -377,6 +426,8 @@ export function founderPayoutReadinessBlockerText(blocker: RealityAreaPayoutRead
       return 'Payouts'
     case 'withdrawals_disabled':
       return 'Withdrawals'
+    case 'telegram_identity_required':
+      return 'Telegram identity'
     case 'kyc_disabled':
       return 'KYC'
     case 'tax_profile_disabled':
@@ -426,6 +477,8 @@ export function founderSettlementSummaryItems(
 
 export function founderSettlementBlockerText(blocker: RealityAreaSettlementBlocker): string {
   switch (blocker) {
+    case 'telegram_identity_required':
+      return 'Telegram identity'
     case 'ton_connect_disabled':
       return 'TON Connect'
     case 'deposits_disabled':
@@ -729,6 +782,8 @@ export function founderCovenantOperatorQueueSummary(
     `${totals.overdue} overdue`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,
+    `${totals.signalCounts.warning} warning signal${totals.signalCounts.warning === 1 ? '' : 's'}`,
+    `${totals.signalCounts.critical} critical`,
   ]
   return `${totals.founders} founder${totals.founders === 1 ? '' : 's'} · ${riskParts.join(' · ')} · ${formatMoney(totals.totalOutstandingDebt)} debt${queue.hasMore ? ' · more available' : ''}`
 }
@@ -786,6 +841,16 @@ export function founderCovenantOperatorQueueItemDateSummary(
   return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · weekly ${shortDate(item.nextWeeklyReviewAt)} · monthly ${shortDate(item.nextMonthlyReviewAt)}`
 }
 
+export function founderCovenantOperatorQueueCadenceText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewSchedule'>,
+): string {
+  const schedule = item.reviewSchedule
+  const weekly = schedule.weeklyReviewDue ? 'weekly due' : `weekly ${shortDate(schedule.nextWeeklyReviewAt)}`
+  const monthly = schedule.monthlyReviewDue ? 'monthly due' : `monthly ${shortDate(schedule.nextMonthlyReviewAt)}`
+  const overdue = schedule.overdue ? 'overdue' : 'current'
+  return `${weekly} · ${monthly} · ${overdue} · automation disabled`
+}
+
 export function founderCovenantOperatorQueueSignalText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'signalKinds'>,
 ): string {
@@ -806,6 +871,7 @@ export function founderCovenantOperatorQueueReviewRows(
       statusLabel: founderCovenantOperatorQueueItemStatusLabel(item),
       summary: founderCovenantOperatorQueueItemSummary(item),
       dateSummary: founderCovenantOperatorQueueItemDateSummary(item),
+      cadenceText: founderCovenantOperatorQueueCadenceText(item),
       latestReviewText: founderCovenantOperatorQueueLatestReviewText(item),
       activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
       economicExposureText: founderCovenantOperatorQueueEconomicExposureText(item),
@@ -969,6 +1035,7 @@ export function founderCovenantOperatorQueuePriorityScore(
     | 'economicExposure'
     | 'signalCounts'
     | 'blockerCount'
+    | 'reviewInputs'
   >,
 ): number {
   let score = 0
@@ -989,6 +1056,7 @@ export function founderCovenantOperatorQueuePriorityScore(
   score += item.signalCounts.critical * 70
   score += item.signalCounts.warning * 25
   score += Math.min(120, item.blockerCount * 15)
+  score += founderCovenantManualEvidencePriorityReasons(item.reviewInputs).length * 20
   if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') score += 80
   return score
 }
@@ -1004,6 +1072,7 @@ export function founderCovenantOperatorQueuePriorityReasons(
     | 'economicExposure'
     | 'signalCounts'
     | 'blockerCount'
+    | 'reviewInputs'
   >,
 ): string[] {
   const reasons: string[] = []
@@ -1024,8 +1093,26 @@ export function founderCovenantOperatorQueuePriorityReasons(
   if (item.signalCounts.critical > 0) reasons.push(`${item.signalCounts.critical} critical signal${item.signalCounts.critical === 1 ? '' : 's'}`)
   if (item.signalCounts.warning > 0) reasons.push(`${item.signalCounts.warning} warning signal${item.signalCounts.warning === 1 ? '' : 's'}`)
   if (item.blockerCount > 0) reasons.push(`${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'}`)
+  reasons.push(...founderCovenantManualEvidencePriorityReasons(item.reviewInputs))
   if (item.scanStatus === 'invalid' || item.scanStatus === 'unavailable') reasons.push(`scan ${item.scanStatus}`)
   return reasons.length > 0 ? reasons : ['tracked']
+}
+
+function founderCovenantManualEvidencePriorityReasons(
+  reviewInputs: readonly RealityFounderCovenantReviewQueueItem['reviewInputs'][number][],
+): string[] {
+  const reasons: string[] = []
+  if (founderCovenantManualEvidenceGap(reviewInputs, 'population_growth')) reasons.push('population proof missing')
+  if (founderCovenantManualEvidenceGap(reviewInputs, 'external_contribution')) reasons.push('contribution proof missing')
+  if (founderCovenantManualEvidenceGap(reviewInputs, 'ideas_feedback')) reasons.push('ideas proof missing')
+  return reasons
+}
+
+function founderCovenantManualEvidenceGap(
+  reviewInputs: readonly RealityFounderCovenantReviewQueueItem['reviewInputs'][number][],
+  kind: 'population_growth' | 'external_contribution' | 'ideas_feedback',
+): boolean {
+  return reviewInputs.some((input) => input.kind === kind && (input.manualEvidenceRequired || input.status === 'manual_needed'))
 }
 
 function founderCovenantOperatorQueueScanStatusLabel(
@@ -1141,6 +1228,8 @@ export function founderCovenantSignalText(signal: FounderCovenantSignal): string
   switch (signal.kind) {
     case 'founder_unavailable':
       return 'Founder unavailable'
+    case 'stale_founder_activity':
+      return 'Stale activity'
     case 'no_business_built':
       return 'No business built'
     case 'understaffed_businesses':

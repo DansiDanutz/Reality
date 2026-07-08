@@ -38,7 +38,7 @@ export async function requestRealityOperatorQueueToken(
   fetchImpl: typeof fetch = fetch,
   initData = telegramMiniAppInitData(),
 ): Promise<RealityOperatorQueueAuthResult> {
-  if (!initData) return { ok: false, reason: 'not_in_telegram' }
+  if (!initData || initData.trim().length === 0) return { ok: false, reason: 'not_in_telegram' }
 
   try {
     const response = await fetchImpl('/api/reality-operator-auth', {

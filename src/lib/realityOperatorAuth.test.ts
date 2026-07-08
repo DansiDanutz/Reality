@@ -16,6 +16,10 @@ describe('Reality operator auth client bridge', () => {
       ok: false,
       reason: 'not_in_telegram',
     })
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, '  \n\t  ')).resolves.toEqual({
+      ok: false,
+      reason: 'not_in_telegram',
+    })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
