@@ -64,7 +64,7 @@ function WaitlistForm() {
   }, [])
 
   if (state === 'done') {
-    return <p className="waitlist-done">✓ You're on the founder waitlist. We'll email you before the online launch.</p>
+    return <p className="waitlist-done">✓ You're on the founder waitlist. Your signup is counted for launch review.</p>
   }
 
   return (

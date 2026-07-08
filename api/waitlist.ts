@@ -6,7 +6,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 /**
  * Founder waitlist. POST {email} signs up — each address is stored as one
- * blob keyed by its hash (idempotent, race-free, address never in the key).
+ * blob keyed by its hash (idempotent, race-free, address never stored).
  * GET returns the signup count for social proof.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -49,10 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const key = createHash('sha256').update(clean).digest('hex').slice(0, 32)
+    const contactHash = createHash('sha256').update(clean).digest('hex').slice(0, 32)
     await put(
-      `waitlist/${key}.json`,
-      JSON.stringify({ email: clean, joinedAt: new Date().toISOString() }),
+      `waitlist/${contactHash}.json`,
+      JSON.stringify({ contactHash, joinedAt: new Date().toISOString() }),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
     res.status(200).json({ ok: true })
