@@ -5,6 +5,8 @@ import type { PlacedAsset } from './types'
 export interface TutorialSnapshot {
   timesEaten: number
   timesSlept: number
+  timesStudied: number
+  timesCommunity: number
   jobId: string | null
   shiftsWorked: number
   activity: Activity | null
@@ -59,11 +61,25 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     isDone: (s) => s.shiftsWorked >= 1 || s.activity?.kind === 'shift',
   },
   {
+    id: 'study',
+    title: 'Study once',
+    detail: 'Take a study session and build your long-term advantage.',
+    xp: 40,
+    isDone: (s) => s.timesStudied >= 1 || s.activity?.kind === 'study',
+  },
+  {
     id: 'sleep',
     title: 'Get a night\'s sleep',
     detail: 'Sleep restores energy through the real night — more at home.',
     xp: 25,
     isDone: (s) => s.timesSlept >= 1,
+  },
+  {
+    id: 'community',
+    title: 'Help the community',
+    detail: 'Volunteer once and turn respect into momentum.',
+    xp: 40,
+    isDone: (s) => s.timesCommunity >= 1 || s.activity?.kind === 'community',
   },
   {
     id: 'home',

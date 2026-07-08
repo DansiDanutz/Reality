@@ -26,6 +26,8 @@ const v1Save = {
   shiftsWorked: 12,
   timesEaten: 5,
   timesSlept: 2,
+  timesStudied: 1,
+  timesCommunity: 1,
   totalCollected: 1500,
   tutorialClaimed: ['first-shift'],
   tutorialHidden: false,
@@ -70,6 +72,8 @@ describe('migrateSave — backfills every field added after v1', () => {
     expect(out.streakBest).toBe(0)
     expect(out.luckyMomentsSeen).toBe(0)
     expect(out.luckyMomentsSeenIds).toEqual([])
+    expect(out.timesStudied).toBe(1)
+    expect(out.timesCommunity).toBe(1)
     // achievementsClaimed was added with the achievements feature; ensure it
     // doesn't crash if absent (the store's FRESH merge handles undefined).
   })
@@ -181,6 +185,7 @@ describe('migrateSave — completeness guard', () => {
       'streakLength', 'streakLastClaimDay', 'streakBest',
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
+      'timesStudied', 'timesCommunity',
     ] as const
     for (const f of tickCriticalFields) {
       expect((out as unknown as Record<string, unknown>)[f], `field ${f} is undefined after migrate`).toBeDefined()
@@ -202,7 +207,7 @@ describe('migrateSave — completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration (bump both together)', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(8)
+    expect(SAVE_VERSION).toBe(9)
   })
 })
 

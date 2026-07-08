@@ -16,6 +16,8 @@ import type { Needs, PlacedAsset } from './types'
 export interface AchievementSnapshot {
   timesEaten: number
   timesSlept: number
+  timesStudied: number
+  timesCommunity: number
   shiftsWorked: number
   jobId: string | null
   assets: PlacedAsset[]

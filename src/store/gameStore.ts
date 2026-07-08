@@ -75,7 +75,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 8
+export const SAVE_VERSION = 9
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -89,6 +89,7 @@ export const SAVE_VERSION = 8
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
  *   v6 → v7: itemLastUsedAt (per-item use cooldown for durable effects)
  *   v7 → v8: respect (community progression)
+ *   v8 → v9: study/community lifetime counters
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -142,6 +143,8 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
         if (state && state.respect === undefined) state.respect = 0
+        if (state && state.timesStudied === undefined) state.timesStudied = 0
+        if (state && state.timesCommunity === undefined) state.timesCommunity = 0
         // v8: per-item use cooldown clock (durable-effects exploit fix)
         if (state && !state.itemLastUsedAt) state.itemLastUsedAt = {}
         return state
@@ -277,6 +280,8 @@ interface GameState {
   shiftsWorked: number
   timesEaten: number
   timesSlept: number
+  timesStudied: number
+  timesCommunity: number
   totalCollected: number
   tutorialClaimed: string[]
   tutorialHidden: boolean
@@ -465,6 +470,8 @@ const FRESH = {
   shiftsWorked: 0,
   timesEaten: 0,
   timesSlept: 0,
+  timesStudied: 0,
+  timesCommunity: 0,
   totalCollected: 0,
   tutorialClaimed: [] as string[],
   tutorialHidden: false,
@@ -568,6 +575,8 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   return {
     timesEaten: s.timesEaten,
     timesSlept: s.timesSlept,
+    timesStudied: s.timesStudied,
+    timesCommunity: s.timesCommunity,
     shiftsWorked: s.shiftsWorked,
     jobId: s.jobId,
     assets: s.assets,
@@ -1267,6 +1276,8 @@ export const useGame = create<GameState>()(
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
         const sleptDelta = !wasAway && s.activity?.kind === 'sleep' && out.activity?.kind !== 'sleep' ? 1 : 0
         const respectDelta = !wasAway && s.activity?.kind === 'community' && out.activity?.kind !== 'community' ? 1 : 0
+        const studiedDelta = !wasAway && s.activity?.kind === 'study' && out.activity?.kind !== 'study' ? 1 : 0
+        const communityDelta = !wasAway && s.activity?.kind === 'community' && out.activity?.kind !== 'community' ? 1 : 0
         if (mealsDelta || shiftsDelta || cashEarnedThisTick || sleptDelta) {
           dailyCounters = {
             ...dailyCounters,
@@ -1356,6 +1367,8 @@ export const useGame = create<GameState>()(
           groceryRestockedAt: out.groceryRestockedAt,
           respect: s.respect + respectDelta,
           timesEaten,
+          timesStudied: s.timesStudied + studiedDelta,
+          timesCommunity: s.timesCommunity + communityDelta,
           achievementsClaimed: achievementsClaimed,
           reachTier,
           streakLength,

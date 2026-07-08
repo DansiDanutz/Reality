@@ -11,6 +11,8 @@ import {
 const base: AchievementSnapshot = {
   timesEaten: 0,
   timesSlept: 0,
+  timesStudied: 0,
+  timesCommunity: 0,
   shiftsWorked: 0,
   jobId: null,
   assets: [],
