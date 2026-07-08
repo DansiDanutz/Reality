@@ -836,8 +836,11 @@ export const MIN_FOUNDER_AREA_RADIUS_KM = 0.25
 export const MAX_FOUNDER_AREA_RADIUS_KM = 5
 export const MIN_BUSINESS_QUALITY = 0.35
 export const UNSTAFFED_HOSPITALIZED_OWNER_QUALITY_LOSS_PER_HOUR = 0.04
+export const PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER = 0.03
 export const SIM_LEAVES_HEALTH = 35
 export const SIM_LEAVES_NEED_LEVEL = 5
+const SIM_DEBT_REPAYMENT_CASH_RESERVE = 50
+const SIM_DEBT_REPAYMENT_PER_HOUR = 25
 
 const SURVIVAL_WARNING_HYDRATION = 50
 const SURVIVAL_WARNING_HUNGER = 50
@@ -1415,7 +1418,7 @@ function totalDebt(citizen: WorldCitizen): number {
 
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
   const insurers = area.businesses
-    .filter((business) => business.kind === 'insurance')
+    .filter((business) => business.kind === 'insurance' && serviceCapacity(area, business, 1) > 0)
     .sort((a, b) =>
       (a.price ?? DEFAULT_PRICES.insurance) - (b.price ?? DEFAULT_PRICES.insurance) || a.id.localeCompare(b.id),
     )
@@ -2444,8 +2447,13 @@ function addCitizenDemand(area: WorldArea, citizen: WorldCitizen, demand: Record
 
 function hasActiveJob(area: WorldArea, citizen: WorldCitizen): boolean {
   if (citizen.state.kind !== 'active' || !citizen.jobBusinessId) return false
+  return !hasStaleJobAssignment(area, citizen)
+}
+
+function hasStaleJobAssignment(area: WorldArea, citizen: WorldCitizen): boolean {
+  if (!citizen.jobBusinessId) return false
   const business = area.businesses.find((candidate) => candidate.id === citizen.jobBusinessId)
-  return Boolean(business?.staffCitizenIds.includes(citizen.id))
+  return !business?.staffCitizenIds.includes(citizen.id)
 }
 
 function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderCanManage = true): AreaJobsDashboard {
@@ -2462,7 +2470,11 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderC
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
   const candidates = activeCitizens
-    .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
+    .filter((citizen) =>
+      citizen.id !== area.claim?.founderCitizenId &&
+      !hasActiveJob(area, citizen) &&
+      (!citizen.jobBusinessId || hasStaleJobAssignment(area, citizen))
+    )
     .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
   return {
     employedCitizens,
@@ -2838,7 +2850,9 @@ function hireWorkerFromIntent(
   const worker = area.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
   if (!worker) return { ok: false, area, error: 'worker_not_found' }
   if (worker.kind === 'real') return { ok: false, area, error: 'real_worker_requires_acceptance' }
-  if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
+  if (worker.state.kind !== 'active') return { ok: false, area, error: 'worker_unavailable' }
+  if (hasStaleJobAssignment(area, worker)) delete worker.jobBusinessId
+  if (worker.jobBusinessId && worker.jobBusinessId !== business.id) {
     return { ok: false, area, error: 'worker_unavailable' }
   }
   if (activeStaffCount(area, business) >= TARGET_STAFF_BY_KIND[business.kind]) {
@@ -2862,6 +2876,7 @@ function buyInsuranceFromIntent(
   const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
+  if (serviceCapacity(area, insurer, 1) <= 0) return { ok: false, area, error: 'service_not_available' }
 
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
@@ -3002,6 +3017,7 @@ function advanceStep(area: WorldArea, context: StepContext): void {
       continue
     }
     if (shouldHospitalize(citizen)) hospitalize(area, citizen, context)
+    else repaySimMedicalDebt(area, citizen, context)
   }
   removeDepartingCitizens(area, departingCitizens, context)
 }
@@ -3046,7 +3062,12 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
       lapseInsurance(citizen, context)
       continue
     }
+    if (!hasRemainingBusinessCapacity(area, insurer, context)) {
+      lapseInsurance(citizen, context)
+      continue
+    }
 
+    reserveBusinessCapacity(context, insurer)
     citizen.money = roundMoney(citizen.money - premium)
     citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
     insurer.cash = roundMoney(insurer.cash + premium)
@@ -3080,6 +3101,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
     const due = roundMoney(wage * context.hours)
     if (due <= 0) continue
     const retainedStaffIds: string[] = []
+    let payrollDefaults = 0
     for (const workerId of business.staffCitizenIds) {
       const worker = area.citizens.find((c) => c.id === workerId)
       if (!worker) continue
@@ -3089,6 +3111,7 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       }
       if (worker.jobBusinessId !== business.id) continue
       const paid = Math.min(due, business.cash)
+      if (paid < due) payrollDefaults += 1
       if (paid <= 0) continue
       business.cash = roundMoney(business.cash - paid)
       worker.money = roundMoney(worker.money + paid)
@@ -3112,6 +3135,13 @@ function payWorkerWages(area: WorldArea, context: StepContext): void {
       if (worker?.state.kind === 'active' && worker.jobBusinessId === business.id) delete worker.jobBusinessId
     }
     business.staffCitizenIds = retainedStaffIds
+    if (payrollDefaults > 0) {
+      const loss = PAYROLL_DEFAULT_QUALITY_LOSS_PER_WORKER * payrollDefaults * context.hours
+      const quality = business.quality ?? 1
+      business.quality = roundMoney(
+        quality <= MIN_BUSINESS_QUALITY ? quality : Math.max(MIN_BUSINESS_QUALITY, quality - loss),
+      )
+    }
   }
 }
 
@@ -3289,6 +3319,37 @@ function purchaseInsurancePolicy(
   return true
 }
 
+function repaySimMedicalDebt(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
+  if (citizen.kind !== 'sim' || citizen.state.kind !== 'active') return
+  if (!citizen.debts || citizen.debts.length === 0) return
+
+  const available = roundMoney(citizen.money - SIM_DEBT_REPAYMENT_CASH_RESERVE)
+  if (available <= 0) return
+
+  const debt = [...citizen.debts]
+    .filter((candidate) => candidate.kind === 'medical' && candidate.amount > 0)
+    .sort((a, b) => a.issuedAt - b.issuedAt || a.id.localeCompare(b.id))[0]
+  if (!debt) return
+
+  const payment = roundMoney(Math.min(debt.amount, available, SIM_DEBT_REPAYMENT_PER_HOUR * context.hours))
+  if (payment <= 0) return
+
+  citizen.money = roundMoney(citizen.money - payment)
+  citizen.debt = roundMoney(Math.max(0, citizen.debt - payment))
+  debt.amount = roundMoney(debt.amount - payment)
+  if (debt.amount <= 0) citizen.debts = citizen.debts.filter((candidate) => candidate.id !== debt.id)
+
+  const creditor = area.businesses.find((business) => business.id === debt.creditorId)
+  if (creditor) creditor.cash = roundMoney(creditor.cash + payment)
+  recordTransaction(area, context.at, {
+    kind: 'debt_repayment',
+    fromId: citizen.id,
+    toId: debt.creditorId,
+    amount: payment,
+    memo: `${citizen.name} repaid medical debt to ${debt.creditorId}.`,
+  })
+}
+
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
   const candidates = area.businesses
     .filter((business) => business.kind === kind && serviceCapacity(area, business, context.hours) > 0)
@@ -3298,11 +3359,15 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
   const start = context.servedByKind[kind] % candidates.length
   for (let offset = 0; offset < candidates.length; offset++) {
     const business = candidates[(start + offset) % candidates.length]
-    const capacity = serviceCapacity(area, business, context.hours)
-    const used = context.capacityUsed[business.id] ?? 0
-    if (used < capacity) return business
+    if (hasRemainingBusinessCapacity(area, business, context)) return business
   }
   return null
+}
+
+function hasRemainingBusinessCapacity(area: WorldArea, business: WorldBusiness, context: StepContext): boolean {
+  const capacity = serviceCapacity(area, business, context.hours)
+  const used = context.capacityUsed[business.id] ?? 0
+  return used < capacity
 }
 
 function reserveBusinessCapacity(context: StepContext, business: WorldBusiness): void {
@@ -3312,9 +3377,16 @@ function reserveBusinessCapacity(context: StepContext, business: WorldBusiness):
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {
   const activeStaff = activeStaffCount(area, business)
+  if (ownerUnavailableWithoutStaff(area, business, activeStaff)) return 0
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+}
+
+function ownerUnavailableWithoutStaff(area: WorldArea, business: WorldBusiness, activeStaff: number): boolean {
+  if (activeStaff > 0) return false
+  const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
+  return owner?.state.kind === 'hospitalized'
 }
 
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
@@ -3346,7 +3418,8 @@ function hospitalize(area: WorldArea, citizen: WorldCitizen, context: StepContex
 }
 
 function settleHospitalBill(area: WorldArea, citizen: WorldCitizen, context: StepContext): boolean {
-  const clinic = area.businesses.find((business) => business.kind === 'clinic')
+  const clinic = chooseBusiness(area, 'clinic', context)
+  if (clinic) reserveBusinessCapacity(context, clinic)
   const receiverId = clinic?.id ?? 'system:hospital'
   let remaining = HOSPITAL_BILL
   let insurancePaid = false
