@@ -52,7 +52,15 @@ function browserStorage(): Storage | null {
 }
 
 function isQueueFilter(value: string | undefined): value is FounderCovenantOperatorQueueFilter {
-  return value === 'all' || value === 'never_reviewed' || value === 'stale_reviewed' || value === 'fresh_reviewed' || value === 'manual_review' || value === 'hospitalized' || value === 'scan_anomaly'
+  return value === 'all' ||
+    value === 'never_reviewed' ||
+    value === 'stale_reviewed' ||
+    value === 'stale_weekly_due' ||
+    value === 'stale_monthly_due' ||
+    value === 'fresh_reviewed' ||
+    value === 'manual_review' ||
+    value === 'hospitalized' ||
+    value === 'scan_anomaly'
 }
 
 function isQueueSort(value: string | undefined): value is FounderCovenantOperatorQueueSort {

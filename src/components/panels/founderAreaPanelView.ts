@@ -109,7 +109,16 @@ export interface FounderCovenantScheduleItem {
 }
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
-export type FounderCovenantOperatorQueueFilter = 'all' | 'never_reviewed' | 'stale_reviewed' | 'fresh_reviewed' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
+export type FounderCovenantOperatorQueueFilter =
+  | 'all'
+  | 'never_reviewed'
+  | 'stale_reviewed'
+  | 'stale_weekly_due'
+  | 'stale_monthly_due'
+  | 'fresh_reviewed'
+  | 'manual_review'
+  | 'hospitalized'
+  | 'scan_anomaly'
 export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder'
 
 export interface FounderCovenantOperatorQueueSliceTotals {
@@ -890,6 +899,10 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
         return item.reviewFreshness === 'never'
       case 'stale_reviewed':
         return item.reviewFreshness === 'stale'
+      case 'stale_weekly_due':
+        return item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue
+      case 'stale_monthly_due':
+        return item.reviewFreshness === 'stale' && item.monthlyReviewDue
       case 'fresh_reviewed':
         return item.reviewFreshness === 'fresh'
       case 'manual_review':
@@ -928,6 +941,10 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} never reviewed · ${freshness}`
     case 'stale_reviewed':
       return `${count} founder${count === 1 ? '' : 's'} stale reviewed · ${freshness}`
+    case 'stale_weekly_due':
+      return `${count} founder${count === 1 ? '' : 's'} stale weekly due · ${freshness}`
+    case 'stale_monthly_due':
+      return `${count} founder${count === 1 ? '' : 's'} stale monthly due · ${freshness}`
     case 'fresh_reviewed':
       return `${count} founder${count === 1 ? '' : 's'} fresh reviewed · ${freshness}`
     case 'manual_review':
@@ -945,11 +962,13 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const all = founderCovenantOperatorQueueFilteredReviewRows(queue, 'all').length
   const neverReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'never_reviewed').length
   const staleReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_reviewed').length
+  const staleWeeklyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_weekly_due').length
+  const staleMonthlyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_monthly_due').length
   const freshReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'fresh_reviewed').length
   const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Fresh ${freshReviewed} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -964,6 +983,10 @@ export function founderCovenantOperatorQueueSliceTotals(
         return item.reviewFreshness === 'never'
       case 'stale_reviewed':
         return item.reviewFreshness === 'stale'
+      case 'stale_weekly_due':
+        return item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue
+      case 'stale_monthly_due':
+        return item.reviewFreshness === 'stale' && item.monthlyReviewDue
       case 'fresh_reviewed':
         return item.reviewFreshness === 'fresh'
       case 'manual_review':

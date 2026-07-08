@@ -427,6 +427,22 @@ export default function FounderCovenantOperatorPanel({
               Stale
             </button>
             <button
+              className={`btn small ${queueFilter === 'stale_weekly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('stale_weekly_due')}
+              type="button"
+            >
+              Stale week
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'stale_monthly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('stale_monthly_due')}
+              type="button"
+            >
+              Stale month
+            </button>
+            <button
               className={`btn small ${queueFilter === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('fresh_reviewed')}

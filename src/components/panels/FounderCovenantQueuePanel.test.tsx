@@ -43,7 +43,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · 1 never · 0 stale · 0 fresh · next page ready')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
-    expect(html).toContain('All 2 · Never 2 · Stale 0 · Fresh 0 · Manual 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('<span>Never</span><strong>2</strong>')
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
@@ -477,19 +477,23 @@ describe('FounderCovenantQueuePanel', () => {
 
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'never_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-14', 'founder-13'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithStale, 'stale_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-15'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithStale, 'stale_weekly_due').map((row) => row.founderCitizenId)).toEqual([])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithStale, 'stale_monthly_due').map((row) => row.founderCitizenId)).toEqual([])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCoverage, 'fresh_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-16'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly', 'founder').map((row) => row.founderCitizenId)).toEqual(['founder-14'])
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'never_reviewed')).toBe('3 founders never reviewed · 3 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queueWithStale, 'stale_reviewed')).toBe('1 founder stale reviewed · 0 never · 1 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queueWithStale, 'stale_weekly_due')).toBe('0 founders stale weekly due · 0 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queueWithStale, 'stale_monthly_due')).toBe('0 founders stale monthly due · 0 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queueWithCoverage, 'fresh_reviewed')).toBe('1 founder fresh reviewed · 0 never · 0 stale · 1 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'manual_review')).toBe('1 founder need manual review · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'hospitalized')).toBe('1 founder hospitalized · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies · 1 never · 0 stale · 0 fresh')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Fresh 0 · Manual 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Fresh 0 · Manual 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Fresh 1 · Manual 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 1 · Manual 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'never_reviewed')).toMatchObject({
       founders: 3,
       neverReviewed: 3,
@@ -503,6 +507,16 @@ describe('FounderCovenantQueuePanel', () => {
       neverReviewed: 0,
       freshReviewed: 0,
       staleReviewed: 1,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
+    })
+    expect(founderCovenantOperatorQueueSliceTotals(queueWithStale, 'stale_weekly_due')).toMatchObject({
+      founders: 0,
+      staleWeeklyDue: 0,
+      staleMonthlyDue: 0,
+    })
+    expect(founderCovenantOperatorQueueSliceTotals(queueWithStale, 'stale_monthly_due')).toMatchObject({
+      founders: 0,
       staleWeeklyDue: 0,
       staleMonthlyDue: 0,
     })

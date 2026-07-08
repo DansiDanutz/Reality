@@ -13,6 +13,10 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'Never'
     case 'stale_reviewed':
       return 'Stale'
+    case 'stale_weekly_due':
+      return 'Stale week'
+    case 'stale_monthly_due':
+      return 'Stale month'
     case 'fresh_reviewed':
       return 'Fresh'
     case 'manual_review':
