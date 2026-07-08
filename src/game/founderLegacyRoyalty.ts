@@ -89,9 +89,13 @@ const LEGACY_ROYALTY_BLOCKERS: readonly FounderLegacyRoyaltyBlocker[] = [
 
 export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): FounderLegacyRoyaltyAssessment {
   const royaltyRate = normalizedRoyaltyRate(input.royaltyRate)
-  const treasuryAccountId = input.treasuryAccountId?.trim() || FOUNDER_LEGACY_TREASURY_ACCOUNT_ID
   const previousFounderCitizenId = input.previousFounderCitizenId.trim()
   const successorCitizenId = input.successorCitizenId.trim()
+  const treasuryAccountId = normalizedTreasuryAccountId(
+    input.treasuryAccountId,
+    previousFounderCitizenId,
+    successorCitizenId,
+  )
   const eligibleAssets: FounderLegacyRoyaltyEligibleAsset[] = []
   const excludedAssets: FounderLegacyRoyaltyExcludedAsset[] = []
 
@@ -192,6 +196,18 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
 function normalizedRoyaltyRate(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return DEFAULT_FOUNDER_LEGACY_ROYALTY_RATE
   return roundMoney(Math.min(1, Math.max(0, value)))
+}
+
+function normalizedTreasuryAccountId(
+  value: string | undefined,
+  previousFounderCitizenId: string,
+  successorCitizenId: string,
+): string {
+  const trimmed = value?.trim()
+  if (!trimmed || trimmed === previousFounderCitizenId || trimmed === successorCitizenId) {
+    return FOUNDER_LEGACY_TREASURY_ACCOUNT_ID
+  }
+  return trimmed
 }
 
 function positiveMoney(value: number): number {

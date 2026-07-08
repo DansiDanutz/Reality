@@ -105,6 +105,41 @@ describe('founder legacy royalty policy', () => {
     expect(assessment.ledgerDraft?.amount).toBe(120)
   })
 
+  test('keeps custom treasury receivers distinct from founder identities', () => {
+    const inheritedAsset = {
+      id: 'business-water',
+      currentOwnerCitizenId: 'founder-new',
+      createdByCitizenId: 'founder-old',
+      periodBaseNetRevenue: 1_000,
+    }
+
+    const successorTreasury = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: 'founder-old',
+      successorCitizenId: 'founder-new',
+      treasuryAccountId: ' founder-new ',
+      assets: [inheritedAsset],
+    })
+    const previousFounderTreasury = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: 'founder-old',
+      successorCitizenId: 'founder-new',
+      treasuryAccountId: 'founder-old',
+      assets: [inheritedAsset],
+    })
+    const externalTreasury = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: 'founder-old',
+      successorCitizenId: 'founder-new',
+      treasuryAccountId: 'system:community-treasury',
+      assets: [inheritedAsset],
+    })
+
+    expect(successorTreasury.treasuryAccountId).toBe(FOUNDER_LEGACY_TREASURY_ACCOUNT_ID)
+    expect(successorTreasury.ledgerDraft?.receiverAccountId).toBe(FOUNDER_LEGACY_TREASURY_ACCOUNT_ID)
+    expect(previousFounderTreasury.treasuryAccountId).toBe(FOUNDER_LEGACY_TREASURY_ACCOUNT_ID)
+    expect(previousFounderTreasury.ledgerDraft?.receiverAccountId).toBe(FOUNDER_LEGACY_TREASURY_ACCOUNT_ID)
+    expect(externalTreasury.treasuryAccountId).toBe('system:community-treasury')
+    expect(externalTreasury.ledgerDraft?.receiverAccountId).toBe('system:community-treasury')
+  })
+
   test('excludes assets that are not owned by the successor or not created by the previous founder', () => {
     const assessment = assessFounderLegacyRoyalty({
       previousFounderCitizenId: 'founder-old',
