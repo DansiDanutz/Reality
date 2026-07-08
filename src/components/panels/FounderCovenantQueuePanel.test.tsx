@@ -33,6 +33,7 @@ import {
   founderCovenantOperatorQueueNotificationDraftBodyText,
   founderCovenantOperatorQueueNotificationDraftTitleText,
   founderCovenantOperatorQueueReviewReadinessText,
+  founderCovenantOperatorQueueStageReasonText,
   founderCovenantOperatorQueueStageText,
   founderCovenantOperatorQueuePriorityReasons,
   founderCovenantOperatorQueuePriorityScore,
@@ -64,6 +65,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
+    expect(html).toContain('Stage reasons: Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.')
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
@@ -166,6 +168,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueStageText(manual)).toBe(
       'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
     )
+    expect(founderCovenantOperatorQueueStageReasonText(manual)).toBe(
+      'Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.',
+    )
     expect(founderCovenantOperatorQueueReviewReadinessText(manual)).toBe(
       'Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue',
     )
@@ -230,6 +235,7 @@ describe('FounderCovenantQueuePanel', () => {
       reviewQueueBlockerText: 'approval workflow, Telegram delivery, replacement',
       nextActionText: 'Manual review',
       recommendedActionText: 'Send warning',
+      stageReasonText: 'Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.',
       latestReviewAuthorityText: null,
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
