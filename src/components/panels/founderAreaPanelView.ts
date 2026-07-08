@@ -959,6 +959,13 @@ export function founderCovenantReviewSignalSummary(
   return `${count} signal${count === 1 ? '' : 's'} captured`
 }
 
+export function founderCovenantReviewSignalDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'signals'>,
+): string {
+  if (review.signals.length === 0) return 'Signal detail unavailable'
+  return review.signals.map(founderCovenantSignalText).join(', ')
+}
+
 export function founderCovenantReviewSnapshotSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'activityReview' | 'reviewChecklist'>,
 ): string {

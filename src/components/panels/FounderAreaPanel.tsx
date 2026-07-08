@@ -62,6 +62,7 @@ import {
   founderCovenantReviewQueueSummary,
   founderCovenantReviewScheduleItems,
   founderCovenantReviewSignalSummary,
+  founderCovenantReviewSignalDetailText,
   founderCovenantReviewSnapshotSummary,
   founderCovenantSignalText,
   founderCovenantStageSnapshotSummary,
@@ -508,6 +509,9 @@ export default function FounderAreaPanel() {
                   <span className="item-desc">
                     {founderCovenantReviewSignalSummary(dashboard.founderCovenant.latestReview)}
                   </span>
+                  <span className="item-desc">
+                    {founderCovenantReviewSignalDetailText(dashboard.founderCovenant.latestReview)}
+                  </span>
                 </div>
                 <span className="founder-covenant-latest-review-status mono">
                   {founderCovenantLatestReviewStatusLabel(dashboard.founderCovenant.latestReview)}
@@ -603,6 +607,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">{founderCovenantReviewApprovalSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewApprovalBlockerSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSignalSummary(entry)}</span>
+                      <span className="item-desc">{founderCovenantReviewSignalDetailText(entry)}</span>
                     </div>
                     <span className="item-price mono">{founderCovenantReviewAuthorityText(entry)}</span>
                   </li>

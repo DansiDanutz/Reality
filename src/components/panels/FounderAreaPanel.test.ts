@@ -22,6 +22,7 @@ import {
   founderCovenantReviewActionSummary,
   founderCovenantReviewApprovalBlockerSummary,
   founderCovenantReviewApprovalSummary,
+  founderCovenantReviewSignalDetailText,
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewInputSummary,
@@ -106,6 +107,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewQueueDetailText(entry.reviewQueue)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -906,6 +909,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant review signals', () => {
     expect(founderCovenantReviewSignalSummary({ signals: [] })).toBe('No signals captured')
+    expect(founderCovenantReviewSignalDetailText({ signals: [] })).toBe('Signal detail unavailable')
     expect(founderCovenantReviewSignalSummary({
       signals: [{
         kind: 'review_due',
@@ -913,6 +917,13 @@ describe('FounderAreaPanel covenant presenters', () => {
         message: 'Weekly review was due.',
       }],
     })).toBe('1 signal captured')
+    expect(founderCovenantReviewSignalDetailText({
+      signals: [{
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Weekly review was due.',
+      }],
+    })).toBe('Review due')
     expect(founderCovenantReviewSignalSummary({
       signals: [{
         kind: 'review_due',
@@ -925,6 +936,18 @@ describe('FounderAreaPanel covenant presenters', () => {
         amount: 120,
       }],
     })).toBe('2 signals captured')
+    expect(founderCovenantReviewSignalDetailText({
+      signals: [{
+        kind: 'review_due',
+        severity: 'warning',
+        message: 'Weekly review was due.',
+      }, {
+        kind: 'founder_debt',
+        severity: 'info',
+        message: 'Founder has debt.',
+        amount: 120,
+      }],
+    })).toBe('Review due, Founder debt: $120')
   })
 
   test('summarizes captured covenant activity snapshots', () => {
