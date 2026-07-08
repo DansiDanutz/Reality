@@ -47,6 +47,7 @@ import {
 } from '../game/dailyChallenges'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
+import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessages'
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
@@ -711,8 +712,8 @@ export const useGame = create<GameState>()(
           log: note(
             latest.log,
             isFounder
-              ? `Founder #${String(founderNumber).padStart(4, '0')} — yours forever. ${formatMoney(FOUNDER_BALANCE)} deposited.`
-              : `All 2,000 founder slots are claimed. Citizen grant: ${formatMoney(CITIZEN_BALANCE)}.`,
+              ? founderSeatGrantedLog(founderNumber)
+              : citizenGrantLog(),
           ),
         })
 
