@@ -1826,7 +1826,14 @@ function isRealityAreaFounderIdentity(value: unknown): value is RealityAreaDashb
     typeof value.founderNumber === 'number' &&
     isClaimSource(value.claimSource) &&
     (value.telegramUserId === null || typeof value.telegramUserId === 'string') &&
-    (value.telegramAccountId === null || typeof value.telegramAccountId === 'string')
+    (value.telegramAccountId === null || typeof value.telegramAccountId === 'string') &&
+    isMatchingTelegramFounderIdentity(value.telegramUserId, value.telegramAccountId)
+}
+
+function isMatchingTelegramFounderIdentity(telegramUserId: unknown, telegramAccountId: unknown): boolean {
+  if (telegramAccountId === null) return true
+  if (typeof telegramUserId !== 'string' || typeof telegramAccountId !== 'string') return false
+  return telegramAccountId === `telegram:${telegramUserId}`
 }
 
 function isRealityAreaLedgerDashboard(value: unknown): value is RealityAreaLedgerDashboard {
