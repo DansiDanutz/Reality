@@ -972,6 +972,57 @@ export function founderCovenantReviewQueueDetailText(queue: FounderCovenantRevie
   return `Approvals: ${approvals} · Drafts: ${drafts}`
 }
 
+export function founderCovenantSelfExposureText(
+  founder: Pick<AreaCitizenDashboard, 'money' | 'debt' | 'debts' | 'insuranceActive' | 'state'> | undefined,
+  businesses: readonly Pick<AreaBusinessDashboard, 'cash' | 'activeStaff' | 'targetStaff'>[],
+): string {
+  if (!founder) return 'Exposure unavailable'
+  const debtCount = founder.debts.length
+  const businessCash = businesses.reduce((total, business) => total + business.cash, 0)
+  const unstaffedBusinessCount = businesses.filter((business) => business.activeStaff < business.targetStaff).length
+  const insured = founder.insuranceActive ? 'insured' : 'uninsured'
+  const availability = founder.state === 'hospitalized' ? 'hospitalized' : 'available'
+  return [
+    `Founder ${formatMoney(founder.money)}`,
+    `debt ${formatMoney(founder.debt)} (${debtCount})`,
+    `businesses ${businesses.length} / ${formatMoney(businessCash)}`,
+    `unstaffed ${unstaffedBusinessCount}`,
+    insured,
+    availability,
+    'game credits only',
+  ].join(' · ')
+}
+
+export function founderCovenantSelfReadinessText(
+  covenant: Pick<AreaFounderCovenantDashboard, 'reviewInputs' | 'approvalRequests' | 'reviewQueue' | 'reviewSchedule'>,
+): string {
+  const evidenceRequiredCount = covenant.reviewInputs.filter((input) =>
+    input.manualEvidenceRequired || input.status === 'manual_needed'
+  ).length
+  const approvalRequestCount = covenant.approvalRequests.length
+  const blockerCount = covenant.reviewQueue.blockerCount
+  const overdue = covenant.reviewSchedule?.overdue ?? false
+  const label = blockerCount > 0 ? 'Blocked' : evidenceRequiredCount > 0 ? 'Needs evidence' : 'Monitoring'
+  const summary = blockerCount > 0
+    ? `${blockerCount} approval blocker${blockerCount === 1 ? '' : 's'} before enforcement.`
+    : evidenceRequiredCount > 0
+      ? `${evidenceRequiredCount} manual evidence gap${evidenceRequiredCount === 1 ? '' : 's'} to review.`
+      : 'No manual review required yet.'
+  const details: string[] = []
+  if (evidenceRequiredCount > 0) {
+    details.push(`${evidenceRequiredCount} evidence gap${evidenceRequiredCount === 1 ? '' : 's'}`)
+  }
+  if (approvalRequestCount > 0) {
+    details.push(`${approvalRequestCount} approval request${approvalRequestCount === 1 ? '' : 's'}`)
+  }
+  if (blockerCount > 0) {
+    details.push(`${blockerCount} blocker${blockerCount === 1 ? '' : 's'}`)
+  }
+  if (overdue) details.push('overdue')
+  const detailText = details.length > 0 ? ` · ${details.join(', ')}` : ''
+  return `${label}: ${summary}${detailText}`
+}
+
 export function founderCovenantReviewQueueSnapshotSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'reviewQueue'>,
 ): string {

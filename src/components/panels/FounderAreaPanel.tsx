@@ -52,6 +52,8 @@ import {
   founderCovenantReviewInputStatusLabel,
   founderCovenantReviewItems,
   founderCovenantReviewQueueDetailText,
+  founderCovenantSelfExposureText,
+  founderCovenantSelfReadinessText,
   founderCovenantReviewQueueStatusLabel,
   founderCovenantReviewQueueSnapshotSummary,
   founderCovenantReviewQueueSummary,
@@ -175,6 +177,7 @@ export default function FounderAreaPanel() {
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const founderSurvival = dashboard?.survival.signals.find((signal) => signal.citizenId === profile.founderId)
+  const founderBusinesses = dashboard?.existingBusinesses.filter((business) => business.ownerId === profile.founderId) ?? []
   const transactions = result?.transactions ?? []
   const businessNamesById = new Map(
     dashboard?.existingBusinesses.map((business) => [business.id, business.name]) ?? [],
@@ -316,6 +319,12 @@ export default function FounderAreaPanel() {
             </div>
             <div className="founder-covenant-meta" aria-label="Founder review queue details">
               <span>{founderCovenantReviewQueueDetailText(dashboard.founderCovenant.reviewQueue)}</span>
+            </div>
+            <div className="founder-covenant-meta" aria-label="Founder self review exposure">
+              <span>{founderCovenantSelfExposureText(founder, founderBusinesses)}</span>
+            </div>
+            <div className="founder-covenant-meta" aria-label="Founder self review readiness">
+              <span>{founderCovenantSelfReadinessText(dashboard.founderCovenant)}</span>
             </div>
             <div className="founder-covenant-review" aria-label="Founder activity review">
               <span className="founder-covenant-score mono">score {dashboard.founderCovenant.activityReview.score}/100</span>
@@ -537,7 +546,7 @@ export default function FounderAreaPanel() {
               <p className="panel-sub">No covenant signals.</p>
             ) : (
               <ul className="item-list founder-covenant-signals">
-                {dashboard.founderCovenant.signals.slice(0, 4).map((signal) => (
+                {dashboard.founderCovenant.signals.map((signal) => (
                   <li className={`item founder-covenant-signal ${signal.severity}`} key={signal.kind}>
                     <div className="item-info">
                       <span className="item-name">{founderCovenantSignalText(signal)}</span>

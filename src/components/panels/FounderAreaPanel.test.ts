@@ -26,6 +26,8 @@ import {
   founderCovenantReviewInputStatusLabel,
   founderCovenantReviewItems,
   founderCovenantReviewQueueDetailText,
+  founderCovenantSelfExposureText,
+  founderCovenantSelfReadinessText,
   founderCovenantReviewQueueStatusLabel,
   founderCovenantReviewQueueSnapshotSummary,
   founderCovenantReviewQueueSummary,
@@ -88,6 +90,8 @@ describe('FounderAreaPanel covenant presenters', () => {
   test('lists every first-build recommendation without truncating starter categories', () => {
     expect(founderAreaPanelSource).toContain('dashboard.firstBuild.map((recommendation) => (')
     expect(founderAreaPanelSource).not.toContain('dashboard.firstBuild.slice(0, 4)')
+    expect(founderAreaPanelSource).toContain('dashboard.founderCovenant.signals.map((signal) => (')
+    expect(founderAreaPanelSource).not.toContain('dashboard.founderCovenant.signals.slice(0, 4)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -891,6 +895,116 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantReviewQueueSnapshotSummary({ reviewQueue: queue })).toBe(
       'Queue snapshot · Main founder approval · 1 approval · 1 draft · 2 blockers',
     )
+  })
+
+  test('summarizes founder covenant self exposure and readiness', () => {
+    expect(founderCovenantSelfExposureText({
+      money: 199_650,
+      debt: 300,
+      debts: [{
+        id: 'debt-1',
+        kind: 'medical',
+        creditorId: 'clinic-1',
+        amount: 300,
+        issuedAt: '2026-07-06T03:30:00.000Z',
+        memo: 'Founder owes clinic-1.',
+        repaymentIntent: 'repayDebt',
+        clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+        recommendedPayment: 300,
+        maxAffordablePayment: 300,
+        canRepayNow: false,
+        blockers: ['actor_unavailable'],
+      }],
+      insuranceActive: false,
+      state: 'hospitalized',
+    } as never, [{
+      cash: 7,
+      activeStaff: 0,
+      targetStaff: 1,
+    }])).toBe('Founder $199,650 · debt $300 (1) · businesses 1 / $7 · unstaffed 1 · uninsured · hospitalized · game credits only')
+
+    expect(founderCovenantSelfExposureText(undefined, [])).toBe('Exposure unavailable')
+
+    expect(founderCovenantSelfReadinessText({
+      reviewInputs: [{
+        kind: 'population_growth',
+        label: 'Population growth',
+        status: 'manual_needed',
+        evidence: 'Invite evidence is still manual.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'in_game_activity',
+        label: 'In-game activity',
+        status: 'captured',
+        evidence: 'Founder built a local business.',
+        manualEvidenceRequired: false,
+      }],
+      approvalRequests: [{
+        id: 'approval-1',
+        at: Date.parse('2026-07-06T04:00:00.000Z'),
+        kind: 'send_warning',
+        label: 'Send warning',
+        reason: 'Signals suggest a warning.',
+        status: 'pending_manual_approval',
+        recommended: true,
+        requiresApproval: true,
+        approvalEnabled: false,
+        automationEnabled: false,
+        executionEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        notificationDraftId: 'draft-1',
+        blockers: ['approval_workflow_disabled'],
+      }],
+      reviewQueue: {
+        evidenceOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+        nextStep: 'main_founder_approval',
+        recordReviewEnabled: true,
+        recommendedActionKinds: ['record_review', 'send_warning'],
+        pendingApprovalKinds: ['send_warning'],
+        pendingApprovalCount: 1,
+        pendingNotificationKinds: ['founder_warning'],
+        pendingNotificationCount: 1,
+        blockerCount: 2,
+        blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
+      },
+      reviewSchedule: {
+        lastReviewAt: null,
+        nextWeeklyReviewAt: 1_000,
+        nextMonthlyReviewAt: 2_000,
+        weeklyReviewDue: true,
+        monthlyReviewDue: false,
+        overdue: true,
+        automationEnabled: false,
+      },
+    })).toBe('Blocked: 2 approval blockers before enforcement. · 1 evidence gap, 1 approval request, 2 blockers, overdue')
+
+    expect(founderCovenantSelfReadinessText({
+      reviewInputs: [],
+      approvalRequests: [],
+      reviewQueue: {
+        evidenceOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+        nextStep: 'monitor',
+        recordReviewEnabled: true,
+        recommendedActionKinds: [],
+        pendingApprovalKinds: [],
+        pendingApprovalCount: 0,
+        pendingNotificationKinds: [],
+        pendingNotificationCount: 0,
+        blockerCount: 0,
+        blockers: [],
+      },
+      reviewSchedule: null,
+    })).toBe('Monitoring: No manual review required yet.')
   })
 
   test('summarizes the operator founder covenant review queue without enforcement controls', () => {
