@@ -812,6 +812,155 @@ describe('Reality area client', () => {
     })
   })
 
+  test('normalizes founder intent payload identities before request', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: ' water-1 ',
+      name: ' Founder Water ',
+    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'hireWorker',
+      businessId: ' water-1 ',
+      workerCitizenId: ' sim-1 ',
+    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'repayDebt',
+      debtId: ' founder-medical-1 ',
+      amount: 120,
+    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buyInsurance',
+      insuranceBusinessId: ' insurance-1 ',
+    }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
+
+    expect(fetchImpl.mock.calls.map((call) => JSON.parse((call[1]?.body ?? '{}') as string))).toEqual([
+      {
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: {
+          type: 'buildBusiness',
+          businessKind: 'water',
+          businessId: 'water-1',
+          name: 'Founder Water',
+        },
+      },
+      {
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: {
+          type: 'hireWorker',
+          businessId: 'water-1',
+          workerCitizenId: 'sim-1',
+        },
+      },
+      {
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: {
+          type: 'repayDebt',
+          debtId: 'founder-medical-1',
+          amount: 120,
+        },
+      },
+      {
+        citizenId: 'citizen-1',
+        token: 'token-1',
+        intent: {
+          type: 'buyInsurance',
+          insuranceBusinessId: 'insurance-1',
+        },
+      },
+    ])
+  })
+
+  test('rejects malformed founder intents before request', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buildBusiness',
+      businessKind: 'water',
+      businessId: '   ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder area build intent is invalid.',
+      code: 'invalid_intent_payload',
+    })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'hireWorker',
+      businessId: 'water-1',
+      workerCitizenId: '   ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder area hire intent is invalid.',
+      code: 'invalid_intent_payload',
+    })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'repayDebt',
+      debtId: 'founder-medical-1',
+      amount: 0,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder area debt repayment intent is invalid.',
+      code: 'invalid_intent_payload',
+    })
+
+    await expect(applyRealityFounderAreaIntent({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'buyInsurance',
+      insuranceBusinessId: '   ',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder area insurance intent is invalid.',
+      code: 'invalid_intent_payload',
+    })
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   test('does not send advanceHour from browser clients', async () => {
     const fetchImpl = vi.fn()
 

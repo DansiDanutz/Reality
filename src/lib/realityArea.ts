@@ -1048,7 +1048,7 @@ export interface RealityAreaRefreshPayload {
 
 export type RealityAreaApplyResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
-  | { ok: false; reason: 'missing_identity' | 'not_founder' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+  | { ok: false; reason: 'missing_identity' | 'not_founder' | 'invalid_request' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 export type RealityFounderCovenantReviewQueueResult =
   | { ok: true; founderCovenantReviewQueue: RealityFounderCovenantReviewQueueDashboard }
@@ -1142,7 +1142,16 @@ export async function applyRealityFounderAreaIntent(
   payload: RealityAreaServerPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
-  return applyRealityAreaPayload(citizen, payload, fetchImpl)
+  const normalized = normalizeRealityAreaServerPayload(payload)
+  if (!normalized.ok) {
+    return {
+      ok: false,
+      reason: 'invalid_request',
+      error: normalized.error,
+      code: normalized.code,
+    }
+  }
+  return applyRealityAreaPayload(citizen, normalized.payload, fetchImpl)
 }
 
 export async function advanceRealityFounderArea(
@@ -1357,6 +1366,74 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'hireWorker' ||
     payload.type === 'repayDebt' ||
     payload.type === 'buyInsurance'
+}
+
+function normalizeRealityAreaServerPayload(
+  payload: RealityAreaServerPayload,
+): { ok: true; payload: RealityAreaServerPayload } | { ok: false; error: string; code: string } {
+  switch (payload.type) {
+    case 'buyWater':
+    case 'buyFood':
+    case 'buyHousing':
+    case 'visitClinic':
+      return { ok: true, payload }
+    case 'buildBusiness': {
+      const businessId = payload.businessId.trim()
+      const name = payload.name?.trim()
+      if (!businessId || (payload.name !== undefined && !name)) {
+        return { ok: false, error: 'Founder area build intent is invalid.', code: 'invalid_intent_payload' }
+      }
+      return {
+        ok: true,
+        payload: {
+          ...payload,
+          businessId,
+          ...(name ? { name } : {}),
+        },
+      }
+    }
+    case 'hireWorker': {
+      const businessId = payload.businessId.trim()
+      const workerCitizenId = payload.workerCitizenId.trim()
+      if (!businessId || !workerCitizenId) {
+        return { ok: false, error: 'Founder area hire intent is invalid.', code: 'invalid_intent_payload' }
+      }
+      return {
+        ok: true,
+        payload: {
+          ...payload,
+          businessId,
+          workerCitizenId,
+        },
+      }
+    }
+    case 'repayDebt': {
+      const debtId = payload.debtId.trim()
+      if (!debtId || !Number.isFinite(payload.amount) || payload.amount <= 0) {
+        return { ok: false, error: 'Founder area debt repayment intent is invalid.', code: 'invalid_intent_payload' }
+      }
+      return {
+        ok: true,
+        payload: {
+          ...payload,
+          debtId,
+        },
+      }
+    }
+    case 'buyInsurance': {
+      const insuranceBusinessId = payload.insuranceBusinessId.trim()
+      if (!insuranceBusinessId) {
+        return { ok: false, error: 'Founder area insurance intent is invalid.', code: 'invalid_intent_payload' }
+      }
+      return {
+        ok: true,
+        payload: {
+          ...payload,
+          insuranceBusinessId,
+        },
+      }
+    }
+  }
 }
 
 export function founderAreaProfileWithServerClaim(
