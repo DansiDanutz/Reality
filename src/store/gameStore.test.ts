@@ -312,6 +312,81 @@ describe('daily challenge readiness context', () => {
     expect(ids).toContain('gather-1')
   })
 
+  test('study challenges unlock only when the enrolled course and body can start study', () => {
+    const course = EDUCATION_COURSES.course
+    const progress = createEducationProgress(course, Date.now())
+
+    expect(dailyChallengeContextOf(challengeState({ educationProgress: [progress] })).hasStudyBlock).toBe(true)
+    expect(eligibleDailyIds({ educationProgress: [progress] })).toContain('study-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      educationProgress: [progress],
+      needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 },
+    })).hasStudyBlock).toBe(false)
+    expect(eligibleDailyIds({
+      educationProgress: [progress],
+      needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 },
+    })).not.toContain('study-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      educationProgress: [progress],
+      health: 10,
+    })).hasStudyBlock).toBe(false)
+    expect(eligibleDailyIds({
+      educationProgress: [progress],
+      health: 10,
+    })).not.toContain('study-1')
+  })
+
+  test('started study challenges stay visible after the body can no longer start study today', () => {
+    const ids = eligibleDailyIds({
+      needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 },
+      dailyCounters: {
+        ...emptyDailyCounters(),
+        studiedToday: 1,
+      },
+    })
+
+    expect(ids).toContain('study-1')
+  })
+
+  test('community challenges unlock only when local help and body readiness line up', () => {
+    const community = freshCommunityStats()
+
+    expect(dailyChallengeContextOf(challengeState({ community })).canHelpCommunity).toBe(true)
+    expect(eligibleDailyIds({ community })).toContain('community-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      community,
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    })).canHelpCommunity).toBe(false)
+    expect(eligibleDailyIds({
+      community,
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    })).not.toContain('community-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      community,
+      health: 10,
+    })).canHelpCommunity).toBe(false)
+    expect(eligibleDailyIds({
+      community,
+      health: 10,
+    })).not.toContain('community-1')
+  })
+
+  test('started community challenges stay visible after the body can no longer help today', () => {
+    const ids = eligibleDailyIds({
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      dailyCounters: {
+        ...emptyDailyCounters(),
+        communityToday: 1,
+      },
+    })
+
+    expect(ids).toContain('community-1')
+  })
+
   test('construction labor challenges unlock only after materials and permit are ready', () => {
     const now = Date.now()
     const project = createConstructionProject('starter-house', 45.7, 21.2, now)

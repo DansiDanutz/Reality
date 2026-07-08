@@ -253,6 +253,7 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     const course = educationCourseById(progress.courseId)
     return Boolean(course && educationRemainingMinutes(course, progress) > 0)
   })
+  const canStartLightCareAction = !bodyWorkBlocker(s.needs, s.health, { energy: 15, hunger: 10, hydration: 10 })
   const constructionLaborReady = s.constructionProjects.some((project) => {
     const progress = constructionProgress(project)
     return progress.resourcesComplete && progress.permitComplete && !progress.laborComplete &&
@@ -291,11 +292,11 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     maxMealsToday: Math.max(s.dailyCounters.mealsToday, s.dailyCounters.mealsToday + stockedMealActions + affordableMealActions),
     maxDrinksToday: Math.max(s.dailyCounters.drinksToday, s.dailyCounters.drinksToday + stockedDrinkActions + affordableDrinkActions),
     maxHygieneToday: Math.max(s.dailyCounters.hygieneToday, s.dailyCounters.hygieneToday + stockedHygieneActions + affordableHygieneActions),
-    hasStudyBlock: activeStudy,
+    hasStudyBlock: activeStudy && canStartLightCareAction,
     canGatherResources: s.resourceNodes.some((node) => !bodyWorkBlocker(s.needs, s.health, { energy: node.energyCost + 5 })),
     canDoConstructionLabor: constructionLaborReady,
     canHireWorkers: constructionWorkerHireReady || businessWorkerHireReady,
-    canHelpCommunity: canStartCommunityAction(s.community),
+    canHelpCommunity: canStartLightCareAction && canStartCommunityAction(s.community),
     canDevelopBusiness: businessLaborReady,
     hasBusiness: s.assets.some((asset) => asset.kind === 'business'),
   }
