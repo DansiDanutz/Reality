@@ -232,6 +232,20 @@ export default function FounderCovenantOperatorPanel({
     )
   }
 
+  const copyQueueViewContext = async () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    if (!clipboard?.writeText) {
+      setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
+      return
+    }
+    try {
+      await clipboard.writeText(queueContextText(queueFilter, queueSort, scanCursor))
+      setOperatorReviewMessage('Queue view copied.')
+    } catch {
+      setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
+    }
+  }
+
   return (
     <section className="panel founder-operator-panel" aria-label="Founder covenant operations">
       <h2 className="panel-title">Founder Ops</h2>
@@ -354,6 +368,14 @@ export default function FounderCovenantOperatorPanel({
           <div className="founder-operator-actions">
             <button
               className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyQueueViewContext()}
+              type="button"
+            >
+              Copy view
+            </button>
+            <button
+              className="btn small ghost"
               disabled={loading || (queueFilter === 'all' && queueSort === 'priority')}
               onClick={() => {
                 setQueueFilter('all')
@@ -444,6 +466,14 @@ function queueSortLabel(sort: FounderCovenantOperatorQueueSort): string {
     case 'founder':
       return 'Founder #'
   }
+}
+
+function queueContextText(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+  scanCursor: string | null,
+): string {
+  return `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}`
 }
 
 function formatOperatorAuthExpiry(expiresAt: number): string {
