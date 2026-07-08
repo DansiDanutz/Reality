@@ -1422,6 +1422,35 @@ export function founderCovenantOperatorQueueReviewProvenanceSummary(
   return `Recent reviews: ${visibleRows.join(' · ')}${remaining > 0 ? ` · +${remaining} more` : ''}`
 }
 
+export function founderCovenantOperatorQueueSelectedFreshnessLabel(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+): string {
+  const sliceTotals = founderCovenantOperatorQueueSliceTotals(queue, filter)
+  if (sliceTotals.founders === 0) return '0 founders'
+  if (sliceTotals.neverReviewed > 0 && sliceTotals.staleReviewed === 0 && sliceTotals.freshReviewed === 0) {
+    return `${sliceTotals.neverReviewed} never`
+  }
+  if (sliceTotals.staleReviewed > 0 && sliceTotals.neverReviewed === 0 && sliceTotals.freshReviewed === 0) {
+    return `${sliceTotals.staleReviewed} stale`
+  }
+  if (sliceTotals.freshReviewed > 0 && sliceTotals.neverReviewed === 0 && sliceTotals.staleReviewed === 0) {
+    return `${sliceTotals.freshReviewed} fresh`
+  }
+  return `${sliceTotals.founders} mixed`
+}
+
+export function founderCovenantOperatorQueueSelectedFreshnessTone(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+): FounderCovenantReviewTone {
+  const sliceTotals = founderCovenantOperatorQueueSliceTotals(queue, filter)
+  if (sliceTotals.founders === 0) return 'stable'
+  if (sliceTotals.neverReviewed > 0) return 'critical'
+  if (sliceTotals.staleReviewed > 0) return 'warning'
+  return 'stable'
+}
+
 export function founderCovenantOperatorQueueFilterSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,

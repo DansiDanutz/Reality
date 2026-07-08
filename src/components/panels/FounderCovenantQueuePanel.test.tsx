@@ -46,6 +46,8 @@ import {
   founderCovenantOperatorQueueRecommendedNextTone,
   founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueWorkloadSummary,
+  founderCovenantOperatorQueueSelectedFreshnessLabel,
+  founderCovenantOperatorQueueSelectedFreshnessTone,
 } from './founderAreaPanelView'
 
 describe('FounderCovenantQueuePanel', () => {
@@ -1530,6 +1532,14 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueActivityRiskSummary(queueWithCadence)).toBe('Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(founderCovenantOperatorQueueWorkloadSummary(queueWithCadence)).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup')
     expect(founderCovenantOperatorQueueFocusSummary(queueWithCadence)).toBe('Focus: 1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
+    expect(founderCovenantOperatorQueueSelectedFreshnessLabel(queue, 'manual_review')).toBe('1 never')
+    expect(founderCovenantOperatorQueueSelectedFreshnessTone(queue, 'manual_review')).toBe('critical')
+    expect(founderCovenantOperatorQueueSelectedFreshnessLabel(queueWithStale, 'stale_reviewed')).toBe('1 stale')
+    expect(founderCovenantOperatorQueueSelectedFreshnessTone(queueWithStale, 'stale_reviewed')).toBe('warning')
+    expect(founderCovenantOperatorQueueSelectedFreshnessLabel(queueWithCoverage, 'fresh_reviewed')).toBe('1 fresh')
+    expect(founderCovenantOperatorQueueSelectedFreshnessTone(queueWithCoverage, 'fresh_reviewed')).toBe('stable')
+    expect(founderCovenantOperatorQueueSelectedFreshnessLabel(queueWithCadence, 'all')).toBe('7 mixed')
+    expect(founderCovenantOperatorQueueSelectedFreshnessTone(queueWithCadence, 'all')).toBe('critical')
     expect(founderCovenantOperatorQueueReviewProvenanceSummary({
       items: [
         founderQueueItem({

@@ -31,6 +31,7 @@ import {
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueEscalationSummary,
   founderCovenantOperatorQueueEscalationWorkSummary,
+  founderCovenantOperatorQueueFilterSummary,
   founderCovenantOperatorQueueFreshnessSummary,
   founderCovenantOperatorQueueManualReviewSummary,
   founderCovenantOperatorQueueSignalSummary,
@@ -38,6 +39,8 @@ import {
   founderCovenantOperatorQueueReplacementRiskSummary,
   founderCovenantOperatorQueuePrimaryWorkloadSummary,
   founderCovenantOperatorQueuePrimaryWorkloadTone,
+  founderCovenantOperatorQueueSelectedFreshnessLabel,
+  founderCovenantOperatorQueueSelectedFreshnessTone,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecordReadyCount,
@@ -196,6 +199,15 @@ export default function FounderCovenantOperatorPanel({
   const telegramWorkNext = queue
     ? founderCovenantOperatorQueueTelegramWorkNextSummary(queue, queueFilter, queueSort)
     : 'Telegram work next: none'
+  const selectedSliceSummary = queue
+    ? founderCovenantOperatorQueueFilterSummary(queue, queueFilter, queueSort)
+    : 'Queue slice unavailable'
+  const selectedReviewProvenanceSummary = queue
+    ? founderCovenantOperatorQueueReviewProvenanceSummary(queue, queueFilter, queueSort)
+    : null
+  const selectedSliceContextTitle = [selectedSliceSummary, selectedReviewProvenanceSummary]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .join(' · ')
 
   const applyCoveragePreset = useCallback((filter: FounderCovenantOperatorQueueFilter) => {
     setQueueFilter(filter)
@@ -1220,7 +1232,7 @@ export default function FounderCovenantOperatorPanel({
             </button>
           </div>
           <div className="founder-ledger-summary" aria-label="Founder operator queue view summary">
-            <span className={`founder-ledger-chip ${queueViewChipTone(queueFilter)}`}>
+            <span className={`founder-ledger-chip ${queueViewChipTone(queueFilter)}`} title={selectedSliceContextTitle}>
               <span>View</span>
               <strong>{queueViewLabel(queueFilter)}</strong>
             </span>
@@ -1229,11 +1241,21 @@ export default function FounderCovenantOperatorPanel({
               <strong>{queueSortLabel(queueSort)}</strong>
             </span>
             {queuePresetLabel(queueFilter, queueSort) && (
-              <span className={`founder-ledger-chip ${queuePresetChipTone(queueFilter, queueSort)}`}>
+              <span
+                className={`founder-ledger-chip ${queuePresetChipTone(queueFilter, queueSort)}`}
+                title={selectedSliceContextTitle}
+              >
                 <span>Preset</span>
                 <strong>{queuePresetLabel(queueFilter, queueSort)}</strong>
               </span>
             )}
+            <span
+              className={`founder-ledger-chip ${founderCovenantOperatorQueueSelectedFreshnessTone(queue, queueFilter)}`}
+              title={selectedSliceContextTitle}
+            >
+              <span>Slice</span>
+              <strong>{founderCovenantOperatorQueueSelectedFreshnessLabel(queue, queueFilter)}</strong>
+            </span>
             <span className="founder-ledger-chip warning">
               <span>Cursor</span>
               <strong>{scanCursor ?? 'start'}</strong>
