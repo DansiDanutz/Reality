@@ -1415,7 +1415,7 @@ function totalDebt(citizen: WorldCitizen): number {
 
 function insuranceActionDashboard(area: WorldArea, citizen: WorldCitizen, at: number): AreaInsuranceActionDashboard {
   const insurers = area.businesses
-    .filter((business) => business.kind === 'insurance')
+    .filter((business) => business.kind === 'insurance' && serviceCapacity(area, business, 1) > 0)
     .sort((a, b) =>
       (a.price ?? DEFAULT_PRICES.insurance) - (b.price ?? DEFAULT_PRICES.insurance) || a.id.localeCompare(b.id),
     )
@@ -2862,6 +2862,7 @@ function buyInsuranceFromIntent(
   const insurer = area.businesses.find((business) => business.id === intent.insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
+  if (serviceCapacity(area, insurer, 1) <= 0) return { ok: false, area, error: 'service_not_available' }
 
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
@@ -3046,7 +3047,12 @@ function renewInsurancePolicies(area: WorldArea, context: StepContext): void {
       lapseInsurance(citizen, context)
       continue
     }
+    if (!hasRemainingBusinessCapacity(area, insurer, context)) {
+      lapseInsurance(citizen, context)
+      continue
+    }
 
+    reserveBusinessCapacity(context, insurer)
     citizen.money = roundMoney(citizen.money - premium)
     citizen.insurancePaidUntil = context.at + INSURANCE_POLICY_PERIOD_MS
     insurer.cash = roundMoney(insurer.cash + premium)
@@ -3295,11 +3301,15 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
   const start = context.servedByKind[kind] % candidates.length
   for (let offset = 0; offset < candidates.length; offset++) {
     const business = candidates[(start + offset) % candidates.length]
-    const capacity = serviceCapacity(area, business, context.hours)
-    const used = context.capacityUsed[business.id] ?? 0
-    if (used < capacity) return business
+    if (hasRemainingBusinessCapacity(area, business, context)) return business
   }
   return null
+}
+
+function hasRemainingBusinessCapacity(area: WorldArea, business: WorldBusiness, context: StepContext): boolean {
+  const capacity = serviceCapacity(area, business, context.hours)
+  const used = context.capacityUsed[business.id] ?? 0
+  return used < capacity
 }
 
 function reserveBusinessCapacity(context: StepContext, business: WorldBusiness): void {
@@ -3309,9 +3319,16 @@ function reserveBusinessCapacity(context: StepContext, business: WorldBusiness):
 
 function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number): number {
   const activeStaff = activeStaffCount(area, business)
+  if (ownerUnavailableWithoutStaff(area, business, activeStaff)) return 0
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+}
+
+function ownerUnavailableWithoutStaff(area: WorldArea, business: WorldBusiness, activeStaff: number): boolean {
+  if (activeStaff > 0) return false
+  const owner = area.citizens.find((citizen) => citizen.id === business.ownerId)
+  return owner?.state.kind === 'hospitalized'
 }
 
 function activeStaffCount(area: WorldArea, business: WorldBusiness): number {
