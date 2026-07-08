@@ -7,6 +7,7 @@ import {
   founderCovenantOperatorQueueBlockerSummary,
   founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantOperatorQueueProbationRiskSummary,
+  founderCovenantOperatorQueueReplacementRiskSummary,
   founderCovenantOperatorQueueSignalSummary,
   founderCovenantOperatorQueuePrimaryWorkloadSummary,
   founderCovenantOperatorQueuePrimaryWorkloadTone,
@@ -280,6 +281,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>Hospital</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Founder state: inactive 0 · usefulness gaps 0 · build gaps 0 · staffing gaps 0 · debt risk 0 · hospitalized 0 · at risk 0"><span>At risk</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip stable" title="Probation risk: 0 founders · 0 low score · 0 manual review"><span>Probation risk</span><strong>0</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable" title="Replacement risk: 0 founders · 0 inactive · 0 manual review"><span>Replacement risk</span><strong>0</strong>')
     expect(html).toContain('class="founder-ledger-chip warning" title="Action: record due reviews · record due founder reviews"><span>Next</span><strong>record due reviews</strong>')
     expect(html).toContain('title="Signals: 0 critical · 1 warning · 1 founder flagged"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Signals: 0 critical · 1 warning · 1 founder flagged"><span>Signals</span><strong>1</strong>')
@@ -363,6 +365,9 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(founderCovenantOperatorQueueProbationRiskSummary({
       items: operatorQueue().items,
     })).toBe('Probation risk: 1 founder · 1 low score · 1 manual review')
+    expect(founderCovenantOperatorQueueReplacementRiskSummary({
+      items: operatorQueue().items,
+    })).toBe('Replacement risk: 1 founder · 1 inactive · 1 manual review')
     expect(founderCovenantOperatorQueuePrimaryWorkloadSummary({
       items: operatorQueue().items,
     })).toBe('collect evidence')

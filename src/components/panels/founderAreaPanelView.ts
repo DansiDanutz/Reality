@@ -915,6 +915,17 @@ export function founderCovenantOperatorQueueProbationRiskSummary(
   return `Probation risk: ${probationRiskFounders} founder${probationRiskFounders === 1 ? '' : 's'} · ${lowScoreFounders} low score · ${manualReviewFounders} manual review`
 }
 
+export function founderCovenantOperatorQueueReplacementRiskSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+): string {
+  const replacementRiskFounders = queue.items.filter((item) =>
+    (item.manualReviewRequired || item.covenantStatus === 'manual_review') && !item.activityReview.active
+  ).length
+  const inactiveFounders = queue.items.filter((item) => !item.activityReview.active).length
+  const manualReviewFounders = queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length
+  return `Replacement risk: ${replacementRiskFounders} founder${replacementRiskFounders === 1 ? '' : 's'} · ${inactiveFounders} inactive · ${manualReviewFounders} manual review`
+}
+
 export function founderCovenantOperatorQueueWorkflowSplitSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): string {
