@@ -962,10 +962,10 @@ describe('Reality area client', () => {
 
     await expect(recordRealityFounderCovenantOperatorReview({
       operatorToken: ' operator-token ',
-      founderCitizenId: 'citizen-1',
-      areaId: 'founder-area-0012',
+      founderCitizenId: ' citizen-1 ',
+      areaId: ' founder-area-0012 ',
       actionKind: 'record_review',
-      note: 'Reviewed external contribution evidence.',
+      note: ' Reviewed external contribution evidence. ',
       evidenceKinds: ['external_contribution'],
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
@@ -1011,6 +1011,36 @@ describe('Reality area client', () => {
       error: 'Founder covenant review requires an operator token.',
       code: 'operator_unauthorized',
     })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('rejects operator review evidence without founder or area identity before request', async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: '   ',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review requires a founder and area identity.',
+      code: 'invalid_area_identity',
+    })
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: 'citizen-1',
+      areaId: '   ',
+      actionKind: 'record_review',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review requires a founder and area identity.',
+      code: 'invalid_area_identity',
+    })
+
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 

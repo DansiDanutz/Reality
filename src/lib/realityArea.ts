@@ -1056,7 +1056,7 @@ export interface RealityFounderCovenantOperatorReviewRequest {
 
 export type RealityFounderCovenantOperatorReviewResult =
   | { ok: true; state: RealityAreaState; dashboard?: RealityAreaDashboard }
-  | { ok: false; reason: 'missing_operator_token' | 'request_failed' | 'server_rejected'; error: string; code?: string }
+  | { ok: false; reason: 'missing_operator_token' | 'invalid_request' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
 
@@ -1201,12 +1201,23 @@ export async function recordRealityFounderCovenantOperatorReview(
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityFounderCovenantOperatorReviewResult> {
   const token = request.operatorToken?.trim()
+  const founderCitizenId = request.founderCitizenId.trim()
+  const areaId = request.areaId.trim()
+  const note = request.note?.trim()
   if (!token) {
     return {
       ok: false,
       reason: 'missing_operator_token',
       error: 'Founder covenant review requires an operator token.',
       code: 'operator_unauthorized',
+    }
+  }
+  if (!founderCitizenId || !areaId) {
+    return {
+      ok: false,
+      reason: 'invalid_request',
+      error: 'Founder covenant review requires a founder and area identity.',
+      code: 'invalid_area_identity',
     }
   }
 
@@ -1220,10 +1231,10 @@ export async function recordRealityFounderCovenantOperatorReview(
       body: JSON.stringify({
         intent: {
           type: 'recordFounderCovenantOperatorReview',
-          founderCitizenId: request.founderCitizenId,
-          areaId: request.areaId,
+          founderCitizenId,
+          areaId,
           actionKind: request.actionKind,
-          ...(request.note ? { note: request.note } : {}),
+          ...(note ? { note } : {}),
           ...(request.evidenceKinds ? { evidenceKinds: request.evidenceKinds } : {}),
         },
       }),
