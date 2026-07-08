@@ -27,6 +27,7 @@ import {
   founderCovenantReviewCadenceSummary,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewInputSummary,
+  founderCovenantReviewInputDetailText,
   founderCovenantReviewInputStatusClass,
   founderCovenantReviewInputStatusLabel,
   founderCovenantReviewItems,
@@ -112,6 +113,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -1020,6 +1023,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant review input snapshots', () => {
     expect(founderCovenantReviewInputSummary({ reviewInputs: [] })).toBe('No input snapshot')
+    expect(founderCovenantReviewInputDetailText({ reviewInputs: [] })).toBe('Input detail unavailable')
     expect(founderCovenantReviewInputSummary({
       reviewInputs: [{
         kind: 'in_game_activity',
@@ -1041,6 +1045,27 @@ describe('FounderAreaPanel covenant presenters', () => {
         manualEvidenceRequired: false,
       }],
     })).toBe('Inputs snapshot · 1 captured · 1 manual · 1 watch')
+    expect(founderCovenantReviewInputDetailText({
+      reviewInputs: [{
+        kind: 'in_game_activity',
+        label: 'In-game activity',
+        status: 'captured',
+        evidence: 'Founder activity is captured from local businesses, staffing, and purchases.',
+        manualEvidenceRequired: false,
+      }, {
+        kind: 'external_contribution',
+        label: 'External contribution',
+        status: 'manual_needed',
+        evidence: 'GitHub, code, design, docs, and testing contributions must be attached by reviewers manually.',
+        manualEvidenceRequired: true,
+      }, {
+        kind: 'area_health',
+        label: 'Area health',
+        status: 'watch',
+        evidence: 'Area health has service or staffing issues to review.',
+        manualEvidenceRequired: false,
+      }],
+    })).toBe('External contribution')
   })
 
   test('summarizes captured covenant stage snapshots', () => {

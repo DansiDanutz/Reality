@@ -985,6 +985,16 @@ export function founderCovenantReviewInputSummary(
   return `Inputs snapshot · ${captured} captured · ${manual} manual · ${watch} watch`
 }
 
+export function founderCovenantReviewInputDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'reviewInputs'>,
+): string {
+  if (review.reviewInputs.length === 0) return 'Input detail unavailable'
+  const manual = review.reviewInputs.filter((input) => input.manualEvidenceRequired || input.status === 'manual_needed')
+  if (manual.length > 0) return manual.map((input) => input.label).join(', ')
+  const watch = review.reviewInputs.filter((input) => input.status === 'watch')
+  return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'Complete'
+}
+
 export function founderCovenantStageSnapshotSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'stages'>,
 ): string {
