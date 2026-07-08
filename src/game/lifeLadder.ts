@@ -649,7 +649,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   const cashNeeded = Math.max(0, shell.item.price + CASH_SAFETY_FLOOR - snapshot.money)
   if (cashNeeded > 0) {
     return task(
-      'build-first-business',
+      'work-for-first-business-foundation',
       `Save for ${shell.item.name} foundation`,
       `${shell.item.name} costs $${shell.item.price.toLocaleString()} before the map shell. Save $${cashNeeded.toLocaleString()} more, then place it and build through materials, permit, and labor.`,
       'work',
@@ -1094,7 +1094,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const construction = constructionPrimary(snapshot)
   const community = communityPrimary(snapshot)
   const business = businessPrimary(snapshot)
-  const businessBeforeCommunity = business && business.id !== 'build-first-business' ? business : null
+  const businessBeforeCommunity = business && business.id !== 'build-first-business' && business.id !== 'work-for-first-business-foundation' ? business : null
   const steady = task('steady-owner-day', 'Run a steady owner day', 'Collect, study, help someone, and reinvest the surplus.', 'capital', { kind: 'panel', panel: 'assets' }, 60)
   const millionairePath = millionairePathFor(snapshot)
   const millionaireTask = millionairePathTask(millionairePath, {

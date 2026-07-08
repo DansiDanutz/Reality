@@ -675,8 +675,8 @@ describe('planLifeDay', () => {
 
     expect(plan.primary.id).toBe('help-local-person')
     expect(plan.millionairePath.nextAction).toBe('buy-business')
-    expect(plan.millionaireTask.id).toBe('build-first-business')
-    expect(plan.agenda.map((item) => item.id)).toContain('build-first-business')
+    expect(plan.millionaireTask.id).toBe('work-for-first-business-foundation')
+    expect(plan.agenda.map((item) => item.id)).toContain('work-for-first-business-foundation')
   })
 
   test('passes friendship into the millionaire opportunity forecast', () => {
@@ -712,7 +712,7 @@ describe('planLifeDay', () => {
     }))
     const trips = Object.fromEntries(plan.constructionForecast?.resourceTrips.map((item) => [item.kind, item.trips]) ?? [])
 
-    expect(plan.primary.id).toBe('build-first-business')
+    expect(plan.primary.id).toBe('work-for-first-business-foundation')
     expect(plan.primary.title).toBe('Save for Food Cart foundation')
     expect(plan.primary.value).toBe('work')
     expect(plan.primary.route).toEqual({ kind: 'work-action', action: 'shift' })

@@ -97,7 +97,7 @@ describe('planLifeRoadmap', () => {
     expect(firstIndex('deposit-house-materials')).toBeGreaterThan(firstMatchingIndex('gather-'))
     expect(firstIndex('pay-house-permit')).toBeGreaterThan(firstIndex('deposit-house-materials'))
     expect(firstIndex('hire-house-worker-hour')).toBeGreaterThan(firstIndex('pay-house-permit'))
-    expect(firstIndex('build-first-business')).toBeGreaterThan(firstIndex('hire-house-worker-hour'))
+    expect(firstIndex('work-for-first-business-foundation')).toBeGreaterThan(firstIndex('hire-house-worker-hour'))
     expect(roadmap.valuesCovered).toEqual(expect.arrayContaining(['body', 'work', 'school', 'capital']))
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
     expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'business')).toBe(false)
