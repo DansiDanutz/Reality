@@ -1118,6 +1118,26 @@ describe('construction worker contracts', () => {
       text: 'Construction still needs materials, labor, or the permit.',
       tone: 'blocked',
     })
+
+    useGame.setState({
+      constructionProjects: [project],
+      selectedMapTarget: { kind: 'construction', id: project.id },
+      panel: 'construction',
+      toasts: [],
+    })
+    useGame.getState().completeConstructionIfReady(project.id)
+
+    state = useGame.getState()
+    expect(state.constructionProjects).toEqual([])
+    expect(state.assets.filter((asset) => asset.id === builtHome!.id)).toHaveLength(1)
+    expect(state.assets.filter((asset) =>
+      asset.kind === 'home' &&
+      asset.itemId === builtHome!.itemId &&
+      asset.lat === builtHome!.lat &&
+      asset.lng === builtHome!.lng
+    )).toHaveLength(1)
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: builtHome!.id })
+    expect(state.panel).toBe('home')
   })
 })
 

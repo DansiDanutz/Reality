@@ -1006,6 +1006,20 @@ function completeConstructionForState(
 ): { constructionProjects: ConstructionProject[]; assets: PlacedAsset[]; asset: PlacedAsset | null } {
   const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
   if (!project) return { constructionProjects: s.constructionProjects, assets: s.assets, asset: null }
+  const existingAsset = s.assets.find((asset) =>
+    asset.kind === project.resultKind &&
+    asset.itemId === project.itemId &&
+    asset.lat === project.lat &&
+    asset.lng === project.lng &&
+    asset.name === project.name
+  )
+  if (existingAsset) {
+    return {
+      constructionProjects: s.constructionProjects.filter((candidate) => candidate.id !== projectId),
+      assets: s.assets,
+      asset: existingAsset,
+    }
+  }
   const completed = completeConstructionProject(project)
   if (!completed.asset) return { constructionProjects: s.constructionProjects, assets: s.assets, asset: null }
   return {
