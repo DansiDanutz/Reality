@@ -8,6 +8,7 @@ import {
   type FounderCovenantOperatorQueueSort,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueuePrimaryWorkloadText,
+  founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueSummary,
   founderCovenantOperatorQueueWorkloadSummary,
@@ -51,6 +52,7 @@ export function FounderCovenantQueuePanel({
         <span>{founderCovenantOperatorQueuePageSummary(queue)}</span>
         <span>{founderCovenantOperatorQueueWorkloadSummary(queue)}</span>
         <span>{founderCovenantOperatorQueuePrimaryWorkloadText(queue)}</span>
+        <span>{founderCovenantOperatorQueueRecommendedActionText(queue)}</span>
       </div>
       <div className="founder-covenant-meta" aria-label="Founder operator queue filters">
         <span>Filter: {queueFilterLabel(filter)}</span>
