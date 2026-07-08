@@ -276,6 +276,7 @@ function isWorldAreaEvent(value: unknown): value is WorldAreaEvent {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
     isFiniteNumber(value.at) &&
+    value.at >= 0 &&
     isOneOf(value.kind, AREA_EVENT_KINDS) &&
     isOneOf(value.severity, AREA_EVENT_SEVERITIES) &&
     isNonEmptyString(value.citizenId) &&
