@@ -2,6 +2,12 @@ import { JOBS } from '../../game/catalog'
 import { formatMoney, xpForLevel } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
+export function recommendedJobForLevel(level: number) {
+  return [...JOBS]
+    .filter((job) => level >= job.requiredLevel)
+    .sort((a, b) => b.wage - a.wage || a.requiredLevel - b.requiredLevel)[0] ?? null
+}
+
 export default function WorkPanel() {
   const level = useGame((s) => s.level)
   const xp = useGame((s) => s.xp)
@@ -10,6 +16,7 @@ export default function WorkPanel() {
   const activity = useGame((s) => s.activity)
   const takeJob = useGame((s) => s.takeJob)
   const startShift = useGame((s) => s.startShift)
+  const recommendedJob = recommendedJobForLevel(level)
 
   return (
     <section className="panel" aria-label="Work">
@@ -18,6 +25,11 @@ export default function WorkPanel() {
         Level {level} · {xp}/{xpForLevel(level)} XP · {shiftsWorked} shifts worked. A shift is 8 real
         hours — clock in, live your day, pay lands when it ends. Leave early for pro-rata pay, no XP.
       </p>
+      {recommendedJob && (
+        <p className="panel-sub">
+          Best next job: <strong>{recommendedJob.title}</strong> — {recommendedJob.flavor}
+        </p>
+      )}
 
       <ul className="item-list">
         {JOBS.map((job) => {
