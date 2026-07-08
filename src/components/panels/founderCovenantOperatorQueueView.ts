@@ -81,6 +81,10 @@ export function queueCoveragePresetLabel(
       return 'Cleanup Never'
     case 'stale_reviewed':
       return 'Cleanup Stale'
+    case 'stale_weekly_due':
+      return 'Cleanup Stale Week'
+    case 'stale_monthly_due':
+      return 'Cleanup Stale Month'
     case 'fresh_reviewed':
       return 'Audit Fresh'
     default:

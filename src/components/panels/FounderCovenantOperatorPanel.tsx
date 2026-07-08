@@ -509,6 +509,22 @@ export default function FounderCovenantOperatorPanel({
               Cleanup Stale
             </button>
             <button
+              className={`btn small ${activeCoveragePreset === 'stale_weekly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyCoveragePreset('stale_weekly_due')}
+              type="button"
+            >
+              Cleanup Stale Week
+            </button>
+            <button
+              className={`btn small ${activeCoveragePreset === 'stale_monthly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyCoveragePreset('stale_monthly_due')}
+              type="button"
+            >
+              Cleanup Stale Month
+            </button>
+            <button
               className={`btn small ${activeCoveragePreset === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => applyCoveragePreset('fresh_reviewed')}
