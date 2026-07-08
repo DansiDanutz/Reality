@@ -3,6 +3,7 @@ import {
   founderCovenantOperatorQueueFilterCountsSummary,
   type FounderCovenantOperatorQueueFilter,
   type FounderCovenantOperatorQueueReviewRow,
+  type FounderCovenantOperatorQueueSort,
   founderCovenantOperatorQueueFilterSummary,
   founderCovenantOperatorQueueFilteredReviewRows,
   founderCovenantOperatorQueuePageSummary,
@@ -17,8 +18,10 @@ export interface FounderCovenantQueuePanelProps {
   filter?: FounderCovenantOperatorQueueFilter
   onFilterChange?: (filter: FounderCovenantOperatorQueueFilter) => void
   onRecordReview?: (row: FounderCovenantOperatorQueueReviewRow) => void
+  onSortChange?: (sort: FounderCovenantOperatorQueueSort) => void
   queue: RealityFounderCovenantReviewQueueDashboard
   recordingReviewKey?: string | null
+  sort?: FounderCovenantOperatorQueueSort
 }
 
 export function FounderCovenantQueuePanel({
@@ -26,10 +29,12 @@ export function FounderCovenantQueuePanel({
   filter = 'all',
   onFilterChange,
   onRecordReview,
+  onSortChange,
   queue,
   recordingReviewKey = null,
+  sort = 'priority',
 }: FounderCovenantQueuePanelProps) {
-  const reviewRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter)
+  const reviewRows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
 
   return (
     <section className="founder-section founder-covenant-operator-queue" aria-label="Founder covenant operator queue">
@@ -66,8 +71,22 @@ export function FounderCovenantQueuePanel({
           </button>
         ))}
         <span className="item-desc">Filter: {FILTER_OPTIONS.find((option) => option.value === filter)?.label ?? 'All'}</span>
-        <span className="item-desc">{founderCovenantOperatorQueueFilterSummary(queue, filter)}</span>
+        <span className="item-desc">{founderCovenantOperatorQueueFilterSummary(queue, filter, sort)}</span>
         <span className="item-desc">{founderCovenantOperatorQueueFilterCountsSummary(queue)}</span>
+      </div>
+      <div className="founder-operator-actions" aria-label="Founder operator queue sort">
+        {SORT_OPTIONS.map((option) => (
+          <button
+            className="btn small ghost"
+            disabled={sort === option.value}
+            key={option.value}
+            onClick={() => onSortChange?.(option.value)}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+        <span className="item-desc">Sort: {SORT_OPTIONS.find((option) => option.value === sort)?.label ?? 'Priority'}</span>
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip
@@ -192,6 +211,11 @@ const FILTER_OPTIONS: { value: FounderCovenantOperatorQueueFilter; label: string
   { value: 'manual_review', label: 'Manual' },
   { value: 'hospitalized', label: 'Hospital' },
   { value: 'scan_anomaly', label: 'Scan' },
+]
+
+const SORT_OPTIONS: { value: FounderCovenantOperatorQueueSort; label: string }[] = [
+  { value: 'priority', label: 'Priority' },
+  { value: 'founder', label: 'Founder #' },
 ]
 
 function QueueTotalChip({

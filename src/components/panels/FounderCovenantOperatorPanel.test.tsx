@@ -48,6 +48,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Filter: All')
     expect(html).toContain('1 founder in current page')
     expect(html).toContain('All 1 · Manual 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('Sort: Priority')
+    expect(html).toContain('>Founder #<')
     expect(html).toContain('>Manual<')
     expect(html).toContain('>Hospital<')
     expect(html).toContain('>Scan<')

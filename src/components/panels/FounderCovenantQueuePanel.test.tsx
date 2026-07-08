@@ -77,6 +77,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
     expect(html).toContain('All 2 · Manual 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('aria-label="Founder operator queue sort"')
+    expect(html).toContain('Sort: Priority')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -511,6 +513,21 @@ describe('FounderCovenantQueuePanel', () => {
     )
   })
 
+  test('can sort filtered review rows by founder number instead of priority', () => {
+    const queue = founderSortQueue()
+
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'all').map(founderId)).toEqual([
+      'founder-12',
+      'founder-15',
+      'founder-13',
+    ])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'all', 'founder').map(founderId)).toEqual([
+      'founder-12',
+      'founder-13',
+      'founder-15',
+    ])
+  })
+
   test('renders filtered empty-state messaging when no founders match', () => {
     const html = renderToStaticMarkup(<FounderCovenantQueuePanel filter="scan_anomaly" queue={founderQueue()} />)
 
@@ -685,6 +702,81 @@ function founderFilterQueue(): RealityFounderCovenantReviewQueueDashboard {
   return {
     ...founderQueue(),
     items: [manual, anomaly, tracked],
+  }
+}
+
+function founderSortQueue(): RealityFounderCovenantReviewQueueDashboard {
+  const manual = founderQueueItem()
+  const higherPriority = founderQueueItem({
+    areaId: 'founder-area-0015',
+    areaLabel: 'Oradea Founder Block',
+    founderCitizenId: 'founder-15',
+    founderNumber: 15,
+    manualReviewRequired: false,
+    covenantStatus: 'watch',
+    overdue: true,
+    activityReview: {
+      ...manual.activityReview,
+      active: false,
+      useful: false,
+      building: true,
+      staffed: false,
+      hospitalized: false,
+      atRisk: true,
+      indebted: false,
+      score: 49,
+    },
+    economicExposure: {
+      ...manual.economicExposure,
+      outstandingDebt: 0,
+      debtCount: 0,
+      unstaffedBusinessCount: 1,
+      hospitalized: false,
+      insured: true,
+    },
+    signalCounts: { total: 1, info: 0, warning: 1, critical: 0 },
+    signalKinds: ['review_due'],
+    blockerCount: 1,
+    scanStatus: 'current',
+    transactionsAdded: 0,
+  })
+  const tracked = founderQueueItem({
+    areaId: 'founder-area-0013',
+    areaLabel: 'Cluj Founder Block',
+    founderCitizenId: 'founder-13',
+    founderNumber: 13,
+    manualReviewRequired: false,
+    covenantStatus: 'active',
+    overdue: false,
+    activityReview: {
+      ...manual.activityReview,
+      active: true,
+      useful: true,
+      building: true,
+      staffed: true,
+      hospitalized: false,
+      atRisk: false,
+      indebted: false,
+      score: 91,
+    },
+    economicExposure: {
+      ...manual.economicExposure,
+      outstandingDebt: 0,
+      debtCount: 0,
+      unstaffedBusinessCount: 0,
+      hospitalized: false,
+      insured: true,
+    },
+    signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+    signalKinds: [],
+    blockerCount: 0,
+    scanStatus: 'current',
+    transactionsAdded: 0,
+  })
+
+  return {
+    ...founderQueue(),
+    items: [manual, higherPriority, tracked],
   }
 }
 

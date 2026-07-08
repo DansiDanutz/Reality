@@ -114,6 +114,7 @@ export interface FounderCovenantScheduleItem {
 
 export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
 export type FounderCovenantOperatorQueueFilter = 'all' | 'manual_review' | 'hospitalized' | 'scan_anomaly'
+export type FounderCovenantOperatorQueueSort = 'priority' | 'founder'
 
 export interface FounderCovenantOperatorQueueReviewRow {
   key: string
@@ -1432,6 +1433,7 @@ export function founderCovenantOperatorQueueReviewRows(
 export function founderCovenantOperatorQueueFilteredReviewRows(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
 ): FounderCovenantOperatorQueueReviewRow[] {
   const items = queue.items.filter((item) => {
     switch (filter) {
@@ -1445,14 +1447,17 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
         return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
     }
   })
-  return founderCovenantOperatorQueueReviewRows({ items })
+  const rows = founderCovenantOperatorQueueReviewRows({ items })
+  if (sort === 'priority') return rows
+  return [...rows].sort((a, b) => a.title.localeCompare(b.title))
 }
 
 export function founderCovenantOperatorQueueFilterSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
 ): string {
-  const count = founderCovenantOperatorQueueFilteredReviewRows(queue, filter).length
+  const count = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort).length
   switch (filter) {
     case 'all':
       return `${count} founder${count === 1 ? '' : 's'} in current page`
