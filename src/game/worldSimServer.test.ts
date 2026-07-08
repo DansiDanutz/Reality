@@ -1458,6 +1458,8 @@ describe('runWorldServerCommand', () => {
       indebted: 1,
       atRisk: 2,
       manualReviewRequired: 1,
+      probationRiskFounders: 2,
+      replacementRiskFounders: 1,
       neverReviewed: 2,
       freshReviewed: 0,
       staleReviewed: 0,

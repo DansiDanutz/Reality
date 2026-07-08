@@ -1710,6 +1710,8 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       hospitalized: 1,
       atRisk: 1,
       manualReviewRequired: 1,
+      probationRiskFounders: 1,
+      replacementRiskFounders: 1,
       neverReviewed: 1,
       freshReviewed: 0,
       staleReviewed: 0,

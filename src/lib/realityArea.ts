@@ -936,6 +936,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     hospitalized: number
     atRisk: number
     manualReviewRequired: number
+    probationRiskFounders: number
+    replacementRiskFounders: number
     neverReviewed: number
     freshReviewed: number
     staleReviewed: number
@@ -2246,6 +2248,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.hospitalized === 'number' &&
     typeof value.atRisk === 'number' &&
     typeof value.manualReviewRequired === 'number' &&
+    typeof value.probationRiskFounders === 'number' &&
+    typeof value.replacementRiskFounders === 'number' &&
     typeof value.neverReviewed === 'number' &&
     typeof value.freshReviewed === 'number' &&
     typeof value.staleReviewed === 'number' &&

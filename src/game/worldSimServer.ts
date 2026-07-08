@@ -319,6 +319,8 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     hospitalized: number
     atRisk: number
     manualReviewRequired: number
+    probationRiskFounders: number
+    replacementRiskFounders: number
     neverReviewed: number
     freshReviewed: number
     staleReviewed: number
@@ -878,6 +880,12 @@ function founderCovenantReviewQueueTotals(
     hospitalized: items.filter((item) => item.activityReview.hospitalized).length,
     atRisk: items.filter((item) => item.activityReview.atRisk).length,
     manualReviewRequired: items.filter((item) => item.manualReviewRequired).length,
+    probationRiskFounders: items.filter((item) =>
+      item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
+    ).length,
+    replacementRiskFounders: items.filter((item) =>
+      (item.manualReviewRequired || item.covenantStatus === 'manual_review') && !item.activityReview.active
+    ).length,
     neverReviewed: items.filter((item) => item.lastReviewAt === null).length,
     freshReviewed: items.filter((item) => item.reviewFreshness === 'fresh').length,
     staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,

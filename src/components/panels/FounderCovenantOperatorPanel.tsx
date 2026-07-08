@@ -1285,7 +1285,7 @@ export default function FounderCovenantOperatorPanel({
               title={founderCovenantOperatorQueueProbationRiskSummary(queue)}
             >
               <span>Probation risk</span>
-              <strong>{queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60).length}</strong>
+              <strong>{queue.totals.probationRiskFounders}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
@@ -1296,7 +1296,7 @@ export default function FounderCovenantOperatorPanel({
               title={founderCovenantOperatorQueueReplacementRiskSummary(queue)}
             >
               <span>Replacement risk</span>
-              <strong>{queue.items.filter((item) => (item.manualReviewRequired || item.covenantStatus === 'manual_review') && !item.activityReview.active).length}</strong>
+              <strong>{queue.totals.replacementRiskFounders}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${founderCovenantOperatorQueuePrimaryWorkloadTone(queue)}`}

@@ -578,6 +578,8 @@ describe('FounderAreaPanel covenant presenters', () => {
         hospitalized: 1,
         atRisk: 2,
         manualReviewRequired: 1,
+        probationRiskFounders: 2,
+        replacementRiskFounders: 1,
         neverReviewed: 1,
         freshReviewed: 1,
         staleReviewed: 0,

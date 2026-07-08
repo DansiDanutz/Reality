@@ -2985,6 +2985,8 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       hospitalized: 0,
       atRisk: 1,
       manualReviewRequired: 0,
+      probationRiskFounders: 1,
+      replacementRiskFounders: 0,
       neverReviewed: 1,
       freshReviewed: 0,
       staleReviewed: 0,

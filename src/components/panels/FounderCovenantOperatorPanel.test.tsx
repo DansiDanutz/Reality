@@ -271,6 +271,8 @@ describe('FounderCovenantOperatorPanel', () => {
           ...operatorQueue(),
           totals: {
             ...operatorQueue().totals,
+            probationRiskFounders: 0,
+            replacementRiskFounders: 0,
             weeklyDue: 2,
             monthlyDue: 1,
           },
@@ -690,6 +692,8 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       hospitalized: 1,
       atRisk: 1,
       manualReviewRequired: 1,
+      probationRiskFounders: 1,
+      replacementRiskFounders: 1,
       neverReviewed: 1,
       freshReviewed: 0,
       staleReviewed: 0,
