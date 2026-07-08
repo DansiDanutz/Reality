@@ -1240,6 +1240,18 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Weekly due ${weeklyDue} · Monthly due ${monthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Inactive ${inactive} · Debt ${debtRisk} · Risk ${atRisk} · Telegram ${telegramReady} · Scan ${scan}`
 }
 
+export function founderCovenantOperatorQueueTelegramWorkSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort = 'priority',
+): string {
+  const rows = founderCovenantOperatorQueueFilteredReviewRows(queue, filter, sort)
+  const manual = rows.filter((row) => row.telegramOutputText === 'Telegram manual + warning' || row.telegramOutputText === 'Telegram manual').length
+  const warning = rows.filter((row) => row.telegramOutputText === 'Telegram manual + warning' || row.telegramOutputText === 'Telegram warning').length
+  const update = rows.filter((row) => row.telegramOutputText !== 'Telegram none').length
+  return `Telegram work: ${update} review update${update === 1 ? '' : 's'} · ${manual} manual draft${manual === 1 ? '' : 's'} · ${warning} warning draft${warning === 1 ? '' : 's'}`
+}
+
 export function founderCovenantOperatorQueueSliceTotals(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,

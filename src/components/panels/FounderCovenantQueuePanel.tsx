@@ -3,6 +3,7 @@ import {
   founderCovenantOperatorQueueFilterCountsSummary,
   founderCovenantOperatorQueueFilteredReviewRows,
   founderCovenantOperatorQueueFilterSummary,
+  founderCovenantOperatorQueueTelegramWorkSummary,
   type FounderCovenantOperatorQueueReviewRow,
   type FounderCovenantOperatorQueueFilter,
   type FounderCovenantOperatorQueueSort,
@@ -59,6 +60,7 @@ export function FounderCovenantQueuePanel({
       <div className="founder-covenant-meta" aria-label="Founder operator queue filters">
         <span>Filter: {queueFilterLabel(filter)}</span>
         <span>{founderCovenantOperatorQueueFilterSummary(queue, filter, sort)}</span>
+        <span>{founderCovenantOperatorQueueTelegramWorkSummary(queue, filter, sort)}</span>
         <span>{founderCovenantOperatorQueueFilterCountsSummary(queue)}</span>
       </div>
       <div className="founder-covenant-meta" aria-label="Founder operator queue sort">
