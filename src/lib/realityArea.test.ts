@@ -2991,6 +2991,8 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       warningApprovals: review.reviewQueue.pendingApprovalKinds.filter((kind) => kind === 'send_warning').length,
       probationApprovals: review.reviewQueue.pendingApprovalKinds.filter((kind) => kind === 'start_probation').length,
       replacementApprovals: review.reviewQueue.pendingApprovalKinds.filter((kind) => kind === 'recommend_replacement').length,
+      warningDrafts: review.reviewQueue.pendingNotificationKinds.filter((kind) => kind === 'founder_warning').length,
+      manualReviewDrafts: review.reviewQueue.pendingNotificationKinds.filter((kind) => kind === 'manual_review_required').length,
       overdue: 0,
       totalFounderCash: 199_650,
       totalOutstandingDebt: 300,

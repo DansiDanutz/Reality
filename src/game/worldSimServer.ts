@@ -321,6 +321,8 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     warningApprovals: number
     probationApprovals: number
     replacementApprovals: number
+    warningDrafts: number
+    manualReviewDrafts: number
     overdue: number
     totalFounderCash: number
     totalOutstandingDebt: number
@@ -873,6 +875,10 @@ function founderCovenantReviewQueueTotals(
       total + item.pendingApprovalRequests.filter((request) => request.kind === 'start_probation').length, 0),
     replacementApprovals: items.reduce((total, item) =>
       total + item.pendingApprovalRequests.filter((request) => request.kind === 'recommend_replacement').length, 0),
+    warningDrafts: items.reduce((total, item) =>
+      total + item.pendingNotificationDrafts.filter((draft) => draft.kind === 'founder_warning').length, 0),
+    manualReviewDrafts: items.reduce((total, item) =>
+      total + item.pendingNotificationDrafts.filter((draft) => draft.kind === 'manual_review_required').length, 0),
     overdue: items.filter((item) => item.overdue).length,
     totalFounderCash: roundServerMoney(items.reduce((total, item) => total + item.economicExposure.founderCash, 0)),
     totalOutstandingDebt: roundServerMoney(items.reduce((total, item) =>

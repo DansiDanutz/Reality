@@ -751,6 +751,8 @@ export function founderCovenantOperatorQueueSummary(
     `${totals.warningApprovals} warning approval${totals.warningApprovals === 1 ? '' : 's'}`,
     `${totals.probationApprovals} probation approval${totals.probationApprovals === 1 ? '' : 's'}`,
     `${totals.replacementApprovals} replacement approval${totals.replacementApprovals === 1 ? '' : 's'}`,
+    `${totals.warningDrafts} warning draft${totals.warningDrafts === 1 ? '' : 's'}`,
+    `${totals.manualReviewDrafts} manual-review draft${totals.manualReviewDrafts === 1 ? '' : 's'}`,
     `${totals.overdue} overdue`,
     `${totals.hospitalized} hospitalized`,
     `${totals.indebted} indebted`,

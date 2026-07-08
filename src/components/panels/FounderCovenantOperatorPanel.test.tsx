@@ -134,6 +134,8 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       warningApprovals: 1,
       probationApprovals: 0,
       replacementApprovals: 0,
+      warningDrafts: 0,
+      manualReviewDrafts: 1,
       overdue: 1,
       totalFounderCash: 199_500,
       totalOutstandingDebt: 350,

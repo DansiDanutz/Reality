@@ -941,6 +941,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     warningApprovals: number
     probationApprovals: number
     replacementApprovals: number
+    warningDrafts: number
+    manualReviewDrafts: number
     overdue: number
     totalFounderCash: number
     totalOutstandingDebt: number
@@ -2244,6 +2246,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.warningApprovals === 'number' &&
     typeof value.probationApprovals === 'number' &&
     typeof value.replacementApprovals === 'number' &&
+    typeof value.warningDrafts === 'number' &&
+    typeof value.manualReviewDrafts === 'number' &&
     typeof value.overdue === 'number' &&
     typeof value.totalFounderCash === 'number' &&
     typeof value.totalOutstandingDebt === 'number' &&

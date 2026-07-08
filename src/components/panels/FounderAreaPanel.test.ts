@@ -584,6 +584,8 @@ describe('FounderAreaPanel covenant presenters', () => {
         warningApprovals: 1,
         probationApprovals: 1,
         replacementApprovals: 0,
+        warningDrafts: 0,
+        manualReviewDrafts: 1,
         overdue: 1,
         totalFounderCash: 399_000,
         totalOutstandingDebt: 350,
@@ -633,7 +635,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     } as const
 
     expect(founderCovenantOperatorQueueSummary(queue)).toBe(
-      '2 founders · 1 manual review · 1 never reviewed · 0 weekly due · 0 monthly due · 1 warning approval · 1 probation approval · 0 replacement approvals · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available',
+      '2 founders · 1 manual review · 1 never reviewed · 0 weekly due · 0 monthly due · 1 warning approval · 1 probation approval · 0 replacement approvals · 0 warning drafts · 1 manual-review draft · 1 overdue · 1 hospitalized · 1 indebted · $350 debt · more available',
     )
     expect(founderCovenantOperatorQueuePageSummary(queue)).toBe(
       '2 scanned · 1 caught up · 0 current · 1 failed · next page ready',
