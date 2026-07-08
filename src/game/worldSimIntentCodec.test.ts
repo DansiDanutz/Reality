@@ -82,7 +82,7 @@ describe('decodeClientWorldAreaClaimPayload', () => {
   })
 
   test('rejects client-controlled claim server fields', () => {
-    for (const field of ['founderCitizenId', 'authenticatedFounderId', 'claimedAt', 'source', 'now', 'founder', 'simCitizens', 'money', 'transactions']) {
+    for (const field of ['founderCitizenId', 'authenticatedFounderId', 'claimedAt', 'source', 'now', 'founder', 'simCitizens', 'money', 'areaEvents', 'founderReviewHistory', 'transactions']) {
       expect(decodeClientWorldAreaClaimPayload({
         label: 'Founder District',
         centerLat: 44.45,
@@ -294,7 +294,7 @@ describe('decodeClientWorldIntentPayload', () => {
   })
 
   test('rejects client-controlled server identity, state, and economy fields', () => {
-    for (const field of ['actorCitizenId', 'authenticatedCitizenId', 'authenticatedFounderId', 'areaId', 'now', 'claim', 'blueprint', 'money', 'transactions']) {
+    for (const field of ['actorCitizenId', 'authenticatedCitizenId', 'authenticatedFounderId', 'areaId', 'now', 'claim', 'blueprint', 'money', 'areaEvents', 'founderReviewHistory', 'transactions']) {
       expect(decodeClientWorldIntentPayload({
         type: 'buyWater',
         [field]: field === 'now' ? 1_000 : 'client-value',
