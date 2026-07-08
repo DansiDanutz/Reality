@@ -10,6 +10,7 @@ import {
 } from '../../game/achievements'
 import {
   challengesForDay,
+  dailyChallengeBonusCountLabel,
   challengeProgress,
   challengeRewardFor,
   dailyCompleteBonusForContext,
@@ -342,6 +343,7 @@ function DailyChallengesBlock({
   const done = challenges.filter((c) => claimed.includes(c.id) || challengeProgress(c, snap).complete).length
   const allDone = done === challenges.length
   const bonusReward = dailyCompleteBonusForContext(context)
+  const bonusLabel = dailyChallengeBonusCountLabel(challenges.length)
 
   return (
     <div className="daily-challenges" aria-label="Daily challenges">
@@ -377,8 +379,8 @@ function DailyChallengesBlock({
       {allDone && (
         <div className="daily-bonus">
           {bonusClaimed
-            ? <span className="daily-bonus-claimed">🎯 All 3 complete — bonus claimed!</span>
-            : <span className="daily-bonus-pending">🎯 All 3 complete — bonus +{formatMoney(bonusReward.cash)}, +{bonusReward.xp} XP incoming!</span>}
+            ? <span className="daily-bonus-claimed">🎯 {bonusLabel} complete — bonus claimed!</span>
+            : <span className="daily-bonus-pending">🎯 {bonusLabel} complete — bonus +{formatMoney(bonusReward.cash)}, +{bonusReward.xp} XP incoming!</span>}
         </div>
       )}
     </div>
