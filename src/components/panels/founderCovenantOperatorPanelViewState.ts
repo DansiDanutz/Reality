@@ -57,6 +57,8 @@ function isQueueFilter(value: string | undefined): value is FounderCovenantOpera
     value === 'stale_reviewed' ||
     value === 'stale_weekly_due' ||
     value === 'stale_monthly_due' ||
+    value === 'weekly_due' ||
+    value === 'monthly_due' ||
     value === 'fresh_reviewed' ||
     value === 'manual_review' ||
     value === 'needs_evidence' ||

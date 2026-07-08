@@ -115,6 +115,8 @@ export type FounderCovenantOperatorQueueFilter =
   | 'stale_reviewed'
   | 'stale_weekly_due'
   | 'stale_monthly_due'
+  | 'weekly_due'
+  | 'monthly_due'
   | 'fresh_reviewed'
   | 'manual_review'
   | 'needs_evidence'
@@ -996,44 +998,7 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
   filter: FounderCovenantOperatorQueueFilter,
   sort: FounderCovenantOperatorQueueSort = 'priority',
 ): FounderCovenantOperatorQueueReviewRow[] {
-  const items = queue.items.filter((item) => {
-    switch (filter) {
-      case 'all':
-        return true
-      case 'never_reviewed':
-        return item.reviewFreshness === 'never'
-      case 'stale_reviewed':
-        return item.reviewFreshness === 'stale'
-      case 'stale_weekly_due':
-        return item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue
-      case 'stale_monthly_due':
-        return item.reviewFreshness === 'stale' && item.monthlyReviewDue
-      case 'fresh_reviewed':
-        return item.reviewFreshness === 'fresh'
-      case 'manual_review':
-        return item.manualReviewRequired || item.covenantStatus === 'manual_review'
-      case 'needs_evidence':
-        return item.reviewReadiness.evidenceRequiredCount > 0
-      case 'action_evidence':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Attach missing manual evidence'
-      case 'action_blocked':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
-      case 'action_overdue':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
-      case 'action_record':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review'
-      case 'action_monitor':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor founder'
-      case 'overdue':
-        return item.overdue
-      case 'blocked':
-        return item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
-      case 'hospitalized':
-        return item.activityReview.hospitalized
-      case 'scan_anomaly':
-        return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
-    }
-  })
+  const items = queue.items.filter((item) => founderCovenantOperatorQueueMatchesFilter(item, filter))
 
   const rows = founderCovenantOperatorQueueReviewRows({ items })
   if (sort === 'priority') return rows
@@ -1073,6 +1038,10 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} stale weekly due · ${freshness}`
     case 'stale_monthly_due':
       return `${count} founder${count === 1 ? '' : 's'} stale monthly due · ${freshness}`
+    case 'weekly_due':
+      return `${count} founder${count === 1 ? '' : 's'} weekly review due · ${freshness}`
+    case 'monthly_due':
+      return `${count} founder${count === 1 ? '' : 's'} monthly review due · ${freshness}`
     case 'fresh_reviewed':
       return `${count} founder${count === 1 ? '' : 's'} fresh reviewed · ${freshness}`
     case 'manual_review':
@@ -1108,6 +1077,8 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const staleReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_reviewed').length
   const staleWeeklyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_weekly_due').length
   const staleMonthlyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'stale_monthly_due').length
+  const weeklyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'weekly_due').length
+  const monthlyDue = founderCovenantOperatorQueueFilteredReviewRows(queue, 'monthly_due').length
   const freshReviewed = founderCovenantOperatorQueueFilteredReviewRows(queue, 'fresh_reviewed').length
   const manual = founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').length
   const evidence = founderCovenantOperatorQueueFilteredReviewRows(queue, 'needs_evidence').length
@@ -1120,51 +1091,14 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const blocked = founderCovenantOperatorQueueFilteredReviewRows(queue, 'blocked').length
   const hospital = founderCovenantOperatorQueueFilteredReviewRows(queue, 'hospitalized').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Weekly due ${weeklyDue} · Monthly due ${monthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
   filter: FounderCovenantOperatorQueueFilter,
 ): FounderCovenantOperatorQueueSliceTotals {
-  const items = queue.items.filter((item) => {
-    switch (filter) {
-      case 'all':
-        return true
-      case 'never_reviewed':
-        return item.reviewFreshness === 'never'
-      case 'stale_reviewed':
-        return item.reviewFreshness === 'stale'
-      case 'stale_weekly_due':
-        return item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue
-      case 'stale_monthly_due':
-        return item.reviewFreshness === 'stale' && item.monthlyReviewDue
-      case 'fresh_reviewed':
-        return item.reviewFreshness === 'fresh'
-      case 'manual_review':
-        return item.manualReviewRequired || item.covenantStatus === 'manual_review'
-      case 'needs_evidence':
-        return item.reviewReadiness.evidenceRequiredCount > 0
-      case 'action_evidence':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Attach missing manual evidence'
-      case 'action_blocked':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
-      case 'action_overdue':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
-      case 'action_record':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review'
-      case 'action_monitor':
-        return founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor founder'
-      case 'overdue':
-        return item.overdue
-      case 'blocked':
-        return item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
-      case 'hospitalized':
-        return item.activityReview.hospitalized
-      case 'scan_anomaly':
-        return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
-    }
-  })
+  const items = queue.items.filter((item) => founderCovenantOperatorQueueMatchesFilter(item, filter))
 
   return {
     founders: items.length,
@@ -1199,6 +1133,52 @@ function founderCovenantOperatorQueueReviewFreshnessLabel(
       return 'fresh review'
     case 'stale':
       return 'stale review'
+  }
+}
+
+function founderCovenantOperatorQueueMatchesFilter(
+  item: RealityFounderCovenantReviewQueueDashboard['items'][number],
+  filter: FounderCovenantOperatorQueueFilter,
+): boolean {
+  switch (filter) {
+    case 'all':
+      return true
+    case 'never_reviewed':
+      return item.reviewFreshness === 'never'
+    case 'stale_reviewed':
+      return item.reviewFreshness === 'stale'
+    case 'stale_weekly_due':
+      return item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue
+    case 'stale_monthly_due':
+      return item.reviewFreshness === 'stale' && item.monthlyReviewDue
+    case 'weekly_due':
+      return item.weeklyReviewDue
+    case 'monthly_due':
+      return item.monthlyReviewDue
+    case 'fresh_reviewed':
+      return item.reviewFreshness === 'fresh'
+    case 'manual_review':
+      return item.manualReviewRequired || item.covenantStatus === 'manual_review'
+    case 'needs_evidence':
+      return item.reviewReadiness.evidenceRequiredCount > 0
+    case 'action_evidence':
+      return founderCovenantOperatorQueueRecommendedNextText(item) === 'Attach missing manual evidence'
+    case 'action_blocked':
+      return founderCovenantOperatorQueueRecommendedNextText(item) === 'Review blocked approvals'
+    case 'action_overdue':
+      return founderCovenantOperatorQueueRecommendedNextText(item) === 'Clear overdue review'
+    case 'action_record':
+      return founderCovenantOperatorQueueRecommendedNextText(item) === 'Record review'
+    case 'action_monitor':
+      return founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor founder'
+    case 'overdue':
+      return item.overdue
+    case 'blocked':
+      return item.pendingApprovalRequests.some((request) => request.blockers.length > 0)
+    case 'hospitalized':
+      return item.activityReview.hospitalized
+    case 'scan_anomaly':
+      return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
   }
 }
 

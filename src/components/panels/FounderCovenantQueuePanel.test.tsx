@@ -53,7 +53,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Recommended next: attach missing manual evidence')
     expect(html).toContain('Filter: All')
     expect(html).toContain('2 founders in current page')
-    expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('All 2 · Never 2 · Stale 0 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 1 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('<span>Never</span><strong>2</strong>')
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
@@ -927,11 +927,149 @@ describe('FounderCovenantQueuePanel', () => {
       ...queueWithStale,
       items: [...queueWithStale.items, fresh],
     }
+    const weeklyDue = founderQueueItem({
+      areaId: 'founder-area-0017',
+      areaLabel: 'Iasi Founder Block',
+      founderCitizenId: 'founder-17',
+      founderNumber: 17,
+      manualReviewRequired: false,
+      covenantStatus: 'watch',
+      overdue: true,
+      reviewFreshness: 'fresh',
+      lastReviewAt: '2026-07-01T04:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      activityReview: {
+        ...founderQueueItem().activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 84,
+      },
+      economicExposure: {
+        ...founderQueueItem().economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      reviewReadiness: {
+        status: 'ready',
+        label: 'Ready',
+        summary: 'Weekly review is due and ready to be recorded.',
+        evidenceRequiredCount: 0,
+        approvalRequestCount: 0,
+        blockerCount: 0,
+        overdue: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      },
+      reviewQueue: {
+        ...founderQueueItem().reviewQueue,
+        nextStep: 'record_review',
+        recommendedActionKinds: ['record_review'],
+        pendingApprovalKinds: [],
+        pendingApprovalCount: 0,
+        pendingNotificationKinds: [],
+        pendingNotificationCount: 0,
+        blockerCount: 0,
+        blockers: [],
+      },
+      manualActions: [{
+        ...founderManualActions()[0],
+        recommended: true,
+        reason: 'Weekly covenant review is due and ready to be recorded.',
+      }],
+      pendingApprovalRequests: [],
+      pendingApprovalKinds: [],
+      pendingNotificationDrafts: [],
+      pendingNotificationKinds: [],
+      signalCounts: { total: 1, info: 0, warning: 1, critical: 0 },
+      signalKinds: ['review_due'],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
+    const monthlyDue = founderQueueItem({
+      areaId: 'founder-area-0018',
+      areaLabel: 'Constanta Founder Block',
+      founderCitizenId: 'founder-18',
+      founderNumber: 18,
+      manualReviewRequired: false,
+      covenantStatus: 'watch',
+      overdue: true,
+      reviewFreshness: 'stale',
+      lastReviewAt: '2026-06-01T04:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: true,
+      activityReview: {
+        ...founderQueueItem().activityReview,
+        active: true,
+        useful: true,
+        staffed: true,
+        hospitalized: false,
+        atRisk: false,
+        indebted: false,
+        score: 80,
+      },
+      economicExposure: {
+        ...founderQueueItem().economicExposure,
+        outstandingDebt: 0,
+        debtCount: 0,
+        unstaffedBusinessCount: 0,
+        hospitalized: false,
+      },
+      reviewReadiness: {
+        status: 'ready',
+        label: 'Ready',
+        summary: 'Monthly review is overdue and ready to be recorded.',
+        evidenceRequiredCount: 0,
+        approvalRequestCount: 0,
+        blockerCount: 0,
+        overdue: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      },
+      reviewQueue: {
+        ...founderQueueItem().reviewQueue,
+        nextStep: 'record_review',
+        recommendedActionKinds: ['record_review'],
+        pendingApprovalKinds: [],
+        pendingApprovalCount: 0,
+        pendingNotificationKinds: [],
+        pendingNotificationCount: 0,
+        blockerCount: 0,
+        blockers: [],
+      },
+      manualActions: [{
+        ...founderManualActions()[0],
+        recommended: true,
+        reason: 'Monthly covenant review is overdue and ready to be recorded.',
+      }],
+      pendingApprovalRequests: [],
+      pendingApprovalKinds: [],
+      pendingNotificationDrafts: [],
+      pendingNotificationKinds: [],
+      signalCounts: { total: 1, info: 0, warning: 1, critical: 0 },
+      signalKinds: ['review_due'],
+      blockerCount: 0,
+      transactionsAdded: 0,
+    })
+    const queueWithCadence = {
+      ...queueWithCoverage,
+      items: [...queueWithCoverage.items, weeklyDue, monthlyDue],
+    }
 
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'never_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-14', 'founder-13'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithStale, 'stale_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-15'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithStale, 'stale_weekly_due').map((row) => row.founderCitizenId)).toEqual([])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithStale, 'stale_monthly_due').map((row) => row.founderCitizenId)).toEqual([])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCadence, 'weekly_due').map((row) => row.founderCitizenId)).toEqual(['founder-18', 'founder-17'])
+    expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCadence, 'monthly_due').map((row) => row.founderCitizenId)).toEqual(['founder-18'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queueWithCoverage, 'fresh_reviewed').map((row) => row.founderCitizenId)).toEqual(['founder-16'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'manual_review').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
     expect(founderCovenantOperatorQueueFilteredReviewRows(queue, 'needs_evidence').map((row) => row.founderCitizenId)).toEqual(['founder-12'])
@@ -948,6 +1086,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilterSummary(queueWithStale, 'stale_reviewed')).toBe('1 founder stale reviewed · 0 never · 1 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queueWithStale, 'stale_weekly_due')).toBe('0 founders stale weekly due · 0 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queueWithStale, 'stale_monthly_due')).toBe('0 founders stale monthly due · 0 never · 0 stale · 0 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queueWithCadence, 'weekly_due')).toBe('2 founders weekly review due · 0 never · 1 stale · 1 fresh')
+    expect(founderCovenantOperatorQueueFilterSummary(queueWithCadence, 'monthly_due')).toBe('1 founder monthly review due · 0 never · 1 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queueWithCoverage, 'fresh_reviewed')).toBe('1 founder fresh reviewed · 0 never · 0 stale · 1 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'manual_review')).toBe('1 founder need manual review · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'needs_evidence')).toBe('1 founder need manual evidence · 1 never · 0 stale · 0 fresh')
@@ -960,9 +1100,10 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'blocked')).toBe('1 founder blocked by workflow gaps · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'hospitalized')).toBe('1 founder hospitalized · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFilterSummary(queue, 'scan_anomaly')).toBe('1 founder with scan anomalies · 1 never · 0 stale · 0 fresh')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 2 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 3 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
-    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Fresh 1 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 4 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queue)).toBe('All 3 · Never 3 · Stale 0 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 2 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithStale)).toBe('All 4 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 3 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCoverage)).toBe('All 5 · Never 3 · Stale 1 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 1 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 4 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 1')
+    expect(founderCovenantOperatorQueueFilterCountsSummary(queueWithCadence)).toBe('All 7 · Never 3 · Stale 2 · Stale week 0 · Stale month 1 · Weekly due 2 · Monthly due 1 · Fresh 2 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 2 · Next record 0 · Next monitor 4 · Overdue 3 · Blocked 1 · Hospital 1 · Scan 1')
     expect(founderCovenantOperatorQueueSliceTotals(queue, 'never_reviewed')).toMatchObject({
       founders: 3,
       neverReviewed: 3,
@@ -988,6 +1129,21 @@ describe('FounderCovenantQueuePanel', () => {
       founders: 0,
       staleWeeklyDue: 0,
       staleMonthlyDue: 0,
+    })
+    expect(founderCovenantOperatorQueueSliceTotals(queueWithCadence, 'weekly_due')).toMatchObject({
+      founders: 2,
+      weeklyDue: 2,
+      monthlyDue: 1,
+      freshReviewed: 1,
+      staleReviewed: 1,
+    })
+    expect(founderCovenantOperatorQueueSliceTotals(queueWithCadence, 'monthly_due')).toMatchObject({
+      founders: 1,
+      weeklyDue: 1,
+      monthlyDue: 1,
+      freshReviewed: 0,
+      staleReviewed: 1,
+      staleMonthlyDue: 1,
     })
     expect(founderCovenantOperatorQueueSliceTotals(queueWithCoverage, 'fresh_reviewed')).toMatchObject({
       founders: 1,

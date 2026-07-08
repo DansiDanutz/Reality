@@ -51,7 +51,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Priority: manual review, never reviewed, overdue, hospitalized, at risk')
     expect(html).toContain('Filter: All')
     expect(html).toContain('1 founder in current page · 1 never · 0 stale · 0 fresh')
-    expect(html).toContain('All 1 · Never 1 · Stale 0 · Stale week 0 · Stale month 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 0 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
+    expect(html).toContain('All 1 · Never 1 · Stale 0 · Stale week 0 · Stale month 0 · Weekly due 0 · Monthly due 0 · Fresh 0 · Manual 1 · Evidence 1 · Next evidence 1 · Next blocked 0 · Next overdue 0 · Next record 0 · Next monitor 0 · Overdue 1 · Blocked 1 · Hospital 1 · Scan 0')
     expect(html).toContain('Sort: Priority')
     expect(html).toContain('Coverage')
     expect(html).toContain('<span>Never</span><strong>1</strong>')
@@ -78,6 +78,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Stale')
     expect(html).toContain('Stale week')
     expect(html).toContain('Stale month')
+    expect(html).toContain('Weekly due')
+    expect(html).toContain('Monthly due')
     expect(html).toContain('Fresh')
     expect(html).toContain('Next evidence')
     expect(html).toContain('Next blocked')
@@ -90,6 +92,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Cleanup Stale')
     expect(html).toContain('Cleanup Stale Week')
     expect(html).toContain('Cleanup Stale Month')
+    expect(html).toContain('Review Weekly Due')
+    expect(html).toContain('Review Monthly Due')
     expect(html).toContain('Audit Fresh')
     expect(html).toContain('Triage Manual')
     expect(html).toContain('Triage Evidence')
@@ -180,6 +184,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queueCoveragePresetLabel('stale_reviewed', 'coverage')).toBe('Cleanup Stale')
     expect(queueCoveragePresetLabel('stale_weekly_due', 'coverage')).toBe('Cleanup Stale Week')
     expect(queueCoveragePresetLabel('stale_monthly_due', 'coverage')).toBe('Cleanup Stale Month')
+    expect(queueCoveragePresetLabel('weekly_due', 'coverage')).toBe('Review Weekly Due')
+    expect(queueCoveragePresetLabel('monthly_due', 'coverage')).toBe('Review Monthly Due')
     expect(queueCoveragePresetLabel('fresh_reviewed', 'coverage')).toBe('Audit Fresh')
     expect(queuePriorityPresetLabel('manual_review', 'priority')).toBe('Triage Manual')
     expect(queuePriorityPresetLabel('needs_evidence', 'priority')).toBe('Triage Evidence')
@@ -223,6 +229,12 @@ describe('FounderCovenantOperatorPanel', () => {
     )
     expect(queueContextText('stale_reviewed', 'coverage', 'cursor-2')).toBe(
       'View: Stale / Coverage / cursor-2 · Preset: Cleanup Stale · filter stale · sort coverage',
+    )
+    expect(queueContextText('weekly_due', 'coverage', 'cursor-3')).toBe(
+      'View: Weekly due / Coverage / cursor-3 · Preset: Review Weekly Due · filter weekly due · sort coverage',
+    )
+    expect(queueContextText('monthly_due', 'coverage', null)).toBe(
+      'View: Monthly due / Coverage / start · Preset: Review Monthly Due · filter monthly due · sort coverage',
     )
     expect(queueContextText('manual_review', 'priority', null)).toBe(
       'View: Manual / Priority / start · Preset: Triage Manual · filter manual',

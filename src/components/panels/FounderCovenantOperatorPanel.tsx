@@ -483,6 +483,22 @@ export default function FounderCovenantOperatorPanel({
               Stale month
             </button>
             <button
+              className={`btn small ${queueFilter === 'weekly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('weekly_due')}
+              type="button"
+            >
+              Weekly due
+            </button>
+            <button
+              className={`btn small ${queueFilter === 'monthly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('monthly_due')}
+              type="button"
+            >
+              Monthly due
+            </button>
+            <button
               className={`btn small ${queueFilter === 'fresh_reviewed' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('fresh_reviewed')}
@@ -627,6 +643,22 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Cleanup Stale Month
+            </button>
+            <button
+              className={`btn small ${activeCoveragePreset === 'weekly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyCoveragePreset('weekly_due')}
+              type="button"
+            >
+              Review Weekly Due
+            </button>
+            <button
+              className={`btn small ${activeCoveragePreset === 'monthly_due' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyCoveragePreset('monthly_due')}
+              type="button"
+            >
+              Review Monthly Due
             </button>
             <button
               className={`btn small ${activeCoveragePreset === 'fresh_reviewed' ? 'primary' : 'ghost'}`}

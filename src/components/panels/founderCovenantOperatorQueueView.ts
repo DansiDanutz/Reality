@@ -26,6 +26,10 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'Stale week'
     case 'stale_monthly_due':
       return 'Stale month'
+    case 'weekly_due':
+      return 'Weekly due'
+    case 'monthly_due':
+      return 'Monthly due'
     case 'fresh_reviewed':
       return 'Fresh'
     case 'manual_review':
@@ -160,6 +164,10 @@ export function queueCoveragePresetLabel(
       return 'Cleanup Stale Week'
     case 'stale_monthly_due':
       return 'Cleanup Stale Month'
+    case 'weekly_due':
+      return 'Review Weekly Due'
+    case 'monthly_due':
+      return 'Review Monthly Due'
     case 'fresh_reviewed':
       return 'Audit Fresh'
     default:

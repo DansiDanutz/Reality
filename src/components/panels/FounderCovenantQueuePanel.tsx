@@ -198,6 +198,10 @@ function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
       return 'Stale week'
     case 'stale_monthly_due':
       return 'Stale month'
+    case 'weekly_due':
+      return 'Weekly due'
+    case 'monthly_due':
+      return 'Monthly due'
     case 'fresh_reviewed':
       return 'Fresh'
     case 'manual_review':
