@@ -1183,6 +1183,9 @@ export async function recordRealityFounderCovenantOperatorReview(
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityFounderCovenantOperatorReviewResult> {
   const token = request.operatorToken?.trim()
+  const founderCitizenId = request.founderCitizenId.trim()
+  const areaId = request.areaId.trim()
+  const note = request.note?.trim()
   if (!token) {
     return {
       ok: false,
@@ -1202,10 +1205,10 @@ export async function recordRealityFounderCovenantOperatorReview(
       body: JSON.stringify({
         intent: {
           type: 'recordFounderCovenantOperatorReview',
-          founderCitizenId: request.founderCitizenId,
-          areaId: request.areaId,
+          founderCitizenId,
+          areaId,
           actionKind: request.actionKind,
-          ...(request.note ? { note: request.note } : {}),
+          ...(note ? { note } : {}),
           ...(request.evidenceKinds ? { evidenceKinds: request.evidenceKinds } : {}),
         },
       }),

@@ -962,10 +962,10 @@ describe('Reality area client', () => {
 
     await expect(recordRealityFounderCovenantOperatorReview({
       operatorToken: ' operator-token ',
-      founderCitizenId: 'citizen-1',
-      areaId: 'founder-area-0012',
+      founderCitizenId: ' citizen-1 ',
+      areaId: ' founder-area-0012 ',
       actionKind: 'record_review',
-      note: 'Reviewed external contribution evidence.',
+      note: ' Reviewed external contribution evidence. ',
       evidenceKinds: ['external_contribution'],
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
@@ -995,6 +995,36 @@ describe('Reality area client', () => {
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body.citizenId).toBeUndefined()
     expect(body.token).toBeUndefined()
+  })
+
+  test('omits blank trimmed notes from operator review payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantOperatorReview({
+      operatorToken: 'operator-token',
+      founderCitizenId: 'citizen-1',
+      areaId: 'founder-area-0012',
+      actionKind: 'record_review',
+      note: '   ',
+      evidenceKinds: ['external_contribution'],
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      intent: {
+        type: 'recordFounderCovenantOperatorReview',
+        founderCitizenId: 'citizen-1',
+        areaId: 'founder-area-0012',
+        actionKind: 'record_review',
+        evidenceKinds: ['external_contribution'],
+      },
+    })
   })
 
   test('keeps operator review evidence blocked without operator authority', async () => {
