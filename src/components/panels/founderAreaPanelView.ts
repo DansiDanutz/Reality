@@ -136,6 +136,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   evidenceInputText: string
   manualActionText: string
   approvalRequestText: string
+  approvalGateText: string
   approvalBlockerText: string
   notificationDraftText: string
   notificationDraftGateText: string
@@ -907,7 +908,9 @@ export function founderCovenantManualActionKindLabel(kind: FounderCovenantManual
   }
 }
 
-export function founderCovenantApprovalRequestText(request: FounderCovenantApprovalRequest): string {
+export function founderCovenantApprovalRequestText(
+  request: Pick<FounderCovenantApprovalRequest, 'authorityGate' | 'blockers'>,
+): string {
   return `${founderCovenantAuthorityRoleLabel(request.authorityGate.requiredRole)} approval · ${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
 }
 
@@ -1326,6 +1329,7 @@ export function founderCovenantOperatorQueueReviewRows(
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
+      approvalGateText: founderCovenantOperatorQueueApprovalGateText(item),
       approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       notificationDraftGateText: founderCovenantOperatorQueueNotificationDraftGateText(item),
@@ -1461,6 +1465,15 @@ export function founderCovenantOperatorQueueApprovalRequestText(
         : `${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
       return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
     })
+    .join(', ')
+}
+
+export function founderCovenantOperatorQueueApprovalGateText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => founderCovenantApprovalRequestText(request))
     .join(', ')
 }
 
