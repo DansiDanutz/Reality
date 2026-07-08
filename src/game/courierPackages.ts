@@ -1,4 +1,5 @@
 import { RESOURCE_META, type ResourceKind } from './resources'
+import { itemById } from './catalog'
 import type { ConstructionProject } from './construction'
 import type { BusinessDevelopmentProject } from './businessDevelopment'
 import {
@@ -13,6 +14,7 @@ export type CourierRequirement =
   | { kind: 'none' }
   | { kind: 'food'; timesEaten: number }
   | { kind: 'drink'; drinksToday: number }
+  | { kind: 'hygiene'; hygieneToday: number }
   | { kind: 'sleep'; timesSlept: number }
   | { kind: 'job' }
   | { kind: 'shift'; shiftsWorked: number }
@@ -46,6 +48,7 @@ export interface CourierPackage {
 export interface CourierSnapshot {
   timesEaten: number
   drinksToday?: number
+  hygieneToday?: number
   timesSlept?: number
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
@@ -181,6 +184,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return snapshot.timesEaten >= requirement.timesEaten
     case 'drink':
       return (snapshot.drinksToday ?? 0) >= requirement.drinksToday
+    case 'hygiene':
+      return (snapshot.hygieneToday ?? 0) >= requirement.hygieneToday
     case 'sleep':
       return (snapshot.timesSlept ?? 0) >= requirement.timesSlept
     case 'job':
@@ -307,6 +312,10 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   }
   if (route.kind === 'survival-action' && route.action === 'drink-water') return { kind: 'drink', drinksToday: (snapshot.drinksToday ?? 0) + 1 }
   if (route.kind === 'survival-action' && route.action === 'sleep') return { kind: 'sleep', timesSlept: (snapshot.timesSlept ?? 0) + 1 }
+  if (route.kind === 'consume-action') {
+    const item = itemById(route.itemId)
+    if ((item?.effects?.hygiene ?? 0) > 0) return { kind: 'hygiene', hygieneToday: (snapshot.hygieneToday ?? 0) + 1 }
+  }
   if (route.kind === 'consume-action' || route.kind === 'cook-action' || (route.kind === 'market' && route.focus === 'food')) {
     return { kind: 'food', timesEaten: snapshot.timesEaten + 1 }
   }

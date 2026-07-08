@@ -241,6 +241,22 @@ describe('courierPackages', () => {
       constructionProjects: [],
       hasHome: false,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'hygiene', hygieneToday: 1 } }, {
+      timesEaten: 0,
+      hygieneToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'hygiene', hygieneToday: 1 } }, {
+      timesEaten: 0,
+      hygieneToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('checks business development requirements', () => {
@@ -456,6 +472,29 @@ describe('courierPackages', () => {
     expect(sleep).toMatchObject({
       day: 15,
       requirement: { kind: 'sleep', timesSlept: 3 },
+    })
+  })
+
+  test('wraps generated hygiene tasks with clearable self-care requirements', () => {
+    const pkg = courierPackageForLifePlan(16, {
+      id: 'support-body',
+      title: 'Protect hygiene',
+      detail: 'Drink, eat, clean up, or sleep before the day gets expensive.',
+      value: 'body',
+      minutes: 30,
+      route: { kind: 'consume-action', itemId: 'shower_public' },
+    }, {
+      timesEaten: 0,
+      hygieneToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 16,
+      requirement: { kind: 'hygiene', hygieneToday: 2 },
     })
   })
 

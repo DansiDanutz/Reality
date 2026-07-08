@@ -991,6 +991,7 @@ function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dai
   return {
     timesEaten: s.timesEaten,
     drinksToday: s.dailyCounters.drinksToday,
+    hygieneToday: s.dailyCounters.hygieneToday,
     timesSlept: s.timesSlept,
     sawStreetMode: s.sawStreetMode,
     resources: s.resources,
@@ -1860,6 +1861,7 @@ export const useGame = create<GameState>()(
         const courierSnapshot = {
           timesEaten,
           drinksToday: s.dailyCounters.drinksToday,
+          hygieneToday: s.dailyCounters.hygieneToday,
           timesSlept: s.timesSlept,
           sawStreetMode: s.sawStreetMode,
           resources,
