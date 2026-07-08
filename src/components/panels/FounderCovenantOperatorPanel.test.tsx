@@ -271,6 +271,13 @@ describe('FounderCovenantOperatorPanel', () => {
           ...operatorQueue(),
           totals: {
             ...operatorQueue().totals,
+            active: 1,
+            useful: 1,
+            building: 1,
+            staffed: 1,
+            indebted: 0,
+            hospitalized: 0,
+            atRisk: 0,
             manualReviewRequired: 0,
             manualReviewNeverReviewed: 0,
             manualReviewFreshReviewed: 0,
@@ -288,6 +295,7 @@ describe('FounderCovenantOperatorPanel', () => {
             replacementRiskFounders: 0,
             weeklyDue: 2,
             monthlyDue: 1,
+            overdue: 1,
             pendingApprovals: 0,
           },
           items: [withRecordReadyCadenceFounder(operatorQueue().items[0], {

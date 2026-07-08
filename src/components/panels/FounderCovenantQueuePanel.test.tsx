@@ -1710,7 +1710,7 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       founders: 2,
       active: 1,
       useful: 1,
-      building: 1,
+      building: 2,
       staffed: 1,
       indebted: 1,
       hospitalized: 1,

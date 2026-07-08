@@ -1022,8 +1022,22 @@ export function founderCovenantOperatorQueueRecordReadyCount(
 }
 
 export function founderCovenantOperatorQueueActivityRiskMix(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'active' | 'useful' | 'building' | 'staffed' | 'indebted' | 'hospitalized' | 'atRisk' | 'founders'>
+  },
 ): FounderCovenantOperatorQueueActivityRiskMix {
+  if (queue.totals) {
+    return {
+      inactive: Math.max(0, queue.totals.founders - queue.totals.active),
+      usefulnessGaps: Math.max(0, queue.totals.founders - queue.totals.useful),
+      buildGaps: Math.max(0, queue.totals.founders - queue.totals.building),
+      staffingGaps: Math.max(0, queue.totals.founders - queue.totals.staffed),
+      debtRisk: queue.totals.indebted,
+      hospitalized: queue.totals.hospitalized,
+      atRisk: queue.totals.atRisk,
+    }
+  }
   return queue.items.reduce<FounderCovenantOperatorQueueActivityRiskMix>((totals, item) => {
     if (!item.activityReview.active) totals.inactive += 1
     if (!item.activityReview.useful) totals.usefulnessGaps += 1
@@ -1045,7 +1059,10 @@ export function founderCovenantOperatorQueueActivityRiskMix(
 }
 
 export function founderCovenantOperatorQueueActivityRiskSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'active' | 'useful' | 'building' | 'staffed' | 'indebted' | 'hospitalized' | 'atRisk' | 'founders'>
+  },
 ): string {
   const risks = founderCovenantOperatorQueueActivityRiskMix(queue)
   return `Founder state: inactive ${risks.inactive} · usefulness gaps ${risks.usefulnessGaps} · build gaps ${risks.buildGaps} · staffing gaps ${risks.staffingGaps} · debt risk ${risks.debtRisk} · hospitalized ${risks.hospitalized} · at risk ${risks.atRisk}`
