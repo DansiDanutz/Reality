@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { dayOfLife } from '../../game/clock'
-import { formatMoney, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
+import { formatMoney, growthStageOf, netWorthOf, reachOf, xpForLevel } from '../../game/engine'
 import { BOOSTERS, BOOSTER_LIST, boosterRemaining, isBoosterActive } from '../../game/boosters'
 import {
   NOTIFICATION_REASONS,
@@ -145,6 +145,14 @@ export default function ProfilePanel() {
   const businesses = assets.filter((a) => a.kind === 'business').length
   const homes = assets.filter((a) => a.kind === 'home').length
   const pets = useGame.getState().pets.length
+  const growthStage = growthStageOf({
+    money,
+    netWorth,
+    respect,
+    businesses,
+    homes,
+    workersHall: assets.some((a) => a.itemId === 'workers_hall'),
+  })
 
   const reach = reachOf(level, businesses, homes > 0, netWorth)
   const stats: { label: string; value: string }[] = [
@@ -188,6 +196,11 @@ export default function ProfilePanel() {
         <div className="xp-track">
           <div className="xp-fill" style={{ width: `${Math.min(100, (xp / xpForLevel(level)) * 100)}%` }} />
         </div>
+      </div>
+
+      <div className="profile-level">
+        <span className="stat-label">{growthStage.title}</span>
+        <span className="stat-value mono">{growthStage.detail}</span>
       </div>
 
       <dl className="profile-stats">

@@ -793,6 +793,11 @@ export interface LifeMilestone {
   detail: string
 }
 
+export interface GrowthStage {
+  title: string
+  detail: string
+}
+
 export interface AdviceInput {
   needs: Needs
   health: number
@@ -952,6 +957,50 @@ export function lifeMilestonesOf(i: AdviceInput): LifeMilestone[] {
   })
 
   return milestones
+}
+
+export function growthStageOf(i: {
+  money: number
+  netWorth: number
+  respect: number
+  businesses: number
+  homes: number
+  workersHall: boolean
+}): GrowthStage {
+  if (i.netWorth >= 1_000_000) {
+    return {
+      title: 'Millionaire tier',
+      detail: 'The loop is compounding: assets, staff, respect, and repeat income are carrying the next moves.',
+    }
+  }
+  if (i.workersHall && i.businesses >= 2 && i.respect >= 5 && i.netWorth >= 100_000) {
+    return {
+      title: 'Scale tier',
+      detail: 'The business stack is stable enough to hire, expand, and multiply.',
+    }
+  }
+  if (i.businesses > 0 && i.homes > 0 && i.respect >= 3) {
+    return {
+      title: 'Build tier',
+      detail: 'Home, job, and the first business are working together.',
+    }
+  }
+  if (i.homes > 0) {
+    return {
+      title: 'Stability tier',
+      detail: 'A home makes sleep, study, and work more efficient.',
+    }
+  }
+  if (i.money >= 15_000) {
+    return {
+      title: 'Starter capital tier',
+      detail: 'The first business is within reach. Build it and keep the daily loop clean.',
+    }
+  }
+  return {
+    title: 'Survival tier',
+    detail: 'Stay alive first, hold a job, and save for the first foothold.',
+  }
 }
 
 /**

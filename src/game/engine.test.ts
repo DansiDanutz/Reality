@@ -534,6 +534,25 @@ describe('lifeMilestonesOf', async () => {
   })
 })
 
+describe('growthStageOf', async () => {
+  const { growthStageOf } = await import('./engine')
+
+  test('maps the road from survival to millionaire-tier scaling', () => {
+    expect(growthStageOf({ money: 200, netWorth: 200, respect: 0, businesses: 0, homes: 0, workersHall: false })).toEqual({
+      title: 'Survival tier',
+      detail: 'Stay alive first, hold a job, and save for the first foothold.',
+    })
+    expect(growthStageOf({ money: 50_000, netWorth: 50_000, respect: 3, businesses: 1, homes: 1, workersHall: false })).toEqual({
+      title: 'Build tier',
+      detail: 'Home, job, and the first business are working together.',
+    })
+    expect(growthStageOf({ money: 250_000, netWorth: 1_200_000, respect: 10, businesses: 3, homes: 1, workersHall: true })).toEqual({
+      title: 'Millionaire tier',
+      detail: 'The loop is compounding: assets, staff, respect, and repeat income are carrying the next moves.',
+    })
+  })
+})
+
 describe('mood & tiers', async () => {
   const { moodOf, tierOf } = await import('./engine')
   const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }
