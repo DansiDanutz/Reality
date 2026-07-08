@@ -225,6 +225,24 @@ describe('hard work body gates', () => {
 })
 
 describe('daily challenge readiness context', () => {
+  test('meal challenges unlock only when stock or realistic cash can cover them', () => {
+    const broke = dailyChallengeContextOf(challengeState({ money: 0, inventory: {} }))
+    expect(broke.maxMealsToday).toBe(0)
+    expect(eligibleDailyIds({ money: 0, inventory: {} })).not.toContain('eat-2')
+
+    const stockedIds = eligibleDailyIds({ money: 0, inventory: { noodles: 2 } })
+    expect(stockedIds).toContain('eat-2')
+    expect(stockedIds).not.toContain('eat-3')
+
+    const lunchMoneyIds = eligibleDailyIds({ money: 6, inventory: {} })
+    expect(lunchMoneyIds).toContain('eat-2')
+    expect(lunchMoneyIds).toContain('eat-3')
+    expect(lunchMoneyIds).not.toContain('eat-5')
+
+    const workdayIds = eligibleDailyIds({ money: 0, jobId: 'barista' })
+    expect(workdayIds).toContain('eat-5')
+  })
+
   test('construction labor challenges unlock only after materials and permit are ready', () => {
     const now = Date.now()
     const project = createConstructionProject('starter-house', 45.7, 21.2, now)
@@ -424,6 +442,32 @@ describe('sleep daily counter', () => {
 
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
+  })
+})
+
+describe('meal daily counter', () => {
+  test('consuming food counts toward today without counting drinks as meals', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      activity: null,
+      inventory: { noodles: 1, water: 1 },
+      needs: { hunger: 50, hydration: 50, energy: 50, hygiene: 50, fun: 50 },
+      dailyCounters: emptyDailyCounters(),
+      timesEaten: 0,
+      log: [],
+    })
+
+    useGame.getState().consume('noodles')
+    expect(useGame.getState().timesEaten).toBe(1)
+    expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
+
+    useGame.getState().consume('water')
+    expect(useGame.getState().timesEaten).toBe(1)
+    expect(useGame.getState().dailyCounters.mealsToday).toBe(1)
   })
 })
 

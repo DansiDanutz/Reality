@@ -63,6 +63,8 @@ export interface DailyChallengeContext extends Partial<DailyChallengeSnapshot> {
   maxShiftsToday: number
   /** Cheapest purchasable item count the current cash balance can cover. */
   maxPurchasesToday: number
+  /** Meals/snacks the current inventory, kitchen, and realistic cash can cover today. */
+  maxMealsToday: number
   /** An enrolled course has study minutes remaining. */
   hasStudyBlock: boolean
   /** A resource trip is available and meaningful today. */
@@ -226,6 +228,7 @@ function challengeEligible(def: ChallengeDef, context: DailyChallengeContext): b
   const progressToday = Number(context[def.metric] ?? 0)
   if (progressToday > 0) return true
 
+  if (def.metric === 'mealsToday') return context.maxMealsToday >= def.target
   if (def.metric === 'shiftsToday') return context.maxShiftsToday >= def.target
   if (def.metric === 'earnedToday') return context.maxEarnedToday >= def.target
   if (def.metric === 'boughtToday') return context.maxPurchasesToday >= def.target

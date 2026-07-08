@@ -34,6 +34,7 @@ const context = (over: Partial<DailyChallengeContext> = {}): DailyChallengeConte
   maxEarnedToday: 0,
   maxShiftsToday: 0,
   maxPurchasesToday: 0,
+  maxMealsToday: 3,
   hasStudyBlock: false,
   canGatherResources: false,
   canDoConstructionLabor: false,
@@ -137,8 +138,27 @@ describe('challengesForDay — generation', () => {
     expect(ready).toContain('earn-2000')
   })
 
+  test('meal challenges only appear when the player can finish that many meals today', () => {
+    const noFood = eligibleChallengesForContext(context({ maxMealsToday: 0 })).map((c) => c.id)
+    expect(noFood).not.toContain('eat-2')
+    expect(noFood).not.toContain('eat-3')
+    expect(noFood).not.toContain('eat-5')
+
+    const twoMeals = eligibleChallengesForContext(context({ maxMealsToday: 2 })).map((c) => c.id)
+    expect(twoMeals).toContain('eat-2')
+    expect(twoMeals).not.toContain('eat-3')
+    expect(twoMeals).not.toContain('eat-5')
+
+    const fiveMeals = eligibleChallengesForContext(context({ maxMealsToday: 5 })).map((c) => c.id)
+    expect(fiveMeals).toContain('eat-2')
+    expect(fiveMeals).toContain('eat-3')
+    expect(fiveMeals).toContain('eat-5')
+  })
+
   test('keeps progressed tasks eligible for the rest of the day', () => {
     const progressed = eligibleChallengesForContext(context({
+      mealsToday: 1,
+      maxMealsToday: 0,
       communityToday: 1,
       constructionMinutesToday: 30,
       workersHiredToday: 1,
@@ -151,6 +171,9 @@ describe('challengesForDay — generation', () => {
       hasStudyBlock: false,
     })).map((c) => c.id)
 
+    expect(progressed).toContain('eat-2')
+    expect(progressed).toContain('eat-3')
+    expect(progressed).toContain('eat-5')
     expect(progressed).toContain('community-1')
     expect(progressed).toContain('build-60')
     expect(progressed).toContain('hire-worker-1')

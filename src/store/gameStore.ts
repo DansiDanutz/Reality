@@ -25,7 +25,7 @@ import {
   type Activity,
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, RECIPES, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
 import { zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
@@ -195,9 +195,27 @@ type DailyChallengeContextState = {
 }
 
 const CHEAPEST_SHOP_PRICE = Math.max(1, Math.min(...SHOP_ITEMS.map((item) => item.price).filter((price) => price > 0)))
+const EDIBLE_ITEMS = SHOP_ITEMS.filter((item) => !item.durable && (item.effects?.hunger ?? 0) > 0)
+const CHEAPEST_EDIBLE_PRICE = Math.max(1, Math.min(...EDIBLE_ITEMS.map((item) => item.price).filter((price) => price > 0)))
 
 function totalWageBonus(inventory: Record<string, number>, educationProgress: EducationProgress[]): number {
   return wageBonusFrom(inventory) + educationWageBonusFrom(educationProgress)
+}
+
+function edibleInventoryCount(inventory: Record<string, number>): number {
+  return EDIBLE_ITEMS.reduce((sum, item) => sum + Math.max(0, Math.floor(inventory[item.id] ?? 0)), 0)
+}
+
+function cookableMealCount(inventory: Record<string, number>, assets: PlacedAsset[]): number {
+  if (!hasKitchen(inventory, assets)) return 0
+  const stock = { ...inventory }
+  let meals = 0
+  for (;;) {
+    const recipe = RECIPES.find((candidate) => canCook(candidate, stock))
+    if (!recipe) return meals
+    for (const [id, qty] of Object.entries(recipe.ingredients)) stock[id] = (stock[id] ?? 0) - qty
+    meals += 1
+  }
 }
 
 export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyChallengeContext {
@@ -230,12 +248,17 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     const estimate = estimateBusinessDevelopmentWorkerHire(project, 'helper', 1, helperCreditMinutes)
     return Boolean(estimate && estimate.blockedBy === null && s.money >= estimate.cost)
   })
+  const maxEarnedToday = pendingIncome + shiftPay * maxShiftsToday
+  const spendableMealBudget = s.money + maxEarnedToday
+  const stockedMealActions = Math.max(edibleInventoryCount(s.inventory), cookableMealCount(s.inventory, s.assets))
+  const affordableMealActions = Math.floor(spendableMealBudget / CHEAPEST_EDIBLE_PRICE)
 
   return {
     ...s.dailyCounters,
-    maxEarnedToday: pendingIncome + shiftPay * maxShiftsToday,
+    maxEarnedToday,
     maxShiftsToday: Math.max(s.dailyCounters.shiftsToday, maxShiftsToday),
     maxPurchasesToday: Math.max(s.dailyCounters.boughtToday, Math.floor(s.money / CHEAPEST_SHOP_PRICE)),
+    maxMealsToday: Math.max(s.dailyCounters.mealsToday, s.dailyCounters.mealsToday + stockedMealActions + affordableMealActions),
     hasStudyBlock: activeStudy,
     canGatherResources: s.resourceNodes.length > 0,
     canDoConstructionLabor: constructionLaborReady,
@@ -464,6 +487,14 @@ function bumpSleptToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters
   return s.dailyCounters.day === todayDay
     ? { ...s.dailyCounters, sleptToday: s.dailyCounters.sleptToday + 1 }
     : freshDailyCounters(todayDay, { sleptToday: 1 })
+}
+
+/** Today's dailyCounters with mealsToday bumped when food is eaten. */
+function bumpMealsToday(s: Pick<GameState, 'assets' | 'citizen' | 'dailyCounters'>): GameState['dailyCounters'] {
+  const todayDay = dailyCounterDayFor(s)
+  return s.dailyCounters.day === todayDay
+    ? { ...s.dailyCounters, mealsToday: s.dailyCounters.mealsToday + 1 }
+    : freshDailyCounters(todayDay, { mealsToday: 1 })
 }
 
 /** Today's dailyCounters with Workers Hall hires bumped — day-rollover aware. */
@@ -2804,10 +2835,12 @@ export const useGame = create<GameState>()(
         // Medicine cures instantly when it matches the active illness;
         // otherwise it's just its (weak) effects — an underwhelming espresso.
         const cures = item.cures !== undefined && s.illness?.kind === item.cures
+        const ate = (item.effects.hunger ?? 0) > 0
         set({
           needs: applyEffects(s.needs, item.effects),
           inventory: item.durable ? s.inventory : { ...s.inventory, [itemId]: owned - 1 },
-          timesEaten: (item.effects.hunger ?? 0) > 0 ? s.timesEaten + 1 : s.timesEaten,
+          timesEaten: ate ? s.timesEaten + 1 : s.timesEaten,
+          dailyCounters: ate ? bumpMealsToday(s) : s.dailyCounters,
           illness: cures ? null : s.illness,
           log: note(s.log, cures ? `${item.name} — the ${item.cures} is gone. Like new.` : `${item.name} — done.`),
         })
