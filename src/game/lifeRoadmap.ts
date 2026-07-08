@@ -55,6 +55,7 @@ export interface LifeRoadmapDay {
   millionaireGap: number
   daysToMillionaire: number | null
   netWorth: number
+  projectedCashDelta: number
   buildEta: string | null
   interiorEta: string | null
 }
@@ -257,6 +258,7 @@ function roadmapDay(plan: LifePlan): LifeRoadmapDay {
     millionaireGap: plan.millionairePath.millionaireGap,
     daysToMillionaire: plan.millionairePath.daysToMillionaire,
     netWorth: plan.millionairePath.netWorth,
+    projectedCashDelta: projectedDailyCashDelta(plan),
     buildEta: buildEtaSummary(plan.constructionForecast),
     interiorEta: interiorEtaSummary(plan.businessDevelopmentForecast),
   }

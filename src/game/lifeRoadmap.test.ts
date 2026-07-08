@@ -184,6 +184,33 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.communityTrust).toBe(2)
   })
 
+  test('exposes the projected cash delta for work and recovery days', () => {
+    const workday = planLifeRoadmap(snap({
+      money: 500,
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+    }), 1)
+
+    const recoveryDay = planLifeRoadmap(snap({
+      money: 500,
+      needs: { ...goodNeeds, hydration: 20 },
+      jobId: 'barista',
+      shiftsWorked: 3,
+      communityRespect: 2,
+      communityTrust: 2,
+    }), 1)
+
+    expect(workday.days[0]).toMatchObject({
+      primary: { value: 'capital' },
+      projectedCashDelta: 82,
+    })
+    expect(recoveryDay.days[0]).toMatchObject({
+      primary: { value: 'body' },
+      projectedCashDelta: -38,
+    })
+  })
+
   test('does not spend free time on construction during a body recovery day', () => {
     const project = createConstructionProject('starter-house', 1, 1, 1)
     const readyForLabor = {
