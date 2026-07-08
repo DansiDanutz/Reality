@@ -11,6 +11,8 @@ import {
   founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
+  founderCovenantReviewActorText,
+  founderCovenantReviewAuthorityText,
   founderCovenantNotificationDraftGateText,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
@@ -98,6 +100,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain("Open Reality inside Telegram to link this founder seat.")
     expect(founderAreaPanelSource).toContain('Link Telegram before TON readiness can advance')
     expect(founderAreaPanelSource).toContain('Link Telegram before payout readiness can advance')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewActorText')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -843,6 +846,32 @@ describe('FounderAreaPanel covenant presenters', () => {
         requiredRole: 'area_reviewer',
       },
     })).toBe('Area reviewer / Evidence only')
+    expect(founderCovenantReviewActorText({
+      reviewedAt: 1_000,
+      reviewerId: 'telegram-operator:42424242',
+    })).toBe('Reviewed 1970-01-01 00:00 UTC · telegram-operator:42424242')
+    expect(founderCovenantReviewActorText({
+      at: '2026-07-06T08:00:00.000Z',
+      reviewerId: 'telegram-operator:42424242',
+    })).toBe('Reviewed 2026-07-06 08:00 UTC · telegram-operator:42424242')
+    expect(founderCovenantReviewAuthorityText({
+      authorityGate: {
+        requiredRole: 'area_reviewer',
+        status: 'evidence_only',
+        approvedById: null,
+        approvedAt: null,
+        executionEnabled: false,
+      },
+    })).toBe('Area reviewer / Evidence only')
+    expect(founderCovenantReviewAuthorityText({
+      authorityGate: {
+        requiredRole: 'main_founder',
+        status: 'approval_required',
+        approvedById: null,
+        approvedAt: null,
+        executionEnabled: false,
+      },
+    })).toBe('Main founder / Approval required')
   })
 
   test('summarizes captured covenant review signals', () => {

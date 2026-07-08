@@ -40,6 +40,8 @@ import {
   founderCovenantLatestReviewStatusLabel,
   founderCovenantManualActionKindLabel,
   founderCovenantManualActionStatusLabel,
+  founderCovenantReviewActorText,
+  founderCovenantReviewAuthorityText,
   founderCovenantNotificationDraftGateText,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
@@ -470,6 +472,7 @@ export default function FounderAreaPanel() {
                   <span className="item-name">
                     Latest review: {founderCovenantManualActionKindLabel(dashboard.founderCovenant.latestReview.actionKind)}
                   </span>
+                  <span className="item-desc">{founderCovenantReviewActorText(dashboard.founderCovenant.latestReview)}</span>
                   <span className="item-desc">{dashboard.founderCovenant.latestReview.summary}</span>
                   <span className="item-desc">
                     {founderCovenantReviewDecisionSummary(dashboard.founderCovenant.latestReview)}
@@ -580,6 +583,7 @@ export default function FounderAreaPanel() {
                   <li className="item founder-covenant-history-item" key={entry.id}>
                     <div className="item-info">
                       <span className="item-name">{founderCovenantManualActionKindLabel(entry.actionKind)}</span>
+                      <span className="item-desc">{founderCovenantReviewActorText(entry)}</span>
                       <span className="item-desc">{entry.summary}</span>
                       <span className="item-desc">{founderCovenantReviewDecisionSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSnapshotSummary(entry)}</span>
@@ -591,7 +595,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">{founderCovenantReviewApprovalSummary(entry)}</span>
                       <span className="item-desc">{founderCovenantReviewSignalSummary(entry)}</span>
                     </div>
-                    <span className="item-price mono">{entry.reviewerId}</span>
+                    <span className="item-price mono">{founderCovenantReviewAuthorityText(entry)}</span>
                   </li>
                 ))}
               </ul>

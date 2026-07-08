@@ -933,6 +933,24 @@ export function founderCovenantLatestReviewStatusLabel(
   return review.evidenceOnly && !review.automationEnabled ? `${role} / Evidence only` : role
 }
 
+export function founderCovenantReviewActorText(
+  review: {
+    reviewerId: string
+    reviewedAt?: string | number
+    at?: string | number
+  },
+): string {
+  const at = review.reviewedAt ?? review.at
+  return `Reviewed ${founderUtcMinuteText(at ?? 0)} · ${review.reviewerId}`
+}
+
+export function founderCovenantReviewAuthorityText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'authorityGate'>,
+): string {
+  const role = founderCovenantAuthorityRoleLabel(review.authorityGate.requiredRole)
+  return review.authorityGate.status === 'evidence_only' ? `${role} / Evidence only` : `${role} / Approval required`
+}
+
 export function founderCovenantReviewSignalSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'signals'>,
 ): string {
