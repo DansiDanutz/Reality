@@ -6,7 +6,7 @@ import {
   telegramRealityAccountRecord,
   verifyTelegramMiniAppInitData,
   type TelegramRealityAccountRecord,
-} from './telegram-auth'
+} from './telegram-auth.js'
 
 const FOUNDER_SLOTS = 2_000
 const REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE = {

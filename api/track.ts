@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { FUNNEL_EVENTS } from './funnelEvents'
+import { FUNNEL_EVENTS } from './funnelEvents.js'
 
 const FUNNEL_EVENT_SET = new Set<string>(FUNNEL_EVENTS)
 
