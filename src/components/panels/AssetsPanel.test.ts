@@ -125,11 +125,11 @@ describe('asset menu navigation', () => {
     }
 
     expect(completedAssetNavigation(home)).toEqual({
-      primary: { label: 'Enter', target: { kind: 'asset', id: 'home-1' }, panel: 'home' },
+      primary: { label: 'Enter house', target: { kind: 'asset', id: 'home-1' }, panel: 'home' },
       map: { label: 'Show map', target: { kind: 'asset', id: 'home-1' }, panel: null },
     })
     expect(completedAssetNavigation(business())).toEqual({
-      primary: { label: 'Enter', target: { kind: 'asset', id: 'foodcart-1' }, panel: 'business' },
+      primary: { label: 'Open business', target: { kind: 'asset', id: 'foodcart-1' }, panel: 'business' },
       map: { label: 'Show map', target: { kind: 'asset', id: 'foodcart-1' }, panel: null },
     })
   })

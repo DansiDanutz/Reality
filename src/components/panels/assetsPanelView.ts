@@ -111,7 +111,7 @@ export function businessInteriorAssetNavigation(project: Pick<BusinessDevelopmen
 export function completedAssetNavigation(asset: Pick<PlacedAsset, 'id' | 'kind'>): AssetMenuNavigation {
   const target: MapTarget = { kind: 'asset', id: asset.id }
   return {
-    primary: { label: 'Enter', target, panel: asset.kind === 'home' ? 'home' : 'business' },
+    primary: { label: asset.kind === 'home' ? 'Enter house' : 'Open business', target, panel: asset.kind === 'home' ? 'home' : 'business' },
     map: { label: 'Show map', target, panel: null },
   }
 }
