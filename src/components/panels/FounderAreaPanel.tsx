@@ -74,6 +74,7 @@ import {
   founderCitizenDebtActionText,
   founderCitizenInsuranceActionText,
   founderCitizenNeedText,
+  founderOperatingPriorityText,
   founderCitizenProtectionText,
   founderEstateProtectionText,
   founderFirstBuildReasonText,
@@ -294,6 +295,15 @@ export default function FounderAreaPanel() {
           </div>
           <div className="founder-covenant-meta" aria-label="Founder estate protection">
             <span>{founderEstateProtectionText(founder)}</span>
+          </div>
+          <div className="founder-covenant-meta" aria-label="Founder operating priority">
+            <span>{founderOperatingPriorityText({
+              founder,
+              survival: founderSurvival,
+              jobs: dashboard.jobs,
+              firstBuild: dashboard.firstBuild,
+              covenant: dashboard.founderCovenant,
+            })}</span>
           </div>
 
           <section

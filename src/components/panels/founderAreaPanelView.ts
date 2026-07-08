@@ -222,6 +222,35 @@ export function founderEstateProtectionText(
   return `${heir} · ${coverage} · manual review`
 }
 
+export function founderOperatingPriorityText(input: {
+  founder: Pick<AreaCitizenDashboard, 'state' | 'debt'> | undefined
+  survival?: Pick<CitizenSurvivalSignal, 'risk'>
+  jobs: Pick<AreaJobsDashboard, 'understaffedBusinesses' | 'candidates'>
+  firstBuild: readonly Pick<RealityAreaDashboard['firstBuild'][number], 'name' | 'canBuildNow'>[]
+  covenant: Pick<AreaFounderCovenantDashboard, 'manualReviewRequired' | 'reviewQueue'>
+}): string {
+  if (!input.founder) return 'Next: founder status unavailable'
+  if (input.founder.state === 'hospitalized' || input.survival?.risk === 'hospitalized') {
+    return 'Next: recover first before managing the area again'
+  }
+  if (input.jobs.understaffedBusinesses > 0) {
+    const hireNow = input.jobs.candidates.find((candidate) =>
+      candidate.action === 'hire_now' && candidate.recommendedBusinessName
+    )
+    if (hireNow?.recommendedBusinessName) {
+      return `Next: staff ${hireNow.recommendedBusinessName} before expanding`
+    }
+    return `Next: staff ${input.jobs.understaffedBusinesses} business${input.jobs.understaffedBusinesses === 1 ? '' : 'es'} before expanding`
+  }
+  const buildNow = input.firstBuild.find((recommendation) => recommendation.canBuildNow)
+  if (buildNow) return `Next: build ${buildNow.name}`
+  if (input.founder.debt > 0) return `Next: review debt ${formatMoney(input.founder.debt)} before expanding`
+  if (input.covenant.manualReviewRequired || input.covenant.reviewQueue.blockerCount > 0) {
+    return 'Next: keep evidence current for manual review'
+  }
+  return 'Next: monitor demand and keep the area stable'
+}
+
 export function founderNeedMetricDetailText(input: {
   simDemand: number
   realDemand: number

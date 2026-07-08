@@ -71,6 +71,7 @@ import {
   founderJobsMetricDetailText,
   founderLedgerSummaryItems,
   founderLedgerTransactionTitle,
+  founderOperatingPriorityText,
   founderFirstBuildEconomicsText,
   founderFirstBuildReasonText,
   founderNeedMetricDetailText,
@@ -188,6 +189,75 @@ describe('FounderAreaPanel covenant presenters', () => {
         protectedByInsurance: false,
       },
     } as never)).toBe('no heir named · not protected · manual review')
+
+    expect(founderOperatingPriorityText({
+      founder: {
+        state: 'hospitalized',
+        debt: 300,
+      } as never,
+      survival: {
+        risk: 'hospitalized',
+      },
+      jobs: {
+        understaffedBusinesses: 1,
+        candidates: [],
+      } as never,
+      firstBuild: [],
+      covenant: {
+        manualReviewRequired: true,
+        reviewQueue: {
+          blockerCount: 2,
+        },
+      } as never,
+    })).toBe('Next: recover first before managing the area again')
+
+    expect(founderOperatingPriorityText({
+      founder: {
+        state: 'active',
+        debt: 0,
+      } as never,
+      survival: {
+        risk: 'stable',
+      },
+      jobs: {
+        understaffedBusinesses: 1,
+        candidates: [{
+          action: 'hire_now',
+          recommendedBusinessName: 'Founder Water',
+        }],
+      } as never,
+      firstBuild: [],
+      covenant: {
+        manualReviewRequired: false,
+        reviewQueue: {
+          blockerCount: 0,
+        },
+      } as never,
+    })).toBe('Next: staff Founder Water before expanding')
+
+    expect(founderOperatingPriorityText({
+      founder: {
+        state: 'active',
+        debt: 0,
+      } as never,
+      survival: {
+        risk: 'stable',
+      },
+      jobs: {
+        understaffedBusinesses: 0,
+        candidates: [],
+      } as never,
+      firstBuild: [{
+        name: 'Food Shop',
+        canBuildNow: true,
+      }],
+      covenant: {
+        manualReviewRequired: false,
+        reviewQueue: {
+          blockerCount: 0,
+        },
+      } as never,
+    })).toBe('Next: build Food Shop')
 
     expect(founderNeedMetricDetailText({
       simDemand: 1,
