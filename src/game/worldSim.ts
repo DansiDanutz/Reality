@@ -2828,7 +2828,9 @@ function hireWorkerFromIntent(
   if (!actor) return { ok: false, area, error: 'actor_not_found' }
   if (actor.state.kind !== 'active') return { ok: false, area, error: 'actor_unavailable' }
 
-  const business = area.businesses.find((candidate) => candidate.id === intent.businessId)
+  const businessId = intent.businessId.trim()
+  if (!businessId) return { ok: false, area, error: 'business_not_found' }
+  const business = area.businesses.find((candidate) => candidate.id.trim() === businessId)
   if (!business) return { ok: false, area, error: 'business_not_found' }
   if (business.ownerId !== actor.id) return { ok: false, area, error: 'actor_not_business_owner' }
   if (business.staffCitizenIds.includes(intent.workerCitizenId)) {

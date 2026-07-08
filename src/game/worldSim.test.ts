@@ -459,6 +459,64 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toEqual([])
   })
 
+  test('hire intents normalize requested business ids before lookup', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: ' food1 ',
+      workerCitizenId: 'worker',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected hire intent to succeed')
+    expect(result.area.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('food1')
+  })
+
+  test('hire intents match trimmed imported business ids without rewriting them', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('food', ' food1 ', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'worker',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected hire intent to succeed')
+    expect(result.area.businesses[0].id).toBe(' food1 ')
+    expect(result.area.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe(' food1 ')
+    expect(start.businesses[0].id).toBe(' food1 ')
+  })
+
+  test('hire intents reject blank normalized business ids', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('food', '   ', { ownerId: 'founder' })],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: '   ',
+      workerCitizenId: 'worker',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'business_not_found' })
+    expect(result.area.businesses[0].staffCitizenIds).toEqual([])
+    expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBeUndefined()
+  })
+
   test('hire intents reject non-owners, unavailable workers, and duplicate hires', () => {
     const start = claimedArea({
       citizens: [
