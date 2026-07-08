@@ -4482,7 +4482,7 @@ async function scanFounderCovenantReviewQueue(
     current,
     failed: results.length - caughtUp - current,
     hasMore,
-    totals: founderCovenantReviewQueueTotals(sortedItems),
+    totals: founderCovenantReviewQueueTotals(sortedItems, results),
     items: sortedItems,
     results,
   }
@@ -4639,6 +4639,7 @@ function founderCovenantReviewQueueLatestReview(
 
 function founderCovenantReviewQueueTotals(
   items: FounderCovenantReviewQueueItem[],
+  results: FounderCovenantReviewQueueScanResult[],
 ): FounderCovenantReviewQueueDashboard['totals'] {
   return {
     founders: items.length,
@@ -4655,7 +4656,7 @@ function founderCovenantReviewQueueTotals(
     staleReviewed: items.filter((item) => item.reviewFreshness === 'stale').length,
     staleWeeklyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.weeklyReviewDue && !item.monthlyReviewDue).length,
     staleMonthlyDue: items.filter((item) => item.reviewFreshness === 'stale' && item.monthlyReviewDue).length,
-    scanAnomalies: items.filter((item) => item.scanStatus === 'invalid' || item.scanStatus === 'unavailable').length,
+    scanAnomalies: results.filter((result) => result.status === 'invalid' || result.status === 'unavailable').length,
     weeklyDue: items.filter((item) => item.weeklyReviewDue).length,
     monthlyDue: items.filter((item) => item.monthlyReviewDue).length,
     warningApprovals: items.reduce((total, item) =>

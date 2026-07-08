@@ -3875,6 +3875,43 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('founder covenant review queue counts scan anomalies even when invalid area blobs yield no items', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://invalid-review-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ bad: true }), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      founderCovenantReviewQueue: {
+        scanned: 1,
+        caughtUp: 0,
+        current: 0,
+        failed: 1,
+        totals: {
+          founders: 0,
+          scanAnomalies: 1,
+        },
+        items: [],
+        results: [{
+          citizenId: CITIZEN_ID,
+          areaId: null,
+          status: 'invalid',
+          updatedAt: null,
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('refreshArea catches up stale area state through the authenticated server path', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
