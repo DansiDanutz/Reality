@@ -1,4 +1,5 @@
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
+import { adviceOf, formatMoney, netWorthOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -14,6 +15,13 @@ export default function GoalsCard() {
   const citizen = useGame((s) => s.citizen)
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
+  const needs = useGame((s) => s.needs)
+  const health = useGame((s) => s.health)
+  const money = useGame((s) => s.money)
+  const jobId = useGame((s) => s.jobId)
+  const activity = useGame((s) => s.activity)
+  const inventory = useGame((s) => s.inventory)
+  const assets = useGame((s) => s.assets)
   const setPanel = useGame((s) => s.setPanel)
 
   if (!citizen) return null
@@ -37,6 +45,25 @@ export default function GoalsCard() {
   // "1 to go!" — the near-completion nudge. A player at 2/3 is one action
   // away from the bonus; this makes that concrete and tappable.
   const oneLeft = !allDone && total > 0 && done === total - 1
+  const businesses = assets.filter((a) => a.kind === 'business').length
+  const advice = adviceOf({
+    needs,
+    health,
+    money,
+    jobId,
+    activity,
+    hasHome: assets.some((a) => a.kind === 'home'),
+    businesses,
+    pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+  })
+  const routine = [
+    needs.hydration < 30 ? 'Drink' : null,
+    needs.hunger < 30 ? 'Eat' : null,
+    needs.energy < 28 ? 'Sleep' : null,
+    !jobId ? 'Get a job' : null,
+    assets.some((a) => a.kind === 'home') ? 'Sleep at home' : 'Build a home',
+    businesses > 0 ? 'Collect income' : 'Open a business',
+  ].filter((step): step is string => Boolean(step))
 
   return (
     <button
@@ -50,6 +77,12 @@ export default function GoalsCard() {
           <span className="goals-card-streak" aria-hidden>🔥 {streakLength}</span>
         )}
       </header>
+      <div className="goals-card-plan" aria-label="Today’s routine">
+        <span className="goals-card-plan-head mono">Plan</span>
+        <span className="goals-card-plan-text">{advice.text}</span>
+        <span className="goals-card-plan-steps mono">{routine.slice(0, 4).join(' · ')}</span>
+        <span className="goals-card-plan-work mono">Net worth {formatMoney(netWorthOf(money, inventory, assets))}</span>
+      </div>
       {total > 0 ? (
         <>
           <div className="goals-card-bar" aria-hidden>

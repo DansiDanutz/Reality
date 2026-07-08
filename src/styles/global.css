@@ -1414,6 +1414,19 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 .goals-card-title { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
 .goals-card-streak { font-size: 14px; color: #ff8a3d; font-weight: 600; }
+.goals-card-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: rgba(120, 150, 205, 0.08);
+  border: 1px solid rgba(120, 150, 205, 0.14);
+}
+.goals-card-plan-head { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.goals-card-plan-text { font-size: 12px; color: var(--text); line-height: 1.35; }
+.goals-card-plan-steps,
+.goals-card-plan-work { font-size: 11px; color: var(--muted); line-height: 1.35; }
 .goals-card-bar {
   height: 5px; border-radius: 3px;
   background: rgba(255,255,255,0.06); overflow: hidden;
