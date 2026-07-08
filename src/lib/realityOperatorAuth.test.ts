@@ -1,8 +1,12 @@
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   requestRealityOperatorQueueToken,
   type RealityOperatorQueueAuthResult,
 } from './realityOperatorAuth'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('Reality operator auth client bridge', () => {
   test('does not request operator authority outside Telegram Mini Apps', async () => {
@@ -109,6 +113,48 @@ describe('Reality operator auth client bridge', () => {
     })
   })
 
+  test('rejects successful operator responses that are already expired', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'))
+    const response = operatorAuthResponse({
+      expiresAt: Date.now() - 1_000,
+      expiresInSeconds: 900,
+    })
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => response,
+    }))
+
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Reality operator auth was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects successful operator responses with inconsistent expiry metadata', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'))
+    const response = operatorAuthResponse({
+      expiresAt: Date.now() + 3_600_000,
+      expiresInSeconds: 900,
+    })
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => response,
+    }))
+
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Reality operator auth was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects successful operator responses with mismatched Telegram identity', async () => {
     const response = {
       ...operatorAuthResponse(),
@@ -145,7 +191,9 @@ describe('Reality operator auth client bridge', () => {
   })
 })
 
-function operatorAuthResponse(): Extract<RealityOperatorQueueAuthResult, { ok: true }> {
+function operatorAuthResponse(
+  overrides: Partial<Extract<RealityOperatorQueueAuthResult, { ok: true }>> = {},
+): Extract<RealityOperatorQueueAuthResult, { ok: true }> {
   return {
     ok: true,
     operator: {
@@ -155,7 +203,8 @@ function operatorAuthResponse(): Extract<RealityOperatorQueueAuthResult, { ok: t
       scope: 'founder_covenant_queue',
     },
     operatorToken: 'operator-token',
-    expiresAt: 1_783_000_900_000,
+    expiresAt: Date.now() + 900_000,
     expiresInSeconds: 900,
+    ...overrides,
   }
 }
