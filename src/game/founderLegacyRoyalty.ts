@@ -98,11 +98,13 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
   for (const asset of input.assets) {
     const assetId = asset.id.trim()
     if (!assetId) continue
+    const currentOwnerCitizenId = asset.currentOwnerCitizenId.trim()
+    const createdByCitizenId = asset.createdByCitizenId.trim()
 
     const baseNetRevenue = positiveMoney(asset.periodBaseNetRevenue)
     const successorUpgradeNetRevenue = positiveMoney(asset.periodSuccessorUpgradeNetRevenue ?? 0)
 
-    if (asset.currentOwnerCitizenId !== successorCitizenId) {
+    if (currentOwnerCitizenId !== successorCitizenId) {
       excludedAssets.push({
         id: assetId,
         reason: 'not_owned_by_successor',
@@ -111,7 +113,7 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
       continue
     }
 
-    if (asset.createdByCitizenId === successorCitizenId) {
+    if (createdByCitizenId === successorCitizenId) {
       excludedAssets.push({
         id: assetId,
         reason: 'successor_created_asset',
@@ -120,7 +122,7 @@ export function assessFounderLegacyRoyalty(input: FounderLegacyRoyaltyInput): Fo
       continue
     }
 
-    if (asset.createdByCitizenId !== previousFounderCitizenId) {
+    if (createdByCitizenId !== previousFounderCitizenId) {
       excludedAssets.push({
         id: assetId,
         reason: 'not_created_by_previous_founder',

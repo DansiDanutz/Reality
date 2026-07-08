@@ -105,6 +105,45 @@ describe('founder legacy royalty policy', () => {
     expect(assessment.ledgerDraft?.amount).toBe(120)
   })
 
+  test('trims asset founder identities before classifying inherited value', () => {
+    const assessment = assessFounderLegacyRoyalty({
+      previousFounderCitizenId: ' founder-old ',
+      successorCitizenId: ' founder-new ',
+      assets: [{
+        id: ' business-water ',
+        currentOwnerCitizenId: ' founder-new ',
+        createdByCitizenId: ' founder-old ',
+        periodBaseNetRevenue: 500,
+        periodSuccessorUpgradeNetRevenue: 50,
+      }, {
+        id: 'business-third-founder',
+        currentOwnerCitizenId: ' founder-new ',
+        createdByCitizenId: ' founder-third ',
+        periodBaseNetRevenue: 200,
+      }],
+    })
+
+    expect(assessment.previousFounderCitizenId).toBe('founder-old')
+    expect(assessment.successorCitizenId).toBe('founder-new')
+    expect(assessment.eligibleAssets).toEqual([{
+      id: 'business-water',
+      baseNetRevenue: 500,
+      successorUpgradeNetRevenue: 50,
+      royaltyAmount: 50,
+    }])
+    expect(assessment.excludedAssets).toEqual([{
+      id: 'business-third-founder',
+      reason: 'not_created_by_previous_founder',
+      excludedNetRevenue: 200,
+    }])
+    expect(assessment.ledgerDraft).toMatchObject({
+      payerCitizenId: 'founder-new',
+      previousFounderCitizenId: 'founder-old',
+      sourceAssetIds: ['business-water'],
+      amount: 50,
+    })
+  })
+
   test('excludes assets that are not owned by the successor or not created by the previous founder', () => {
     const assessment = assessFounderLegacyRoyalty({
       previousFounderCitizenId: 'founder-old',
