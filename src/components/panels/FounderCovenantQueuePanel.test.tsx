@@ -7,6 +7,7 @@ import type {
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
   founderCovenantOperatorQueueActivitySignalText,
+  founderCovenantOperatorQueueActivityReasonText,
   founderCovenantOperatorQueueApprovalBlockerText,
   founderCovenantOperatorQueueApprovalGateText,
   founderCovenantOperatorQueueApprovalReasonText,
@@ -63,6 +64,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Next: Manual review')
     expect(html).toContain('Recommended: Send warning')
     expect(html).toContain('Activity: Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes')
+    expect(html).toContain('Activity reasons: Active: No recent founder activity is visible. · Useful: Usefulness needs reviewer evidence. · Building: Founder has built or owns local business activity. · Staffed: Founder businesses need staffing attention. · Indebted: Founder has outstanding debt. · Hospitalized: Founder is unavailable in hospital. · At risk: Founder covenant status requires manual attention.')
     expect(html).toContain('Exposure: Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only')
     expect(html).toContain('Stages: Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement')
     expect(html).toContain('Stage reasons: Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.')
@@ -162,6 +164,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
     )
+    expect(founderCovenantOperatorQueueActivityReasonText(manual)).toBe(
+      'Active: No recent founder activity is visible. · Useful: Usefulness needs reviewer evidence. · Building: Founder has built or owns local business activity. · Staffed: Founder businesses need staffing attention. · Indebted: Founder has outstanding debt. · Hospitalized: Founder is unavailable in hospital. · At risk: Founder covenant status requires manual attention.',
+    )
     expect(founderCovenantOperatorQueueEconomicExposureText(manual)).toBe(
       'Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only',
     )
@@ -235,6 +240,7 @@ describe('FounderCovenantQueuePanel', () => {
       reviewQueueBlockerText: 'approval workflow, Telegram delivery, replacement',
       nextActionText: 'Manual review',
       recommendedActionText: 'Send warning',
+      activityReasonText: 'Active: No recent founder activity is visible. · Useful: Usefulness needs reviewer evidence. · Building: Founder has built or owns local business activity. · Staffed: Founder businesses need staffing attention. · Indebted: Founder has outstanding debt. · Hospitalized: Founder is unavailable in hospital. · At risk: Founder covenant status requires manual attention.',
       stageReasonText: 'Active: Founder has covenant signals requiring reviewer attention. · Warning: Covenant signals suggest a manual founder warning. · Probation: Founder score and signals do not suggest probation. · Removed: Removal is not suggested by current covenant signals. · Waitlist replacement: Waitlist handoff is disabled until the manual replacement workflow is approved.',
       latestReviewAuthorityText: null,
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',

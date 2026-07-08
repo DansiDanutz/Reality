@@ -77,6 +77,7 @@ export function FounderCovenantQueuePanel({
                 <span className="item-desc">Next: {row.nextActionText}</span>
                 <span className="item-desc">Recommended: {row.recommendedActionText}</span>
                 <span className="item-desc">Activity: {row.activitySignalText}</span>
+                <span className="item-desc">Activity reasons: {row.activityReasonText}</span>
                 <span className="item-desc">Exposure: {row.economicExposureText}</span>
                 <span className="item-desc">Stages: {row.stageText}</span>
                 <span className="item-desc">Stage reasons: {row.stageReasonText}</span>

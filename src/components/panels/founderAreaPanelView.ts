@@ -134,6 +134,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   nextActionText: string
   recommendedActionText: string
   activitySignalText: string
+  activityReasonText: string
   economicExposureText: string
   stageText: string
   stageReasonText: string
@@ -1350,6 +1351,7 @@ export function founderCovenantOperatorQueueReviewRows(
       nextActionText: founderCovenantOperatorQueueNextActionText(item),
       recommendedActionText: founderCovenantOperatorQueueRecommendedActionText(item),
       activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
+      activityReasonText: founderCovenantOperatorQueueActivityReasonText(item),
       economicExposureText: founderCovenantOperatorQueueEconomicExposureText(item),
       stageText: founderCovenantOperatorQueueStageText(item),
       stageReasonText: founderCovenantOperatorQueueStageReasonText(item),
@@ -1422,6 +1424,13 @@ export function founderCovenantOperatorQueueActivitySignalText(
   if (watch.length > 0) parts.push(`Watch: ${watch.map(founderCovenantActivitySignalLabel).join(', ')}`)
   if (met.length > 0) parts.push(`Met: ${met.map(founderCovenantActivitySignalLabel).join(', ')}`)
   return parts.join(' · ')
+}
+
+export function founderCovenantOperatorQueueActivityReasonText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'activitySignals'>,
+): string {
+  if (item.activitySignals.length === 0) return 'none'
+  return item.activitySignals.map((signal) => `${signal.label}: ${signal.summary}`).join(' · ')
 }
 
 function founderCovenantActivitySignalLabel(
