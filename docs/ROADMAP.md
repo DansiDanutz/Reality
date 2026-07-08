@@ -2,7 +2,7 @@
 
 ## Phase 0 — Open Beta (this release) ✅
 
-Single-player life sim on the 3D Earth: needs, jobs, shop, placeable homes & businesses, passive income, local saves. Goal: prove the loop is fun, gather a community around the repo, start the founder waitlist.
+Single-player life sim on the 3D Earth: needs, jobs, shop, placeable homes & businesses, demand-led business revenue, local saves. Goal: prove the loop is fun, gather a community around the repo, start the founder waitlist.
 
 **Beta marketing checklist**
 - [ ] Deploy the beta to a public URL (Vercel/Cloudflare — `npm run build`, zero config)
