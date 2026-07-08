@@ -1321,16 +1321,16 @@ export default function FounderCovenantOperatorPanel({
             </span>
             <span
               className={`founder-ledger-chip ${
-                queue.items.some((item) => (item.manualReviewRequired || item.covenantStatus === 'manual_review') && item.reviewFreshness === 'never')
+                queue.totals.manualReviewNeverReviewed > 0
                   ? 'critical'
-                  : queue.items.some((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review')
+                  : queue.totals.manualReviewRequired > 0
                     ? 'warning'
                     : 'stable'
               }`}
               title={founderCovenantOperatorQueueManualReviewSummary(queue)}
             >
               <span>Manual review</span>
-              <strong>{queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review').length}</strong>
+              <strong>{queue.totals.manualReviewRequired}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${

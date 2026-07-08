@@ -912,13 +912,10 @@ export function founderCovenantOperatorQueueFreshnessSummary(
 }
 
 export function founderCovenantOperatorQueueManualReviewSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
 ): string {
-  const manualReviewFounders = queue.items.filter((item) => item.manualReviewRequired || item.covenantStatus === 'manual_review')
-  const neverReviewed = manualReviewFounders.filter((item) => item.reviewFreshness === 'never').length
-  const staleReviewed = manualReviewFounders.filter((item) => item.reviewFreshness === 'stale').length
-  const freshReviewed = manualReviewFounders.filter((item) => item.reviewFreshness === 'fresh').length
-  return `Manual review: ${manualReviewFounders.length} founder${manualReviewFounders.length === 1 ? '' : 's'} · ${neverReviewed} never · ${staleReviewed} stale · ${freshReviewed} fresh`
+  const { totals } = queue
+  return `Manual review: ${totals.manualReviewRequired} founder${totals.manualReviewRequired === 1 ? '' : 's'} · ${totals.manualReviewNeverReviewed} never · ${totals.manualReviewStaleReviewed} stale · ${totals.manualReviewFreshReviewed} fresh`
 }
 
 export function founderCovenantOperatorQueueProbationRiskSummary(

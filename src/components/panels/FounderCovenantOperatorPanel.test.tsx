@@ -271,6 +271,10 @@ describe('FounderCovenantOperatorPanel', () => {
           ...operatorQueue(),
           totals: {
             ...operatorQueue().totals,
+            manualReviewRequired: 0,
+            manualReviewNeverReviewed: 0,
+            manualReviewFreshReviewed: 0,
+            manualReviewStaleReviewed: 0,
             probationRiskFounders: 0,
             replacementRiskFounders: 0,
             weeklyDue: 2,
@@ -385,7 +389,7 @@ describe('FounderCovenantOperatorPanel', () => {
       items: operatorQueue().items,
     })).toBe('Signals: 1 critical · 1 warning · 1 founder flagged')
     expect(founderCovenantOperatorQueueManualReviewSummary({
-      items: operatorQueue().items,
+      totals: operatorQueue().totals,
     })).toBe('Manual review: 1 founder · 1 never · 0 stale · 0 fresh')
     expect(founderCovenantOperatorQueueFreshnessSummary({
       totals: operatorQueue().totals,
@@ -692,6 +696,9 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       hospitalized: 1,
       atRisk: 1,
       manualReviewRequired: 1,
+      manualReviewNeverReviewed: 1,
+      manualReviewFreshReviewed: 0,
+      manualReviewStaleReviewed: 0,
       probationRiskFounders: 1,
       replacementRiskFounders: 1,
       neverReviewed: 1,
