@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
-import { founderCovenantOperatorQueueApprovalSummary } from './founderAreaPanelView'
+import {
+  founderCovenantOperatorQueueApprovalSummary,
+  founderCovenantOperatorQueueBlockerSummary,
+} from './founderAreaPanelView'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
   formatCopiedContextClearedMessage,
@@ -107,6 +110,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('<span>Resume</span><strong>more</strong>')
     expect(html).toContain('<span>Weekly ready</span><strong>0</strong>')
     expect(html).toContain('<span>Monthly ready</span><strong>0</strong>')
+    expect(html).toContain('title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"')
+    expect(html).toContain('class="founder-ledger-chip critical" title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"><span>Blockers</span><strong>3</strong>')
     expect(html).toContain('title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Approvals: 1 warning · 0 probation · 0 replacement · 1 total"><span>Approvals</span><strong>1</strong>')
     expect(html).toContain('title="Telegram drafts: 0 warning · 1 manual review · 1 total"')
@@ -307,6 +312,15 @@ describe('FounderCovenantOperatorPanel', () => {
         pendingApprovals: 4,
       },
     })).toBe('Approvals: 1 warning · 2 probation · 1 replacement · 4 total')
+    expect(founderCovenantOperatorQueueBlockerSummary({
+      totals: {
+        ...operatorQueue().totals,
+        blockers: 5,
+        overdue: 2,
+        hospitalized: 1,
+        indebted: 3,
+      },
+    })).toBe('Blockers: 5 total · 2 overdue · 1 hospitalized · 3 indebted')
     expect(formatCopiedContextClearedMessage({
       hadTelegramContext: true,
       hadDigestOrViewContext: true,

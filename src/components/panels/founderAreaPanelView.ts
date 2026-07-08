@@ -914,6 +914,13 @@ export function founderCovenantOperatorQueueApprovalSummary(
   return `Approvals: ${totals.warningApprovals} warning · ${totals.probationApprovals} probation · ${totals.replacementApprovals} replacement · ${totals.pendingApprovals} total`
 }
 
+export function founderCovenantOperatorQueueBlockerSummary(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
+): string {
+  const { totals } = queue
+  return `Blockers: ${totals.blockers} total · ${totals.overdue} overdue · ${totals.hospitalized} hospitalized · ${totals.indebted} indebted`
+}
+
 export function founderCovenantOperatorQueueCadenceReadyMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
 ): FounderCovenantOperatorQueueCadenceReadyMix {

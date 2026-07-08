@@ -27,6 +27,7 @@ import {
   founderCovenantOperatorQueueCadenceReadySummary,
   founderCovenantOperatorQueueActionSummary,
   founderCovenantOperatorQueueApprovalSummary,
+  founderCovenantOperatorQueueBlockerSummary,
   founderCovenantNotificationDraftGateText,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
@@ -1235,6 +1236,19 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Monthly ready</span>
               <strong>{cadenceReady?.monthly ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${
+                queue.totals.blockers > 0
+                  ? 'critical'
+                  : queue.totals.overdue > 0 || queue.totals.hospitalized > 0 || queue.totals.indebted > 0
+                    ? 'warning'
+                    : 'stable'
+              }`}
+              title={founderCovenantOperatorQueueBlockerSummary(queue)}
+            >
+              <span>Blockers</span>
+              <strong>{queue.totals.blockers}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
