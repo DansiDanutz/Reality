@@ -1042,3 +1042,56 @@ describe('illness — health phase 2 (docs/ILLNESS-RFC.md, issue #8)', () => {
     expect(caught?.endsAt).toBe(1_000 + COLD_DURATION_MS)
   })
 })
+
+describe('liveRealtime — past-due activity never moves the cursor backwards (audit 2026-07-08)', () => {
+  const baseInput = (activity: Activity | null) => ({
+    ...world(),
+    money: 1000,
+    activity,
+    hasHome: false,
+    wageBonus: 0,
+  })
+
+  test('a persisted activity with endsAt before fromMs resolves without double-simulating the span', () => {
+    // The shift ended at t=8h; the player returns and the store ticks from
+    // t=10h to t=10h+1s. Before the clamp, chunkEnd = activity.endsAt (8h)
+    // moved the cursor BACK two hours and re-lived them.
+    const shift: Activity = { kind: 'shift', startedAt: 0, endsAt: 8 * HOUR, wage: 20, title: 'Barista' }
+    const from = 10 * HOUR
+    const out = liveRealtime(baseInput(shift), from, from + 1000, () => 1)
+    // The shift still pays out and resolves...
+    expect(out.shiftsCompleted).toBe(1)
+    expect(out.activity).toBeNull()
+    // ...but the world only advanced ~1 second, not a re-lived 2-hour span.
+    expect(out.needs.hunger).toBeCloseTo(80, 1)
+    expect(out.needs.energy).toBeCloseTo(80, 1)
+  })
+
+  test('upkeep is not double-charged for the span before a past-due activity', () => {
+    const shift: Activity = { kind: 'shift', startedAt: 0, endsAt: 1 * HOUR, wage: 20, title: 'Barista' }
+    const withBiz = { ...baseInput(shift), assets: [business(240)] }
+    const from = 3 * HOUR
+    const out = liveRealtime(withBiz, from, from + 1000, () => 1)
+    // ~1 second of opex on a $240/day business is ≈ $0.0003 — before the
+    // clamp this span re-ran 2 hours and charged ~$2 of upkeep again.
+    expect(out.upkeepPaid).toBeLessThan(0.01)
+  })
+})
+
+describe('netWorthOf — includes business upgrade investment (audit 2026-07-08)', () => {
+  test('an upgraded business adds its totalInvested to net worth', async () => {
+    const { totalInvested } = await import('./businessUpgrades')
+    const price = itemById('foodcart')?.price ?? 0
+    const baseIncome = 240
+    const level = 3
+    const upgraded: PlacedAsset = { ...business(baseIncome * level), level }
+    const worth = netWorthOf(0, {}, [upgraded])
+    expect(worth).toBe(Math.round(price + totalInvested(baseIncome, level)))
+  })
+
+  test('a level-1 (or level-less) business is unchanged', () => {
+    const worth = netWorthOf(100, {}, [business(240)])
+    const price = itemById('foodcart')?.price ?? 0
+    expect(worth).toBe(Math.round(100 + price))
+  })
+})
