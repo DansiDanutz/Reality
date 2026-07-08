@@ -3,6 +3,7 @@ import {
   founderAreaEventDetail,
   founderAreaEventSummaryItems,
   founderAreaEventTitle,
+  founderAreaHiringHighlight,
   founderAreaNextSteps,
   founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
@@ -93,6 +94,32 @@ describe('FounderAreaPanel covenant presenters', () => {
         detail: 'Study, work, and community actions push respect, skills, and stability upward.',
       },
     ])
+  })
+
+  test('surfaces the first hireable sim worker as the staffing highlight', () => {
+    const highlight = founderAreaHiringHighlight({
+      candidates: [
+        {
+          citizenId: 'waiter',
+          name: 'Mina',
+          displayName: 'Mina',
+          kind: 'sim',
+          simulated: true,
+          participantLabel: 'Sim Citizen',
+          visualTone: 'simulated',
+          action: 'hire_now',
+          recommendedBusinessId: 'food1',
+          recommendedBusinessName: 'Food Cart',
+          recommendedBusinessKind: 'food',
+          clientPayload: { type: 'hireWorker', actorCitizenId: 'founder', businessId: 'food1', workerCitizenId: 'waiter' },
+        },
+      ],
+    } as unknown as RealityAreaDashboard['jobs'])
+
+    expect(highlight).toEqual({
+      title: 'Hire next: Mina',
+      detail: 'food worker ready for Food Cart.',
+    })
   })
 
   test('summarizes server-verified founder Telegram identity', () => {

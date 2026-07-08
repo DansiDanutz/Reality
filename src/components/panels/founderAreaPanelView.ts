@@ -219,6 +219,11 @@ type FounderAreaNextStepsDashboard = {
   existingBusinesses?: Array<{ kind?: string }>
 }
 
+export interface FounderAreaHiringHighlight {
+  title: string
+  detail: string
+}
+
 export function founderAreaNextSteps(dashboard: FounderAreaNextStepsDashboard): FounderAreaNextStep[] {
   const steps: FounderAreaNextStep[] = []
   if ((dashboard.survival?.signals?.length ?? 0) > 0) {
@@ -257,6 +262,19 @@ export function founderAreaNextSteps(dashboard: FounderAreaNextStepsDashboard): 
   }
 
   return steps.slice(0, 3)
+}
+
+export function founderAreaHiringHighlight(
+  jobs: Pick<RealityAreaDashboard['jobs'], 'candidates'>,
+): FounderAreaHiringHighlight | null {
+  const candidate = jobs.candidates.find((item) => item.clientPayload)
+  if (!candidate) return null
+  return {
+    title: `Hire next: ${candidate.displayName}`,
+    detail: candidate.recommendedBusinessName
+      ? `${candidate.recommendedBusinessKind ? `${candidate.recommendedBusinessKind} worker` : 'Worker'} ready for ${candidate.recommendedBusinessName}.`
+      : 'A ready worker is waiting for an open role.',
+  }
 }
 
 export function founderHandoffStatusLabel(

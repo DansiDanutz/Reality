@@ -33,6 +33,7 @@ import {
   founderAreaEventDetail,
   founderAreaEventSummaryItems,
   founderAreaEventTitle,
+  founderAreaHiringHighlight,
   founderAreaNextSteps,
   founderCovenantApprovalBlockerText,
   founderCovenantApprovalRequestStatusLabel,
@@ -160,6 +161,7 @@ export default function FounderAreaPanel() {
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
   const nextSteps = dashboard ? founderAreaNextSteps(dashboard) : []
+  const hiringHighlight = dashboard ? founderAreaHiringHighlight(dashboard.jobs) : null
   const businessNamesById = new Map(
     dashboard?.existingBusinesses.map((business) => [business.id, business.name]) ?? [],
   )
@@ -959,6 +961,12 @@ export default function FounderAreaPanel() {
                 {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready
               </span>
             </div>
+            {hiringHighlight && (
+              <div className="founder-next-step">
+                <span className="founder-next-step-label">{hiringHighlight.title}</span>
+                <span className="founder-next-step-detail">{hiringHighlight.detail}</span>
+              </div>
+            )}
             {dashboard.jobs.candidates.find((candidate) => candidate.clientPayload) && (
               <button
                 className="btn small primary"
