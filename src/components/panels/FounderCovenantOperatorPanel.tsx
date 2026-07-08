@@ -28,6 +28,7 @@ import {
   founderCovenantOperatorQueueActionSummary,
   founderCovenantOperatorQueueApprovalSummary,
   founderCovenantOperatorQueueBlockerSummary,
+  founderCovenantOperatorQueueEvidenceSummary,
   founderCovenantNotificationDraftGateText,
   founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
@@ -1236,6 +1237,13 @@ export default function FounderCovenantOperatorPanel({
             >
               <span>Monthly ready</span>
               <strong>{cadenceReady?.monthly ?? 0}</strong>
+            </span>
+            <span
+              className={`founder-ledger-chip ${queue.items.some((item) => item.reviewReadiness.evidenceRequiredCount > 0) ? 'warning' : 'stable'}`}
+              title={founderCovenantOperatorQueueEvidenceSummary(queue)}
+            >
+              <span>Evidence</span>
+              <strong>{queue.items.reduce((sum, item) => sum + item.reviewReadiness.evidenceRequiredCount, 0)}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${
