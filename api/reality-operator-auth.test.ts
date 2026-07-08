@@ -178,6 +178,10 @@ describe('Reality operator Telegram auth', () => {
       ok: false,
       error: 'expired_token',
     })
+    expect(verifyRealityOperatorQueueToken(token, OPERATOR_SECRET, 999)).toEqual({
+      ok: false,
+      error: 'issued_in_future',
+    })
     expect(signRealityOperatorQueueToken(claims!, undefined)).toBeNull()
     expect(verifyRealityOperatorQueueToken(token, undefined, 2_000)).toEqual({
       ok: false,

@@ -4060,6 +4060,32 @@ describe('reality area authority API', () => {
     expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
 
+    const futureClaims = realityOperatorQueueTokenClaims('42424242', Date.now() + 5 * 60 * 1000, 15 * 60 * 1000)
+    const futureToken = signRealityOperatorQueueToken(futureClaims!, OPERATOR_AUTH_SECRET)
+    const futureRes = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { authorization: `Bearer ${futureToken}` },
+      body: {
+        intent: {
+          type: 'recordFounderCovenantOperatorReview',
+          founderCitizenId: CITIZEN_ID,
+          areaId: 'founder-area-0012',
+          actionKind: 'record_review',
+        },
+      },
+    } as never, futureRes as never)
+
+    expect(futureRes.statusCode).toBe(403)
+    expect(futureRes.body).toEqual({
+      ok: false,
+      error: 'Founder covenant operator review requires a valid operator token.',
+      code: 'operator_unauthorized',
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+
     const claims = realityOperatorQueueTokenClaims('42424242', Date.now(), 15 * 60 * 1000)
     const operatorToken = signRealityOperatorQueueToken(claims!, OPERATOR_AUTH_SECRET)
     vi.mocked(list)
