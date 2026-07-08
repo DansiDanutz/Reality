@@ -876,9 +876,19 @@ export default function FounderAreaPanel() {
                   <li className="item founder-settlement-blocker" key={blocker}>
                     <div className="item-info">
                       <span className="item-name">{founderSettlementBlockerText(blocker)}</span>
-                      <span className="item-desc">Locked until review</span>
+                      <span className="item-desc">
+                        {blocker === 'telegram_identity_required'
+                          ? 'Link Telegram before TON readiness can advance'
+                          : 'Locked until review'}
+                      </span>
                     </div>
-                    <span className="item-locked mono">disabled</span>
+                    {blocker === 'telegram_identity_required'
+                      ? (
+                          <button className="btn small ghost" disabled={busy} onClick={() => void linkFounderTelegram()}>
+                            Link Telegram
+                          </button>
+                        )
+                      : <span className="item-locked mono">disabled</span>}
                   </li>
                 ))}
               </ul>
@@ -913,9 +923,19 @@ export default function FounderAreaPanel() {
                   <li className="item founder-payout-blocker" key={blocker}>
                     <div className="item-info">
                       <span className="item-name">{founderPayoutReadinessBlockerText(blocker)}</span>
-                      <span className="item-desc">Locked until compliance review</span>
+                      <span className="item-desc">
+                        {blocker === 'telegram_identity_required'
+                          ? 'Link Telegram before payout readiness can advance'
+                          : 'Locked until compliance review'}
+                      </span>
                     </div>
-                    <span className="item-locked mono">disabled</span>
+                    {blocker === 'telegram_identity_required'
+                      ? (
+                          <button className="btn small ghost" disabled={busy} onClick={() => void linkFounderTelegram()}>
+                            Link Telegram
+                          </button>
+                        )
+                      : <span className="item-locked mono">disabled</span>}
                   </li>
                 ))}
               </ul>
