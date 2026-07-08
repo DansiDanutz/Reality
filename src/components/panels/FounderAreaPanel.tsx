@@ -65,6 +65,7 @@ import {
   founderCovenantStatusLabel,
   founderCovenantTone,
   founderBusinessAlertSummaryText,
+  founderBusinessLedgerText,
   founderBusinessStatusText,
   founderCitizenConditionText,
   founderCitizenDebtActionText,
@@ -949,6 +950,7 @@ export default function FounderAreaPanel() {
                       <span className="item-desc">
                         {business.kind} · {founderBusinessStatusText(business)}
                       </span>
+                      <span className="item-desc">{founderBusinessLedgerText(business)}</span>
                       {founderBusinessAlertSummaryText(business) && (
                         <span className="item-desc">{founderBusinessAlertSummaryText(business)}</span>
                       )}

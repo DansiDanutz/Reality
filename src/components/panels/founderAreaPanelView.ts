@@ -249,6 +249,20 @@ export function founderBusinessAlertSummaryText(
   return business.alerts.map(founderBusinessAlertText).join(' · ')
 }
 
+export function founderBusinessLedgerText(
+  business: Pick<AreaBusinessDashboard, 'ledger'>,
+): string {
+  const ledger = business.ledger
+  const netPrefix = ledger.netCashFlow >= 0 ? '+' : '-'
+  const receivables = ledger.receivablesIssued > 0 ? ` · receivables ${formatMoney(ledger.receivablesIssued)}` : ''
+  return [
+    `revenue ${formatMoney(ledger.revenue)}`,
+    `expenses ${formatMoney(ledger.expenses)}`,
+    `net ${netPrefix}${formatMoney(Math.abs(ledger.netCashFlow))}`,
+    `wages ${formatMoney(ledger.wagesPaid)}`,
+  ].join(' · ') + receivables
+}
+
 export function founderFirstBuildReasonText(
   recommendation: Pick<
     RealityAreaDashboard['firstBuild'][number],

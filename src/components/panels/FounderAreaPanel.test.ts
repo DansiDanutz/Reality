@@ -39,6 +39,7 @@ import {
   founderCovenantTone,
   founderBusinessAlertSummaryText,
   founderBusinessAlertText,
+  founderBusinessLedgerText,
   founderBusinessStatusText,
   founderCitizenConditionText,
   founderCitizenDebtActionText,
@@ -210,6 +211,26 @@ describe('FounderAreaPanel covenant presenters', () => {
         severity: 'warning',
       }],
     })).toBe('No active staff on shift · Spending is outpacing revenue')
+
+    expect(founderBusinessLedgerText({
+      ledger: {
+        revenue: 28,
+        expenses: 14,
+        netCashFlow: 14,
+        wagesPaid: 14,
+        receivablesIssued: 0,
+      },
+    } as never)).toBe('revenue $28 · expenses $14 · net +$14 · wages $14')
+
+    expect(founderBusinessLedgerText({
+      ledger: {
+        revenue: 2,
+        expenses: 14,
+        netCashFlow: -12,
+        wagesPaid: 14,
+        receivablesIssued: 300,
+      },
+    } as never)).toBe('revenue $2 · expenses $14 · net -$12 · wages $14 · receivables $300')
 
     expect(founderFirstBuildReasonText({
       reason: 'Local demand is waiting for this service.',
