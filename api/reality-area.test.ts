@@ -6225,6 +6225,60 @@ describe('reality area authority API', () => {
     )
   })
 
+  test('buyInsurance returns a structured storage failure when pre-insurance catch-up cannot persist', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const fragileFounder = withCitizen(existingState(), CITIZEN_ID, {
+      needs: { hydration: 1 },
+    })
+    const stale = withBusiness({
+      ...fragileFounder,
+      updatedAt: '2026-07-06T07:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
+    }, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 5,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      state: {
+        updatedAt: '2026-07-06T07:00:00.000Z',
+        transactions: stale.transactions,
+      },
+      dashboard: {
+        updatedAt: '2026-07-06T07:00:00.000Z',
+      },
+    })
+    const founder = (res.body as { state: ReturnType<typeof withBusiness> }).state.citizens
+      .find((citizen) => citizen.id === CITIZEN_ID)
+    expect(founder?.insuranceBusinessId).toBeUndefined()
+    expect((res.body as { state: ReturnType<typeof withBusiness> }).state.businesses
+      .find((business) => business.id === 'insurance-1')).toMatchObject({ cash: 5 })
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('buyInsurance requires an active founder, an insurance business, no active policy, and funds', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
