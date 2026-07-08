@@ -47,6 +47,7 @@ export default function GoalsCard() {
   // away from the bonus; this makes that concrete and tappable.
   const oneLeft = !allDone && total > 0 && done === total - 1
   const businesses = assets.filter((a) => a.kind === 'business').length
+  const workersHall = assets.some((a) => a.itemId === 'workers_hall')
   const advice = adviceOf({
     needs,
     health,
@@ -56,6 +57,7 @@ export default function GoalsCard() {
     activity,
     hasHome: assets.some((a) => a.kind === 'home'),
     businesses,
+    workersHall,
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
   const routine = [

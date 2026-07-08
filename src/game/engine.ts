@@ -791,6 +791,7 @@ export interface AdviceInput {
   activity: Activity | null
   hasHome: boolean
   businesses: number
+  workersHall: boolean
   pendingIncome: number
 }
 
@@ -827,6 +828,8 @@ export function adviceOf(i: AdviceInput): Advice {
     return { text: 'The neighborhood learns your name by seeing you help. Let us do some community work.', action: 'community', cta: 'Help out' }
   if (!i.hasHome && i.money >= CHEAPEST_HOME)
     return { text: "We can afford our own door now. A home makes every night count.", action: 'buy-home', cta: 'Buy a home' }
+  if (i.businesses > 0 && !i.workersHall && i.money >= 18_000)
+    return { text: 'Businesses need people. A Workers Hall turns open roles into real staff.', action: 'buy-business', cta: 'Build Workers Hall' }
   if (i.businesses === 0 && i.money >= CHEAPEST_BUSINESS)
     return { text: "Working for others is chapter one. Let's open our first business.", action: 'buy-business', cta: 'Open a business' }
   if (i.needs.fun < 30)

@@ -28,6 +28,7 @@ export default function MoodCard() {
 
   const mood = moodOf(needs, health)
   const businesses = assets.filter((a) => a.kind === 'business').length
+  const workersHall = assets.some((a) => a.itemId === 'workers_hall')
   const tier = tierOf(level, businesses, netWorthOf(money, inventory, assets))
   const advice = adviceOf({
     needs,
@@ -38,6 +39,7 @@ export default function MoodCard() {
     activity,
     hasHome: assets.some((a) => a.kind === 'home'),
     businesses,
+    workersHall,
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
 
