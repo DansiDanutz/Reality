@@ -862,9 +862,9 @@ describe('planLifeDay', () => {
     const workerFinishPlan = planLifeDay(snap({ jobId: 'barista', shiftsWorked: 1, educationActions: 1, constructionProjects: [activeWorkerCanFinish] }))
     expect(workerFinishPlan.primary.id).toBe('monitor-house-worker-finish')
     expect(workerFinishPlan.primary.detail).toBe('Paid Workers Hall time can cover the remaining 50m. Check the site and finish when the worker ledger turns ready.')
-    expect(workerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction' })
+    expect(workerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'construction', target: { kind: 'construction', id: activeWorkerCanFinish.id } })
     expect(workerFinishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'construction' },
+      route: { kind: 'panel', panel: 'construction', target: { kind: 'construction', id: activeWorkerCanFinish.id } },
       taskId: 'monitor-house-worker-finish',
     })
 
@@ -1065,9 +1065,9 @@ describe('planLifeDay', () => {
     const interiorWorkerFinishPlan = planLifeDay(snap({ ...base, money: 500, businessDevelopmentProjects: [activeInteriorWorkerCanFinish] }))
     expect(interiorWorkerFinishPlan.primary.id).toBe('monitor-business-worker-finish')
     expect(interiorWorkerFinishPlan.primary.detail).toBe('Paid Workers Hall time can cover the remaining 45m inside. Check the business and finish when the worker ledger turns ready.')
-    expect(interiorWorkerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
+    expect(interiorWorkerFinishPlan.primary.route).toEqual({ kind: 'panel', panel: 'business', target: { kind: 'asset', id: activeInteriorWorkerCanFinish.businessId } })
     expect(interiorWorkerFinishPlan.routine.find((block) => block.id === 'free-time-block')).toMatchObject({
-      route: { kind: 'panel', panel: 'business' },
+      route: { kind: 'panel', panel: 'business', target: { kind: 'asset', id: activeInteriorWorkerCanFinish.businessId } },
       taskId: 'monitor-business-worker-finish',
     })
 
@@ -1092,12 +1092,12 @@ describe('planLifeDay', () => {
       jobId: 'barista',
       shiftsWorked: 2,
       educationActions: 1,
-      assets: [{ kind: 'home', incomePerDay: 0 }, { kind: 'business', incomePerDay: 240 }],
+      assets: [{ kind: 'home', incomePerDay: 0 }, { id: 'foodcart-1', kind: 'business', incomePerDay: 240 }],
       communityActionsThisWeek: 0,
     }))
 
     expect(plan.primary.id).toBe('plan-business-development')
-    expect(plan.primary.route).toEqual({ kind: 'panel', panel: 'business' })
+    expect(plan.primary.route).toEqual({ kind: 'panel', panel: 'business', target: { kind: 'asset', id: 'foodcart-1' } })
     expect(plan.agenda.map((item) => item.id)).toContain('help-local-person')
   })
 

@@ -13,6 +13,7 @@ function routeActions(resourceNodes: Pick<ResourceNode, 'id' | 'kind'>[] = []) {
   const actions: GoalsCardRouteActions = {
     resourceNodes,
     openMarket: record('openMarket') as GoalsCardRouteActions['openMarket'],
+    selectMapTarget: record('selectMapTarget') as GoalsCardRouteActions['selectMapTarget'],
     setPanel: record('setPanel') as GoalsCardRouteActions['setPanel'],
     startGatherResource: record('startGatherResource'),
     depositConstructionResources: record('depositConstructionResources'),
@@ -45,6 +46,13 @@ describe('dispatchLifePlanRoute', () => {
     const panel = routeActions()
     dispatchLifePlanRoute({ kind: 'panel', panel: 'business' }, panel.actions)
     expect(panel.calls).toEqual([{ name: 'setPanel', args: ['business'] }])
+
+    const targetedPanel = routeActions()
+    dispatchLifePlanRoute({ kind: 'panel', panel: 'construction', target: { kind: 'construction', id: 'house-1' } }, targetedPanel.actions)
+    expect(targetedPanel.calls).toEqual([
+      { name: 'selectMapTarget', args: [{ kind: 'construction', id: 'house-1' }] },
+      { name: 'setPanel', args: ['construction'] },
+    ])
   })
 
   test('starts the matching resource node or falls back to construction', () => {

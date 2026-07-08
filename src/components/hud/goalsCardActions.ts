@@ -4,6 +4,7 @@ import type { ResourceNode } from '../../game/resources'
 export interface GoalsCardRouteActions {
   resourceNodes: readonly Pick<ResourceNode, 'id' | 'kind'>[]
   openMarket: (focus: Extract<LifePlanRoute, { kind: 'market' }>['focus']) => void
+  selectMapTarget: (target: NonNullable<Extract<LifePlanRoute, { kind: 'panel' }>['target']>) => void
   setPanel: (panel: Extract<LifePlanRoute, { kind: 'panel' }>['panel']) => void
   startGatherResource: (nodeId: string) => void
   depositConstructionResources: (projectId: string) => void
@@ -87,5 +88,6 @@ export function dispatchLifePlanRoute(route: LifePlanRoute, actions: GoalsCardRo
     else actions.startSleep()
     return
   }
+  if (route.target) actions.selectMapTarget(route.target)
   actions.setPanel(route.panel)
 }

@@ -45,6 +45,7 @@ export default function GoalsCard() {
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
   const setPanel = useGame((s) => s.setPanel)
+  const selectMapTarget = useGame((s) => s.selectMapTarget)
   const openMarket = useGame((s) => s.openMarket)
   const startGatherResource = useGame((s) => s.startGatherResource)
   const depositConstructionResources = useGame((s) => s.depositConstructionResources)
@@ -137,6 +138,7 @@ export default function GoalsCard() {
   const openRoute = (route: typeof lifePlan.primary.route) => dispatchLifePlanRoute(route, {
     resourceNodes,
     openMarket,
+    selectMapTarget,
     setPanel,
     startGatherResource,
     depositConstructionResources,

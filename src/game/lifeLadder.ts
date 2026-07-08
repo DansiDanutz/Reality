@@ -34,9 +34,12 @@ export type LifeValue = 'body' | 'school' | 'work' | 'respect' | 'friendship' | 
 
 export type ConstructionPlanAction = 'deposit' | 'permit' | 'work' | 'hire-helper' | 'complete'
 export type BusinessDevelopmentPlanAction = 'deposit' | 'budget' | 'work' | 'hire-helper' | 'complete'
+export type LifePlanMapTarget =
+  | { kind: 'construction'; id: string }
+  | { kind: 'asset'; id: string }
 
 export type LifePlanRoute =
-  | { kind: 'panel'; panel: 'work' | 'construction' | 'assets' | 'home' | 'business' | 'achievements' }
+  | { kind: 'panel'; panel: 'work' | 'construction' | 'assets' | 'home' | 'business' | 'achievements'; target?: LifePlanMapTarget }
   | { kind: 'market'; focus: ShopCategory }
   | { kind: 'gather'; resourceKind: ResourceKind }
   | { kind: 'construction-action'; projectId: string; action: ConstructionPlanAction; hours?: number; resultKind?: AssetKind }
@@ -444,7 +447,7 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
         isBusinessBuild ? `Let the helper finish ${project.name}` : 'Let the helper finish the house',
         `Paid Workers Hall time can cover the remaining ${minutesText(labor.remainingMinutes)}. Check the site and finish when the worker ledger turns ready.`,
         'capital',
-        { kind: 'panel', panel: 'construction' },
+        { kind: 'panel', panel: 'construction', target: { kind: 'construction', id: project.id } },
         5,
       )
     }
@@ -588,7 +591,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
           `Let the helper finish ${project.businessName}`,
           `Paid Workers Hall time can cover the remaining ${minutesText(labor.remainingMinutes)} inside. Check the business and finish when the worker ledger turns ready.`,
           'capital',
-          { kind: 'panel', panel: 'business' },
+          { kind: 'panel', panel: 'business', target: { kind: 'asset', id: project.businessId } },
           5,
         )
       }
@@ -620,7 +623,10 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
   }
   const business = snapshot.assets.find((asset) => asset.kind === 'business') ?? null
   if (business) {
-    return task('plan-business-development', 'Plan the next business upgrade', 'Turn profit into layout, tools, and service quality before chasing a second business.', 'capital', { kind: 'panel', panel: 'business' }, 20)
+    const route: LifePlanRoute = business.id
+      ? { kind: 'panel', panel: 'business', target: { kind: 'asset', id: business.id } }
+      : { kind: 'panel', panel: 'business' }
+    return task('plan-business-development', 'Plan the next business upgrade', 'Turn profit into layout, tools, and service quality before chasing a second business.', 'capital', route, 20)
   }
   const shell = firstBusinessShellProject()
   if (!shell) {
