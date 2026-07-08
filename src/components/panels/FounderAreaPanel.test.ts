@@ -42,6 +42,7 @@ import {
   founderCovenantReviewSnapshotSummary,
   founderCovenantReviewChecklistDetailText,
   founderCovenantSignalText,
+  founderCovenantStageDetailText,
   founderCovenantStageSnapshotSummary,
   founderCovenantStageStatusLabel,
   founderCovenantStageTone,
@@ -118,6 +119,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewInputDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewChecklistDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewChecklistDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantStageDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantStageDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -1089,6 +1092,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant stage snapshots', () => {
     expect(founderCovenantStageSnapshotSummary({ stages: [] })).toBe('No stage snapshot')
+    expect(founderCovenantStageDetailText({ stages: [] })).toBe('Stage detail unavailable')
     expect(founderCovenantStageSnapshotSummary({
       stages: [{
         kind: 'active',
@@ -1101,6 +1105,18 @@ describe('FounderAreaPanel covenant presenters', () => {
         executionEnabled: false,
       }],
     })).toBe('Stage snapshot · Active')
+    expect(founderCovenantStageDetailText({
+      stages: [{
+        kind: 'active',
+        label: 'Active',
+        status: 'current',
+        reason: 'Founder currently has no covenant warnings.',
+        requiresMainFounderApproval: false,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }],
+    })).toBe('Current: Active')
     expect(founderCovenantStageSnapshotSummary({
       stages: [{
         kind: 'probation',
@@ -1122,6 +1138,27 @@ describe('FounderAreaPanel covenant presenters', () => {
         executionEnabled: false,
       }],
     })).toBe('Stage snapshot · Probation, Removed suggested')
+    expect(founderCovenantStageDetailText({
+      stages: [{
+        kind: 'probation',
+        label: 'Probation',
+        status: 'recommended',
+        reason: 'Reviewer may open probation, but execution remains disabled.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }, {
+        kind: 'removed',
+        label: 'Removed',
+        status: 'recommended',
+        reason: 'Founder is unavailable; removal remains a manually approved later workflow.',
+        requiresMainFounderApproval: true,
+        manualOnly: true,
+        automationEnabled: false,
+        executionEnabled: false,
+      }],
+    })).toBe('Suggested: Probation, Removed')
   })
 
   test('summarizes captured covenant review cadence', () => {

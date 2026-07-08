@@ -1020,6 +1020,20 @@ export function founderCovenantStageSnapshotSummary(
   return `Stage snapshot · ${current?.label ?? 'No active stage'}`
 }
 
+export function founderCovenantStageDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'stages'>,
+): string {
+  if (review.stages.length === 0) return 'Stage detail unavailable'
+  const current = review.stages.find((stage) => stage.status === 'current')
+  const suggested = review.stages.filter((stage) => stage.status === 'recommended')
+  const locked = review.stages.filter((stage) => stage.status === 'locked')
+  const parts: string[] = []
+  if (current) parts.push(`Current: ${current.label}`)
+  if (suggested.length > 0) parts.push(`Suggested: ${suggested.map((stage) => stage.label).join(', ')}`)
+  if (locked.length > 0) parts.push(`Locked: ${locked.map((stage) => stage.label).join(', ')}`)
+  return parts.join(' · ') || 'Stage detail unavailable'
+}
+
 export function founderCovenantReviewCadenceSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'reviewSchedule'>,
 ): string {
