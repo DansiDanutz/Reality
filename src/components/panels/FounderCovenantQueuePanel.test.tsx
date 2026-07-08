@@ -12,6 +12,7 @@ import {
   founderCovenantOperatorQueueApprovalGateText,
   founderCovenantOperatorQueueApprovalReasonText,
   founderCovenantOperatorQueueEconomicExposureText,
+  founderCovenantOperatorQueueEvidenceReasonText,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueLatestReviewAuthorityText,
   founderCovenantOperatorQueueLatestReviewText,
@@ -71,6 +72,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue')
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
+    expect(html).toContain('Evidence reasons: Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Approval reasons: Send warning: Founder covenant signals suggest a warning.')
@@ -185,6 +187,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
       'Population growth, External contribution, Ideas and feedback',
     )
+    expect(founderCovenantOperatorQueueEvidenceReasonText(manual)).toBe(
+      'Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
+    )
     expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
       'Record review evidence-only, Send warning locked',
     )
@@ -246,6 +251,7 @@ describe('FounderCovenantQueuePanel', () => {
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
       reviewQueueStatusText: 'Evidence only',
+      evidenceReasonText: 'Population growth: Invite quality and local population growth need manual proof until invite tracking exists. · External contribution: GitHub, code, design, docs, and testing contributions must be attached by reviewers manually. · Ideas and feedback: Useful ideas, bug reports, and economy feedback must be attached by reviewers manually.',
       approvalReasonText: 'Send warning: Founder covenant signals suggest a warning.',
       approvalGateText: 'Main founder approval · 2 blockers',
       approvalBlockerText: 'approval workflow, Telegram delivery',

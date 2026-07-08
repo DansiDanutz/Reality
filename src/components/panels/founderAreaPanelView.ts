@@ -141,6 +141,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   reviewReadinessText: string
   checklistText: string
   evidenceInputText: string
+  evidenceReasonText: string
   manualActionText: string
   approvalRequestText: string
   approvalReasonText: string
@@ -1358,6 +1359,7 @@ export function founderCovenantOperatorQueueReviewRows(
       reviewReadinessText: founderCovenantOperatorQueueReviewReadinessText(item),
       checklistText: founderCovenantOperatorQueueChecklistText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
+      evidenceReasonText: founderCovenantOperatorQueueEvidenceReasonText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       approvalReasonText: founderCovenantOperatorQueueApprovalReasonText(item),
@@ -1516,6 +1518,15 @@ export function founderCovenantOperatorQueueEvidenceInputText(
   if (manual.length > 0) return manual.map((input) => input.label).join(', ')
   const watch = item.reviewInputs.filter((input) => input.status === 'watch')
   return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'complete'
+}
+
+export function founderCovenantOperatorQueueEvidenceReasonText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewInputs'>,
+): string {
+  const manual = item.reviewInputs.filter((input) => input.manualEvidenceRequired || input.status === 'manual_needed')
+  if (manual.length > 0) return manual.map((input) => `${input.label}: ${input.evidence}`).join(' · ')
+  const watch = item.reviewInputs.filter((input) => input.status === 'watch')
+  return watch.length > 0 ? watch.map((input) => `${input.label}: ${input.evidence}`).join(' · ') : 'none'
 }
 
 export function founderCovenantOperatorQueueManualActionText(
