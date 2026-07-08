@@ -47,6 +47,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Next page')
     expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor start · next next-review-cursor')
     expect(html).toContain('founder-12: caught up · 1 tx · 2026-07-06')
+    expect(html).toContain('Scan anomalies: none')
     expect(html).toContain('Start of queue · more founders available')
     expect(html).not.toContain('operator-token')
   })

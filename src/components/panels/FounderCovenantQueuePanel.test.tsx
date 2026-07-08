@@ -22,6 +22,7 @@ import {
   founderCovenantOperatorQueueLatestReviewText,
   founderCovenantOperatorQueueManualActionReasonText,
   founderCovenantOperatorQueueNextActionText,
+  founderCovenantOperatorQueueResultAnomalyText,
   founderCovenantOperatorQueueResultText,
   founderCovenantOperatorQueueReviewQueueBlockerText,
   founderCovenantOperatorQueueRecommendedActionText,
@@ -68,6 +69,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('2 scanned · 1 caught up · 1 current · 0 failed · next page ready')
     expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor review-cursor-1 · next review-cursor-2')
     expect(html).toContain('founder-12: caught up · 1 tx · 2026-07-06 · founder-13: current · 0 tx · 2026-07-06')
+    expect(html).toContain('Scan anomalies: none')
     expect(html).toContain('aria-label="Founder operator queue coverage"')
     expect(html).toContain('<span>Active</span><strong>1</strong>')
     expect(html).toContain('<span>Useful</span><strong>1</strong>')
@@ -300,6 +302,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueResultText(founderQueue())).toBe(
       'founder-12: caught up · 1 tx · 2026-07-06 · founder-13: current · 0 tx · 2026-07-06',
     )
+    expect(founderCovenantOperatorQueueResultAnomalyText(founderQueue())).toBe('Scan anomalies: none')
     expect(founderCovenantOperatorQueueReviewQueueBlockerText(manual)).toBe(
       'approval workflow, Telegram delivery, replacement',
     )
@@ -445,9 +448,31 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('0 founders · 0 manual reviews · 0 overdue · 0 hospitalized · 0 indebted · $0 debt')
     expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor review-cursor-1 · next end')
     expect(html).toContain('No scan results')
+    expect(html).toContain('Scan anomalies: none')
     expect(html).toContain('<span>Active</span><strong>0</strong>')
     expect(html).toContain('<span>At risk</span><strong>0</strong>')
     expect(html).toContain('No founders in this review page.')
+  })
+
+  test('summarizes invalid and unavailable scan anomalies for operators', () => {
+    const queue = founderQueue()
+    queue.results = [{
+      citizenId: 'founder-12',
+      areaId: 'founder-area-0012',
+      status: 'invalid',
+      updatedAt: '2026-07-06T04:00:00.000Z',
+      transactionsAdded: 0,
+    }, {
+      citizenId: 'founder-13',
+      areaId: 'founder-area-0013',
+      status: 'unavailable',
+      updatedAt: null,
+      transactionsAdded: 0,
+    }]
+
+    expect(founderCovenantOperatorQueueResultAnomalyText(queue)).toBe(
+      'Scan anomalies: founder-12 invalid · founder-13 unavailable',
+    )
   })
 })
 

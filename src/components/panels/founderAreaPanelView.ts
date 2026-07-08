@@ -1293,6 +1293,17 @@ export function founderCovenantOperatorQueueResultText(
     .join(' · ')
 }
 
+export function founderCovenantOperatorQueueResultAnomalyText(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'results'>,
+): string {
+  const anomalies = queue.results.filter((result) => result.status === 'invalid' || result.status === 'unavailable')
+  if (anomalies.length === 0) return 'Scan anomalies: none'
+  return `Scan anomalies: ${anomalies.map((result) => {
+    const subject = result.citizenId ?? result.areaId ?? 'unknown founder'
+    return `${subject} ${founderCovenantOperatorQueueScanStatusLabel(result.status)}`
+  }).join(' · ')}`
+}
+
 export function founderCovenantOperatorQueueItemSummary(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,

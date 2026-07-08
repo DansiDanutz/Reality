@@ -2,6 +2,7 @@ import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/reali
 import {
   type FounderCovenantOperatorQueueReviewRow,
   founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueResultAnomalyText,
   founderCovenantOperatorQueueResultText,
   founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueSummary,
@@ -43,6 +44,7 @@ export function FounderCovenantQueuePanel({
       <div className="founder-covenant-meta" aria-label="Founder operator queue window">
         <span>{founderCovenantOperatorQueueWindowText(queue)}</span>
         <span>{founderCovenantOperatorQueueResultText(queue)}</span>
+        <span>{founderCovenantOperatorQueueResultAnomalyText(queue)}</span>
       </div>
       <div className="founder-ledger-summary" aria-label="Founder operator queue totals">
         <QueueTotalChip
