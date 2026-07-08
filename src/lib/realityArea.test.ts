@@ -1622,6 +1622,21 @@ describe('Reality area client', () => {
           label: ` ${action.label} `,
           reason: ` ${action.reason} `,
         })),
+        reviewChecklist: serverFounderCovenantReviewQueue().items[0].reviewChecklist.map((item) => ({
+          ...item,
+          label: ` ${item.label} `,
+          evidence: ` ${item.evidence} `,
+        })),
+        reviewInputs: serverFounderCovenantReviewQueue().items[0].reviewInputs.map((input) => ({
+          ...input,
+          label: ` ${input.label} `,
+          evidence: ` ${input.evidence} `,
+        })),
+        stages: serverFounderCovenantReviewQueue().items[0].stages.map((stage) => ({
+          ...stage,
+          label: ` ${stage.label} `,
+          reason: ` ${stage.reason} `,
+        })),
         latestReview: null,
       }],
     }
@@ -1640,7 +1655,10 @@ describe('Reality area client', () => {
           areaLabel: 'Bucharest Founder Block',
           founderCitizenId: 'citizen-1',
           activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals,
+          reviewInputs: serverFounderCovenantReviewQueue().items[0].reviewInputs,
+          stages: serverFounderCovenantReviewQueue().items[0].stages,
           reviewReadiness: serverFounderCovenantReviewQueue().items[0].reviewReadiness,
+          reviewChecklist: serverFounderCovenantReviewQueue().items[0].reviewChecklist,
           manualActions: serverFounderCovenantReviewQueue().items[0].manualActions,
           pendingApprovalRequests: serverFounderCovenantReviewQueue().items[0].pendingApprovalRequests,
           pendingNotificationDrafts: serverFounderCovenantReviewQueue().items[0].pendingNotificationDrafts,
@@ -1799,6 +1817,75 @@ describe('Reality area client', () => {
         ...serverFounderCovenantReviewQueue().items[0],
         manualActions: serverFounderCovenantReviewQueue().items[0].manualActions.map((action, index) =>
           index === 0 ? { ...action, reason: '   ' } : action
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank checklist text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewChecklist: serverFounderCovenantReviewQueue().items[0].reviewChecklist.map((item, index) =>
+          index === 0 ? { ...item, evidence: '   ' } : item
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank review-input text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewInputs: serverFounderCovenantReviewQueue().items[0].reviewInputs.map((input, index) =>
+          index === 0 ? { ...input, label: '   ' } : input
+        ),
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank stage text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        stages: serverFounderCovenantReviewQueue().items[0].stages.map((stage, index) =>
+          index === 0 ? { ...stage, reason: '   ' } : stage
         ),
       }],
     }

@@ -2335,6 +2335,20 @@ function isRealityAreaCovenantReviewChecklistItem(value: unknown): value is Real
     typeof value.evidence === 'string'
 }
 
+function parseRealityAreaCovenantReviewChecklistItem(
+  value: RealityAreaCovenantReviewChecklistItem,
+): RealityAreaCovenantReviewChecklistItem | null {
+  const label = value.label.trim()
+  const evidence = value.evidence.trim()
+  if (!label || !evidence) return null
+
+  return {
+    ...value,
+    label,
+    evidence,
+  }
+}
+
 function isRealityAreaCovenantReviewInput(value: unknown): value is RealityAreaCovenantReviewInput {
   return isRecord(value) &&
     isRealityAreaCovenantReviewInputKind(value.kind) &&
@@ -2342,6 +2356,20 @@ function isRealityAreaCovenantReviewInput(value: unknown): value is RealityAreaC
     isRealityAreaCovenantReviewInputStatus(value.status) &&
     typeof value.evidence === 'string' &&
     typeof value.manualEvidenceRequired === 'boolean'
+}
+
+function parseRealityAreaCovenantReviewInput(
+  value: RealityAreaCovenantReviewInput,
+): RealityAreaCovenantReviewInput | null {
+  const label = value.label.trim()
+  const evidence = value.evidence.trim()
+  if (!label || !evidence) return null
+
+  return {
+    ...value,
+    label,
+    evidence,
+  }
 }
 
 function isRealityAreaCovenantStage(value: unknown): value is RealityAreaCovenantStage {
@@ -2354,6 +2382,20 @@ function isRealityAreaCovenantStage(value: unknown): value is RealityAreaCovenan
     value.manualOnly === true &&
     value.automationEnabled === false &&
     value.executionEnabled === false
+}
+
+function parseRealityAreaCovenantStage(
+  value: RealityAreaCovenantStage,
+): RealityAreaCovenantStage | null {
+  const label = value.label.trim()
+  const reason = value.reason.trim()
+  if (!label || !reason) return null
+
+  return {
+    ...value,
+    label,
+    reason,
+  }
 }
 
 function isRealityAreaCovenantReviewQueue(value: unknown): value is RealityAreaCovenantReviewQueue {
@@ -2561,12 +2603,18 @@ function parseRealityFounderCovenantReviewQueueItem(
   if (!areaId || !areaLabel || !founderCitizenId) return null
   const activitySignals = value.activitySignals.map(parseRealityFounderCovenantActivitySignal)
   const reviewReadiness = parseRealityFounderCovenantReviewReadiness(value.reviewReadiness)
+  const reviewInputs = value.reviewInputs.map(parseRealityAreaCovenantReviewInput)
+  const stages = value.stages.map(parseRealityAreaCovenantStage)
+  const reviewChecklist = value.reviewChecklist.map(parseRealityAreaCovenantReviewChecklistItem)
   const pendingApprovalRequests = value.pendingApprovalRequests.map(parseRealityAreaCovenantReviewApprovalRequestSnapshot)
   const pendingNotificationDrafts = value.pendingNotificationDrafts.map(parseRealityAreaCovenantNotificationDraft)
   const manualActions = value.manualActions.map(parseRealityAreaCovenantReviewActionSnapshot)
   if (
     activitySignals.some((signal) => signal === null) ||
     !reviewReadiness ||
+    reviewInputs.some((input) => input === null) ||
+    stages.some((stage) => stage === null) ||
+    reviewChecklist.some((item) => item === null) ||
     manualActions.some((action) => action === null) ||
     pendingApprovalRequests.some((request) => request === null) ||
     pendingNotificationDrafts.some((draft) => draft === null)
@@ -2581,7 +2629,10 @@ function parseRealityFounderCovenantReviewQueueItem(
       areaLabel,
       founderCitizenId,
       activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
+      reviewInputs: reviewInputs as RealityAreaCovenantReviewInput[],
+      stages: stages as RealityAreaCovenantStage[],
       reviewReadiness,
+      reviewChecklist: reviewChecklist as RealityAreaCovenantReviewChecklistItem[],
       manualActions: manualActions as RealityAreaCovenantManualAction[],
       pendingApprovalRequests: pendingApprovalRequests as RealityAreaCovenantApprovalRequest[],
       pendingNotificationDrafts: pendingNotificationDrafts as RealityAreaCovenantNotificationDraft[],
@@ -2597,7 +2648,10 @@ function parseRealityFounderCovenantReviewQueueItem(
     areaLabel,
     founderCitizenId,
     activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
+    reviewInputs: reviewInputs as RealityAreaCovenantReviewInput[],
+    stages: stages as RealityAreaCovenantStage[],
     reviewReadiness,
+    reviewChecklist: reviewChecklist as RealityAreaCovenantReviewChecklistItem[],
     manualActions: manualActions as RealityAreaCovenantManualAction[],
     pendingApprovalRequests: pendingApprovalRequests as RealityAreaCovenantApprovalRequest[],
     pendingNotificationDrafts: pendingNotificationDrafts as RealityAreaCovenantNotificationDraft[],
