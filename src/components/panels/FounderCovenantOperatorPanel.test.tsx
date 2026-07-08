@@ -120,6 +120,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovals: 1,
       pendingNotifications: 1,
       blockers: 3,
+      signalCounts: { total: 2, info: 0, warning: 1, critical: 1 },
     },
     items: [{
       areaId: 'founder-area-0012',

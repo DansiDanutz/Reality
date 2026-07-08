@@ -3781,6 +3781,12 @@ describe('reality area authority API', () => {
         pendingApprovals: 2,
         pendingNotifications: 1,
         blockers: 5,
+        signalCounts: {
+          total: 5,
+          info: 1,
+          warning: 3,
+          critical: 1,
+        },
       },
       results: [{
         citizenId: CITIZEN_ID,
