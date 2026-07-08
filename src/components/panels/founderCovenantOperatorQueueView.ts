@@ -42,6 +42,8 @@ export function queueSortLabel(sort: FounderCovenantOperatorQueueSort): string {
       return 'Coverage'
     case 'founder':
       return 'Founder #'
+    case 'action':
+      return 'Action'
   }
 }
 

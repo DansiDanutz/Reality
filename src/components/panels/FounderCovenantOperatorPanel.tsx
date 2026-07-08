@@ -648,6 +648,14 @@ export default function FounderCovenantOperatorPanel({
             >
               Founder #
             </button>
+            <button
+              className={`btn small ${queueSort === 'action' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueSort('action')}
+              type="button"
+            >
+              Action
+            </button>
           </div>
           <div className="founder-ledger-summary" aria-label="Founder operator queue view summary">
             <span className={`founder-ledger-chip ${queueViewChipTone(queueFilter)}`}>

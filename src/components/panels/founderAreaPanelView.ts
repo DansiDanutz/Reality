@@ -122,7 +122,7 @@ export type FounderCovenantOperatorQueueFilter =
   | 'blocked'
   | 'hospitalized'
   | 'scan_anomaly'
-export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder'
+export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder' | 'action'
 
 export interface FounderCovenantOperatorQueueSliceTotals {
   founders: number
@@ -1029,6 +1029,13 @@ export function founderCovenantOperatorQueueFilteredReviewRows(
       a.title.localeCompare(b.title)
     )
   }
+  if (sort === 'action') {
+    return [...rows].sort((a, b) =>
+      founderCovenantOperatorQueueRecommendedNextSortScore(a.recommendedNextText) - founderCovenantOperatorQueueRecommendedNextSortScore(b.recommendedNextText) ||
+      b.priorityScore - a.priorityScore ||
+      a.title.localeCompare(b.title)
+    )
+  }
   return [...rows].sort((a, b) => a.title.localeCompare(b.title))
 }
 
@@ -1327,6 +1334,23 @@ export function founderCovenantOperatorQueueRecommendedNextTone(
     return 'warning'
   }
   return 'stable'
+}
+
+function founderCovenantOperatorQueueRecommendedNextSortScore(recommendation: string): number {
+  switch (recommendation) {
+    case 'Attach missing manual evidence':
+      return 1
+    case 'Review blocked approvals':
+      return 2
+    case 'Clear overdue review':
+      return 3
+    case 'Record review':
+      return 4
+    case 'Monitor founder':
+      return 5
+    default:
+      return 6
+  }
 }
 
 export function founderCovenantOperatorQueueManualActionText(

@@ -89,6 +89,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="btn small primary" type="button">Priority</button>')
     expect(html).toContain('class="btn small primary" type="button">Default View</button>')
     expect(html).toContain('Founder #')
+    expect(html).toContain('Action')
     expect(html).toContain('Next page')
     expect(html).toContain('More founders available')
     expect(html).toContain('Copy status: not copied yet')

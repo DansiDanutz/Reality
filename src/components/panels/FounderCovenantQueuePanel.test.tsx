@@ -653,6 +653,78 @@ describe('FounderCovenantQueuePanel', () => {
     }, 'all', 'coverage').map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-10', 'founder-11'])
   })
 
+  test('orders founder covenant review rows by recommended next action', () => {
+    const manual = founderQueueItem()
+    const blocked = founderQueueItem({
+      areaId: 'founder-area-0021',
+      areaLabel: 'Blocked Founder Block',
+      founderCitizenId: 'founder-21',
+      founderNumber: 21,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+      },
+    })
+    const overdue = founderQueueItem({
+      areaId: 'founder-area-0022',
+      areaLabel: 'Overdue Founder Block',
+      founderCitizenId: 'founder-22',
+      founderNumber: 22,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+      },
+      pendingApprovalRequests: [],
+    })
+    const record = founderQueueItem({
+      areaId: 'founder-area-0023',
+      areaLabel: 'Record Founder Block',
+      founderCitizenId: 'founder-23',
+      founderNumber: 23,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+        overdue: false,
+      },
+      pendingApprovalRequests: [],
+      overdue: false,
+      manualActions: [{
+        ...manual.manualActions[0],
+        recommended: true,
+      }],
+    })
+    const monitor = founderQueueItem({
+      areaId: 'founder-area-0024',
+      areaLabel: 'Monitor Founder Block',
+      founderCitizenId: 'founder-24',
+      founderNumber: 24,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+        overdue: false,
+      },
+      pendingApprovalRequests: [],
+      overdue: false,
+      manualActions: [],
+    })
+
+    expect(founderCovenantOperatorQueueFilteredReviewRows({
+      items: [monitor, record, overdue, blocked, manual],
+    }, 'all', 'action').map((row) => row.founderCitizenId)).toEqual([
+      'founder-12',
+      'founder-21',
+      'founder-22',
+      'founder-23',
+      'founder-24',
+    ])
+  })
+
   test('filters queue rows for manual review, evidence gaps, overdue, blocked, hospitalization, and scan anomalies', () => {
     const invalid = founderQueueItem({
       areaId: 'founder-area-0014',
