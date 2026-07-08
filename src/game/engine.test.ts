@@ -671,6 +671,7 @@ describe('tutorial', async () => {
   test('step ids are unique and every step starts incomplete', () => {
     const ids = TUTORIAL_STEPS.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toContain('groceries')
     expect(ids).toContain('cook')
     expect(ids).toContain('hall')
     for (const step of TUTORIAL_STEPS) {
@@ -693,7 +694,6 @@ describe('tutorial', async () => {
       timesCommunity: 1,
       jobId: 'barista',
       shiftsWorked: 2,
-      activity: null,
       assets: [
       { id: 'h', itemId: 'studio', kind: 'home' as const, name: 'Studio', lat: 0, lng: 0, incomePerDay: 0, pendingIncome: 0, placedAtMinute: 0 },
       { id: 'b', itemId: 'foodcart', kind: 'business' as const, name: 'Cart', lat: 0, lng: 0, incomePerDay: 230, pendingIncome: 0, placedAtMinute: 0 },
@@ -703,6 +703,7 @@ describe('tutorial', async () => {
       totalCollected: 120,
       hasAvatar: true,
       sawAchievementsPanel: true,
+      activity: { kind: 'cook', startedAt: 0, endsAt: 1, recipeId: 'grilledcheese' } as Activity,
     }
     for (const step of TUTORIAL_STEPS) {
       expect(step.isDone(veteran), step.id).toBe(true)

@@ -76,11 +76,18 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     isDone: (s) => s.timesSlept >= 1,
   },
   {
+    id: 'groceries',
+    title: 'Buy groceries',
+    detail: 'Buy ingredients before you cook — food becomes cheaper once you gather it.',
+    xp: 35,
+    isDone: (s) => Object.keys(s.groceryRestockedAt).length > 0,
+  },
+  {
     id: 'cook',
     title: 'Cook at home',
     detail: 'Buy groceries, use the kitchen, and turn ingredients into a real meal.',
     xp: 50,
-    isDone: (s) => Object.keys(s.groceryRestockedAt).length > 0 || s.activity?.kind === 'cook',
+    isDone: (s) => s.activity?.kind === 'cook',
   },
   {
     id: 'community',
