@@ -1968,6 +1968,9 @@ export const useGame = create<GameState>()(
           if (wasRollover) {
             const thought = thoughtForDay(todayDay)
             log = note(log, `━ A new day. "${thought}"`)
+            if (missedSeriousWorkYesterday(community, now)) {
+              log = note(log, 'Serious work rhythm slipped yesterday. One reliable shift today repairs the streak and rebuilds respect.')
+            }
           }
         }
         // Savings goal — celebrate once when net worth crosses the player's

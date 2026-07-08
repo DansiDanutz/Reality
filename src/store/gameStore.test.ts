@@ -1732,6 +1732,53 @@ describe('shift reliability loop', () => {
     expect(state.streakLength).toBe(9)
   })
 
+  test('new day journal surfaces missed serious work as a repairable commitment', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-10T00:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+    const priorDay = communityDay(now - 2 * 24 * 3_600_000)
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now - 5 * 24 * 3_600_000, citizenId: 'ada' },
+      jobId: 'barista',
+      shiftsWorked: 3,
+      money: 100,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      level: 1,
+      xp: 0,
+      community: {
+        ...freshCommunityStats(now),
+        respect: 3,
+        trust: 3,
+        reliableShifts: 3,
+        seriousWorkStreak: 3,
+        seriousWorkBest: 3,
+        seriousWorkLastDay: priorDay,
+      },
+      dailyCounters: { ...emptyDailyCounters(), day: priorDay + 1 },
+      activity: null,
+      lastSeenAt: now - 60_000,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().tick()
+
+    const state = useGame.getState()
+    expect(state.dailyCounters.day).toBeGreaterThan(priorDay + 1)
+    expect(state.log[0]).toContain('Serious work rhythm slipped yesterday')
+    expect(state.log[0]).toContain('repairs the streak')
+    expect(state.log[0]).not.toMatch(/shame|failed|punish/i)
+    expect(state.community).toMatchObject({
+      respect: 3,
+      trust: 3,
+      seriousWorkStreak: 3,
+      seriousWorkBest: 3,
+    })
+  })
+
   test('leaving a shift early records a humane reputation hit that reliable work can repair', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-07T00:00:00Z'))
