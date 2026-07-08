@@ -88,6 +88,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Draft status: Disabled')
     expect(html).toContain('Signal counts: 2 total · 0 info · 1 warning · 1 critical')
+    expect(html).toContain('Priority score: 1497')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: Founder debt, Review due')
     expect(html).toContain('manual only')
@@ -221,6 +222,7 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueNotificationDraftStatusText(manual)).toBe('Disabled')
     expect(founderCovenantOperatorQueueSignalCountText(manual)).toBe('2 total · 0 info · 1 warning · 1 critical')
+    expect(founderCovenantOperatorQueuePriorityScore(manual)).toBe(1497)
     expect(founderCovenantOperatorQueueLatestReviewText({
       latestReview: {
         reviewedAt: '2026-07-06T08:00:00.000Z',
@@ -272,6 +274,7 @@ describe('FounderCovenantQueuePanel', () => {
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
       signalCountText: '2 total · 0 info · 1 warning · 1 critical',
+      priorityScore: 1497,
       signalText: 'Founder debt, Review due',
     })
   })
