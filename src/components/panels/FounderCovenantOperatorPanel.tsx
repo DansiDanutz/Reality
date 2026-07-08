@@ -85,6 +85,7 @@ export default function FounderCovenantOperatorPanel({
   )
   const initialQueueView = useRef(readOperatorQueueViewState())
   const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(null)
+  const [lastCopiedText, setLastCopiedText] = useState<string | null>(null)
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
@@ -251,6 +252,7 @@ export default function FounderCovenantOperatorPanel({
     try {
       await clipboard.writeText(handoff)
       setLastCopiedAt(new Date().toISOString())
+      setLastCopiedText(handoff)
       setOperatorReviewMessage(`Queue view copied: ${handoff}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
@@ -421,6 +423,7 @@ export default function FounderCovenantOperatorPanel({
               Next page
             </button>
             <span className="item-desc">Copy status: {lastCopiedAt ? copiedAtText(lastCopiedAt) : 'not copied yet'}</span>
+            {lastCopiedText && <span className="item-desc">Last copied: {lastCopiedText}</span>}
             <span className="item-desc">
               View: {queueViewLabel(queueFilter)} / {queueSortLabel(queueSort)} / {scanCursor ?? 'start'}
             </span>
