@@ -1,4 +1,5 @@
 import { jobById } from '../../game/catalog'
+import { dailyStepsOf } from '../../game/engine'
 import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 
@@ -14,6 +15,9 @@ export default function ActionDock() {
   const jobId = useGame((s) => s.jobId)
   const placing = useGame((s) => s.placing)
   const activity = useGame((s) => s.activity)
+  const needs = useGame((s) => s.needs)
+  const health = useGame((s) => s.health)
+  const money = useGame((s) => s.money)
   const startSleep = useGame((s) => s.startSleep)
   const study = useGame((s) => s.study)
   const community = useGame((s) => s.community)
@@ -23,6 +27,8 @@ export default function ActionDock() {
   const setPanel = useGame((s) => s.setPanel)
   const cancelPlacing = useGame((s) => s.cancelPlacing)
   const log = useGame((s) => s.log)
+  const respect = useGame((s) => s.respect)
+  const assets = useGame((s) => s.assets)
   useGame((s) => s.lastSeenAt) // live countdown
 
   if (!citizen) return null
@@ -70,6 +76,18 @@ export default function ActionDock() {
   }
 
   const job = jobId ? jobById(jobId) : undefined
+  const dailyRhythm = dailyStepsOf({
+    needs,
+    health,
+    money,
+    jobId,
+    respect,
+    activity,
+    hasHome: assets.some((a) => a.kind === 'home'),
+    businesses: assets.filter((a) => a.kind === 'business').length,
+    workersHall: assets.some((a) => a.itemId === 'workers_hall'),
+    pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+  })
   const enterStreetMode = () => {
     preloadStreetMode()
     setStreetMode(true)
@@ -77,6 +95,9 @@ export default function ActionDock() {
 
   return (
     <div className="dock">
+      <p className="dock-rhythm mono" aria-label="Today’s rhythm">
+        {dailyRhythm.slice(0, 3).map((step) => step.label).join(' · ')}
+      </p>
       <div className="dock-actions">
         <button
           className="btn"
