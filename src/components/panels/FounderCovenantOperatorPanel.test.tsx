@@ -153,6 +153,7 @@ describe('FounderCovenantOperatorPanel', () => {
           scanCursor: 'cursor-5',
           nextCursor: 'cursor-6',
           cadenceReadySummary: 'Cadence ready: 2 weekly · 1 monthly',
+          workflowSplitSummary: 'Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup',
           workloadSummary: '0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup',
           recommendedAction: 'Recommended next: monitor current founders',
         }}
@@ -163,6 +164,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Copied view: Action Record')
     expect(html).toContain('Copied cursor: cursor-5 -&gt; cursor-6')
     expect(html).toContain('Copied cadence: Cadence ready: 2 weekly · 1 monthly')
+    expect(html).toContain('Copied workflow: Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup')
     expect(html).toContain('Copied workload: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup')
     expect(html).toContain('Copied next: Recommended next: monitor current founders')
     expect(html).not.toContain('Last copied:')
@@ -284,12 +286,14 @@ describe('FounderCovenantOperatorPanel', () => {
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
       cadenceReadySummary: 'Cadence ready: 2 weekly · 1 monthly',
+      workflowSplitSummary: 'Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup',
       workloadSummary: '0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup',
       recommendedAction: 'Recommended next: monitor current founders',
     })).toEqual([
       'Copied view: Action Record',
       'Copied cursor: cursor-5 -> cursor-6',
       'Copied cadence: Cadence ready: 2 weekly · 1 monthly',
+      'Copied workflow: Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup',
       'Copied workload: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup',
       'Copied next: Recommended next: monitor current founders',
     ])
@@ -300,10 +304,11 @@ describe('FounderCovenantOperatorPanel', () => {
       nextCursor: 'cursor-6',
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       cadenceReadySummary: 'Cadence ready: 2 weekly · 1 monthly',
+      workflowSplitSummary: 'Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup',
       workloadSummary: '0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup',
       recommendedAction: 'Recommended next: monitor current founders',
     })).toBe(
-      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Cadence ready: 2 weekly · 1 monthly · 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Recommended next: monitor current founders',
+      'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Cadence ready: 2 weekly · 1 monthly · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Recommended next: monitor current founders',
     )
   })
 })

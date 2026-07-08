@@ -25,6 +25,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSummary,
+  founderCovenantOperatorQueueWorkflowSplitSummary,
   founderCovenantOperatorQueueWorkloadSummary,
 } from './founderAreaPanelView'
 import {
@@ -303,6 +304,7 @@ export default function FounderCovenantOperatorPanel({
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
     const cadenceReadySummary = queue ? founderCovenantOperatorQueueCadenceReadySummary(queue) : null
+    const workflowSplitSummary = queue ? founderCovenantOperatorQueueWorkflowSplitSummary(queue) : null
     const workloadSummary = queue ? founderCovenantOperatorQueueWorkloadSummary(queue) : null
     const recommendedAction = queue ? founderCovenantOperatorQueueRecommendedActionText(queue) : null
     const handoff = queueHandoffText({
@@ -312,6 +314,7 @@ export default function FounderCovenantOperatorPanel({
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
       cadenceReadySummary,
+      workflowSplitSummary,
       workloadSummary,
       recommendedAction,
     })
@@ -327,6 +330,7 @@ export default function FounderCovenantOperatorPanel({
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
         cadenceReadySummary,
+        workflowSplitSummary,
         workloadSummary,
         recommendedAction,
       })
