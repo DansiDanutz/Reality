@@ -51,7 +51,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   if (!process.env.GOOGLE_CLIENT_ID) {
-    res.status(503).json({ ok: false, error: 'Google sign-in is not configured on this server yet.' })
+    res.status(503).json({
+      ok: false,
+      error: 'Google sign-in is not configured on this server yet.',
+      code: 'google_auth_not_configured',
+    })
     return
   }
 
@@ -97,6 +101,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       save,
     })
   } catch {
-    res.status(500).json({ ok: false, error: 'Sign-in is briefly unavailable. Try again in a minute.' })
+    res.status(503).json({
+      ok: false,
+      error: 'Sign-in is briefly unavailable. Try again in a minute.',
+      code: 'google_auth_unavailable',
+    })
   }
 }
