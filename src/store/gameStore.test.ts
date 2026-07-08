@@ -93,6 +93,7 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
     businessDevelopmentMinutesToday: 0,
     cookedToday: 0,
     consumedItemCountsToday: {},
+    gatheredResourceAmountsToday: {},
   }
 }
 
@@ -1195,6 +1196,7 @@ describe('resource gathering loop', () => {
     expect(state.activity).toBeNull()
     expect(state.resources.wood).toBe(25)
     expect(state.dailyCounters.gatheredToday).toBe(1)
+    expect(state.dailyCounters.gatheredResourceAmountsToday).toEqual({ wood: 25 })
   })
 })
 

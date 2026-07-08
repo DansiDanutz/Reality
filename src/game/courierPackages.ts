@@ -30,6 +30,7 @@ export type CourierRequirement =
   | { kind: 'community'; actionsThisWeek: number; actionId?: CommunityActionId }
   | { kind: 'street-mode-seen' }
   | { kind: 'resource'; resource: ResourceKind; amount: number }
+  | { kind: 'resource-gathered'; resource: ResourceKind; amount: number }
   | { kind: 'construction-site' }
   | { kind: 'construction-deposit'; resources: Partial<Record<ResourceKind, number>> }
   | { kind: 'construction-permit' }
@@ -64,6 +65,7 @@ export interface CourierSnapshot {
   workersHiredToday?: number
   cookedToday?: number
   consumedItemCountsToday?: Partial<Record<string, number>>
+  gatheredResourceAmountsToday?: Partial<Record<ResourceKind, number>>
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
@@ -232,6 +234,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return snapshot.sawStreetMode
     case 'resource':
       return (snapshot.resources[requirement.resource] ?? 0) >= requirement.amount
+    case 'resource-gathered':
+      return (snapshot.gatheredResourceAmountsToday?.[requirement.resource] ?? 0) >= requirement.amount
     case 'construction-site':
       return snapshot.constructionProjects.length > 0 || snapshot.hasHome
     case 'construction-deposit':
@@ -344,9 +348,9 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   }
   if (route.kind === 'gather') {
     return {
-      kind: 'resource',
+      kind: 'resource-gathered',
       resource: route.resourceKind,
-      amount: (snapshot.resources[route.resourceKind] ?? 0) + RESOURCE_META[route.resourceKind].yieldAmount,
+      amount: (snapshot.gatheredResourceAmountsToday?.[route.resourceKind] ?? 0) + RESOURCE_META[route.resourceKind].yieldAmount,
     }
   }
   if (route.kind === 'construction-action') {

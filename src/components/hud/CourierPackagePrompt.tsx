@@ -4,7 +4,7 @@ import { RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 
 function firstResourceFromRequirement(requirement: { kind: string; resource?: ResourceKind; resources?: Partial<Record<ResourceKind, number>> }): ResourceKind | null {
-  if (requirement.kind === 'resource' && requirement.resource) return requirement.resource
+  if ((requirement.kind === 'resource' || requirement.kind === 'resource-gathered') && requirement.resource) return requirement.resource
   if (requirement.kind === 'construction-deposit' && requirement.resources) {
     return (Object.keys(requirement.resources)[0] as ResourceKind | undefined) ?? null
   }
@@ -47,6 +47,7 @@ export default function CourierPackagePrompt() {
     hygieneToday: dailyCounters.hygieneToday,
     boughtToday: dailyCounters.boughtToday,
     workersHiredToday: dailyCounters.workersHiredToday,
+    gatheredResourceAmountsToday: dailyCounters.gatheredResourceAmountsToday,
     sawStreetMode,
     resources,
     constructionProjects,
@@ -93,6 +94,7 @@ export default function CourierPackagePrompt() {
         setStreetMode(true)
         return
       case 'resource':
+      case 'resource-gathered':
         if (resourceNode) startGatherResource(resourceNode.id)
         return
       case 'construction-site':

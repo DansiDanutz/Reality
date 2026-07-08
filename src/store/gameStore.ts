@@ -109,6 +109,7 @@ import {
 import { planLifeDay } from '../game/lifeLadder'
 import {
   type ResourceInventory,
+  type ResourceKind,
   type ResourceNode,
   RESOURCE_META,
   addResources,
@@ -150,6 +151,7 @@ type DailyCounters = DailyChallengeSnapshot & {
   day: number
   cookedToday: number
   consumedItemCountsToday: Partial<Record<string, number>>
+  gatheredResourceAmountsToday: Partial<Record<ResourceKind, number>>
 }
 
 function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): DailyCounters {
@@ -169,6 +171,7 @@ function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): Da
     businessDevelopmentMinutesToday: 0,
     cookedToday: 0,
     consumedItemCountsToday: {},
+    gatheredResourceAmountsToday: {},
     day,
     ...overrides,
   }
@@ -192,6 +195,9 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
     cookedToday: Math.max(0, Math.floor(Number(counters?.cookedToday ?? 0))),
     consumedItemCountsToday: Object.fromEntries(
       Object.entries(counters?.consumedItemCountsToday ?? {}).map(([itemId, count]) => [itemId, Math.max(0, Math.floor(Number(count) || 0))]),
+    ),
+    gatheredResourceAmountsToday: Object.fromEntries(
+      Object.entries(counters?.gatheredResourceAmountsToday ?? {}).map(([kind, count]) => [kind, Math.max(0, Math.floor(Number(count) || 0))]),
     ),
   })
 }
@@ -1007,6 +1013,7 @@ function courierSnapshotOf(s: Pick<GameState, 'timesEaten' | 'timesSlept' | 'dai
     workersHiredToday: s.dailyCounters.workersHiredToday,
     cookedToday: s.dailyCounters.cookedToday,
     consumedItemCountsToday: s.dailyCounters.consumedItemCountsToday,
+    gatheredResourceAmountsToday: s.dailyCounters.gatheredResourceAmountsToday,
     sawStreetMode: s.sawStreetMode,
     resources: s.resources,
     constructionProjects: s.constructionProjects,
@@ -1540,6 +1547,7 @@ export const useGame = create<GameState>()(
         let mysteryBoxCredits = freshMysteryBoxCredits(s.mysteryBoxCredits)
         let community = resetCommunityWeekIfNeeded(s.community, now)
         let gatheredDelta = 0
+        const gatheredResourceDeltas: Partial<Record<ResourceKind, number>> = {}
         let constructionMinutesDelta = 0
         let studiedDelta = 0
         let communityDelta = 0
@@ -1573,7 +1581,10 @@ export const useGame = create<GameState>()(
           const kind = completedSpecialActivity.resourceKind
           const amount = completedSpecialActivity.resourceAmount
           resources = addResources(resources, kind, amount)
-          if (!wasAway) gatheredDelta += 1
+          if (!wasAway) {
+            gatheredDelta += 1
+            gatheredResourceDeltas[kind] = (gatheredResourceDeltas[kind] ?? 0) + amount
+          }
           log = note(log, `Gathered ${amount} ${RESOURCE_META[kind].label.toLowerCase()}.`)
           if (!wasAway) toasts = withToast(toasts, `+${amount} ${RESOURCE_META[kind].label}`, 'gold')
         }
@@ -1884,6 +1895,7 @@ export const useGame = create<GameState>()(
           workersHiredToday: s.dailyCounters.workersHiredToday,
           cookedToday: s.dailyCounters.cookedToday,
           consumedItemCountsToday: s.dailyCounters.consumedItemCountsToday,
+          gatheredResourceAmountsToday: s.dailyCounters.gatheredResourceAmountsToday,
           sawStreetMode: s.sawStreetMode,
           resources,
           constructionProjects,
@@ -2041,6 +2053,7 @@ export const useGame = create<GameState>()(
         const cookedDelta = wasAway ? 0 : out.mealsCooked
         const shiftsDelta = wasAway ? 0 : out.shiftsCompleted
         const sleptDelta = 0
+        const gatheredResourceKinds = Object.keys(gatheredResourceDeltas) as ResourceKind[]
         if (
           mealsDelta ||
           shiftsDelta ||
@@ -2051,7 +2064,8 @@ export const useGame = create<GameState>()(
           constructionMinutesDelta ||
           communityDelta ||
           businessDevelopmentMinutesDelta ||
-          cookedDelta
+          cookedDelta ||
+          gatheredResourceKinds.length > 0
         ) {
           dailyCounters = {
             ...dailyCounters,
@@ -2062,6 +2076,10 @@ export const useGame = create<GameState>()(
             sleptToday: dailyCounters.sleptToday + sleptDelta,
             studiedToday: dailyCounters.studiedToday + studiedDelta,
             gatheredToday: dailyCounters.gatheredToday + gatheredDelta,
+            gatheredResourceAmountsToday: gatheredResourceKinds.reduce((amounts, kind) => ({
+              ...amounts,
+              [kind]: (amounts[kind] ?? 0) + (gatheredResourceDeltas[kind] ?? 0),
+            }), dailyCounters.gatheredResourceAmountsToday),
             constructionMinutesToday: dailyCounters.constructionMinutesToday + constructionMinutesDelta,
             communityToday: dailyCounters.communityToday + communityDelta,
             businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday + businessDevelopmentMinutesDelta,

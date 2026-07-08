@@ -987,14 +987,23 @@ describe('courierPackages', () => {
     }, {
       timesEaten: 0,
       sawStreetMode: false,
-      resources: freshResources({ wood: 10 }),
+      resources: freshResources({ wood: 0 }),
+      gatheredResourceAmountsToday: { wood: 10 },
       constructionProjects: [],
       hasHome: false,
     })
 
     expect(pkg).toMatchObject({
       targetResource: 'wood',
-      requirement: { kind: 'resource', resource: 'wood', amount: 35 },
+      requirement: { kind: 'resource-gathered', resource: 'wood', amount: 35 },
     })
+    expect(courierRequirementMet(pkg!, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources({ wood: 0 }),
+      gatheredResourceAmountsToday: { wood: 35 },
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
   })
 })
