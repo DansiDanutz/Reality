@@ -219,6 +219,18 @@ describe('worldSim snapshot codec', () => {
     expect(decoded.area.founderReviewHistory).toEqual(reviewed.founderReviewHistory)
   })
 
+  test('accepts business creator and inheritance identities when they resolve to real citizens', () => {
+    const inherited = area()
+    inherited.businesses[0].inheritedFrom = 'heir1'
+
+    const decoded = decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: inherited,
+    }))
+
+    expect(decoded.ok).toBe(true)
+  })
+
   test('rejects malformed founder covenant review history', () => {
     const reviewed = area()
     reviewed.founderReviewHistory = [founderReview()]
@@ -277,6 +289,22 @@ describe('worldSim snapshot codec', () => {
     const badOwner = area()
     badOwner.businesses[0].ownerId = 'missing'
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: badOwner }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const missingCreator = area()
+    missingCreator.businesses[0].createdBy = 'missing'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: missingCreator }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const simCreator = area()
+    simCreator.businesses[0].createdBy = 'sim1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: simCreator }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const missingInheritance = area()
+    missingInheritance.businesses[0].inheritedFrom = 'missing'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: missingInheritance }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const simInheritance = area()
+    simInheritance.businesses[0].inheritedFrom = 'sim1'
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: simInheritance }))).toEqual({ ok: false, error: 'invalid_area' })
 
     const badStaff = area()
     badStaff.businesses[0].staffCitizenIds = ['sim1']

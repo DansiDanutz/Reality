@@ -474,6 +474,8 @@ function hasValidAreaReferences(area: WorldArea): boolean {
 
   for (const business of area.businesses) {
     if (!citizens.has(business.ownerId)) return false
+    if (business.createdBy !== undefined && citizens.get(business.createdBy)?.kind !== 'real') return false
+    if (business.inheritedFrom !== undefined && citizens.get(business.inheritedFrom)?.kind !== 'real') return false
     if (!hasUniqueStrings(business.staffCitizenIds)) return false
     for (const staffCitizenId of business.staffCitizenIds) {
       const worker = citizens.get(staffCitizenId)
