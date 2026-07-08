@@ -2412,11 +2412,14 @@ function parseRealityFounderCovenantReviewQueueDashboard(
   const cursor = normalizeRealityFounderCovenantReviewQueueCursor(value.cursor)
   const nextCursor = normalizeRealityFounderCovenantReviewQueueCursor(value.nextCursor)
   if (value.hasMore && nextCursor === null) return null
+  const items = value.items.map(parseRealityFounderCovenantReviewQueueItem)
+  if (items.some((item) => item === null)) return null
 
   return {
     ...value,
     cursor,
     nextCursor,
+    items: items as RealityFounderCovenantReviewQueueItem[],
   }
 }
 
@@ -2547,6 +2550,34 @@ function isRealityFounderCovenantReviewQueueLatestReview(
     typeof value.summary === 'string' &&
     value.evidenceOnly === true &&
     value.automationEnabled === false
+}
+
+function parseRealityFounderCovenantReviewQueueItem(
+  value: RealityFounderCovenantReviewQueueItem,
+): RealityFounderCovenantReviewQueueItem | null {
+  if (value.latestReview === null) return value
+
+  const latestReview = parseRealityFounderCovenantReviewQueueLatestReview(value.latestReview)
+  if (!latestReview) return null
+
+  return {
+    ...value,
+    latestReview,
+  }
+}
+
+function parseRealityFounderCovenantReviewQueueLatestReview(
+  value: RealityFounderCovenantReviewQueueLatestReview,
+): RealityFounderCovenantReviewQueueLatestReview | null {
+  const reviewerId = value.reviewerId.trim()
+  const summary = value.summary.trim()
+  if (!reviewerId || !summary) return null
+
+  return {
+    ...value,
+    reviewerId,
+    summary,
+  }
 }
 
 function isRealityFounderCovenantActivitySignal(

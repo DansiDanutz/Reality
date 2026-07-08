@@ -1543,6 +1543,73 @@ describe('Reality area client', () => {
     })
   })
 
+  test('normalizes founder covenant latest-review metadata before returning queue results', async () => {
+    const queue = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        latestReview: {
+          reviewedAt: '2026-07-06T08:00:00.000Z',
+          reviewerId: ' telegram-operator:42424242 ',
+          actionKind: 'record_review',
+          summary: ' Reviewed contribution evidence. ',
+          evidenceOnly: true,
+          automationEnabled: false,
+        },
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      founderCovenantReviewQueue: {
+        ...serverFounderCovenantReviewQueue(),
+        items: [{
+          ...serverFounderCovenantReviewQueue().items[0],
+          latestReview: {
+            reviewedAt: '2026-07-06T08:00:00.000Z',
+            reviewerId: 'telegram-operator:42424242',
+            actionKind: 'record_review',
+            summary: 'Reviewed contribution evidence.',
+            evidenceOnly: true,
+            automationEnabled: false,
+          },
+        }],
+      },
+    })
+  })
+
+  test('rejects founder covenant queues with blank latest-review metadata', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        latestReview: {
+          reviewedAt: '2026-07-06T08:00:00.000Z',
+          reviewerId: '   ',
+          actionKind: 'record_review',
+          summary: ' Reviewed contribution evidence. ',
+          evidenceOnly: true,
+          automationEnabled: false,
+        },
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('identifies only server-backed local founder area intents', () => {
     expect(isRealityAreaServerPayload({ type: 'buyWater' })).toBe(true)
     expect(isRealityAreaServerPayload({
