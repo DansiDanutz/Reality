@@ -247,16 +247,18 @@ export function queueManualReviewTelegramText({
   activitySummary,
   actionSummary,
 }: {
-  draft: Pick<RealityAreaCovenantNotificationDraft, 'title' | 'body' | 'channel'>
+  draft: Pick<RealityAreaCovenantNotificationDraft, 'title' | 'body' | 'channel' | 'reviewId'>
   queueSummary: string
   focusSummary?: string | null
   escalationSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
 }): string {
+  const reviewReference = queueReviewReferenceText(draft.reviewId)
   return [
     `${draft.title} (${draft.channel})`,
     draft.body,
+    reviewReference,
     `Queue: ${queueSummary}`,
     focusSummary,
     escalationSummary,
@@ -273,7 +275,7 @@ export function queueFounderWarningTelegramText({
   activitySummary,
   actionSummary,
 }: {
-  request: Pick<RealityAreaCovenantApprovalRequest, 'label' | 'reason' | 'blockers'>
+  request: Pick<RealityAreaCovenantApprovalRequest, 'label' | 'reason' | 'blockers' | 'reviewId'>
   queueSummary: string
   focusSummary?: string | null
   escalationSummary?: string | null
@@ -283,9 +285,11 @@ export function queueFounderWarningTelegramText({
   const blockerText = request.blockers.length > 0
     ? `${request.blockers.length} delivery blocker${request.blockers.length === 1 ? '' : 's'} remain before send`
     : 'No delivery blockers remain'
+  const reviewReference = queueReviewReferenceText(request.reviewId)
   return [
     `${request.label} (telegram)`,
     request.reason,
+    reviewReference,
     blockerText,
     `Queue: ${queueSummary}`,
     focusSummary,
@@ -521,4 +525,10 @@ function reviewEvidenceKindLabels(
         return ['Ideas']
     }
   })
+}
+
+function queueReviewReferenceText(reviewId?: string | null): string | null {
+  if (!reviewId) return null
+  const reviewKey = reviewId.split(':').slice(-1)[0] ?? reviewId
+  return `Review ref: ${reviewKey}`
 }

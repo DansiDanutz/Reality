@@ -625,6 +625,7 @@ describe('FounderCovenantOperatorPanel', () => {
         title: 'Founder covenant manual review required',
         body: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
         channel: 'telegram',
+        reviewId: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
       },
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
@@ -632,12 +633,13 @@ describe('FounderCovenantOperatorPanel', () => {
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'Founder covenant manual review required (telegram)\nFounder covenant signals require human review. Replacement and waitlist handoff remain disabled.\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
+      'Founder covenant manual review required (telegram)\nFounder covenant signals require human review. Replacement and waitlist handoff remain disabled.\nReview ref: 42424242\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
     )
     expect(queueFounderWarningTelegramText({
       request: {
         label: 'Send warning',
         reason: 'Founder covenant signals suggest a warning.',
+        reviewId: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
         blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'],
       },
       queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
@@ -646,7 +648,7 @@ describe('FounderCovenantOperatorPanel', () => {
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
-      'Send warning (telegram)\nFounder covenant signals suggest a warning.\n2 delivery blockers remain before send\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
+      'Send warning (telegram)\nFounder covenant signals suggest a warning.\nReview ref: 42424242\n2 delivery blockers remain before send\nQueue: 1 founder · 0 manual review · 1 fresh reviewed\nFocus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly\nEscalation: 1 manual review · 1 never reviewed · 0 stale reviewed · 1 probation risk · 1 replacement risk\nFounder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1\nAction: monitor · monitor current founders',
     )
     expect(founderCovenantOperatorQueueEscalationSummary({
       items: operatorQueue().items,
