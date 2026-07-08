@@ -334,6 +334,22 @@ export function formatOperatorSessionClearedMessage(options: {
   return 'Operator session cleared.'
 }
 
+export function formatCopiedContextClearedMessage(options: {
+  hadTelegramContext: boolean
+  hadDigestOrViewContext: boolean
+}): string {
+  if (options.hadTelegramContext && options.hadDigestOrViewContext) {
+    return 'Copied founder handoff cleared: queue snapshot and Telegram context reset.'
+  }
+  if (options.hadTelegramContext) {
+    return 'Copied founder handoff cleared: Telegram context reset.'
+  }
+  if (options.hadDigestOrViewContext) {
+    return 'Copied founder handoff cleared: queue snapshot reset.'
+  }
+  return 'Copied founder handoff cleared.'
+}
+
 export function queueCoveragePresetLabel(
   filter: FounderCovenantOperatorQueueFilter,
   sort: FounderCovenantOperatorQueueSort,

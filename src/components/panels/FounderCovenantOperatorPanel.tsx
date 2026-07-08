@@ -40,6 +40,7 @@ import {
 import {
   type CopiedQueueViewState,
   copiedAtText,
+  formatCopiedContextClearedMessage,
   formatDraftNotePreview,
   formatOperatorSessionClearedMessage,
   formatReviewRecordSuccessMessage,
@@ -1294,9 +1295,25 @@ export default function FounderCovenantOperatorPanel({
               className="btn small ghost"
               disabled={loading || !lastCopiedText}
               onClick={() => {
+                const hadTelegramContext = Boolean(
+                  lastCopiedQueueView?.lastTelegramOutput ||
+                  lastCopiedQueueView?.telegramSummary ||
+                  lastCopiedQueueView?.telegramRationale,
+                )
+                const hadDigestOrViewContext = Boolean(
+                  lastCopiedQueueView?.digestSummary ||
+                  lastCopiedQueueView?.filter ||
+                  lastCopiedText,
+                )
                 setLastCopiedAt(null)
                 setLastCopiedText(null)
                 setLastCopiedQueueView(null)
+                setOperatorReviewMessage(
+                  formatCopiedContextClearedMessage({
+                    hadTelegramContext,
+                    hadDigestOrViewContext,
+                  }),
+                )
               }}
               type="button"
             >

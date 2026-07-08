@@ -4,6 +4,7 @@ import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/reali
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
+  formatCopiedContextClearedMessage,
   formatReviewRecordSuccessMessage,
   formatOperatorSessionClearedMessage,
   queueFounderWarningTelegramText,
@@ -271,6 +272,22 @@ describe('FounderCovenantOperatorPanel', () => {
   })
 
   test('derives coverage preset context from filter and sort state', () => {
+    expect(formatCopiedContextClearedMessage({
+      hadTelegramContext: true,
+      hadDigestOrViewContext: true,
+    })).toBe('Copied founder handoff cleared: queue snapshot and Telegram context reset.')
+    expect(formatCopiedContextClearedMessage({
+      hadTelegramContext: true,
+      hadDigestOrViewContext: false,
+    })).toBe('Copied founder handoff cleared: Telegram context reset.')
+    expect(formatCopiedContextClearedMessage({
+      hadTelegramContext: false,
+      hadDigestOrViewContext: true,
+    })).toBe('Copied founder handoff cleared: queue snapshot reset.')
+    expect(formatCopiedContextClearedMessage({
+      hadTelegramContext: false,
+      hadDigestOrViewContext: false,
+    })).toBe('Copied founder handoff cleared.')
     expect(formatOperatorSessionClearedMessage({
       hadReviewDraft: true,
       hadCopiedContext: true,
