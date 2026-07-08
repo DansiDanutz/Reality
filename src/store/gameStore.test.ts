@@ -97,6 +97,8 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
 function challengeState(overrides: Partial<StoreChallengeState> = {}): StoreChallengeState {
   return {
     money: 0,
+    needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    health: 100,
     jobId: null,
     shiftsWorked: 0,
     inventory: {},
@@ -287,6 +289,15 @@ describe('daily challenge readiness context', () => {
 
     expect(dailyChallengeContextOf(challengeState({ resourceNodes: [resourceNode('wood')] })).canGatherResources).toBe(true)
     expect(eligibleDailyIds({ resourceNodes: [resourceNode('wood')] })).toContain('gather-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      resourceNodes: [resourceNode('wood')],
+      needs: { hunger: 80, hydration: 80, energy: 5, hygiene: 80, fun: 80 },
+    })).canGatherResources).toBe(false)
+    expect(eligibleDailyIds({
+      resourceNodes: [resourceNode('wood')],
+      needs: { hunger: 80, hydration: 80, energy: 5, hygiene: 80, fun: 80 },
+    })).not.toContain('gather-1')
   })
 
   test('started resource trip challenges stay visible after nodes disappear today', () => {
@@ -316,6 +327,15 @@ describe('daily challenge readiness context', () => {
 
     expect(dailyChallengeContextOf(challengeState({ constructionProjects: [ready] })).canDoConstructionLabor).toBe(true)
     expect(eligibleDailyIds({ constructionProjects: [ready] })).toContain('build-60')
+
+    expect(dailyChallengeContextOf(challengeState({
+      constructionProjects: [ready],
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    })).canDoConstructionLabor).toBe(false)
+    expect(eligibleDailyIds({
+      constructionProjects: [ready],
+      needs: { hunger: 5, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+    })).not.toContain('build-60')
 
     expect(dailyChallengeContextOf(challengeState({ constructionProjects: [complete] })).canDoConstructionLabor).toBe(false)
     expect(eligibleDailyIds({ constructionProjects: [complete] })).not.toContain('build-60')
@@ -399,6 +419,17 @@ describe('daily challenge readiness context', () => {
 
     expect(dailyChallengeContextOf(challengeState({
       assets: [business()],
+      businessDevelopmentProjects: [ready],
+      needs: { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 },
+    })).canDevelopBusiness).toBe(false)
+    expect(eligibleDailyIds({
+      assets: [business()],
+      businessDevelopmentProjects: [ready],
+      needs: { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 },
+    })).not.toContain('business-dev-60')
+
+    expect(dailyChallengeContextOf(challengeState({
+      assets: [business()],
       businessDevelopmentProjects: [complete],
     })).canDevelopBusiness).toBe(false)
     expect(eligibleDailyIds({ assets: [business()], businessDevelopmentProjects: [complete] })).not.toContain('business-dev-60')
@@ -421,6 +452,29 @@ describe('daily challenge readiness context', () => {
     })
 
     expect(ids).toContain('business-dev-60')
+  })
+
+  test('shift challenges unlock only when the body can safely start work', () => {
+    expect(dailyChallengeContextOf(challengeState({ jobId: 'barista' })).maxShiftsToday).toBe(1)
+    expect(eligibleDailyIds({ jobId: 'barista' })).toContain('shift-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      jobId: 'barista',
+      health: 10,
+    })).maxShiftsToday).toBe(0)
+    expect(eligibleDailyIds({
+      jobId: 'barista',
+      health: 10,
+    })).not.toContain('shift-1')
+
+    expect(dailyChallengeContextOf(challengeState({
+      jobId: 'barista',
+      needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 },
+    })).maxShiftsToday).toBe(0)
+    expect(eligibleDailyIds({
+      jobId: 'barista',
+      needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 },
+    })).not.toContain('shift-1')
   })
 })
 

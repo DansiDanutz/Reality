@@ -186,6 +186,8 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
 
 type DailyChallengeContextState = {
   money: number
+  needs: Needs
+  health: number
   jobId: string | null
   shiftsWorked: number
   inventory: Record<string, number>
@@ -239,11 +241,12 @@ function cookableMealCount(inventory: Record<string, number>, assets: PlacedAsse
 
 export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyChallengeContext {
   const job = s.jobId ? jobById(s.jobId) : undefined
+  const canStartShift = !bodyWorkBlocker(s.needs, s.health, { energy: 25 })
   const wageBonus = totalWageBonus(s.inventory, s.educationProgress)
   const rank = careerRankOf(s.shiftsWorked)
   const shiftPay = job ? Math.round(job.wage * rank.wageMultiplier * (1 + wageBonus) * SHIFT_HOURS) : 0
   const advancedEnoughForTwoShifts = Boolean(job) && s.shiftsWorked >= 35
-  const maxShiftsToday = job ? (advancedEnoughForTwoShifts ? 2 : 1) : 0
+  const maxShiftsToday = job && canStartShift ? (advancedEnoughForTwoShifts ? 2 : 1) : 0
   const pendingIncome = s.assets.reduce((sum, asset) => sum + Math.max(0, asset.pendingIncome ?? 0), 0)
   const activeStudy = s.educationProgress.some((progress) => {
     if (progress.completedAt !== null) return false
@@ -252,11 +255,13 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
   })
   const constructionLaborReady = s.constructionProjects.some((project) => {
     const progress = constructionProgress(project)
-    return progress.resourcesComplete && progress.permitComplete && !progress.laborComplete
+    return progress.resourcesComplete && progress.permitComplete && !progress.laborComplete &&
+      !bodyWorkBlocker(s.needs, s.health, { energy: 20 })
   })
   const businessLaborReady = s.businessDevelopmentProjects.some((project) => {
     const progress = businessDevelopmentProgress(project)
-    return progress.resourcesComplete && progress.budgetComplete && !progress.laborComplete
+    return progress.resourcesComplete && progress.budgetComplete && !progress.laborComplete &&
+      !bodyWorkBlocker(s.needs, s.health, { energy: 20 })
   })
   const helperCreditMinutes = communityWorkerCreditMinutes(s.community, s.shiftsWorked)
   const constructionWorkerHireReady = s.constructionProjects.some((project) => {
@@ -287,7 +292,7 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
     maxDrinksToday: Math.max(s.dailyCounters.drinksToday, s.dailyCounters.drinksToday + stockedDrinkActions + affordableDrinkActions),
     maxHygieneToday: Math.max(s.dailyCounters.hygieneToday, s.dailyCounters.hygieneToday + stockedHygieneActions + affordableHygieneActions),
     hasStudyBlock: activeStudy,
-    canGatherResources: s.resourceNodes.length > 0,
+    canGatherResources: s.resourceNodes.some((node) => !bodyWorkBlocker(s.needs, s.health, { energy: node.energyCost + 5 })),
     canDoConstructionLabor: constructionLaborReady,
     canHireWorkers: constructionWorkerHireReady || businessWorkerHireReady,
     canHelpCommunity: canStartCommunityAction(s.community),
@@ -2026,6 +2031,8 @@ export const useGame = create<GameState>()(
           }
           const challengeContext = dailyChallengeContextOf({
             money,
+            needs,
+            health: out.health,
             jobId: s.jobId,
             shiftsWorked: s.shiftsWorked,
             inventory: s.inventory,

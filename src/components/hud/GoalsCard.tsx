@@ -91,6 +91,8 @@ export default function GoalsCard() {
   }
   const challengeContext = dailyChallengeContextOf({
     money,
+    needs,
+    health,
     jobId,
     shiftsWorked,
     inventory,
