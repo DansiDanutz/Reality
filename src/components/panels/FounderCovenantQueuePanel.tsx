@@ -234,6 +234,8 @@ function queueFilterLabel(filter: FounderCovenantOperatorQueueFilter): string {
       return 'Debt'
     case 'at_risk':
       return 'Risk'
+    case 'telegram_ready':
+      return 'Telegram'
     case 'scan_anomaly':
       return 'Scan'
   }

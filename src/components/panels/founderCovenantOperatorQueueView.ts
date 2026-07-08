@@ -65,6 +65,8 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'Debt'
     case 'at_risk':
       return 'Risk'
+    case 'telegram_ready':
+      return 'Telegram'
     case 'scan_anomaly':
       return 'Scan'
   }
@@ -348,6 +350,8 @@ export function queuePriorityPresetLabel(
       return 'Triage Debt'
     case 'at_risk':
       return 'Triage Risk'
+    case 'telegram_ready':
+      return 'Triage Telegram'
     case 'scan_anomaly':
       return 'Triage Scan'
     default:

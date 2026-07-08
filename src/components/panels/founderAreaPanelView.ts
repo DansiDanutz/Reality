@@ -131,6 +131,7 @@ export type FounderCovenantOperatorQueueFilter =
   | 'inactive'
   | 'debt_risk'
   | 'at_risk'
+  | 'telegram_ready'
   | 'scan_anomaly'
 export type FounderCovenantOperatorQueueSort = 'priority' | 'coverage' | 'founder' | 'action'
 
@@ -1203,6 +1204,8 @@ export function founderCovenantOperatorQueueFilterSummary(
       return `${count} founder${count === 1 ? '' : 's'} in debt risk · ${freshness}`
     case 'at_risk':
       return `${count} founder${count === 1 ? '' : 's'} at risk · ${freshness}`
+    case 'telegram_ready':
+      return `${count} founder${count === 1 ? '' : 's'} Telegram ready · ${freshness}`
     case 'scan_anomaly':
       return `${count} founder${count === 1 ? '' : 's'} with scan anomalies · ${freshness}`
   }
@@ -1232,8 +1235,9 @@ export function founderCovenantOperatorQueueFilterCountsSummary(
   const inactive = founderCovenantOperatorQueueFilteredReviewRows(queue, 'inactive').length
   const debtRisk = founderCovenantOperatorQueueFilteredReviewRows(queue, 'debt_risk').length
   const atRisk = founderCovenantOperatorQueueFilteredReviewRows(queue, 'at_risk').length
+  const telegramReady = founderCovenantOperatorQueueFilteredReviewRows(queue, 'telegram_ready').length
   const scan = founderCovenantOperatorQueueFilteredReviewRows(queue, 'scan_anomaly').length
-  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Weekly due ${weeklyDue} · Monthly due ${monthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Inactive ${inactive} · Debt ${debtRisk} · Risk ${atRisk} · Scan ${scan}`
+  return `All ${all} · Never ${neverReviewed} · Stale ${staleReviewed} · Stale week ${staleWeeklyDue} · Stale month ${staleMonthlyDue} · Weekly due ${weeklyDue} · Monthly due ${monthlyDue} · Fresh ${freshReviewed} · Manual ${manual} · Evidence ${evidence} · Next evidence ${nextEvidence} · Next blocked ${nextBlocked} · Next overdue ${nextOverdue} · Next record ${nextRecord} · Next monitor ${nextMonitor} · Overdue ${overdue} · Blocked ${blocked} · Hospital ${hospital} · Inactive ${inactive} · Debt ${debtRisk} · Risk ${atRisk} · Telegram ${telegramReady} · Scan ${scan}`
 }
 
 export function founderCovenantOperatorQueueSliceTotals(
@@ -1325,6 +1329,8 @@ function founderCovenantOperatorQueueMatchesFilter(
       return item.economicExposure.outstandingDebt > 0
     case 'at_risk':
       return item.activityReview.atRisk
+    case 'telegram_ready':
+      return item.pendingNotificationDrafts.length > 0 || item.pendingApprovalRequests.some((request) => request.kind === 'send_warning')
     case 'scan_anomaly':
       return item.scanStatus === 'invalid' || item.scanStatus === 'unavailable'
   }

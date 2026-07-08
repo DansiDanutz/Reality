@@ -189,6 +189,7 @@ export default function FounderCovenantOperatorPanel({
       queueFilter === 'inactive' ||
       queueFilter === 'debt_risk' ||
       queueFilter === 'at_risk' ||
+      queueFilter === 'telegram_ready' ||
       queueFilter === 'scan_anomaly'
     )
       ? queueFilter
@@ -822,6 +823,14 @@ export default function FounderCovenantOperatorPanel({
               Risk
             </button>
             <button
+              className={`btn small ${queueFilter === 'telegram_ready' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => setQueueFilter('telegram_ready')}
+              type="button"
+            >
+              Telegram
+            </button>
+            <button
               className={`btn small ${queueFilter === 'scan_anomaly' ? 'primary' : 'ghost'}`}
               disabled={loading}
               onClick={() => setQueueFilter('scan_anomaly')}
@@ -1008,6 +1017,14 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Triage Risk
+            </button>
+            <button
+              className={`btn small ${activePriorityPreset === 'telegram_ready' ? 'primary' : 'ghost'}`}
+              disabled={loading}
+              onClick={() => applyPriorityPreset('telegram_ready')}
+              type="button"
+            >
+              Triage Telegram
             </button>
             <button
               className={`btn small ${activePriorityPreset === 'scan_anomaly' ? 'primary' : 'ghost'}`}
