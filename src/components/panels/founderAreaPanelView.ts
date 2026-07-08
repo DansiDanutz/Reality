@@ -1023,6 +1023,19 @@ export function founderCovenantReviewActionSummary(
   return `${suggested} suggested · ${executable} executable`
 }
 
+export function founderCovenantReviewActionDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'manualActions'>,
+): string {
+  const suggested = review.manualActions.filter((action) => action.recommended)
+  if (suggested.length === 0) return 'Action detail unavailable'
+  return suggested
+    .map((action) => {
+      const status = action.kind === 'record_review' ? 'evidence-only' : 'locked'
+      return `${founderCovenantManualActionKindLabel(action.kind)} ${status}`
+    })
+    .join(', ')
+}
+
 export function founderCovenantReviewApprovalSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'approvalRequests'>,
 ): string {

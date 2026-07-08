@@ -20,6 +20,7 @@ import {
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueSummary,
   founderCovenantReviewActionSummary,
+  founderCovenantReviewActionDetailText,
   founderCovenantReviewApprovalBlockerSummary,
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewSignalDetailText,
@@ -109,6 +110,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewApprovalBlockerSummary(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantReviewSignalDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewActionDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -783,6 +786,7 @@ describe('FounderAreaPanel covenant presenters', () => {
 
   test('summarizes captured covenant review action snapshots', () => {
     expect(founderCovenantReviewActionSummary({ manualActions: [] })).toBe('No action snapshot')
+    expect(founderCovenantReviewActionDetailText({ manualActions: [] })).toBe('Action detail unavailable')
     expect(founderCovenantReviewActionSummary({
       manualActions: [{
         kind: 'send_warning',
@@ -816,6 +820,39 @@ describe('FounderAreaPanel covenant presenters', () => {
         clientPayload: null,
       }],
     })).toBe('2 suggested · 0 executable')
+    expect(founderCovenantReviewActionDetailText({
+      manualActions: [{
+        kind: 'send_warning',
+        label: 'Send warning',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'main_founder',
+          status: 'approval_required',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        reason: 'Covenant signals suggest a manual founder warning.',
+        clientPayload: null,
+      }, {
+        kind: 'record_review',
+        label: 'Record review',
+        recommended: true,
+        requiresApproval: true,
+        automationEnabled: false,
+        authorityGate: {
+          requiredRole: 'area_reviewer',
+          status: 'evidence_only',
+          approvedById: null,
+          approvedAt: null,
+          executionEnabled: false,
+        },
+        reason: 'Reviewer notes are manual evidence only; no automatic enforcement runs.',
+        clientPayload: null,
+      }],
+    })).toBe('Send warning locked, Record review evidence-only')
   })
 
   test('summarizes captured covenant approval snapshots', () => {
