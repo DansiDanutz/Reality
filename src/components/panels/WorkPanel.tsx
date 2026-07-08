@@ -26,9 +26,14 @@ export default function WorkPanel() {
         hours — clock in, live your day, pay lands when it ends. Leave early for pro-rata pay, no XP.
       </p>
       {recommendedJob && (
-        <p className="panel-sub">
-          Best next job: <strong>{recommendedJob.title}</strong> — {recommendedJob.flavor}
-        </p>
+        <div className="founder-section-head">
+          <p className="panel-sub">
+            Best next job: <strong>{recommendedJob.title}</strong> — {recommendedJob.flavor}
+          </p>
+          <button className="btn small primary" onClick={() => takeJob(recommendedJob.id)}>
+            Take recommended
+          </button>
+        </div>
       )}
 
       <ul className="item-list">
