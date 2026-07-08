@@ -151,6 +151,8 @@ export interface FounderCovenantOperatorQueueReviewRow {
   approvalAuthorityText: string
   approvalGateText: string
   approvalBlockerText: string
+  approvalTimelineText: string
+  approvalNotificationLinkText: string
   notificationDraftText: string
   notificationDraftTitleText: string
   notificationDraftBodyText: string
@@ -158,6 +160,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   notificationDraftAuthorityText: string
   notificationDraftGateText: string
   notificationDraftStatusText: string
+  notificationDraftTimelineText: string
   signalCountText: string
   signalText: string
   priorityScore: number
@@ -1375,6 +1378,8 @@ export function founderCovenantOperatorQueueReviewRows(
       approvalAuthorityText: founderCovenantOperatorQueueApprovalAuthorityText(item),
       approvalGateText: founderCovenantOperatorQueueApprovalGateText(item),
       approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
+      approvalTimelineText: founderCovenantOperatorQueueApprovalTimelineText(item),
+      approvalNotificationLinkText: founderCovenantOperatorQueueApprovalNotificationLinkText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       notificationDraftTitleText: founderCovenantOperatorQueueNotificationDraftTitleText(item),
       notificationDraftBodyText: founderCovenantOperatorQueueNotificationDraftBodyText(item),
@@ -1382,6 +1387,7 @@ export function founderCovenantOperatorQueueReviewRows(
       notificationDraftAuthorityText: founderCovenantOperatorQueueNotificationDraftAuthorityText(item),
       notificationDraftGateText: founderCovenantOperatorQueueNotificationDraftGateText(item),
       notificationDraftStatusText: founderCovenantOperatorQueueNotificationDraftStatusText(item),
+      notificationDraftTimelineText: founderCovenantOperatorQueueNotificationDraftTimelineText(item),
       signalCountText: founderCovenantOperatorQueueSignalCountText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
@@ -1630,6 +1636,27 @@ export function founderCovenantOperatorQueueApprovalBlockerText(
   return blockers.map(founderCovenantApprovalBlockerLabel).join(', ')
 }
 
+export function founderCovenantOperatorQueueApprovalTimelineText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => `${founderCovenantManualActionKindLabel(request.kind)}: ${founderUtcMinuteText(request.at)}`)
+    .join(' · ')
+}
+
+export function founderCovenantOperatorQueueApprovalNotificationLinkText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  if (item.pendingApprovalRequests.length === 0) return 'none'
+  return item.pendingApprovalRequests
+    .map((request) => {
+      const linkedDraft = request.notificationDraftId ?? 'none'
+      return `${founderCovenantManualActionKindLabel(request.kind)} -> ${linkedDraft}`
+    })
+    .join(' · ')
+}
+
 export function founderCovenantOperatorQueueNotificationDraftText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
 ): string {
@@ -1690,6 +1717,15 @@ export function founderCovenantOperatorQueueNotificationDraftStatusText(
   return item.pendingNotificationDrafts
     .map((draft) => founderCovenantNotificationDraftStatusLabel(draft))
     .join(', ')
+}
+
+export function founderCovenantOperatorQueueNotificationDraftTimelineText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
+): string {
+  if (item.pendingNotificationDrafts.length === 0) return 'none'
+  return item.pendingNotificationDrafts
+    .map((draft) => `${founderCovenantNotificationKindLabel(draft.kind)}: ${founderUtcMinuteText(draft.at)} · ${draft.id}`)
+    .join(' · ')
 }
 
 export function founderCovenantOperatorQueuePriorityScore(

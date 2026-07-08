@@ -11,8 +11,10 @@ import {
   founderCovenantOperatorQueueApprovalBlockerText,
   founderCovenantOperatorQueueApprovalAuthorityText,
   founderCovenantOperatorQueueApprovalGateText,
+  founderCovenantOperatorQueueApprovalNotificationLinkText,
   founderCovenantOperatorQueueApprovalReasonText,
   founderCovenantOperatorQueueApprovalStatusText,
+  founderCovenantOperatorQueueApprovalTimelineText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueEvidenceReasonText,
   founderCovenantOperatorQueueItemDateSummary,
@@ -40,6 +42,7 @@ import {
   founderCovenantOperatorQueueNotificationDraftTitleText,
   founderCovenantOperatorQueueNotificationDraftRecipientText,
   founderCovenantOperatorQueueNotificationDraftAuthorityText,
+  founderCovenantOperatorQueueNotificationDraftTimelineText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueStageReasonText,
   founderCovenantOperatorQueueStageText,
@@ -88,6 +91,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Approval authority: Main founder / Approval required')
     expect(html).toContain('Approval gates: Main founder approval · 2 blockers')
     expect(html).toContain('Approval blockers: approval workflow, Telegram delivery')
+    expect(html).toContain('Approval timeline: Send warning: 2026-07-06 04:00 UTC')
+    expect(html).toContain('Approval draft link: Send warning -&gt; founder-area-0012:1783310400000:covenant-notification:founder_warning:founder-12')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Draft titles: Founder covenant manual review required')
     expect(html).toContain('Draft body: Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.')
@@ -95,6 +100,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Draft authority: Main founder / Approval required')
     expect(html).toContain('Draft gates: Main founder approval required / Delivery disabled')
     expect(html).toContain('Draft status: Disabled')
+    expect(html).toContain('Draft timeline: Manual review: 2026-07-06 04:00 UTC · founder-area-0012:1783310400000:covenant-notification:manual_review_required:founder-12')
     expect(html).toContain('Signal counts: 2 total · 0 info · 1 warning · 1 critical')
     expect(html).toContain('Priority score: 1497')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
@@ -224,6 +230,12 @@ describe('FounderCovenantQueuePanel', () => {
     )
     expect(founderCovenantOperatorQueueApprovalGateText(manual)).toBe('Main founder approval · 2 blockers')
     expect(founderCovenantOperatorQueueApprovalBlockerText(manual)).toBe('approval workflow, Telegram delivery')
+    expect(founderCovenantOperatorQueueApprovalTimelineText(manual)).toBe(
+      'Send warning: 2026-07-06 04:00 UTC',
+    )
+    expect(founderCovenantOperatorQueueApprovalNotificationLinkText(manual)).toBe(
+      'Send warning -> founder-area-0012:1783310400000:covenant-notification:founder_warning:founder-12',
+    )
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
     expect(founderCovenantOperatorQueueNotificationDraftTitleText(manual)).toBe(
       'Founder covenant manual review required',
@@ -241,6 +253,9 @@ describe('FounderCovenantQueuePanel', () => {
       'Main founder approval required / Delivery disabled',
     )
     expect(founderCovenantOperatorQueueNotificationDraftStatusText(manual)).toBe('Disabled')
+    expect(founderCovenantOperatorQueueNotificationDraftTimelineText(manual)).toBe(
+      'Manual review: 2026-07-06 04:00 UTC · founder-area-0012:1783310400000:covenant-notification:manual_review_required:founder-12',
+    )
     expect(founderCovenantOperatorQueueSignalCountText(manual)).toBe('2 total · 0 info · 1 warning · 1 critical')
     expect(founderCovenantOperatorQueuePriorityScore(manual)).toBe(1497)
     expect(founderCovenantOperatorQueueLatestReviewText({
@@ -291,12 +306,15 @@ describe('FounderCovenantQueuePanel', () => {
       approvalAuthorityText: 'Main founder / Approval required',
       approvalGateText: 'Main founder approval · 2 blockers',
       approvalBlockerText: 'approval workflow, Telegram delivery',
+      approvalTimelineText: 'Send warning: 2026-07-06 04:00 UTC',
+      approvalNotificationLinkText: 'Send warning -> founder-area-0012:1783310400000:covenant-notification:founder_warning:founder-12',
       notificationDraftTitleText: 'Founder covenant manual review required',
       notificationDraftBodyText: 'Founder covenant signals require human review. Replacement and waitlist handoff remain disabled.',
       notificationDraftRecipientText: 'Telegram -> founder-12',
       notificationDraftAuthorityText: 'Main founder / Approval required',
       notificationDraftGateText: 'Main founder approval required / Delivery disabled',
       notificationDraftStatusText: 'Disabled',
+      notificationDraftTimelineText: 'Manual review: 2026-07-06 04:00 UTC · founder-area-0012:1783310400000:covenant-notification:manual_review_required:founder-12',
       signalCountText: '2 total · 0 info · 1 warning · 1 critical',
       priorityScore: 1497,
       signalText: 'Founder debt, Review due',
