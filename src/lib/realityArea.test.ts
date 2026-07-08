@@ -876,6 +876,35 @@ describe('Reality area client', () => {
     })
   })
 
+  test('accepts blocked server survival actions without client payloads', async () => {
+    const dashboard = serverDashboard()
+    const survivalSignal = dashboard.survival.signals[1]!
+    const survivalAction = survivalSignal.actions[0]!
+    dashboard.survival.signals[1] = {
+      ...survivalSignal,
+      actions: [{
+        ...survivalAction,
+        clientPayload: null,
+        available: false,
+        lowestPrice: null,
+        canAfford: false,
+        blockers: ['service_unavailable'],
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard }))
+
+    await expect(refreshRealityFounderArea({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard,
+    })
+  })
+
   test('sends founder covenant review evidence through the server area authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
@@ -1248,6 +1277,30 @@ describe('Reality area client', () => {
     })
   })
 
+  test('rejects founder covenant queues with automated review schedules', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewSchedule: {
+          ...serverFounderCovenantReviewQueue().items[0].reviewSchedule,
+          automationEnabled: true,
+        },
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
   test('rejects founder covenant queues with executable latest-review metadata', async () => {
     const malformed = {
       ...serverFounderCovenantReviewQueue(),
@@ -1515,7 +1568,7 @@ describe('Reality area client', () => {
       issuedAt: Date.parse('2026-07-06T03:30:00.000Z'),
       memo: 'David owes medical debt to clinic-1.',
       repaymentIntent: 'repayDebt',
-      clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+      clientPayload: null,
       recommendedPayment: 300,
       maxAffordablePayment: 300,
       canRepayNow: false,
@@ -1523,7 +1576,7 @@ describe('Reality area client', () => {
     })
     expect(founder?.insuranceAction).toMatchObject({
       intent: 'buyInsurance',
-      clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      clientPayload: null,
       insuranceBusinessId: 'insurance-1',
       premium: 45,
       available: true,
@@ -1745,7 +1798,7 @@ describe('Reality area client', () => {
       manualReviewRequired: true,
       namedHeirCitizenId: 'heir-1',
       namedHeirName: 'Ada Heir',
-      protectedByInsurance: true,
+      protectedByInsurance: false,
       status: 'disabled_until_death_enabled',
       blockers: [
         'death_disabled',
@@ -2596,7 +2649,7 @@ function serverDashboard(): RealityAreaDashboard {
         issuedAt: '2026-07-06T03:30:00.000Z',
         memo: 'David owes medical debt to clinic-1.',
         repaymentIntent: 'repayDebt',
-        clientPayload: { type: 'repayDebt', debtId: 'debt-1', amount: 300 },
+        clientPayload: null,
         recommendedPayment: 300,
         maxAffordablePayment: 300,
         canRepayNow: false,
@@ -2605,7 +2658,7 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceActive: false,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
@@ -2650,7 +2703,7 @@ function serverDashboard(): RealityAreaDashboard {
       insuranceActive: true,
       insuranceAction: {
         intent: 'buyInsurance',
-        clientPayload: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+        clientPayload: null,
         insuranceBusinessId: 'insurance-1',
         premium: 45,
         available: true,
@@ -3017,6 +3070,12 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      signalCounts: {
+        total: review.signals.length,
+        info: review.signals.filter((signal) => signal.severity === 'info').length,
+        warning: review.signals.filter((signal) => signal.severity === 'warning').length,
+        critical: review.signals.filter((signal) => signal.severity === 'critical').length,
+      },
     },
     items: [{
       areaId: dashboard.areaId,
@@ -3027,6 +3086,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       checkedAt: review.activityReview.checkedAt,
       lastReviewAt: review.reviewSchedule.lastReviewAt,
       latestReview: null,
+      reviewSchedule: review.reviewSchedule,
       nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
       nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
       overdue: review.reviewSchedule.overdue,

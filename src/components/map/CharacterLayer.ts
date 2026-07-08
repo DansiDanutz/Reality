@@ -47,6 +47,7 @@ export function createCharacterLayer(origin: { lat: number; lng: number }): mapl
       scene.add(new THREE.AmbientLight(0xffffff, 1.0))
 
       new GLTFLoader().load(MODEL_URL, (gltf) => {
+        if (!mapRef) return // layer was removed before the GLB arrived
         model = gltf.scene
         // Normalize to human height regardless of exporter units
         const box = new THREE.Box3().setFromObject(model)
@@ -61,17 +62,51 @@ export function createCharacterLayer(origin: { lat: number; lng: number }): mapl
           mixer = new THREE.AnimationMixer(model)
           mixer.clipAction(gltf.animations[0]).play()
         }
+        // Kick the render loop now that there is something to animate.
+        mapRef?.triggerRepaint()
+      },
+      undefined,
+      (error) => {
+        // A missing/corrupt GLB must not silently freeze the layer — surface
+        // it and leave the map running without the character.
+        console.error('CharacterLayer: failed to load character model', error)
       })
 
       renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context: gl, antialias: true })
       renderer.autoClear = false
     },
 
+    onRemove() {
+      mixer?.stopAllAction()
+      mixer = null
+      // Free GLB GPU resources — geometries, materials, and their textures.
+      scene?.traverse((obj) => {
+        const mesh = obj as THREE.Mesh
+        mesh.geometry?.dispose()
+        const mats = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : []
+        for (const mat of mats) {
+          const m = mat as THREE.MeshStandardMaterial
+          m.map?.dispose()
+          m.normalMap?.dispose()
+          m.roughnessMap?.dispose()
+          m.metalnessMap?.dispose()
+          m.emissiveMap?.dispose()
+          m.dispose()
+        }
+      })
+      model = null
+      renderer?.dispose()
+      mapRef = null
+    },
+
     render(_gl, args) {
       const map = mapRef
       if (!map) return
-      map.triggerRepaint()
+      // Only demand continuous repaints while the character is actually
+      // animating on screen — an unconditional triggerRepaint() pins the map
+      // at full frame rate forever, even zoomed out to the globe.
       if (!model || map.getZoom() < MIN_ZOOM) return
+      map.triggerRepaint()
 
       const dt = Math.min(clock.getDelta(), 0.1)
       mixer?.update(dt)
