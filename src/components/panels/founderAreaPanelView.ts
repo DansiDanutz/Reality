@@ -972,26 +972,35 @@ export function founderCovenantOperatorQueueWorkflowSplitSummary(
 export function founderCovenantOperatorQueueFocusSummary(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
     totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
-      'evidenceQueuedFounders' | 'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'pendingApprovals' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+      'evidenceQueuedFounders' | 'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'pendingApprovals' | 'recordReadyFounders' | 'overdueCleanupFounders' | 'recordReadyWeekly' | 'recordReadyMonthly'>
   },
 ): string {
   return `Focus: ${founderCovenantOperatorQueueWorkloadSummary(queue)} · ${founderCovenantOperatorQueueWorkflowSplitSummary(queue)} · ${founderCovenantOperatorQueueCadenceReadySummary(queue)}`
 }
 
 export function founderCovenantOperatorQueueActionSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
   return `Action: ${founderCovenantOperatorQueuePrimaryWorkloadText(queue).replace('Primary workload: ', '')} · ${founderCovenantOperatorQueueRecommendedActionText(queue).replace('Recommended next: ', '')}`
 }
 
 export function founderCovenantOperatorQueuePrimaryWorkloadSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): string {
   return founderCovenantOperatorQueuePrimaryWorkloadText(queue).replace('Primary workload: ', '')
 }
 
 export function founderCovenantOperatorQueuePrimaryWorkloadTone(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'evidenceRequiredGaps' | 'blockedApprovalFounders' | 'recordReadyFounders' | 'overdueCleanupFounders'>
+  },
 ): FounderCovenantReviewTone {
   const workload = founderCovenantOperatorQueuePrimaryWorkloadSummary(queue)
   switch (workload) {
@@ -1071,8 +1080,16 @@ export function founderCovenantOperatorQueueEscalationWorkSummary(
 }
 
 export function founderCovenantOperatorQueueCadenceReadyMix(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'], 'recordReadyWeekly' | 'recordReadyMonthly'>
+  },
 ): FounderCovenantOperatorQueueCadenceReadyMix {
+  if (queue.totals) {
+    return {
+      weekly: queue.totals.recordReadyWeekly,
+      monthly: queue.totals.recordReadyMonthly,
+    }
+  }
   return queue.items.reduce<FounderCovenantOperatorQueueCadenceReadyMix>((totals, item) => {
     if (!founderCovenantOperatorQueueIsRecordRecommendation(founderCovenantOperatorQueueRecommendedNextText(item))) return totals
     if (item.weeklyReviewDue) totals.weekly += 1
@@ -1085,7 +1102,9 @@ export function founderCovenantOperatorQueueCadenceReadyMix(
 }
 
 export function founderCovenantOperatorQueueCadenceReadySummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'], 'recordReadyWeekly' | 'recordReadyMonthly'>
+  },
 ): string {
   const cadence = founderCovenantOperatorQueueCadenceReadyMix(queue)
   return `Cadence ready: ${cadence.weekly} weekly · ${cadence.monthly} monthly`
