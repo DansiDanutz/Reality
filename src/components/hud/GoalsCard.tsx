@@ -14,6 +14,7 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapPreviewSummary,
+  roadmapDisplayDayLabel,
   roadmapRouteLabel,
   roadmapValueLabel,
   routineShortLabel,
@@ -226,7 +227,7 @@ export default function GoalsCard() {
     ? (
         <span className="goals-card-agenda" aria-label={roadmapPreviewHeading(roadmapPreview.days.length - 1)}>
           <span className="goals-card-agenda-heading">{roadmapPreviewHeading(roadmapPreview.days.length - 1)}</span>
-          {roadmapPreview.days.slice(1).map((day) => (
+          {roadmapPreview.days.slice(1).map((day, index) => (
             <button
               type="button"
               className="goals-card-agenda-item"
@@ -234,7 +235,7 @@ export default function GoalsCard() {
               onClick={() => openRoute(day.primary.route)}
               aria-label={roadmapPreviewSummary(day.dayLabel, day.primary.value, day.primary.title, day.primary.minutes)}
             >
-              <span className="goals-card-agenda-index">{day.dayLabel}</span>
+              <span className="goals-card-agenda-index">{roadmapDisplayDayLabel(day.dayLabel, index)}</span>
               <span>{roadmapRouteLabel(day.primary.route)}</span>
               <span>{day.primary.title}</span>
               <span className="goals-card-agenda-time">{roadmapValueLabel(day.primary.value)}</span>

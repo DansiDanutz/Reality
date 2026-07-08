@@ -15,6 +15,12 @@ export function roadmapPreviewSummary(dayLabel: string, value: string, title: st
   return `${dayLabel}: ${roadmapValueLabel(value)} ${title} (${formatPlanMinutes(minutes)})`
 }
 
+export function roadmapDisplayDayLabel(dayLabel: string, index: number): string {
+  if (index === 0) return 'Tomorrow'
+  if (index === 1) return 'Day after'
+  return dayLabel
+}
+
 export function roadmapPreviewHeading(dayCount: number): string {
   return dayCount === 1 ? 'Next day' : `Next ${dayCount} days`
 }

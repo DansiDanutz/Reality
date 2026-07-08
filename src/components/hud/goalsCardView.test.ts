@@ -16,6 +16,7 @@ import {
   interiorEtaSummary,
   millionaireEtaSummary,
   roadmapPreviewHeading,
+  roadmapDisplayDayLabel,
   roadmapPreviewSummary,
   roadmapRouteLabel,
   roadmapValueLabel,
@@ -80,6 +81,14 @@ describe('roadmapPreviewHeading', () => {
   test('labels the number of upcoming days clearly', () => {
     expect(roadmapPreviewHeading(1)).toBe('Next day')
     expect(roadmapPreviewHeading(2)).toBe('Next 2 days')
+  })
+})
+
+describe('roadmapDisplayDayLabel', () => {
+  test('uses human labels for the nearest upcoming days', () => {
+    expect(roadmapDisplayDayLabel('Day 2', 0)).toBe('Tomorrow')
+    expect(roadmapDisplayDayLabel('Day 3', 1)).toBe('Day after')
+    expect(roadmapDisplayDayLabel('Day 4', 2)).toBe('Day 4')
   })
 })
 
