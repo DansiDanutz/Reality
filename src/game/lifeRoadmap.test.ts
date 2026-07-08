@@ -67,6 +67,16 @@ describe('planLifeRoadmap', () => {
 
     expect(roadmap.horizonDays).toBe(8)
     expect(roadmap.days).toHaveLength(8)
+    expect(roadmap.days.map((day) => day.dayLabel)).toEqual([
+      'Day 1',
+      'Day 2',
+      'Day 3',
+      'Day 4',
+      'Day 5',
+      'Day 6',
+      'Day 7',
+      'Day 8',
+    ])
     expect(roadmap.days[0].primary.id).toBe('find-job')
     expect(roadmap.days[1].primary.id).toBe('first-shift')
     expect(roadmap.days[2].primary.id).toBe('study-first-course')

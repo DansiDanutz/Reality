@@ -48,6 +48,7 @@ import { buildEtaSummary, interiorEtaSummary } from './lifeForecastSummary'
 
 export interface LifeRoadmapDay {
   lifeDay: number
+  dayLabel: string
   primary: LifePlanTask
   agenda: LifePlanTask[]
   routine: LifeRoutineBlock[]
@@ -291,6 +292,7 @@ function roadmapDay(plan: LifePlan, starting: LifeLadderSnapshot, ending: LifeLa
   const endingResources = freshResources(ending.resources)
   return {
     lifeDay: plan.lifeDay,
+    dayLabel: `Day ${plan.lifeDay}`,
     primary: plan.primary,
     agenda: plan.agenda,
     routine: plan.routine,
