@@ -177,6 +177,37 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.communityTrust).toBe(2)
   })
 
+  test('does not spend free time on construction during a body recovery day', () => {
+    const project = createConstructionProject('starter-house', 1, 1, 1)
+    const readyForLabor = {
+      ...project,
+      deposited: freshResources(project.required),
+      permitFeePaid: true,
+    }
+
+    const roadmap = planLifeRoadmap(snap({
+      money: 1_000,
+      needs: { ...goodNeeds, hydration: 20 },
+      jobId: 'barista',
+      shiftsWorked: 3,
+      communityRespect: 2,
+      communityTrust: 2,
+      constructionProjects: [readyForLabor],
+    }), 1)
+
+    expect(roadmap.days[0].primary).toMatchObject({
+      id: 'drink-water',
+      value: 'body',
+      route: { kind: 'survival-action', action: 'drink-water' },
+    })
+    expect(roadmap.finalSnapshot.constructionProjects[0]).toMatchObject({
+      id: readyForLabor.id,
+      laborDoneMinutes: 0,
+      workerContracts: [],
+    })
+    expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(false)
+  })
+
   test('resumes projected work after a recovery day makes the body safe', () => {
     const roadmap = planLifeRoadmap(snap({
       money: 500,

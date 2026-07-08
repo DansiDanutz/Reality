@@ -530,6 +530,7 @@ function applyRouteAction(snapshot: LifeLadderSnapshot, route: LifePlanRoute): L
 
 function freeTimeOwnershipRoute(plan: LifePlan, snapshot: LifeLadderSnapshot): LifePlanRoute | null {
   if (!snapshot.jobId) return null
+  if (plan.primary.value === 'body') return null
   const freeTime = plan.routine.find((block) => block.id === 'free-time-block') ?? null
   if (!freeTime || freeTime.taskId === plan.primary.id || freeTime.route.kind === 'none') return null
   return freeTime.route
