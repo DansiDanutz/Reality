@@ -10,9 +10,7 @@ export interface CopiedQueueViewState {
   sort: FounderCovenantOperatorQueueSort
   scanCursor: string | null
   nextCursor: string | null
-  cadenceReadySummary?: string | null
-  workflowSplitSummary?: string | null
-  workloadSummary?: string | null
+  focusSummary?: string | null
   recommendedAction?: string | null
 }
 
@@ -104,9 +102,7 @@ export function queueHandoffText({
   scanCursor,
   nextCursor,
   queueSummary,
-  cadenceReadySummary,
-  workflowSplitSummary,
-  workloadSummary,
+  focusSummary,
   recommendedAction,
 }: {
   filter: FounderCovenantOperatorQueueFilter
@@ -114,9 +110,7 @@ export function queueHandoffText({
   scanCursor: string | null
   nextCursor: string | null
   queueSummary: string
-  cadenceReadySummary?: string | null
-  workflowSplitSummary?: string | null
-  workloadSummary?: string | null
+  focusSummary?: string | null
   recommendedAction?: string | null
 }): string {
   return [
@@ -124,9 +118,7 @@ export function queueHandoffText({
     queueCursorContextText(scanCursor, nextCursor),
     queueResumeText(scanCursor, nextCursor),
     queueSummary,
-    cadenceReadySummary,
-    workflowSplitSummary,
-    workloadSummary,
+    focusSummary,
     recommendedAction,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
 }
@@ -136,9 +128,7 @@ export function queueCopiedStatusSummary({
   sort,
   scanCursor,
   nextCursor,
-  cadenceReadySummary,
-  workflowSplitSummary,
-  workloadSummary,
+  focusSummary,
   recommendedAction,
 }: CopiedQueueViewState): string[] {
   const copiedView = queuePresetLabel(filter, sort) ?? `${queueViewLabel(filter)} / ${queueSortLabel(sort)}`
@@ -149,9 +139,7 @@ export function queueCopiedStatusSummary({
   return [
     `Copied view: ${copiedView}`,
     `Copied cursor: ${copiedCursor}`,
-    cadenceReadySummary ? `Copied cadence: ${cadenceReadySummary}` : null,
-    workflowSplitSummary ? `Copied workflow: ${workflowSplitSummary}` : null,
-    workloadSummary ? `Copied workload: ${workloadSummary}` : null,
+    focusSummary ? `Copied focus: ${focusSummary}` : null,
     recommendedAction ? `Copied next: ${recommendedAction}` : null,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0)
 }

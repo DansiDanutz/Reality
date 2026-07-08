@@ -22,11 +22,10 @@ import type {
 import {
   founderCovenantOperatorQueueCadenceReadyMix,
   founderCovenantOperatorQueueCadenceReadySummary,
+  founderCovenantOperatorQueueFocusSummary,
   founderCovenantOperatorQueuePageSummary,
   founderCovenantOperatorQueueRecommendedActionText,
   founderCovenantOperatorQueueSummary,
-  founderCovenantOperatorQueueWorkflowSplitSummary,
-  founderCovenantOperatorQueueWorkloadSummary,
 } from './founderAreaPanelView'
 import {
   founderCovenantOperatorQueueRefreshCursor,
@@ -303,9 +302,7 @@ export default function FounderCovenantOperatorPanel({
     const queueSummary = queue
       ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
       : 'Queue unavailable'
-    const cadenceReadySummary = queue ? founderCovenantOperatorQueueCadenceReadySummary(queue) : null
-    const workflowSplitSummary = queue ? founderCovenantOperatorQueueWorkflowSplitSummary(queue) : null
-    const workloadSummary = queue ? founderCovenantOperatorQueueWorkloadSummary(queue) : null
+    const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
     const recommendedAction = queue ? founderCovenantOperatorQueueRecommendedActionText(queue) : null
     const handoff = queueHandoffText({
       filter: queueFilter,
@@ -313,9 +310,7 @@ export default function FounderCovenantOperatorPanel({
       scanCursor,
       nextCursor: queue?.nextCursor ?? null,
       queueSummary,
-      cadenceReadySummary,
-      workflowSplitSummary,
-      workloadSummary,
+      focusSummary,
       recommendedAction,
     })
     if (!clipboard?.writeText) {
@@ -329,9 +324,7 @@ export default function FounderCovenantOperatorPanel({
         sort: queueSort,
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
-        cadenceReadySummary,
-        workflowSplitSummary,
-        workloadSummary,
+        focusSummary,
         recommendedAction,
       })
       setLastCopiedAt(new Date().toISOString())
