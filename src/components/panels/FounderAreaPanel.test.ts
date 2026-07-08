@@ -25,6 +25,7 @@ import {
   founderCovenantReviewApprovalSummary,
   founderCovenantReviewSignalDetailText,
   founderCovenantReviewCadenceSummary,
+  founderCovenantReviewCadenceDetailText,
   founderCovenantReviewDecisionSummary,
   founderCovenantReviewInputSummary,
   founderCovenantReviewInputDetailText,
@@ -121,6 +122,8 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderAreaPanelSource).toContain('founderCovenantReviewChecklistDetailText(entry)')
     expect(founderAreaPanelSource).toContain('founderCovenantStageDetailText(dashboard.founderCovenant.latestReview)')
     expect(founderAreaPanelSource).toContain('founderCovenantStageDetailText(entry)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewCadenceDetailText(dashboard.founderCovenant.latestReview)')
+    expect(founderAreaPanelSource).toContain('founderCovenantReviewCadenceDetailText(entry)')
   })
 
   test('summarizes server-verified founder Telegram identity', () => {
@@ -1172,7 +1175,11 @@ describe('FounderAreaPanel covenant presenters', () => {
       automationEnabled: false,
     } as const
     expect(founderCovenantReviewCadenceSummary({ reviewSchedule: null })).toBe('Schedule unavailable')
+    expect(founderCovenantReviewCadenceDetailText({ reviewSchedule: null })).toBe('Schedule detail unavailable')
     expect(founderCovenantReviewCadenceSummary({ reviewSchedule: baseSchedule })).toBe('Ad hoc review captured')
+    expect(founderCovenantReviewCadenceDetailText({ reviewSchedule: baseSchedule })).toBe(
+      'Last none · Weekly 1970-01-09 00:00 UTC · Monthly 1970-02-01 00:00 UTC',
+    )
     expect(founderCovenantReviewCadenceSummary({
       reviewSchedule: {
         ...baseSchedule,
@@ -1180,6 +1187,13 @@ describe('FounderAreaPanel covenant presenters', () => {
         overdue: true,
       },
     })).toBe('Weekly review captured')
+    expect(founderCovenantReviewCadenceDetailText({
+      reviewSchedule: {
+        ...baseSchedule,
+        weeklyReviewDue: true,
+        overdue: true,
+      },
+    })).toBe('Last none · Weekly 1970-01-09 00:00 UTC (due) · Monthly 1970-02-01 00:00 UTC · overdue')
     expect(founderCovenantReviewCadenceSummary({
       reviewSchedule: {
         ...baseSchedule,
@@ -1188,6 +1202,14 @@ describe('FounderAreaPanel covenant presenters', () => {
         overdue: true,
       },
     })).toBe('Monthly review captured')
+    expect(founderCovenantReviewCadenceDetailText({
+      reviewSchedule: {
+        ...baseSchedule,
+        weeklyReviewDue: true,
+        monthlyReviewDue: true,
+        overdue: true,
+      },
+    })).toBe('Last none · Weekly 1970-01-09 00:00 UTC (due) · Monthly 1970-02-01 00:00 UTC (due) · overdue')
   })
 
   test('summarizes captured covenant review decisions', () => {

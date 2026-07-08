@@ -1044,6 +1044,18 @@ export function founderCovenantReviewCadenceSummary(
   return 'Ad hoc review captured'
 }
 
+export function founderCovenantReviewCadenceDetailText(
+  review: Pick<FounderCovenantReviewHistoryItem, 'reviewSchedule'>,
+): string {
+  const schedule = review.reviewSchedule
+  if (!schedule) return 'Schedule detail unavailable'
+  const last = schedule.lastReviewAt ? founderUtcMinuteText(schedule.lastReviewAt) : 'none'
+  const weekly = `${founderUtcMinuteText(schedule.nextWeeklyReviewAt)}${schedule.weeklyReviewDue ? ' (due)' : ''}`
+  const monthly = `${founderUtcMinuteText(schedule.nextMonthlyReviewAt)}${schedule.monthlyReviewDue ? ' (due)' : ''}`
+  const overdue = schedule.overdue ? ' · overdue' : ''
+  return `Last ${last} · Weekly ${weekly} · Monthly ${monthly}${overdue}`
+}
+
 export function founderCovenantReviewDecisionSummary(
   review: Pick<FounderCovenantReviewHistoryItem, 'decision'>,
 ): string {
