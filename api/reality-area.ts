@@ -1180,6 +1180,7 @@ interface FounderCovenantReviewQueueItem {
   checkedAt: string
   lastReviewAt: string | null
   latestReview: FounderCovenantReviewQueueLatestReview | null
+  reviewSchedule: FounderAreaCovenantReviewSchedule
   nextWeeklyReviewAt: string
   nextMonthlyReviewAt: string
   overdue: boolean
@@ -4354,7 +4355,18 @@ async function handleFounderCovenantOperatorReview(
     return
   }
 
-  const state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  let state: FounderAreaState
+  try {
+    state = await persistAreaState(intent.founderCitizenId, result.state, true)
+  } catch {
+    res.status(503).json({
+      ok: false,
+      error: 'Reality area storage is briefly unavailable.',
+      code: 'area_storage_unavailable',
+      ...areaPayload(stateForReview),
+    })
+    return
+  }
   res.status(200).json({ ok: true, ...areaPayload(state) })
 }
 
@@ -4530,6 +4542,7 @@ function founderCovenantReviewQueueItem(
     checkedAt: review.activityReview.checkedAt,
     lastReviewAt: review.reviewSchedule.lastReviewAt,
     latestReview: founderCovenantReviewQueueLatestReview(review.latestReview),
+    reviewSchedule: founderCovenantReviewScheduleSnapshot(review.reviewSchedule),
     nextWeeklyReviewAt: review.reviewSchedule.nextWeeklyReviewAt,
     nextMonthlyReviewAt: review.reviewSchedule.nextMonthlyReviewAt,
     overdue: review.reviewSchedule.overdue,
@@ -4606,6 +4619,15 @@ function founderCovenantReviewQueueLatestReview(
     actionKind: 'record_review',
     summary: review.summary,
     evidenceOnly: true,
+    automationEnabled: false,
+  }
+}
+
+function founderCovenantReviewScheduleSnapshot(
+  schedule: FounderAreaCovenantReviewSchedule,
+): FounderAreaCovenantReviewSchedule {
+  return {
+    ...schedule,
     automationEnabled: false,
   }
 }
