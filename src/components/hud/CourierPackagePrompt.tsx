@@ -95,6 +95,9 @@ export default function CourierPackagePrompt() {
         if (project) startConstructionWork(project.id)
         else startPlacingConstruction()
         return
+      case 'worker-hired':
+        setPanel('construction')
+        return
       default:
         complete()
     }
@@ -122,6 +125,8 @@ export default function CourierPackagePrompt() {
           ? 'Place site'
           : pkg.requirement.kind === 'construction-deposit'
             ? project ? 'Deposit materials' : 'Place site'
+            : pkg.requirement.kind === 'worker-hired'
+              ? 'Hire worker'
             : pkg.requirement.kind === 'construction-labor' || pkg.requirement.kind === 'home-built-or-progress' || pkg.requirement.kind === 'construction-built'
               ? project ? 'Work 60m' : 'Place site'
               : resourceKind

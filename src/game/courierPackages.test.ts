@@ -314,6 +314,22 @@ describe('courierPackages', () => {
       constructionProjects: [],
       hasHome: false,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'worker-hired', workersHiredToday: 1 } }, {
+      timesEaten: 0,
+      workersHiredToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'worker-hired', workersHiredToday: 1 } }, {
+      timesEaten: 0,
+      workersHiredToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('checks business development requirements', () => {
@@ -495,6 +511,53 @@ describe('courierPackages', () => {
       day: 18,
       title: 'Work 60m inside Food Cart',
       requirement: { kind: 'business-development-labor', minutes: 60 },
+    })
+  })
+
+  test('wraps generated worker hire tasks with hire requirements instead of labor progress', () => {
+    const constructionProject = createConstructionProject('starter-house', 45, 21, 1)
+    const businessProject = createBusinessDevelopmentProject(business(), 1_000)!
+
+    const constructionHire = courierPackageForLifePlan(18, {
+      id: 'hire-helper-for-house',
+      title: 'Hire a helper for Starter House',
+      detail: 'Use the Workers Hall to move the build while you protect your workday.',
+      value: 'capital',
+      minutes: 5,
+      route: { kind: 'construction-action', projectId: constructionProject.id, action: 'hire-helper', hours: 2 },
+    }, {
+      timesEaten: 0,
+      workersHiredToday: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [{ ...constructionProject, laborDoneMinutes: 120 }],
+      businessDevelopmentProjects: [businessProject],
+      hasHome: false,
+    })
+    const businessHire = courierPackageForLifePlan(19, {
+      id: 'hire-helper-for-business',
+      title: 'Hire a helper inside Food Cart',
+      detail: 'Book a Workers Hall helper for the interior, then keep the rest of the day disciplined.',
+      value: 'capital',
+      minutes: 5,
+      route: { kind: 'business-development-action', projectId: businessProject.id, action: 'hire-helper', hours: 2 },
+    }, {
+      timesEaten: 0,
+      workersHiredToday: 1,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [constructionProject],
+      businessDevelopmentProjects: [{ ...businessProject, laborDoneMinutes: 120 }],
+      hasHome: false,
+    })
+
+    expect(constructionHire).toMatchObject({
+      day: 18,
+      requirement: { kind: 'worker-hired', workersHiredToday: 1 },
+    })
+    expect(businessHire).toMatchObject({
+      day: 19,
+      requirement: { kind: 'worker-hired', workersHiredToday: 2 },
     })
   })
 

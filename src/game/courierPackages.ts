@@ -33,6 +33,7 @@ export type CourierRequirement =
   | { kind: 'construction-deposit'; resources: Partial<Record<ResourceKind, number>> }
   | { kind: 'construction-permit' }
   | { kind: 'construction-labor'; minutes: number }
+  | { kind: 'worker-hired'; workersHiredToday: number }
   | { kind: 'home-built-or-progress'; laborMinutes: number }
   | { kind: 'construction-built'; resultKind: AssetKind; itemId: string; lat: number; lng: number; laborMinutes: number }
   | { kind: 'business-development-site' }
@@ -59,6 +60,7 @@ export interface CourierSnapshot {
   hygieneToday?: number
   timesSlept?: number
   boughtToday?: number
+  workersHiredToday?: number
   sawStreetMode: boolean
   resources: Partial<Record<ResourceKind, number>>
   constructionProjects: ConstructionProject[]
@@ -235,6 +237,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
       return snapshot.constructionProjects.some((project) => project.permitFeePaid) || snapshot.hasHome
     case 'construction-labor':
       return snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.minutes) || snapshot.hasHome
+    case 'worker-hired':
+      return (snapshot.workersHiredToday ?? 0) >= requirement.workersHiredToday
     case 'home-built-or-progress':
       return snapshot.hasHome || snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.laborMinutes)
     case 'construction-built':
@@ -341,7 +345,8 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     const project = snapshot.constructionProjects.find((candidate) => candidate.id === route.projectId)
     if (route.action === 'deposit') return { kind: 'construction-deposit', resources: project?.required ?? {} }
     if (route.action === 'permit') return { kind: 'construction-permit' }
-    if (route.action === 'work' || route.action === 'hire-helper') {
+    if (route.action === 'hire-helper') return { kind: 'worker-hired', workersHiredToday: (snapshot.workersHiredToday ?? 0) + 1 }
+    if (route.action === 'work') {
       return { kind: 'construction-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
     }
     if (route.action === 'complete') {
@@ -365,7 +370,8 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
     const project = (snapshot.businessDevelopmentProjects ?? []).find((candidate) => candidate.id === route.projectId)
     if (route.action === 'deposit') return { kind: 'business-development-deposit', resources: project?.required ?? {} }
     if (route.action === 'budget') return { kind: 'business-development-budget' }
-    if (route.action === 'work' || route.action === 'hire-helper') {
+    if (route.action === 'hire-helper') return { kind: 'worker-hired', workersHiredToday: (snapshot.workersHiredToday ?? 0) + 1 }
+    if (route.action === 'work') {
       return { kind: 'business-development-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
     }
     if (route.action === 'complete' && project) return { kind: 'business-upgraded', businessId: project.businessId, level: project.levelTo }
