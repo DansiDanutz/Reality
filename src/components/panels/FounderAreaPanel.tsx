@@ -691,6 +691,32 @@ export default function FounderAreaPanel() {
                 shortage={dashboard.shortage.housing}
               />
               <NeedMetric
+                label="clinic"
+                demand={dashboard.demand.clinic}
+                detail={founderNeedMetricDetailText({
+                  simDemand: dashboard.simDemand.clinic,
+                  realDemand: dashboard.realDemand.clinic,
+                  shortage: dashboard.shortage.clinic,
+                  remainingLicenses: dashboard.licenses.clinic.remaining,
+                  licenseSlots: dashboard.licenses.clinic.slots,
+                  saturation: dashboard.licenses.clinic.saturation,
+                })}
+                shortage={dashboard.shortage.clinic}
+              />
+              <NeedMetric
+                label="insurance"
+                demand={dashboard.demand.insurance}
+                detail={founderNeedMetricDetailText({
+                  simDemand: dashboard.simDemand.insurance,
+                  realDemand: dashboard.realDemand.insurance,
+                  shortage: dashboard.shortage.insurance,
+                  remainingLicenses: dashboard.licenses.insurance.remaining,
+                  licenseSlots: dashboard.licenses.insurance.slots,
+                  saturation: dashboard.licenses.insurance.saturation,
+                })}
+                shortage={dashboard.shortage.insurance}
+              />
+              <NeedMetric
                 label="jobs"
                 demand={dashboard.jobs.unemployedCitizens}
                 detail={founderJobsMetricDetailText(dashboard.jobs)}

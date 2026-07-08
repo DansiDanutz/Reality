@@ -230,12 +230,13 @@ export function founderNeedMetricDetailText(input: {
 }
 
 export function founderJobsMetricDetailText(
-  jobs: Pick<AreaJobsDashboard, 'hireableSimWorkers' | 'openPositions' | 'understaffedBusinesses'>,
+  jobs: Pick<AreaJobsDashboard, 'hireableSimWorkers' | 'openPositions' | 'understaffedBusinesses' | 'realWorkersRequiringAcceptance'>,
 ): string {
   return [
     `hireable ${jobs.hireableSimWorkers}`,
     `open ${jobs.openPositions}`,
     `unstaffed ${jobs.understaffedBusinesses}`,
+    `acceptance ${jobs.realWorkersRequiringAcceptance}`,
   ].join(' · ')
 }
 

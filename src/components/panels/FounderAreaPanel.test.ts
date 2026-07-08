@@ -174,7 +174,8 @@ describe('FounderAreaPanel covenant presenters', () => {
       hireableSimWorkers: 1,
       openPositions: 2,
       understaffedBusinesses: 1,
-    })).toBe('hireable 1 · open 2 · unstaffed 1')
+      realWorkersRequiringAcceptance: 0,
+    })).toBe('hireable 1 · open 2 · unstaffed 1 · acceptance 0')
 
     expect(founderFirstBuildEconomicsText({
       currentSupply: 0,
