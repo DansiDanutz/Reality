@@ -1101,7 +1101,7 @@ export const useGame = create<GameState>()(
         // Rare by design (~every 30 min of live ticks — see OPPORTUNITY_CHANCE).
         // If one is already active, don't spawn another.
         if (!wasAway && !goldenOpportunity) {
-          const opp = rollOpportunity()
+          const opp = rollOpportunity(now)
           if (opp) {
             goldenOpportunity = { ...opp, spawnedAt: now }
             toasts = withToast(toasts, `${opp.icon} Golden opportunity! Tap to claim — ${Math.round(OPPORTUNITY_WINDOW_MS / 1000)}s left.`, 'gold')
