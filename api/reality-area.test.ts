@@ -1275,6 +1275,9 @@ describe('reality area authority API', () => {
       claimSource: 'telegram',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:10:00.000Z',
     })
   })
 
@@ -3949,6 +3952,9 @@ describe('reality area authority API', () => {
       claimSource: 'telegram',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
+      telegramLinkedAt: '2026-07-06T03:25:00.000Z',
     })
     expect(put).toHaveBeenCalledTimes(1)
     expect(put).toHaveBeenLastCalledWith(

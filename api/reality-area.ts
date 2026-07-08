@@ -80,6 +80,9 @@ interface FounderAreaClaim {
   source: AreaClaimSource
   telegramUserId?: string
   telegramAccountId?: string
+  telegramUsername?: string
+  telegramName?: string
+  telegramLinkedAt?: string
 }
 
 interface FounderAreaTransaction {
@@ -893,6 +896,9 @@ interface FounderAreaIdentityDashboard {
   claimSource: AreaClaimSource
   telegramUserId: string | null
   telegramAccountId: string | null
+  telegramUsername: string | null
+  telegramName: string | null
+  telegramLinkedAt: string | null
 }
 
 interface FounderAreaState {
@@ -2072,6 +2078,9 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
       source: intent.source,
       telegramUserId: citizen.telegramUserId,
       telegramAccountId: citizen.telegramAccountId,
+      telegramUsername: citizen.telegramUsername,
+      telegramName: citizen.telegramName,
+      telegramLinkedAt: citizen.telegramLinkedAt,
     },
     businesses: [],
     citizens: [founderCitizen, ...simCitizens],
@@ -3244,6 +3253,9 @@ function founderAreaDashboard(state: FounderAreaState): FounderAreaDashboard {
       claimSource: state.claim.source,
       telegramUserId: state.claim.telegramUserId ?? null,
       telegramAccountId: state.claim.telegramAccountId ?? null,
+      telegramUsername: state.claim.telegramUsername ?? null,
+      telegramName: state.claim.telegramName ?? null,
+      telegramLinkedAt: state.claim.telegramLinkedAt ?? null,
     },
     population: state.citizens.length,
     simPopulation: state.citizens.filter((citizen) => citizen.kind === 'sim').length,
@@ -4242,18 +4254,30 @@ async function catchUpPersistedAreaState(
 
 function syncFounderAreaTelegramIdentity(
   state: FounderAreaState,
-  citizen: Pick<CitizenAuthRecord, 'telegramUserId' | 'telegramAccountId'>,
+  citizen: Pick<CitizenAuthRecord, 'telegramUserId' | 'telegramAccountId' | 'telegramUsername' | 'telegramName' | 'telegramLinkedAt'>,
 ): FounderAreaState {
-  if (state.claim.telegramUserId === citizen.telegramUserId && state.claim.telegramAccountId === citizen.telegramAccountId) {
+  if (
+    state.claim.telegramUserId === citizen.telegramUserId &&
+    state.claim.telegramAccountId === citizen.telegramAccountId &&
+    state.claim.telegramUsername === citizen.telegramUsername &&
+    state.claim.telegramName === citizen.telegramName &&
+    state.claim.telegramLinkedAt === citizen.telegramLinkedAt
+  ) {
     return state
   }
   const claim = {
     ...state.claim,
     ...(citizen.telegramUserId ? { telegramUserId: citizen.telegramUserId } : {}),
     ...(citizen.telegramAccountId ? { telegramAccountId: citizen.telegramAccountId } : {}),
+    ...(citizen.telegramUsername ? { telegramUsername: citizen.telegramUsername } : {}),
+    ...(citizen.telegramName ? { telegramName: citizen.telegramName } : {}),
+    ...(citizen.telegramLinkedAt ? { telegramLinkedAt: citizen.telegramLinkedAt } : {}),
   }
   if (!citizen.telegramUserId) delete claim.telegramUserId
   if (!citizen.telegramAccountId) delete claim.telegramAccountId
+  if (!citizen.telegramUsername) delete claim.telegramUsername
+  if (!citizen.telegramName) delete claim.telegramName
+  if (!citizen.telegramLinkedAt) delete claim.telegramLinkedAt
   return {
     ...state,
     claim,
@@ -6439,6 +6463,9 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     isRecord(value.claim) &&
     (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
     (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
+    (value.claim.telegramUsername === undefined || typeof value.claim.telegramUsername === 'string') &&
+    (value.claim.telegramName === undefined || typeof value.claim.telegramName === 'string') &&
+    (value.claim.telegramLinkedAt === undefined || typeof value.claim.telegramLinkedAt === 'string') &&
     Array.isArray(value.businesses) &&
     Array.isArray(value.transactions) &&
     (value.areaEvents === undefined || Array.isArray(value.areaEvents))

@@ -161,8 +161,13 @@ export function founderIdentityClaimSourceLabel(
 }
 
 export function founderIdentityTelegramStatusLabel(
-  identity: Pick<RealityAreaDashboard['founderIdentity'], 'telegramUserId' | 'telegramAccountId'>,
+  identity: Pick<
+    RealityAreaDashboard['founderIdentity'],
+    'telegramUserId' | 'telegramAccountId' | 'telegramUsername' | 'telegramName'
+  >,
 ): string {
+  if (identity.telegramUsername) return `Telegram linked @${identity.telegramUsername}`
+  if (identity.telegramName) return `Telegram linked ${identity.telegramName}`
   if (identity.telegramUserId) return `Telegram linked ${identity.telegramUserId}`
   if (identity.telegramAccountId) return `Telegram linked ${identity.telegramAccountId.replace(/^telegram:/, '')}`
   return 'Telegram pending'

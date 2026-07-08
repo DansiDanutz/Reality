@@ -105,19 +105,31 @@ describe('FounderAreaPanel covenant presenters', () => {
       claimSource: 'telegram',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
+      telegramUsername: 'davidreality',
+      telegramName: 'David Reality',
     } as const
 
     expect(founderIdentitySeatLabel(identity)).toBe('Founder #0012')
     expect(founderIdentityClaimSourceLabel(identity.claimSource)).toBe('Telegram claim')
     expect(founderIdentityClaimSourceLabel('geolocation')).toBe('Geolocation claim')
-    expect(founderIdentityTelegramStatusLabel(identity)).toBe('Telegram linked 42424242')
+    expect(founderIdentityTelegramStatusLabel(identity)).toBe('Telegram linked @davidreality')
     expect(founderIdentityTelegramStatusLabel({
       telegramUserId: null,
       telegramAccountId: 'telegram:777',
+      telegramUsername: null,
+      telegramName: null,
     })).toBe('Telegram linked 777')
     expect(founderIdentityTelegramStatusLabel({
       telegramUserId: null,
       telegramAccountId: null,
+      telegramUsername: null,
+      telegramName: 'David Reality',
+    })).toBe('Telegram linked David Reality')
+    expect(founderIdentityTelegramStatusLabel({
+      telegramUserId: null,
+      telegramAccountId: null,
+      telegramUsername: null,
+      telegramName: null,
     })).toBe('Telegram pending')
   })
 
