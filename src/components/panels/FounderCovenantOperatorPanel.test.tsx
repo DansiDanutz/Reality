@@ -4,6 +4,7 @@ import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/reali
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
+  queueDigestText,
   queueHandoffText,
   queueActionPresetLabel,
   queueCopiedStatusSummary,
@@ -74,6 +75,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('<span>Monthly ready</span><strong>0</strong>')
     expect(html).toContain('Record evidence')
     expect(html).toContain('Copy view')
+    expect(html).toContain('Copy digest')
     expect(html).toContain('Clear copied')
     expect(html).toContain('Refresh page')
     expect(html).toContain('Restart scan')
@@ -158,6 +160,7 @@ describe('FounderCovenantOperatorPanel', () => {
           sort: 'action',
           scanCursor: 'cursor-5',
           nextCursor: 'cursor-6',
+          digestSummary: 'Weekly/monthly founder review',
           focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
           activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
           actionSummary: 'Action: monitor · monitor current founders',
@@ -168,6 +171,7 @@ describe('FounderCovenantOperatorPanel', () => {
 
     expect(html).toContain('Copied view: Action Record')
     expect(html).toContain('Copied cursor: cursor-5 -&gt; cursor-6')
+    expect(html).toContain('Copied digest: Weekly/monthly founder review')
     expect(html).toContain('Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly')
     expect(html).toContain('Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
     expect(html).toContain('Copied action: Action: monitor · monitor current founders')
@@ -303,12 +307,14 @@ describe('FounderCovenantOperatorPanel', () => {
       sort: 'action',
       scanCursor: 'cursor-5',
       nextCursor: 'cursor-6',
+      digestSummary: 'Weekly/monthly founder review',
       focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       actionSummary: 'Action: monitor · monitor current founders',
     })).toEqual([
       'Copied view: Action Record',
       'Copied cursor: cursor-5 -> cursor-6',
+      'Copied digest: Weekly/monthly founder review',
       'Copied focus: Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
       'Copied founder state: Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
       'Copied action: Action: monitor · monitor current founders',
@@ -324,6 +330,16 @@ describe('FounderCovenantOperatorPanel', () => {
       actionSummary: 'Action: monitor · monitor current founders',
     })).toBe(
       'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
+    )
+    expect(queueDigestText({
+      scanCursor: 'cursor-5',
+      nextCursor: 'cursor-6',
+      queueSummary: '1 founder · 0 manual review · 1 fresh reviewed',
+      focusSummary: 'Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly',
+      activitySummary: 'Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1',
+      actionSummary: 'Action: monitor · monitor current founders',
+    })).toBe(
+      'Weekly/monthly founder review digest · Cursor: cursor-5 -> cursor-6 · Resumed after cursor-5 · more founders available · 1 founder · 0 manual review · 1 fresh reviewed · Focus: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 2 record ready · 0 overdue cleanup · Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup · Cadence ready: 2 weekly · 1 monthly · Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1 · Action: monitor · monitor current founders',
     )
   })
 })

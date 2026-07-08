@@ -37,6 +37,7 @@ import {
   type CopiedQueueViewState,
   copiedAtText,
   queueCopiedStatusSummary,
+  queueDigestText,
   queueHandoffText,
   queuePresetLabel,
   queuePresetChipTone,
@@ -332,6 +333,7 @@ export default function FounderCovenantOperatorPanel({
         sort: queueSort,
         scanCursor,
         nextCursor: queue?.nextCursor ?? null,
+        digestSummary: null,
         focusSummary,
         activitySummary,
         actionSummary,
@@ -341,6 +343,47 @@ export default function FounderCovenantOperatorPanel({
       setOperatorReviewMessage(`Queue view copied: ${handoff}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
+    }
+  }
+
+  const copyQueueDigest = async () => {
+    const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard
+    const queueSummary = queue
+      ? `${founderCovenantOperatorQueueSummary(queue)} · ${founderCovenantOperatorQueuePageSummary(queue)}`
+      : 'Queue unavailable'
+    const focusSummary = queue ? founderCovenantOperatorQueueFocusSummary(queue) : null
+    const activitySummary = queue ? founderCovenantOperatorQueueActivityRiskSummary(queue) : null
+    const actionSummary = queue ? founderCovenantOperatorQueueActionSummary(queue) : null
+    const digestSummary = 'Weekly/monthly founder review'
+    const digest = queueDigestText({
+      scanCursor,
+      nextCursor: queue?.nextCursor ?? null,
+      queueSummary,
+      focusSummary,
+      activitySummary,
+      actionSummary,
+    })
+    if (!clipboard?.writeText) {
+      setOperatorReviewMessage('Clipboard is unavailable for queue digest copy.')
+      return
+    }
+    try {
+      await clipboard.writeText(digest)
+      setLastCopiedQueueView({
+        filter: queueFilter,
+        sort: queueSort,
+        scanCursor,
+        nextCursor: queue?.nextCursor ?? null,
+        digestSummary,
+        focusSummary,
+        activitySummary,
+        actionSummary,
+      })
+      setLastCopiedAt(new Date().toISOString())
+      setLastCopiedText(digest)
+      setOperatorReviewMessage(`Digest copied: ${digest}`)
+    } catch {
+      setOperatorReviewMessage('Clipboard is unavailable for queue digest copy.')
     }
   }
 
@@ -935,6 +978,14 @@ export default function FounderCovenantOperatorPanel({
               type="button"
             >
               Copy view
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
+              onClick={() => void copyQueueDigest()}
+              type="button"
+            >
+              Copy digest
             </button>
             <button
               className="btn small ghost"

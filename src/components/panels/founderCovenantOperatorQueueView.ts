@@ -10,6 +10,7 @@ export interface CopiedQueueViewState {
   sort: FounderCovenantOperatorQueueSort
   scanCursor: string | null
   nextCursor: string | null
+  digestSummary?: string | null
   focusSummary?: string | null
   activitySummary?: string | null
   actionSummary?: string | null
@@ -133,11 +134,38 @@ export function queueHandoffText({
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
 }
 
+export function queueDigestText({
+  scanCursor,
+  nextCursor,
+  queueSummary,
+  focusSummary,
+  activitySummary,
+  actionSummary,
+}: {
+  scanCursor: string | null
+  nextCursor: string | null
+  queueSummary: string
+  focusSummary?: string | null
+  activitySummary?: string | null
+  actionSummary?: string | null
+}): string {
+  return [
+    'Weekly/monthly founder review digest',
+    queueCursorContextText(scanCursor, nextCursor),
+    queueResumeText(scanCursor, nextCursor),
+    queueSummary,
+    focusSummary,
+    activitySummary,
+    actionSummary,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
+}
+
 export function queueCopiedStatusSummary({
   filter,
   sort,
   scanCursor,
   nextCursor,
+  digestSummary,
   focusSummary,
   activitySummary,
   actionSummary,
@@ -150,6 +178,7 @@ export function queueCopiedStatusSummary({
   return [
     `Copied view: ${copiedView}`,
     `Copied cursor: ${copiedCursor}`,
+    digestSummary ? `Copied digest: ${digestSummary}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,
     actionSummary ? `Copied action: ${actionSummary}` : null,
