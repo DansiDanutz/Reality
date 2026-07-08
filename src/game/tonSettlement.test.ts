@@ -110,10 +110,35 @@ describe('TON settlement policy', () => {
     })
   })
 
+  test('rejects unknown ledger kinds before treating entries as settlement candidates', () => {
+    expect(isGameplayLedgerKind('mystery_airdrop')).toBe(false)
+    expect(isTonSettlementLedgerKind('mystery_airdrop')).toBe(false)
+    expect(tonLedgerSettlementDecision({
+      kind: 'mystery_airdrop',
+      amount: 120,
+      payoutEligibility: 'payout_eligible',
+    })).toEqual({
+      allowedOnChain: false,
+      rail: 'ton',
+      reason: 'unknown_ledger_kind',
+      sourceOfTruth: 'reality_server_ledger',
+      manualReviewRequired: true,
+    })
+  })
+
   test('rejects invalid ledger amounts before settlement review', () => {
     expect(tonLedgerSettlementDecision({
       kind: 'ton_deposit_settlement',
       amount: 0,
+      payoutEligibility: 'payout_eligible',
+    })).toMatchObject({
+      allowedOnChain: false,
+      reason: 'invalid_ledger_amount',
+    })
+
+    expect(tonLedgerSettlementDecision({
+      kind: 'mystery_airdrop',
+      amount: Number.NaN,
       payoutEligibility: 'payout_eligible',
     })).toMatchObject({
       allowedOnChain: false,
