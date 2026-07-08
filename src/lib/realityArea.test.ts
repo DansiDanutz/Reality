@@ -888,6 +888,43 @@ describe('Reality area client', () => {
     })
   })
 
+  test('strips client-owned state from founder covenant review payloads before sending', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+
+    await expect(recordRealityFounderCovenantReview({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      founderNumber: 12,
+    }, {
+      type: 'recordCovenantReview',
+      actionKind: 'record_review',
+      note: 'Weekly review: founder needs staffing follow-up.',
+      evidenceKinds: ['external_contribution'],
+      money: 999_999,
+      debt: 120,
+      reviewQueue: 'client-value',
+      signals: ['client-value'],
+    } as unknown as Parameters<typeof recordRealityFounderCovenantReview>[1], fetchImpl as never)).resolves.toEqual({
+      ok: true,
+      state: serverState(),
+      dashboard: serverDashboard(),
+    })
+
+    const request = fetchImpl.mock.calls[0]?.[1]
+    const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
+    expect(body).toEqual({
+      citizenId: 'citizen-1',
+      token: 'token-1',
+      intent: {
+        type: 'recordCovenantReview',
+        actionKind: 'record_review',
+        note: 'Weekly review: founder needs staffing follow-up.',
+        evidenceKinds: ['external_contribution'],
+      },
+    })
+  })
+
   test('requires an operator token before reading the founder covenant review queue', async () => {
     const fetchImpl = vi.fn()
 
