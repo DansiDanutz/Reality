@@ -84,6 +84,7 @@ export default function FounderCovenantOperatorPanel({
     initialOperatorAuth ?? { status: 'idle' },
   )
   const initialQueueView = useRef(readOperatorQueueViewState())
+  const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(null)
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
@@ -249,6 +250,7 @@ export default function FounderCovenantOperatorPanel({
     }
     try {
       await clipboard.writeText(handoff)
+      setLastCopiedAt(new Date().toISOString())
       setOperatorReviewMessage(`Queue view copied: ${handoff}`)
     } catch {
       setOperatorReviewMessage('Clipboard is unavailable for queue view copy.')
@@ -418,6 +420,7 @@ export default function FounderCovenantOperatorPanel({
             >
               Next page
             </button>
+            <span className="item-desc">Copy status: {lastCopiedAt ? copiedAtText(lastCopiedAt) : 'not copied yet'}</span>
             <span className="item-desc">
               View: {queueViewLabel(queueFilter)} / {queueSortLabel(queueSort)} / {scanCursor ?? 'start'}
             </span>
@@ -503,6 +506,10 @@ function queueResumeText(
 
 function formatOperatorAuthExpiry(expiresAt: number): string {
   return `${new Date(expiresAt).toISOString().slice(11, 16)} UTC`
+}
+
+function copiedAtText(value: string): string {
+  return `${value.slice(0, 10)} ${value.slice(11, 16)} UTC`
 }
 
 function operatorAuthErrorMessage(result: Exclude<RealityOperatorQueueAuthResult, { ok: true }>): string {

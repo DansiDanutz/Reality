@@ -63,6 +63,7 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('>Manual<')
     expect(html).toContain('>Hospital<')
     expect(html).toContain('>Scan<')
+    expect(html).toContain('Copy status: not copied yet')
     expect(html).toContain('Generated 2026-07-06 04:00 UTC · pages 1/1 · cursor start · next next-review-cursor')
     expect(html).toContain('founder-12: caught up · 1 tx · 2026-07-06')
     expect(html).toContain('Scan anomalies: none')
