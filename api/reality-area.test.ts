@@ -3471,6 +3471,15 @@ describe('reality area authority API', () => {
             executionEnabled: boolean
             recommendedActionKinds: string[]
           }
+          reviewSchedule: {
+            lastReviewAt: string | null
+            nextWeeklyReviewAt: string
+            nextMonthlyReviewAt: string
+            weeklyReviewDue: boolean
+            monthlyReviewDue: boolean
+            overdue: boolean
+            automationEnabled: boolean
+          }
           reviewInputs: { kind: string; status: string; manualEvidenceRequired: boolean }[]
           activitySignals: {
             key: string
@@ -3629,6 +3638,14 @@ describe('reality area authority API', () => {
       blockerCount: 5,
       scanStatus: 'caught_up',
       transactionsAdded: 1,
+    })
+    expect(queue.items[0].reviewSchedule).toMatchObject({
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-13T03:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
     })
     expect(queue.items[0].activitySignals).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: 'active', value: false, status: 'manual_review', executionEnabled: false }),
