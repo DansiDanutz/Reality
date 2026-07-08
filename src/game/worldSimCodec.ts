@@ -472,6 +472,14 @@ function hasValidAreaReferences(area: WorldArea): boolean {
 
   if (area.claim && citizens.get(area.claim.founderCitizenId)?.kind !== 'real') return false
 
+  const debtIds = new Set<string>()
+  for (const citizen of area.citizens) {
+    for (const debt of citizen.debts ?? []) {
+      if (debtIds.has(debt.id)) return false
+      debtIds.add(debt.id)
+    }
+  }
+
   for (const business of area.businesses) {
     if (!citizens.has(business.ownerId)) return false
     if (!hasUniqueStrings(business.staffCitizenIds)) return false

@@ -267,6 +267,14 @@ describe('worldSim snapshot codec', () => {
     duplicateDebt.citizens[0].debt = 500
     duplicateDebt.citizens[0].debts!.push({ ...duplicateDebt.citizens[0].debts![0] })
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const duplicateDebtAcrossCitizens = area()
+    duplicateDebtAcrossCitizens.citizens[1].debt = 250
+    duplicateDebtAcrossCitizens.citizens[1].debts = [{ ...duplicateDebtAcrossCitizens.citizens[0].debts![0] }]
+    expect(decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: duplicateDebtAcrossCitizens,
+    }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects invalid persisted live references', () => {
