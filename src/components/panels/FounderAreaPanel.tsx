@@ -942,7 +942,10 @@ export default function FounderAreaPanel() {
               </span>
             </div>
             {dashboard.jobs.workersHallRequired && (
-              <p className="panel-sub">Build a Workers Hall first to recruit AI workers for your business.</p>
+              <p className="panel-sub">Build a Workers Hall first. It unlocks AI hiring, then open roles can be filled one by one.</p>
+            )}
+            {!dashboard.jobs.workersHallRequired && dashboard.jobs.openPositions > 0 && (
+              <p className="panel-sub">Open roles are ready. Hire sim workers to keep the business running while you build the next one.</p>
             )}
             {dashboard.jobs.candidates.length === 0 || dashboard.jobs.openPositions === 0 ? (
               <p className="panel-sub">No open staffing needs.</p>
