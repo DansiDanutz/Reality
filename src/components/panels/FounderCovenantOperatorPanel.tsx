@@ -30,10 +30,13 @@ import {
 import {
   copiedAtText,
   queueCoveragePresetLabel,
+  queuePresetChipTone,
   queueContextText,
   queueCursorContextText,
   queueResumeText,
+  queueSortChipTone,
   queueSortLabel,
+  queueViewChipTone,
   queueViewLabel,
 } from './founderCovenantOperatorQueueView'
 import {
@@ -525,16 +528,16 @@ export default function FounderCovenantOperatorPanel({
             </button>
           </div>
           <div className="founder-ledger-summary" aria-label="Founder operator queue view summary">
-            <span className="founder-ledger-chip stable">
+            <span className={`founder-ledger-chip ${queueViewChipTone(queueFilter)}`}>
               <span>View</span>
               <strong>{queueViewLabel(queueFilter)}</strong>
             </span>
-            <span className="founder-ledger-chip stable">
+            <span className={`founder-ledger-chip ${queueSortChipTone(queueSort)}`}>
               <span>Sort</span>
               <strong>{queueSortLabel(queueSort)}</strong>
             </span>
             {queueCoveragePresetLabel(queueFilter, queueSort) && (
-              <span className="founder-ledger-chip warning">
+              <span className={`founder-ledger-chip ${queuePresetChipTone(queueFilter, queueSort)}`}>
                 <span>Preset</span>
                 <strong>{queueCoveragePresetLabel(queueFilter, queueSort)}</strong>
               </span>

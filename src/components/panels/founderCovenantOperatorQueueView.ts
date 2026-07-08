@@ -3,6 +3,8 @@ import type {
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
 
+export type OperatorQueueChipTone = 'stable' | 'warning' | 'critical'
+
 export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): string {
   switch (filter) {
     case 'all':
@@ -79,4 +81,19 @@ export function queueCoveragePresetLabel(
     default:
       return null
   }
+}
+
+export function queueViewChipTone(filter: FounderCovenantOperatorQueueFilter): OperatorQueueChipTone {
+  return filter === 'all' ? 'stable' : 'warning'
+}
+
+export function queueSortChipTone(sort: FounderCovenantOperatorQueueSort): OperatorQueueChipTone {
+  return sort === 'priority' ? 'stable' : 'warning'
+}
+
+export function queuePresetChipTone(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+): OperatorQueueChipTone {
+  return queueCoveragePresetLabel(filter, sort) ? 'critical' : 'stable'
 }

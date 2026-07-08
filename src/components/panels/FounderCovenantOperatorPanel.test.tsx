@@ -2,7 +2,13 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/realityArea'
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
-import { queueContextText, queueCoveragePresetLabel } from './founderCovenantOperatorQueueView'
+import {
+  queueContextText,
+  queueCoveragePresetLabel,
+  queuePresetChipTone,
+  queueSortChipTone,
+  queueViewChipTone,
+} from './founderCovenantOperatorQueueView'
 
 describe('FounderCovenantOperatorPanel', () => {
   test('renders an isolated operator queue shell without a loaded token', () => {
@@ -47,8 +53,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
     expect(html).toContain('<span>Stale</span><strong>0</strong>')
     expect(html).toContain('aria-label="Founder operator queue view summary"')
-    expect(html).toContain('<span>View</span><strong>All</strong>')
-    expect(html).toContain('<span>Sort</span><strong>Priority</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable"><span>View</span><strong>All</strong>')
+    expect(html).toContain('class="founder-ledger-chip stable"><span>Sort</span><strong>Priority</strong>')
     expect(html).not.toContain('<span>Preset</span>')
     expect(html).toContain('<span>Cursor</span><strong>start</strong>')
     expect(html).toContain('<span>Resume</span><strong>more</strong>')
@@ -120,6 +126,12 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queueCoveragePresetLabel('stale_reviewed', 'coverage')).toBe('Cleanup Stale')
     expect(queueCoveragePresetLabel('fresh_reviewed', 'coverage')).toBe('Audit Fresh')
     expect(queueCoveragePresetLabel('manual_review', 'coverage')).toBeNull()
+    expect(queueViewChipTone('all')).toBe('stable')
+    expect(queueViewChipTone('never_reviewed')).toBe('warning')
+    expect(queueSortChipTone('priority')).toBe('stable')
+    expect(queueSortChipTone('coverage')).toBe('warning')
+    expect(queuePresetChipTone('all', 'priority')).toBe('stable')
+    expect(queuePresetChipTone('all', 'coverage')).toBe('critical')
     expect(queueContextText('all', 'coverage', null)).toBe(
       'View: All / Coverage / start · Preset: Coverage All',
     )
