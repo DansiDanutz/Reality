@@ -178,6 +178,8 @@ describe('hard work body gates', () => {
     })
     useGame.getState().startConstructionWork(constructionProject.id)
     expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: constructionProject.id })
+    expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
       text: 'Eat before construction work.',
       tone: 'blocked',
@@ -191,6 +193,8 @@ describe('hard work body gates', () => {
     })
     useGame.getState().startBusinessDevelopmentWork(businessReady.id)
     expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: businessReady.businessId })
+    expect(useGame.getState().panel).toBe('business')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
       text: 'Drink water before interior work.',
       tone: 'blocked',
@@ -608,6 +612,7 @@ describe('construction worker contracts', () => {
     useGame.getState().startConstructionWork(project.id)
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
       text: 'Deposit construction materials before work starts.',
       tone: 'blocked',
@@ -622,6 +627,7 @@ describe('construction worker contracts', () => {
     useGame.getState().startConstructionWork(project.id)
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
       text: 'Pay the building permit before work starts.',
       tone: 'blocked',
@@ -638,6 +644,51 @@ describe('construction worker contracts', () => {
     })
     useGame.getState().startConstructionWork(project.id)
     expect(useGame.getState().activity).toMatchObject({ kind: 'construction', projectId: project.id })
+  })
+
+  test('blocked construction plan actions keep the build site selected', () => {
+    const now = Date.now()
+    const project = createConstructionProject('starter-house', 45.7, 21.2, now)
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      money: 0,
+      resources: freshResources(),
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      constructionProjects: [project],
+      selectedMapTarget: null,
+      panel: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().depositConstructionResources(project.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().panel).toBe('construction')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'No matching construction materials to deposit yet.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({ selectedMapTarget: null, panel: null, toasts: [] })
+    useGame.getState().payConstructionPermit(project.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().panel).toBe('construction')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Permit needs $500.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({ selectedMapTarget: null, panel: null, toasts: [] })
+    useGame.getState().completeConstructionIfReady(project.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
+    expect(useGame.getState().panel).toBe('construction')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Construction still needs materials, labor, or the permit.',
+      tone: 'blocked',
+    })
   })
 
   test('hired workers advance construction over real time without occupying the player activity slot', () => {
@@ -1523,6 +1574,61 @@ describe('business interior development', () => {
     const state = useGame.getState()
     expect(state.assets[0]).toMatchObject({ level: 2, incomePerDay: 480 })
     expect(state.businessDevelopmentProjects).toEqual([])
+  })
+
+  test('blocked interior plan actions keep the business selected', () => {
+    const now = Date.now()
+    const plan = createBusinessDevelopmentProject(business(), now)!
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      assets: [business()],
+      businessDevelopmentProjects: [plan],
+      money: 0,
+      resources: freshResources(),
+      needs: { hunger: 80, hydration: 80, energy: 90, hygiene: 80, fun: 80 },
+      health: 100,
+      activity: null,
+      selectedMapTarget: null,
+      panel: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().depositBusinessDevelopmentResources(plan.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
+    expect(useGame.getState().panel).toBe('business')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'No matching interior materials to deposit yet.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({ selectedMapTarget: null, panel: null, toasts: [] })
+    useGame.getState().payBusinessDevelopmentBudget(plan.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
+    expect(useGame.getState().panel).toBe('business')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Development budget needs $960.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({ selectedMapTarget: null, panel: null, toasts: [] })
+    useGame.getState().startBusinessDevelopmentWork(plan.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
+    expect(useGame.getState().panel).toBe('business')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Deposit interior materials before work starts.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({ selectedMapTarget: null, panel: null, toasts: [] })
+    useGame.getState().completeBusinessDevelopmentIfReady(plan.id)
+    expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
+    expect(useGame.getState().panel).toBe('business')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Interior development still needs materials, budget, or labor.',
+      tone: 'blocked',
+    })
   })
 
   test('hired interior workers advance over real time without occupying the player activity slot', () => {

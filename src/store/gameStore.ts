@@ -2246,7 +2246,11 @@ export const useGame = create<GameState>()(
         const out = depositResources(project, s.resources)
         const moved = totalResourceCount(out.deposited)
         if (moved <= 0) {
-          set({ toasts: withToast(s.toasts, 'No matching construction materials to deposit yet.', 'blocked') })
+          set({
+            toasts: withToast(s.toasts, 'No matching construction materials to deposit yet.', 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
           return
         }
         const completed = completeConstructionForState({
@@ -2276,7 +2280,11 @@ export const useGame = create<GameState>()(
         if (!project) return
         const paid = payPermit(project, s.money)
         if (!paid.paid) {
-          set({ toasts: withToast(s.toasts, `Permit needs ${formatMoney(project.permitFee)}.`, 'blocked') })
+          set({
+            toasts: withToast(s.toasts, `Permit needs ${formatMoney(project.permitFee)}.`, 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
           return
         }
         const projects = s.constructionProjects.map((candidate) => candidate.id === projectId ? paid.project : candidate)
@@ -2305,21 +2313,37 @@ export const useGame = create<GameState>()(
         if (!project) return
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
         if (blocker) {
-          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'construction work'), 'blocked') })
+          set({
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'construction work'), 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
           return
         }
         const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
         if (remaining <= 0) {
-          set({ toasts: withToast(s.toasts, 'Labor is already complete. Finish the remaining requirements.', 'sky') })
+          set({
+            toasts: withToast(s.toasts, 'Labor is already complete. Finish the remaining requirements.', 'sky'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
           return
         }
         const progress = constructionProgress(project)
         if (!progress.resourcesComplete) {
-          set({ toasts: withToast(s.toasts, 'Deposit construction materials before work starts.', 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
+          set({
+            toasts: withToast(s.toasts, 'Deposit construction materials before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
           return
         }
         if (!progress.permitComplete) {
-          set({ toasts: withToast(s.toasts, 'Pay the building permit before work starts.', 'blocked'), selectedMapTarget: { kind: 'construction', id: projectId } })
+          set({
+            toasts: withToast(s.toasts, 'Pay the building permit before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'construction', id: projectId },
+            panel: 'construction',
+          })
           return
         }
         const laborMinutes = Math.min(60, remaining)
@@ -2392,7 +2416,12 @@ export const useGame = create<GameState>()(
         const s = get()
         const completed = completeConstructionForState(s, projectId)
         if (!completed.asset) {
-          set({ toasts: withToast(s.toasts, 'Construction still needs materials, labor, or the permit.', 'blocked') })
+          const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
+          set({
+            toasts: withToast(s.toasts, 'Construction still needs materials, labor, or the permit.', 'blocked'),
+            selectedMapTarget: project ? { kind: 'construction', id: projectId } : s.selectedMapTarget,
+            panel: project ? 'construction' : s.panel,
+          })
           return
         }
         set({
@@ -2495,7 +2524,11 @@ export const useGame = create<GameState>()(
         const out = depositBusinessDevelopmentResources(project, s.resources)
         const moved = totalResourceCount(out.deposited)
         if (moved <= 0) {
-          set({ toasts: withToast(s.toasts, 'No matching interior materials to deposit yet.', 'blocked') })
+          set({
+            toasts: withToast(s.toasts, 'No matching interior materials to deposit yet.', 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
           return
         }
         const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? out.project : candidate)
@@ -2527,7 +2560,11 @@ export const useGame = create<GameState>()(
         if (!project) return
         const paid = payBusinessDevelopmentBudget(project, s.money)
         if (!paid.paid) {
-          set({ toasts: withToast(s.toasts, `Development budget needs ${formatMoney(project.budgetCost)}.`, 'blocked') })
+          set({
+            toasts: withToast(s.toasts, `Development budget needs ${formatMoney(project.budgetCost)}.`, 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
           return
         }
         const projects = s.businessDevelopmentProjects.map((candidate) => candidate.id === projectId ? paid.project : candidate)
@@ -2556,21 +2593,37 @@ export const useGame = create<GameState>()(
         if (!project) return
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
         if (blocker) {
-          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'interior work'), 'blocked') })
+          set({
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'interior work'), 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
           return
         }
         const progress = businessDevelopmentProgress(project)
         if (!progress.resourcesComplete) {
-          set({ toasts: withToast(s.toasts, 'Deposit interior materials before work starts.', 'blocked') })
+          set({
+            toasts: withToast(s.toasts, 'Deposit interior materials before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
           return
         }
         if (!progress.budgetComplete) {
-          set({ toasts: withToast(s.toasts, 'Pay the development budget before work starts.', 'blocked') })
+          set({
+            toasts: withToast(s.toasts, 'Pay the development budget before work starts.', 'blocked'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
           return
         }
         const remaining = Math.max(0, project.laborRequiredMinutes - project.laborDoneMinutes)
         if (remaining <= 0) {
-          set({ toasts: withToast(s.toasts, 'Interior labor is complete. Finish the upgrade.', 'sky') })
+          set({
+            toasts: withToast(s.toasts, 'Interior labor is complete. Finish the upgrade.', 'sky'),
+            selectedMapTarget: { kind: 'asset', id: project.businessId },
+            panel: 'business',
+          })
           return
         }
         const laborMultiplier = educationBusinessLaborMultiplier(s.educationProgress)
@@ -2651,7 +2704,12 @@ export const useGame = create<GameState>()(
         const s = get()
         const completed = completeBusinessDevelopmentForState(s, projectId)
         if (!completed.asset || !completed.project) {
-          set({ toasts: withToast(s.toasts, 'Interior development still needs materials, budget, or labor.', 'blocked') })
+          const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
+          set({
+            toasts: withToast(s.toasts, 'Interior development still needs materials, budget, or labor.', 'blocked'),
+            selectedMapTarget: project ? { kind: 'asset', id: project.businessId } : s.selectedMapTarget,
+            panel: project ? 'business' : s.panel,
+          })
           return
         }
         set({
