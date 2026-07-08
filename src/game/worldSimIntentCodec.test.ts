@@ -84,7 +84,27 @@ describe('decodeClientWorldAreaClaimPayload', () => {
   })
 
   test('rejects client-controlled claim server fields', () => {
-    for (const field of ['founderCitizenId', 'authenticatedFounderId', 'claimedAt', 'source', 'now', 'founder', 'simCitizens', 'money', 'transactions']) {
+    for (const field of [
+      'founderCitizenId',
+      'authenticatedFounderId',
+      'claimedAt',
+      'source',
+      'now',
+      'founder',
+      'simCitizens',
+      'money',
+      'cash',
+      'debt',
+      'debts',
+      'needs',
+      'health',
+      'state',
+      'jobBusinessId',
+      'homeBusinessId',
+      'insurancePaidUntil',
+      'heirCitizenId',
+      'transactions',
+    ]) {
       expect(decodeClientWorldAreaClaimPayload({
         label: 'Founder District',
         centerLat: 44.45,
