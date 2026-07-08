@@ -924,7 +924,7 @@ export default function FounderAreaPanel() {
                     <div className="item-info">
                       <span className="item-name">{business.name}</span>
                       <span className="item-desc">
-                        {business.kind} · staff {business.activeStaff}/{business.targetStaff} · capacity {business.hourlyCapacity}/hour
+                        {business.kind === 'workers_hall' ? 'Workers Hall' : business.kind} · staff {business.activeStaff}/{business.targetStaff} · capacity {business.hourlyCapacity}/hour
                       </span>
                     </div>
                     <span className="item-price mono">{formatMoney(business.cash)}</span>
@@ -941,6 +941,9 @@ export default function FounderAreaPanel() {
                 {dashboard.jobs.openPositions} open · {dashboard.jobs.hireableSimWorkers} sim ready
               </span>
             </div>
+            {dashboard.jobs.workersHallRequired && (
+              <p className="panel-sub">Build a Workers Hall first to recruit AI workers for your business.</p>
+            )}
             {dashboard.jobs.candidates.length === 0 || dashboard.jobs.openPositions === 0 ? (
               <p className="panel-sub">No open staffing needs.</p>
             ) : (

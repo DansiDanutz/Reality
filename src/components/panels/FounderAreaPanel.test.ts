@@ -764,6 +764,7 @@ describe('FounderAreaPanel covenant presenters', () => {
         insurance_payout: 0,
         medical_debt: 300,
         debt_repayment: 120,
+        workers_hall_build: 0,
       },
       payoutClassification: {
         gameOnlyTransactionCount: 4,

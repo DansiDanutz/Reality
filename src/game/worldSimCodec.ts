@@ -54,7 +54,7 @@ export type DecodeWorldAreaSnapshotResult =
   | { ok: true; area: WorldArea }
   | { ok: false; error: DecodeWorldAreaSnapshotError }
 
-const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
+const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance', 'workers_hall']
 const CITIZEN_KINDS: WorldCitizenKind[] = ['sim', 'real']
 const DEBT_KINDS: WorldDebtKind[] = ['medical']
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
@@ -553,6 +553,8 @@ function isValidTransactionReferences(
     case 'debt_repayment':
       return isCitizenLedgerAccount(transaction.fromId, citizens, departedCitizens) &&
         isValidMedicalCreditor(transaction.toId, businesses)
+    case 'workers_hall_build':
+      return transaction.fromId === area.claim?.founderCitizenId && transaction.toId === 'system:builders'
   }
 }
 

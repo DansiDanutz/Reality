@@ -1,7 +1,7 @@
 import { clamp } from './engine'
 import type { Needs } from './types'
 
-export type WorldBusinessKind = 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
+export type WorldBusinessKind = 'water' | 'food' | 'housing' | 'clinic' | 'insurance' | 'workers_hall'
 export type WorldCitizenKind = 'sim' | 'real'
 export type AreaClaimSource = 'manual' | 'ip' | 'geolocation' | 'telegram'
 
@@ -72,6 +72,7 @@ export type WorldTransactionKind =
   | 'insurance_payout'
   | 'medical_debt'
   | 'debt_repayment'
+  | 'workers_hall_build'
 
 export type WorldPayoutEligibility = 'game_only' | 'payout_eligible'
 
@@ -176,6 +177,8 @@ export interface AreaJobsDashboard {
   realWorkersRequiringAcceptance: number
   openPositions: number
   understaffedBusinesses: number
+  workersHallCount: number
+  workersHallRequired: boolean
   candidates: AreaWorkerCandidateDashboard[]
 }
 
@@ -797,6 +800,7 @@ export type WorldIntentError =
   | 'worker_unavailable'
   | 'worker_already_hired'
   | 'real_worker_requires_acceptance'
+  | 'workers_hall_required'
   | 'debt_not_found'
   | 'invalid_debt_payment'
 
@@ -868,6 +872,7 @@ const DEFAULT_PRICES: Record<WorldBusinessKind, number> = {
   housing: 28,
   clinic: 90,
   insurance: 45,
+  workers_hall: 1,
 }
 
 export const DEFAULT_BUSINESS_BLUEPRINTS: Record<WorldBusinessKind, WorldBusinessBlueprint> = {
@@ -876,6 +881,7 @@ export const DEFAULT_BUSINESS_BLUEPRINTS: Record<WorldBusinessKind, WorldBusines
   housing: { kind: 'housing', name: 'Basic Housing', buildCost: 25_000, price: DEFAULT_PRICES.housing, wagePerHour: 16 },
   clinic: { kind: 'clinic', name: 'Clinic', buildCost: 75_000, price: DEFAULT_PRICES.clinic, wagePerHour: 24 },
   insurance: { kind: 'insurance', name: 'Insurance Office', buildCost: 60_000, price: DEFAULT_PRICES.insurance, wagePerHour: 20 },
+  workers_hall: { kind: 'workers_hall', name: 'Workers Hall', buildCost: 18_000, price: DEFAULT_PRICES.workers_hall, wagePerHour: 1 },
 }
 
 const SERVICE_EFFECTS: Record<WorldBusinessKind, ServiceEffect> = {
@@ -884,6 +890,7 @@ const SERVICE_EFFECTS: Record<WorldBusinessKind, ServiceEffect> = {
   housing: { energy: 32, hygiene: 8 },
   clinic: { health: 25 },
   insurance: {},
+  workers_hall: {},
 }
 
 const BASE_CAPACITY_PER_HOUR: Record<WorldBusinessKind, number> = {
@@ -892,6 +899,7 @@ const BASE_CAPACITY_PER_HOUR: Record<WorldBusinessKind, number> = {
   housing: 8,
   clinic: 6,
   insurance: 8,
+  workers_hall: 0,
 }
 
 const TARGET_STAFF_BY_KIND: Record<WorldBusinessKind, number> = {
@@ -900,6 +908,7 @@ const TARGET_STAFF_BY_KIND: Record<WorldBusinessKind, number> = {
   housing: 1,
   clinic: 3,
   insurance: 1,
+  workers_hall: 0,
 }
 
 const LICENSE_POPULATION_STEP: Record<WorldBusinessKind, number> = {
@@ -908,6 +917,7 @@ const LICENSE_POPULATION_STEP: Record<WorldBusinessKind, number> = {
   housing: 22,
   clinic: 80,
   insurance: 90,
+  workers_hall: 1,
 }
 
 const MIN_LICENSES: Record<WorldBusinessKind, number> = {
@@ -916,9 +926,10 @@ const MIN_LICENSES: Record<WorldBusinessKind, number> = {
   housing: 1,
   clinic: 0,
   insurance: 0,
+  workers_hall: 1,
 }
 
-const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
+const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance', 'workers_hall']
 const CLAIM_SOURCES: AreaClaimSource[] = ['manual', 'ip', 'geolocation', 'telegram']
 
 export function claimWorldArea(input: WorldArea, claim: WorldAreaClaim): ClaimWorldAreaResult {
@@ -2461,6 +2472,7 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderC
   }
 
   const employedCitizens = activeCitizens.filter((citizen) => hasActiveJob(area, citizen)).length
+  const workersHallCount = area.businesses.filter((business) => business.kind === 'workers_hall').length
   const candidates = activeCitizens
     .filter((citizen) => citizen.id !== area.claim?.founderCitizenId && !hasActiveJob(area, citizen) && !citizen.jobBusinessId)
     .map((citizen, index) => workerCandidateDashboard(citizen, hiringSlots[index] ?? null, founderCanManage))
@@ -2471,6 +2483,8 @@ function jobsDashboard(area: WorldArea, activeCitizens: WorldCitizen[], founderC
     realWorkersRequiringAcceptance: candidates.filter((candidate) => candidate.action === 'requires_acceptance').length,
     openPositions,
     understaffedBusinesses,
+    workersHallCount,
+    workersHallRequired: openPositions > 0 && workersHallCount === 0,
     candidates,
   }
 }
@@ -2838,6 +2852,9 @@ function hireWorkerFromIntent(
   const worker = area.citizens.find((citizen) => citizen.id === intent.workerCitizenId)
   if (!worker) return { ok: false, area, error: 'worker_not_found' }
   if (worker.kind === 'real') return { ok: false, area, error: 'real_worker_requires_acceptance' }
+  if (!area.businesses.some((candidate) => candidate.kind === 'workers_hall')) {
+    return { ok: false, area, error: 'workers_hall_required' }
+  }
   if (worker.state.kind !== 'active' || (worker.jobBusinessId && worker.jobBusinessId !== business.id)) {
     return { ok: false, area, error: 'worker_unavailable' }
   }
@@ -3456,7 +3473,7 @@ function cloneCitizen(citizen: WorldCitizen): WorldCitizen {
 }
 
 function zeroKindRecord(): Record<WorldBusinessKind, number> {
-  return { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0 }
+  return { water: 0, food: 0, housing: 0, clinic: 0, insurance: 0, workers_hall: 0 }
 }
 
 function zeroTransactionKindRecord(): Record<WorldTransactionKind, number> {
@@ -3471,6 +3488,7 @@ function zeroTransactionKindRecord(): Record<WorldTransactionKind, number> {
     insurance_payout: 0,
     medical_debt: 0,
     debt_repayment: 0,
+    workers_hall_build: 0,
   }
 }
 

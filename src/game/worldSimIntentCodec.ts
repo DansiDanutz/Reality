@@ -57,7 +57,7 @@ export type DecodeClientFounderCovenantReviewResult =
   | { ok: true; review: DecodedClientFounderCovenantReviewPayload }
   | { ok: false; error: DecodeClientFounderCovenantReviewError }
 
-const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance']
+const BUSINESS_KINDS: WorldBusinessKind[] = ['water', 'food', 'housing', 'clinic', 'insurance', 'workers_hall']
 const CLIENT_INTENT_TYPES = [
   'buildBusiness',
   'buyWater',

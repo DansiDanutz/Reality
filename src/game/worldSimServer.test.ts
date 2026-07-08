@@ -225,6 +225,8 @@ describe('runWorldServerCommand', () => {
       realWorkersRequiringAcceptance: 0,
       openPositions: 0,
       understaffedBusinesses: 0,
+      workersHallCount: 0,
+      workersHallRequired: false,
       candidates: [],
     })
     expect(result.dashboard.survival).toMatchObject({
@@ -1785,6 +1787,17 @@ describe('runWorldServerCommand', () => {
       },
     })
     if (!created.ok) throw new Error(`expected area creation to succeed: ${created.error}`)
+    const hall = await runWorldServerCommand(repo, {
+      type: 'applyClientFounderIntent',
+      authenticatedFounderId: 'founder',
+      now: 1_000,
+      payload: {
+        type: 'buildBusiness',
+        businessKind: 'workers_hall',
+        businessId: 'hall-a',
+      },
+    })
+    if (!hall.ok) throw new Error(`expected hall build to succeed: ${hall.error}`)
     const built = await runWorldServerCommand(repo, {
       type: 'applyClientFounderIntent',
       authenticatedFounderId: 'founder',
@@ -1821,6 +1834,8 @@ describe('runWorldServerCommand', () => {
       hireableSimWorkers: 0,
       openPositions: 0,
       understaffedBusinesses: 0,
+      workersHallCount: 1,
+      workersHallRequired: false,
     })
     expect(hired.dashboard.jobs.candidates.map((candidate) => candidate.action)).toEqual([
       'waiting_for_position',

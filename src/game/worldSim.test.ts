@@ -442,7 +442,10 @@ describe('advanceWorldArea — local real-time economy', () => {
   test('hire intents attach an active worker to an owned business', () => {
     const start = claimedArea({
       citizens: [sim('worker')],
-      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+      businesses: [
+        business('workers_hall', 'hall1', { ownerId: 'founder' }),
+        business('food', 'food1', { ownerId: 'founder' }),
+      ],
     })
 
     const result = applyWorldIntent(start, {
@@ -454,9 +457,23 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error('expected hire intent to succeed')
-    expect(result.area.businesses[0].staffCitizenIds).toEqual(['worker'])
+    expect(result.area.businesses.find((business) => business.id === 'food1')!.staffCitizenIds).toEqual(['worker'])
     expect(result.area.citizens.find((c) => c.id === 'worker')!.jobBusinessId).toBe('food1')
     expect(result.area.transactions).toEqual([])
+  })
+
+  test('hire intents require a Workers Hall before any AI worker can be recruited', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+    })
+
+    expect(applyWorldIntent(start, {
+      type: 'hireWorker',
+      actorCitizenId: 'founder',
+      businessId: 'food1',
+      workerCitizenId: 'worker',
+    })).toMatchObject({ ok: false, error: 'workers_hall_required' })
   })
 
   test('hire intents reject non-owners, unavailable workers, and duplicate hires', () => {
@@ -465,7 +482,10 @@ describe('advanceWorldArea — local real-time economy', () => {
         sim('worker', { state: { kind: 'hospitalized', until: 10 * HOUR } }),
         sim('outsider', { kind: 'real' }),
       ],
-      businesses: [business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['existing'] })],
+      businesses: [
+        business('workers_hall', 'hall1', { ownerId: 'founder' }),
+        business('food', 'food1', { ownerId: 'founder', staffCitizenIds: ['existing'] }),
+      ],
     })
 
     expect(applyWorldIntent(start, {
@@ -501,10 +521,13 @@ describe('advanceWorldArea — local real-time economy', () => {
         sim('worker2', { jobBusinessId: 'food1' }),
         sim('worker3'),
       ],
-      businesses: [business('food', 'food1', {
-        ownerId: 'founder',
-        staffCitizenIds: ['worker1', 'worker2'],
-      })],
+      businesses: [
+        business('workers_hall', 'hall1', { ownerId: 'founder' }),
+        business('food', 'food1', {
+          ownerId: 'founder',
+          staffCitizenIds: ['worker1', 'worker2'],
+        }),
+      ],
     })
 
     const fullResult = applyWorldIntent(fullBusiness, {
@@ -520,10 +543,13 @@ describe('advanceWorldArea — local real-time economy', () => {
 
     const staleRoster = claimedArea({
       citizens: [sim('worker')],
-      businesses: [business('water', 'water1', {
-        ownerId: 'founder',
-        staffCitizenIds: ['stale-worker'],
-      })],
+      businesses: [
+        business('workers_hall', 'hall1', { ownerId: 'founder' }),
+        business('water', 'water1', {
+          ownerId: 'founder',
+          staffCitizenIds: ['stale-worker'],
+        }),
+      ],
     })
 
     const hired = applyWorldIntent(staleRoster, {
@@ -542,7 +568,10 @@ describe('advanceWorldArea — local real-time economy', () => {
   test('hire intents cannot force a real citizen into a job without acceptance', () => {
     const start = claimedArea({
       citizens: [sim('real-worker', { kind: 'real' })],
-      businesses: [business('food', 'food1', { ownerId: 'founder' })],
+      businesses: [
+        business('workers_hall', 'hall1', { ownerId: 'founder' }),
+        business('food', 'food1', { ownerId: 'founder' }),
+      ],
     })
 
     const result = applyWorldIntent(start, {
@@ -910,6 +939,8 @@ describe('advanceWorldArea — local real-time economy', () => {
       unemployedCitizens: 3,
       hireableSimWorkers: 3,
       realWorkersRequiringAcceptance: 0,
+      workersHallCount: 0,
+      workersHallRequired: true,
     })
     expect(dashboard.jobs.candidates.map((candidate) => candidate.citizenId)).toEqual(['thirsty', 'hungry', 'tired'])
     expect(dashboard.jobs.candidates.map((candidate) => candidate.clientPayload)).toEqual([
@@ -1634,6 +1665,8 @@ describe('advanceWorldArea — local real-time economy', () => {
       hireableSimWorkers: 0,
       openPositions: 1,
       understaffedBusinesses: 1,
+      workersHallCount: 0,
+      workersHallRequired: true,
     })
     expect(dash.jobs.candidates).toMatchObject([
       {

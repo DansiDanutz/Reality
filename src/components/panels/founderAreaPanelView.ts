@@ -1310,6 +1310,8 @@ function ledgerKindLabel(kind: WorldTransactionKind): string {
       return 'Medical debt'
     case 'debt_repayment':
       return 'Debt repayment'
+    case 'workers_hall_build':
+      return 'Workers Hall build'
   }
 }
 
