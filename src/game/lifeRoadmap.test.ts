@@ -83,6 +83,48 @@ describe('planLifeRoadmap', () => {
     expect(roadmap.finalSnapshot.constructionProjects.length).toBe(1)
   })
 
+  test('smokes the early ownership arc from survival habits into the first business shell', () => {
+    const roadmap = planLifeRoadmap(snap(), 60)
+    const primaryIds = roadmap.days.map((day) => day.primary.id)
+    const firstIndex = (id: string) => primaryIds.indexOf(id)
+    const firstMatchingIndex = (prefix: string) => primaryIds.findIndex((id) => id.startsWith(prefix))
+
+    expect(firstIndex('find-job')).toBeGreaterThanOrEqual(0)
+    expect(firstIndex('first-shift')).toBeGreaterThan(firstIndex('find-job'))
+    expect(firstIndex('study-first-course')).toBeGreaterThan(firstIndex('first-shift'))
+    expect(firstMatchingIndex('gather-')).toBeGreaterThan(firstIndex('study-first-course'))
+    expect(firstIndex('deposit-house-materials')).toBeGreaterThan(firstMatchingIndex('gather-'))
+    expect(firstIndex('pay-house-permit')).toBeGreaterThan(firstIndex('deposit-house-materials'))
+    expect(firstIndex('hire-house-worker-hour')).toBeGreaterThan(firstIndex('pay-house-permit'))
+    expect(firstIndex('build-first-business')).toBeGreaterThan(firstIndex('hire-house-worker-hour'))
+    expect(roadmap.valuesCovered).toEqual(expect.arrayContaining(['body', 'work', 'school', 'capital']))
+    expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'home')).toBe(true)
+    expect(roadmap.finalSnapshot.assets.some((asset) => asset.kind === 'business')).toBe(false)
+
+    const shell = planLifeRoadmap(snap({
+      lifeDay: roadmap.finalSnapshot.lifeDay,
+      money: 30_000,
+      level: roadmap.finalSnapshot.level,
+      xp: roadmap.finalSnapshot.xp,
+      jobId: roadmap.finalSnapshot.jobId,
+      shiftsWorked: roadmap.finalSnapshot.shiftsWorked,
+      educationActions: roadmap.finalSnapshot.educationActions,
+      educationProgress: roadmap.finalSnapshot.educationProgress,
+      assets: roadmap.finalSnapshot.assets,
+      resources: freshResources({ wood: 500, stone: 500, metal: 500, glass: 500 }),
+      communityActionsThisWeek: roadmap.finalSnapshot.communityActionsThisWeek,
+      communityRespect: roadmap.finalSnapshot.communityRespect,
+      communityFriendship: roadmap.finalSnapshot.communityFriendship,
+      communityTrust: roadmap.finalSnapshot.communityTrust,
+    }), 1)
+    expect(shell.days[0].primary).toMatchObject({
+      id: 'build-first-business',
+      route: { kind: 'market', focus: 'business' },
+    })
+    expect(shell.finalSnapshot.assets.some((asset) => asset.kind === 'business')).toBe(false)
+    expect(shell.finalSnapshot.constructionProjects.some((project) => project.resultKind === 'business')).toBe(true)
+  })
+
   test('uses free time after work starts to move the home build without making it the primary task', () => {
     const roadmap = planLifeRoadmap(snap(), 2)
 
