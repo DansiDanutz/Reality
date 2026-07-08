@@ -311,6 +311,28 @@ describe('worldSim snapshot codec', () => {
     duplicateDebt.citizens[0].debt = 500
     duplicateDebt.citizens[0].debts!.push({ ...duplicateDebt.citizens[0].debts![0] })
     expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: duplicateDebt }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const overlappingBusinessAccount = area()
+    overlappingBusinessAccount.businesses.push({
+      id: 'heir1',
+      name: 'Ambiguous Ledger Account',
+      kind: 'water',
+      ownerId: 'founder',
+      cash: 0,
+      staffCitizenIds: [],
+    })
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: overlappingBusinessAccount }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const reservedSystemAccount = area()
+    reservedSystemAccount.businesses.push({
+      id: 'system:builders',
+      name: 'Reserved Ledger Account',
+      kind: 'water',
+      ownerId: 'founder',
+      cash: 0,
+      staffCitizenIds: [],
+    })
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: reservedSystemAccount }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects invalid persisted live references', () => {
