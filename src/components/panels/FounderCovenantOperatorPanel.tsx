@@ -41,6 +41,8 @@ import {
   founderCovenantOperatorQueuePrimaryWorkloadTone,
   founderCovenantOperatorQueueSelectedFreshnessLabel,
   founderCovenantOperatorQueueSelectedFreshnessTone,
+  founderCovenantOperatorQueueSelectedActionContextLabel,
+  founderCovenantOperatorQueueSelectedActionContextTone,
   founderCovenantOperatorQueueMonitorSummary,
   founderCovenantOperatorQueueOverdueCleanupSummary,
   founderCovenantOperatorQueueRecordReadyCount,
@@ -205,6 +207,14 @@ export default function FounderCovenantOperatorPanel({
   const selectedReviewProvenanceSummary = queue
     ? founderCovenantOperatorQueueReviewProvenanceSummary(queue, queueFilter, queueSort)
     : null
+  const selectedActionContextLabel = queue
+    ? founderCovenantOperatorQueueSelectedActionContextLabel(queue, queueFilter)
+    : null
+  const selectedActionContextTitle = queue && queueFilter === 'action_record'
+    ? founderCovenantOperatorQueueRecordReadySummary(queue)
+    : queue && queueFilter === 'action_monitor'
+      ? founderCovenantOperatorQueueMonitorSummary(queue)
+      : null
   const selectedSliceContextTitle = [selectedSliceSummary, selectedReviewProvenanceSummary]
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
     .join(' · ')
@@ -1256,6 +1266,15 @@ export default function FounderCovenantOperatorPanel({
               <span>Slice</span>
               <strong>{founderCovenantOperatorQueueSelectedFreshnessLabel(queue, queueFilter)}</strong>
             </span>
+            {selectedActionContextLabel && selectedActionContextTitle && (
+              <span
+                className={`founder-ledger-chip ${founderCovenantOperatorQueueSelectedActionContextTone(queue, queueFilter)}`}
+                title={selectedActionContextTitle}
+              >
+                <span>Action slice</span>
+                <strong>{selectedActionContextLabel}</strong>
+              </span>
+            )}
             <span className="founder-ledger-chip warning">
               <span>Cursor</span>
               <strong>{scanCursor ?? 'start'}</strong>

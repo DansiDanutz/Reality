@@ -335,6 +335,61 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip critical" title="Cadence ready: 1 weekly · 1 monthly"><span>Monthly ready</span><strong>1</strong>')
   })
 
+  test('shows action-slice context for the record-ready preset', () => {
+    const storage = createStorage()
+    storage.setItem('reality-founder-covenant-operator-view-v1', JSON.stringify({
+      filter: 'action_record',
+      sort: 'priority',
+    }))
+    ;(globalThis as { window?: { localStorage: Storage } }).window = { localStorage: storage }
+
+    const html = renderToStaticMarkup(
+      <FounderCovenantOperatorPanel
+        initialQueue={{
+          ...operatorQueue(),
+          totals: {
+            ...operatorQueue().totals,
+            founders: 1,
+            active: 1,
+            useful: 1,
+            building: 1,
+            staffed: 1,
+            indebted: 0,
+            hospitalized: 0,
+            atRisk: 0,
+            manualReviewRequired: 0,
+            manualReviewNeverReviewed: 0,
+            manualReviewFreshReviewed: 0,
+            manualReviewStaleReviewed: 0,
+            signalCriticalCount: 0,
+            signalWarningCount: 1,
+            signalFlaggedFounders: 1,
+            evidenceQueuedFounders: 0,
+            evidenceRequiredGaps: 0,
+            recordReadyFounders: 1,
+            recordReadyWeekly: 1,
+            recordReadyMonthly: 1,
+            blockedApprovalFounders: 0,
+            lowScoreFounders: 0,
+            inactiveFounders: 0,
+            manualReviewQueueFounders: 0,
+            probationRiskFounders: 0,
+            replacementRiskFounders: 0,
+            weeklyDue: 2,
+            monthlyDue: 1,
+            overdue: 1,
+            pendingApprovals: 0,
+          },
+          items: [withRecordReadyCadenceFounder(operatorQueue().items[0], {
+            cadence: 'monthly',
+          })],
+        }}
+      />,
+    )
+
+    expect(html).toContain('class="founder-ledger-chip critical" title="Record ready: 1 founder · 1 weekly · 1 monthly"><span>Action slice</span><strong>1 weekly / 1 monthly</strong>')
+  })
+
   test('keeps manual operator token fallback visible when Telegram auth is unavailable', () => {
     const html = renderToStaticMarkup(
       <FounderCovenantOperatorPanel

@@ -48,6 +48,9 @@ import {
   founderCovenantOperatorQueueWorkloadSummary,
   founderCovenantOperatorQueueSelectedFreshnessLabel,
   founderCovenantOperatorQueueSelectedFreshnessTone,
+  founderCovenantOperatorQueueSelectedActionContextLabel,
+  founderCovenantOperatorQueueSelectedActionContextTone,
+  founderCovenantOperatorQueueMonitorMix,
 } from './founderAreaPanelView'
 
 describe('FounderCovenantQueuePanel', () => {
@@ -1527,6 +1530,12 @@ describe('FounderCovenantQueuePanel', () => {
       weekly: 2,
       monthly: 1,
     })
+    expect(founderCovenantOperatorQueueMonitorMix({
+      items: queue.items,
+    })).toEqual({
+      founders: 2,
+      freshActive: 0,
+    })
     expect(founderCovenantOperatorQueueWorkflowSplitSummary(queueWithCadence)).toBe('Workflow split: 1 blocked approvals · 2 record ready · 0 overdue cleanup')
     expect(founderCovenantOperatorQueueCadenceReadySummary(queueWithCadence)).toBe('Cadence ready: 2 weekly · 1 monthly')
     expect(founderCovenantOperatorQueueActivityRiskSummary(queueWithCadence)).toBe('Founder state: inactive 1 · usefulness gaps 1 · build gaps 0 · staffing gaps 1 · debt risk 1 · hospitalized 1 · at risk 1')
@@ -1540,6 +1549,10 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueSelectedFreshnessTone(queueWithCoverage, 'fresh_reviewed')).toBe('stable')
     expect(founderCovenantOperatorQueueSelectedFreshnessLabel(queueWithCadence, 'all')).toBe('7 mixed')
     expect(founderCovenantOperatorQueueSelectedFreshnessTone(queueWithCadence, 'all')).toBe('critical')
+    expect(founderCovenantOperatorQueueSelectedActionContextLabel(queueWithCadence, 'action_record')).toBe('2 weekly / 1 monthly')
+    expect(founderCovenantOperatorQueueSelectedActionContextTone(queueWithCadence, 'action_record')).toBe('critical')
+    expect(founderCovenantOperatorQueueSelectedActionContextLabel(queue, 'action_monitor')).toBe('2 monitor / 0 fresh')
+    expect(founderCovenantOperatorQueueSelectedActionContextTone(queue, 'action_monitor')).toBe('warning')
     expect(founderCovenantOperatorQueueReviewProvenanceSummary({
       items: [
         founderQueueItem({

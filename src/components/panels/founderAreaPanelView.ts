@@ -1033,6 +1033,45 @@ export function founderCovenantOperatorQueueRecordReadyCount(
   return queue.totals.recordReadyFounders
 }
 
+export interface FounderCovenantOperatorQueueMonitorMix {
+  founders: number
+  freshActive: number
+}
+
+export function founderCovenantOperatorQueueMonitorMix(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'], 'monitorFounders' | 'freshReviewedActiveFounders'>
+  },
+): FounderCovenantOperatorQueueMonitorMix {
+  if (
+    queue.totals &&
+    typeof queue.totals.monitorFounders === 'number' &&
+    typeof queue.totals.freshReviewedActiveFounders === 'number'
+  ) {
+    return {
+      founders: queue.totals.monitorFounders,
+      freshActive: queue.totals.freshReviewedActiveFounders,
+    }
+  }
+  return queue.items.reduce<FounderCovenantOperatorQueueMonitorMix>((totals, item) => {
+    if (founderCovenantOperatorQueueRecommendedNextText(item) !== 'Monitor founder') return totals
+    totals.founders += 1
+    if (item.reviewFreshness === 'fresh' && item.activityReview.active) totals.freshActive += 1
+    return totals
+  }, {
+    founders: 0,
+    freshActive: 0,
+  })
+}
+
+function founderCovenantOperatorQueueFilteredMonitorMix(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  filter: FounderCovenantOperatorQueueFilter,
+): FounderCovenantOperatorQueueMonitorMix {
+  const items = queue.items.filter((item) => founderCovenantOperatorQueueMatchesFilter(item, filter))
+  return founderCovenantOperatorQueueMonitorMix({ items })
+}
+
 export function founderCovenantOperatorQueueActivityRiskMix(
   queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
     totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
@@ -1448,6 +1487,50 @@ export function founderCovenantOperatorQueueSelectedFreshnessTone(
   if (sliceTotals.founders === 0) return 'stable'
   if (sliceTotals.neverReviewed > 0) return 'critical'
   if (sliceTotals.staleReviewed > 0) return 'warning'
+  return 'stable'
+}
+
+export function founderCovenantOperatorQueueSelectedActionContextLabel(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'recordReadyWeekly' | 'recordReadyMonthly' | 'monitorFounders' | 'freshReviewedActiveFounders'>
+  },
+  filter: FounderCovenantOperatorQueueFilter,
+): string | null {
+  if (filter === 'action_record') {
+    const cadence = founderCovenantOperatorQueueCadenceReadyMix({
+      items: queue.items.filter((item) => founderCovenantOperatorQueueMatchesFilter(item, filter)),
+    })
+    return `${cadence.weekly} weekly / ${cadence.monthly} monthly`
+  }
+  if (filter === 'action_monitor') {
+    const monitor = founderCovenantOperatorQueueFilteredMonitorMix(queue, filter)
+    return `${monitor.founders} monitor / ${monitor.freshActive} fresh`
+  }
+  return null
+}
+
+export function founderCovenantOperatorQueueSelectedActionContextTone(
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'> & {
+    totals?: Pick<RealityFounderCovenantReviewQueueDashboard['totals'],
+      'recordReadyWeekly' | 'recordReadyMonthly' | 'monitorFounders' | 'freshReviewedActiveFounders'>
+  },
+  filter: FounderCovenantOperatorQueueFilter,
+): FounderCovenantReviewTone {
+  if (filter === 'action_record') {
+    const cadence = founderCovenantOperatorQueueCadenceReadyMix({
+      items: queue.items.filter((item) => founderCovenantOperatorQueueMatchesFilter(item, filter)),
+    })
+    if (cadence.monthly > 0) return 'critical'
+    if (cadence.weekly > 0) return 'warning'
+    return 'stable'
+  }
+  if (filter === 'action_monitor') {
+    const monitor = founderCovenantOperatorQueueFilteredMonitorMix(queue, filter)
+    if (monitor.freshActive > 0) return 'stable'
+    if (monitor.founders > 0) return 'warning'
+    return 'stable'
+  }
   return 'stable'
 }
 
