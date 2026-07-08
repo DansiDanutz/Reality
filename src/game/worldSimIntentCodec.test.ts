@@ -294,7 +294,27 @@ describe('decodeClientWorldIntentPayload', () => {
   })
 
   test('rejects client-controlled server identity, state, and economy fields', () => {
-    for (const field of ['actorCitizenId', 'authenticatedCitizenId', 'authenticatedFounderId', 'areaId', 'now', 'claim', 'blueprint', 'money', 'transactions']) {
+    for (const field of [
+      'actorCitizenId',
+      'authenticatedCitizenId',
+      'authenticatedFounderId',
+      'areaId',
+      'now',
+      'claim',
+      'blueprint',
+      'money',
+      'cash',
+      'debt',
+      'debts',
+      'needs',
+      'health',
+      'state',
+      'jobBusinessId',
+      'homeBusinessId',
+      'insurancePaidUntil',
+      'heirCitizenId',
+      'transactions',
+    ]) {
       expect(decodeClientWorldIntentPayload({
         type: 'buyWater',
         [field]: field === 'now' ? 1_000 : 'client-value',
