@@ -21,7 +21,7 @@ describe('founderCovenantOperatorQueueView', () => {
   test('formats queue context and cursor text for handoff', () => {
     expect(queueContextText('all', 'priority', null)).toBe('View: All / Priority / start')
     expect(queueContextText('hospitalized', 'founder', 'review-cursor-2')).toBe(
-      'View: Hospital / Founder # / review-cursor-2',
+      'View: Hospital / Founder # / review-cursor-2 · filter hospital · sort founder #',
     )
     expect(queueCursorContextText(null, 'review-cursor-2')).toBe('Cursor: start -> review-cursor-2')
     expect(queueCursorContextText('review-cursor-2', null)).toBe('Cursor: review-cursor-2 -> end')

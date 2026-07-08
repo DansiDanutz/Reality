@@ -41,9 +41,10 @@ export function queueContextText(
   scanCursor: string | null,
 ): string {
   const preset = queueCoveragePresetLabel(filter, sort)
+  const stateCues = queueStateCueText(filter, sort)
   return preset
-    ? `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'} · Preset: ${preset}`
-    : `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}`
+    ? `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'} · Preset: ${preset}${stateCues ? ` · ${stateCues}` : ''}`
+    : `View: ${queueViewLabel(filter)} / ${queueSortLabel(sort)} / ${scanCursor ?? 'start'}${stateCues ? ` · ${stateCues}` : ''}`
 }
 
 export function queueCursorContextText(scanCursor: string | null, nextCursor: string | null): string {
@@ -96,4 +97,14 @@ export function queuePresetChipTone(
   sort: FounderCovenantOperatorQueueSort,
 ): OperatorQueueChipTone {
   return queueCoveragePresetLabel(filter, sort) ? 'critical' : 'stable'
+}
+
+function queueStateCueText(
+  filter: FounderCovenantOperatorQueueFilter,
+  sort: FounderCovenantOperatorQueueSort,
+): string | null {
+  const cues: string[] = []
+  if (filter !== 'all') cues.push(`filter ${queueViewLabel(filter).toLowerCase()}`)
+  if (sort !== 'priority') cues.push(`sort ${queueSortLabel(sort).toLowerCase()}`)
+  return cues.length > 0 ? cues.join(' · ') : null
 }

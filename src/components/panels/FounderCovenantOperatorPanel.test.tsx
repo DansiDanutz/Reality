@@ -133,10 +133,13 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queuePresetChipTone('all', 'priority')).toBe('stable')
     expect(queuePresetChipTone('all', 'coverage')).toBe('critical')
     expect(queueContextText('all', 'coverage', null)).toBe(
-      'View: All / Coverage / start · Preset: Coverage All',
+      'View: All / Coverage / start · Preset: Coverage All · sort coverage',
     )
     expect(queueContextText('stale_reviewed', 'coverage', 'cursor-2')).toBe(
-      'View: Stale / Coverage / cursor-2 · Preset: Cleanup Stale',
+      'View: Stale / Coverage / cursor-2 · Preset: Cleanup Stale · filter stale · sort coverage',
+    )
+    expect(queueContextText('manual_review', 'priority', null)).toBe(
+      'View: Manual / Priority / start · filter manual',
     )
   })
 })
