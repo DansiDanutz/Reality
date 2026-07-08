@@ -69,11 +69,55 @@ describe('Reality operator auth client bridge', () => {
     })
   })
 
+  test('maps Telegram verifier failures to invalid sessions by server code', async () => {
+    for (const code of ['auth_date_expired', 'auth_date_from_future', 'invalid_init_data', 'missing_auth_date']) {
+      const fetchImpl = vi.fn(async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          ok: false,
+          error: 'Invalid Telegram session.',
+          code,
+        }),
+      }))
+
+      await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+        ok: false,
+        reason: 'invalid_session',
+        error: 'Invalid Telegram session.',
+        code,
+      })
+    }
+  })
+
   test('rejects malformed successful responses without exposing a token', async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,
       status: 200,
       json: async () => ({ ok: true, operatorToken: 'operator-token' }),
+    }))
+
+    await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Reality operator auth was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects successful operator responses with mismatched Telegram identity', async () => {
+    const response = {
+      ...operatorAuthResponse(),
+      operator: {
+        ...operatorAuthResponse().operator,
+        telegramUserId: '42424242',
+        realityAccountId: 'telegram:777',
+      },
+    }
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => response,
     }))
 
     await expect(requestRealityOperatorQueueToken(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
@@ -97,7 +141,7 @@ describe('Reality operator auth client bridge', () => {
   })
 })
 
-function operatorAuthResponse(): RealityOperatorQueueAuthResult {
+function operatorAuthResponse(): Extract<RealityOperatorQueueAuthResult, { ok: true }> {
   return {
     ok: true,
     operator: {

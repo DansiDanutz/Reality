@@ -88,6 +88,9 @@ export function useNotifications(): void {
       streakLastClaimDay: s.streakLastClaimDay,
       streakLength: s.streakLength,
       activity: s.activity,
+      // The completion transition: the tick nulls a finished activity before
+      // this hook runs, so activity-complete is detected via this record.
+      lastCompletedActivity: s.lastCompletedActivity,
       needs: s.needs,
       money: s.money,
       dailyDone: s.dailyCounters.day === todayDay
