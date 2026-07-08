@@ -22,6 +22,7 @@ export type CourierRequirement =
   | { kind: 'resource'; resource: ResourceKind; amount: number }
   | { kind: 'construction-site' }
   | { kind: 'construction-deposit'; resources: Partial<Record<ResourceKind, number>> }
+  | { kind: 'construction-permit' }
   | { kind: 'construction-labor'; minutes: number }
   | { kind: 'home-built-or-progress'; laborMinutes: number }
   | { kind: 'business-development-site' }
@@ -200,6 +201,8 @@ export function courierRequirementMet(pkg: CourierPackage, snapshot: CourierSnap
           ([kind, amount]) => project.deposited[kind as ResourceKind] >= (amount ?? 0),
         ),
       ) || snapshot.hasHome
+    case 'construction-permit':
+      return snapshot.constructionProjects.some((project) => project.permitFeePaid) || snapshot.hasHome
     case 'construction-labor':
       return snapshot.constructionProjects.some((project) => project.laborDoneMinutes >= requirement.minutes) || snapshot.hasHome
     case 'home-built-or-progress':
@@ -272,6 +275,8 @@ function courierRequirementForLifePlan(primary: LifePlanTask, snapshot: CourierS
   }
   if (route.kind === 'construction-action') {
     const project = snapshot.constructionProjects.find((candidate) => candidate.id === route.projectId)
+    if (route.action === 'deposit') return { kind: 'construction-deposit', resources: project?.required ?? {} }
+    if (route.action === 'permit') return { kind: 'construction-permit' }
     if (route.action === 'work' || route.action === 'hire-helper') {
       return { kind: 'construction-labor', minutes: (project?.laborDoneMinutes ?? 0) + 60 }
     }

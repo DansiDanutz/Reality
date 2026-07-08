@@ -116,6 +116,21 @@ describe('courierPackages', () => {
       constructionProjects: [project],
       hasHome: false,
     })).toBe(true)
+
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'construction-permit' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [project],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'construction-permit' } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [{ ...project, permitFeePaid: true }],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('checks Life Ladder job, shift, education, and community requirements', () => {
@@ -323,6 +338,47 @@ describe('courierPackages', () => {
       day: 18,
       title: 'Work 60m inside Food Cart',
       requirement: { kind: 'business-development-labor', minutes: 60 },
+    })
+  })
+
+  test('wraps generated construction deposit and permit tasks with clearable requirements', () => {
+    const project = createConstructionProject('starter-house', 45, 21, 1)
+    const deposit = courierPackageForLifePlan(12, {
+      id: 'deposit-house-materials',
+      title: 'Deposit house materials',
+      detail: 'Move gathered materials into the first home site.',
+      value: 'capital',
+      minutes: 15,
+      route: { kind: 'construction-action', projectId: project.id, action: 'deposit' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(project.required),
+      constructionProjects: [project],
+      hasHome: false,
+    })
+    const permit = courierPackageForLifePlan(13, {
+      id: 'pay-house-permit',
+      title: 'Pay the house permit',
+      detail: 'Pay the city fee before labor can begin.',
+      value: 'respect',
+      minutes: 10,
+      route: { kind: 'construction-action', projectId: project.id, action: 'permit' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [project],
+      hasHome: false,
+    })
+
+    expect(deposit).toMatchObject({
+      day: 12,
+      requirement: { kind: 'construction-deposit', resources: project.required },
+    })
+    expect(permit).toMatchObject({
+      day: 13,
+      requirement: { kind: 'construction-permit' },
     })
   })
 
