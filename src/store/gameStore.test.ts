@@ -1061,6 +1061,7 @@ describe('community action loop', () => {
     const xpAfterCompletion = completed.xp
     expect(xpAfterCompletion).toBeGreaterThanOrEqual(30)
     expect(completed.dailyCounters.communityToday).toBe(1)
+    expect(completed.mysteryBoxCredits.standard).toBe(1)
 
     useGame.getState().tick()
     expect(useGame.getState().community.actionsThisWeek).toBe(1)
@@ -1172,6 +1173,125 @@ describe('community action loop', () => {
       actionsThisWeek: 0,
     })
     expect(state.xp).toBe(0)
+  })
+})
+
+describe('earned mystery box credits', () => {
+  test('blocks envelope opens until a daily or community credit is earned', () => {
+    useGame.setState({
+      money: 500,
+      mysteryBoxCredits: { standard: 0, premium: 0, legendary: 0 },
+      mysteryBoxesOpened: 0,
+      lastBoxReward: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().openMysteryBox('standard')
+
+    const state = useGame.getState()
+    expect(state.money).toBe(500)
+    expect(state.mysteryBoxesOpened).toBe(0)
+    expect(state.lastBoxReward).toBeNull()
+    expect(state.toasts.at(-1)).toMatchObject({ tone: 'blocked' })
+  })
+
+  test('opening an earned envelope consumes credit without spending cash', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    useGame.setState({
+      money: 500,
+      level: 1,
+      xp: 0,
+      mysteryBoxCredits: { standard: 1, premium: 0, legendary: 0 },
+      mysteryBoxesOpened: 0,
+      lastBoxReward: null,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().openMysteryBox('standard')
+
+    const state = useGame.getState()
+    expect(state.money).toBe(600)
+    expect(state.mysteryBoxCredits.standard).toBe(0)
+    expect(state.mysteryBoxesOpened).toBe(1)
+    expect(state.lastBoxReward).toMatchObject({
+      tier: 'standard',
+      label: 'Small grant',
+      cash: 100,
+      xp: 5,
+    })
+    expect(state.log.at(-1)).toContain('Opened an earned Standard Envelope')
+  })
+
+  test('a serious-work milestone shift earns a premium credit', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T00:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      jobId: 'barista',
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      community: {
+        ...freshCommunityStats(now),
+        reliableShifts: 4,
+        seriousWorkStreak: 4,
+        seriousWorkBest: 4,
+        seriousWorkLastDay: communityDay(now - 24 * 3_600_000),
+      },
+      mysteryBoxCredits: { standard: 0, premium: 0, legendary: 0 },
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startShift()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    const state = useGame.getState()
+    expect(state.community.seriousWorkStreak).toBe(5)
+    expect(state.mysteryBoxCredits).toMatchObject({ standard: 0, premium: 1, legendary: 0 })
+    expect(state.log.some((entry) => entry.includes('Premium Envelope credit'))).toBe(true)
+  })
+
+  test('a larger serious-work milestone shift earns a legendary credit', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T00:00:00Z'))
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const now = Date.now()
+
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: now, citizenId: 'ada' },
+      jobId: 'barista',
+      money: 0,
+      needs: { hunger: 95, hydration: 95, energy: 95, hygiene: 95, fun: 95 },
+      health: 100,
+      community: {
+        ...freshCommunityStats(now),
+        reliableShifts: 19,
+        seriousWorkStreak: 19,
+        seriousWorkBest: 19,
+        seriousWorkLastDay: communityDay(now - 24 * 3_600_000),
+      },
+      mysteryBoxCredits: { standard: 0, premium: 0, legendary: 0 },
+      activity: null,
+      lastSeenAt: now,
+      log: [],
+      toasts: [],
+    })
+
+    useGame.getState().startShift()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    const state = useGame.getState()
+    expect(state.community.seriousWorkStreak).toBe(20)
+    expect(state.mysteryBoxCredits).toMatchObject({ standard: 0, premium: 0, legendary: 1 })
+    expect(state.log.some((entry) => entry.includes('Legendary Envelope credit'))).toBe(true)
   })
 })
 

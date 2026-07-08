@@ -331,7 +331,7 @@ describe('migrateSave - backfills every field added after v1', () => {
     })
   })
 
-  test('old saves do not reopen into the paid random box panel by default', () => {
+  test('old saves do not reopen into the earned envelope panel by default', () => {
     const out = migrateSave({
       ...v1Save,
       panel: 'boxes',
@@ -340,6 +340,11 @@ describe('migrateSave - backfills every field added after v1', () => {
 
     expect(out.panel).toBeNull()
     expect(out.mysteryBoxesOpened).toBe(3)
+    expect(out.mysteryBoxCredits).toEqual({
+      standard: 0,
+      premium: 0,
+      legendary: 0,
+    })
   })
 
   test('old business development projects normalize missing ledger fields', () => {
@@ -423,6 +428,7 @@ describe('migrateSave - completeness guard', () => {
       'streakLength', 'streakLastClaimDay', 'streakBest',
       'luckyMomentsSeen', 'luckyMomentsSeenIds',
       'shiftsWorked', 'timesEaten', 'reachTier', 'sawAchievementsPanel',
+      'mysteryBoxCredits',
       'resources', 'resourceNodes', 'servicePois', 'constructionProjects', 'placingConstruction',
       'selectedMapTarget', 'educationProgress', 'community', 'businessDevelopmentProjects',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
@@ -437,6 +443,6 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    expect(SAVE_VERSION).toBe(18)
+    expect(SAVE_VERSION).toBe(19)
   })
 })

@@ -5,23 +5,14 @@ import { boxEV, MYSTERY_BOXES, type BoxTier } from '../../game/mysteryBox'
 import { useGame } from '../../store/gameStore'
 
 /**
- * Mystery Boxes — the gacha "just one more" loop.
- *
- * Three box tiers (Standard $500, Premium $2.5k, Legendary $10k). Each open
- * rolls a random reward from the tier's pool. The reveal animation builds
- * anticipation (a shake + glow) before showing the result — the dopamine is
- * in the reveal, not the reward.
- *
- * The EV is below cost (the house edge), making this a money sink. But the
- * variance creates big wins (up to 5x) that keep players chasing "just one
- * more." The jackpot on a first box hooks them for life.
+ * Earned Mystery Boxes — optional reward envelopes from real daily/community work.
  */
 const TIERS: BoxTier[] = ['standard', 'premium', 'legendary']
-const RARITY_LABEL: Record<string, string> = { dud: 'Common', common: 'Good', rare: 'Rare!', jackpot: 'JACKPOT!' }
+const RARITY_LABEL: Record<string, string> = { dud: 'Common', common: 'Good', rare: 'Rare!', jackpot: 'Grant!' }
 const RARITY_TONE: Record<string, string> = { dud: 'common', common: 'common', rare: 'rare', jackpot: 'jackpot' }
 
 export default function MysteryBoxPanel() {
-  const money = useGame((s) => s.money)
+  const credits = useGame((s) => s.mysteryBoxCredits)
   const openMysteryBox = useGame((s) => s.openMysteryBox)
   const lastReward = useGame((s) => s.lastBoxReward)
   const clearBoxReward = useGame((s) => s.clearBoxReward)
@@ -46,7 +37,7 @@ export default function MysteryBoxPanel() {
 
   const handleOpen = (tier: BoxTier) => {
     const def = MYSTERY_BOXES[tier]
-    if (money < def.cost) return
+    if ((credits[tier] ?? 0) < def.creditsRequired) return
     openMysteryBox(tier)
   }
 
@@ -54,7 +45,7 @@ export default function MysteryBoxPanel() {
     <section className="panel" aria-label="Mystery Boxes">
       <h2 className="panel-title">🎁 Mystery Boxes</h2>
       <p className="panel-sub">
-        Pay for a sealed box, get a random reward. Could be a dud, could be a 5x jackpot.
+        Earn credits from perfect days and community help. Rewards are optional and average values are shown.
         <span className="mono"> {boxesOpened} opened.</span>
       </p>
 
@@ -88,25 +79,26 @@ export default function MysteryBoxPanel() {
         {TIERS.map((tier) => {
           const def = MYSTERY_BOXES[tier]
           const ev = boxEV(tier)
-          const affordable = money >= def.cost
+          const available = credits[tier] ?? 0
+          const canOpen = available >= def.creditsRequired
           return (
             <button
               key={tier}
-              className={`box-card box-${tier}${!affordable ? ' locked' : ''}`}
-              disabled={!affordable || Boolean(lastReward)}
+              className={`box-card box-${tier}${!canOpen ? ' locked' : ''}`}
+              disabled={!canOpen || Boolean(lastReward)}
               onClick={() => handleOpen(tier)}
             >
               <span className="box-emoji" aria-hidden>{def.emoji}</span>
               <span className="box-name">{def.name}</span>
-              <span className="box-price mono">{formatMoney(def.cost)}</span>
+              <span className="box-price mono">{available}/{def.creditsRequired} credit</span>
               <span className="box-ev mono">~{formatMoney(ev)} avg</span>
-              {!affordable && <span className="box-locked-msg">Need {formatMoney(def.cost)}</span>}
+              {!canOpen && <span className="box-locked-msg">Earn credit</span>}
             </button>
           )
         })}
       </div>
       <p className="panel-sub box-disclaimer">
-        The house always wins — average return is below cost. Play for the thrill, not the profit.
+        No cash buy-in, no house edge. Credits come from doing the day well.
       </p>
     </section>
   )

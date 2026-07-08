@@ -32,7 +32,7 @@ import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/a
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
 import { rollLuckyMoment, pickFirstLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { MAX_BUSINESS_LEVEL } from '../game/businessUpgrades'
-import { MYSTERY_BOXES, openBox, type BoxTier } from '../game/mysteryBox'
+import { MYSTERY_BOXES, creditTierForSeriousWorkStreak, freshMysteryBoxCredits, openBox, type BoxTier, type MysteryBoxCredits } from '../game/mysteryBox'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
@@ -260,7 +260,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 18
+export const SAVE_VERSION = 19
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -284,6 +284,7 @@ export const SAVE_VERSION = 18
  *   v15 → v16: discovered city service POIs for real Workers Hall locations
  *   v16 → v17: Workers Hall source marker on active worker contracts
  *   v17 → v18: remove Mystery Boxes from persisted default panel recovery
+ *   v18 → v19: earned Mystery Box credit ledger replaces cash purchases
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -311,6 +312,7 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.luckyMomentsSeenIds) state.luckyMomentsSeenIds = []
         if (state && !state.milestonesCelebrated) state.milestonesCelebrated = []
         if (state && state.mysteryBoxesOpened === undefined) state.mysteryBoxesOpened = 0
+        if (state) state.mysteryBoxCredits = freshMysteryBoxCredits(state.mysteryBoxCredits)
         if (state?.panel === 'boxes') state.panel = null
         if (state && !state.activeBoosters) state.activeBoosters = []
         if (state && state.combo === undefined) state.combo = 0
@@ -689,7 +691,9 @@ interface GameState {
   buy: (itemId: string) => void
   /** Start an interior development plan for the next business level. */
   upgradeBusiness: (assetId: string) => void
-  /** Open a mystery box — the gacha loop. Returns the reward for reveal. */
+  /** Earned Mystery Box credits from real daily/community behavior. */
+  mysteryBoxCredits: MysteryBoxCredits
+  /** Open an earned mystery box credit. Returns the reward for reveal. */
   openMysteryBox: (tier: BoxTier) => void
   /** The most recent mystery box result (transient — for the reveal animation). */
   lastBoxReward: { label: string; cash: number; xp: number; rarity: string; icon: string; tier: BoxTier } | null
@@ -778,6 +782,7 @@ const FRESH = {
   luckyMomentsSeen: 0,
   luckyMomentsSeenIds: [] as string[],
   mysteryBoxesOpened: 0,
+  mysteryBoxCredits: freshMysteryBoxCredits(),
   activeBoosters: [] as { type: BoosterType; expiresAt: number }[],
   combo: 0,
   comboLastActionAt: 0,
@@ -1382,6 +1387,7 @@ export const useGame = create<GameState>()(
         let resources = s.resources
         let constructionProjects = s.constructionProjects
         let educationProgress = s.educationProgress
+        let mysteryBoxCredits = freshMysteryBoxCredits(s.mysteryBoxCredits)
         let community = resetCommunityWeekIfNeeded(s.community, now)
         let gatheredDelta = 0
         let constructionMinutesDelta = 0
@@ -1391,13 +1397,25 @@ export const useGame = create<GameState>()(
         if (out.shiftsCompleted > 0) {
           const beforeRespect = community.respect
           const beforeTrust = community.trust
+          const beforeSeriousWorkStreak = community.seriousWorkStreak
           community = completeReliableShift(community, now)
           const respectGained = community.respect - beforeRespect
           const trustGained = community.trust - beforeTrust
+          const earnedMilestoneTier = community.seriousWorkStreak > beforeSeriousWorkStreak
+            ? creditTierForSeriousWorkStreak(community.seriousWorkStreak)
+            : null
+          if (earnedMilestoneTier) {
+            mysteryBoxCredits = { ...mysteryBoxCredits, [earnedMilestoneTier]: mysteryBoxCredits[earnedMilestoneTier] + 1 }
+          }
           if (respectGained > 0) track('respect_gained')
           if (!wasAway && (respectGained > 0 || trustGained > 0)) {
             log = note(log, `Reliable shift complete: +${respectGained} respect, +${trustGained} trust.`)
             toasts = withToast(toasts, `Reliable shift +${respectGained} respect`, 'sky')
+          }
+          if (!wasAway && earnedMilestoneTier) {
+            const def = MYSTERY_BOXES[earnedMilestoneTier]
+            log = note(log, `Serious work streak ${community.seriousWorkStreak} days: earned a ${def.name} credit.`)
+            toasts = withToast(toasts, `Serious work ${community.seriousWorkStreak} days: ${def.name} credit`, earnedMilestoneTier === 'legendary' ? 'legendary' : 'gold')
           }
         }
         let businessDevelopmentProjects = s.businessDevelopmentProjects
@@ -1482,6 +1500,7 @@ export const useGame = create<GameState>()(
               if (action.rewards.respect > 0) track('respect_gained')
               if (action.rewards.friendship > 0) track('friendship_gained')
               if (!wasAway) communityDelta += 1
+              mysteryBoxCredits = { ...mysteryBoxCredits, standard: mysteryBoxCredits.standard + 1 }
               const prog = applyXp(level, xp, action.rewards.xp)
               level = prog.level
               xp = prog.xp
@@ -1929,6 +1948,7 @@ export const useGame = create<GameState>()(
                 xp = bprog.xp
                 money += bonus.cash
                 dailyBonusClaimed = true
+                mysteryBoxCredits = { ...mysteryBoxCredits, standard: mysteryBoxCredits.standard + 1 }
                 track('daily_complete')
                 toasts = withToast(toasts, `🎯 All 3 daily challenges! Bonus +${formatMoney(bonus.cash)}, +${bonus.xp} XP`, 'achieve')
                 log = note(log, `🎯 A perfect day — all three challenges done. Bonus: ${formatMoney(bonus.cash)} and ${bonus.xp} XP.`)
@@ -2000,6 +2020,7 @@ export const useGame = create<GameState>()(
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
+          mysteryBoxCredits,
           activeCourierPackage,
           courierLastDay,
           awayReport,
@@ -3179,20 +3200,22 @@ export const useGame = create<GameState>()(
       openMysteryBox: (tier) => {
         const s = get()
         const def = MYSTERY_BOXES[tier]
-        if (s.money < def.cost) {
-          set({ toasts: withToast(s.toasts, `Need ${formatMoney(def.cost)} for a ${def.name}.`, 'blocked') })
+        const credits = freshMysteryBoxCredits(s.mysteryBoxCredits)
+        if (credits[tier] < def.creditsRequired) {
+          set({ toasts: withToast(s.toasts, `Earn a ${def.name} credit through daily tasks or community help first.`, 'blocked') })
           return
         }
         const reward = openBox(tier)
         const prog = applyXp(s.level, s.xp, reward.xp)
         set({
-          money: s.money - def.cost + reward.cash,
+          money: s.money + reward.cash,
           level: prog.level,
           xp: prog.xp,
+          mysteryBoxCredits: { ...credits, [tier]: credits[tier] - def.creditsRequired },
           mysteryBoxesOpened: s.mysteryBoxesOpened + 1,
           lastBoxReward: { ...reward, tier },
           toasts: withToast(s.toasts, `${reward.icon} ${def.name}: ${reward.label} +${formatMoney(reward.cash)}, +${reward.xp} XP`, reward.rarity === 'jackpot' ? 'legendary' : reward.rarity === 'rare' ? 'lucky' : 'gold'),
-          log: note(s.log, `Opened a ${def.name} (${formatMoney(def.cost)}): ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
+          log: note(s.log, `Opened an earned ${def.name}: ${reward.label} — ${formatMoney(reward.cash)} + ${reward.xp} XP.`),
         })
       },
 
