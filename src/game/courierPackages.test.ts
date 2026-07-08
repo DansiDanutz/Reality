@@ -775,9 +775,9 @@ describe('courierPackages', () => {
       laborDoneMinutes: 60,
     }
     const pkg = courierPackageForLifePlan(20, {
-      id: 'work-business-shell',
+      id: 'work-business-foundation',
       title: 'Build Food Cart for 60m',
-      detail: 'Put a real hour into the business shell so it moves from plan to place.',
+      detail: 'Put a real hour into the business foundation so it moves from plan to place.',
       value: 'capital',
       minutes: 60,
       route: { kind: 'construction-action', projectId: project.id, action: 'work' },
@@ -902,7 +902,7 @@ describe('courierPackages', () => {
     })
   })
 
-  test('accepts permanent business shells for generated construction permit tasks', () => {
+  test('accepts permanent business foundations for generated construction permit tasks', () => {
     const project = createConstructionProjectFromRecipe(businessConstructionRecipe({
       id: 'foodcart',
       name: 'Food Cart',
@@ -964,7 +964,7 @@ describe('courierPackages', () => {
       laborDoneMinutes: 360,
     }
     const pkg = courierPackageForLifePlan(14, {
-      id: 'finish-business-shell',
+      id: 'finish-business-foundation',
       title: 'Open Food Cart',
       detail: 'Materials, permit, and labor are done. Make the business permanent on the map.',
       value: 'capital',
