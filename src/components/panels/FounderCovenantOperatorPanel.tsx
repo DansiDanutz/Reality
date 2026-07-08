@@ -17,6 +17,10 @@ import {
   founderCovenantOperatorQueueRefreshCursor,
   founderCovenantOperatorQueueRequest,
 } from './founderCovenantOperatorPanelState'
+import {
+  readOperatorQueueViewState,
+  writeOperatorQueueViewState,
+} from './founderCovenantOperatorPanelViewState'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import type {
   FounderCovenantOperatorQueueFilter,
@@ -79,8 +83,8 @@ export default function FounderCovenantOperatorPanel({
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
   const [reviewNote, setReviewNote] = useState('')
-  const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>('all')
-  const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>('priority')
+  const [queueFilter, setQueueFilter] = useState<FounderCovenantOperatorQueueFilter>(() => readOperatorQueueViewState().filter)
+  const [queueSort, setQueueSort] = useState<FounderCovenantOperatorQueueSort>(() => readOperatorQueueViewState().sort)
   const [limit, setLimit] = useState(10)
   const [pages, setPages] = useState(1)
   const [scanCursor, setScanCursor] = useState<string | null>(initialQueue?.cursor ?? null)
@@ -151,6 +155,10 @@ export default function FounderCovenantOperatorPanel({
       cancelled = true
     }
   }, [applyOperatorAuthResult, initialOperatorAuth, requestOperatorToken])
+
+  useEffect(() => {
+    writeOperatorQueueViewState({ filter: queueFilter, sort: queueSort })
+  }, [queueFilter, queueSort])
 
   const loadQueue = async (cursor: string | null = null) => {
     if (!operatorToken) {
