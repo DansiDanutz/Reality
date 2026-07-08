@@ -198,7 +198,7 @@ function firstBusinessItem() {
     .sort((a, b) => a.price - b.price)[0] ?? null
 }
 
-function firstBusinessShellProject(now = 0): { item: NonNullable<ReturnType<typeof firstBusinessItem>>; project: ConstructionProject } | null {
+function firstBusinessFoundationProject(now = 0): { item: NonNullable<ReturnType<typeof firstBusinessItem>>; project: ConstructionProject } | null {
   const item = firstBusinessItem()
   if (!item) return null
   return {
@@ -642,7 +642,7 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
       : { kind: 'panel', panel: 'business' }
     return task('plan-business-development', 'Plan the next business upgrade', 'Turn profit into layout, tools, and service quality before chasing a second business.', 'capital', route, 20)
   }
-  const foundationProject = firstBusinessShellProject()
+  const foundationProject = firstBusinessFoundationProject()
   if (!foundationProject) {
     return task('build-first-business', 'Build the first business', 'Use stable home life to start an earning building, not instant magic income.', 'capital', { kind: 'market', focus: 'business' }, 45)
   }
@@ -1140,7 +1140,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   const hasBusiness = snapshot.assets.some((asset) => asset.kind === 'business')
   const firstBusinessShell = hasHome && !hasBusiness && !activeProject
-    ? firstBusinessShellProject(snapshot.lifeDay)
+    ? firstBusinessFoundationProject(snapshot.lifeDay)
     : null
   return {
     lifeDay: snapshot.lifeDay,
