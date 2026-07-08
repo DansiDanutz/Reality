@@ -215,5 +215,6 @@ export function markNotified(log: NotificationLog, id: string, now: number): Not
 export const NOTIFICATION_REASONS = [
   'When your shift, sleep, or meal finishes',
   'Before midnight if your daily streak is at risk',
+  'Before midnight when daily challenges are almost complete',
   'When your citizen urgently needs food, water, or rest',
 ] as const

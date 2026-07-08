@@ -252,6 +252,7 @@ describe('markNotified + NOTIFICATION_REASONS', () => {
 
   test('NOTIFICATION_REASONS is non-empty and human-readable', () => {
     expect(NOTIFICATION_REASONS.length).toBeGreaterThan(0)
+    expect(NOTIFICATION_REASONS.some((reason) => /daily challenge/i.test(reason))).toBe(true)
     for (const r of NOTIFICATION_REASONS) {
       expect(typeof r).toBe('string')
       expect(r.length).toBeGreaterThan(10)
