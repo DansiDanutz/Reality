@@ -447,9 +447,9 @@ function isFounderCovenantApprovalRequest(value: unknown): value is FounderCoven
 
 function isFounderCovenantReviewSchedule(value: unknown): boolean {
   return isRecord(value) &&
-    (value.lastReviewAt === null || isFiniteNumber(value.lastReviewAt)) &&
-    isFiniteNumber(value.nextWeeklyReviewAt) &&
-    isFiniteNumber(value.nextMonthlyReviewAt) &&
+    (value.lastReviewAt === null || isNonNegativeFiniteNumber(value.lastReviewAt)) &&
+    isNonNegativeFiniteNumber(value.nextWeeklyReviewAt) &&
+    isNonNegativeFiniteNumber(value.nextMonthlyReviewAt) &&
     typeof value.weeklyReviewDue === 'boolean' &&
     typeof value.monthlyReviewDue === 'boolean' &&
     typeof value.overdue === 'boolean' &&
