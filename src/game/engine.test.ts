@@ -370,6 +370,7 @@ describe('the guide (adviceOf)', async () => {
   test('the ladder: money waiting, then job, then home, then business', () => {
     expect(adviceOf({ ...base, pendingIncome: 120 }).action).toBe('collect')
     expect(adviceOf({ ...base, jobId: null }).action).toBe('find-job')
+    expect(adviceOf({ ...base, jobId: 'barista', money: 200, hasHome: true, businesses: 0 }).action).toBe('study')
     expect(adviceOf({ ...base, hasHome: false, money: 60_000 }).action).toBe('buy-home')
     expect(adviceOf({ ...base, businesses: 0, money: 20_000 }).action).toBe('buy-business')
   })

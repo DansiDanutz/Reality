@@ -39,6 +39,15 @@ export default function MoodCard() {
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
 
+  const priorities = [
+    needs.hydration < 30 ? 'Drink' : null,
+    needs.hunger < 30 ? 'Eat' : null,
+    needs.energy < 28 ? 'Sleep' : null,
+    !jobId ? 'Get a job' : null,
+    level < 3 ? 'Study' : null,
+    assets.some((a) => a.kind === 'business') ? 'Collect / expand' : null,
+  ].filter((p): p is string => Boolean(p))
+
   const run = (action: AdviceAction) => {
     const s = useGame.getState()
     switch (action) {
@@ -53,6 +62,9 @@ export default function MoodCard() {
         break
       case 'find-job':
         s.setPanel('work')
+        break
+      case 'study':
+        s.openMarket('education')
         break
       case 'start-shift':
         if (s.jobId) s.startShift()
@@ -93,6 +105,13 @@ export default function MoodCard() {
         {illness ? (illness.kind === 'cold' ? '🤧 Fighting a cold' : '🤒 Down with the flu') : MOOD_LABEL[mood]}
       </p>
       <p className="mood-say" role="status">“{advice.text}”</p>
+      {priorities.length > 0 && (
+        <ul className="mood-priorities" aria-label="Today’s priorities">
+          {priorities.slice(0, 4).map((priority) => (
+            <li className="mood-priority" key={priority}>{priority}</li>
+          ))}
+        </ul>
+      )}
       {advice.cta && advice.action !== 'none' && (
         <button className="btn small primary" onClick={() => run(advice.action)}>
           {advice.cta}

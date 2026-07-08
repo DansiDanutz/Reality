@@ -762,6 +762,7 @@ export type AdviceAction =
   | 'sleep'
   | 'find-job'
   | 'start-shift'
+  | 'study'
   | 'leisure'
   | 'collect'
   | 'buy-home'
@@ -812,6 +813,8 @@ export function adviceOf(i: AdviceInput): Advice {
   // The ladder: job → home → business → more
   if (!i.jobId)
     return { text: "I need work — everything in this city starts with a paycheck.", action: 'find-job', cta: 'Find me a job' }
+  if (i.money >= 80 && i.money < CHEAPEST_BUSINESS && i.needs.fun >= 25 && i.needs.energy >= 25 && i.businesses === 0 && i.hasHome)
+    return { text: "School and certifications turn wages into leverage. Let's study while the bills are light.", action: 'study', cta: 'Study' }
   if (!i.hasHome && i.money >= CHEAPEST_HOME)
     return { text: "We can afford our own door now. A home makes every night count.", action: 'buy-home', cta: 'Buy a home' }
   if (i.businesses === 0 && i.money >= CHEAPEST_BUSINESS)
