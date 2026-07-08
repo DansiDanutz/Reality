@@ -165,6 +165,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   checklistText: string
   evidenceInputText: string
   evidenceNextText: string
+  recommendedNextText: string
   manualActionText: string
   approvalRequestText: string
   notificationDraftText: string
@@ -931,6 +932,7 @@ export function founderCovenantOperatorQueueReviewRows(
       checklistText: founderCovenantOperatorQueueChecklistText(item),
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       evidenceNextText: founderCovenantOperatorQueueEvidenceNextText(item),
+      recommendedNextText: founderCovenantOperatorQueueRecommendedNextText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
@@ -1239,6 +1241,28 @@ export function founderCovenantOperatorQueueEvidenceNextText(
   return remaining > 0
     ? `Next: ${first.label}, ${second.label} · ${remaining} more`
     : `Next: ${first.label}, ${second.label}`
+}
+
+export function founderCovenantOperatorQueueRecommendedNextText(
+  item: Pick<
+    RealityFounderCovenantReviewQueueItem,
+    'reviewReadiness' | 'pendingApprovalRequests' | 'overdue' | 'manualActions'
+  >,
+): string {
+  if (item.reviewReadiness.evidenceRequiredCount > 0) {
+    return 'Attach missing manual evidence'
+  }
+  if (item.pendingApprovalRequests.some((request) => request.blockers.length > 0)) {
+    return 'Review blocked approvals'
+  }
+  if (item.overdue) {
+    return 'Clear overdue review'
+  }
+  const suggested = item.manualActions.find((action) => action.recommended)
+  if (suggested) {
+    return founderCovenantManualActionKindLabel(suggested.kind)
+  }
+  return 'Monitor founder'
 }
 
 export function founderCovenantOperatorQueueManualActionText(

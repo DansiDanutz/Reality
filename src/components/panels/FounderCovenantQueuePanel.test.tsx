@@ -21,6 +21,7 @@ import {
   founderCovenantOperatorQueueEvidenceNextText,
   founderCovenantOperatorQueueManualActionText,
   founderCovenantOperatorQueueNotificationDraftText,
+  founderCovenantOperatorQueueRecommendedNextText,
   founderCovenantOperatorQueueReviewReadinessText,
   founderCovenantOperatorQueueSliceTotals,
   founderCovenantOperatorQueueStageText,
@@ -74,6 +75,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Checklist: Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Evidence next: Next: Population growth, External contribution · 1 more')
+    expect(html).toContain('Recommended next: Attach missing manual evidence')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
@@ -185,6 +187,9 @@ describe('FounderCovenantQueuePanel', () => {
     expect(founderCovenantOperatorQueueEvidenceNextText(manual)).toBe(
       'Next: Population growth, External contribution · 1 more',
     )
+    expect(founderCovenantOperatorQueueRecommendedNextText(manual)).toBe(
+      'Attach missing manual evidence',
+    )
     expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
       'Record review evidence-only, Send warning locked',
     )
@@ -196,6 +201,52 @@ describe('FounderCovenantQueuePanel', () => {
       ...manual,
       reviewInputs: [],
     })).toBe('No manual evidence queued.')
+    expect(founderCovenantOperatorQueueRecommendedNextText({
+      ...manual,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+      },
+    })).toBe('Review blocked approvals')
+    expect(founderCovenantOperatorQueueRecommendedNextText({
+      ...manual,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+      },
+      pendingApprovalRequests: [],
+    })).toBe('Clear overdue review')
+    expect(founderCovenantOperatorQueueRecommendedNextText({
+      ...manual,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+        overdue: false,
+      },
+      pendingApprovalRequests: [],
+      overdue: false,
+      manualActions: [{
+        ...manual.manualActions[0],
+        recommended: true,
+      }],
+    })).toBe('Record review')
+    expect(founderCovenantOperatorQueueRecommendedNextText({
+      ...manual,
+      reviewReadiness: {
+        ...manual.reviewReadiness,
+        evidenceRequiredCount: 0,
+        blockerCount: 0,
+        approvalRequestCount: 0,
+        overdue: false,
+      },
+      pendingApprovalRequests: [],
+      overdue: false,
+      manualActions: [],
+    })).toBe('Monitor founder')
     expect(founderCovenantOperatorQueueWorkloadSummary({
       items: [manual],
     })).toBe('1 evidence queue · 3 gaps · 1 blocked · 1 approvals · 1 overdue')
