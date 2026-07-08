@@ -30,7 +30,9 @@ import {
   founderCovenantOperatorQueueRequest,
 } from './founderCovenantOperatorPanelState'
 import {
+  type CopiedQueueViewState,
   copiedAtText,
+  queueCopiedStatusSummary,
   queueHandoffText,
   queuePresetLabel,
   queuePresetChipTone,
@@ -76,6 +78,7 @@ export type FounderCovenantOperatorAuthState =
 
 export interface FounderCovenantOperatorPanelProps {
   initialOperatorAuth?: FounderCovenantOperatorAuthState
+  initialCopiedQueueView?: CopiedQueueViewState | null
   initialError?: string
   initialQueue?: RealityFounderCovenantReviewQueueDashboard
   readQueue?: ReadOperatorQueue
@@ -85,6 +88,7 @@ export interface FounderCovenantOperatorPanelProps {
 
 export default function FounderCovenantOperatorPanel({
   initialOperatorAuth,
+  initialCopiedQueueView = null,
   initialError,
   initialQueue,
   readQueue = readRealityFounderCovenantOperatorQueue,
@@ -99,6 +103,7 @@ export default function FounderCovenantOperatorPanel({
   const initialQueueView = useRef(readOperatorQueueViewState())
   const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(null)
   const [lastCopiedText, setLastCopiedText] = useState<string | null>(null)
+  const [lastCopiedQueueView, setLastCopiedQueueView] = useState<CopiedQueueViewState | null>(initialCopiedQueueView)
   const [operatorReviewMessage, setOperatorReviewMessage] = useState<string | null>(null)
   const [recordingReviewKey, setRecordingReviewKey] = useState<string | null>(null)
   const [reviewEvidenceKinds, setReviewEvidenceKinds] = useState<RealityAreaCovenantManualEvidenceKind[]>([])
@@ -311,6 +316,14 @@ export default function FounderCovenantOperatorPanel({
     }
     try {
       await clipboard.writeText(handoff)
+      setLastCopiedQueueView({
+        filter: queueFilter,
+        sort: queueSort,
+        scanCursor,
+        nextCursor: queue?.nextCursor ?? null,
+        workloadSummary,
+        recommendedAction,
+      })
       setLastCopiedAt(new Date().toISOString())
       setLastCopiedText(handoff)
       setOperatorReviewMessage(`Queue view copied: ${handoff}`)
@@ -795,6 +808,7 @@ export default function FounderCovenantOperatorPanel({
               onClick={() => {
                 setLastCopiedAt(null)
                 setLastCopiedText(null)
+                setLastCopiedQueueView(null)
               }}
               type="button"
             >
@@ -828,7 +842,13 @@ export default function FounderCovenantOperatorPanel({
               {queue.nextCursor ? 'More founders available' : 'End of current queue'}
             </span>
             <span className="item-desc">Copy status: {lastCopiedAt ? copiedAtText(lastCopiedAt) : 'not copied yet'}</span>
-            {lastCopiedText && <span className="item-desc">Last copied: {lastCopiedText}</span>}
+            {lastCopiedQueueView
+              ? queueCopiedStatusSummary(lastCopiedQueueView).map((summary) => (
+                  <span className="item-desc" key={summary}>
+                    {summary}
+                  </span>
+                ))
+              : lastCopiedText && <span className="item-desc">Last copied: {lastCopiedText}</span>}
             <span className="item-desc">View: {queueViewLabel(queueFilter)} / {queueSortLabel(queueSort)} / {scanCursor ?? 'start'}</span>
             <span className="item-desc">{queueResumeText(scanCursor, queue.nextCursor)}</span>
           </div>

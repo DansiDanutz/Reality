@@ -5,6 +5,15 @@ import type {
 
 export type OperatorQueueChipTone = 'stable' | 'warning' | 'critical'
 
+export interface CopiedQueueViewState {
+  filter: FounderCovenantOperatorQueueFilter
+  sort: FounderCovenantOperatorQueueSort
+  scanCursor: string | null
+  nextCursor: string | null
+  workloadSummary?: string | null
+  recommendedAction?: string | null
+}
+
 export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): string {
   switch (filter) {
     case 'all':
@@ -108,6 +117,27 @@ export function queueHandoffText({
     workloadSummary,
     recommendedAction,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join(' · ')
+}
+
+export function queueCopiedStatusSummary({
+  filter,
+  sort,
+  scanCursor,
+  nextCursor,
+  workloadSummary,
+  recommendedAction,
+}: CopiedQueueViewState): string[] {
+  const copiedView = queuePresetLabel(filter, sort) ?? `${queueViewLabel(filter)} / ${queueSortLabel(sort)}`
+  const copiedCursor = nextCursor
+    ? `${scanCursor ?? 'start'} -> ${nextCursor}`
+    : `${scanCursor ?? 'start'} -> end`
+
+  return [
+    `Copied view: ${copiedView}`,
+    `Copied cursor: ${copiedCursor}`,
+    workloadSummary ? `Copied workload: ${workloadSummary}` : null,
+    recommendedAction ? `Copied next: ${recommendedAction}` : null,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0)
 }
 
 export function copiedAtText(value: string): string {

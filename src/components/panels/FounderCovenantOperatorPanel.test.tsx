@@ -5,6 +5,7 @@ import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import {
   queueHandoffText,
   queueActionPresetLabel,
+  queueCopiedStatusSummary,
   queueContextText,
   queueCoveragePresetLabel,
   queuePresetLabel,
@@ -136,6 +137,28 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).not.toContain('roqt1.')
   })
 
+  test('renders compact copied queue status cues when a copied snapshot is available', () => {
+    const html = renderToStaticMarkup(
+      <FounderCovenantOperatorPanel
+        initialCopiedQueueView={{
+          filter: 'action_record',
+          sort: 'action',
+          scanCursor: 'cursor-5',
+          nextCursor: 'cursor-6',
+          workloadSummary: '0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue',
+          recommendedAction: 'Recommended next: monitor current founders',
+        }}
+        initialQueue={operatorQueue()}
+      />,
+    )
+
+    expect(html).toContain('Copied view: Action Record')
+    expect(html).toContain('Copied cursor: cursor-5 -&gt; cursor-6')
+    expect(html).toContain('Copied workload: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue')
+    expect(html).toContain('Copied next: Recommended next: monitor current founders')
+    expect(html).not.toContain('Last copied:')
+  })
+
   test('keeps manual operator token fallback visible when Telegram auth is unavailable', () => {
     const html = renderToStaticMarkup(
       <FounderCovenantOperatorPanel
@@ -216,6 +239,19 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(queueContextText('action_record', 'action', 'cursor-5')).toBe(
       'View: Next record / Action / cursor-5 · Preset: Action Record · filter next record · sort action',
     )
+    expect(queueCopiedStatusSummary({
+      filter: 'action_record',
+      sort: 'action',
+      scanCursor: 'cursor-5',
+      nextCursor: 'cursor-6',
+      workloadSummary: '0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue',
+      recommendedAction: 'Recommended next: monitor current founders',
+    })).toEqual([
+      'Copied view: Action Record',
+      'Copied cursor: cursor-5 -> cursor-6',
+      'Copied workload: 0 evidence queue · 0 gaps · 0 blocked · 0 approvals · 0 overdue',
+      'Copied next: Recommended next: monitor current founders',
+    ])
     expect(queueHandoffText({
       filter: 'action_record',
       sort: 'action',
