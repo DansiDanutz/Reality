@@ -427,6 +427,24 @@ export default function FounderCovenantOperatorPanel({
               Founder #
             </button>
           </div>
+          <div className="founder-ledger-summary" aria-label="Founder operator queue view summary">
+            <span className="founder-ledger-chip stable">
+              <span>View</span>
+              <strong>{queueViewLabel(queueFilter)}</strong>
+            </span>
+            <span className="founder-ledger-chip stable">
+              <span>Sort</span>
+              <strong>{queueSortLabel(queueSort)}</strong>
+            </span>
+            <span className="founder-ledger-chip warning">
+              <span>Cursor</span>
+              <strong>{scanCursor ?? 'start'}</strong>
+            </span>
+            <span className={`founder-ledger-chip ${queue.nextCursor ? 'warning' : 'stable'}`}>
+              <span>Resume</span>
+              <strong>{queue.nextCursor ? 'more' : 'end'}</strong>
+            </span>
+          </div>
           <FounderCovenantQueuePanel
             canRecordReview={operatorToken.length > 0 && !loading && !recordingReviewKey}
             filter={queueFilter}
