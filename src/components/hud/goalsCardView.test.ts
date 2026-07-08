@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { createBusinessDevelopmentProject } from '../../game/businessDevelopment'
-import { createConstructionProject } from '../../game/construction'
+import { createBusinessDevelopmentProject, depositBusinessDevelopmentResources, payBusinessDevelopmentBudget } from '../../game/businessDevelopment'
+import { createConstructionProject, STARTER_HOUSE_RECIPE } from '../../game/construction'
 import {
   businessDevelopmentDayForecast,
   constructionDayForecast,
@@ -144,6 +144,18 @@ describe('buildEtaSummary', () => {
     expect(forecast.activeWorkerLaborMinutesRemaining).toBe(60)
     expect(buildEtaSummary(forecast)).toContain('finish day 5')
   })
+
+  test('shows community helper credit in the compact build ETA', () => {
+    const project = {
+      ...createConstructionProject('starter-house', 45, 21, 1),
+      deposited: freshResources(STARTER_HOUSE_RECIPE.required),
+      permitFeePaid: true,
+      laborDoneMinutes: 120,
+    }
+    const forecast = constructionDayForecast(project, freshResources(), 124, undefined, undefined, 1, 30)
+
+    expect(buildEtaSummary(forecast)).toContain('community -$8')
+  })
 })
 
 describe('interiorEtaSummary', () => {
@@ -161,6 +173,16 @@ describe('interiorEtaSummary', () => {
     expect(interiorEtaSummary(forecast)).toContain('Interior ETA:')
     expect(interiorEtaSummary(forecast)).toContain('d solo')
     expect(interiorEtaSummary(forecast)).toContain('with helper')
+  })
+
+  test('shows community helper credit in the compact interior ETA', () => {
+    const project = createBusinessDevelopmentProject(business(), 1)
+    if (!project) throw new Error('business development fixture failed')
+    const deposited = depositBusinessDevelopmentResources(project, freshResources(project.required)).project
+    const paid = payBusinessDevelopmentBudget(deposited, project.budgetCost).project
+    const forecast = businessDevelopmentDayForecast(paid, freshResources(), 124, undefined, 1, 30)
+
+    expect(interiorEtaSummary(forecast)).toContain('community -$8')
   })
 })
 
