@@ -48,6 +48,8 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('<span>Never</span><strong>2</strong>')
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
     expect(html).toContain('<span>Stale</span><strong>0</strong>')
+    expect(html).toContain('<span>Stale week</span><strong>0</strong>')
+    expect(html).toContain('<span>Stale month</span><strong>0</strong>')
     expect(html).toContain('<span>Weekly</span><strong>0</strong>')
     expect(html).toContain('<span>Monthly</span><strong>0</strong>')
     expect(html).toContain('aria-label="Founder operator queue coverage"')

@@ -52,6 +52,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('<span>Never</span><strong>1</strong>')
     expect(html).toContain('<span>Fresh</span><strong>0</strong>')
     expect(html).toContain('<span>Stale</span><strong>0</strong>')
+    expect(html).toContain('<span>Stale week</span><strong>0</strong>')
+    expect(html).toContain('<span>Stale month</span><strong>0</strong>')
     expect(html).toContain('aria-label="Founder operator queue view summary"')
     expect(html).toContain('class="founder-ledger-chip stable"><span>View</span><strong>All</strong>')
     expect(html).toContain('class="founder-ledger-chip stable"><span>Sort</span><strong>Priority</strong>')
