@@ -1171,6 +1171,7 @@ describe('planLifeDay', () => {
     }))
 
     expect(plan.primary.id).toBe('hire-house-worker-hour')
+    expect(plan.primary.detail).toContain('Community backing covers 30m ($8).')
     expect(plan.primary.route).toEqual({ kind: 'construction-action', projectId: project.id, action: 'hire-helper', hours: 2 })
   })
 })
@@ -1344,5 +1345,26 @@ describe('businessDevelopmentDayForecast', () => {
     expect(withCredit.helperTwoHourCost).toBe(24)
     expect(withCredit.helperTwoHourAffordableToday).toBe(true)
     expect(withCredit.helperTwoHourCashNeeded).toBe(0)
+  })
+
+  test('shows community backing in the business helper plan copy', () => {
+    const project = businessProject({
+      deposited: freshResources({ wood: 20, stone: 10, metal: 20, glass: 10 }),
+      budgetPaid: true,
+    })
+
+    const plan = planLifeDay(snap({
+      money: 124,
+      jobId: 'barista',
+      shiftsWorked: 2,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }, { kind: 'business', incomePerDay: 240 }],
+      businessDevelopmentProjects: [project],
+      communityRespect: 3,
+    }))
+
+    expect(plan.primary.id).toBe('hire-business-worker-hour')
+    expect(plan.primary.detail).toContain('Community backing covers 30m ($8).')
+    expect(plan.primary.route).toEqual({ kind: 'business-development-action', projectId: project.id, action: 'hire-helper', hours: 2 })
   })
 })

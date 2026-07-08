@@ -326,10 +326,15 @@ function workerHireDetail(input: {
   hours: number
   laborMinutes: number
   remainingMinutes: number
+  communityCreditMinutes?: number
+  communityCreditValue?: number
   place: 'site' | 'interior'
 }): string {
   const placeText = input.place === 'interior' ? 'inside' : 'on site'
-  return `Workers Hall help costs ${moneyText(input.cost)} total for ${input.hours}h (${moneyText(input.ratePerHour)}/hour) and adds ${minutesText(input.laborMinutes)} ${placeText} against ${minutesText(input.remainingMinutes)} remaining.`
+  const creditText = input.communityCreditMinutes && input.communityCreditValue
+    ? ` Community backing covers ${minutesText(input.communityCreditMinutes)} (${moneyText(input.communityCreditValue)}).`
+    : ''
+  return `Workers Hall help costs ${moneyText(input.cost)} total for ${input.hours}h (${moneyText(input.ratePerHour)}/hour) and adds ${minutesText(input.laborMinutes)} ${placeText} against ${minutesText(input.remainingMinutes)} remaining.${creditText}`
 }
 
 function activeWorkerLaborRemaining(
@@ -474,6 +479,8 @@ function constructionPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null 
           hours: helperEstimate.hours,
           laborMinutes: helperEstimate.laborMinutes,
           remainingMinutes: labor.remainingMinutes,
+          communityCreditMinutes: helperEstimate.communityCreditMinutes,
+          communityCreditValue: helperEstimate.communityCreditValue,
           place: 'site',
         }),
         'capital',
@@ -611,6 +618,8 @@ function businessPrimary(snapshot: LifeLadderSnapshot): LifePlanTask | null {
             hours: helperEstimate.hours,
             laborMinutes: helperEstimate.laborMinutes,
             remainingMinutes: labor.remainingMinutes,
+            communityCreditMinutes: helperEstimate.communityCreditMinutes,
+            communityCreditValue: helperEstimate.communityCreditValue,
             place: 'interior',
           }),
           'capital',

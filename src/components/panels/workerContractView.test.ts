@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { activeWorkerContractViews, activeWorkerSummaryText, selectedWorkerHours, workerHourChoices } from './workerContractView'
+import { activeWorkerContractViews, activeWorkerSummaryText, selectedWorkerHours, workerCommunityCreditText, workerHourChoices } from './workerContractView'
 
 describe('worker contract view helpers', () => {
   test('offers hour choices up to the worker daily cap', () => {
@@ -11,6 +11,12 @@ describe('worker contract view helpers', () => {
   test('falls back to one hour when saved selection is not valid for that worker', () => {
     expect(selectedWorkerHours({ helper: 6 }, 'helper', 4)).toBe(1)
     expect(selectedWorkerHours({ helper: 2 }, 'helper', 4)).toBe(2)
+  })
+
+  test('formats community helper credits with the practical value', () => {
+    expect(workerCommunityCreditText(30, 8)).toBe('30m community help ($8)')
+    expect(workerCommunityCreditText(0, 8)).toBe('')
+    expect(workerCommunityCreditText(30, 0)).toBe('')
   })
 
   test('summarizes active worker contracts with Workers Hall source, cost, and ETA', () => {

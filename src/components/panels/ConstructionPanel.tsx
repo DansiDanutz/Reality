@@ -14,7 +14,7 @@ import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
 import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
-import { selectedWorkerHours, workerHourChoices } from './workerContractView'
+import { selectedWorkerHours, workerCommunityCreditText, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
   if (target <= 0) return 100
@@ -228,6 +228,7 @@ export default function ConstructionPanel() {
                           : null
                 const cost = estimate?.cost ?? worker.ratePerHour * hours
                 const laborMinutes = estimate?.laborMinutes ?? Math.round(hours * 60 * worker.laborMultiplier)
+                const communityCreditText = workerCommunityCreditText(estimate?.communityCreditMinutes, estimate?.communityCreditValue)
                 return (
                   <article className="worker-card" key={worker.id}>
                     <div className="worker-card-head">
@@ -250,7 +251,7 @@ export default function ConstructionPanel() {
                     </div>
                     <span className="item-desc mono">
                       {hours}h contract = {formatMinutes(laborMinutes)} labor · {formatMoney(cost)} total
-                      {(estimate?.communityCreditMinutes ?? 0) > 0 ? ` · ${estimate?.communityCreditMinutes}m community help` : ''}
+                      {communityCreditText ? ` · ${communityCreditText}` : ''}
                     </span>
                     <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, hours)}>
                       {blocker ?? `Hire ${hours}h · ${formatMoney(cost)}`}
