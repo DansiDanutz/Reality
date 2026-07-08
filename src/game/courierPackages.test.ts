@@ -439,6 +439,33 @@ describe('courierPackages', () => {
       businessDevelopmentProjects: [paid],
       hasHome: true,
     })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-budget-complete', businessId: project.businessId, level: project.levelTo } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [project],
+      assets: [business()],
+      hasHome: true,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-budget-complete', businessId: project.businessId, level: project.levelTo } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [paid],
+      assets: [business()],
+      hasHome: true,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-budget-complete', businessId: project.businessId, level: project.levelTo } }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [],
+      assets: [upgradedBusiness],
+      hasHome: true,
+    })).toBe(true)
     expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement: { kind: 'business-development-labor', minutes: 60 } }, {
       timesEaten: 0,
       sawStreetMode: false,
@@ -604,6 +631,36 @@ describe('courierPackages', () => {
     })
   })
 
+  test('wraps generated business budget tasks with permanent upgrade requirements', () => {
+    const project = createBusinessDevelopmentProject(business(), 1_000)!
+    const pkg = courierPackageForLifePlan(19, {
+      id: 'pay-business-budget',
+      title: 'Fund Food Cart L2',
+      detail: 'Put the upgrade budget into the interior plan before workers finish the space.',
+      value: 'capital',
+      minutes: 10,
+      route: { kind: 'business-development-action', projectId: project.id, action: 'budget' },
+    }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      businessDevelopmentProjects: [project],
+      assets: [business()],
+      hasHome: true,
+    })
+
+    expect(pkg).toMatchObject({
+      day: 19,
+      title: 'Fund Food Cart L2',
+      requirement: {
+        kind: 'business-development-budget-complete',
+        businessId: project.businessId,
+        level: project.levelTo,
+      },
+    })
+  })
+
   test('wraps generated worker hire tasks with hire requirements instead of labor progress', () => {
     const constructionProject = createConstructionProject('starter-house', 45, 21, 1)
     const businessProject = createBusinessDevelopmentProject(business(), 1_000)!
@@ -739,8 +796,65 @@ describe('courierPackages', () => {
     })).toBe(true)
     expect(permit).toMatchObject({
       day: 13,
-      requirement: { kind: 'construction-permit' },
+      requirement: {
+        kind: 'construction-permit-complete',
+        resultKind: project.resultKind,
+        itemId: project.itemId,
+        lat: project.lat,
+        lng: project.lng,
+      },
     })
+  })
+
+  test('accepts permanent business shells for generated construction permit tasks', () => {
+    const project = createConstructionProjectFromRecipe(businessConstructionRecipe({
+      id: 'foodcart',
+      name: 'Food Cart',
+      price: 1_000,
+      incomePerDay: 200,
+    }), 45, 21, 1)
+    const requirement = {
+      kind: 'construction-permit-complete' as const,
+      resultKind: project.resultKind,
+      itemId: project.itemId,
+      lat: project.lat,
+      lng: project.lng,
+    }
+
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [project],
+      assets: [],
+      hasHome: false,
+    })).toBe(false)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [{ ...project, permitFeePaid: true }],
+      assets: [],
+      hasHome: false,
+    })).toBe(true)
+    expect(courierRequirementMet({ ...courierPackageForDay(11)!, requirement }, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [],
+      assets: [{
+        id: 'foodcart-built',
+        itemId: project.itemId,
+        kind: project.resultKind,
+        name: project.name,
+        lat: project.lat,
+        lng: project.lng,
+        incomePerDay: project.incomePerDay,
+        pendingIncome: 0,
+        placedAtMinute: 0,
+      }],
+      hasHome: false,
+    })).toBe(true)
   })
 
   test('wraps generated construction completion tasks with permanent asset requirements', () => {
