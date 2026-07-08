@@ -480,6 +480,26 @@ describe('territorial progression (reachOf)', async () => {
   })
 })
 
+describe('dailyStepsOf', async () => {
+  const { dailyStepsOf } = await import('./engine')
+
+  test('the build step names hiring once a Workers Hall exists', () => {
+    const steps = dailyStepsOf({
+      needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 },
+      health: 100,
+      money: 25_000,
+      jobId: 'barista',
+      respect: 10,
+      activity: null,
+      hasHome: true,
+      businesses: 1,
+      workersHall: true,
+      pendingIncome: 0,
+    })
+    expect(steps.find((step) => step.phase === 'build')?.label).toBe('Build: hire a worker and improve the business')
+  })
+})
+
 describe('mood & tiers', async () => {
   const { moodOf, tierOf } = await import('./engine')
   const fine = { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 }

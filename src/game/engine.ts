@@ -884,7 +884,14 @@ export function dailyStepsOf(i: AdviceInput): DailyStep[] {
   }
 
   if (hasBusiness || hasHome) {
-    steps.push({ phase: 'build', label: hasBusiness ? 'Build: staff and improve the business' : 'Build: make the home feel real' })
+    steps.push({
+      phase: 'build',
+      label: hasBusiness
+        ? i.workersHall
+          ? 'Build: hire a worker and improve the business'
+          : 'Build: staff and improve the business'
+        : 'Build: make the home feel real',
+    })
   }
 
   return steps
