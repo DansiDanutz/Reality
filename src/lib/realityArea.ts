@@ -945,6 +945,8 @@ export interface RealityFounderCovenantReviewQueueDashboard {
     recordReadyFounders: number
     recordReadyWeekly: number
     recordReadyMonthly: number
+    monitorFounders: number
+    freshReviewedActiveFounders: number
     probationRiskFounders: number
     replacementRiskFounders: number
     neverReviewed: number
@@ -2315,6 +2317,8 @@ function isRealityFounderCovenantReviewQueueTotals(
     typeof value.recordReadyFounders === 'number' &&
     typeof value.recordReadyWeekly === 'number' &&
     typeof value.recordReadyMonthly === 'number' &&
+    typeof value.monitorFounders === 'number' &&
+    typeof value.freshReviewedActiveFounders === 'number' &&
     typeof value.probationRiskFounders === 'number' &&
     typeof value.replacementRiskFounders === 'number' &&
     typeof value.neverReviewed === 'number' &&

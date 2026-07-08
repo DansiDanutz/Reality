@@ -1379,14 +1379,14 @@ export default function FounderCovenantOperatorPanel({
             </span>
             <span
               className={`founder-ledger-chip ${
-                queue.items.some((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor current founders')
+                queue.totals.monitorFounders > 0
                   ? 'stable'
                   : 'warning'
               }`}
               title={founderCovenantOperatorQueueMonitorSummary(queue)}
             >
               <span>Monitor</span>
-              <strong>{queue.items.filter((item) => founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor current founders').length}</strong>
+              <strong>{queue.totals.monitorFounders}</strong>
             </span>
             <span
               className={`founder-ledger-chip ${

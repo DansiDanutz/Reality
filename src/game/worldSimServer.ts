@@ -328,6 +328,8 @@ export interface WorldFounderCovenantReviewQueueDashboard {
     recordReadyFounders: number
     recordReadyWeekly: number
     recordReadyMonthly: number
+    monitorFounders: number
+    freshReviewedActiveFounders: number
     probationRiskFounders: number
     replacementRiskFounders: number
     neverReviewed: number
@@ -880,6 +882,7 @@ function founderCovenantReviewQueueTotals(
   items: WorldFounderCovenantReviewQueueItem[],
 ): WorldFounderCovenantReviewQueueDashboard['totals'] {
   const recordReadyItems = items.filter((item) => item.reviewReadiness.status === 'ready')
+  const monitorItems = items.filter((item) => item.reviewReadiness.status === 'monitoring')
   return {
     founders: items.length,
     active: items.filter((item) => item.activityReview.active).length,
@@ -899,6 +902,8 @@ function founderCovenantReviewQueueTotals(
     recordReadyFounders: recordReadyItems.length,
     recordReadyWeekly: recordReadyItems.filter((item) => item.weeklyReviewDue).length,
     recordReadyMonthly: recordReadyItems.filter((item) => item.monthlyReviewDue).length,
+    monitorFounders: monitorItems.length,
+    freshReviewedActiveFounders: items.filter((item) => item.reviewFreshness === 'fresh' && item.activityReview.active).length,
     probationRiskFounders: items.filter((item) =>
       item.manualReviewRequired || item.covenantStatus === 'manual_review' || item.activityReview.score < 60
     ).length,

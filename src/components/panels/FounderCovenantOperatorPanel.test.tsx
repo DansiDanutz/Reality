@@ -128,8 +128,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('class="founder-ledger-chip warning" title="Evidence: 1 founder queued · 3 gaps · 0 record ready"><span>Evidence</span><strong>3</strong>')
     expect(html).toContain('title="Record ready: 0 founders · 0 weekly · 0 monthly"')
     expect(html).toContain('class="founder-ledger-chip warning" title="Record ready: 0 founders · 0 weekly · 0 monthly"><span>Record ready</span><strong>0</strong>')
-    expect(html).toContain('title="Monitor: 0 founders · 0 fresh · 0 active"')
-    expect(html).toContain('class="founder-ledger-chip warning" title="Monitor: 0 founders · 0 fresh · 0 active"><span>Monitor</span><strong>0</strong>')
+    expect(html).toContain('title="Monitor: 0 founders · 0 fresh active"')
+    expect(html).toContain('class="founder-ledger-chip warning" title="Monitor: 0 founders · 0 fresh active"><span>Monitor</span><strong>0</strong>')
     expect(html).toContain('title="Overdue cleanup: 0 founders · 1 overdue · 0 stale"')
     expect(html).toContain('class="founder-ledger-chip stable" title="Overdue cleanup: 0 founders · 1 overdue · 0 stale"><span>Overdue cleanup</span><strong>0</strong>')
     expect(html).toContain('title="Blockers: 3 total · 1 overdue · 1 hospitalized · 1 indebted"')
@@ -389,8 +389,8 @@ describe('FounderCovenantOperatorPanel', () => {
       items: operatorQueue().items,
     })).toBe('Overdue cleanup: 0 founders · 1 overdue · 0 stale')
     expect(founderCovenantOperatorQueueMonitorSummary({
-      items: operatorQueue().items,
-    })).toBe('Monitor: 0 founders · 0 fresh · 0 active')
+      totals: operatorQueue().totals,
+    })).toBe('Monitor: 0 founders · 0 fresh active')
     expect(founderCovenantOperatorQueueSignalSummary({
       totals: operatorQueue().totals,
     })).toBe('Signals: 1 critical · 1 warning · 1 founder flagged')
@@ -711,6 +711,8 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       recordReadyFounders: 0,
       recordReadyWeekly: 0,
       recordReadyMonthly: 0,
+      monitorFounders: 0,
+      freshReviewedActiveFounders: 0,
       probationRiskFounders: 1,
       replacementRiskFounders: 1,
       neverReviewed: 1,

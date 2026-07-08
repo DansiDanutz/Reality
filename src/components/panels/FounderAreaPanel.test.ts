@@ -587,6 +587,8 @@ describe('FounderAreaPanel covenant presenters', () => {
         recordReadyFounders: 0,
         recordReadyWeekly: 0,
         recordReadyMonthly: 0,
+        monitorFounders: 0,
+        freshReviewedActiveFounders: 1,
         probationRiskFounders: 2,
         replacementRiskFounders: 1,
         neverReviewed: 1,

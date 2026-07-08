@@ -1719,6 +1719,8 @@ function founderQueue(): RealityFounderCovenantReviewQueueDashboard {
       recordReadyFounders: 0,
       recordReadyWeekly: 0,
       recordReadyMonthly: 0,
+      monitorFounders: 0,
+      freshReviewedActiveFounders: 0,
       probationRiskFounders: 1,
       replacementRiskFounders: 1,
       neverReviewed: 1,

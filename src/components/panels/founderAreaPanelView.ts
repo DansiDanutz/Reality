@@ -875,14 +875,10 @@ export function founderCovenantOperatorQueueOverdueCleanupSummary(
 }
 
 export function founderCovenantOperatorQueueMonitorSummary(
-  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'items'>,
+  queue: Pick<RealityFounderCovenantReviewQueueDashboard, 'totals'>,
 ): string {
-  const monitorFounders = queue.items.filter((item) =>
-    founderCovenantOperatorQueueRecommendedNextText(item) === 'Monitor current founders'
-  ).length
-  const freshFounders = queue.items.filter((item) => item.reviewFreshness === 'fresh').length
-  const activeFounders = queue.items.filter((item) => item.activityReview.active).length
-  return `Monitor: ${monitorFounders} founder${monitorFounders === 1 ? '' : 's'} · ${freshFounders} fresh · ${activeFounders} active`
+  const { totals } = queue
+  return `Monitor: ${totals.monitorFounders} founder${totals.monitorFounders === 1 ? '' : 's'} · ${totals.freshReviewedActiveFounders} fresh active`
 }
 
 export function founderCovenantOperatorQueueSignalSummary(
