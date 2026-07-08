@@ -1054,6 +1054,8 @@ export async function claimRealityFounderArea(
 ): Promise<RealityAreaClaimResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
+  const label = profile.areaLabel.trim()
+  const source = sanitizeClaimSource(profile.claimSource)
 
   try {
     const response = await fetchImpl('/api/reality-area', {
@@ -1064,11 +1066,11 @@ export async function claimRealityFounderArea(
         token: citizen.token,
         intent: {
           type: 'claimArea',
-          label: profile.areaLabel,
+          label,
           centerLat: profile.centerLat,
           centerLng: profile.centerLng,
           radiusKm: profile.radiusKm,
-          source: profile.claimSource,
+          source,
         },
       }),
     })
@@ -1267,6 +1269,12 @@ export function isRealityAreaServerPayload(payload: WorldClientIntentPayload): p
     payload.type === 'hireWorker' ||
     payload.type === 'repayDebt' ||
     payload.type === 'buyInsurance'
+}
+
+function sanitizeClaimSource(value: RealityAreaClaimSource): RealityAreaClaimSource {
+  return value === 'manual' || value === 'ip' || value === 'geolocation' || value === 'telegram'
+    ? value
+    : 'manual'
 }
 
 export function founderAreaProfileWithServerClaim(
