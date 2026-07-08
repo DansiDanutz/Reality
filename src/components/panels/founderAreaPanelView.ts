@@ -1705,6 +1705,12 @@ function founderCovenantOperatorQueueReviewModeText(
   return 'open'
 }
 
+function founderCovenantOperatorQueueLinkedReviewLabel(reviewId?: string | null): string | null {
+  if (!reviewId) return null
+  const reviewKey = reviewId.split(':').slice(-1)[0] ?? reviewId
+  return `review ${reviewKey}`
+}
+
 function founderCovenantOperatorQueueMatchesFilter(
   item: RealityFounderCovenantReviewQueueDashboard['items'][number],
   filter: FounderCovenantOperatorQueueFilter,
@@ -2021,7 +2027,9 @@ export function founderCovenantOperatorQueueApprovalRequestText(
       const blockerText = request.blockers.length === 0
         ? 'no blockers'
         : `${request.blockers.length} blocker${request.blockers.length === 1 ? '' : 's'}`
-      return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
+      const reviewRef = founderCovenantOperatorQueueLinkedReviewLabel(request.reviewId)
+      const detailText = reviewRef ? `${blockerText} · ${reviewRef}` : blockerText
+      return `${founderCovenantManualActionKindLabel(request.kind)} locked (${detailText})`
     })
     .join(', ')
 }
@@ -2031,7 +2039,12 @@ export function founderCovenantOperatorQueueNotificationDraftText(
 ): string {
   if (item.pendingNotificationDrafts.length === 0) return 'none'
   return item.pendingNotificationDrafts
-    .map((draft) => `${founderCovenantNotificationKindLabel(draft.kind)} locked (${founderCovenantNotificationChannelLabel(draft.channel)})`)
+    .map((draft) => {
+      const channelText = founderCovenantNotificationChannelLabel(draft.channel)
+      const reviewRef = founderCovenantOperatorQueueLinkedReviewLabel(draft.reviewId)
+      const detailText = reviewRef ? `${channelText} · ${reviewRef}` : channelText
+      return `${founderCovenantNotificationKindLabel(draft.kind)} locked (${detailText})`
+    })
     .join(', ')
 }
 

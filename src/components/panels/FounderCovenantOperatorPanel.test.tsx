@@ -98,8 +98,8 @@ describe('FounderCovenantOperatorPanel', () => {
     expect(html).toContain('Readiness: Blocked: 3 approval blockers before enforcement. · evidence 3, approvals 1, blockers 3, overdue')
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
-    expect(html).toContain('Approvals: Send warning locked (2 blockers)')
-    expect(html).toContain('Drafts: Manual review locked (Telegram)')
+    expect(html).toContain('Approvals: Send warning locked (2 blockers · review 42424242)')
+    expect(html).toContain('Drafts: Manual review locked (Telegram · review 42424242)')
     expect(html).toContain('class="founder-ledger-chip warning"><span>Telegram</span><strong>Telegram manual + warning</strong></span>')
     expect(html).toContain('Priority: manual review, never reviewed, overdue, hospitalized, at risk')
     expect(html).toContain('Filter: All')
@@ -1101,6 +1101,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingApprovalRequests: [{
         id: 'founder-area-0012:1783310400000:covenant-approval:send_warning:founder-12',
         at: '2026-07-06T04:00:00.000Z',
+        reviewId: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
         kind: 'send_warning',
         label: 'Send warning',
         reason: 'Founder covenant signals suggest a warning.',
@@ -1124,6 +1125,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       pendingNotificationDrafts: [{
         id: 'founder-area-0012:1783310400000:covenant-notification:manual_review_required:founder-12',
         at: '2026-07-06T04:00:00.000Z',
+        reviewId: 'founder-area-0012:1783306800000:founder-review:telegram-operator:42424242',
         kind: 'manual_review_required',
         channel: 'telegram',
         recipientCitizenId: 'founder-12',
