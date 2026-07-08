@@ -17,6 +17,7 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapPreviewSummary,
+  roadmapRouteLabel,
   roadmapValueLabel,
   routineShortLabel,
 } from './goalsCardView'
@@ -86,6 +87,14 @@ describe('roadmapValueLabel', () => {
   test('capitalizes the roadmap value label for display', () => {
     expect(roadmapValueLabel('school')).toBe('School')
     expect(roadmapValueLabel('work')).toBe('Work')
+  })
+})
+
+describe('roadmapRouteLabel', () => {
+  test('summarizes the route family for the next day preview', () => {
+    expect(roadmapRouteLabel({ kind: 'work-action', action: 'shift' })).toBe('Work')
+    expect(roadmapRouteLabel({ kind: 'education-action', courseId: 'course' })).toBe('School')
+    expect(roadmapRouteLabel({ kind: 'market', focus: 'business' })).toBe('Market')
   })
 })
 

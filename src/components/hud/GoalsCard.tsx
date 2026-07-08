@@ -14,6 +14,7 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapPreviewSummary,
+  roadmapRouteLabel,
   roadmapValueLabel,
   routineShortLabel,
 } from './goalsCardView'
@@ -234,6 +235,7 @@ export default function GoalsCard() {
               aria-label={roadmapPreviewSummary(day.dayLabel, day.primary.value, day.primary.title, day.primary.minutes)}
             >
               <span className="goals-card-agenda-index">{day.dayLabel}</span>
+              <span>{roadmapRouteLabel(day.primary.route)}</span>
               <span>{day.primary.title}</span>
               <span className="goals-card-agenda-time">{roadmapValueLabel(day.primary.value)}</span>
               <span className="goals-card-agenda-time">{formatPlanMinutes(day.primary.minutes)}</span>

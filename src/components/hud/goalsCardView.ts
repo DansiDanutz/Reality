@@ -24,6 +24,24 @@ export function roadmapValueLabel(value: string): string {
   return value[0].toUpperCase() + value.slice(1)
 }
 
+export function roadmapRouteLabel(route: LifePlanRoute): string {
+  if (route.kind === 'market') return 'Market'
+  if (route.kind === 'gather') return 'Gather'
+  if (route.kind === 'construction-action') return route.action === 'work' ? 'Build' : 'Build'
+  if (route.kind === 'business-development-action') return route.action === 'work' ? 'Biz' : 'Biz'
+  if (route.kind === 'work-action') return 'Work'
+  if (route.kind === 'community-action') return 'Community'
+  if (route.kind === 'education-action') return 'School'
+  if (route.kind === 'consume-action' || route.kind === 'cook-action') return 'Body'
+  if (route.kind === 'survival-action') return route.action === 'sleep' ? 'Sleep' : 'Body'
+  if (route.kind === 'panel') {
+    if (route.panel === 'business') return 'Biz'
+    if (route.panel === 'construction') return 'Build'
+    return 'Plan'
+  }
+  return 'Plan'
+}
+
 export function routineShortLabel(block: { id: string; value: string; route: LifePlanRoute }): string {
   if (block.id === 'sleep-block') return 'Sleep'
   if (block.id === 'body-block') return 'Body'
