@@ -40,6 +40,8 @@ import {
 import {
   type CopiedQueueViewState,
   copiedAtText,
+  formatDraftNotePreview,
+  formatReviewRecordSuccessMessage,
   queueFounderWarningTelegramText,
   queueCopiedStatusSummary,
   queueDigestText,
@@ -326,9 +328,11 @@ export default function FounderCovenantOperatorPanel({
         return
       }
 
+      const submittedEvidenceKinds = [...reviewEvidenceKinds]
+      const submittedNote = reviewNote
       setReviewNote('')
       setReviewEvidenceKinds([])
-      setOperatorReviewMessage(`Review evidence recorded for ${row.title}.`)
+      setOperatorReviewMessage(formatReviewRecordSuccessMessage(row.title, submittedEvidenceKinds, submittedNote))
       const refreshed = await readQueue(
         founderCovenantOperatorQueueRequest(
           operatorToken,
@@ -1340,12 +1344,6 @@ function clampNumber(value: string, min: number, max: number, fallback: number):
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
   return Math.min(max, Math.max(min, Math.trunc(parsed)))
-}
-
-function formatDraftNotePreview(value: string): string {
-  const trimmed = value.trim()
-  if (trimmed.length <= 48) return `note "${trimmed}"`
-  return `note "${trimmed.slice(0, 45)}..."`
 }
 
 function operatorAuthStatusLabel(state: FounderCovenantOperatorAuthState): string {

@@ -4,6 +4,7 @@ import type { RealityFounderCovenantReviewQueueDashboard } from '../../lib/reali
 import FounderCovenantOperatorPanel from './FounderCovenantOperatorPanel'
 import { withRecordReadyCadenceFounder } from './founderCovenantTestHelpers'
 import {
+  formatReviewRecordSuccessMessage,
   queueFounderWarningTelegramText,
   queueDigestText,
   queueHandoffText,
@@ -269,6 +270,20 @@ describe('FounderCovenantOperatorPanel', () => {
   })
 
   test('derives coverage preset context from filter and sort state', () => {
+    expect(formatReviewRecordSuccessMessage(
+      '#0012 · Bucharest Founder Block',
+      ['population_growth', 'ideas_feedback'],
+      'Need a clearer proof of activity.',
+    )).toBe(
+      'Review evidence recorded for #0012 · Bucharest Founder Block: Population, Ideas · note "Need a clearer proof of activity."',
+    )
+    expect(formatReviewRecordSuccessMessage(
+      '#0012 · Bucharest Founder Block',
+      [],
+      '',
+    )).toBe(
+      'Review evidence recorded for #0012 · Bucharest Founder Block: no evidence tags · no note',
+    )
     expect(queueCoveragePresetLabel('all', 'coverage')).toBe('Coverage All')
     expect(queueCoveragePresetLabel('never_reviewed', 'coverage')).toBe('Cleanup Never')
     expect(queueCoveragePresetLabel('stale_reviewed', 'coverage')).toBe('Cleanup Stale')

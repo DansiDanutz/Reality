@@ -3,6 +3,7 @@ import type {
   FounderCovenantOperatorQueueSort,
 } from './founderAreaPanelView'
 import type {
+  RealityAreaCovenantManualEvidenceKind,
   RealityAreaCovenantApprovalRequest,
   RealityAreaCovenantNotificationDraft,
 } from '../../lib/realityArea'
@@ -300,6 +301,23 @@ export function copiedAtText(value: string): string {
   return `${value.slice(0, 10)} ${value.slice(11, 16)} UTC`
 }
 
+export function formatDraftNotePreview(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length <= 48) return `note "${trimmed}"`
+  return `note "${trimmed.slice(0, 45)}..."`
+}
+
+export function formatReviewRecordSuccessMessage(
+  title: string,
+  evidenceKinds: RealityAreaCovenantManualEvidenceKind[],
+  note: string,
+): string {
+  const evidenceSummary = evidenceKinds.length > 0
+    ? reviewEvidenceKindLabels(evidenceKinds).join(', ')
+    : 'no evidence tags'
+  return `Review evidence recorded for ${title}: ${evidenceSummary} · ${note.trim().length > 0 ? formatDraftNotePreview(note) : 'no note'}`
+}
+
 export function queueCoveragePresetLabel(
   filter: FounderCovenantOperatorQueueFilter,
   sort: FounderCovenantOperatorQueueSort,
@@ -423,4 +441,19 @@ function queueStateCueText(
   if (filter !== 'all') cues.push(`filter ${queueViewLabel(filter).toLowerCase()}`)
   if (sort !== 'priority') cues.push(`sort ${queueSortLabel(sort).toLowerCase()}`)
   return cues.length > 0 ? cues.join(' · ') : null
+}
+
+function reviewEvidenceKindLabels(
+  evidenceKinds: RealityAreaCovenantManualEvidenceKind[],
+): string[] {
+  return evidenceKinds.flatMap((kind) => {
+    switch (kind) {
+      case 'population_growth':
+        return ['Population']
+      case 'external_contribution':
+        return ['Contribution']
+      case 'ideas_feedback':
+        return ['Ideas']
+    }
+  })
 }
