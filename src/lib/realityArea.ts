@@ -2559,6 +2559,9 @@ function parseRealityFounderCovenantReviewQueueItem(
   const areaLabel = value.areaLabel.trim()
   const founderCitizenId = value.founderCitizenId.trim()
   if (!areaId || !areaLabel || !founderCitizenId) return null
+  const activitySignals = value.activitySignals.map(parseRealityFounderCovenantActivitySignal)
+  const reviewReadiness = parseRealityFounderCovenantReviewReadiness(value.reviewReadiness)
+  if (activitySignals.some((signal) => signal === null) || !reviewReadiness) return null
 
   if (value.latestReview === null) {
     return {
@@ -2566,6 +2569,8 @@ function parseRealityFounderCovenantReviewQueueItem(
       areaId,
       areaLabel,
       founderCitizenId,
+      activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
+      reviewReadiness,
     }
   }
 
@@ -2577,6 +2582,8 @@ function parseRealityFounderCovenantReviewQueueItem(
     areaId,
     areaLabel,
     founderCitizenId,
+    activitySignals: activitySignals as RealityFounderCovenantActivitySignal[],
+    reviewReadiness,
     latestReview,
   }
 }
@@ -2609,6 +2616,20 @@ function isRealityFounderCovenantActivitySignal(
     value.executionEnabled === false
 }
 
+function parseRealityFounderCovenantActivitySignal(
+  value: RealityFounderCovenantActivitySignal,
+): RealityFounderCovenantActivitySignal | null {
+  const label = value.label.trim()
+  const summary = value.summary.trim()
+  if (!label || !summary) return null
+
+  return {
+    ...value,
+    label,
+    summary,
+  }
+}
+
 function isRealityFounderCovenantReviewReadiness(
   value: unknown,
 ): value is RealityFounderCovenantReviewReadiness {
@@ -2623,6 +2644,20 @@ function isRealityFounderCovenantReviewReadiness(
     value.manualOnly === true &&
     value.automationEnabled === false &&
     value.executionEnabled === false
+}
+
+function parseRealityFounderCovenantReviewReadiness(
+  value: RealityFounderCovenantReviewReadiness,
+): RealityFounderCovenantReviewReadiness | null {
+  const label = value.label.trim()
+  const summary = value.summary.trim()
+  if (!label || !summary) return null
+
+  return {
+    ...value,
+    label,
+    summary,
+  }
 }
 
 function isRealityFounderCovenantReviewQueueEconomicExposure(

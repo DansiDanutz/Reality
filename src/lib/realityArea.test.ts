@@ -1596,6 +1596,17 @@ describe('Reality area client', () => {
         areaId: ' founder-area-0012 ',
         areaLabel: ' Bucharest Founder Block ',
         founderCitizenId: ' citizen-1 ',
+        activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals.map((signal, index) => ({
+          ...signal,
+          ...(index === 0
+            ? { label: ` ${signal.label} `, summary: ` ${signal.summary} ` }
+            : {}),
+        })),
+        reviewReadiness: {
+          ...serverFounderCovenantReviewQueue().items[0].reviewReadiness,
+          label: ` ${serverFounderCovenantReviewQueue().items[0].reviewReadiness.label} `,
+          summary: ` ${serverFounderCovenantReviewQueue().items[0].reviewReadiness.summary} `,
+        },
         latestReview: null,
       }],
     }
@@ -1613,6 +1624,8 @@ describe('Reality area client', () => {
           areaId: 'founder-area-0012',
           areaLabel: 'Bucharest Founder Block',
           founderCitizenId: 'citizen-1',
+          activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals,
+          reviewReadiness: serverFounderCovenantReviewQueue().items[0].reviewReadiness,
           latestReview: null,
         }],
       },
@@ -1653,6 +1666,53 @@ describe('Reality area client', () => {
       items: [{
         ...serverFounderCovenantReviewQueue().items[0],
         areaLabel: '   ',
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank review-readiness text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        reviewReadiness: {
+          ...serverFounderCovenantReviewQueue().items[0].reviewReadiness,
+          summary: '   ',
+        },
+      }],
+    }
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: malformed }))
+
+    await expect(readRealityFounderCovenantReviewQueue({
+      serverClockToken: 'operator-token',
+    }, fetchImpl as never)).resolves.toEqual({
+      ok: false,
+      reason: 'server_rejected',
+      error: 'Founder covenant review queue was rejected.',
+      code: undefined,
+    })
+  })
+
+  test('rejects founder covenant queues with blank activity-signal text', async () => {
+    const malformed = {
+      ...serverFounderCovenantReviewQueue(),
+      items: [{
+        ...serverFounderCovenantReviewQueue().items[0],
+        activitySignals: serverFounderCovenantReviewQueue().items[0].activitySignals.map((signal, index) =>
+          index === 0 ? { ...signal, label: '   ' } : signal
+        ),
       }],
     }
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
