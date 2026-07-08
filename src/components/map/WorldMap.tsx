@@ -7,10 +7,11 @@ import { netWorthOf, reachOf } from '../../game/engine'
 import { fetchMapDiscovery } from '../../game/mapDiscovery'
 import { DEFAULT_MAP_ANCHOR, playableMapAnchorFor } from '../../game/mapAnchor'
 import type { AssetKind } from '../../game/types'
-import { workersHallActionFor, workersHallFor, type WorkersHall } from '../../game/workersHall'
+import { workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
 import { useGame } from '../../store/gameStore'
+import { openWorkersHallFromMap } from './workersHallMapAction'
 import { constructionMarkerView } from './worldMapMarkers'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
@@ -326,10 +327,7 @@ export default function WorldMap() {
     const el = workersHallElement(workersHall)
     el.addEventListener('click', (event) => {
       event.stopPropagation()
-      const state = useGame.getState()
-      const action = workersHallActionFor(state)
-      if (action.target) state.selectMapTarget(action.target)
-      state.setPanel(action.panel)
+      openWorkersHallFromMap(useGame.getState())
     })
     workersHallMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([workersHall.lng, workersHall.lat]).addTo(map)
   }, [workersHall])
