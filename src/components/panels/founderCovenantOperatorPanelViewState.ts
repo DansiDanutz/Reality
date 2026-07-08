@@ -52,7 +52,7 @@ function browserStorage(): Storage | null {
 }
 
 function isQueueFilter(value: string | undefined): value is FounderCovenantOperatorQueueFilter {
-  return value === 'all' || value === 'never_reviewed' || value === 'manual_review' || value === 'hospitalized' || value === 'scan_anomaly'
+  return value === 'all' || value === 'never_reviewed' || value === 'stale_reviewed' || value === 'manual_review' || value === 'hospitalized' || value === 'scan_anomaly'
 }
 
 function isQueueSort(value: string | undefined): value is FounderCovenantOperatorQueueSort {

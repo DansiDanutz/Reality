@@ -9,6 +9,8 @@ export function queueViewLabel(filter: FounderCovenantOperatorQueueFilter): stri
       return 'All'
     case 'never_reviewed':
       return 'Never'
+    case 'stale_reviewed':
+      return 'Stale'
     case 'manual_review':
       return 'Manual'
     case 'hospitalized':

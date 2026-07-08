@@ -395,6 +395,14 @@ export default function FounderCovenantOperatorPanel({
             <button
               className="btn small ghost"
               disabled={loading}
+              onClick={() => setQueueFilter('stale_reviewed')}
+              type="button"
+            >
+              Stale
+            </button>
+            <button
+              className="btn small ghost"
+              disabled={loading}
               onClick={() => setQueueFilter('manual_review')}
               type="button"
             >
