@@ -135,6 +135,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   evidenceInputText: string
   manualActionText: string
   approvalRequestText: string
+  approvalBlockerText: string
   notificationDraftText: string
   signalText: string
   priorityScore: number
@@ -1191,6 +1192,7 @@ export function founderCovenantOperatorQueueReviewRows(
       evidenceInputText: founderCovenantOperatorQueueEvidenceInputText(item),
       manualActionText: founderCovenantOperatorQueueManualActionText(item),
       approvalRequestText: founderCovenantOperatorQueueApprovalRequestText(item),
+      approvalBlockerText: founderCovenantOperatorQueueApprovalBlockerText(item),
       notificationDraftText: founderCovenantOperatorQueueNotificationDraftText(item),
       signalText: founderCovenantOperatorQueueSignalText(item),
       priorityScore: founderCovenantOperatorQueuePriorityScore(item),
@@ -1323,6 +1325,14 @@ export function founderCovenantOperatorQueueApprovalRequestText(
       return `${founderCovenantManualActionKindLabel(request.kind)} locked (${blockerText})`
     })
     .join(', ')
+}
+
+export function founderCovenantOperatorQueueApprovalBlockerText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
+): string {
+  const blockers = Array.from(new Set(item.pendingApprovalRequests.flatMap((request) => request.blockers)))
+  if (blockers.length === 0) return 'none'
+  return blockers.map(founderCovenantApprovalBlockerLabel).join(', ')
 }
 
 export function founderCovenantOperatorQueueNotificationDraftText(

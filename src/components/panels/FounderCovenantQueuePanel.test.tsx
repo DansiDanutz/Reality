@@ -7,6 +7,7 @@ import type {
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
   founderCovenantOperatorQueueActivitySignalText,
+  founderCovenantOperatorQueueApprovalBlockerText,
   founderCovenantOperatorQueueEconomicExposureText,
   founderCovenantOperatorQueueItemDateSummary,
   founderCovenantOperatorQueueItemStatusClass,
@@ -49,6 +50,7 @@ describe('FounderCovenantQueuePanel', () => {
     expect(html).toContain('Evidence: Population growth, External contribution, Ideas and feedback')
     expect(html).toContain('Actions: Record review evidence-only, Send warning locked')
     expect(html).toContain('Approvals: Send warning locked (2 blockers)')
+    expect(html).toContain('Approval blockers: approval workflow, Telegram delivery')
     expect(html).toContain('Drafts: Manual review locked (Telegram)')
     expect(html).toContain('Priority: manual review, overdue, hospitalized, at risk, inactive')
     expect(html).toContain('Signals: founder_debt, review_due')
@@ -149,10 +151,12 @@ describe('FounderCovenantQueuePanel', () => {
       'Record review evidence-only, Send warning locked',
     )
     expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
+    expect(founderCovenantOperatorQueueApprovalBlockerText(manual)).toBe('approval workflow, Telegram delivery')
     expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
     expect(founderCovenantOperatorQueueReviewRows({ items: [manual] })[0]).toMatchObject({
       reviewQueueSummaryText: 'Main founder approval · 1 approval · 1 draft',
       reviewQueueDetailText: 'Approvals: Send warning · Drafts: Manual review',
+      approvalBlockerText: 'approval workflow, Telegram delivery',
     })
   })
 
