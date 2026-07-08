@@ -2041,5 +2041,26 @@ describe('business interior development', () => {
       text: 'Interior development still needs materials, budget, or labor.',
       tone: 'blocked',
     })
+
+    useGame.setState({
+      assets: [{ ...business(), level: 3, incomePerDay: 960 }],
+      businessDevelopmentProjects: [ready],
+      selectedMapTarget: { kind: 'asset', id: ready.businessId },
+      panel: 'business',
+      toasts: [],
+    })
+    useGame.getState().completeBusinessDevelopmentIfReady(ready.id)
+
+    state = useGame.getState()
+    expect(state.businessDevelopmentProjects).toEqual([])
+    expect(state.assets.filter((asset) => asset.id === ready.businessId)).toHaveLength(1)
+    expect(state.assets.find((asset) => asset.id === ready.businessId)).toMatchObject({
+      id: ready.businessId,
+      kind: 'business',
+      level: 3,
+      incomePerDay: 960,
+    })
+    expect(state.selectedMapTarget).toEqual({ kind: 'asset', id: ready.businessId })
+    expect(state.panel).toBe('business')
   })
 })

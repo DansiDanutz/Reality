@@ -380,6 +380,7 @@ export function completeBusinessDevelopmentProject(
   asset: PlacedAsset | null | undefined,
 ): PlacedAsset | null {
   if (!asset || asset.id !== project.businessId || asset.kind !== 'business') return null
+  if ((asset.level ?? 1) >= project.levelTo && asset.incomePerDay >= project.incomeAfter) return asset
   if (!businessDevelopmentProgress(project).complete) return null
   return {
     ...asset,
