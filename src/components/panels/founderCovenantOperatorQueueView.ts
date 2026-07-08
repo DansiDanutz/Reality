@@ -20,6 +20,7 @@ export interface CopiedQueueViewState {
   lastTelegramOutput?: string | null
   telegramSummary?: string | null
   telegramRationale?: string | null
+  telegramReviewReference?: string | null
   focusSummary?: string | null
   escalationSummary?: string | null
   activitySummary?: string | null
@@ -309,6 +310,7 @@ export function queueCopiedStatusSummary({
   lastTelegramOutput,
   telegramSummary,
   telegramRationale,
+  telegramReviewReference,
   focusSummary,
   escalationSummary,
   activitySummary,
@@ -327,6 +329,7 @@ export function queueCopiedStatusSummary({
     lastTelegramOutput ? `Last Telegram output: ${lastTelegramOutput}` : null,
     telegramSummary ? `Copied Telegram scaffold: ${telegramSummary}` : null,
     telegramRationale ? `Copied Telegram rationale: ${telegramRationale}` : null,
+    telegramReviewReference ? `Copied Telegram review: ${telegramReviewReference}` : null,
     focusSummary ? `Copied focus: ${focusSummary}` : null,
     escalationSummary ? `Copied escalation: ${escalationSummary}` : null,
     activitySummary ? `Copied founder state: ${activitySummary}` : null,
@@ -527,7 +530,7 @@ function reviewEvidenceKindLabels(
   })
 }
 
-function queueReviewReferenceText(reviewId?: string | null): string | null {
+export function queueReviewReferenceText(reviewId?: string | null): string | null {
   if (!reviewId) return null
   const reviewKey = reviewId.split(':').slice(-1)[0] ?? reviewId
   return `Review ref: ${reviewKey}`
