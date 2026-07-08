@@ -130,6 +130,7 @@ export interface FounderCovenantOperatorQueueReviewRow {
   reviewQueueDetailText: string
   reviewQueueStatusText: string
   nextActionText: string
+  recommendedActionText: string
   activitySignalText: string
   economicExposureText: string
   stageText: string
@@ -1326,6 +1327,7 @@ export function founderCovenantOperatorQueueReviewRows(
       reviewQueueDetailText: founderCovenantReviewQueueDetailText(item.reviewQueue),
       reviewQueueStatusText: founderCovenantReviewQueueStatusLabel(item.reviewQueue),
       nextActionText: founderCovenantOperatorQueueNextActionText(item),
+      recommendedActionText: founderCovenantOperatorQueueRecommendedActionText(item),
       activitySignalText: founderCovenantOperatorQueueActivitySignalText(item),
       economicExposureText: founderCovenantOperatorQueueEconomicExposureText(item),
       stageText: founderCovenantOperatorQueueStageText(item),
@@ -1366,6 +1368,13 @@ export function founderCovenantOperatorQueueNextActionText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'nextAction'>,
 ): string {
   return founderCovenantNextActionLabel(item.nextAction)
+}
+
+export function founderCovenantOperatorQueueRecommendedActionText(
+  item: Pick<RealityFounderCovenantReviewQueueItem, 'recommendedActionKinds'>,
+): string {
+  if (item.recommendedActionKinds.length === 0) return 'none'
+  return item.recommendedActionKinds.map(founderCovenantManualActionKindLabel).join(', ')
 }
 
 export function founderCovenantOperatorQueueActivitySignalText(
