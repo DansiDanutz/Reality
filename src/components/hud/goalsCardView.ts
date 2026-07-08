@@ -19,6 +19,11 @@ export function roadmapPreviewHeading(dayCount: number): string {
   return dayCount === 1 ? 'Next day' : `Next ${dayCount} days`
 }
 
+export function roadmapValueLabel(value: string): string {
+  if (!value) return 'Task'
+  return value[0].toUpperCase() + value.slice(1)
+}
+
 export function routineShortLabel(block: { id: string; value: string; route: LifePlanRoute }): string {
   if (block.id === 'sleep-block') return 'Sleep'
   if (block.id === 'body-block') return 'Body'

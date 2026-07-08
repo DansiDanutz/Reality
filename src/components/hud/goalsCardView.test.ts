@@ -17,6 +17,7 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapPreviewSummary,
+  roadmapValueLabel,
   routineShortLabel,
 } from './goalsCardView'
 
@@ -78,6 +79,13 @@ describe('roadmapPreviewHeading', () => {
   test('labels the number of upcoming days clearly', () => {
     expect(roadmapPreviewHeading(1)).toBe('Next day')
     expect(roadmapPreviewHeading(2)).toBe('Next 2 days')
+  })
+})
+
+describe('roadmapValueLabel', () => {
+  test('capitalizes the roadmap value label for display', () => {
+    expect(roadmapValueLabel('school')).toBe('School')
+    expect(roadmapValueLabel('work')).toBe('Work')
   })
 })
 

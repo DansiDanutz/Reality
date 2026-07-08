@@ -14,6 +14,7 @@ import {
   millionaireEtaSummary,
   roadmapPreviewHeading,
   roadmapPreviewSummary,
+  roadmapValueLabel,
   routineShortLabel,
 } from './goalsCardView'
 import { dispatchLifePlanRoute } from './goalsCardActions'
@@ -234,6 +235,7 @@ export default function GoalsCard() {
             >
               <span className="goals-card-agenda-index">{day.dayLabel}</span>
               <span>{day.primary.title}</span>
+              <span className="goals-card-agenda-time">{roadmapValueLabel(day.primary.value)}</span>
               <span className="goals-card-agenda-time">{formatPlanMinutes(day.primary.minutes)}</span>
             </button>
           ))}
