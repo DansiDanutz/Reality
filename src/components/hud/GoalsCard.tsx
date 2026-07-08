@@ -273,6 +273,7 @@ export default function GoalsCard() {
         )}
         <span className="goals-card-primary">{lifePlan.primary.title}</span>
         <span className="goals-card-reason">{lifePlan.primary.detail}</span>
+        <span className="goals-card-forecast">{lifePlan.dayFocusLabel}</span>
         {activeEta && <span className="goals-card-forecast">{activeEta}</span>}
         <span className="goals-card-stage">
           <span className="goals-card-stage-copy">

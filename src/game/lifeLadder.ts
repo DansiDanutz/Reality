@@ -139,6 +139,8 @@ export interface BusinessDevelopmentDayForecast {
 
 export interface LifePlan {
   lifeDay: number
+  dayFocus: LifeValue
+  dayFocusLabel: string
   primary: LifePlanTask
   agenda: LifePlanTask[]
   support: LifePlanTask[]
@@ -966,6 +968,19 @@ function communityHelperCreditMinutes(snapshot: Pick<LifeLadderSnapshot, 'commun
   return Math.max(0, advantage.weeklyHelperMinutes - Math.max(0, Math.floor(snapshot.communityHelperMinutesUsedThisWeek ?? 0)))
 }
 
+function dayFocusOf(primary: LifePlanTask): { value: LifeValue; label: string } {
+  const labelByValue: Record<LifeValue, string> = {
+    body: 'Survival day',
+    school: 'School day',
+    work: 'Work day',
+    respect: 'Respect day',
+    friendship: 'Friendship day',
+    community: 'Community day',
+    capital: 'Build day',
+  }
+  return { value: primary.value, label: labelByValue[primary.value] }
+}
+
 export function constructionDayForecast(
   project: ConstructionProject = {
     id: 'starter-house-plan',
@@ -1119,6 +1134,7 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     ?? steady
 
   const support = supportTasks(snapshot)
+  const dayFocus = dayFocusOf(primary)
   const agenda = compactAgenda([
     primary,
     body,
@@ -1144,6 +1160,8 @@ export function planLifeDay(snapshot: LifeLadderSnapshot): LifePlan {
     : null
   return {
     lifeDay: snapshot.lifeDay,
+    dayFocus: dayFocus.value,
+    dayFocusLabel: dayFocus.label,
     primary,
     agenda,
     support,

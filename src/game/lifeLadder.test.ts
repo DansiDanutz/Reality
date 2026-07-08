@@ -72,6 +72,8 @@ describe('planLifeDay', () => {
   test('returns exactly one primary action with life values attached', () => {
     const plan = planLifeDay(snap())
     expect(plan.primary).toBeTruthy()
+    expect(plan.dayFocus).toBe(plan.primary.value)
+    expect(plan.dayFocusLabel).toBe('Work day')
     expect(plan.agenda[0].id).toBe(plan.primary.id)
     expect(plan.agenda.length).toBeLessThanOrEqual(3)
     expect(plan.support.length).toBeGreaterThan(0)
@@ -220,6 +222,29 @@ describe('planLifeDay', () => {
 
     expect(plan.primary.id).toBe('drink-water')
     expect(plan.agenda.map((item) => item.id)).toContain('repair-serious-work')
+  })
+
+  test('labels the day focus by the strongest current life priority', () => {
+    const survivalPlan = planLifeDay(snap({
+      needs: { ...goodNeeds, hydration: 20 },
+    }))
+    const schoolPlan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+    }))
+    const capitalPlan = planLifeDay(snap({
+      jobId: 'barista',
+      shiftsWorked: 1,
+      educationActions: 1,
+      assets: [{ kind: 'home', incomePerDay: 0 }],
+      constructionProjects: [createConstructionProject('starter-house', 1, 1, 1)],
+    }))
+
+    expect(survivalPlan.dayFocusLabel).toBe(survivalPlan.primary.value === 'body' ? 'Survival day' : 'Work day')
+    expect(schoolPlan.dayFocusLabel).toBe(schoolPlan.primary.value === 'school' ? 'School day' : 'Work day')
+    expect(capitalPlan.dayFocusLabel).toBe(capitalPlan.primary.value === 'capital' ? 'Build day' : 'Work day')
   })
 
   test('makes critical hunger consume owned food as the primary action', () => {
