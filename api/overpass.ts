@@ -45,7 +45,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const upstream = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          // overpass-api.de returns 406 for requests without an identifying
+          // User-Agent (OSM usage policy) — identify the game and a contact.
+          'User-Agent': 'Reality-Game/1.0 (https://reality-gamma.vercel.app; github.com/DansiDanutz/Reality)',
+        },
         body: `data=${encodeURIComponent(query)}`,
         signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
       })
