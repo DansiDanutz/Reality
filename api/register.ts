@@ -51,6 +51,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ ok: false, error: 'Name must be 2–24 characters.' })
     return
   }
+  // The identity slug strips everything but letters and digits — a name made
+  // only of punctuation would reduce to an empty slug and collide with every
+  // other such name on citizens_name_slug_key. Reject it up front.
+  if (!/[a-z0-9]/i.test(clean)) {
+    res.status(400).json({ ok: false, error: 'Name must include at least one letter or number.' })
+    return
+  }
 
   const telegramInitDataInput = readOptionalTelegramInitData(telegramInitData)
   if (telegramInitDataInput === false) {

@@ -217,6 +217,22 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(paths.some((p) => p.startsWith('citizens/') && p.endsWith('__0.json'))).toBe(true)
   })
 
+  test('rejects names with no letters or digits — they would reduce to an empty identity slug', async () => {
+    stubPg()
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: '!!!???' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Name must include at least one letter or number.' })
+    expect(list).not.toHaveBeenCalled()
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('returns structured storage failure when registration safety scan is unavailable', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
