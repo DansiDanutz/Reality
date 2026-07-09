@@ -50,30 +50,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add public/roadmap.html
-          git commit -m "$(cat <<MSG
-Refresh the public roadmap snapshot
-
-Daily automation refreshes the roadmap page from repository source, tests, build status, git history, and open pull requests.
-
-Constraint: Main is protected, so automation publishes through a PR branch.
-Confidence: high
-Scope-risk: narrow
-Directive: Keep generated roadmap content deterministic and sourced from repo/GitHub state.
-Tested: vitest outcome: ${TEST_STATUS}; build outcome: ${BUILD_STATUS}
-Not-tested: Manual visual review of the generated page
-MSG
-)"
+          # No heredocs in this script: a col-0 terminator dedents out of the
+          # YAML literal block and breaks the whole workflow file's parsing.
+          git commit \
+            -m "Refresh the public roadmap snapshot" \
+            -m "Daily automation refreshes the roadmap page from repository source, tests, build status, and git history. Main is protected, so automation publishes through a PR branch." \
+            -m "Tested: vitest outcome: ${TEST_STATUS}; build outcome: ${BUILD_STATUS}"
           git push --force-with-lease origin "$branch"
 
-          cat > /tmp/roadmap-pr-body.md <<BODY
-          Daily roadmap refresh.
-
-          - Tests: ${TEST_STATUS}
-          - Build: ${BUILD_STATUS}
-          - Generated page: \`public/roadmap.html\`
-
-          This PR is opened by the scheduled roadmap workflow instead of committing directly to protected \`main\`.
-BODY
+          {
+            printf '%s\n\n' "Daily roadmap refresh."
+            printf '%s\n' "- Tests: ${TEST_STATUS}" "- Build: ${BUILD_STATUS}" "- Generated page: \`public/roadmap.html\`"
+            printf '\n%s\n' "This PR is opened by the scheduled roadmap workflow instead of committing directly to protected \`main\`."
+          } > /tmp/roadmap-pr-body.md
 
           if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh pr edit "$branch" --repo "$GITHUB_REPOSITORY" --body-file /tmp/roadmap-pr-body.md
