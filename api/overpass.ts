@@ -19,7 +19,10 @@ const OVERPASS_ENDPOINTS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
 
-const ENDPOINT_TIMEOUT_MS = 8_000
+// The full discovery query takes ~30s on overpass-api.de (measured) — the
+// QL itself carries [timeout:25]. Give the primary mirror room to finish and
+// keep the fallbacks short so the total stays inside the 60s function cap.
+const ENDPOINT_TIMEOUTS_MS = [35_000, 10_000, 10_000]
 const DISCOVERY_RADIUS_M = 2_500
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -41,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const roundedLng = Number(lng.toFixed(3))
   const query = buildDiscoveryQuery(roundedLat, roundedLng)
 
-  for (const endpoint of OVERPASS_ENDPOINTS) {
+  for (const [index, endpoint] of OVERPASS_ENDPOINTS.entries()) {
     try {
       const upstream = await fetch(endpoint, {
         method: 'POST',
@@ -52,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'User-Agent': 'Reality-Game/1.0 (https://reality-gamma.vercel.app; github.com/DansiDanutz/Reality)',
         },
         body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(ENDPOINT_TIMEOUTS_MS[index] ?? 10_000),
       })
       if (!upstream.ok) {
         console.error(`overpass mirror ${endpoint} responded ${upstream.status}`)

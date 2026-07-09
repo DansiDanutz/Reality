@@ -35,8 +35,10 @@ const OVERPASS_ENDPOINTS = [
 ]
 
 const ENDPOINT_TIMEOUT_MS = 6_000
-// The proxy retries three mirrors server-side at 8s each — give it headroom.
-const PROXY_TIMEOUT_MS = 20_000
+// The proxy's primary mirror alone can take ~35s on a cold coordinate —
+// wait it out; the CDN caches the result so the next load is instant, and
+// the game stays playable on fallback nodes meanwhile.
+const PROXY_TIMEOUT_MS = 50_000
 const DISCOVERY_RADIUS_M = 2_500
 
 const discoveryCache = new Map<string, Promise<MapDiscovery>>()
