@@ -54,15 +54,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body: `data=${encodeURIComponent(query)}`,
         signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
       })
-      if (!upstream.ok) continue
+      if (!upstream.ok) {
+        console.error(`overpass mirror ${endpoint} responded ${upstream.status}`)
+        continue
+      }
       const data = (await upstream.json()) as { elements?: unknown[] }
       // Map data around a coordinate barely changes day to day — cache hard
       // at the CDN, serve stale while refreshing.
       res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800')
       res.status(200).json({ ok: true, elements: data.elements ?? [] })
       return
-    } catch {
-      // Timeout or network failure — try the next mirror.
+    } catch (error) {
+      console.error(`overpass mirror ${endpoint} failed:`, error instanceof Error ? error.message : error)
     }
   }
 
