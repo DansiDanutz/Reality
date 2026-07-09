@@ -7,17 +7,12 @@ vi.mock('@neondatabase/serverless', () => ({
 }))
 
 import { resetDbForTest } from './_db'
-import {
-  SCORE_UPSERT_SQL,
-  citizenAgeDaysPg,
-  dualWriteScore,
-  maxPlausibleWorth,
-} from './_scoresPg'
+import { SCORE_UPSERT_SQL, citizenAgeDaysPg, maxPlausibleWorth, writeScore } from './_scoresPg'
 
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const REPORTED_AT = new Date('2026-07-10T12:00:00.000Z')
 
-function score(overrides: Partial<Parameters<typeof dualWriteScore>[0]> = {}) {
+function score(overrides: Partial<Parameters<typeof writeScore>[0]> = {}) {
   return {
     citizenId: CITIZEN_ID,
     name: 'water-maker',
@@ -39,8 +34,8 @@ afterEach(() => {
 
 describe('maxPlausibleWorth', () => {
   test('is the founder grant plus a generous daily allowance', () => {
-    expect(maxPlausibleWorth(0)).toBe(300_000) // day 0: 200k + 1 * 100k
-    expect(maxPlausibleWorth(5)).toBe(800_000) // 200k + 6 * 100k
+    expect(maxPlausibleWorth(0)).toBe(300_000)
+    expect(maxPlausibleWorth(5)).toBe(800_000)
   })
 
   test('rounds partial days up — the cap only ever raises with age', () => {
@@ -48,26 +43,16 @@ describe('maxPlausibleWorth', () => {
   })
 })
 
-describe('dualWriteScore', () => {
-  test('does nothing when POSTGRES_ENABLED is off', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '')
-    await dualWriteScore(score())
-    expect(queryMock).not.toHaveBeenCalled()
-  })
-
-  test('upserts the score and audits the cap in ONE atomic statement — one row per citizen, replaced on conflict', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+describe('writeScore (authoritative since Phase 1b.6)', () => {
+  test('upserts the score and audits the cap in ONE atomic statement', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
 
-    await dualWriteScore(score())
+    await writeScore(score())
 
     expect(queryMock).toHaveBeenCalledTimes(1)
     const [statement, params] = queryMock.mock.calls[0] as [string, unknown[]]
     expect(statement).toBe(SCORE_UPSERT_SQL)
-    expect(statement).toMatch(/INSERT INTO scores/i)
     expect(statement).toMatch(/ON CONFLICT \(citizen_id\) DO UPDATE/i)
-    // The capped-claim audit rides in the SAME statement (CTE), so the Neon
-    // autocommit-per-call driver can never record the score without the audit
     expect(statement).toMatch(/INSERT INTO ledger/i)
     expect(statement).toMatch(/WHERE \$3::numeric > \$4::numeric/i)
     expect(params).toEqual([
@@ -81,10 +66,9 @@ describe('dualWriteScore', () => {
   })
 
   test('carries the capped-claim audit meta when the cap bit — still a single call', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
 
-    await dualWriteScore(score({ netWorth: 9_000_000, cappedWorth: 800_000 }))
+    await writeScore(score({ netWorth: 9_000_000, cappedWorth: 800_000 }))
 
     expect(queryMock).toHaveBeenCalledTimes(1)
     const [, params] = queryMock.mock.calls[0] as [string, unknown[]]
@@ -95,31 +79,17 @@ describe('dualWriteScore', () => {
     })
   })
 
-  test('never throws — a Postgres failure is logged, Blob stays authoritative', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+  test('throws on failure — the handler owns the 500, there is no Blob to fall back to', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     queryMock.mockRejectedValueOnce(new Error('connection refused'))
-
-    await expect(dualWriteScore(score())).resolves.toBeUndefined()
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining('dual-write'),
-      expect.any(Error),
-    )
+    await expect(writeScore(score())).rejects.toThrow('connection refused')
   })
 })
 
 describe('citizenAgeDaysPg', () => {
-  test('returns null when POSTGRES_ENABLED is off, without touching the db', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '')
-    expect(await citizenAgeDaysPg(CITIZEN_ID)).toBeNull()
-    expect(queryMock).not.toHaveBeenCalled()
-  })
-
   test('computes whole-and-fractional days from citizens.created_at', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'))
-    vi.stubEnv('POSTGRES_ENABLED', '1')
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     queryMock.mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z' }])
 
@@ -129,20 +99,15 @@ describe('citizenAgeDaysPg', () => {
     expect(params).toEqual([CITIZEN_ID])
   })
 
-  test('returns null for an unknown citizen — caller falls back to Blob or fail-closed', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+  test('returns null for an unknown citizen — the caller fails closed to the day-0 cap', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     queryMock.mockResolvedValueOnce([])
     expect(await citizenAgeDaysPg(CITIZEN_ID)).toBeNull()
   })
 
-  test('returns null and logs on a Postgres error — never throws into the handler', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+  test('propagates database errors — there is no Blob fallback anymore', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     queryMock.mockRejectedValueOnce(new Error('connection refused'))
-
-    expect(await citizenAgeDaysPg(CITIZEN_ID)).toBeNull()
-    expect(consoleError).toHaveBeenCalled()
+    await expect(citizenAgeDaysPg(CITIZEN_ID)).rejects.toThrow('connection refused')
   })
 })

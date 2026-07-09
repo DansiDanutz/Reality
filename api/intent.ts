@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto'
-import { list } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { SHIFT_HOURS, XP_PER_SHIFT } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
-import { db, isPostgresEnabled } from './_db.js'
+import { db } from './_db.js'
+import { verifyCitizenPg } from './_registry.js'
 import { maxPlausibleWorth } from './_scoresPg.js'
 
 /**
@@ -13,16 +12,12 @@ import { maxPlausibleWorth } from './_scoresPg.js'
  * duplicated), then appended to the ledger in one atomic statement that
  * carries the running balance. The ledger IS the economy's source of truth.
  *
- * Unlike the dual-write endpoints, this endpoint is Postgres-native — with
- * POSTGRES_ENABLED off it ships dark (503) and the client's local simulation
- * remains authoritative, exactly as before this PR.
  *
  * The client predicts optimistically and sends predictedBalance; when the
  * server's authoritative balance diverges, the response carries a
  * correction frame the client snaps to.
  */
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_BUY_QUANTITY = 10
 const INTENTS_PER_HOUR = 120
 const BALANCE_EPSILON = 0.01
@@ -113,13 +108,6 @@ export function evaluateIntent(intent: Intent, citizenLevel: number): Evaluated 
   }
 }
 
-async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
-  if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
-  return batch.blobs.length > 0
-}
-
 type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
 
 const RATE_COUNT_SQL = `
@@ -160,12 +148,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
-  // Ships dark: without the flag the client simulation stays authoritative.
-  if (!isPostgresEnabled()) {
-    res.status(503).json({ ok: false, code: 'intent_core_disabled', error: 'The server economy is not enabled yet.' })
-    return
-  }
-
   const { citizenId: rawCitizenId, token, intent: rawIntent, predictedBalance } = (req.body ?? {}) as Record<string, unknown>
   const citizenId = String(rawCitizenId)
   const normalized = normalizeIntent(rawIntent)
@@ -175,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (!(await verifyCitizen(citizenId, String(token)))) {
+    if (!(await verifyCitizenPg(citizenId, String(token)))) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }

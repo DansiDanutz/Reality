@@ -93,3 +93,10 @@ CREATE INDEX IF NOT EXISTS scores_capped_worth_idx ON scores (capped_worth DESC)
 -- and leave an audit trail. The body is ONE line because the migration
 -- runner splits statements on ";\n".
 CREATE OR REPLACE FUNCTION reality_append_intent(p_citizen uuid, p_intent text, p_amount numeric, p_seed numeric, p_meta jsonb, p_cooldown interval) RETURNS TABLE (new_balance numeric, refusal text) LANGUAGE plpgsql AS $reality$ DECLARE v_base numeric; BEGIN PERFORM pg_advisory_xact_lock(hashtext(p_citizen::text)); IF p_cooldown IS NOT NULL AND EXISTS (SELECT 1 FROM ledger l WHERE l.citizen_id = p_citizen AND l.intent = p_intent AND l.balance_after IS NOT NULL AND l.created_at > now() - p_cooldown) THEN INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta) VALUES (p_citizen, p_intent, 0, NULL, p_meta || jsonb_build_object('refusal', 'cooldown')); RETURN QUERY SELECT NULL::numeric, 'cooldown'::text; RETURN; END IF; SELECT l.balance_after INTO v_base FROM ledger l WHERE l.citizen_id = p_citizen AND l.balance_after IS NOT NULL ORDER BY l.entry_id DESC LIMIT 1; IF v_base IS NULL THEN v_base := p_seed; END IF; IF v_base + p_amount < 0 THEN INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta) VALUES (p_citizen, p_intent, 0, NULL, p_meta || jsonb_build_object('refusal', 'insufficient_funds')); RETURN QUERY SELECT v_base, 'insufficient_funds'::text; RETURN; END IF; INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta) VALUES (p_citizen, p_intent, p_amount, v_base + p_amount, p_meta); RETURN QUERY SELECT v_base + p_amount, NULL::text; END $reality$;
+
+-- Phase 1b.6 (issue #902): the identity slug — the Postgres twin of the
+-- Blob names/<slug>.json uniqueness claim. Generated from name exactly the
+-- way api/register.ts builds the slug, with a unique index as the race
+-- guard (first insert wins, the loser gets 23505 → name_taken).
+ALTER TABLE citizens ADD COLUMN IF NOT EXISTS name_slug text GENERATED ALWAYS AS (btrim(regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g'), '-')) STORED;
+CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_slug_key ON citizens (name_slug);

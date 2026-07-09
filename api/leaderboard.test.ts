@@ -1,14 +1,7 @@
 import { createHash } from 'node:crypto'
-import { del, list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
 import handler from './leaderboard'
-
-vi.mock('@vercel/blob', () => ({
-  del: vi.fn(),
-  list: vi.fn(),
-  put: vi.fn(),
-}))
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -21,25 +14,28 @@ const TOKEN = 'leaderboard-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
 const NOW = new Date('2026-07-10T12:00:00.000Z')
 
+function stubPg() {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+}
+
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
-  vi.mocked(del).mockReset()
-  vi.mocked(list).mockReset()
-  vi.mocked(put).mockReset()
   pgQueryMock.mockReset()
   pgQueryMock.mockResolvedValue([])
   resetDbForTest()
 })
 
-describe('leaderboard API', () => {
-  test('ranks score blobs by net worth and exposes a bounded top list', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([
-      'scores/00000000-0000-4000-8000-000000000001__750000__water-maker.json',
-      'scores/00000000-0000-4000-8000-000000000002__250000__food-shop.json',
-      'scores/not-a-score.json',
-    ]))
+describe('leaderboard API reads (Postgres-authoritative since Phase 1b.6)', () => {
+  test('ranks the scores table by capped worth and exposes a bounded top list', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([
+        { citizen_id: '00000000-0000-4000-8000-000000000001', name: 'water-maker', capped_worth: '750000.00' },
+        { citizen_id: '00000000-0000-4000-8000-000000000002', name: 'food-shop', capped_worth: '250000.00' },
+      ])
+      .mockResolvedValueOnce([{ count: 2 }])
     const res = responseRecorder()
 
     await handler({ method: 'GET' } as never, res as never)
@@ -54,10 +50,14 @@ describe('leaderboard API', () => {
         { citizenId: '00000000-0000-4000-8000-000000000002', name: 'food-shop', netWorth: 250000 },
       ],
     })
+    const [rankSql] = pgQueryMock.mock.calls[0] as [string]
+    expect(rankSql).toMatch(/ORDER BY capped_worth DESC/i)
   })
 
-  test('returns a structured service failure when leaderboard storage cannot be listed', async () => {
-    vi.mocked(list).mockRejectedValueOnce(new Error('blob unavailable'))
+  test('returns a structured service failure when the database cannot be read', async () => {
+    stubPg()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
     const res = responseRecorder()
 
     await handler({ method: 'GET' } as never, res as never)
@@ -69,57 +69,42 @@ describe('leaderboard API', () => {
       error: 'The leaderboard is briefly unavailable.',
       code: 'leaderboard_unavailable',
     })
+    expect(consoleError).toHaveBeenCalled()
   })
 })
 
-describe('leaderboard API Postgres dual-write (Phase 1b.4)', () => {
+describe('leaderboard API score submissions', () => {
   const BODY = { citizenId: CITIZEN_ID, token: TOKEN, name: 'Water Maker!', netWorth: 9_000_000 }
 
-  test('leaves Postgres untouched when POSTGRES_ENABLED is off', async () => {
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`])) // verify
-      .mockResolvedValueOnce(blobList([])) // age lookup: unknown → fail-closed cap
-      .mockResolvedValueOnce(blobList([])) // no previous score
+  test('rejects unregistered citizens via the citizens table', async () => {
+    stubPg()
+    pgQueryMock.mockResolvedValueOnce([]) // token hash not found
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
 
-    expect(res.statusCode).toBe(200)
-    expect(pgQueryMock).not.toHaveBeenCalled()
-    // Fail-closed day-0 cap applies when the citizen's age is unknown
-    expect(put).toHaveBeenCalledWith(
-      `scores/${CITIZEN_ID}__300000__water-maker.json`,
-      '1',
-      expect.anything(),
-    )
+    expect(res.statusCode).toBe(401)
+    const [, verifyParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(verifyParams).toEqual([CITIZEN_ID, TOKEN_HASH])
   })
 
-  test('caps from the Postgres citizen age, dual-writes the score, and logs the capped claim', async () => {
+  test('caps by the authoritative citizen age and audits the capped claim atomically', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    pgQueryMock.mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z' }]) // 5 days old
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`])) // verify
-      .mockResolvedValueOnce(blobList([])) // no previous score
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }]) // verified
+      .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z' }]) // 5 days old
+      .mockResolvedValueOnce([]) // atomic upsert-with-audit
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    // Age came from Postgres — no second citizens/ blob list for the age fetch
-    expect(list).toHaveBeenCalledTimes(2)
-    // 5 days → 200k + 6 * 100k = 800k cap
-    expect(put).toHaveBeenCalledWith(
-      `scores/${CITIZEN_ID}__800000__water-maker.json`,
-      '1',
-      expect.anything(),
-    )
-    expect(pgQueryMock).toHaveBeenCalledTimes(2) // age + atomic upsert-with-audit
-    const [upsertSql, upsertParams] = pgQueryMock.mock.calls[1] as [string, unknown[]]
+    const [upsertSql, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
     expect(upsertSql).toMatch(/INSERT INTO scores/i)
     expect(upsertSql).toMatch(/INSERT INTO ledger/i)
+    // 5 days → 200k + 6 * 100k = 800k cap
     expect(upsertParams.slice(0, 5)).toEqual([CITIZEN_ID, 'water-maker', 9_000_000, 800_000, NOW.toISOString()])
     expect(JSON.parse(String(upsertParams[5]))).toEqual({
       reason: 'implausible_net_worth',
@@ -128,52 +113,46 @@ describe('leaderboard API Postgres dual-write (Phase 1b.4)', () => {
     })
   })
 
-  test('a plausible score dual-writes in the same two round-trips (the SQL gate skips the audit row)', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    pgQueryMock.mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z' }])
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`]))
-      .mockResolvedValueOnce(blobList([]))
-    const res = responseRecorder()
-
-    await handler({ method: 'POST', body: { ...BODY, netWorth: 500_000 } } as never, res as never)
-
-    expect(res.statusCode).toBe(200)
-    expect(pgQueryMock).toHaveBeenCalledTimes(2) // age + upsert, no ledger row
-  })
-
-  test('score submission still succeeds when Postgres fails — fail-closed cap, Blob write intact', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    pgQueryMock.mockRejectedValue(new Error('connection refused'))
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`])) // verify
-      .mockResolvedValueOnce(blobList([])) // blob age fallback: unknown → fail-closed
-      .mockResolvedValueOnce(blobList([])) // no previous score
+  test('falls back to the fail-closed day-0 cap when the citizen age is unknown', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([]) // no citizen row → unknown age
+      .mockResolvedValueOnce([])
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    expect(put).toHaveBeenCalledWith(
-      `scores/${CITIZEN_ID}__300000__water-maker.json`,
-      '1',
-      expect.anything(),
-    )
+    const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    expect(upsertParams[3]).toBe(300_000)
+  })
+
+  test('rejects invalid net worth before any storage call', async () => {
+    stubPg()
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY, netWorth: -5 } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
+  test('fails loudly when the authoritative write fails', async () => {
+    stubPg()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z' }])
+      .mockRejectedValueOnce(new Error('connection refused'))
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
+
+    expect(res.statusCode).toBe(500)
     expect(consoleError).toHaveBeenCalled()
   })
 })
-
-function blobList(pathnames: string[]): { blobs: { pathname: string }[]; hasMore: boolean } {
-  return {
-    blobs: pathnames.map((pathname) => ({ pathname })),
-    hasMore: false,
-  }
-}
 
 function responseRecorder(): {
   statusCode: number

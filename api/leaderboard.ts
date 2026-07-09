@@ -1,48 +1,42 @@
-import { createHash } from 'node:crypto'
-import { del, list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { citizenAgeDaysPg, dualWriteScore, maxPlausibleWorth } from './_scoresPg.js'
+import { db } from './_db.js'
+import { verifyCitizenPg } from './_registry.js'
+import { citizenAgeDaysPg, maxPlausibleWorth, writeScore } from './_scoresPg.js'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_NET_WORTH = 10_000_000_000
-// Day-0 plausibility ceiling: founder grant + one day's generous allowance.
-// Used as the FAIL-CLOSED cap when a citizen's age can't be read — on
-// uncertainty we clamp low, never accept the raw client number. Derived from
-// the shared formula so the floor can never drift from the age-based cap.
+// Day-0 plausibility ceiling — the FAIL-CLOSED cap when a citizen's age is
+// unknown: on uncertainty we clamp low, never accept the raw client number.
+// Derived from the shared formula so the floor can never drift.
 const FALLBACK_MAX_PLAUSIBLE = maxPlausibleWorth(0)
+const TOP_SIZE = 20
 
-async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
-  if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
-  return batch.blobs.length > 0
-}
+type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
 
 /**
- * Net-worth leaderboard. One blob per citizen —
- * `scores/{citizenId}__{netWorth}__{name}.json` — pathname-encoded so the
- * GET pages through list() results with zero content reads. Blob list order
- * is not score order, so every score blob must be read before ranking —
- * 3 pages of 1,000 covers all 2,000 founder slots (same bound as register.ts).
+ * Net-worth leaderboard — served from the Postgres scores table since the
+ * Phase 1b.6 cutover (issue #902). One row per citizen, server-validated,
+ * ranked by the plausibility-capped worth.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
-      const rows: { citizenId: string; name: string; netWorth: number }[] = []
-      let cursor: string | undefined
-      for (let page = 0; page < 3; page++) {
-        const batch = await list({ prefix: 'scores/', cursor, limit: 1000 })
-        for (const blob of batch.blobs) {
-          const m = blob.pathname.match(/^scores\/([0-9a-f-]{36})__(\d+)__([a-z0-9-]{1,24})\.json$/)
-          if (m) rows.push({ citizenId: m[1], name: m[3], netWorth: Number(m[2]) })
-        }
-        if (!batch.hasMore || !batch.cursor) break
-        cursor = batch.cursor
-      }
-      rows.sort((a, b) => b.netWorth - a.netWorth)
+      const sql = db() as unknown as SqlClient
+      const rows = (await sql.query(
+        `SELECT citizen_id, name, capped_worth FROM scores ORDER BY capped_worth DESC LIMIT ${TOP_SIZE}`,
+      )) as Array<{ citizen_id: string; name: string; capped_worth: string | number }>
+      const total = (await sql.query('SELECT count(*)::int AS count FROM scores')) as Array<{ count: number }>
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
-      res.status(200).json({ ok: true, top: rows.slice(0, 20), citizens: rows.length })
-    } catch {
+      res.status(200).json({
+        ok: true,
+        top: rows.map((row) => ({
+          citizenId: row.citizen_id,
+          name: row.name,
+          netWorth: Number(row.capped_worth),
+        })),
+        citizens: total[0]?.count ?? 0,
+      })
+    } catch (error) {
+      console.error('leaderboard: read failed', error)
       res.status(503).json({
         ok: false,
         error: 'The leaderboard is briefly unavailable.',
@@ -66,50 +60,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (!(await verifyCitizen(String(citizenId), String(token)))) {
+    if (!(await verifyCitizenPg(String(citizenId), String(token)))) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }
 
-    // Plausibility cap until the server owns the simulation (Phase 1b):
-    // founder grant + a generous $100k per day of citizenship. FAIL CLOSED —
-    // start at the conservative day-0 ceiling and only RAISE it once we've
-    // read a real citizen age. A transient read failure previously left
-    // the raw client number (up to $10B) uncapped; now it clamps low instead.
-    // Phase 1b.4 (issue #900): the age comes from Postgres first when the
-    // flag is on; the Blob record is the fallback source.
-    let cappedWorth = Math.min(worth, FALLBACK_MAX_PLAUSIBLE)
-    const pgAgeDays = await citizenAgeDaysPg(String(citizenId))
-    if (pgAgeDays !== null) {
-      cappedWorth = Math.min(worth, maxPlausibleWorth(pgAgeDays))
-    } else {
-      try {
-        const citizenBlob = await list({ prefix: `citizens/${citizenId}__`, limit: 1 })
-        if (citizenBlob.blobs[0]) {
-          const record = (await (await fetch(citizenBlob.blobs[0].downloadUrl)).json()) as { createdAt?: string }
-          const ageDays = record.createdAt
-            ? Math.max(0, (Date.now() - new Date(record.createdAt).getTime()) / 86_400_000)
-            : 0
-          cappedWorth = Math.min(worth, maxPlausibleWorth(ageDays))
-        }
-      } catch {
-        /* keep the fail-closed day-0 cap set above */
-      }
-    }
+    // Plausibility cap until the server owns the full simulation: founder
+    // grant + a generous $100k per day of citizenship, from the citizen's
+    // authoritative created_at. FAIL CLOSED — unknown age means the day-0
+    // ceiling, never the raw client number.
+    const ageDays = await citizenAgeDaysPg(String(citizenId))
+    const cappedWorth = Math.min(worth, ageDays !== null ? maxPlausibleWorth(ageDays) : FALLBACK_MAX_PLAUSIBLE)
 
-    // Replace this citizen's previous score, then write the new one
-    const old = await list({ prefix: `scores/${citizenId}__`, limit: 10 })
-    if (old.blobs.length > 0) await del(old.blobs.map((b) => b.url))
-    await put(`scores/${citizenId}__${cappedWorth}__${cleanName}.json`, '1', {
-      access: 'private',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: 'application/json',
-    })
-    // Phase 1b.4 (issue #900): mirror the score into Postgres and log any
-    // capped (implausible) claim to the ledger. Blob stays authoritative —
-    // dualWriteScore never throws and is a no-op with the flag off.
-    await dualWriteScore({
+    // One atomic statement: replace the score, audit the cap if it bit.
+    await writeScore({
       citizenId: String(citizenId),
       name: cleanName,
       netWorth: worth,
@@ -117,7 +81,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       reportedAt: new Date(),
     })
     res.status(200).json({ ok: true })
-  } catch {
+  } catch (error) {
+    console.error(`leaderboard: submission failed for citizen ${String(citizenId)}`, error)
     res.status(500).json({ ok: false, error: 'The leaderboard is briefly unavailable.' })
   }
 }

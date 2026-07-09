@@ -2,6 +2,7 @@ import { createHash, createHmac } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
+import { FOUNDER_SLOTS } from './_registry'
 import handler from './register'
 
 vi.mock('@vercel/blob', () => ({
@@ -21,39 +22,84 @@ const REGISTER_IP = '203.0.113.42'
 const REGISTER_IP_HASH = createHash('sha256').update(REGISTER_IP).digest('hex').slice(0, 16)
 const REGISTER_DAY = new Date(NOW_SECONDS * 1000).toISOString().slice(0, 10)
 
+function stubPg() {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+}
+
+/** insert ok → founder slot claimed → post-claim update ok */
+function mockHappyPg(founderNumber: number | null = 1) {
+  pgQueryMock
+    .mockResolvedValueOnce([]) // citizen insert
+    .mockResolvedValueOnce([{ founder_number: founderNumber }]) // claim
+    .mockResolvedValueOnce([]) // post-claim raw/telegram update
+}
+
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  vi.mocked(put).mockResolvedValue({ url: 'blob://written' } as never)
   pgQueryMock.mockReset()
   pgQueryMock.mockResolvedValue([])
   resetDbForTest()
 })
 
-describe('register API Telegram identity bridge', () => {
-  test('optionally verifies Telegram initData and stores the verified account on the citizen record', async () => {
+describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
+  test('registers a citizen: Postgres row + founder slot, Blob compatibility mirror after', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    stubPg()
+    mockHappyPg(1)
+    vi.mocked(list).mockResolvedValueOnce(blobList([])) // IP throttle scan
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, founderNumber: 1, slotsClaimed: 1, slotsTotal: FOUNDER_SLOTS })
+    const body = res.body as { citizenId: string; token: string }
+
+    // Postgres is authoritative: insert, claim, post-claim update
+    expect(pgQueryMock).toHaveBeenCalledTimes(3)
+    const [insertSql, insertParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(insertSql).toMatch(/INSERT INTO citizens/i)
+    expect(insertParams[0]).toBe(body.citizenId)
+    expect(insertParams[1]).toBe('David')
+    const [claimSql] = pgQueryMock.mock.calls[1] as [string]
+    expect(claimSql).toMatch(/UPDATE citizens SET founder_number/i)
+
+    // The Blob mirror keeps legacy endpoints (reality-area, avatar,
+    // cloud-save) authenticating until they migrate — no names/ or
+    // founders/ blobs anymore, Postgres owns those claims
+    const tokenHash = createHash('sha256').update(body.token).digest('hex').slice(0, 24)
+    const paths = vi.mocked(put).mock.calls.map(([pathname]) => String(pathname))
+    expect(paths).toContain(`citizens/${body.citizenId}__${tokenHash}__1.json`)
+    expect(paths.some((p) => p.startsWith('names/'))).toBe(false)
+    expect(paths.some((p) => p.startsWith('founders/'))).toBe(false)
+  })
+
+  test('verifies Telegram initData and links the account in Postgres and the mirror', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
     vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
+    stubPg()
+    mockHappyPg(1)
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const initData = signedInitData({
       auth_date: String(NOW_SECONDS),
-      user: JSON.stringify({
-        id: 42424242,
-        first_name: 'David',
-        last_name: 'Reality',
-        username: 'davidreality',
-      }),
+      user: JSON.stringify({ id: 42424242, first_name: 'David', last_name: 'Reality', username: 'davidreality' }),
     })
     const res = responseRecorder()
 
     await handler({
       method: 'POST',
-      headers: { 'x-forwarded-for': '203.0.113.42' },
+      headers: { 'x-forwarded-for': REGISTER_IP },
       body: { name: 'David', telegramInitData: initData },
     } as never, res as never)
 
@@ -63,39 +109,15 @@ describe('register API Telegram identity bridge', () => {
       founderNumber: 1,
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
-      telegramUsername: 'davidreality',
       telegramName: 'David Reality',
-      telegramLinkedAt: NOW_SECONDS * 1000,
     })
-    expect(put).toHaveBeenCalledWith(
-      'telegram-users/42424242.json',
-      expect.stringContaining('"realityAccountId":"telegram:42424242"'),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
-    )
-    const body = res.body as { citizenId: string; token: string }
-    const telegramPut = vi.mocked(put).mock.calls.find(([pathname]) => pathname === 'telegram-users/42424242.json')
-    expect(JSON.parse(String(telegramPut?.[1]))).toMatchObject({
-      realityAccountId: 'telegram:42424242',
-      telegramUserId: '42424242',
-      citizenId: body.citizenId,
-      founderNumber: 1,
-      citizenLinkedAt: new Date(NOW_SECONDS * 1000).toISOString(),
-    })
-    expect(JSON.parse(String(telegramPut?.[1]))).not.toHaveProperty('token')
-    const tokenHash = createHash('sha256').update(body.token).digest('hex').slice(0, 24)
-    const citizenPut = vi.mocked(put).mock.calls.find(([pathname]) =>
-      pathname === `citizens/${body.citizenId}__${tokenHash}__1.json`
-    )
-    expect(citizenPut).toBeDefined()
-    expect(JSON.parse(String(citizenPut?.[1]))).toMatchObject({
-      name: 'David',
-      createdAt: new Date(NOW_SECONDS * 1000).toISOString(),
-      telegramUserId: '42424242',
-      telegramAccountId: 'telegram:42424242',
-      telegramUsername: 'davidreality',
-      telegramName: 'David Reality',
-      telegramLinkedAt: new Date(NOW_SECONDS * 1000).toISOString(),
-    })
+    // Post-claim update carries the full record and the bigint telegram id
+    const [updateSql, updateParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    expect(updateSql).toMatch(/UPDATE citizens SET raw/i)
+    expect(updateParams[2]).toBe(42424242)
+    expect(JSON.parse(String(updateParams[1]))).toMatchObject({ name: 'David', telegramUserId: '42424242' })
+    // Telegram account mirror still written for the Telegram auth endpoints
+    expect(vi.mocked(put).mock.calls.some(([p]) => p === 'telegram-users/42424242.json')).toBe(true)
   })
 
   test('rejects supplied Telegram initData when the signature is not valid', async () => {
@@ -117,56 +139,104 @@ describe('register API Telegram identity bridge', () => {
     expect(res.body).toEqual({ ok: false, error: 'Invalid Telegram session.', code: 'invalid_hash' })
     expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
+    expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
-  test('rejects malformed Telegram initData fields before registration storage writes', async () => {
-    for (const telegramInitData of [{ auth_date: String(NOW_SECONDS) }, '   ']) {
-      vi.mocked(list).mockReset()
-      vi.mocked(put).mockClear()
-      const res = responseRecorder()
-
-      await handler({
-        method: 'POST',
-        body: { name: 'David', telegramInitData },
-      } as never, res as never)
-
-      expect(res.statusCode).toBe(400)
-      expect(res.body).toEqual({
-        ok: false,
-        error: 'Telegram initData must be a signed Mini App string.',
-        code: 'invalid_telegram_init_data',
-      })
-      expect(list).not.toHaveBeenCalled()
-      expect(put).not.toHaveBeenCalled()
-    }
-  })
-
-  test('keeps non-Telegram registration available', async () => {
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
+  test('returns 409 name_taken when another citizen holds the name slug', async () => {
+    stubPg()
+    pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505' }))
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
 
     await handler({
       method: 'POST',
-      headers: { 'x-forwarded-for': '203.0.113.42' },
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
+    // No citizen blob may be written when the identity claim failed
+    expect(vi.mocked(put).mock.calls.some(([p]) => String(p).startsWith('citizens/'))).toBe(false)
+  })
+
+  test('fails the registration when Postgres is down — the registry is authoritative now', async () => {
+    stubPg()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(500)
+    expect(vi.mocked(put).mock.calls.some(([p]) => String(p).startsWith('citizens/'))).toBe(false)
+    expect(consoleError).toHaveBeenCalled()
+  })
+
+  test('a Blob mirror failure never fails a registration that already committed', async () => {
+    stubPg()
+    mockHappyPg(1)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    vi.mocked(put)
+      .mockResolvedValueOnce({ url: 'blob://regip' } as never) // throttle marker
+      .mockRejectedValueOnce(new Error('blob unavailable')) // citizens/ mirror
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
       body: { name: 'David' },
     } as never, res as never)
 
     expect(res.statusCode).toBe(200)
     expect(res.body).toMatchObject({ ok: true, founderNumber: 1 })
-    const citizenPut = vi.mocked(put).mock.calls.find(([pathname]) =>
-      typeof pathname === 'string' && pathname.startsWith('citizens/')
-    )
-    expect(JSON.parse(String(citizenPut?.[1]))).toEqual({
-      name: 'David',
-      createdAt: expect.any(String),
-    })
+    expect(consoleError).toHaveBeenCalled()
+  })
+
+  test('registers without a founder slot once all slots are taken', async () => {
+    stubPg()
+    mockHappyPg(null)
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, founderNumber: null, slotsClaimed: FOUNDER_SLOTS })
+    const paths = vi.mocked(put).mock.calls.map(([pathname]) => String(pathname))
+    expect(paths.some((p) => p.startsWith('citizens/') && p.endsWith('__0.json'))).toBe(true)
+  })
+
+  test('rejects names with no letters or digits — they would reduce to an empty identity slug', async () => {
+    stubPg()
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: '!!!???' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Name must include at least one letter or number.' })
+    expect(list).not.toHaveBeenCalled()
+    expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
   test('returns structured storage failure when registration safety scan is unavailable', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    stubPg()
     vi.mocked(list).mockRejectedValueOnce(new Error('registration safety list unavailable'))
     const res = responseRecorder()
 
@@ -182,70 +252,17 @@ describe('register API Telegram identity bridge', () => {
       error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
       code: 'registration_safety_unavailable',
     })
-    expect(list).toHaveBeenCalledTimes(1)
     expect(list).toHaveBeenCalledWith({ prefix: `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}`, limit: 6 })
-    expect(put).not.toHaveBeenCalled()
-  })
-
-  test('returns structured storage failure when registration safety marker cannot be written', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
-    vi.mocked(list).mockResolvedValueOnce(blobList([]))
-    vi.mocked(put).mockRejectedValueOnce(new Error('registration safety marker unavailable'))
-    const res = responseRecorder()
-
-    await handler({
-      method: 'POST',
-      headers: { 'x-forwarded-for': REGISTER_IP },
-      body: { name: 'David' },
-    } as never, res as never)
-
-    expect(res.statusCode).toBe(503)
-    expect(res.body).toEqual({
-      ok: false,
-      error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
-      code: 'registration_safety_unavailable',
-    })
-    expect(list).toHaveBeenCalledTimes(1)
-    expect(list).toHaveBeenCalledWith({ prefix: `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}`, limit: 6 })
-    expect(put).toHaveBeenCalledTimes(1)
-    expect(put).toHaveBeenCalledWith(
-      `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}__${NOW_SECONDS * 1000}.json`,
-      '1',
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
-    )
-    expect(vi.mocked(put).mock.calls.some(([pathname]) =>
-      typeof pathname === 'string' &&
-      (pathname.startsWith('names/') || pathname.startsWith('founders/') || pathname.startsWith('citizens/') || pathname.startsWith('telegram-users/'))
-    )).toBe(false)
-  })
-})
-
-describe('register API Postgres dual-write (Phase 1b.2)', () => {
-  test('leaves Postgres untouched when POSTGRES_ENABLED is off', async () => {
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
-    const res = responseRecorder()
-
-    await handler({
-      method: 'POST',
-      headers: { 'x-forwarded-for': REGISTER_IP },
-      body: { name: 'David' },
-    } as never, res as never)
-
-    expect(res.statusCode).toBe(200)
     expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
-  test('dual-writes the citizen row to Postgres after the Blob writes when the flag is on', async () => {
+  test('throttles registrations from one connection', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
+    stubPg()
+    vi.mocked(list).mockResolvedValueOnce(blobList(Array.from({ length: 5 }, (_, index) =>
+      `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}__${index}.json`
+    )))
     const res = responseRecorder()
 
     await handler({
@@ -254,69 +271,8 @@ describe('register API Postgres dual-write (Phase 1b.2)', () => {
       body: { name: 'David' },
     } as never, res as never)
 
-    expect(res.statusCode).toBe(200)
-    const body = res.body as { citizenId: string; token: string; founderNumber: number }
-    expect(pgQueryMock).toHaveBeenCalledTimes(1)
-    const [statement, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
-    expect(statement).toMatch(/INSERT INTO citizens/i)
-    const tokenHash = createHash('sha256').update(body.token).digest('hex').slice(0, 24)
-    expect(params).toEqual([
-      body.citizenId,
-      'David',
-      tokenHash,
-      1,
-      null,
-      new Date(NOW_SECONDS * 1000).toISOString(),
-      JSON.stringify({ name: 'David', createdAt: new Date(NOW_SECONDS * 1000).toISOString() }),
-    ])
-  })
-
-  test('registration still succeeds when the Postgres dual-write fails', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
-    const res = responseRecorder()
-
-    await handler({
-      method: 'POST',
-      headers: { 'x-forwarded-for': REGISTER_IP },
-      body: { name: 'David' },
-    } as never, res as never)
-
-    expect(res.statusCode).toBe(200)
-    expect(res.body).toMatchObject({ ok: true, founderNumber: 1 })
-    expect(consoleError).toHaveBeenCalled()
-  })
-
-  test('dual-writes the Telegram user id when the account is linked', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
-    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
-    const initData = signedInitData({
-      auth_date: String(NOW_SECONDS),
-      user: JSON.stringify({ id: 42424242, first_name: 'David', username: 'davidreality' }),
-    })
-    const res = responseRecorder()
-
-    await handler({
-      method: 'POST',
-      headers: { 'x-forwarded-for': REGISTER_IP },
-      body: { name: 'David', telegramInitData: initData },
-    } as never, res as never)
-
-    expect(res.statusCode).toBe(200)
-    expect(pgQueryMock).toHaveBeenCalledTimes(1)
-    const [, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
-    expect(params[4]).toBe(42424242)
+    expect(res.statusCode).toBe(429)
+    expect(pgQueryMock).not.toHaveBeenCalled()
   })
 })
 

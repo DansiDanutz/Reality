@@ -1,42 +1,32 @@
 import { neon } from '@neondatabase/serverless'
 
 /**
- * Phase 1b database access (issue #896). Underscore prefix keeps Vercel from
- * exposing this file as an endpoint — it is a shared helper for api/ only
- * (api/ stays self-contained: never import from src/).
+ * Postgres access (Phase 1b, cut over in issue #902). Underscore prefix
+ * keeps Vercel from exposing this file as an endpoint — it is a shared
+ * helper for api/ only.
  *
- * Everything Postgres hides behind the POSTGRES_ENABLED flag so every
- * Phase 1b PR ships dark: with the flag off (the default), no code path
- * touches the database and the Blob implementations remain authoritative.
+ * Since the Phase 1b.6 cutover, Postgres IS the database: registry, world
+ * and leaderboard reads are served from it and the POSTGRES_ENABLED flag is
+ * gone. A deployment without a connection string fails loudly at first use.
  */
 
 type NeonClient = ReturnType<typeof neon>
 
 let client: NeonClient | null = null
 
-/** Feature flag: explicit opt-in AND a configured database. */
-export function isPostgresEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const flag = (env.POSTGRES_ENABLED ?? '').toLowerCase()
-  const enabled = flag === '1' || flag === 'true'
-  return enabled && typeof databaseUrl(env) === 'string'
-}
-
 /** Pooled connection string — the right one for per-request serverless queries. */
 export function databaseUrl(env: NodeJS.ProcessEnv = process.env): string | undefined {
   return env.POSTGRES_URL ?? env.DATABASE_URL ?? undefined
 }
 
-/**
- * Lazy singleton Neon client. Throws if called while the flag is off —
- * callers must gate on isPostgresEnabled() so flag-off deployments can
- * never open a connection by accident.
- */
+/** Lazy singleton Neon client. */
 export function db(env: NodeJS.ProcessEnv = process.env): NeonClient {
-  if (!isPostgresEnabled(env)) {
-    throw new Error('Postgres is not enabled (set POSTGRES_ENABLED=1 and provide POSTGRES_URL)')
+  const url = databaseUrl(env)
+  if (!url) {
+    throw new Error('POSTGRES_URL (or DATABASE_URL) is not configured')
   }
   if (!client) {
-    client = neon(databaseUrl(env)!)
+    client = neon(url)
   }
   return client
 }

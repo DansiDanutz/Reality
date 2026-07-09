@@ -1,13 +1,7 @@
 import { createHash } from 'node:crypto'
-import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
 import handler from './world'
-
-vi.mock('@vercel/blob', () => ({
-  list: vi.fn(),
-  put: vi.fn(async () => ({ url: 'blob://written' })),
-}))
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -18,135 +12,60 @@ vi.mock('@neondatabase/serverless', () => ({
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const TOKEN = 'world-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
-const NOW = new Date('2026-07-07T12:34:56.000Z')
 
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
-  vi.mocked(list).mockReset()
-  vi.mocked(put).mockClear()
   pgQueryMock.mockReset()
   pgQueryMock.mockResolvedValue([])
   resetDbForTest()
 })
 
-describe('world API placement writes', () => {
-  test('stores a valid authenticated world placement and daily rate marker', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`]))
-      .mockResolvedValueOnce(blobList([]))
+function stubPg() {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+}
+
+describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
+  test('serves the shared map from the assets table with founder stats', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([
+        { citizen_id: CITIZEN_ID, item_id: 'small_home', kind: 'home', lat: 44.45, lng: 26.08 },
+        { citizen_id: 'deadbeef-0000-4000-8000-000000000001', item_id: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65 },
+      ])
+      .mockResolvedValueOnce([{ count: 8 }])
     const res = responseRecorder()
 
-    await handler({
-      method: 'POST',
-      body: {
-        citizenId: CITIZEN_ID,
-        token: TOKEN,
-        assetId: 'starter-home-1',
-        itemId: 'small_home',
-        kind: 'home',
-        lat: 44.451,
-        lng: 26.082,
-      },
-    } as never, res as never)
+    await handler({ method: 'GET' } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ ok: true })
-    expect(put).toHaveBeenCalledWith(
-      `world/${CITIZEN_ID}/starter-home-1__small_home__home__44.45__26.08.json`,
-      '1',
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
-    )
-    expect(put).toHaveBeenCalledWith(
-      `worldrate/${CITIZEN_ID}__2026-07-07__${NOW.getTime()}.json`,
-      '1',
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
-    )
-  })
-
-  test('rejects client-owned fields before citizen verification or writes', async () => {
-    const res = responseRecorder()
-
-    await handler({
-      method: 'POST',
-      body: {
-        citizenId: CITIZEN_ID,
-        token: TOKEN,
-        assetId: 'starter-home-1',
-        itemId: 'small_home',
-        kind: 'home',
-        lat: 44.45,
-        lng: 26.08,
-        money: 999_999,
-      },
-    } as never, res as never)
-
-    expect(res.statusCode).toBe(422)
+    expect(res.headers['Cache-Control']).toBe('s-maxage=30, stale-while-revalidate=120')
     expect(res.body).toEqual({
-      ok: false,
-      error: 'Client-controlled world fields are not allowed.',
-      code: 'client_controlled_server_field',
+      ok: true,
+      assets: [
+        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.45, lng: 26.08 },
+        { cid: 'deadbeef', itemId: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65 },
+      ],
+      stats: { assets: 2, founders: 8 },
     })
-    expect(list).not.toHaveBeenCalled()
-    expect(put).not.toHaveBeenCalled()
   })
 
-  test('rejects invalid coordinates before citizen verification or writes', async () => {
+  test('degrades to an empty world when the database read fails', async () => {
+    stubPg()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
     const res = responseRecorder()
 
-    await handler({
-      method: 'POST',
-      body: {
-        citizenId: CITIZEN_ID,
-        token: TOKEN,
-        assetId: 'starter-home-1',
-        itemId: 'small_home',
-        kind: 'home',
-        lat: 91,
-        lng: 26.08,
-      },
-    } as never, res as never)
+    await handler({ method: 'GET' } as never, res as never)
 
-    expect(res.statusCode).toBe(400)
-    expect(res.body).toEqual({ ok: false, error: 'Invalid asset.' })
-    expect(list).not.toHaveBeenCalled()
-    expect(put).not.toHaveBeenCalled()
-  })
-
-  test('blocks placements once the daily citizen cap is reached', async () => {
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`]))
-      .mockResolvedValueOnce(blobList(Array.from({ length: 20 }, (_, index) =>
-        `worldrate/${CITIZEN_ID}__2026-07-07__${index}.json`
-      )))
-    const res = responseRecorder()
-
-    await handler({
-      method: 'POST',
-      body: {
-        citizenId: CITIZEN_ID,
-        token: TOKEN,
-        assetId: 'starter-home-1',
-        itemId: 'small_home',
-        kind: 'home',
-        lat: 44.45,
-        lng: 26.08,
-      },
-    } as never, res as never)
-
-    expect(res.statusCode).toBe(429)
-    expect(res.body).toEqual({
-      ok: false,
-      error: "You've placed 20 things in the world today. Come back tomorrow.",
-    })
-    expect(put).not.toHaveBeenCalled()
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toEqual({ ok: true, assets: [], stats: { assets: 0, founders: 0 } })
+    expect(consoleError).toHaveBeenCalled()
   })
 })
 
-describe('world API Postgres dual-write (Phase 1b.3)', () => {
+describe('world API placement writes', () => {
   const VALID_BODY = {
     citizenId: CITIZEN_ID,
     token: TOKEN,
@@ -157,38 +76,63 @@ describe('world API Postgres dual-write (Phase 1b.3)', () => {
     lng: 26.082,
   }
 
-  function mockHappyBlobPath() {
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`]))
-      .mockResolvedValueOnce(blobList([]))
-  }
-
-  test('leaves Postgres untouched when POSTGRES_ENABLED is off', async () => {
-    mockHappyBlobPath()
+  test('rejects client-owned fields before any storage call', async () => {
+    stubPg()
     const res = responseRecorder()
 
-    await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
+    await handler({ method: 'POST', body: { ...VALID_BODY, money: 999_999 } } as never, res as never)
 
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Client-controlled world fields are not allowed.',
+      code: 'client_controlled_server_field',
+    })
     expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
-  test('dual-writes the asset row and a world.place ledger entry when the flag is on', async () => {
+  test('rejects invalid coordinates before any storage call', async () => {
+    stubPg()
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...VALID_BODY, lat: 91 } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Invalid asset.' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
+  test('rejects unregistered citizens via the citizens table', async () => {
+    stubPg()
+    pgQueryMock.mockResolvedValueOnce([]) // token hash not found
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
+
+    expect(res.statusCode).toBe(401)
+    const [verifySql, verifyParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(verifySql).toMatch(/FROM citizens/i)
+    expect(verifyParams).toEqual([CITIZEN_ID, TOKEN_HASH])
+  })
+
+  test('stores a placement: assets upsert + world.place ledger entry, structured columns', async () => {
     vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    pgQueryMock.mockResolvedValueOnce([{ count: 0 }]) // cap check
-    mockHappyBlobPath()
+    vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'))
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }]) // citizen verified
+      .mockResolvedValueOnce([{ count: 3 }]) // cap check: 3 today
+      .mockResolvedValueOnce([]) // asset upsert
+      .mockResolvedValueOnce([]) // ledger entry
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    expect(pgQueryMock).toHaveBeenCalledTimes(3)
-    const [upsertSql, upsertParams] = pgQueryMock.mock.calls[1] as [string, unknown[]]
+    expect(res.body).toEqual({ ok: true })
+    const [upsertSql, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
     expect(upsertSql).toMatch(/INSERT INTO assets/i)
-    // Structured columns mirror the blob pathname exactly (toFixed(2) coords)
+    expect(upsertSql).toMatch(/ON CONFLICT \(citizen_id, asset_id\) DO UPDATE/i)
     expect(upsertParams).toEqual([
       'starter-home-1',
       CITIZEN_ID,
@@ -196,19 +140,17 @@ describe('world API Postgres dual-write (Phase 1b.3)', () => {
       'home',
       44.45,
       26.08,
-      NOW.toISOString(),
+      '2026-07-10T12:00:00.000Z',
     ])
-    const [ledgerSql] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    const [ledgerSql] = pgQueryMock.mock.calls[3] as [string]
     expect(ledgerSql).toMatch(/INSERT INTO ledger/i)
   })
 
-  test('enforces the daily cap from Postgres when the flag is on', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    pgQueryMock.mockResolvedValueOnce([{ count: 20 }]) // pg already at cap
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([`citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json`]))
-      .mockResolvedValueOnce(blobList([])) // blob counter is behind
+  test('blocks placements once the daily ledger cap is reached', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ count: 20 }])
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
@@ -218,44 +160,40 @@ describe('world API Postgres dual-write (Phase 1b.3)', () => {
       ok: false,
       error: "You've placed 20 things in the world today. Come back tomorrow.",
     })
-    // No world/ or worldrate/ blob may be written once the cap says no
-    expect(put).not.toHaveBeenCalled()
-    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    expect(pgQueryMock).toHaveBeenCalledTimes(2) // no writes past the cap
   })
 
-  test('placement still succeeds when the Postgres dual-write fails', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+  test('fails loudly when the authoritative write fails', async () => {
+    stubPg()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     pgQueryMock
-      .mockResolvedValueOnce([{ count: 0 }]) // cap check ok
-      .mockRejectedValueOnce(new Error('connection refused')) // upsert fails
-    mockHappyBlobPath()
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockRejectedValueOnce(new Error('connection refused'))
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
 
-    expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ ok: true })
+    expect(res.statusCode).toBe(500)
+    expect(res.body).toEqual({ ok: false, error: 'The world is briefly unavailable.' })
     expect(consoleError).toHaveBeenCalled()
   })
 })
 
-function blobList(pathnames: string[]): { blobs: { pathname: string }[]; hasMore: boolean } {
-  return {
-    blobs: pathnames.map((pathname) => ({ pathname })),
-    hasMore: false,
-  }
-}
-
 function responseRecorder(): {
   statusCode: number
   body: unknown
+  headers: Record<string, string>
+  setHeader: (name: string, value: string) => void
   status: (statusCode: number) => { json: (body: unknown) => void }
 } {
   const recorder = {
     statusCode: 200,
     body: undefined as unknown,
+    headers: {} as Record<string, string>,
+    setHeader(name: string, value: string) {
+      recorder.headers[name] = value
+    },
     status(statusCode: number) {
       recorder.statusCode = statusCode
       return {
