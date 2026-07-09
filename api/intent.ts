@@ -127,6 +127,9 @@ const RATE_COUNT_SQL = `
   WHERE citizen_id = $1 AND intent LIKE 'intent.%' AND created_at > now() - interval '1 hour'
 `.trim()
 
+// NOTE: nothing writes scores.level yet — every citizen gates at level 1
+// (fail-closed). Level progression lands with XP accrual in a later PR;
+// the ledger already records xp per shift in meta for it to derive from.
 const CITIZEN_CONTEXT_SQL = `
   SELECT c.created_at, COALESCE(s.level, 1) AS level
   FROM citizens c LEFT JOIN scores s USING (citizen_id)
