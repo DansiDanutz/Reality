@@ -81,3 +81,15 @@ CREATE TABLE IF NOT EXISTS scores (
 ALTER TABLE scores ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS scores_capped_worth_idx ON scores (capped_worth DESC);
+
+-- Phase 1b.5 (issue #904): the serialized intent append. The Neon HTTP
+-- driver autocommits per statement and READ COMMITTED takes one snapshot per
+-- statement — a plain CTE could not see a concurrent commit even behind an
+-- advisory lock. Inside a plpgsql function each statement gets a FRESH
+-- snapshot, so lock -> read -> gate -> insert is genuinely serialized per
+-- citizen: no double-spend, no double-seed, no shift replay.
+-- Refusals are recorded as ledger rows with balance_after NULL (they never
+-- disturb the balance chain) so failed attempts consume rate-limit budget
+-- and leave an audit trail. The body is ONE line because the migration
+-- runner splits statements on ";\n".
+CREATE OR REPLACE FUNCTION reality_append_intent(p_citizen uuid, p_intent text, p_amount numeric, p_seed numeric, p_meta jsonb, p_cooldown interval) RETURNS TABLE (new_balance numeric, refusal text) LANGUAGE plpgsql AS $reality$ DECLARE v_base numeric; BEGIN PERFORM pg_advisory_xact_lock(hashtext(p_citizen::text)); IF p_cooldown IS NOT NULL AND EXISTS (SELECT 1 FROM ledger l WHERE l.citizen_id = p_citizen AND l.intent = p_intent AND l.balance_after IS NOT NULL AND l.created_at > now() - p_cooldown) THEN INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta) VALUES (p_citizen, p_intent, 0, NULL, p_meta || jsonb_build_object('refusal', 'cooldown')); RETURN QUERY SELECT NULL::numeric, 'cooldown'::text; RETURN; END IF; SELECT l.balance_after INTO v_base FROM ledger l WHERE l.citizen_id = p_citizen AND l.balance_after IS NOT NULL ORDER BY l.entry_id DESC LIMIT 1; IF v_base IS NULL THEN v_base := p_seed; END IF; IF v_base + p_amount < 0 THEN INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta) VALUES (p_citizen, p_intent, 0, NULL, p_meta || jsonb_build_object('refusal', 'insufficient_funds')); RETURN QUERY SELECT v_base, 'insufficient_funds'::text; RETURN; END IF; INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta) VALUES (p_citizen, p_intent, p_amount, v_base + p_amount, p_meta); RETURN QUERY SELECT v_base + p_amount, NULL::text; END $reality$;

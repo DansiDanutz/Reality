@@ -1,0 +1,251 @@
+import { createHash } from 'node:crypto'
+import { list } from '@vercel/blob'
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { SHIFT_HOURS, XP_PER_SHIFT } from '../src/game/engine.js'
+import { itemById, jobById } from '../src/game/catalog.js'
+import { db, isPostgresEnabled } from './_db.js'
+import { maxPlausibleWorth } from './_scoresPg.js'
+
+/**
+ * Phase 1b.5 intent/ledger core (issue #904): the server-authoritative
+ * economy. Every intent is validated against the SAME pure engine rules the
+ * client runs (src/game/engine.ts + catalog.ts — imported directly, never
+ * duplicated), then appended to the ledger in one atomic statement that
+ * carries the running balance. The ledger IS the economy's source of truth.
+ *
+ * Unlike the dual-write endpoints, this endpoint is Postgres-native — with
+ * POSTGRES_ENABLED off it ships dark (503) and the client's local simulation
+ * remains authoritative, exactly as before this PR.
+ *
+ * The client predicts optimistically and sends predictedBalance; when the
+ * server's authoritative balance diverges, the response carries a
+ * correction frame the client snaps to.
+ */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const MAX_BUY_QUANTITY = 10
+const INTENTS_PER_HOUR = 120
+const BALANCE_EPSILON = 0.01
+
+export type Intent =
+  | { type: 'workShift'; jobId: string }
+  | { type: 'buyItem'; itemId: string; quantity: number }
+  | { type: 'placeAsset'; itemId: string }
+
+type Rejection = { ok: false; code: string; error: string }
+type Normalized = { ok: true; intent: Intent } | Rejection
+type Evaluated = { ok: true; amount: number; meta: Record<string, unknown> } | Rejection
+
+/** Exact allow-list per intent type — anything else is a smuggling attempt. */
+const INTENT_FIELDS: Record<Intent['type'], ReadonlySet<string>> = {
+  workShift: new Set(['type', 'jobId']),
+  buyItem: new Set(['type', 'itemId', 'quantity']),
+  placeAsset: new Set(['type', 'itemId']),
+}
+
+function reject(code: string, error: string): Rejection {
+  return { ok: false, code, error }
+}
+
+/**
+ * Shape validation: strict field allow-lists. The client names an intent
+ * and its inputs — every economic value (wage, price, amount, balance) is
+ * server-computed, so any extra field is rejected outright.
+ */
+export function normalizeIntent(input: unknown): Normalized {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    return reject('unsupported_intent', 'Intent must be an object with a type.')
+  }
+  const raw = input as Record<string, unknown>
+  const type = raw.type
+  if (type !== 'workShift' && type !== 'buyItem' && type !== 'placeAsset') {
+    return reject('unsupported_intent', 'Unknown intent type.')
+  }
+  if (Object.keys(raw).some((key) => !INTENT_FIELDS[type].has(key))) {
+    return reject('client_controlled_server_field', 'Client-controlled server fields are not allowed.')
+  }
+
+  if (type === 'workShift') {
+    const jobId = String(raw.jobId ?? '')
+    if (!jobId) return reject('invalid_job', 'A job id is required.')
+    return { ok: true, intent: { type, jobId } }
+  }
+  const itemId = String(raw.itemId ?? '')
+  if (!itemId) return reject('invalid_item', 'An item id is required.')
+  if (type === 'placeAsset') {
+    return { ok: true, intent: { type, itemId } }
+  }
+  const quantity = raw.quantity === undefined ? 1 : raw.quantity
+  if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_BUY_QUANTITY) {
+    return reject('invalid_quantity', `Quantity must be a whole number between 1 and ${MAX_BUY_QUANTITY}.`)
+  }
+  return { ok: true, intent: { type, itemId, quantity } }
+}
+
+/**
+ * Rule validation: prices, wages and requirements come from the SAME catalog
+ * and engine constants the client simulation uses — the server never trusts
+ * a client number and never re-implements a rule.
+ */
+export function evaluateIntent(intent: Intent, citizenLevel: number): Evaluated {
+  if (intent.type === 'workShift') {
+    const job = jobById(intent.jobId)
+    if (!job) return reject('unknown_job', 'That job does not exist.')
+    if (citizenLevel < job.requiredLevel) {
+      return reject('level_too_low', `${job.title} requires level ${job.requiredLevel}.`)
+    }
+    return {
+      ok: true,
+      amount: job.wage * SHIFT_HOURS,
+      meta: { jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT },
+    }
+  }
+  const item = itemById(intent.itemId)
+  if (!item) return reject('unknown_item', 'That item does not exist.')
+  if (intent.type === 'placeAsset') {
+    if (!item.placeable) return reject('not_placeable', 'That item cannot be placed in the world.')
+    return { ok: true, amount: -item.price, meta: { itemId: item.id, price: item.price } }
+  }
+  return {
+    ok: true,
+    amount: -item.price * intent.quantity,
+    meta: { itemId: item.id, quantity: intent.quantity, unitPrice: item.price },
+  }
+}
+
+async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
+  if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
+  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
+  const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
+  return batch.blobs.length > 0
+}
+
+type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
+
+const RATE_COUNT_SQL = `
+  SELECT count(*)::int AS count FROM ledger
+  WHERE citizen_id = $1 AND intent LIKE 'intent.%' AND created_at > now() - interval '1 hour'
+`.trim()
+
+const CITIZEN_CONTEXT_SQL = `
+  SELECT c.created_at, COALESCE(s.level, 1) AS level
+  FROM citizens c LEFT JOIN scores s USING (citizen_id)
+  WHERE c.citizen_id = $1
+`.trim()
+
+/**
+ * The append runs inside reality_append_intent (scripts/db/schema.sql): an
+ * advisory lock serializes all appends for one citizen, then a FRESH-snapshot
+ * read (plpgsql re-snapshots per statement — a bare CTE cannot) feeds the
+ * cooldown and overdraft gates before the insert. One call, no double-spend,
+ * no double-seed, no shift replay. Refusals come back with the authoritative
+ * balance and are themselves recorded as NULL-balance ledger rows, so failed
+ * attempts consume rate budget and leave an audit trail.
+ */
+const APPEND_SQL = `
+  SELECT new_balance, refusal
+  FROM reality_append_intent($1, $2, $3::numeric, $4::numeric, $5::jsonb, $6::interval)
+`.trim()
+
+/** A shift pays out at most once per real shift window — Rule #1, real time. */
+function cooldownFor(intent: Intent): string | null {
+  return intent.type === 'workShift' ? `${SHIFT_HOURS} hours` : null
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ ok: false, error: 'Method not allowed' })
+    return
+  }
+  // Ships dark: without the flag the client simulation stays authoritative.
+  if (!isPostgresEnabled()) {
+    res.status(503).json({ ok: false, code: 'intent_core_disabled', error: 'The server economy is not enabled yet.' })
+    return
+  }
+
+  const { citizenId: rawCitizenId, token, intent: rawIntent, predictedBalance } = (req.body ?? {}) as Record<string, unknown>
+  const citizenId = String(rawCitizenId)
+  const normalized = normalizeIntent(rawIntent)
+  if (!normalized.ok) {
+    res.status(normalized.code === 'unsupported_intent' ? 400 : 422).json(normalized)
+    return
+  }
+
+  try {
+    if (!(await verifyCitizen(citizenId, String(token)))) {
+      res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
+      return
+    }
+
+    const sql = db() as unknown as SqlClient
+
+    const rate = (await sql.query(RATE_COUNT_SQL, [citizenId])) as Array<{ count: number }>
+    if ((rate[0]?.count ?? 0) >= INTENTS_PER_HOUR) {
+      res.status(429).json({ ok: false, code: 'intent_rate_limited', error: 'Too many intents this hour. Slow down.' })
+      return
+    }
+
+    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ created_at: string | Date | null; level: number }>
+    const createdAt = context[0]?.created_at ? new Date(context[0].created_at).getTime() : Number.NaN
+    const ageDays = Number.isFinite(createdAt) ? Math.max(0, (Date.now() - createdAt) / 86_400_000) : 0
+    const level = context[0]?.level ?? 1
+
+    const evaluated = evaluateIntent(normalized.intent, level)
+    if (!evaluated.ok) {
+      res.status(422).json(evaluated)
+      return
+    }
+
+    // First-intent seed: the client's claimed balance, clamped by the same
+    // plausibility rule the leaderboard enforces. FAIL CLOSED on unknown age.
+    const claimed = typeof predictedBalance === 'number' && Number.isFinite(predictedBalance) ? predictedBalance : 0
+    const seed = Math.min(Math.max(claimed, 0), maxPlausibleWorth(ageDays))
+
+    const appended = (await sql.query(APPEND_SQL, [
+      citizenId,
+      `intent.${normalized.intent.type}`,
+      evaluated.amount,
+      seed,
+      JSON.stringify(evaluated.meta),
+      cooldownFor(normalized.intent),
+    ])) as Array<{ new_balance: string | number | null; refusal: string | null }>
+
+    const outcome = appended[0]
+    if (outcome?.refusal === 'cooldown') {
+      res.status(429).json({
+        ok: false,
+        code: 'shift_too_soon',
+        error: `A shift takes ${SHIFT_HOURS} real hours — the next one has not opened yet.`,
+      })
+      return
+    }
+    if (!outcome || outcome.refusal === 'insufficient_funds') {
+      const balance = outcome?.new_balance !== null && outcome?.new_balance !== undefined ? Number(outcome.new_balance) : seed
+      res.status(422).json({
+        ok: false,
+        code: 'insufficient_funds',
+        error: 'Not enough money for that.',
+        correction: { balance },
+      })
+      return
+    }
+
+    const balance = Number(outcome.new_balance)
+    const body: Record<string, unknown> = {
+      ok: true,
+      intent: normalized.intent.type,
+      amount: evaluated.amount,
+      balance,
+    }
+    if (normalized.intent.type === 'workShift') body.xp = XP_PER_SHIFT
+    // Correction frame: the client predicted a post-intent balance; when the
+    // authoritative number disagrees, the client must snap to the server's.
+    if (typeof predictedBalance === 'number' && Math.abs(predictedBalance - balance) > BALANCE_EPSILON) {
+      body.correction = { balance, predicted: predictedBalance, drift: balance - predictedBalance }
+    }
+    res.status(200).json(body)
+  } catch (error) {
+    console.error(`intent: append failed for citizen ${citizenId} (${normalized.intent.type})`, error)
+    res.status(500).json({ ok: false, error: 'The economy is briefly unavailable.' })
+  }
+}
