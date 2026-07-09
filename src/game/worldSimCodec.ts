@@ -196,7 +196,8 @@ function isWorldArea(value: unknown): value is WorldArea {
   ) {
     return false
   }
-  return hasValidAreaReferences(value as unknown as WorldArea)
+  const area = value as unknown as WorldArea
+  return hasNoFutureHistoricalEvidence(area) && hasValidAreaReferences(area)
 }
 
 function isAreaClaim(value: unknown): value is WorldArea['claim'] {
@@ -468,6 +469,12 @@ function departureReasonServiceKind(reason: WorldDepartureReason): WorldDepartur
     case 'housing_unserved':
       return 'housing'
   }
+}
+
+function hasNoFutureHistoricalEvidence(area: WorldArea): boolean {
+  return area.transactions.every((transaction) => transaction.at <= area.now) &&
+    (area.areaEvents ?? []).every((event) => event.at <= area.now) &&
+    (area.founderReviewHistory ?? []).every((review) => review.at <= area.now)
 }
 
 function hasValidAreaReferences(area: WorldArea): boolean {

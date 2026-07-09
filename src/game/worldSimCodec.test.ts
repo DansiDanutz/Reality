@@ -5,7 +5,7 @@ import { MAX_FOUNDER_AREA_RADIUS_KM, MIN_FOUNDER_AREA_RADIUS_KM, type WorldArea 
 const area = (): WorldArea => ({
   id: 'area-1',
   name: 'Founder District',
-  now: 1_000,
+  now: 5_000,
   claim: {
     founderCitizenId: 'founder',
     label: 'Founder District',
@@ -225,6 +225,30 @@ describe('worldSim snapshot codec', () => {
     expect(decoded.area.areaEvents).toBeUndefined()
   })
 
+  test('accepts future policy windows without accepting future historical evidence', () => {
+    const policyWindow = area()
+    policyWindow.citizens[0].state = { kind: 'hospitalized', until: policyWindow.now + 8_000 }
+    policyWindow.founderReviewHistory = [{
+      ...founderReview(),
+      reviewSchedule: {
+        lastReviewAt: 4_000,
+        nextWeeklyReviewAt: policyWindow.now + 7 * 24 * 3_600_000,
+        nextMonthlyReviewAt: policyWindow.now + 30 * 24 * 3_600_000,
+        weeklyReviewDue: false,
+        monthlyReviewDue: false,
+        overdue: false,
+        automationEnabled: false,
+      },
+    }]
+
+    const decoded = decodeWorldAreaSnapshot(JSON.stringify({
+      version: WORLD_AREA_SNAPSHOT_VERSION,
+      area: policyWindow,
+    }))
+
+    expect(decoded.ok).toBe(true)
+  })
+
   test('round-trips founder covenant review history evidence', () => {
     const reviewed = area()
     reviewed.founderReviewHistory = [{ ...founderReview(), reviewSchedule: founderReviewSchedule() }]
@@ -292,6 +316,20 @@ describe('worldSim snapshot codec', () => {
       kind: 'sim_citizen_credit',
       payoutEligibility: 'game_only',
     })
+  })
+
+  test('rejects future ledger, event, and review evidence beyond the server area clock', () => {
+    const futureTransaction = area()
+    futureTransaction.transactions[0].at = futureTransaction.now + 1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: futureTransaction }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const futureEvent = area()
+    futureEvent.areaEvents![0].at = futureEvent.now + 1
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: futureEvent }))).toEqual({ ok: false, error: 'invalid_area' })
+
+    const futureReview = area()
+    futureReview.founderReviewHistory = [{ ...founderReview(), at: futureReview.now + 1 }]
+    expect(decodeWorldAreaSnapshot(JSON.stringify({ version: WORLD_AREA_SNAPSHOT_VERSION, area: futureReview }))).toEqual({ ok: false, error: 'invalid_area' })
   })
 
   test('rejects duplicate persisted identities', () => {
