@@ -61,11 +61,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error(`overpass mirror ${endpoint} responded ${upstream.status}`)
         continue
       }
-      const data = (await upstream.json()) as { elements?: unknown[] }
-      // Map data around a coordinate barely changes day to day — cache hard
-      // at the CDN, serve stale while refreshing.
-      res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800')
-      res.status(200).json({ ok: true, elements: data.elements ?? [] })
+      const data = (await upstream.json()) as { elements?: unknown[]; remark?: string }
+      const elements = data.elements ?? []
+      // A remark with no elements means the mirror hit its internal timeout
+      // and returned a truncated result — that's a failure, not real data.
+      if (elements.length === 0 && data.remark) {
+        console.error(`overpass mirror ${endpoint} truncated: ${data.remark.slice(0, 120)}`)
+        continue
+      }
+      // Map data around a coordinate barely changes day to day — cache hard.
+      // Empty results are legitimate in remote areas but are also what a
+      // flaky mirror returns, so they only get a short cache and re-resolve.
+      res.setHeader(
+        'Cache-Control',
+        elements.length > 0
+          ? 'public, s-maxage=86400, stale-while-revalidate=604800'
+          : 'public, s-maxage=300',
+      )
+      res.status(200).json({ ok: true, elements })
       return
     } catch (error) {
       console.error(`overpass mirror ${endpoint} failed:`, error instanceof Error ? error.message : error)
