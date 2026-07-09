@@ -1,7 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { citizenRowFromRegistration, dualWriteCitizenRow } from './_registry.js'
+import { db } from './_db.js'
+import {
+  FOUNDER_SLOTS,
+  citizenRowFromRegistration,
+  claimFounderNumberPg,
+  insertCitizenRow,
+  updateCitizenAfterClaim,
+} from './_registry.js'
 import {
   telegramRealityAccountPath,
   telegramRealityAccountRecord,
@@ -9,30 +16,28 @@ import {
   type TelegramRealityAccountRecord,
 } from './telegram-auth.js'
 
-const FOUNDER_SLOTS = 2_000
 const REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE = {
   ok: false,
   error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
   code: 'registration_safety_unavailable',
 } as const
 
-async function claimedSlots(): Promise<number> {
-  let count = 0
-  let cursor: string | undefined
-  for (let page = 0; page < 3; page++) {
-    const batch = await list({ prefix: 'founders/', cursor, limit: 1000 })
-    count += batch.blobs.length
-    if (!batch.hasMore || !batch.cursor) break
-    cursor = batch.cursor
-  }
-  return count
-}
+type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
 
 /**
- * Citizen registration + the real founder registry.
- * A slot blob can only be created once (allowOverwrite: false), so two
- * citizens can never hold the same founder number. First come, first served,
- * exactly 2,000.
+ * Citizen registration + the real founder registry — Postgres-authoritative
+ * since the Phase 1b.6 cutover (issue #902):
+ *
+ *   - the citizens_name_slug_key unique index is the identity claim (first
+ *     insert wins — the old names/<slug>.json allowOverwrite:false, in SQL)
+ *   - the founder slot comes from claimFounderNumberPg, guarded by the
+ *     partial unique index on founder_number — two citizens can never hold
+ *     the same number, exactly 2,000, first come first served
+ *
+ * The citizens/ and telegram-users/ Blob records are still written AFTER the
+ * authoritative commit, best-effort: endpoints outside this epic
+ * (reality-area, avatar, cloud-save) authenticate against Blob until they
+ * migrate. A mirror failure is logged, never surfaced.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -104,53 +109,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    // Every citizen name in Reality is unique — a name is an identity claim
-    const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-    try {
-      await put(`names/${slug}.json`, JSON.stringify({ at: registeredAt.toISOString() }), {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: false,
-        contentType: 'application/json',
-      })
-    } catch {
-      res.status(409).json({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
-      return
-    }
-
     const citizenId = randomUUID()
     const token = randomUUID()
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
+    const sql = db() as unknown as SqlClient
 
-    // The allowOverwrite:false put is the real race guard — two citizens can
-    // never win the same slot. But claimedSlots() is a list() scan and list()
-    // is eventually consistent, so under a concurrent burst many requests can
-    // compute the same stale starting `n`. A short probe budget then runs out
-    // before finding a free slot, and a citizen who was ENTITLED to a founder
-    // slot falls through with null. Probe further, and periodically re-scan to
-    // jump past the contended region an undercount hid.
-    let founderNumber: number | null = null
-    let n = (await claimedSlots()) + 1
-    for (let attempt = 0; attempt < 24 && n <= FOUNDER_SLOTS; attempt++) {
-      try {
-        await put(`founders/${String(n).padStart(4, '0')}.json`, JSON.stringify({ citizenId, at: registeredAt.toISOString() }), {
-          access: 'private',
-          addRandomSuffix: false,
-          allowOverwrite: false,
-          contentType: 'application/json',
-        })
-        founderNumber = n
-        break
-      } catch {
-        n += 1 // someone claimed it a heartbeat before us — take the next slot
-        // Every few collisions, re-scan: a fresh list() has likely caught up
-        // and reveals the true high-water mark, so we stop re-colliding.
-        if (attempt > 0 && attempt % 6 === 0) {
-          const rescanned = (await claimedSlots()) + 1
-          if (rescanned > n) n = rescanned
-        }
+    // The identity claim: the name_slug unique index makes the first insert
+    // win — a 23505 here means the name already belongs to a citizen.
+    try {
+      await insertCitizenRow(sql, citizenRowFromRegistration({
+        citizenId,
+        name: clean,
+        tokenHash,
+        founderNumber: null,
+        registeredAt,
+        record: citizenRecord(clean, registeredAt, null),
+        telegram: null,
+      }))
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') {
+        res.status(409).json({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
+        return
       }
+      throw error
     }
+
+    // First come, first served, exactly 2,000 — the partial unique index is
+    // the race guard, and a repeat claim returns the already-held slot.
+    const founderNumber = await claimFounderNumberPg(sql, citizenId)
 
     const telegramAccountRecord = verifiedTelegramSession
       ? telegramRealityAccountRecord(verifiedTelegramSession, registeredAt, null, {
@@ -159,41 +145,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         citizenLinkedAt: registeredAt.toISOString(),
       })
       : null
-
-    // Citizen record: identity + auth live in the pathname so later requests
-    // can verify a token with a single prefix lookup.
     const record = citizenRecord(clean, registeredAt, telegramAccountRecord)
-    await put(
-      `citizens/${citizenId}__${tokenHash}__${founderNumber ?? 0}.json`,
-      JSON.stringify(record),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
-    )
+    const telegramId = telegramAccountRecord ? Number(telegramAccountRecord.telegramUserId) : Number.NaN
+    await updateCitizenAfterClaim(sql, citizenId, record, Number.isSafeInteger(telegramId) ? telegramId : null)
 
-    if (telegramAccountRecord && verifiedTelegramSession) {
-      await put(
-        telegramRealityAccountPath(verifiedTelegramSession.user),
-        JSON.stringify(telegramAccountRecord),
-        { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
-      )
-    }
-
-    // Phase 1b.2 (issue #897): mirror the citizen into Postgres. Blob stays
-    // authoritative and the citizen is already durably registered above, so
-    // nothing in this block may fail the request — dualWriteCitizenRow never
-    // throws (no-op with POSTGRES_ENABLED off) and the outer catch guards
-    // row shaping itself; a miss is backfilled by scripts/db-migrate-registry.mjs.
+    // Blob compatibility mirror — endpoints outside this epic still
+    // authenticate against citizens/ and telegram-users/. Best-effort:
+    // the registration above is already durable in Postgres.
     try {
-      await dualWriteCitizenRow(citizenRowFromRegistration({
-        citizenId,
-        name: clean,
-        tokenHash,
-        founderNumber,
-        registeredAt,
-        record,
-        telegram: telegramAccountRecord ? { telegramUserId: telegramAccountRecord.telegramUserId } : null,
-      }))
+      await put(
+        `citizens/${citizenId}__${tokenHash}__${founderNumber ?? 0}.json`,
+        JSON.stringify(record),
+        { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
+      )
+      if (telegramAccountRecord && verifiedTelegramSession) {
+        await put(
+          telegramRealityAccountPath(verifiedTelegramSession.user),
+          JSON.stringify(telegramAccountRecord),
+          { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+        )
+      }
     } catch (error) {
-      console.error(`register: postgres mirror skipped for citizen ${citizenId} (blob remains authoritative)`, error)
+      console.error(`register: blob compatibility mirror failed for citizen ${citizenId} (postgres registration is durable)`, error)
     }
 
     res.status(200).json({
@@ -211,7 +184,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         telegramLinkedAt: registeredAt.getTime(),
       } : {}),
     })
-  } catch {
+  } catch (error) {
+    console.error('register: registration failed', error)
     res.status(500).json({ ok: false, error: 'Registration is briefly unavailable. Try again in a minute.' })
   }
 }

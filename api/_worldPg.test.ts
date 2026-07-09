@@ -11,8 +11,8 @@ import {
   ASSET_UPSERT_SQL,
   LEDGER_PLACE_INSERT_SQL,
   assetRowFromPlacement,
-  dualWriteWorldPlacement,
-  placementCapReachedPg,
+  placementsTodayPg,
+  writeWorldPlacement,
 } from './_worldPg'
 
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
@@ -31,6 +31,7 @@ function placement() {
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
   queryMock.mockReset()
@@ -39,7 +40,7 @@ afterEach(() => {
 })
 
 describe('assetRowFromPlacement', () => {
-  test('shapes an assets-table row with the pathname metadata as structured columns', () => {
+  test('shapes an assets-table row with structured columns', () => {
     expect(placement()).toEqual({
       assetId: 'starter-home-1',
       citizenId: CITIZEN_ID,
@@ -52,27 +53,15 @@ describe('assetRowFromPlacement', () => {
   })
 })
 
-describe('dualWriteWorldPlacement', () => {
-  test('does nothing when POSTGRES_ENABLED is off', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '')
-    await dualWriteWorldPlacement(placement())
-    expect(queryMock).not.toHaveBeenCalled()
-  })
-
-  test('upserts the asset and appends a world.place ledger entry when the flag is on', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+describe('writeWorldPlacement (authoritative since Phase 1b.6)', () => {
+  test('upserts the asset on the composite key and appends a world.place ledger entry', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
 
-    await dualWriteWorldPlacement(placement())
+    await writeWorldPlacement(placement())
 
     expect(queryMock).toHaveBeenCalledTimes(2)
     const [upsertSql, upsertParams] = queryMock.mock.calls[0] as [string, unknown[]]
     expect(upsertSql).toBe(ASSET_UPSERT_SQL)
-    expect(upsertSql).toMatch(/INSERT INTO assets/i)
-    // Asset ids are only unique per citizen (Blob namespaces them under
-    // world/{citizenId}/), so the conflict target is the composite key:
-    // re-placing your own asset moves it, while another citizen using the
-    // same asset id keeps their own distinct row — exactly like Blob.
     expect(upsertSql).toMatch(/ON CONFLICT \(citizen_id, asset_id\) DO UPDATE/i)
     expect(upsertParams).toEqual([
       'starter-home-1',
@@ -83,11 +72,8 @@ describe('dualWriteWorldPlacement', () => {
       26.08,
       PLACED_AT.toISOString(),
     ])
-
     const [ledgerSql, ledgerParams] = queryMock.mock.calls[1] as [string, unknown[]]
     expect(ledgerSql).toBe(LEDGER_PLACE_INSERT_SQL)
-    expect(ledgerSql).toMatch(/INSERT INTO ledger/i)
-    expect(ledgerParams[0]).toBe(CITIZEN_ID)
     expect(JSON.parse(String(ledgerParams[1]))).toEqual({
       assetId: 'starter-home-1',
       itemId: 'small_home',
@@ -97,57 +83,29 @@ describe('dualWriteWorldPlacement', () => {
     })
   })
 
-  test('never throws — a Postgres failure is logged, Blob stays authoritative', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+  test('throws on failure — the handler owns the 500, there is no Blob to fall back to', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     queryMock.mockRejectedValueOnce(new Error('connection refused'))
-
-    await expect(dualWriteWorldPlacement(placement())).resolves.toBeUndefined()
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining('dual-write'),
-      expect.any(Error),
-    )
+    await expect(writeWorldPlacement(placement())).rejects.toThrow('connection refused')
   })
 })
 
-describe('placementCapReachedPg', () => {
-  test('reports not-reached when POSTGRES_ENABLED is off, without touching the db', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '')
-    expect(await placementCapReachedPg(CITIZEN_ID, 20)).toBe(false)
-    expect(queryMock).not.toHaveBeenCalled()
-  })
-
-  test('counts today\'s world.place ledger entries against the cap', async () => {
+describe('placementsTodayPg', () => {
+  test("counts today's world.place ledger entries from midnight UTC", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(PLACED_AT)
-    vi.stubEnv('POSTGRES_ENABLED', '1')
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     queryMock.mockResolvedValueOnce([{ count: 3 }])
 
-    expect(await placementCapReachedPg(CITIZEN_ID, 20)).toBe(false)
-
+    expect(await placementsTodayPg(CITIZEN_ID)).toBe(3)
     const [statement, params] = queryMock.mock.calls[0] as [string, unknown[]]
-    expect(statement).toMatch(/SELECT count/i)
     expect(statement).toMatch(/FROM ledger/i)
     expect(params).toEqual([CITIZEN_ID, '2026-07-10T00:00:00.000Z'])
-    vi.useRealTimers()
   })
 
-  test('reports reached once the count hits the cap', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
+  test('throws on failure instead of silently unlocking the cap', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    queryMock.mockResolvedValueOnce([{ count: 20 }])
-    expect(await placementCapReachedPg(CITIZEN_ID, 20)).toBe(true)
-  })
-
-  test('fails open on a Postgres error — Blob remains the authoritative cap', async () => {
-    vi.stubEnv('POSTGRES_ENABLED', '1')
-    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     queryMock.mockRejectedValueOnce(new Error('connection refused'))
-
-    expect(await placementCapReachedPg(CITIZEN_ID, 20)).toBe(false)
-    expect(consoleError).toHaveBeenCalled()
+    await expect(placementsTodayPg(CITIZEN_ID)).rejects.toThrow('connection refused')
   })
 })

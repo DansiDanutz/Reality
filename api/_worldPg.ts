@@ -1,14 +1,14 @@
-import { db, isPostgresEnabled } from './_db.js'
+import { db } from './_db.js'
 
 /**
- * Phase 1b.3 world dual-write (issue #898). Underscore prefix keeps Vercel
- * from exposing this as an endpoint — shared helper for api/ only.
+ * World placement storage (Phase 1b.3 dual-write, cut over to authoritative
+ * in issue #902). Underscore prefix keeps Vercel from exposing this as an
+ * endpoint — shared helper for api/ only.
  *
- * Blob stays authoritative in this phase: a placement writes to Blob first,
- * then mirrors into Postgres when POSTGRES_ENABLED is on. Reads do not
- * change. Every placement ACTION also appends a `world.place` ledger entry —
- * the daily cap counts those, and Phase 1b.5's intent/ledger core builds on
- * the same rows.
+ * Since the cutover, the assets table IS the world: placements insert here
+ * (plus a world.place ledger entry — the daily cap counts those), and the
+ * shared map is read from it. Failures propagate to the handler; there is
+ * no Blob fallback anymore.
  */
 
 type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
@@ -24,11 +24,10 @@ export type WorldAssetRow = {
 }
 
 /**
- * Blob semantics twin: allowOverwrite:true within a citizen's own prefix
- * (re-placing an asset moves it). Asset ids are only unique per citizen —
- * Blob namespaces them as world/{citizenId}/{assetId} — so the conflict
- * target is the composite key: another citizen using the same asset id
- * keeps their own distinct row, exactly like Blob.
+ * Asset ids are only unique per citizen (the old Blob scheme namespaced them
+ * as world/{citizenId}/{assetId}), so the conflict target is the composite
+ * key: re-placing your own asset moves it, another citizen using the same
+ * asset id keeps their own distinct row.
  */
 export const ASSET_UPSERT_SQL = `
   INSERT INTO assets (asset_id, citizen_id, item_id, kind, lat, lng, placed_at)
@@ -72,52 +71,28 @@ export function assetRowFromPlacement(input: {
   }
 }
 
-/**
- * Best-effort mirror of a placement that already committed to Blob. Never
- * throws: a Postgres outage must not fail a placement — the miss is logged
- * and scripts/db-migrate-world.mjs backfills it.
- */
-export async function dualWriteWorldPlacement(row: WorldAssetRow, env: NodeJS.ProcessEnv = process.env): Promise<void> {
-  if (!isPostgresEnabled(env)) return
-  try {
-    const sql = db(env) as unknown as SqlClient
-    await sql.query(ASSET_UPSERT_SQL, [
-      row.assetId,
-      row.citizenId,
-      row.itemId,
-      row.kind,
-      row.lat,
-      row.lng,
-      row.placedAt,
-    ])
-    await sql.query(LEDGER_PLACE_INSERT_SQL, [
-      row.citizenId,
-      JSON.stringify({ assetId: row.assetId, itemId: row.itemId, kind: row.kind, lat: row.lat, lng: row.lng }),
-    ])
-  } catch (error) {
-    console.error(`world: postgres dual-write failed for asset ${row.assetId} (blob remains authoritative)`, error)
-  }
+/** Authoritative write: assets upsert + world.place ledger entry. Throws on failure. */
+export async function writeWorldPlacement(row: WorldAssetRow, env: NodeJS.ProcessEnv = process.env): Promise<void> {
+  const sql = db(env) as unknown as SqlClient
+  await sql.query(ASSET_UPSERT_SQL, [
+    row.assetId,
+    row.citizenId,
+    row.itemId,
+    row.kind,
+    row.lat,
+    row.lng,
+    row.placedAt,
+  ])
+  await sql.query(LEDGER_PLACE_INSERT_SQL, [
+    row.citizenId,
+    JSON.stringify({ assetId: row.assetId, itemId: row.itemId, kind: row.kind, lat: row.lat, lng: row.lng }),
+  ])
 }
 
-/**
- * Postgres-side daily placement cap (issue #898 deliverable): counts today's
- * world.place ledger entries. Fails open — with Blob still authoritative, a
- * Postgres outage must throttle nothing; the Blob marker check that always
- * runs first remains the enforcement floor.
- */
-export async function placementCapReachedPg(
-  citizenId: string,
-  limit: number,
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<boolean> {
-  if (!isPostgresEnabled(env)) return false
-  try {
-    const startOfDayUtc = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`
-    const sql = db(env) as unknown as SqlClient
-    const rows = (await sql.query(PLACEMENT_COUNT_SQL, [citizenId, startOfDayUtc])) as Array<{ count: number }>
-    return (rows[0]?.count ?? 0) >= limit
-  } catch (error) {
-    console.error(`world: postgres cap check failed for citizen ${citizenId} (falling back to blob cap)`, error)
-    return false
-  }
+/** Today's placement actions, counted from the world.place ledger entries. Throws on failure. */
+export async function placementsTodayPg(citizenId: string, env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  const startOfDayUtc = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`
+  const sql = db(env) as unknown as SqlClient
+  const rows = (await sql.query(PLACEMENT_COUNT_SQL, [citizenId, startOfDayUtc])) as Array<{ count: number }>
+  return rows[0]?.count ?? 0
 }

@@ -1,13 +1,7 @@
-import { createHash } from 'node:crypto'
-import { list } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { SHIFT_HOURS, XP_PER_SHIFT } from '../src/game/engine.js'
 import { resetDbForTest } from './_db'
 import handler, { evaluateIntent, normalizeIntent } from './intent'
-
-vi.mock('@vercel/blob', () => ({
-  list: vi.fn(),
-}))
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -17,24 +11,19 @@ vi.mock('@neondatabase/serverless', () => ({
 
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const TOKEN = 'intent-token'
-const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
 
 function pgOn() {
-  vi.stubEnv('POSTGRES_ENABLED', '1')
   vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
 }
 
+// Citizen auth is a citizens-table lookup since the Phase 1b.6 cutover
 function mockVerifyOk() {
-  vi.mocked(list).mockResolvedValueOnce({
-    blobs: [{ pathname: `citizens/${CITIZEN_ID}__${TOKEN_HASH}__1.json` }],
-    hasMore: false,
-  } as never)
+  pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
 }
 
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
-  vi.mocked(list).mockReset()
   pgQueryMock.mockReset()
   pgQueryMock.mockResolvedValue([])
   resetDbForTest()
@@ -129,13 +118,13 @@ describe('intent API handler', () => {
     expect(res.statusCode).toBe(405)
   })
 
-  test('ships dark: 503 when POSTGRES_ENABLED is off, touching nothing', async () => {
+  test('fails loudly (500) when no database is configured — Postgres IS the economy now', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const res = responseRecorder()
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
-    expect(res.statusCode).toBe(503)
-    expect(res.body).toMatchObject({ ok: false, code: 'intent_core_disabled' })
-    expect(list).not.toHaveBeenCalled()
+    expect(res.statusCode).toBe(500)
     expect(pgQueryMock).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalled()
   })
 
   test('rejects an invalid intent before any storage call', async () => {
@@ -144,17 +133,16 @@ describe('intent API handler', () => {
     await handler({ method: 'POST', body: { ...BODY, intent: { type: 'workShift', jobId: 'barista', wage: 9999 } } } as never, res as never)
     expect(res.statusCode).toBe(422)
     expect(res.body).toMatchObject({ ok: false, code: 'client_controlled_server_field' })
-    expect(list).not.toHaveBeenCalled()
     expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
   test('rejects unverified citizens', async () => {
     pgOn()
-    vi.mocked(list).mockResolvedValueOnce({ blobs: [], hasMore: false } as never)
+    pgQueryMock.mockResolvedValueOnce([]) // token hash not found
     const res = responseRecorder()
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
     expect(res.statusCode).toBe(401)
-    expect(pgQueryMock).not.toHaveBeenCalled()
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
   })
 
   test('applies a validated workShift: ledger row appended atomically, balance returned', async () => {
@@ -176,7 +164,7 @@ describe('intent API handler', () => {
       xp: XP_PER_SHIFT,
       balance: 420,
     })
-    const [insertSql, insertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    const [insertSql, insertParams] = pgQueryMock.mock.calls[3] as [string, unknown[]]
     // The append goes through the serialized plpgsql function: advisory lock
     // + fresh-snapshot read + cooldown + overdraft gate, atomically.
     expect(insertSql).toMatch(/reality_append_intent/)
@@ -217,7 +205,7 @@ describe('intent API handler', () => {
 
     await handler({ method: 'POST', body: { ...BODY, predictedBalance: 9_000_000 } } as never, res as never)
 
-    const [, insertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    const [, insertParams] = pgQueryMock.mock.calls[3] as [string, unknown[]]
     expect(insertParams[3]).toBe(300_000) // seed = min(claimed, maxPlausibleWorth(0)), never the raw 9M
   })
 
@@ -241,7 +229,7 @@ describe('intent API handler', () => {
       code: 'insufficient_funds',
       correction: { balance: 10 },
     })
-    expect(pgQueryMock).toHaveBeenCalledTimes(3) // refusal carries the balance — no follow-up read
+    expect(pgQueryMock).toHaveBeenCalledTimes(4) // refusal carries the balance — no follow-up read
   })
 
   test('refuses a second shift inside the engine shift window', async () => {
@@ -271,7 +259,7 @@ describe('intent API handler', () => {
     await handler({ method: 'POST', body: { ...BODY, intent: { type: 'buyItem', itemId: 'noodles' } } } as never, res as never)
 
     expect(res.statusCode).toBe(200)
-    const [, params] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    const [, params] = pgQueryMock.mock.calls[3] as [string, unknown[]]
     expect(params[5]).toBeNull()
   })
 
@@ -300,7 +288,7 @@ describe('intent API handler', () => {
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
 
     expect(res.statusCode).toBe(429)
-    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    expect(pgQueryMock).toHaveBeenCalledTimes(2) // verify + rate count only
   })
 
   test('level gate: a level-1 citizen cannot fly the plane', async () => {
@@ -315,7 +303,7 @@ describe('intent API handler', () => {
 
     expect(res.statusCode).toBe(422)
     expect(res.body).toMatchObject({ ok: false, code: 'level_too_low' })
-    expect(pgQueryMock).toHaveBeenCalledTimes(2) // no ledger append
+    expect(pgQueryMock).toHaveBeenCalledTimes(3) // no ledger append
   })
 })
 

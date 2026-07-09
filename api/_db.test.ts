@@ -1,31 +1,23 @@
 import { afterEach, describe, expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { databaseUrl, db, isPostgresEnabled, resetDbForTest } from './_db'
+import { databaseUrl, db, resetDbForTest } from './_db'
 
 afterEach(() => {
   resetDbForTest()
 })
 
-describe('postgres feature flag', () => {
-  test('is OFF by default — no flag, no database access', () => {
-    expect(isPostgresEnabled({} as NodeJS.ProcessEnv)).toBe(false)
-    expect(isPostgresEnabled({ POSTGRES_URL: 'postgres://x' } as NodeJS.ProcessEnv)).toBe(false)
-  })
-
-  test('requires BOTH the flag and a connection string', () => {
-    expect(isPostgresEnabled({ POSTGRES_ENABLED: '1' } as NodeJS.ProcessEnv)).toBe(false)
-    expect(isPostgresEnabled({ POSTGRES_ENABLED: '1', POSTGRES_URL: 'postgres://x' } as NodeJS.ProcessEnv)).toBe(true)
-    expect(isPostgresEnabled({ POSTGRES_ENABLED: 'true', DATABASE_URL: 'postgres://x' } as NodeJS.ProcessEnv)).toBe(true)
-    expect(isPostgresEnabled({ POSTGRES_ENABLED: 'no', POSTGRES_URL: 'postgres://x' } as NodeJS.ProcessEnv)).toBe(false)
-  })
-
+describe('postgres access (cutover: no feature flag — Postgres IS the database)', () => {
   test('POSTGRES_URL wins over DATABASE_URL', () => {
     expect(databaseUrl({ POSTGRES_URL: 'postgres://pooled', DATABASE_URL: 'postgres://direct' } as NodeJS.ProcessEnv))
       .toBe('postgres://pooled')
   })
 
-  test('db() throws while the flag is off — flag-off deployments cannot connect', () => {
-    expect(() => db({} as NodeJS.ProcessEnv)).toThrow(/not enabled/)
+  test('db() connects whenever a connection string is configured — no flag required', () => {
+    expect(() => db({ POSTGRES_URL: 'postgresql://user:pass@host.example/reality' } as NodeJS.ProcessEnv)).not.toThrow()
+  })
+
+  test('db() throws loudly when no connection string is configured', () => {
+    expect(() => db({} as NodeJS.ProcessEnv)).toThrow(/POSTGRES_URL/)
   })
 })
 
@@ -53,6 +45,11 @@ describe('schema DDL', () => {
 
   test('scores carry the display name so the cutover can rank without a join', () => {
     expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS scores[\s\S]*?name\s+text NOT NULL DEFAULT ''/)
+  })
+
+  test('citizen names are claimed by slug — the Postgres twin of names/<slug>.json', () => {
+    expect(schema).toMatch(/name_slug text GENERATED ALWAYS AS/)
+    expect(schema).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_slug_key/)
   })
 
   test('the ledger is append-only by shape: identity PK and no updated_at', () => {
