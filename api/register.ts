@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { citizenRowFromRegistration, dualWriteCitizenRow } from './_registry.js'
 import {
   telegramRealityAccountPath,
   telegramRealityAccountRecord,
@@ -161,9 +162,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Citizen record: identity + auth live in the pathname so later requests
     // can verify a token with a single prefix lookup.
+    const record = citizenRecord(clean, registeredAt, telegramAccountRecord)
     await put(
       `citizens/${citizenId}__${tokenHash}__${founderNumber ?? 0}.json`,
-      JSON.stringify(citizenRecord(clean, registeredAt, telegramAccountRecord)),
+      JSON.stringify(record),
       { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
     )
 
@@ -173,6 +175,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         JSON.stringify(telegramAccountRecord),
         { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
       )
+    }
+
+    // Phase 1b.2 (issue #897): mirror the citizen into Postgres. Blob stays
+    // authoritative and the citizen is already durably registered above, so
+    // nothing in this block may fail the request — dualWriteCitizenRow never
+    // throws (no-op with POSTGRES_ENABLED off) and the outer catch guards
+    // row shaping itself; a miss is backfilled by scripts/db-migrate-registry.mjs.
+    try {
+      await dualWriteCitizenRow(citizenRowFromRegistration({
+        citizenId,
+        name: clean,
+        tokenHash,
+        founderNumber,
+        registeredAt,
+        record,
+        telegram: telegramAccountRecord ? { telegramUserId: telegramAccountRecord.telegramUserId } : null,
+      }))
+    } catch (error) {
+      console.error(`register: postgres mirror skipped for citizen ${citizenId} (blob remains authoritative)`, error)
     }
 
     res.status(200).json({
