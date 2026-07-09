@@ -69,6 +69,12 @@ describe('buildCitizenRow', () => {
     expect(row.telegramUserId).toBe(42424242)
   })
 
+  test('refuses a missing or nameless record — a bad row must not land and block self-healing forever', () => {
+    expect(buildCitizenRow(parsed, null, new Map())).toBeNull()
+    expect(buildCitizenRow(parsed, {}, new Map())).toBeNull()
+    expect(buildCitizenRow(parsed, { name: '   ' }, new Map())).toBeNull()
+  })
+
   test('insert statement is idempotent (ON CONFLICT DO NOTHING) so re-runs are safe', () => {
     expect(CITIZEN_INSERT_SQL).toMatch(/INSERT INTO citizens/i)
     expect(CITIZEN_INSERT_SQL).toMatch(/ON CONFLICT.*DO NOTHING/is)

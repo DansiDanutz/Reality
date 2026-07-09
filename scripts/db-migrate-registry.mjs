@@ -65,21 +65,35 @@ const citizenBlobs = await listAll('citizens/')
 let inserted = 0
 let skipped = 0
 let malformed = 0
+let errored = 0
 for (const blob of citizenBlobs) {
-  const parsed = parseCitizenPathname(blob.pathname)
-  if (!parsed) {
-    malformed += 1
-    console.error(`skipping malformed pathname: ${blob.pathname}`)
-    continue
+  // One bad blob must not kill the run: log it, keep going, report at the end.
+  // Re-runs stay safe either way (ON CONFLICT DO NOTHING).
+  try {
+    const parsed = parseCitizenPathname(blob.pathname)
+    if (!parsed) {
+      malformed += 1
+      console.error(`skipping malformed pathname: ${blob.pathname}`)
+      continue
+    }
+    const record = await readJson(blob)
+    const row = buildCitizenRow(parsed, record, founderByCitizen)
+    if (!row) {
+      malformed += 1
+      console.error(`skipping ${blob.pathname}: record has no usable name`)
+      continue
+    }
+    const rows = await sql.query(`${CITIZEN_INSERT_SQL} RETURNING citizen_id`, citizenInsertParams(row))
+    if (rows.length > 0) inserted += 1
+    else skipped += 1 // already present — a re-run or a live dual-write beat us
+  } catch (error) {
+    errored += 1
+    console.error(`failed on ${blob.pathname}:`, error)
   }
-  const record = await readJson(blob)
-  const row = buildCitizenRow(parsed, record, founderByCitizen)
-  const rows = await sql.query(`${CITIZEN_INSERT_SQL} RETURNING citizen_id`, citizenInsertParams(row))
-  if (rows.length > 0) inserted += 1
-  else skipped += 1 // already present — a re-run or a live dual-write beat us
 }
 
-console.log(`citizens/: ${citizenBlobs.length} blobs → ${inserted} inserted, ${skipped} already present, ${malformed} malformed`)
+console.log(`citizens/: ${citizenBlobs.length} blobs → ${inserted} inserted, ${skipped} already present, ${malformed} malformed, ${errored} errored`)
+if (errored > 0) process.exitCode = 1
 
 const [{ count }] = await sql.query('SELECT count(*)::int AS count FROM citizens')
 console.log(`citizens table now holds ${count} rows`)

@@ -41,12 +41,15 @@ export function parseFounderPathname(pathname) {
 /**
  * Builds an insert-ready row. founders/ blobs are the authoritative registry,
  * so when the map disagrees with the citizen pathname the map wins.
+ * Returns null for a missing/nameless record: ON CONFLICT DO NOTHING means a
+ * bad row that lands can never self-heal on re-runs, so it must not land.
  */
 export function buildCitizenRow(parsed, record, founderByCitizen) {
+  if (!record || typeof record.name !== 'string' || record.name.trim().length === 0) return null
   const telegramId = Number(record?.telegramUserId)
   return {
     citizenId: parsed.citizenId,
-    name: String(record?.name ?? ''),
+    name: record.name,
     tokenHash: parsed.tokenHash,
     founderNumber: founderByCitizen.get(parsed.citizenId) ?? parsed.founderNumber,
     telegramUserId: Number.isSafeInteger(telegramId) ? telegramId : null,

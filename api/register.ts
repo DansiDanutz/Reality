@@ -178,17 +178,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Phase 1b.2 (issue #897): mirror the citizen into Postgres. Blob stays
-    // authoritative — dualWriteCitizenRow never throws and is a no-op with
-    // POSTGRES_ENABLED off.
-    await dualWriteCitizenRow(citizenRowFromRegistration({
-      citizenId,
-      name: clean,
-      tokenHash,
-      founderNumber,
-      registeredAt,
-      record,
-      telegram: telegramAccountRecord ? { telegramUserId: telegramAccountRecord.telegramUserId } : null,
-    }))
+    // authoritative and the citizen is already durably registered above, so
+    // nothing in this block may fail the request — dualWriteCitizenRow never
+    // throws (no-op with POSTGRES_ENABLED off) and the outer catch guards
+    // row shaping itself; a miss is backfilled by scripts/db-migrate-registry.mjs.
+    try {
+      await dualWriteCitizenRow(citizenRowFromRegistration({
+        citizenId,
+        name: clean,
+        tokenHash,
+        founderNumber,
+        registeredAt,
+        record,
+        telegram: telegramAccountRecord ? { telegramUserId: telegramAccountRecord.telegramUserId } : null,
+      }))
+    } catch (error) {
+      console.error(`register: postgres mirror skipped for citizen ${citizenId} (blob remains authoritative)`, error)
+    }
 
     res.status(200).json({
       ok: true,
