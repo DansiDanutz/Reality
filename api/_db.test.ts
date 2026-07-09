@@ -47,6 +47,10 @@ describe('schema DDL', () => {
     expect(schema).not.toMatch(/DROP TABLE|DROP INDEX|TRUNCATE|DELETE FROM/)
   })
 
+  test('assets are keyed per citizen — asset ids are only unique within world/{citizenId}/ in Blob', () => {
+    expect(schema).toMatch(/PRIMARY KEY \(citizen_id, asset_id\)/)
+  })
+
   test('the ledger is append-only by shape: identity PK and no updated_at', () => {
     expect(schema).toMatch(/entry_id\s+bigint GENERATED ALWAYS AS IDENTITY/)
     expect(schema).not.toMatch(/ledger[\s\S]*updated_at/)

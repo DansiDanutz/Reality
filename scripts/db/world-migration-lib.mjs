@@ -18,7 +18,7 @@ const WORLD_PATHNAME =
 export const ASSET_INSERT_SQL = `
   INSERT INTO assets (asset_id, citizen_id, item_id, kind, lat, lng, placed_at)
   VALUES ($1, $2, $3, $4, $5, $6, $7)
-  ON CONFLICT (asset_id) DO NOTHING
+  ON CONFLICT (citizen_id, asset_id) DO NOTHING
 `.trim()
 
 export function parseWorldPathname(pathname) {

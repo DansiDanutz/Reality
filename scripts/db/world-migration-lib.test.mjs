@@ -59,7 +59,8 @@ describe('buildAssetRow', () => {
 
   test('insert statement is idempotent (ON CONFLICT DO NOTHING) so re-runs never clobber newer dual-writes', () => {
     expect(ASSET_INSERT_SQL).toMatch(/INSERT INTO assets/i)
-    expect(ASSET_INSERT_SQL).toMatch(/ON CONFLICT.*DO NOTHING/is)
+    // Composite conflict target: asset ids are only unique per citizen
+    expect(ASSET_INSERT_SQL).toMatch(/ON CONFLICT \(citizen_id, asset_id\) DO NOTHING/i)
   })
 
   test('params line up with the insert statement columns', () => {

@@ -69,10 +69,11 @@ describe('dualWriteWorldPlacement', () => {
     const [upsertSql, upsertParams] = queryMock.mock.calls[0] as [string, unknown[]]
     expect(upsertSql).toBe(ASSET_UPSERT_SQL)
     expect(upsertSql).toMatch(/INSERT INTO assets/i)
-    // Re-placing your own asset moves it (Blob allowOverwrite:true semantics),
-    // but another citizen's asset id can never be hijacked.
-    expect(upsertSql).toMatch(/ON CONFLICT \(asset_id\) DO UPDATE/i)
-    expect(upsertSql).toMatch(/WHERE assets\.citizen_id = EXCLUDED\.citizen_id/i)
+    // Asset ids are only unique per citizen (Blob namespaces them under
+    // world/{citizenId}/), so the conflict target is the composite key:
+    // re-placing your own asset moves it, while another citizen using the
+    // same asset id keeps their own distinct row — exactly like Blob.
+    expect(upsertSql).toMatch(/ON CONFLICT \(citizen_id, asset_id\) DO UPDATE/i)
     expect(upsertParams).toEqual([
       'starter-home-1',
       CITIZEN_ID,

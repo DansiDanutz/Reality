@@ -25,20 +25,20 @@ export type WorldAssetRow = {
 
 /**
  * Blob semantics twin: allowOverwrite:true within a citizen's own prefix
- * (re-placing an asset moves it), but pathnames are namespaced per citizen —
- * so the upsert only updates when the same citizen owns the row. Another
- * citizen colliding on asset_id is a silent no-op, never a hijack.
+ * (re-placing an asset moves it). Asset ids are only unique per citizen —
+ * Blob namespaces them as world/{citizenId}/{assetId} — so the conflict
+ * target is the composite key: another citizen using the same asset id
+ * keeps their own distinct row, exactly like Blob.
  */
 export const ASSET_UPSERT_SQL = `
   INSERT INTO assets (asset_id, citizen_id, item_id, kind, lat, lng, placed_at)
   VALUES ($1, $2, $3, $4, $5, $6, $7)
-  ON CONFLICT (asset_id) DO UPDATE
+  ON CONFLICT (citizen_id, asset_id) DO UPDATE
     SET item_id = EXCLUDED.item_id,
         kind = EXCLUDED.kind,
         lat = EXCLUDED.lat,
         lng = EXCLUDED.lng,
         placed_at = EXCLUDED.placed_at
-    WHERE assets.citizen_id = EXCLUDED.citizen_id
 `.trim()
 
 export const LEDGER_PLACE_INSERT_SQL = `

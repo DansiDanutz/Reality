@@ -23,8 +23,11 @@ CREATE INDEX IF NOT EXISTS citizens_token_hash_idx ON citizens (token_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_lower_key ON citizens (lower(name));
 
 -- Placed world assets (homes/businesses on the shared map).
+-- Asset ids are client-generated and only unique per citizen — Blob
+-- namespaces them as world/{citizenId}/{assetId} — so the key is composite
+-- (issue #898): two citizens using the same asset id keep distinct rows.
 CREATE TABLE IF NOT EXISTS assets (
-  asset_id    text PRIMARY KEY,
+  asset_id    text NOT NULL,
   citizen_id  uuid NOT NULL REFERENCES citizens (citizen_id) ON DELETE CASCADE,
   item_id     text NOT NULL,
   kind        text NOT NULL,
@@ -32,8 +35,15 @@ CREATE TABLE IF NOT EXISTS assets (
   lng         double precision NOT NULL,
   name        text NOT NULL DEFAULT '',
   placed_at   timestamptz NOT NULL DEFAULT now(),
-  raw         jsonb NOT NULL DEFAULT '{}'::jsonb
+  raw         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (citizen_id, asset_id)
 );
+
+-- Re-keys assets tables created by the Phase 1b.1 schema (asset_id-only PK).
+-- The drop+add pair is a net no-op when the composite key is already in
+-- place, keeping the whole file safe to re-run.
+ALTER TABLE assets DROP CONSTRAINT IF EXISTS assets_pkey;
+ALTER TABLE assets ADD CONSTRAINT assets_pkey PRIMARY KEY (citizen_id, asset_id);
 
 CREATE INDEX IF NOT EXISTS assets_citizen_idx ON assets (citizen_id);
 CREATE INDEX IF NOT EXISTS assets_placed_day_idx ON assets (citizen_id, placed_at);
