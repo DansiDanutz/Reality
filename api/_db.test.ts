@@ -51,6 +51,10 @@ describe('schema DDL', () => {
     expect(schema).toMatch(/PRIMARY KEY \(citizen_id, asset_id\)/)
   })
 
+  test('scores carry the display name so the cutover can rank without a join', () => {
+    expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS scores[\s\S]*?name\s+text NOT NULL DEFAULT ''/)
+  })
+
   test('the ledger is append-only by shape: identity PK and no updated_at', () => {
     expect(schema).toMatch(/entry_id\s+bigint GENERATED ALWAYS AS IDENTITY/)
     expect(schema).not.toMatch(/ledger[\s\S]*updated_at/)

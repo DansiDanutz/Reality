@@ -68,10 +68,16 @@ CREATE INDEX IF NOT EXISTS ledger_intent_idx ON ledger (intent);
 -- api/leaderboard.ts: $200k grant + $100k per day of citizenship).
 CREATE TABLE IF NOT EXISTS scores (
   citizen_id    uuid PRIMARY KEY REFERENCES citizens (citizen_id) ON DELETE CASCADE,
+  name          text NOT NULL DEFAULT '',
   net_worth     numeric(14, 2) NOT NULL DEFAULT 0,
   capped_worth  numeric(14, 2) NOT NULL DEFAULT 0,
   level         integer NOT NULL DEFAULT 1,
   reported_at   timestamptz NOT NULL DEFAULT now()
 );
+
+-- Phase 1b.4 (issue #900): the display name rides along so the cutover can
+-- rank without a join. Adds the column to tables created by earlier schema
+-- versions; IF NOT EXISTS keeps the file safe to re-run.
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS scores_capped_worth_idx ON scores (capped_worth DESC);

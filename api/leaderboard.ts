@@ -1,13 +1,15 @@
 import { createHash } from 'node:crypto'
 import { del, list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { citizenAgeDaysPg, dualWriteScore, maxPlausibleWorth } from './_scoresPg.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_NET_WORTH = 10_000_000_000
-// Day-0 plausibility ceiling: founder grant ($200k) + one day's generous
-// allowance ($100k). Used as the FAIL-CLOSED cap when a citizen's age can't
-// be read — on uncertainty we clamp low, never accept the raw client number.
-const FALLBACK_MAX_PLAUSIBLE = 300_000
+// Day-0 plausibility ceiling: founder grant + one day's generous allowance.
+// Used as the FAIL-CLOSED cap when a citizen's age can't be read — on
+// uncertainty we clamp low, never accept the raw client number. Derived from
+// the shared formula so the floor can never drift from the age-based cap.
+const FALLBACK_MAX_PLAUSIBLE = maxPlausibleWorth(0)
 
 async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
@@ -72,21 +74,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Plausibility cap until the server owns the simulation (Phase 1b):
     // founder grant + a generous $100k per day of citizenship. FAIL CLOSED —
     // start at the conservative day-0 ceiling and only RAISE it once we've
-    // read a real citizen age. A transient blob-read failure previously left
+    // read a real citizen age. A transient read failure previously left
     // the raw client number (up to $10B) uncapped; now it clamps low instead.
+    // Phase 1b.4 (issue #900): the age comes from Postgres first when the
+    // flag is on; the Blob record is the fallback source.
     let cappedWorth = Math.min(worth, FALLBACK_MAX_PLAUSIBLE)
-    try {
-      const citizenBlob = await list({ prefix: `citizens/${citizenId}__`, limit: 1 })
-      if (citizenBlob.blobs[0]) {
-        const record = (await (await fetch(citizenBlob.blobs[0].downloadUrl)).json()) as { createdAt?: string }
-        const ageDays = record.createdAt
-          ? Math.max(0, (Date.now() - new Date(record.createdAt).getTime()) / 86_400_000)
-          : 0
-        const maxPlausible = 200_000 + Math.ceil(ageDays + 1) * 100_000
-        cappedWorth = Math.min(worth, maxPlausible)
+    const pgAgeDays = await citizenAgeDaysPg(String(citizenId))
+    if (pgAgeDays !== null) {
+      cappedWorth = Math.min(worth, maxPlausibleWorth(pgAgeDays))
+    } else {
+      try {
+        const citizenBlob = await list({ prefix: `citizens/${citizenId}__`, limit: 1 })
+        if (citizenBlob.blobs[0]) {
+          const record = (await (await fetch(citizenBlob.blobs[0].downloadUrl)).json()) as { createdAt?: string }
+          const ageDays = record.createdAt
+            ? Math.max(0, (Date.now() - new Date(record.createdAt).getTime()) / 86_400_000)
+            : 0
+          cappedWorth = Math.min(worth, maxPlausibleWorth(ageDays))
+        }
+      } catch {
+        /* keep the fail-closed day-0 cap set above */
       }
-    } catch {
-      /* keep the fail-closed day-0 cap set above */
     }
 
     // Replace this citizen's previous score, then write the new one
@@ -97,6 +105,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
+    })
+    // Phase 1b.4 (issue #900): mirror the score into Postgres and log any
+    // capped (implausible) claim to the ledger. Blob stays authoritative —
+    // dualWriteScore never throws and is a no-op with the flag off.
+    await dualWriteScore({
+      citizenId: String(citizenId),
+      name: cleanName,
+      netWorth: worth,
+      cappedWorth,
+      reportedAt: new Date(),
     })
     res.status(200).json({ ok: true })
   } catch {
