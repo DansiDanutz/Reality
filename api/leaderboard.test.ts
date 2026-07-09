@@ -116,20 +116,19 @@ describe('leaderboard API Postgres dual-write (Phase 1b.4)', () => {
       '1',
       expect.anything(),
     )
-    expect(pgQueryMock).toHaveBeenCalledTimes(3) // age + upsert + capped-claim ledger
+    expect(pgQueryMock).toHaveBeenCalledTimes(2) // age + atomic upsert-with-audit
     const [upsertSql, upsertParams] = pgQueryMock.mock.calls[1] as [string, unknown[]]
     expect(upsertSql).toMatch(/INSERT INTO scores/i)
-    expect(upsertParams).toEqual([CITIZEN_ID, 'water-maker', 9_000_000, 800_000, NOW.toISOString()])
-    const [ledgerSql, ledgerParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    expect(ledgerSql).toMatch(/INSERT INTO ledger/i)
-    expect(JSON.parse(String(ledgerParams[1]))).toEqual({
+    expect(upsertSql).toMatch(/INSERT INTO ledger/i)
+    expect(upsertParams.slice(0, 5)).toEqual([CITIZEN_ID, 'water-maker', 9_000_000, 800_000, NOW.toISOString()])
+    expect(JSON.parse(String(upsertParams[5]))).toEqual({
       reason: 'implausible_net_worth',
       claimed: 9_000_000,
       capped: 800_000,
     })
   })
 
-  test('a plausible score dual-writes without a ledger entry', async () => {
+  test('a plausible score dual-writes in the same two round-trips (the SQL gate skips the audit row)', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(NOW)
     vi.stubEnv('POSTGRES_ENABLED', '1')

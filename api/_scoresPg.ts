@@ -31,20 +31,28 @@ export function maxPlausibleWorth(ageDays: number): number {
   return 200_000 + Math.ceil(ageDays + 1) * 100_000
 }
 
-/** One row per citizen — a new submission replaces the old score, like Blob's del+put. */
+/**
+ * One row per citizen — a new submission replaces the old score, like Blob's
+ * del+put. The capped-claim audit rides in the SAME statement (CTE): the
+ * Neon HTTP driver autocommits per call, so a separate ledger insert could
+ * be lost if the connection dropped between calls — fused, the score update
+ * and its audit entry land atomically or not at all. The WHERE gate skips
+ * the audit row whenever the claim was plausible (claimed <= capped).
+ */
 export const SCORE_UPSERT_SQL = `
-  INSERT INTO scores (citizen_id, name, net_worth, capped_worth, reported_at)
-  VALUES ($1, $2, $3, $4, $5)
-  ON CONFLICT (citizen_id) DO UPDATE
-    SET name = EXCLUDED.name,
-        net_worth = EXCLUDED.net_worth,
-        capped_worth = EXCLUDED.capped_worth,
-        reported_at = EXCLUDED.reported_at
-`.trim()
-
-const LEDGER_CAPPED_INSERT_SQL = `
+  WITH upserted AS (
+    INSERT INTO scores (citizen_id, name, net_worth, capped_worth, reported_at)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (citizen_id) DO UPDATE
+      SET name = EXCLUDED.name,
+          net_worth = EXCLUDED.net_worth,
+          capped_worth = EXCLUDED.capped_worth,
+          reported_at = EXCLUDED.reported_at
+    RETURNING citizen_id
+  )
   INSERT INTO ledger (citizen_id, intent, amount, meta)
-  VALUES ($1, 'score.capped', 0, $2::jsonb)
+  SELECT citizen_id, 'score.capped', 0, $6::jsonb FROM upserted
+  WHERE $3::numeric > $4::numeric
 `.trim()
 
 const CITIZEN_AGE_SQL = 'SELECT created_at FROM citizens WHERE citizen_id = $1'
@@ -87,13 +95,8 @@ export async function dualWriteScore(row: ScoreRow, env: NodeJS.ProcessEnv = pro
       row.netWorth,
       row.cappedWorth,
       row.reportedAt.toISOString(),
+      JSON.stringify({ reason: 'implausible_net_worth', claimed: row.netWorth, capped: row.cappedWorth }),
     ])
-    if (row.cappedWorth < row.netWorth) {
-      await sql.query(LEDGER_CAPPED_INSERT_SQL, [
-        row.citizenId,
-        JSON.stringify({ reason: 'implausible_net_worth', claimed: row.netWorth, capped: row.cappedWorth }),
-      ])
-    }
   } catch (error) {
     console.error(`leaderboard: postgres dual-write failed for citizen ${row.citizenId} (blob remains authoritative)`, error)
   }

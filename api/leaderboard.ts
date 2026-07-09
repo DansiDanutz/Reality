@@ -5,10 +5,11 @@ import { citizenAgeDaysPg, dualWriteScore, maxPlausibleWorth } from './_scoresPg
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_NET_WORTH = 10_000_000_000
-// Day-0 plausibility ceiling: founder grant ($200k) + one day's generous
-// allowance ($100k). Used as the FAIL-CLOSED cap when a citizen's age can't
-// be read — on uncertainty we clamp low, never accept the raw client number.
-const FALLBACK_MAX_PLAUSIBLE = 300_000
+// Day-0 plausibility ceiling: founder grant + one day's generous allowance.
+// Used as the FAIL-CLOSED cap when a citizen's age can't be read — on
+// uncertainty we clamp low, never accept the raw client number. Derived from
+// the shared formula so the floor can never drift from the age-based cap.
+const FALLBACK_MAX_PLAUSIBLE = maxPlausibleWorth(0)
 
 async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false

@@ -55,7 +55,7 @@ describe('dualWriteScore', () => {
     expect(queryMock).not.toHaveBeenCalled()
   })
 
-  test('upserts the score row — one row per citizen, replaced on conflict', async () => {
+  test('upserts the score and audits the cap in ONE atomic statement — one row per citizen, replaced on conflict', async () => {
     vi.stubEnv('POSTGRES_ENABLED', '1')
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
 
@@ -66,20 +66,29 @@ describe('dualWriteScore', () => {
     expect(statement).toBe(SCORE_UPSERT_SQL)
     expect(statement).toMatch(/INSERT INTO scores/i)
     expect(statement).toMatch(/ON CONFLICT \(citizen_id\) DO UPDATE/i)
-    expect(params).toEqual([CITIZEN_ID, 'water-maker', 750_000, 750_000, REPORTED_AT.toISOString()])
+    // The capped-claim audit rides in the SAME statement (CTE), so the Neon
+    // autocommit-per-call driver can never record the score without the audit
+    expect(statement).toMatch(/INSERT INTO ledger/i)
+    expect(statement).toMatch(/WHERE \$3::numeric > \$4::numeric/i)
+    expect(params).toEqual([
+      CITIZEN_ID,
+      'water-maker',
+      750_000,
+      750_000,
+      REPORTED_AT.toISOString(),
+      JSON.stringify({ reason: 'implausible_net_worth', claimed: 750_000, capped: 750_000 }),
+    ])
   })
 
-  test('logs a capped claim to the ledger with the reason when the cap bit', async () => {
+  test('carries the capped-claim audit meta when the cap bit — still a single call', async () => {
     vi.stubEnv('POSTGRES_ENABLED', '1')
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
 
     await dualWriteScore(score({ netWorth: 9_000_000, cappedWorth: 800_000 }))
 
-    expect(queryMock).toHaveBeenCalledTimes(2)
-    const [ledgerSql, ledgerParams] = queryMock.mock.calls[1] as [string, unknown[]]
-    expect(ledgerSql).toMatch(/INSERT INTO ledger/i)
-    expect(ledgerParams[0]).toBe(CITIZEN_ID)
-    expect(JSON.parse(String(ledgerParams[1]))).toEqual({
+    expect(queryMock).toHaveBeenCalledTimes(1)
+    const [, params] = queryMock.mock.calls[0] as [string, unknown[]]
+    expect(JSON.parse(String(params[5]))).toEqual({
       reason: 'implausible_net_worth',
       claimed: 9_000_000,
       capped: 800_000,
