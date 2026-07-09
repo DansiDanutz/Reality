@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { assetRowFromPlacement, dualWriteWorldPlacement, placementCapReachedPg } from './_worldPg.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const WORLD_PLACEMENT_FIELDS = new Set(['citizenId', 'token', 'assetId', 'itemId', 'kind', 'lat', 'lng'])
@@ -94,9 +95,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Per-citizen daily placement cap. Without this, one citizen can spam the
     // shared `world/` prefix with random asset ids, slowing every player's GET.
     // The list() of dated markers IS the counter — same idiom as avatar.ts.
-    const day = new Date().toISOString().slice(0, 10)
+    const placedAt = new Date()
+    const day = placedAt.toISOString().slice(0, 10)
     const used = await list({ prefix: `worldrate/${citizenId}__${day}`, limit: PLACEMENTS_PER_DAY + 1 })
     if (used.blobs.length >= PLACEMENTS_PER_DAY) {
+      res.status(429).json({ ok: false, error: `You've placed ${PLACEMENTS_PER_DAY} things in the world today. Come back tomorrow.` })
+      return
+    }
+    // Phase 1b.3 (issue #898): the same cap enforced from Postgres when the
+    // flag is on — counts today's world.place ledger entries. Fails open on
+    // a Postgres error, so the Blob check above stays the enforcement floor.
+    if (await placementCapReachedPg(String(citizenId), PLACEMENTS_PER_DAY)) {
       res.status(429).json({ ok: false, error: `You've placed ${PLACEMENTS_PER_DAY} things in the world today. Come back tomorrow.` })
       return
     }
@@ -113,6 +122,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       allowOverwrite: true,
       contentType: 'application/json',
     })
+    // Phase 1b.3 (issue #898): mirror the placement into Postgres (assets
+    // upsert + world.place ledger entry). Blob stays authoritative —
+    // dualWriteWorldPlacement never throws and is a no-op with the flag off.
+    // Structured columns mirror the pathname exactly (toFixed(2) coords).
+    await dualWriteWorldPlacement(assetRowFromPlacement({
+      citizenId: String(citizenId),
+      assetId: cleanAssetId,
+      itemId: cleanItemId,
+      kind,
+      lat: Number(nLat.toFixed(2)),
+      lng: Number(nLng.toFixed(2)),
+      placedAt,
+    }))
     res.status(200).json({ ok: true })
   } catch {
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })
