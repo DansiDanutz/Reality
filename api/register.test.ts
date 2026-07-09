@@ -1,11 +1,18 @@
 import { createHash, createHmac } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { resetDbForTest } from './_db'
 import handler from './register'
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
   put: vi.fn(async () => ({ url: 'blob://written' })),
+}))
+
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
+
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
 }))
 
 const BOT_TOKEN = '123456:telegram-secret'
@@ -17,8 +24,12 @@ const REGISTER_DAY = new Date(NOW_SECONDS * 1000).toISOString().slice(0, 10)
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllEnvs()
+  vi.restoreAllMocks()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  pgQueryMock.mockReset()
+  pgQueryMock.mockResolvedValue([])
+  resetDbForTest()
 })
 
 describe('register API Telegram identity bridge', () => {
@@ -207,6 +218,105 @@ describe('register API Telegram identity bridge', () => {
       typeof pathname === 'string' &&
       (pathname.startsWith('names/') || pathname.startsWith('founders/') || pathname.startsWith('citizens/') || pathname.startsWith('telegram-users/'))
     )).toBe(false)
+  })
+})
+
+describe('register API Postgres dual-write (Phase 1b.2)', () => {
+  test('leaves Postgres untouched when POSTGRES_ENABLED is off', async () => {
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([]))
+      .mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
+  test('dual-writes the citizen row to Postgres after the Blob writes when the flag is on', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('POSTGRES_ENABLED', '1')
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([]))
+      .mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { citizenId: string; token: string; founderNumber: number }
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    const [statement, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(statement).toMatch(/INSERT INTO citizens/i)
+    const tokenHash = createHash('sha256').update(body.token).digest('hex').slice(0, 24)
+    expect(params).toEqual([
+      body.citizenId,
+      'David',
+      tokenHash,
+      1,
+      null,
+      new Date(NOW_SECONDS * 1000).toISOString(),
+      JSON.stringify({ name: 'David', createdAt: new Date(NOW_SECONDS * 1000).toISOString() }),
+    ])
+  })
+
+  test('registration still succeeds when the Postgres dual-write fails', async () => {
+    vi.stubEnv('POSTGRES_ENABLED', '1')
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([]))
+      .mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, founderNumber: 1 })
+    expect(consoleError).toHaveBeenCalled()
+  })
+
+  test('dual-writes the Telegram user id when the account is linked', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    vi.stubEnv('POSTGRES_ENABLED', '1')
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([]))
+      .mockResolvedValueOnce(blobList([]))
+    const initData = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      user: JSON.stringify({ id: 42424242, first_name: 'David', username: 'davidreality' }),
+    })
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: { name: 'David', telegramInitData: initData },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    const [, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(params[4]).toBe(42424242)
   })
 })
 
