@@ -36,7 +36,7 @@ git switch -c feat/my-thing origin/main   # always branch off current main
 # … work …
 npx vitest run && npm run build           # must be green
 git push -u origin feat/my-thing
-gh pr create --fill                        # CI 'verify' + up-to-date branch gate the merge
+gh pr create --fill                        # CI 'verify' + up-to-date branch gates the merge
 ```
 
 A branch that is behind `main` cannot be merged — rebase onto `origin/main`
