@@ -202,16 +202,16 @@
           <p>Daily generated status for what is already on main, what is implemented and tested, what is still under review, and what the team is focusing on this week.</p>
         </div>
         <div class="stamp">
-          <strong>Wed, 08 Jul 2026 17:49:51 GMT</strong>
-          Branch <span class="mono">roadmap879</span> at <span class="mono">afbda78</span><br />
+          <strong>Thu, 09 Jul 2026 08:38:55 GMT</strong>
+          Branch <span class="mono">main</span> at <span class="mono">45ec496</span><br />
           Source: local repo plus GitHub PRs when the cron runs in CI.
         </div>
       </div>
       <section class="stats" aria-label="Roadmap summary">
         <div class="stat"><span>Achievements</span><strong>28</strong><small>Implemented in <span class="mono">src/game/achievements.ts</span></small></div>
         <div class="stat"><span>Market Items</span><strong>144</strong><small>10 jobs, 6 recipes, 48 life events</small></div>
-        <div class="stat"><span>Test Files</span><strong>55</strong><small>Unit and API coverage discovered in source</small></div>
-        <div class="stat"><span>Verify</span><strong>pending</strong><small>Tests: not-run-locally &middot; Build: not-run-locally</small></div>
+        <div class="stat"><span>Test Files</span><strong>111</strong><small>Unit and API coverage discovered in source</small></div>
+        <div class="stat"><span>Verify</span><strong>passed</strong><small>Tests: success &middot; Build: success</small></div>
       </section>
     </header>
 
@@ -223,7 +223,7 @@
               <h2>Implemented And Tested Achievements</h2>
               <p>All achievement definitions detected in source. The achievement constitution test file is present and part of CI.</p>
             </div>
-            <span class="chip warn">pending</span>
+            <span class="chip good">passed</span>
           </div>
           <table class="achievement-table">
             <thead>
@@ -475,93 +475,93 @@
           <ul class="commit-list">
             
               <li class="commit-row">
-                <strong>Fail closed when area claims cannot persist (#484)</strong>
-                <span><span class="mono">e1a8839</span> &middot; 2026-07-08</span>
+                <strong>fix(ci): repair roadmap-daily workflow YAML — heredocs dedented out of the literal block (#891)</strong>
+                <span><span class="mono">45ec496</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Classify Google restore infrastructure failures (#425)</strong>
-                <span><span class="mono">92f474c</span> &middot; 2026-07-08</span>
+                <strong>Keep persisted world evidence behind the area clock (#639)</strong>
+                <span><span class="mono">5be6332</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Report cloud save storage outages explicitly (#423)</strong>
-                <span><span class="mono">e967bc6</span> &middot; 2026-07-08</span>
+                <strong>fix(api): don&#39;t pin false-empty Overpass results in the CDN for a day (#890)</strong>
+                <span><span class="mono">5455bd2</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Expose Telegram identity storage outages (#420)</strong>
-                <span><span class="mono">9defcfc</span> &middot; 2026-07-08</span>
+                <strong>fix(api): size Overpass timeouts to reality — the full query takes ~30s (#889)</strong>
+                <span><span class="mono">9afad20</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Fail closed when leaderboard storage is unavailable (#418)</strong>
-                <span><span class="mono">07429f9</span> &middot; 2026-07-08</span>
+                <strong>chore(api): log per-mirror Overpass failures for diagnosis (#888)</strong>
+                <span><span class="mono">7214932</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Keep funnel analytics contracts in sync (#416)</strong>
-                <span><span class="mono">2a87395</span> &middot; 2026-07-08</span>
+                <strong>fix(api): send a User-Agent on Overpass upstream calls (#887)</strong>
+                <span><span class="mono">54c9104</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Surface Telegram-linked growth in the server funnel (#415)</strong>
-                <span><span class="mono">10a144b</span> &middot; 2026-07-08</span>
+                <strong>fix(map): proxy Overpass discovery through /api/overpass — CORS blocked every direct call (#886)</strong>
+                <span><span class="mono">aff44dd</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Keep founder spawn anchors inside real coordinates (#412)</strong>
-                <span><span class="mono">9d90180</span> &middot; 2026-07-08</span>
+                <strong>fix(api): add explicit .js extensions to relative imports — functions crashed at runtime (#885)</strong>
+                <span><span class="mono">92f0051</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Keep registration safety outages explicit (#407)</strong>
-                <span><span class="mono">7188db9</span> &middot; 2026-07-08</span>
+                <strong>feat: integrate the stranded Codex day-loop stack (149 commits, 20k lines) (#884)</strong>
+                <span><span class="mono">8332221</span> &middot; 2026-07-09</span>
               </li>
 
               <li class="commit-row">
-                <strong>Expose citizen verification storage outages (#405)</strong>
-                <span><span class="mono">6c2c868</span> &middot; 2026-07-08</span>
+                <strong>chore(deploy): skip Vercel preview builds for pipeline branches (#883)</strong>
+                <span><span class="mono">08d4833</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Make founder area refresh outages explicit (#403)</strong>
-                <span><span class="mono">e842a49</span> &middot; 2026-07-08</span>
+                <strong>Reject stale operator auth success payloads in the client (#839)</strong>
+                <span><span class="mono">2f0cd4d</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Surface operator review area load outages (#401)</strong>
-                <span><span class="mono">f503d89</span> &middot; 2026-07-08</span>
+                <strong>Reject future-issued Reality operator queue tokens (#835)</strong>
+                <span><span class="mono">2fa9d60</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Make covenant queue storage outages explicit (#399)</strong>
-                <span><span class="mono">8f65628</span> &middot; 2026-07-08</span>
+                <strong>Surface Telegram identity in disabled TON readiness (#832)</strong>
+                <span><span class="mono">119644c</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Keep server clock storage outages observable (#397)</strong>
-                <span><span class="mono">faee360</span> &middot; 2026-07-08</span>
+                <strong>Name founder covenant evidence gaps in queue priority (#821)</strong>
+                <span><span class="mono">e3770fc</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Expose server clock area tick failure reasons (#393)</strong>
-                <span><span class="mono">3df6cd2</span> &middot; 2026-07-08</span>
+                <strong>Trim claim transport labels (#805)</strong>
+                <span><span class="mono">cf8dd49</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Reject bad area claims before storage lookup (#391)</strong>
-                <span><span class="mono">9dffb9e</span> &middot; 2026-07-08</span>
+                <strong>Strip founder area payloads to public intent fields (#797)</strong>
+                <span><span class="mono">fa8edd3</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Keep client area claims inside founder radius bounds (#389)</strong>
-                <span><span class="mono">62f6324</span> &middot; 2026-07-08</span>
+                <strong>Prove operator review payload stripping (#794)</strong>
+                <span><span class="mono">66a8628</span> &middot; 2026-07-08</span>
               </li>
 
               <li class="commit-row">
-                <strong>Keep world ledger account ids unambiguous (#385)</strong>
-                <span><span class="mono">0a397dc</span> &middot; 2026-07-08</span>
+                <strong>Strip covenant review payloads to public fields (#792)</strong>
+                <span><span class="mono">c1ae4b2</span> &middot; 2026-07-08</span>
               </li>
           </ul>
         </section>
@@ -705,13 +705,18 @@
               <h2>Tested Areas</h2>
               <p>Detected test files that protect source behavior.</p>
             </div>
-            <span class="chip">55 files</span>
+            <span class="chip">111 files</span>
           </div>
           <ul class="test-list">
             
               <li class="test-row">
                 <strong>Auth Google</strong>
                 <span class="mono">api/auth-google.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Avatar</strong>
+                <span class="mono">api/avatar.test.ts</span>
               </li>
 
               <li class="test-row">
@@ -735,6 +740,11 @@
               </li>
 
               <li class="test-row">
+                <strong>Overpass</strong>
+                <span class="mono">api/overpass.test.ts</span>
+              </li>
+
+              <li class="test-row">
                 <strong>Reality Area</strong>
                 <span class="mono">api/reality-area.test.ts</span>
               </li>
@@ -747,6 +757,11 @@
               <li class="test-row">
                 <strong>Register</strong>
                 <span class="mono">api/register.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Styles Layering</strong>
+                <span class="mono">api/styles-layering.test.ts</span>
               </li>
 
               <li class="test-row">
@@ -765,8 +780,43 @@
               </li>
 
               <li class="test-row">
+                <strong>World</strong>
+                <span class="mono">api/world.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Hud/Goals Card Actions</strong>
+                <span class="mono">src/components/hud/goalsCardActions.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Hud/Goals Card View</strong>
+                <span class="mono">src/components/hud/goalsCardView.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Hud/Top Bar Nav</strong>
+                <span class="mono">src/components/hud/topBarNav.test.ts</span>
+              </li>
+
+              <li class="test-row">
                 <strong>Src/Components/Map/Buildings/Registry</strong>
                 <span class="mono">src/components/map/buildings/registry.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Map/Workers Hall Map Action</strong>
+                <span class="mono">src/components/map/workersHallMapAction.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Src/Components/Map/World Map Markers</strong>
+                <span class="mono">src/components/map/worldMapMarkers.test.ts</span>
+              </li>
+
+              <li class="test-row">
+                <strong>Assets Panel</strong>
+                <span class="mono">src/components/panels/AssetsPanel.test.ts</span>
               </li>
 
               <li class="test-row">
@@ -785,68 +835,18 @@
               </li>
 
               <li class="test-row">
-                <strong>Src/Components/Street/Osm</strong>
-                <span class="mono">src/components/street/osm.test.ts</span>
+                <strong>Funnel Dashboard</strong>
+                <span class="mono">src/components/panels/FunnelDashboard.test.ts</span>
               </li>
 
               <li class="test-row">
-                <strong>Achievements</strong>
-                <span class="mono">src/game/achievements.test.ts</span>
+                <strong>Health Guide</strong>
+                <span class="mono">src/components/panels/HealthGuide.test.ts</span>
               </li>
 
               <li class="test-row">
-                <strong>Area Claim Evidence</strong>
-                <span class="mono">src/game/areaClaimEvidence.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Asset Manifest</strong>
-                <span class="mono">src/game/assetManifest.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Boosters</strong>
-                <span class="mono">src/game/boosters.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Business Upgrades</strong>
-                <span class="mono">src/game/businessUpgrades.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Combo</strong>
-                <span class="mono">src/game/combo.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Compliance Copy</strong>
-                <span class="mono">src/game/complianceCopy.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Construction</strong>
-                <span class="mono">src/game/construction.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Daily Challenges</strong>
-                <span class="mono">src/game/dailyChallenges.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Engine</strong>
-                <span class="mono">src/game/engine.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Estate Protection</strong>
-                <span class="mono">src/game/estateProtection.test.ts</span>
-              </li>
-
-              <li class="test-row">
-                <strong>Founder Area Session</strong>
-                <span class="mono">src/game/founderAreaSession.test.ts</span>
+                <strong>Mystery Box Reveal Overlay</strong>
+                <span class="mono">src/components/panels/MysteryBoxRevealOverlay.test.tsx</span>
               </li>
           </ul>
         </section>
