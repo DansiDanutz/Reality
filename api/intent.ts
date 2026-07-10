@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { SHIFT_HOURS, XP_PER_SHIFT } from '../src/game/engine.js'
+import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
@@ -115,12 +115,20 @@ const RATE_COUNT_SQL = `
   WHERE citizen_id = $1 AND intent LIKE 'intent.%' AND created_at > now() - interval '1 hour'
 `.trim()
 
-// NOTE: nothing writes scores.level yet — every citizen gates at level 1
-// (fail-closed). Level progression lands with XP accrual in a later PR;
-// the ledger already records xp per shift in meta for it to derive from.
+// The citizen's level is DERIVED from their earned ledger XP (issue #1010):
+// successful intent rows carry meta.xp, the sum feeds the engine's own
+// applyXp cascade. No stored level to drift; refusal rows (balance_after
+// NULL) never count.
 const CITIZEN_CONTEXT_SQL = `
-  SELECT c.created_at, COALESCE(s.level, 1) AS level
-  FROM citizens c LEFT JOIN scores s USING (citizen_id)
+  SELECT c.created_at,
+    COALESCE((
+      SELECT SUM((l.meta->>'xp')::int) FROM ledger l
+      WHERE l.citizen_id = c.citizen_id
+        AND l.intent LIKE 'intent.%'
+        AND l.balance_after IS NOT NULL
+        AND l.meta ? 'xp'
+    ), 0) AS xp
+  FROM citizens c
   WHERE c.citizen_id = $1
 `.trim()
 
@@ -170,10 +178,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ created_at: string | Date | null; level: number }>
+    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ created_at: string | Date | null; xp: string | number | null }>
     const createdAt = context[0]?.created_at ? new Date(context[0].created_at).getTime() : Number.NaN
     const ageDays = Number.isFinite(createdAt) ? Math.max(0, (Date.now() - createdAt) / 86_400_000) : 0
-    const level = context[0]?.level ?? 1
+    // SUM() is a bigint aggregate — Neon returns it as a string
+    const totalXp = Number(context[0]?.xp ?? 0)
+    const level = applyXp(1, 0, Number.isFinite(totalXp) ? totalXp : 0).level
 
     const evaluated = evaluateIntent(normalized.intent, level)
     if (!evaluated.ok) {
@@ -220,6 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ok: true,
       intent: normalized.intent.type,
       amount: evaluated.amount,
+      level,
       balance,
     }
     if (normalized.intent.type === 'workShift') body.xp = XP_PER_SHIFT
