@@ -2,7 +2,6 @@ import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCitizenPg } from './_registry.js'
 
-
 interface GoogleProfile {
   sub: string
   email?: string
@@ -20,7 +19,6 @@ async function verifyGoogle(credential: string): Promise<GoogleProfile | null> {
   if (p.aud !== clientId || !p.sub) return null
   return { sub: p.sub, email: p.email, name: p.name, picture: p.picture }
 }
-
 
 async function readBlobJson(prefix: string): Promise<Record<string, unknown> | null> {
   const batch = await list({ prefix, limit: 1 })

@@ -84,7 +84,6 @@ function buildAvatarPrompt(p: AvatarParams): string {
   )
 }
 
-
 /** Generate the image with OpenAI; gpt-image-1 first, DALL·E 3 as fallback */
 async function generateImage(prompt: string, apiKey: string): Promise<Buffer | null> {
   const attempts: Array<Record<string, unknown>> = [
