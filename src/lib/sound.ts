@@ -43,19 +43,37 @@ export function getSoundVolume(): number {
 }
 
 function tone(context: AudioContext, freq: number, start: number, duration: number, peak: number) {
-  const osc = context.createOscillator()
+  // Music-box voice, not beeper: a sine fundamental with a quiet sub-octave
+  // for body, a slightly slower attack, and a gentle low-pass so the high
+  // partials never bite. Same notes as before — warmer instrument.
   const gain = context.createGain()
+  const filter = context.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 2400
+  filter.Q.value = 0.5
+  gain.gain.setValueAtTime(0, start)
+  gain.gain.linearRampToValueAtTime(peak, start + 0.025)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration * 1.35)
+  gain.connect(filter)
+  // Route through the master gain (volume control) instead of destination.
+  if (masterGain) filter.connect(masterGain)
+  else filter.connect(context.destination)
+
+  const osc = context.createOscillator()
   osc.type = 'sine'
   osc.frequency.value = freq
-  gain.gain.setValueAtTime(0, start)
-  gain.gain.linearRampToValueAtTime(peak, start + 0.012)
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
-  // Route through the master gain (volume control) instead of destination.
   osc.connect(gain)
-  if (masterGain) gain.connect(masterGain)
-  else gain.connect(context.destination)
   osc.start(start)
-  osc.stop(start + duration + 0.05)
+  osc.stop(start + duration * 1.35 + 0.05)
+
+  const sub = context.createOscillator()
+  const subGain = context.createGain()
+  sub.type = 'sine'
+  sub.frequency.value = freq / 2
+  subGain.gain.value = 0.35 // body, felt more than heard
+  sub.connect(subGain).connect(gain)
+  sub.start(start)
+  sub.stop(start + duration * 1.35 + 0.05)
 }
 
 /** The output node — master gain if initialized, else the raw destination. */
@@ -94,12 +112,54 @@ const PATTERNS: Record<ChimeKind, { freqs: number[]; step: number; dur: number; 
 
 export type ChimeKind = 'gold' | 'sky' | 'ok' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary' | 'blocked'
 
+/**
+ * Anti-stress valve: a burst of toasts (collect + level + challenge in one
+ * tick) used to fire a chime barrage — the #1 way pleasant sounds turn
+ * grating. Ordinary chimes now yield to a short cooldown; the celebratory
+ * kinds always play (they ARE the moment, and they're rare).
+ */
+const CHIME_COOLDOWN_MS = 1_100
+const ALWAYS_PLAY: ReadonlySet<ChimeKind> = new Set(['achieve', 'legendary', 'streak', 'lucky'])
+let lastChimeAtMs = 0
+
 export function playChime(kind: ChimeKind): void {
   const context = ensureContext()
   if (!context) return
+  const nowMs = Date.now()
+  if (!ALWAYS_PLAY.has(kind) && nowMs - lastChimeAtMs < CHIME_COOLDOWN_MS) return
+  lastChimeAtMs = nowMs
   const p = PATTERNS[kind]
   const now = context.currentTime
   p.freqs.forEach((f, i) => tone(context, f, now + i * p.step, p.dur, p.peak))
+}
+
+/**
+ * Entering a building — a soft, low wooden "door" knock, the HoMM town-enter
+ * feel. Not part of the toast/chime union: it's an interaction sound, played
+ * by the map when the player steps into one of their buildings.
+ */
+export function playDoor(): void {
+  const context = ensureContext()
+  if (!context) return
+  const now = context.currentTime
+  // Two quick low thumps with a wooden band-pass — "the door opens for you".
+  for (const [i, freq] of [196, 147].entries()) {
+    const osc = context.createOscillator()
+    const gain = context.createGain()
+    const filter = context.createBiquadFilter()
+    const start = now + i * 0.09
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(freq, start)
+    filter.type = 'bandpass'
+    filter.frequency.value = 320
+    filter.Q.value = 1.2
+    gain.gain.setValueAtTime(0, start)
+    gain.gain.linearRampToValueAtTime(0.05, start + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16)
+    osc.connect(filter).connect(gain).connect(out(context))
+    osc.start(start)
+    osc.stop(start + 0.2)
+  }
 }
 
 /**

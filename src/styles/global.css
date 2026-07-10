@@ -3262,8 +3262,18 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .avatar-meta { flex: 1 1 0; min-width: 0; }
   .avatar-name { width: 100%; max-width: none; }
 
-  /* Menu sheet rows. */
-  .mmenu { display: flex; flex-direction: column; gap: 6px; }
+  /* Menu sheet rows, grouped into labeled sections. */
+  .mmenu { display: flex; flex-direction: column; gap: 14px; }
+  .mmenu-section { display: flex; flex-direction: column; gap: 6px; }
+  .mmenu-section-title {
+    margin: 0 0 2px 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
   .mmenu-item {
     display: flex; align-items: center; gap: 12px;
     width: 100%;

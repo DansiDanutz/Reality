@@ -8,6 +8,7 @@ import { DEFAULT_MAP_ANCHOR, playableMapAnchorFor } from '../../game/mapAnchor'
 import { workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
+import { playDoor } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
 import type { PlacedAsset } from '../../game/types'
 import { itemById } from '../../game/catalog'
@@ -91,6 +92,7 @@ function syncBuildingElement(el: HTMLDivElement, asset: PlacedAsset): void {
   // them and the sprite degrades to a full-width static block.
   el.classList.add('map-building')
   el.classList.toggle('ready', ready)
+  el.dataset.name = asset.name // hover name plate (see buildings.css ::after)
   el.title = ready ? `${asset.name} — ${Math.floor(asset.pendingIncome)} ready to collect` : asset.name
 }
 
@@ -355,6 +357,8 @@ export default function WorldMap() {
           e.stopPropagation()
           // Placement mode wins — a map click while placing must place.
           if (useGame.getState().placing) return
+          // The HoMM town-enter moment: a soft wooden door as the interior opens.
+          if (useGame.getState().soundOn) playDoor()
           setEnteredAssetId(a.id)
         })
         markers.set(a.id, new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([a.lng, a.lat]).addTo(map))
