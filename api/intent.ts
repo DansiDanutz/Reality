@@ -126,7 +126,7 @@ const CITIZEN_CONTEXT_SQL = `
       WHERE l.citizen_id = c.citizen_id
         AND l.intent LIKE 'intent.%'
         AND l.balance_after IS NOT NULL
-        AND l.meta ? 'xp'
+        AND jsonb_typeof(l.meta->'xp') = 'number'
     ), 0) AS xp
   FROM citizens c
   WHERE c.citizen_id = $1

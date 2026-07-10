@@ -100,3 +100,10 @@ CREATE OR REPLACE FUNCTION reality_append_intent(p_citizen uuid, p_intent text, 
 -- guard (first insert wins, the loser gets 23505 → name_taken).
 ALTER TABLE citizens ADD COLUMN IF NOT EXISTS name_slug text GENERATED ALWAYS AS (btrim(regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g'), '-')) STORED;
 CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_slug_key ON citizens (name_slug);
+
+-- Issue #1010: the intent core derives a citizen's level by summing meta.xp
+-- across their successful intent rows on every economic action. This partial
+-- index keeps that SUM to just the xp-carrying rows instead of the citizen's
+-- whole ledger history.
+CREATE INDEX IF NOT EXISTS ledger_xp_rows_idx ON ledger (citizen_id)
+  WHERE balance_after IS NOT NULL AND jsonb_typeof(meta->'xp') = 'number';

@@ -305,10 +305,46 @@ describe('intent API handler', () => {
     expect(res.statusCode).toBe(422)
     expect(res.body).toMatchObject({ ok: false, code: 'level_too_low' })
     expect(pgQueryMock).toHaveBeenCalledTimes(3) // no ledger append
-    // The level comes from summed ledger XP — the engine's own rule
+    // The level comes from summed ledger XP — the engine's own rule, and
+    // the clauses below are what make it exploit-resistant: refusal rows
+    // never count, and a non-numeric meta.xp can never poison the cast.
     const [contextSql] = pgQueryMock.mock.calls[2] as [string]
     expect(contextSql).toMatch(/FROM ledger/i)
-    expect(contextSql).toMatch(/xp/i)
+    expect(contextSql).toMatch(/balance_after IS NOT NULL/i)
+    expect(contextSql).toMatch(/jsonb_typeof\(l\.meta->'xp'\) = 'number'/i)
+  })
+
+  test('handles the Neon driver returning SUM() as a string', async () => {
+    pgOn()
+    mockVerifyOk()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z', xp: '600' }]) // bigint SUM → string
+      .mockResolvedValueOnce([{ new_balance: '1000.00', refusal: null }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY, intent: { type: 'workShift', jobId: 'pilot' } } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, level: 4 })
+  })
+
+  test('falls back to level 1 on a missing or garbage xp value', async () => {
+    for (const xp of [undefined, 'not-a-number']) {
+      pgOn()
+      mockVerifyOk()
+      pgQueryMock
+        .mockResolvedValueOnce([{ count: 0 }])
+        .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z', xp }])
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { ...BODY, intent: { type: 'workShift', jobId: 'pilot' } } } as never, res as never)
+
+      expect(res.statusCode).toBe(422)
+      expect(res.body).toMatchObject({ ok: false, code: 'level_too_low' })
+      pgQueryMock.mockReset()
+      pgQueryMock.mockResolvedValue([])
+    }
   })
 
   test('level gate opens with earned ledger XP — 600 xp is level 4, pilot cleared', async () => {
