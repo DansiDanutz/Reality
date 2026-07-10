@@ -1,5 +1,5 @@
-import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog'
-import { totalInvested } from './businessUpgrades'
+import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog.js'
+import { totalInvested } from './businessUpgrades.js'
 import type { CommunityActionId } from './community'
 import type { ResourceKind } from './resources'
 import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
