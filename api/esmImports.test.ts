@@ -16,7 +16,9 @@ import { describe, expect, test } from 'vitest'
 
 const ROOT = resolve(__dirname, '..')
 
-const IMPORT_RE = /^import\s+(type\s+)?[\s\S]*?from\s+['"]([^'"]+)['"]/gm
+// Catches `import ... from` AND `export ... from` — re-exports survive
+// compilation identically and would break the same way.
+const IMPORT_RE = /^(?:import|export)\s+(type\s+)?[\s\S]*?from\s+['"]([^'"]+)['"]/gm
 
 function relativeValueImports(filePath: string): string[] {
   const source = readFileSync(filePath, 'utf8')
