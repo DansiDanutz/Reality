@@ -1,5 +1,6 @@
-import { adviceOf, moodOf, netWorthOf, tierOf, type AdviceAction } from '../../game/engine'
+import { adviceOf, moodOf, netWorthOf, tierOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
+import { runAdviceAction } from './adviceActions'
 
 /**
  * The living guide — a stylized 3D character on the right of the HUD.
@@ -39,40 +40,6 @@ export default function MoodCard() {
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
 
-  const run = (action: AdviceAction) => {
-    const s = useGame.getState()
-    switch (action) {
-      case 'drink':
-        s.quickDrink()
-        break
-      case 'eat':
-        s.openMarket('food')
-        break
-      case 'sleep':
-        s.startSleep()
-        break
-      case 'find-job':
-        s.setPanel('work')
-        break
-      case 'start-shift':
-        if (s.jobId) s.startShift()
-        else s.setPanel('work')
-        break
-      case 'leisure':
-        s.openMarket('leisure')
-        break
-      case 'collect':
-        s.collectIncome()
-        break
-      case 'buy-home':
-        s.openMarket('home')
-        break
-      case 'buy-business':
-        s.openMarket('business')
-        break
-    }
-  }
-
   return (
     <aside className={`mood-card mood-${mood}`} aria-label="Your citizen">
       <img
@@ -94,7 +61,7 @@ export default function MoodCard() {
       </p>
       <p className="mood-say" role="status">“{advice.text}”</p>
       {advice.cta && advice.action !== 'none' && (
-        <button className="btn small primary" onClick={() => run(advice.action)}>
+        <button className="btn small primary" onClick={() => runAdviceAction(advice.action)}>
           {advice.cta}
         </button>
       )}

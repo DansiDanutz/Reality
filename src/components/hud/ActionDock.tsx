@@ -1,6 +1,9 @@
 import { jobById } from '../../game/catalog'
+import { adviceOf, moodOf, netWorthOf, tierOf } from '../../game/engine'
+import { useIsMobile } from '../../lib/useIsMobile'
 import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
+import { runAdviceAction } from './adviceActions'
 
 const countdown = (endsAt: number): string => {
   const ms = Math.max(0, endsAt - Date.now())
@@ -23,9 +26,59 @@ export default function ActionDock() {
   const cancelPlacing = useGame((s) => s.cancelPlacing)
   const cancelPlacingConstruction = useGame((s) => s.cancelPlacingConstruction)
   const log = useGame((s) => s.log)
+  const needs = useGame((s) => s.needs)
+  const health = useGame((s) => s.health)
+  const money = useGame((s) => s.money)
+  const level = useGame((s) => s.level)
+  const inventory = useGame((s) => s.inventory)
+  const assets = useGame((s) => s.assets)
+  const isMobile = useIsMobile()
   useGame((s) => s.lastSeenAt) // live countdown
 
   if (!citizen) return null
+
+  // The mobile guide bar: on desktop the guide character card is always on
+  // screen, but on phones it lives inside the Status sheet — without this the
+  // map screen gives no direction at all. One line of advice, one button that
+  // does it, always visible above the dock (also during shifts and sleep,
+  // where the advice says what's worth doing meanwhile).
+  const businesses = assets.filter((a) => a.kind === 'business').length
+  const advice = isMobile
+    ? adviceOf({
+        needs,
+        health,
+        money,
+        jobId,
+        activity,
+        hasHome: assets.some((a) => a.kind === 'home'),
+        businesses,
+        pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
+      })
+    : null
+  const mood = moodOf(needs, health)
+  const tier = tierOf(level, businesses, netWorthOf(money, inventory, assets))
+  const guide = advice ? (
+    <div className="dock-guide" role="status">
+      <img
+        className="dock-guide-img"
+        src={`/character/t${tier}-${mood}.png`}
+        alt=""
+        width={30}
+        height={30}
+        onError={(e) => {
+          const img = e.target as HTMLImageElement
+          if (!img.src.includes('/t1-')) img.src = `/character/t1-${mood}.png`
+          else img.style.display = 'none'
+        }}
+      />
+      <span className="dock-guide-text">“{advice.text}”</span>
+      {advice.cta && advice.action !== 'none' && (
+        <button className="btn small primary" onClick={() => runAdviceAction(advice.action)}>
+          {advice.cta}
+        </button>
+      )}
+    </div>
+  ) : null
 
   if (placing || placingConstruction) {
     return (
@@ -68,20 +121,25 @@ export default function ActionDock() {
     const total = activity.endsAt - activity.startedAt
     const elapsed = Math.max(0, now - activity.startedAt)
     const pct = Math.min(100, Math.round((elapsed / total) * 100))
+    // The banner nests inside the dock column so the mobile guide bar can
+    // stack above it in flow (never overlapping, whatever the banner height).
     return (
-      <div className="dock placing-banner activity-banner">
-        <span className="placing-pulse" />
-        <div className="activity-info">
-          <span>
-            {label} — {isSleep ? 'wakes' : 'ends'} in <strong className="mono">{countdown(activity.endsAt)}</strong>
-          </span>
-          <div className="activity-bar" aria-hidden>
-            <div className="activity-bar-fill" style={{ width: `${pct}%` }} />
+      <div className="dock">
+        {guide}
+        <div className="placing-banner activity-banner">
+          <span className="placing-pulse" />
+          <div className="activity-info">
+            <span>
+              {label} — {isSleep ? 'wakes' : 'ends'} in <strong className="mono">{countdown(activity.endsAt)}</strong>
+            </span>
+            <div className="activity-bar" aria-hidden>
+              <div className="activity-bar-fill" style={{ width: `${pct}%` }} />
+            </div>
           </div>
+          <button className="btn ghost" onClick={leaveActivity}>
+            {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : isGather || isConstruction || isCommunity ? 'Stop' : 'Leave early'}
+          </button>
         </div>
-        <button className="btn ghost" onClick={leaveActivity}>
-          {isSleep ? 'Wake up now' : isCook ? 'Leave the stove' : isGather || isConstruction || isCommunity ? 'Stop' : 'Leave early'}
-        </button>
       </div>
     )
   }
@@ -94,6 +152,7 @@ export default function ActionDock() {
 
   return (
     <div className="dock">
+      {guide}
       <div className="dock-actions">
         <button
           className="btn"

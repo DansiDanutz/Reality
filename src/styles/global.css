@@ -581,6 +581,11 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   text-overflow: ellipsis;
 }
 .placing-banner {
+  /* Also used nested inside .dock (activity banner + mobile guide bar above
+     it), where it no longer inherits the dock's flex — declare its own. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-direction: row;
   padding: 12px 18px;
   background: var(--surface);
@@ -3255,10 +3260,33 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 
   /* Action dock: full-width row above the tab bar, internally scrollable. */
   .dock { left: 8px !important; right: 8px !important; bottom: calc(64px + env(safe-area-inset-bottom)) !important; transform: none !important; align-items: stretch; }
+
+  /* Guide bar — the citizen tells you the single best next move, always
+     visible above the dock (during shifts and sleep too). The phone answer
+     to "I'm here, now what?". */
+  .dock-guide {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--surface);
+    border: 1px solid rgba(125, 216, 255, 0.35);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow);
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-align: left;
+  }
+  .dock-guide-img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .dock-guide-text { flex: 1; min-width: 0; font-style: italic; color: var(--text); }
+  .dock-guide .btn { flex-shrink: 0; }
   .dock-actions { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 8px; gap: 6px; }
   .dock-actions::-webkit-scrollbar { display: none; }
   .dock-actions .btn { flex-shrink: 0; min-height: 40px; }
-  .dock-log { max-width: calc(100vw - 32px); }
+  /* The log line duplicates what toasts already said — on a phone that
+     vertical space belongs to the guide bar. */
+  .dock-log { display: none; }
   .placing-banner { flex-wrap: wrap; }
 
   /* Map fly-to control clears the vitals strip. */
@@ -4102,19 +4130,20 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 
 @media (max-width: 640px) {
-  /* Bottom-anchored above the action dock, never under the tab bar — and
-     BELOW an open sheet's backdrop (z 12), so a sheet is never painted over. */
+  /* Bottom-anchored above the action dock + guide bar (dock ≈ 100px, or
+     ≈ 145px during an activity), never under the tab bar — and BELOW an
+     open sheet's backdrop (z 12), so a sheet is never painted over. */
   .courier-package {
     position: fixed;
     left: 50%;
     right: auto;
-    bottom: calc(160px + env(safe-area-inset-bottom));
+    bottom: calc(220px + env(safe-area-inset-bottom));
     width: calc(100vw - 24px);
     transform: translateX(-50%);
     z-index: 11;
   }
   .golden-opp-wrapper {
-    bottom: calc(160px + env(safe-area-inset-bottom));
+    bottom: calc(220px + env(safe-area-inset-bottom));
     z-index: 11;
   }
 }
