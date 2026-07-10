@@ -3265,13 +3265,16 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .map-fly-btn { top: 96px; right: 8px; }
 
   /* Toasts: centered under the vitals strip, two at most — a phone screen
-     never shows a stack of six. */
-  .toasts { top: 96px; left: 12px; right: 12px; align-items: center; }
+     never shows a stack of six. z 11 keeps them above the map HUD (z 10)
+     but BELOW sheets, drawers and intro modals (z 12+): feedback bursts
+     belong to the map screen, never on top of a panel someone is reading. */
+  .toasts { top: 96px; left: 12px; right: 12px; align-items: center; z-index: 11; }
   .toast { max-width: 100%; text-align: center; }
   .toasts .toast:nth-child(n+3) { display: none; }
 
-  /* Welcome-back report: full-width card under the strip, above toasts. */
-  .away-card { top: 96px; z-index: 85; width: calc(100vw - 16px); max-width: calc(100vw - 16px); }
+  /* Welcome-back report: full-width card under the strip. Same stacking rule
+     as toasts — it owns the map screen but never covers an open sheet. */
+  .away-card { top: 96px; z-index: 11; width: calc(100vw - 16px); max-width: calc(100vw - 16px); }
 
   /* (Courier + golden-opportunity phone overrides live next to their base
      rules further down — CSS order matters and the base rules come later.) */
