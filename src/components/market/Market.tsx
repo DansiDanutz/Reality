@@ -293,15 +293,25 @@ export default function Market() {
                       )}
                       {course ? (
                         <button
-                          className="btn small primary"
+                          className={`btn small primary${!courseCompleted && !courseEnrolled && !affordable ? ' blocked' : ''}`}
                           disabled={courseCompleted || (courseEnrolled ? Boolean(activity) || studyMinutes <= 0 : !affordable)}
+                          title={!courseCompleted && !courseEnrolled && !affordable ? `You have ${formatMoney(money)} — earn ${formatMoney(item.price - money)} more to enroll` : undefined}
                           onClick={() => courseEnrolled ? startStudy(course.id) : buy(item.id)}
                         >
-                          {courseCompleted ? 'Done' : studyingThis ? 'Studying' : courseEnrolled ? 'Study' : 'Enroll'}
+                          {courseCompleted ? 'Done' : studyingThis ? 'Studying' : courseEnrolled ? 'Study' : affordable ? 'Enroll' : `Need ${formatMoney(item.price - money)}`}
                         </button>
                       ) : !soldToYou && !petOwned && (
-                        <button className="btn small primary" disabled={!affordable} onClick={() => buy(item.id)}>
-                          {item.category === 'business' ? 'Build' : item.placeable ? 'Place' : item.grantXp ? 'Enroll' : item.pet ? 'Adopt' : 'Buy'}
+                        // The HoMM green/red rule: a blocked action names its exact
+                        // shortfall — never a dead button the player must decode.
+                        <button
+                          className={`btn small primary${affordable ? '' : ' blocked'}`}
+                          disabled={!affordable}
+                          title={affordable ? undefined : `You have ${formatMoney(money)} — earn ${formatMoney(item.price - money)} more`}
+                          onClick={() => buy(item.id)}
+                        >
+                          {affordable
+                            ? (item.category === 'business' ? 'Build' : item.placeable ? 'Place' : item.grantXp ? 'Enroll' : item.pet ? 'Adopt' : 'Buy')
+                            : `Need ${formatMoney(item.price - money)}`}
                         </button>
                       )}
                     </div>

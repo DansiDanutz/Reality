@@ -92,7 +92,17 @@ export default function MysteryBoxPanel() {
               <span className="box-name">{def.name}</span>
               <span className="box-price mono">{available}/{def.creditsRequired} credit</span>
               <span className="box-ev mono">~{formatMoney(ev)} avg</span>
-              {!canOpen && <span className="box-locked-msg">Earn credit</span>}
+              {/* Blocked names its path (green/red rule): each tier says
+                  exactly which real behavior earns its credit. */}
+              {!canOpen && (
+                <span className="box-locked-msg">
+                  {tier === 'standard'
+                    ? 'Help the community or finish a perfect day'
+                    : tier === 'premium'
+                      ? 'Every 5-day work streak earns one'
+                      : 'A 20-day work streak earns one'}
+                </span>
+              )}
             </button>
           )
         })}
