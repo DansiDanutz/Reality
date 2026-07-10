@@ -1,6 +1,7 @@
 import { courierRequirementMet } from '../../game/courierPackages'
 import { educationActionCount } from '../../game/education'
 import { RESOURCE_META, type ResourceKind } from '../../game/resources'
+import { useIsMobile } from '../../lib/useIsMobile'
 import { useGame } from '../../store/gameStore'
 
 function firstResourceFromRequirement(requirement: { kind: string; resource?: ResourceKind; resources?: Partial<Record<ResourceKind, number>> }): ResourceKind | null {
@@ -35,8 +36,15 @@ export default function CourierPackagePrompt() {
   const depositConstructionResources = useGame((s) => s.depositConstructionResources)
   const startConstructionWork = useGame((s) => s.startConstructionWork)
   const setPanel = useGame((s) => s.setPanel)
+  const activity = useGame((s) => s.activity)
+  const isMobile = useIsMobile()
 
   if (!pkg || panel || !targetsSeen) return null
+  // A phone screen fits one commitment: while a shift/sleep/etc. runs (guide,
+  // opt-in nudge and activity banner stacked at the bottom), the day's mission
+  // steps aside — most of its actions are blocked mid-activity anyway. It
+  // returns the moment the citizen is free. Desktop has room for both.
+  if (isMobile && activity) return null
 
   const ready = courierRequirementMet(pkg, {
     timesEaten,

@@ -16,7 +16,7 @@ import { resolveArchetype } from './buildings/registry'
 import { buildingSpriteSVG } from './buildings/sprites'
 import './buildings/buildings.css'
 import { openWorkersHallFromMap } from './workersHallMapAction'
-import { constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
+import { clusterResourceNodes, constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -94,12 +94,21 @@ function syncBuildingElement(el: HTMLDivElement, asset: PlacedAsset): void {
   el.title = ready ? `${asset.name} — ${Math.floor(asset.pendingIncome)} ready to collect` : asset.name
 }
 
-function resourceElement(kind: string, name: string, source: string): HTMLButtonElement {
+function resourceElement(kind: string, name: string, source: string, count = 1): HTMLButtonElement {
   const el = document.createElement('button')
   el.type = 'button'
   el.className = `map-resource map-resource-${kind}`
-  el.title = `${name} — gather ${kind}${source === 'fallback' ? ' (local fallback)' : ''}`
+  el.title = count > 1
+    ? `${count} ${kind} spots here — tap to gather`
+    : `${name} — gather ${kind}${source === 'fallback' ? ' (local fallback)' : ''}`
   el.textContent = kind.charAt(0).toUpperCase()
+  if (count > 1) {
+    const badge = document.createElement('span')
+    badge.className = 'map-resource-count'
+    badge.textContent = String(count)
+    badge.setAttribute('aria-hidden', 'true')
+    el.appendChild(badge)
+  }
   return el
 }
 
@@ -376,13 +385,17 @@ export default function WorldMap() {
     const map = mapRef.current
     if (!map) return
     resourceMarkersRef.current.forEach((m) => m.remove())
-    resourceMarkersRef.current = resourceNodes.map((node) => {
-      const el = resourceElement(node.kind, node.label, node.source)
+    // Same-kind nodes meters apart (a forest = many Wood points) collapse
+    // into one marker with a count — a stack of identical markers told the
+    // player nothing and hid the map under it.
+    resourceMarkersRef.current = clusterResourceNodes(resourceNodes).map((cluster) => {
+      const primary = cluster.nodes[0]
+      const el = resourceElement(primary.kind, primary.label, primary.source, cluster.nodes.length)
       el.addEventListener('click', (event) => {
         event.stopPropagation()
-        useGame.getState().startGatherResource(node.id)
+        useGame.getState().startGatherResource(primary.id)
       })
-      return new maplibregl.Marker({ element: el }).setLngLat([node.lng, node.lat]).addTo(map)
+      return new maplibregl.Marker({ element: el }).setLngLat([cluster.lng, cluster.lat]).addTo(map)
     })
   }, [resourceNodes])
 

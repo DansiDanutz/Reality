@@ -230,6 +230,22 @@ body {
 .map-resource-stone { background: #c7ced8; }
 .map-resource-metal { background: #9cc8ff; }
 .map-resource-glass { background: #82f0e5; }
+/* Cluster count badge — "how many spots collapsed into this marker". */
+.map-resource { position: relative; }
+.map-resource-count {
+  position: absolute;
+  top: -7px; right: -7px;
+  min-width: 16px; height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(5, 7, 14, 0.92);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-size: 9px;
+  font-weight: 700;
+}
 .map-workers-hall {
   background:
     linear-gradient(to bottom, #dbe8f7 0 22%, #7dd8ff 23% 100%);
@@ -612,6 +628,23 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   background: var(--gold);
   animation: pulse 1.2s ease-in-out infinite;
 }
+
+/* Notification opt-in nudge — appears once, when a shift/sleep starts. */
+.notify-nudge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid rgba(240, 180, 41, 0.4);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.notify-nudge-text { flex: 1; min-width: 0; }
+.notify-nudge-actions { display: flex; gap: 6px; flex-shrink: 0; }
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.7); }
@@ -4143,7 +4176,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
     z-index: 11;
   }
   .golden-opp-wrapper {
-    bottom: calc(220px + env(safe-area-inset-bottom));
+    /* Above the dock even at its tallest (guide + nudge + activity banner). */
+    bottom: calc(290px + env(safe-area-inset-bottom));
     z-index: 11;
   }
 }

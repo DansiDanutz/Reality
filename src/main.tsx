@@ -15,6 +15,16 @@ const isFunnel = typeof window !== 'undefined' && new URLSearchParams(window.loc
 // mount crashes get reported.
 installErrorReporter()
 
+// Service worker: required for notifications on Android (page-created
+// Notification() throws there) and for notification-tap to refocus the game.
+// No caching — the app is always served fresh. Registration failure is fine;
+// desktop notifications fall back to the page API.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>{isFunnel ? <FunnelDashboard /> : <App />}</StrictMode>,
 )
