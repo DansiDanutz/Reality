@@ -1,6 +1,7 @@
 import { adviceOf, moodOf, netWorthOf, tierOf } from '../../game/engine'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
+import AdvisorConsult from './AdvisorConsult'
 
 /**
  * The living guide — a stylized 3D character on the right of the HUD.
@@ -65,6 +66,7 @@ export default function MoodCard() {
           {advice.cta}
         </button>
       )}
+      <AdvisorConsult />
     </aside>
   )
 }

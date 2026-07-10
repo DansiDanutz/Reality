@@ -656,6 +656,69 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* The paid advisor — the "i" button on both guide surfaces, and its report. */
+.advisor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 5px 9px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  border-radius: 999px;
+  color: var(--gold);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), transform var(--duration-fast) var(--ease-out);
+}
+.advisor-btn:hover { border-color: var(--gold); transform: translateY(-1px); }
+.advisor-i {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+.advisor-fee { font-size: 10px; font-weight: 700; }
+.advisor-overlay {
+  position: fixed; inset: 0; z-index: 210;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(8, 12, 20, 0.72);
+  backdrop-filter: blur(5px);
+  animation: confirm-fade 200ms var(--ease-out);
+}
+.advisor-card {
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(430px, 100%);
+  max-height: min(80vh, 620px);
+  overflow-y: auto;
+  padding: 22px 24px;
+  background: var(--surface-solid, #131a29);
+  border: 1px solid rgba(240, 180, 41, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  animation: confirm-pop 280ms var(--ease-out);
+}
+.advisor-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--gold);
+}
+.advisor-say { margin: 0; font-size: 14.5px; line-height: 1.5; font-style: italic; }
+.advisor-card > .btn { align-self: flex-start; }
+.advisor-plan {
+  margin: 4px 0 0; padding: 0 0 0 20px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.advisor-plan li { font-size: 13px; line-height: 1.45; }
+.advisor-plan strong { display: block; }
+.advisor-plan-detail { color: var(--muted); font-size: 12px; }
+.advisor-forecast {
+  margin: 2px 0 0; font-size: 12px; color: var(--sky); line-height: 1.5;
+}
+.advisor-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
 /* New-week fanfare — the cadence celebration. Tap anywhere to dismiss. */
 .week-fanfare {
   position: fixed; inset: 0; z-index: 210;

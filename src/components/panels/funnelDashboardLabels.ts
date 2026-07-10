@@ -39,4 +39,5 @@ export const FUNNEL_EVENT_LABELS: Record<string, FunnelEventLabel> = {
   week_milestone: { step: 'Week milestone', detail: 'Crossed a long-term time milestone' },
   notifications_enabled: { step: 'Notifications', detail: 'Enabled return reminders' },
   telegram_linked: { step: 'Telegram linked', detail: 'Verified Telegram identity' },
+  advisor_consulted: { step: 'Advisor consulted', detail: 'Paid for a situation read' },
 }
