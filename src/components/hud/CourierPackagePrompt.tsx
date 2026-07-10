@@ -37,14 +37,17 @@ export default function CourierPackagePrompt() {
   const startConstructionWork = useGame((s) => s.startConstructionWork)
   const setPanel = useGame((s) => s.setPanel)
   const activity = useGame((s) => s.activity)
+  const placing = useGame((s) => s.placing)
+  const placingConstruction = useGame((s) => s.placingConstruction)
   const isMobile = useIsMobile()
 
   if (!pkg || panel || !targetsSeen) return null
   // A phone screen fits one commitment: while a shift/sleep/etc. runs (guide,
-  // opt-in nudge and activity banner stacked at the bottom), the day's mission
-  // steps aside — most of its actions are blocked mid-activity anyway. It
-  // returns the moment the citizen is free. Desktop has room for both.
-  if (isMobile && activity) return null
+  // opt-in nudge and activity banner stacked at the bottom) or the player is
+  // placing a building (ghost pin + Place-here confirm own the screen), the
+  // day's mission steps aside. It returns the moment the citizen is free.
+  // Desktop has room for both.
+  if (isMobile && (activity || placing || placingConstruction)) return null
 
   const ready = courierRequirementMet(pkg, {
     timesEaten,

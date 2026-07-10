@@ -250,6 +250,21 @@ body {
 .map-resource-stone { background: #c7ced8; }
 .map-resource-metal { background: #9cc8ff; }
 .map-resource-glass { background: #82f0e5; }
+/* Touch placement confirm — floats above the dock while the ghost pin is
+   at map center. */
+.map-place-confirm {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(180px + env(safe-area-inset-bottom));
+  z-index: 11;
+  min-height: 44px;
+  padding: 10px 22px;
+  font-size: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.map-place-confirm:disabled { opacity: 0.9; color: var(--warn); border-color: rgba(229, 72, 77, 0.4); background: rgba(229, 72, 77, 0.1); }
+
 /* The inspect card (universal right-click / long-press quick-info). Pointer
    events off — it's a transient answer, never an obstacle. */
 .map-quickinfo {
