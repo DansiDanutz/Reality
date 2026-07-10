@@ -189,7 +189,8 @@
 .building-reveal {
   animation: building-reveal 900ms cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: bottom center;
-  position: relative;
+  /* No position override: .maplibregl-marker is position:absolute and MUST
+     stay that way (it also serves as the ::after containing block). */
 }
 .building-reveal::after {
   content: "";

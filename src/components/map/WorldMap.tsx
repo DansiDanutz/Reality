@@ -359,11 +359,15 @@ export default function WorldMap() {
     }
     // Construction complete (or a fresh placement): the new building rises
     // out of the ground once, then is indistinguishable from its neighbors.
-    for (const id of newlyBuiltAssetIds(knownAssetIdsRef.current, assets)) {
-      const el = markers.get(id)?.getElement()
-      if (!el) continue
-      el.classList.add('building-reveal')
-      el.addEventListener('animationend', () => el.classList.remove('building-reveal'), { once: true })
+    // Skipped under reduced motion — with animation:none the animationend
+    // cleanup would never fire and the class (and glow) would stick forever.
+    if (!prefersReducedMotion()) {
+      for (const id of newlyBuiltAssetIds(knownAssetIdsRef.current, assets)) {
+        const el = markers.get(id)?.getElement()
+        if (!el) continue
+        el.classList.add('building-reveal')
+        el.addEventListener('animationend', () => el.classList.remove('building-reveal'), { once: true })
+      }
     }
     knownAssetIdsRef.current = seen
   }, [assets])
