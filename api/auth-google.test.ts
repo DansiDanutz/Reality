@@ -1,7 +1,14 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { resetDbForTest } from './_db'
 import handler from './auth-google'
+
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
+
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
+}))
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
@@ -12,7 +19,14 @@ const GOOGLE_CLIENT_ID = 'reality-google-client'
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'founder-token'
 
+beforeEach(() => {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+})
+
 afterEach(() => {
+  pgQueryMock.mockReset()
+  pgQueryMock.mockResolvedValue([])
+  resetDbForTest()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
   vi.mocked(list).mockReset()
@@ -51,7 +65,7 @@ describe('Google auth API', () => {
   test('links a verified Google account to a registered citizen', async () => {
     vi.stubEnv('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
     vi.stubGlobal('fetch', vi.fn(async () => googleProfileResponse()))
-    vi.mocked(list).mockResolvedValueOnce(blobList([citizenTokenPath(CITIZEN_ID, TOKEN)]))
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
     const res = responseRecorder()
 
     await handler({
@@ -148,11 +162,6 @@ function googleProfileResponse(): Response {
     name: 'David Reality',
     picture: 'https://example.test/david.png',
   }), { status: 200 })
-}
-
-function citizenTokenPath(citizenId: string, token: string): string {
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  return `citizens/${citizenId}__${tokenHash}__1.json`
 }
 
 function blobList(pathnames: string[], downloadUrl = 'blob://download'): {

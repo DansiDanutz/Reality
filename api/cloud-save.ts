@@ -1,16 +1,8 @@
-import { createHash } from 'node:crypto'
-import { list, put } from '@vercel/blob'
+import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { verifyCitizenPg } from './_registry.js'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_SAVE_BYTES = 256_000
-
-async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
-  if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
-  return batch.blobs.length > 0
-}
 
 /** Back up a citizen's save so a Google-linked account can restore it anywhere */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -33,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (!(await verifyCitizen(String(citizenId), String(token)))) {
+    if (!(await verifyCitizenPg(String(citizenId), String(token)))) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }

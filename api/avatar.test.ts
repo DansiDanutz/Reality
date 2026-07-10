@@ -1,7 +1,14 @@
 import { createHash } from 'node:crypto'
 import { get, list, put } from '@vercel/blob'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { resetDbForTest } from './_db'
 import handler from './avatar'
+
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
+
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
+}))
 
 vi.mock('@vercel/blob', () => ({
   get: vi.fn(),
@@ -14,7 +21,14 @@ const TOKEN = 'avatar-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
 const CITIZEN_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
 
+beforeEach(() => {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+})
+
 afterEach(() => {
+  pgQueryMock.mockReset()
+  pgQueryMock.mockResolvedValue([])
+  resetDbForTest()
   vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
@@ -88,8 +102,8 @@ describe('avatar API request authority', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'))
     vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([CITIZEN_PATH]))
       .mockResolvedValueOnce(blobList([]))
       .mockResolvedValueOnce(blobList([]))
     vi.stubGlobal('fetch', vi.fn(async () =>
