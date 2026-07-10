@@ -206,7 +206,6 @@ body {
 }
 
 .map-resource,
-.map-construction,
 .map-workers-hall {
   width: 28px;
   height: 28px;
@@ -223,7 +222,6 @@ body {
   transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
 }
 .map-resource:hover,
-.map-construction:hover,
 .map-workers-hall:hover {
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 6px rgba(255, 255, 255, 0.12);
@@ -232,63 +230,6 @@ body {
 .map-resource-stone { background: #c7ced8; }
 .map-resource-metal { background: #9cc8ff; }
 .map-resource-glass { background: #82f0e5; }
-.map-construction {
-  background:
-    conic-gradient(var(--gold) var(--construction-progress, 0%), rgba(120, 150, 205, 0.18) 0),
-    radial-gradient(circle, #f7d778 0 46%, #805b12 47% 100%);
-  color: #201603;
-  animation: beacon-pulse 2.2s ease-out infinite;
-  position: relative;
-}
-.map-construction::before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  right: 5px;
-  bottom: 5px;
-  height: 9px;
-  border: 2px solid #201603;
-  border-top: 0;
-  opacity: 0.72;
-}
-.map-construction::after {
-  content: "";
-  position: absolute;
-  top: 5px;
-  left: 8px;
-  width: 13px;
-  height: 13px;
-  border-top: 2px solid #201603;
-  border-left: 2px solid #201603;
-  transform: rotate(45deg);
-  opacity: 0.72;
-}
-.map-construction.business {
-  border-radius: 8px;
-}
-.map-construction.business::before {
-  left: 6px;
-  right: 6px;
-  top: 8px;
-  bottom: auto;
-  height: 4px;
-  border: 0;
-  border-radius: 1px;
-  background: #201603;
-  box-shadow: 0 8px 0 rgba(32, 22, 3, 0.72);
-}
-.map-construction.business::after {
-  top: auto;
-  left: auto;
-  right: 6px;
-  bottom: 5px;
-  width: 6px;
-  height: 9px;
-  border: 0;
-  border-radius: 1px 1px 0 0;
-  background: #201603;
-  transform: none;
-}
 .map-workers-hall {
   background:
     linear-gradient(to bottom, #dbe8f7 0 22%, #7dd8ff 23% 100%);
