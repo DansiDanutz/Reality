@@ -26,6 +26,13 @@ function phaseOf(progress: Pick<ConstructionMarkerProgress, 'resourcesComplete' 
   return 'labor'
 }
 
+/** "gathering materials, 42% complete" — shared by the marker title and the
+ *  quick-info inspect card so the two never drift. */
+export function constructionPhaseSummary(progress: ConstructionMarkerProgress): string {
+  const clamped = Math.max(0, Math.min(100, progress.percent))
+  return `${PHASE_LABEL[phaseOf(progress)]}, ${clamped}% complete`
+}
+
 export function constructionMarkerView(name: string, resultKind: AssetKind, progress: ConstructionMarkerProgress) {
   const phase = phaseOf(progress)
   const clampedProgress = Math.max(0, Math.min(100, progress.percent))
