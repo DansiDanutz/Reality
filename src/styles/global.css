@@ -3066,107 +3066,265 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .hud-window { max-width: calc(100vw - 24px) !important; }
 }
 
-/* ── ≤640px: phone — HUD snaps to mobile slots ─────────── */
+/* ── ≤640px: phone — the mobile shell ──────────────────────
+   Desktop's five floating HUD windows don't render here (App.tsx swaps in
+   MobileHud). A phone has exactly four fixed layers, top to bottom:
+     topbar (one compact row) → vitals strip → map → action dock → tab bar.
+   Everything else is ONE bottom sheet or full-screen panel at a time. */
 @media (max-width: 640px) {
-  /* The HUD windows store desktop positions as inline `left/top/width`.
-     On a phone those numbers push cards off-screen (a 380px vitals card
-     on a 320px viewport). Pin each card to a non-overlapping mobile slot
-     with internal scroll, and freeze the desktop drag/resize (see the
-     isDesktop() guard in HudWindow.tsx). `!important` is the established
-     pattern here — `.hud-body > *` already uses it to override inline pos.
+  /* Topbar: one row — brand left, clock + balance right. Menus live in the
+     bottom tab bar; the citizen's identity lives in the Status sheet. */
+  .topbar { flex-wrap: nowrap; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(5, 7, 14, 0.88); }
+  .topbar-nav { display: none; }
+  .topbar-brand { gap: 8px; }
+  .wordmark { font-size: 15px; letter-spacing: 0.16em; }
+  .founder-chip { display: none; }
+  .topbar-status { order: 0; width: auto; margin-left: auto; gap: 16px; }
+  .stat-citizen, .stat-streak { display: none; }
+  .topbar-status .stat-label { font-size: 9px; }
+  .topbar-status .stat-value { font-size: 13px; }
+  .stat-money .stat-value { font-size: 14px; }
 
-     Slot map (left column stacks under the topbar; mood floats top-right):
-       objectives  top-left, below topbar, body scrolls
-       citizen     below objectives,       body scrolls
-       vitals      bottom-left, above the action dock
-       guide       top-right corner (mood character)
-       finance     shares vitals' slot when restored (minimized by default) */
-  .hud-window {
-    position: fixed !important;
-    transform: none !important;
-  }
-  .hud-window > .hud-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .hud-resize { display: none !important; }
+  /* Offline banner: one slim line so the fixed top stack (banner → topbar →
+     vitals strip → toasts) never overlaps itself. */
+  .offline-banner { padding: 6px 10px; font-size: 11px; gap: 8px; }
+  .offline-banner-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .offline-banner-close { width: 22px; height: 22px; font-size: 15px; }
+  .app:has(.offline-banner) .topbar { top: 36px; }
+  .app:has(.offline-banner) .mvitals { top: 86px; }
+  .app:has(.offline-banner) .toasts { top: 132px; }
+  .app:has(.offline-banner) .away-card { top: 132px; }
 
-  .hud-window[data-card="objectives"] {
-    left: 8px !important; top: 108px !important;
-    width: calc(100vw - 160px) !important;   /* leave 140px + gutter for the mood card */
-    max-height: 184px !important;
+  /* Vitals strip (MobileHud) — always-visible health under the topbar.
+     Tapping it opens the Status sheet. */
+  .mvitals {
+    position: fixed;
+    top: 50px; left: 8px; right: 8px;
+    z-index: 10;
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    font-family: var(--font-body);
+    color: var(--text);
   }
-  .hud-window[data-card="citizen"] {
-    left: 8px !important; top: 300px !important;  /* 108 + objectives + 8 */
-    width: calc(100vw - 160px) !important;
-    max-height: 80px !important;
+  .mvitals-hp { font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .mvitals-hp.ok { color: var(--ok); }
+  .mvitals-hp.low { color: var(--warn); }
+  .mvitals-hp.crit { color: var(--crit); }
+  .mvitals-ill { font-size: 14px; flex-shrink: 0; }
+  .mvitals-need { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .mvitals-icon { font-size: 11px; }
+  .mvitals-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.09); overflow: hidden; }
+  .mvitals-fill { display: block; height: 100%; border-radius: 3px; transition: width 600ms var(--ease-out); }
+  .mvitals-fill.ok { background: var(--ok); }
+  .mvitals-fill.low { background: var(--warn); }
+  .mvitals-fill.crit { background: var(--crit); }
+
+  /* Bottom tab bar (MobileHud) — the fixed home base. */
+  .mnav {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 15;
+    display: flex;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(5, 7, 14, 0.94);
+    border-top: 1px solid var(--line-strong);
+    backdrop-filter: blur(16px);
   }
-  /* The narrow mobile slot is narrower than the avatar circle + a long name
-     naturally want. Without this, .avatar-name renders at its own content
-     width (ellipsis never triggers) and visually bleeds past the card into
-     whatever renders on top of it next (looked like the name was truncated
-     to "Mob" with no "…" — it wasn't clipped at all, just painted over). */
+  .mnav-btn {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-height: 50px;
+    padding: 4px 2px;
+    background: none; border: none;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-radius: 10px;
+  }
+  .mnav-btn.active { color: var(--gold); background: rgba(240, 180, 41, 0.08); }
+  .mnav-icon { position: relative; font-size: 19px; line-height: 1; }
+  .mnav-dot {
+    position: absolute; top: -2px; right: -6px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--crit);
+    border: 1px solid rgba(5, 7, 14, 0.9);
+  }
+  .mnav-label { pointer-events: none; }
+
+  /* Bottom sheets (MobileHud) — one at a time. The backdrop sits BELOW the
+     tab bar (z 12 < 15) so the tabs stay live while a sheet is open: tap the
+     active tab again to close, tap another to switch. */
+  .msheet-backdrop {
+    position: fixed; inset: 0;
+    z-index: 12;
+    background: rgba(5, 7, 14, 0.55);
+    animation: confirm-fade 200ms var(--ease-out);
+  }
+  .msheet {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: calc(62px + env(safe-area-inset-bottom));
+    max-height: calc(100% - 158px);
+    display: flex; flex-direction: column;
+    background: var(--surface-solid, #131a29);
+    border: 1px solid var(--line-strong);
+    border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.5);
+    animation: msheet-up 260ms var(--ease-out);
+  }
+  @keyframes msheet-up {
+    from { transform: translateY(48px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .msheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    padding: 12px 10px 8px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .msheet-title {
+    font-family: var(--font-display);
+    font-size: 14px; font-weight: 500;
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .msheet-close {
+    width: 36px; height: 36px;
+    font-size: 22px;
+    color: var(--muted);
+    background: rgba(120, 150, 205, 0.1);
+    border: none; border-radius: 10px;
+    cursor: pointer;
+  }
+  .msheet-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  }
+  .msheet-stack { display: flex; flex-direction: column; gap: 10px; }
+  /* Cards borrowed from the desktop HUD reflow to full width inside sheets. */
+  .msheet .needs { position: relative; left: auto; bottom: auto; z-index: auto; justify-content: space-between; padding: 14px 12px 10px; gap: 8px; }
+  .msheet .mood-card { position: relative; right: auto; top: auto; bottom: auto; transform: none; z-index: auto; width: 100%; }
+  .msheet .goals-card, .msheet .tutorial { box-shadow: none; }
+  .msheet .finance {
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+  }
   .avatar-card { min-width: 0; }
   .avatar-meta { flex: 1 1 0; min-width: 0; }
   .avatar-name { width: 100%; max-width: none; }
-  .hud-window[data-card="vitals"] {
-    left: 8px !important; bottom: 96px !important; top: auto !important;
-    width: calc(100vw - 16px) !important;
-    max-height: 140px !important;
-  }
-  .hud-window[data-card="guide"] {
-    left: auto !important; right: 8px !important; top: 108px !important; bottom: auto !important;
-    width: 140px !important;
-    max-height: 188px !important;
-  }
-  .hud-window[data-card="finance"] {
-    left: 8px !important; right: auto !important; bottom: 96px !important; top: auto !important;
-    width: calc(100vw - 16px) !important;
-    max-height: 140px !important;
-  }
 
-  /* The needs panel and mood card inside the window chrome reflow to fit. */
-  .needs { position: relative !important; left: auto; bottom: auto; padding: 10px 10px 6px; gap: 8px; }
-  .need-track { height: 44px; width: 10px; }
-  .need-label { font-size: 9px; }
-  .mood-card { position: relative !important; right: auto; top: auto; transform: none; width: 100%; padding: 8px; }
-  .mood-img { width: 88px; height: 88px; }
-  .mood-say { font-size: 11px; padding: 6px 8px; }
+  /* Menu sheet rows. */
+  .mmenu { display: flex; flex-direction: column; gap: 6px; }
+  .mmenu-item {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%;
+    padding: 11px 12px;
+    background: rgba(120, 150, 205, 0.06);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--font-body);
+    text-align: left;
+    cursor: pointer;
+  }
+  .mmenu-icon { font-size: 20px; width: 28px; text-align: center; flex-shrink: 0; }
+  .mmenu-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .mmenu-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+  .mmenu-hint { font-size: 11px; color: var(--muted); }
+  .mmenu-badge {
+    min-width: 18px; height: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 5px;
+    font-size: 11px; font-weight: 700;
+    color: #061019;
+    background: var(--gold);
+    border-radius: 999px;
+  }
+  .mmenu-chevron { color: var(--muted); font-size: 18px; }
 
-  /* Action dock: bottom-full-width row, internally scrollable. */
-  .dock { left: 8px !important; right: 8px !important; bottom: 8px !important; transform: none !important; align-items: stretch; }
+  /* Action dock: full-width row above the tab bar, internally scrollable. */
+  .dock { left: 8px !important; right: 8px !important; bottom: calc(64px + env(safe-area-inset-bottom)) !important; transform: none !important; align-items: stretch; }
   .dock-actions { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 8px; gap: 6px; }
   .dock-actions::-webkit-scrollbar { display: none; }
   .dock-actions .btn { flex-shrink: 0; min-height: 40px; }
   .dock-log { max-width: calc(100vw - 32px); }
   .placing-banner { flex-wrap: wrap; }
 
-  /* Street controls never sit under the HUD. */
-  .street-jump { right: 12px; bottom: 150px; width: 52px; height: 52px; }
-  .street-door { left: 12px; right: 12px; transform: none; min-width: 0; width: auto; bottom: 150px; }
-  .street-hint { left: 12px; right: 12px; transform: none; white-space: normal; text-align: center; }
+  /* Map fly-to control clears the vitals strip. */
+  .map-fly-btn { top: 96px; right: 8px; }
 
-  /* Topbar: collapse the status stats to one tight row. */
-  .topbar-status .stat-label { font-size: 9px; }
-  .topbar-status .stat-value { font-size: 12px; }
-  .stat-money .stat-value { font-size: 13px; }
+  /* Toasts: centered under the vitals strip, two at most — a phone screen
+     never shows a stack of six. */
+  .toasts { top: 96px; left: 12px; right: 12px; align-items: center; }
+  .toast { max-width: 100%; text-align: center; }
+  .toasts .toast:nth-child(n+3) { display: none; }
+
+  /* Welcome-back report: full-width card under the strip, above toasts. */
+  .away-card { top: 96px; z-index: 85; width: calc(100vw - 16px); max-width: calc(100vw - 16px); }
+
+  /* (Courier + golden-opportunity phone overrides live next to their base
+     rules further down — CSS order matters and the base rules come later.) */
+  .install-banner { top: auto; bottom: calc(132px + env(safe-area-inset-bottom)); right: 8px; left: 8px; max-width: none; }
+
+  /* Drawer panels: full-screen sheets over the tab bar. The close button is
+     sticky so a scrolled panel can always be dismissed. */
+  .drawer {
+    top: 44px; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+    z-index: 40;
+    /* Solid, not translucent: a full-screen panel over the HUD ghosts badly
+       with backdrop blur on phones. */
+    background: var(--surface-solid, #131a29);
+  }
+  .app:has(.offline-banner) .drawer { top: 74px; }
+  .drawer-close {
+    position: sticky;
+    top: 8px;
+    margin: 8px 10px 0 auto;
+    display: block;
+    width: 36px; height: 36px;
+    background: rgba(120, 150, 205, 0.14);
+    z-index: 5;
+  }
+
+  /* Market fills the phone screen too. */
+  .market { top: 44px; bottom: 0; width: 100vw; border-radius: 18px 18px 0 0; z-index: 40; background: var(--surface-solid, #131a29); }
+  .app:has(.offline-banner) .market { top: 74px; }
+
+  /* Street controls never sit under the HUD. */
+  .street-jump { right: 12px; bottom: calc(150px + env(safe-area-inset-bottom)); width: 52px; height: 52px; }
+  .street-door { left: 12px; right: 12px; transform: none; min-width: 0; width: auto; bottom: calc(150px + env(safe-area-inset-bottom)); }
+  .street-hint { left: 12px; right: 12px; transform: none; white-space: normal; text-align: center; }
 }
 
 /* ── ≤380px: narrow phone (iPhone SE / Galaxy Fold inner) ─
    The acceptance gate is "no horizontal scroll at 320px". */
 @media (max-width: 380px) {
   .topbar { padding: 8px 10px; gap: 6px 10px; }
-  .topbar-nav { gap: 2px; }
-  .nav-btn { padding: 7px 8px; font-size: 12px; min-height: 36px; }
   .topbar-status { gap: 10px; }
-  .founder-chip { font-size: 10px; padding: 2px 8px; }
-  .wordmark { font-size: 16px; letter-spacing: 0.18em; }
+  .wordmark { font-size: 14px; letter-spacing: 0.14em; }
 
   /* Market tiles: one column at this width. */
   .market-grid { grid-template-columns: 1fr; }
   .market-head { padding: 10px 12px; gap: 8px; }
   .market-title { font-size: 14px; }
 
-  /* HUD slots tighten to the 8px gutters. */
-  .hud-window[data-card="objectives"],
-  .hud-window[data-card="citizen"] { width: calc(50vw - 10px) !important; }
+  /* Vitals strip: drop the need icons, keep the bars. */
+  .mvitals { gap: 6px; padding: 7px 10px; }
+  .mvitals-icon { display: none; }
+  .mnav-label { font-size: 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3941,13 +4099,20 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 
 @media (max-width: 640px) {
+  /* Bottom-anchored above the action dock, never under the tab bar — and
+     BELOW an open sheet's backdrop (z 12), so a sheet is never painted over. */
   .courier-package {
     position: fixed;
     left: 50%;
     right: auto;
-    bottom: 244px;
+    bottom: calc(160px + env(safe-area-inset-bottom));
     width: calc(100vw - 24px);
     transform: translateX(-50%);
+    z-index: 11;
+  }
+  .golden-opp-wrapper {
+    bottom: calc(160px + env(safe-area-inset-bottom));
+    z-index: 11;
   }
 }
 

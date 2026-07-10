@@ -54,11 +54,11 @@ export default function TopBar() {
       </div>
 
       <div className="topbar-status">
-        <div className="stat">
+        <div className="stat stat-citizen">
           <span className="stat-label">citizen</span>
           <span className="stat-value">{citizen.name} · L{level}</span>
         </div>
-        <div className="stat">
+        <div className="stat stat-clock">
           <span className="stat-label">{placeName} · day {day}</span>
           <span className="stat-value mono">{clock.time}</span>
         </div>
