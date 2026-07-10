@@ -134,3 +134,88 @@
   .map-building.ready::before { animation: none; transform: scale(1.1); opacity: 0.6; }
   .map-building:hover, .building-room:hover:not(:disabled) { transform: none; }
 }
+
+/* ---- Construction sites (issue #1005) ------------------------------- */
+/* The site marker is a bare button around the sprite — the SVG carries
+   the visual language; no badge circle, no background. */
+.map-construction-site {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  transition: transform 160ms ease;
+}
+.map-construction-site:hover,
+.map-construction-site:focus-visible {
+  transform: translateY(-2px) scale(1.06);
+}
+.map-construction-site:focus-visible {
+  outline: 2px solid var(--gold, #f0b429);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Crane pennant sways while the build is active. transform-box makes the
+   group rotate around its own mast, not the SVG origin. */
+.map-construction-site .crane-pennant {
+  transform-box: fill-box;
+  transform-origin: left bottom;
+  animation: crane-sway 3.6s ease-in-out infinite alternate;
+}
+@keyframes crane-sway {
+  from { transform: rotate(-4deg); }
+  to { transform: rotate(5deg); }
+}
+
+/* Dust motes drift up from the base and fade — labor phase only. */
+.map-construction-site .site-dust circle {
+  transform-box: fill-box;
+  animation: dust-drift 2.8s ease-out infinite;
+  opacity: 0;
+}
+.map-construction-site .site-dust circle:nth-child(2) { animation-delay: 0.9s; }
+.map-construction-site .site-dust circle:nth-child(3) { animation-delay: 1.7s; }
+@keyframes dust-drift {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 0.7; }
+  100% { transform: translateY(-9px); opacity: 0; }
+}
+
+/* Construction complete: the finished building rises out of the ground
+   once, with a warm glow that fades. One-shot — the class is removed on
+   animationend, leaving a standard building marker. */
+.building-reveal {
+  animation: building-reveal 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom center;
+  /* No position override: .maplibregl-marker is position:absolute and MUST
+     stay that way (it also serves as the ::after containing block). */
+}
+.building-reveal::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  background: radial-gradient(circle at 50% 80%, rgba(240, 180, 41, 0.55), transparent 65%);
+  animation: reveal-glow 900ms ease-out forwards;
+  pointer-events: none;
+}
+@keyframes building-reveal {
+  from { transform: translateY(10px) scale(0.55); opacity: 0; }
+  60% { transform: translateY(-3px) scale(1.05); opacity: 1; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes reveal-glow {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-construction-site .crane-pennant,
+  .map-construction-site .site-dust circle,
+  .building-reveal,
+  .building-reveal::after {
+    animation: none;
+  }
+  .map-construction-site .site-dust circle { opacity: 0.4; }
+}

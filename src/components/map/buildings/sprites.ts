@@ -199,6 +199,123 @@ function levelTrim(level: number, w: number): string {
   return parts.join('')
 }
 
+/**
+ * Construction lifecycle (issue #1005). A building site speaks the same
+ * HoMM language as the finished archetypes: surveyed plot, material piles,
+ * a permit sign, then scaffolding around a silhouette that rises with real
+ * labor progress. CSS animates the classed groups (crane-pennant sway,
+ * site-dust motes) — transform/opacity only, off under reduced motion.
+ */
+export type ConstructionPhase = 'materials' | 'permit' | 'labor'
+
+const ROPE = '#c9b28a'
+const PARCHMENT = '#e8d9a8'
+
+/**
+ * Labor progress quantized to tenths: the marker re-renders its SVG only
+ * when a real step of the build completes, not on every simulated minute.
+ */
+export function quantizeLaborRatio(ratio: number): number {
+  return Math.round(Math.min(1, Math.max(0, ratio)) * 10) / 10
+}
+
+/** The surveyed plot: corner stakes joined by rope — visible in every phase. */
+function siteStakes(): string {
+  const stake = (x: number, y: number) =>
+    `<line x1="${x}" y1="${y}" x2="${x}" y2="${y - 5}" stroke="#33271a" stroke-width="1.6"/>`
+  return `<g class="site-stakes">${[
+    stake(10, 48), stake(46, 48), stake(16, 38), stake(42, 38),
+    `<line x1="10" y1="45" x2="16" y2="35" stroke="${ROPE}" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>`,
+    `<line x1="46" y1="45" x2="42" y2="35" stroke="${ROPE}" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>`,
+    `<line x1="16" y1="35" x2="42" y2="35" stroke="${ROPE}" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>`,
+  ].join('')}</g>`
+}
+
+/** Deposited materials waiting on site: a stack of logs and a stone pile. */
+function sitePiles(): string {
+  const log = (x: number, y: number, w: number, tone: string) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="2.4" rx="1.2" fill="${tone}"/>` +
+    `<circle cx="${x + w}" cy="${y + 1.2}" r="1.2" fill="#8a6a42"/>` // end grain
+  return `<g class="site-piles">${[
+    log(5, 44, 13, TIMBER),
+    log(6, 41.4, 13, '#5a4530'),
+    log(7, 38.8, 11, TIMBER),
+    `<circle cx="43" cy="45" r="2.6" fill="${STONE}"/>`,
+    `<circle cx="48" cy="45.5" r="2.2" fill="${STONE_DARK}"/>`,
+    `<circle cx="45.5" cy="41.5" r="2.2" fill="#3a4a6e"/>`,
+  ].join('')}</g>`
+}
+
+/** The parchment permit sign — appears once materials are in. */
+function siteSign(): string {
+  return `<g class="site-sign">${[
+    `<line x1="28" y1="47" x2="28" y2="36" stroke="#33271a" stroke-width="1.8"/>`,
+    `<rect x="22" y="30" width="12" height="8" rx="1" fill="${PARCHMENT}" stroke="#33271a" stroke-width="0.8"/>`,
+    `<line x1="24" y1="33" x2="32" y2="33" stroke="#8a7448" stroke-width="1"/>`,
+    `<line x1="24" y1="35.5" x2="30" y2="35.5" stroke="#8a7448" stroke-width="1"/>`,
+  ].join('')}</g>`
+}
+
+/**
+ * The construction-site sprite. The silhouette (site-rise) grows from a
+ * foundation slab to near-full height with quantized labor progress; the
+ * roof accent tells home (purple) from business (crimson) at a glance,
+ * matching the finished archetypes' roof palette.
+ */
+export function constructionSiteSVG(
+  resultKind: 'home' | 'business',
+  phase: ConstructionPhase,
+  laborRatio = 0,
+): string {
+  const accent = resultKind === 'business' ? ROOF_BIZ : ROOF
+  const flag = resultKind === 'business' ? FLAG_GOLD : FLAG
+  const parts: string[] = [shadow(28, 51, 19), siteStakes(), sitePiles()]
+
+  if (phase !== 'materials') parts.push(siteSign())
+
+  if (phase === 'labor') {
+    const quantized = quantizeLaborRatio(laborRatio)
+    const rise = 4 + quantized * 18 // foundation slab → near-full walls
+    const top = 46 - rise
+    // Past half height the wall gets its dark window openings — the GLOW
+    // belongs to the finished archetype sprite; lights come on at handover.
+    const openings = quantized >= 0.5
+      ? `<g class="site-openings" fill="#0d1220">` +
+        `<rect x="21" y="${top + 5}" width="4" height="5" rx="1"/>` +
+        `<rect x="31" y="${top + 5}" width="4" height="5" rx="1"/>` +
+        `</g>`
+      : ''
+    parts.push(`<g class="site-build">${[
+      `<rect class="site-rise" x="17" y="${top}" width="19" height="${rise}" fill="${STONE}"/>`,
+      `<rect x="36" y="${top}" width="3" height="${rise}" fill="${STONE_DARK}"/>`, // 3/4 side face
+      `<rect x="17" y="${top}" width="22" height="2.4" fill="${accent}"/>`,
+      openings,
+      // scaffold frame in front of the rising walls
+      `<g class="site-scaffold" stroke="${TIMBER}" stroke-width="1.4">` +
+        `<line x1="15" y1="46" x2="15" y2="18"/>` +
+        `<line x1="41" y1="46" x2="41" y2="18"/>` +
+        `<line x1="15" y1="26" x2="41" y2="26"/>` +
+        `<line x1="15" y1="36" x2="41" y2="36"/>` +
+        `<line x1="15" y1="36" x2="41" y2="26"/>` +
+      `</g>`,
+      // crane pole + arm, pennant sways via CSS
+      `<line x1="41" y1="18" x2="41" y2="10" stroke="#33271a" stroke-width="1.6"/>`,
+      `<line x1="41" y1="10" x2="52" y2="10" stroke="#33271a" stroke-width="1.6"/>`,
+      `<line x1="50" y1="10" x2="50" y2="15" stroke="${ROPE}" stroke-width="1"/>`,
+      `<rect x="48.4" y="15" width="3.2" height="3.2" fill="${TIMBER}"/>`,
+      `<g class="crane-pennant">${pennant(41, 10, flag)}</g>`,
+      // dust motes at the base — CSS drifts them upward
+      `<g class="site-dust" fill="${ROPE}">` +
+        `<circle cx="20" cy="45" r="1.3"/>` +
+        `<circle cx="30" cy="47" r="1.1"/>` +
+        `<circle cx="37" cy="44" r="1.4"/>` +
+      `</g>`,
+    ].join('')}</g>`)
+  }
+
+  return wrap(56, 56, parts.join(''))
+}
+
 const SPRITES: Record<BuildingArchetype, () => string> = {
   cottage,
   manor,

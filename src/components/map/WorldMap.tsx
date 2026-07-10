@@ -1,11 +1,10 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { constructionProgress } from '../../game/construction'
+import { constructionProgress, type ConstructionProject } from '../../game/construction'
 import { netWorthOf, reachOf } from '../../game/engine'
 import { fetchMapDiscovery } from '../../game/mapDiscovery'
 import { DEFAULT_MAP_ANCHOR, playableMapAnchorFor } from '../../game/mapAnchor'
-import type { AssetKind } from '../../game/types'
 import { workersHallFor, type WorkersHall } from '../../game/workersHall'
 import { track } from '../../lib/analytics'
 import { prefersReducedMotion } from '../../lib/motion'
@@ -17,7 +16,7 @@ import { resolveArchetype } from './buildings/registry'
 import { buildingSpriteSVG } from './buildings/sprites'
 import './buildings/buildings.css'
 import { openWorkersHallFromMap } from './workersHallMapAction'
-import { constructionMarkerView } from './worldMapMarkers'
+import { constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -104,15 +103,22 @@ function resourceElement(kind: string, name: string, source: string): HTMLButton
   return el
 }
 
-function constructionElement(name: string, resultKind: AssetKind, progressPercent: number): HTMLButtonElement {
-  const view = constructionMarkerView(name, resultKind, progressPercent)
+function constructionElement(project: ConstructionProject, progress: ReturnType<typeof constructionProgress>): HTMLButtonElement {
+  const laborRatio = project.laborRequiredMinutes <= 0
+    ? 1
+    : Math.min(1, project.laborDoneMinutes / project.laborRequiredMinutes)
+  const view = constructionMarkerView(project.name, project.resultKind, {
+    percent: progress.percent,
+    resourcesComplete: progress.resourcesComplete,
+    permitComplete: progress.permitComplete,
+    laborRatio,
+  })
   const el = document.createElement('button')
   el.type = 'button'
   el.className = view.className
   el.title = view.title
   el.setAttribute('aria-label', view.ariaLabel)
-  el.style.setProperty('--construction-progress', view.progressStyle)
-  el.textContent = view.symbol
+  el.innerHTML = view.html
   return el
 }
 
@@ -132,6 +138,9 @@ export default function WorldMap() {
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const resourceMarkersRef = useRef<maplibregl.Marker[]>([])
   const constructionMarkersRef = useRef<maplibregl.Marker[]>([])
+  // Asset ids from the previous marker sync — a building whose id is new
+  // after mount plays the one-shot construction-complete reveal.
+  const knownAssetIdsRef = useRef<Set<string> | null>(null)
   const workersHallMarkerRef = useRef<maplibregl.Marker | null>(null)
   const [styleReady, setStyleReady] = useState(false)
   /** Your own building the interior overlay is open for (null = closed). */
@@ -348,6 +357,19 @@ export default function WorldMap() {
         markers.delete(id)
       }
     }
+    // Construction complete (or a fresh placement): the new building rises
+    // out of the ground once, then is indistinguishable from its neighbors.
+    // Skipped under reduced motion — with animation:none the animationend
+    // cleanup would never fire and the class (and glow) would stick forever.
+    if (!prefersReducedMotion()) {
+      for (const id of newlyBuiltAssetIds(knownAssetIdsRef.current, assets)) {
+        const el = markers.get(id)?.getElement()
+        if (!el) continue
+        el.classList.add('building-reveal')
+        el.addEventListener('animationend', () => el.classList.remove('building-reveal'), { once: true })
+      }
+    }
+    knownAssetIdsRef.current = seen
   }, [assets])
 
   useEffect(() => {
@@ -370,13 +392,13 @@ export default function WorldMap() {
     constructionMarkersRef.current.forEach((m) => m.remove())
     constructionMarkersRef.current = constructionProjects.map((project) => {
       const progress = constructionProgress(project)
-      const el = constructionElement(project.name, project.resultKind, progress.percent)
+      const el = constructionElement(project, progress)
       el.addEventListener('click', (event) => {
         event.stopPropagation()
         useGame.getState().selectMapTarget({ kind: 'construction', id: project.id })
         useGame.getState().setPanel('construction')
       })
-      return new maplibregl.Marker({ element: el }).setLngLat([project.lng, project.lat]).addTo(map)
+      return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([project.lng, project.lat]).addTo(map)
     })
   }, [constructionProjects])
 
