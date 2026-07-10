@@ -15,6 +15,7 @@ import FinanceCard from './components/hud/FinanceCard'
 import HudWindow from './components/hud/HudWindow'
 import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
+import WeekFanfare from './components/hud/WeekFanfare'
 import { TUTORIAL_STEPS } from './game/tutorial'
 import FounderAreaPanel from './components/panels/FounderAreaPanel'
 import FounderCovenantOperatorPanel from './components/panels/FounderCovenantOperatorPanel'
@@ -250,6 +251,7 @@ export default function App() {
         <>
           <Toasts />
           <CelebrationOverlay />
+          <WeekFanfare />
           <GoldenOpportunityPrompt />
           <CourierPackagePrompt />
           <InstallBanner />

@@ -134,6 +134,26 @@ export function playChime(kind: ChimeKind): void {
 }
 
 /**
+ * The new-week fanfare — HoMM's beloved 5-second cadence marker, scaled to
+ * Reality's real weeks. A gentle rising major motif in the same music-box
+ * voice as the chimes: celebratory, never brash. Fires once per life-week.
+ */
+export function playFanfare(): void {
+  const context = ensureContext()
+  if (!context) return
+  const now = context.currentTime
+  // C5 E5 G5 · C6 held — a plagal little sunrise.
+  const notes: { freq: number; at: number; dur: number; peak: number }[] = [
+    { freq: 523.25, at: 0, dur: 0.3, peak: 0.045 },
+    { freq: 659.25, at: 0.14, dur: 0.3, peak: 0.045 },
+    { freq: 783.99, at: 0.28, dur: 0.34, peak: 0.05 },
+    { freq: 1046.5, at: 0.46, dur: 0.8, peak: 0.055 },
+    { freq: 659.25, at: 0.46, dur: 0.8, peak: 0.03 }, // soft third under the top note
+  ]
+  for (const n of notes) tone(context, n.freq, now + n.at, n.dur, n.peak)
+}
+
+/**
  * Entering a building — a soft, low wooden "door" knock, the HoMM town-enter
  * feel. Not part of the toast/chime union: it's an interaction sound, played
  * by the map when the player steps into one of their buildings.
