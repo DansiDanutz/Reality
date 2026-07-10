@@ -230,6 +230,24 @@ body {
 .map-resource-stone { background: #c7ced8; }
 .map-resource-metal { background: #9cc8ff; }
 .map-resource-glass { background: #82f0e5; }
+/* The inspect card (universal right-click / long-press quick-info). Pointer
+   events off — it's a transient answer, never an obstacle. */
+.map-quickinfo {
+  position: fixed;
+  z-index: 45;
+  width: 220px;
+  padding: 10px 12px;
+  pointer-events: none;
+  background: rgba(10, 14, 24, 0.95);
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  animation: confirm-fade 140ms var(--ease-out);
+}
+.map-quickinfo-title { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--text); }
+.map-quickinfo-line { margin: 0 0 2px; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+.map-quickinfo-hint { margin: 4px 0 0; font-size: 11px; font-style: italic; color: var(--gold); }
+
 /* Cluster count badge — "how many spots collapsed into this marker". */
 .map-resource { position: relative; }
 .map-resource-count {
@@ -301,6 +319,15 @@ body {
 .btn:hover:not(:disabled) { background: rgba(120, 150, 205, 0.22); border-color: rgba(140, 170, 220, 0.5); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* Blocked-with-a-reason (the HoMM red state): the button stays readable and
+   NAMES its shortfall ("Need $12,340") instead of fading to a mystery. Soft
+   warm-red, never alarm-like. */
+.btn.blocked:disabled {
+  opacity: 1;
+  color: var(--warn);
+  border-color: rgba(229, 72, 77, 0.35);
+  background: rgba(229, 72, 77, 0.06);
+}
 button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--sky);
   outline-offset: 2px;
@@ -628,6 +655,104 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   background: var(--gold);
   animation: pulse 1.2s ease-in-out infinite;
 }
+
+/* The paid advisor — the "i" button on both guide surfaces, and its report. */
+.advisor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 5px 9px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  border-radius: 999px;
+  color: var(--gold);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), transform var(--duration-fast) var(--ease-out);
+}
+.advisor-btn:hover { border-color: var(--gold); transform: translateY(-1px); }
+.advisor-i {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+.advisor-fee { font-size: 10px; font-weight: 700; }
+.advisor-overlay {
+  position: fixed; inset: 0; z-index: 210;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(8, 12, 20, 0.72);
+  backdrop-filter: blur(5px);
+  animation: confirm-fade 200ms var(--ease-out);
+}
+.advisor-card {
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(430px, 100%);
+  max-height: min(80vh, 620px);
+  overflow-y: auto;
+  padding: 22px 24px;
+  background: var(--surface-solid, #131a29);
+  border: 1px solid rgba(240, 180, 41, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  animation: confirm-pop 280ms var(--ease-out);
+}
+.advisor-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--gold);
+}
+.advisor-say { margin: 0; font-size: 14.5px; line-height: 1.5; font-style: italic; }
+.advisor-card > .btn { align-self: flex-start; }
+.advisor-plan {
+  margin: 4px 0 0; padding: 0 0 0 20px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.advisor-plan li { font-size: 13px; line-height: 1.45; }
+.advisor-plan strong { display: block; }
+.advisor-plan-detail { color: var(--muted); font-size: 12px; }
+.advisor-forecast {
+  margin: 2px 0 0; font-size: 12px; color: var(--sky); line-height: 1.5;
+}
+.advisor-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* New-week fanfare — the cadence celebration. Tap anywhere to dismiss. */
+.week-fanfare {
+  position: fixed; inset: 0; z-index: 210;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(8, 12, 20, 0.72);
+  backdrop-filter: blur(5px);
+  cursor: pointer;
+  animation: confirm-fade 240ms var(--ease-out);
+}
+.week-fanfare-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  max-width: 420px;
+  padding: 32px 36px;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(240, 180, 41, 0.14), rgba(240, 180, 41, 0.03));
+  border: 1px solid rgba(240, 180, 41, 0.55);
+  border-radius: 18px;
+  box-shadow: 0 0 60px rgba(240, 180, 41, 0.18);
+  animation: confirm-pop 320ms var(--ease-out);
+}
+.week-fanfare-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold);
+}
+.week-fanfare-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px; font-weight: 600; line-height: 1.25;
+}
+.week-fanfare-stats { margin: 4px 0 0; font-size: 13px; color: var(--text); }
+.week-fanfare-hint { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
 
 /* Notification opt-in nudge — appears once, when a shift/sleep starts. */
 .notify-nudge {

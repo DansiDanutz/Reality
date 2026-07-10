@@ -17,7 +17,15 @@ import { resolveArchetype } from './buildings/registry'
 import { buildingSpriteSVG } from './buildings/sprites'
 import './buildings/buildings.css'
 import { openWorkersHallFromMap } from './workersHallMapAction'
-import { clusterResourceNodes, constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
+import {
+  assetQuickInfo,
+  attachQuickInfo,
+  constructionQuickInfo,
+  resourceQuickInfo,
+  workersHallQuickInfo,
+  type QuickInfoAt,
+} from './mapQuickInfo'
+import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds } from './worldMapMarkers'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -156,6 +164,8 @@ export default function WorldMap() {
   const [styleReady, setStyleReady] = useState(false)
   /** Your own building the interior overlay is open for (null = closed). */
   const [enteredAssetId, setEnteredAssetId] = useState<string | null>(null)
+  // The transient inspect card (right-click / long-press on any marker).
+  const [quickInfo, setQuickInfo] = useState<QuickInfoAt | null>(null)
 
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
@@ -361,6 +371,11 @@ export default function WorldMap() {
           if (useGame.getState().soundOn) playDoor()
           setEnteredAssetId(a.id)
         })
+        // Inspect reads the LIVE asset — pendingIncome accrues every tick.
+        attachQuickInfo(el, () => {
+          const cur = useGame.getState().assets.find((x) => x.id === a.id)
+          return cur ? assetQuickInfo(cur) : null
+        }, setQuickInfo)
         markers.set(a.id, new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([a.lng, a.lat]).addTo(map))
       }
     }
@@ -399,6 +414,7 @@ export default function WorldMap() {
         event.stopPropagation()
         useGame.getState().startGatherResource(primary.id)
       })
+      attachQuickInfo(el, () => resourceQuickInfo(cluster), setQuickInfo)
       return new maplibregl.Marker({ element: el }).setLngLat([cluster.lng, cluster.lat]).addTo(map)
     })
   }, [resourceNodes])
@@ -415,6 +431,18 @@ export default function WorldMap() {
         useGame.getState().selectMapTarget({ kind: 'construction', id: project.id })
         useGame.getState().setPanel('construction')
       })
+      attachQuickInfo(el, () => {
+        const cur = useGame.getState().constructionProjects.find((p) => p.id === project.id)
+        if (!cur) return null
+        const prog = constructionProgress(cur)
+        const laborRatio = cur.laborRequiredMinutes <= 0 ? 1 : Math.min(1, cur.laborDoneMinutes / cur.laborRequiredMinutes)
+        return constructionQuickInfo(cur, constructionPhaseSummary({
+          percent: prog.percent,
+          resourcesComplete: prog.resourcesComplete,
+          permitComplete: prog.permitComplete,
+          laborRatio,
+        }))
+      }, setQuickInfo)
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([project.lng, project.lat]).addTo(map)
     })
   }, [constructionProjects])
@@ -429,6 +457,7 @@ export default function WorldMap() {
       event.stopPropagation()
       openWorkersHallFromMap(useGame.getState())
     })
+    attachQuickInfo(el, workersHallQuickInfo, setQuickInfo)
     workersHallMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([workersHall.lng, workersHall.lat]).addTo(map)
   }, [workersHall])
 
@@ -658,6 +687,29 @@ export default function WorldMap() {
     }
   }
 
+  // The inspect card is transient (HoMM right-click): the next tap anywhere,
+  // any map movement, Escape, or a few seconds of silence dismisses it.
+  useEffect(() => {
+    if (!quickInfo) return
+    const dismiss = () => setQuickInfo(null)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss()
+    }
+    const timer = window.setTimeout(dismiss, 6_000)
+    window.addEventListener('pointerdown', dismiss, { capture: true })
+    window.addEventListener('keydown', onKey)
+    const map = mapRef.current
+    // dragstart, not movestart: the idle globe spin IS movement — it would
+    // dismiss the card the instant it opened. Only a deliberate pan closes it.
+    map?.on('dragstart', dismiss)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointerdown', dismiss, { capture: true })
+      window.removeEventListener('keydown', onKey)
+      map?.off('dragstart', dismiss)
+    }
+  }, [quickInfo])
+
   // Empire routes: great-circle lines chaining your holdings in purchase order
   useEffect(() => {
     const map = mapRef.current
@@ -693,6 +745,22 @@ export default function WorldMap() {
   return (
     <>
       <div ref={containerRef} className={`map-stage${placing || placingConstruction ? ' is-placing' : ''}`} aria-hidden />
+      {quickInfo && (
+        <div
+          className="map-quickinfo"
+          role="status"
+          style={{
+            left: Math.min(Math.max(8, quickInfo.x + 14), window.innerWidth - 236),
+            top: Math.min(Math.max(8, quickInfo.y - 12), window.innerHeight - 150),
+          }}
+        >
+          <p className="map-quickinfo-title">{quickInfo.title}</p>
+          {quickInfo.lines.map((line) => (
+            <p className="map-quickinfo-line" key={line}>{line}</p>
+          ))}
+          {quickInfo.hint && <p className="map-quickinfo-hint">{quickInfo.hint}</p>}
+        </div>
+      )}
       {assets.length >= 2 && (
         <button
           className="map-fly-btn"

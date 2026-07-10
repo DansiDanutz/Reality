@@ -36,6 +36,7 @@ export const FUNNEL_EVENTS = [
   'week_milestone',
   'notifications_enabled',
   'telegram_linked',
+  'advisor_consulted',
 ] as const
 
 export type ApiFunnelEvent = (typeof FUNNEL_EVENTS)[number]

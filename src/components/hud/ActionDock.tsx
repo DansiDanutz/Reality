@@ -4,6 +4,7 @@ import { useIsMobile } from '../../lib/useIsMobile'
 import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
+import AdvisorConsult from './AdvisorConsult'
 import NotifyNudge from './NotifyNudge'
 
 const countdown = (endsAt: number): string => {
@@ -78,6 +79,7 @@ export default function ActionDock() {
           {advice.cta}
         </button>
       )}
+      <AdvisorConsult />
     </div>
   ) : null
 

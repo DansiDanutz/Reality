@@ -36,3 +36,8 @@ export function localClock(zone?: string, at: Date = new Date()): LocalClock {
 /** Day N of a citizen's life, in real days */
 export const dayOfLife = (createdAt: number, now: number = Date.now()) =>
   Math.floor((now - createdAt) / 86_400_000) + 1
+
+/** Week 1 = days 1–7, week 2 = days 8–14, … The cadence unit for the
+ *  new-week fanfare (UX north star P3). */
+export const weekOfLife = (createdAt: number, now: number = Date.now()) =>
+  Math.floor((dayOfLife(createdAt, now) - 1) / 7) + 1

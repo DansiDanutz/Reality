@@ -10,6 +10,11 @@ export const TICK_SECONDS = 1
 /** Chance per tick that life throws something at you (~every 4 real minutes) */
 export const EVENT_CHANCE = 0.004
 
+/** The advisor's consultation fee — a paid, deeper read of your situation
+ *  (the free guide gives one line; the advisor lays out the plan). Sells
+ *  clarity only: no bar, no stat, no shortcut — never pay-to-win. */
+export const ADVISOR_FEE = 5
+
 /** Endgame purchases priced above the founder grant — long-term goals, not day-one buys */
 export const ENDGAME_IDS = [
   'penthouse',

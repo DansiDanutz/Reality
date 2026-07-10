@@ -26,7 +26,7 @@ import {
   type Activity,
 } from '../game/engine'
 import type { ShopCategory } from '../game/types'
-import { CITIZEN_BALANCE, FOUNDER_BALANCE, RECIPES, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
+import { ADVISOR_FEE, CITIZEN_BALANCE, FOUNDER_BALANCE, RECIPES, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
 import { dayOfLife, zoneFor } from '../game/clock'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
@@ -791,6 +791,9 @@ interface GameState {
   hireBusinessDevelopmentWorker: (projectId: string, workerId: ConstructionWorkerId, hours?: number) => void
   completeBusinessDevelopmentIfReady: (projectId: string) => void
   quickDrink: () => void
+  /** Pay the advisor's fee for a consultation. True if the fee was paid;
+   *  false (with a blocked toast) when the player can't afford it. */
+  consultAdvisor: () => boolean
   startGig: () => void
   markTargetsSeen: () => void
   markAchievementsSeen: () => void
@@ -2914,6 +2917,25 @@ export const useGame = create<GameState>()(
         })
         if (completed.project.levelFrom === 1) track('first_upgrade')
         if (completed.project.levelTo >= MAX_BUSINESS_LEVEL) track('business_maxed')
+      },
+
+      // The paid consultation: the free guide gives one line; the advisor
+      // lays out the whole plan. Sells clarity only — no bar, no stat, no
+      // shortcut moves (never pay-to-win). The report itself is computed by
+      // the AdvisorConsult component from the same pure planners the goals
+      // card uses; this action owns only the fee.
+      consultAdvisor: () => {
+        const s = get()
+        if (s.money < ADVISOR_FEE) {
+          set({ toasts: withToast(s.toasts, `The advisor charges ${formatMoney(ADVISOR_FEE)} — you're short.`, 'blocked') })
+          return false
+        }
+        track('advisor_consulted')
+        set({
+          money: s.money - ADVISOR_FEE,
+          log: note(s.log, `You paid the advisor ${formatMoney(ADVISOR_FEE)} for a read of your situation.`),
+        })
+        return true
       },
 
       // One tap, one dollar, half the water bar — hydration without friction

@@ -44,6 +44,7 @@ export const FUNNEL_EVENTS = [
   'week_milestone',          // crossed a weekly milestone (1/2/4/8/...)
   'notifications_enabled',   // granted notification permission
   'telegram_linked',         // Telegram Mini App identity verified and linked
+  'advisor_consulted',       // paid the advisor for a consultation
 ] as const
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number]
