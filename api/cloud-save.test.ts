@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { resetDbForTest } from './_db'
 import handler from './cloud-save'
 
 vi.mock('@vercel/blob', () => ({
@@ -8,18 +8,32 @@ vi.mock('@vercel/blob', () => ({
   put: vi.fn(async () => ({ url: 'blob://save' })),
 }))
 
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
+
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
+}))
+
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'founder-token'
 const SAVE = JSON.stringify({ version: 1, citizen: { id: CITIZEN_ID, name: 'David' } })
 
+beforeEach(() => {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+})
+
 afterEach(() => {
+  vi.unstubAllEnvs()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  pgQueryMock.mockReset()
+  pgQueryMock.mockResolvedValue([])
+  resetDbForTest()
 })
 
 describe('cloud save API', () => {
   test('stores a valid save for a registered citizen', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([citizenTokenPath(CITIZEN_ID, TOKEN)]))
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
     const res = responseRecorder()
 
     await handler({
@@ -54,12 +68,12 @@ describe('cloud save API', () => {
 
     expect(oversized.statusCode).toBe(400)
     expect(oversized.body).toEqual({ ok: false, error: 'Invalid save payload.' })
-    expect(list).not.toHaveBeenCalled()
+    expect(pgQueryMock).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
   })
 
   test('rejects cloud saves from unregistered citizens', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    pgQueryMock.mockResolvedValueOnce([]) // token hash not found
     const res = responseRecorder()
 
     await handler({
@@ -73,7 +87,7 @@ describe('cloud save API', () => {
   })
 
   test('returns a structured service failure when citizen verification storage is unavailable', async () => {
-    vi.mocked(list).mockRejectedValueOnce(new Error('blob list unavailable'))
+    pgQueryMock.mockRejectedValueOnce(new Error('database unavailable'))
     const res = responseRecorder()
 
     await handler({
@@ -91,7 +105,7 @@ describe('cloud save API', () => {
   })
 
   test('returns a structured service failure when save storage is unavailable', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([citizenTokenPath(CITIZEN_ID, TOKEN)]))
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
     vi.mocked(put).mockRejectedValueOnce(new Error('blob write unavailable'))
     const res = responseRecorder()
 
@@ -108,18 +122,6 @@ describe('cloud save API', () => {
     })
   })
 })
-
-function citizenTokenPath(citizenId: string, token: string): string {
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  return `citizens/${citizenId}__${tokenHash}__1.json`
-}
-
-function blobList(pathnames: string[]): { blobs: { pathname: string }[]; hasMore: boolean } {
-  return {
-    blobs: pathnames.map((pathname) => ({ pathname })),
-    hasMore: false,
-  }
-}
 
 function responseRecorder(): {
   statusCode: number

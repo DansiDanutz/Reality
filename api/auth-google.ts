@@ -1,8 +1,6 @@
-import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+import { verifyCitizenPg } from './_registry.js'
 
 interface GoogleProfile {
   sub: string
@@ -20,13 +18,6 @@ async function verifyGoogle(credential: string): Promise<GoogleProfile | null> {
   const p = (await res.json()) as Record<string, string>
   if (p.aud !== clientId || !p.sub) return null
   return { sub: p.sub, email: p.email, name: p.name, picture: p.picture }
-}
-
-async function verifyCitizen(citizenId: string, token: string): Promise<boolean> {
-  if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
-  return batch.blobs.length > 0
 }
 
 async function readBlobJson(prefix: string): Promise<Record<string, unknown> | null> {
@@ -70,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Link flow: bind this Google account to the calling citizen
     if (citizenId && token) {
-      if (!(await verifyCitizen(String(citizenId), String(token)))) {
+      if (!(await verifyCitizenPg(String(citizenId), String(token)))) {
         res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
         return
       }

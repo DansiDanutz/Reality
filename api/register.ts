@@ -35,9 +35,9 @@ type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unk
  *     the same number, exactly 2,000, first come first served
  *
  * The citizens/ and telegram-users/ Blob records are still written AFTER the
- * authoritative commit, best-effort: endpoints outside this epic
- * (reality-area, avatar, cloud-save) authenticate against Blob until they
- * migrate. A mirror failure is logged, never surfaced.
+ * authoritative commit, best-effort: reality-area.ts is the last endpoint
+ * authenticating against Blob (avatar/cloud-save/auth-google migrated in
+ * issue #1007 PR 1). A mirror failure is logged, never surfaced.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
