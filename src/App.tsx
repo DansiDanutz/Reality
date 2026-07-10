@@ -9,6 +9,7 @@ import GoldenOpportunityPrompt from './components/hud/GoldenOpportunityPrompt'
 import InstallBanner from './components/hud/InstallBanner'
 import StarfieldBackground from './components/StarfieldBackground'
 import HudDock from './components/hud/HudDock'
+import MobileHud from './components/hud/MobileHud'
 import OfflineBanner from './components/hud/OfflineBanner'
 import FinanceCard from './components/hud/FinanceCard'
 import HudWindow from './components/hud/HudWindow'
@@ -37,6 +38,7 @@ import Welcome from './components/panels/Welcome'
 import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
+import { useIsMobile } from './lib/useIsMobile'
 import { useNotifications } from './lib/useNotifications'
 import { useGame } from './store/gameStore'
 import { loadStreetMode, preloadStreetMode } from './components/street/loadStreetMode'
@@ -77,6 +79,7 @@ export default function App() {
   const targetsSeen = useGame((s) => s.targetsSeen)
   const tutorialDone = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
   const setPanel = useGame((s) => s.setPanel)
+  const isMobile = useIsMobile()
   const streetAnchor = streetAnchorFor(citizen, assets)
   const mapAnchor = playableMapAnchorFor(citizen, assets)
   const streetAnchorLat = streetAnchor?.lat
@@ -204,30 +207,38 @@ export default function App() {
           <>
             <TopBar />
             <AwayReport />
-            {!tutorialDone ? (
-              <HudWindow id="objectives">
-                <TutorialPanel />
-              </HudWindow>
+            {/* Phones get a fixed three-piece shell (vitals strip, action dock,
+                bottom tab bar) — the floating HUD windows are desktop-only. */}
+            {isMobile ? (
+              <MobileHud />
             ) : (
-              <HudWindow id="objectives">
-                <GoalsCard />
-              </HudWindow>
+              <>
+                {!tutorialDone ? (
+                  <HudWindow id="objectives">
+                    <TutorialPanel />
+                  </HudWindow>
+                ) : (
+                  <HudWindow id="objectives">
+                    <GoalsCard />
+                  </HudWindow>
+                )}
+                <HudWindow id="citizen">
+                  <AvatarCard />
+                </HudWindow>
+                <HudWindow id="vitals">
+                  <NeedsPanel />
+                </HudWindow>
+                {!streetMode && (
+                  <HudWindow id="guide">
+                    <MoodCard />
+                  </HudWindow>
+                )}
+                <HudWindow id="finance">
+                  <FinanceCard />
+                </HudWindow>
+                <HudDock />
+              </>
             )}
-            <HudWindow id="citizen">
-              <AvatarCard />
-            </HudWindow>
-            <HudWindow id="vitals">
-              <NeedsPanel />
-            </HudWindow>
-            {!streetMode && (
-              <HudWindow id="guide">
-                <MoodCard />
-              </HudWindow>
-            )}
-            <HudWindow id="finance">
-              <FinanceCard />
-            </HudWindow>
-            <HudDock />
             <ActionDock />
           </>
         )}
