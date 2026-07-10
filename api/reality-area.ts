@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { db } from './_db.js'
 import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -2039,6 +2040,14 @@ function normalizeFounderCovenantManualEvidenceKinds(
   return { ok: true, evidenceKinds }
 }
 
+/**
+ * Citizen authentication from the Postgres citizens table (issue #1007) —
+ * founder_number replaces the old Blob pathname suffix, and the Telegram
+ * auth fields come from the raw record jsonb (the same JSON the Blob
+ * citizens/ record held; the Phase 1b.2 backfill preserved it for every
+ * legacy citizen). A missing founder slot (null) reads as 0, matching the
+ * old `__0` pathname sentinel that gates the founder seat.
+ */
 export async function verifyCitizen(
   citizenId: string,
   token: string,
@@ -2046,27 +2055,15 @@ export async function verifyCitizen(
 ): Promise<CitizenAuthRecord | null> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return null
   const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-  const batch = await list({ prefix: `citizens/${citizenId}__${tokenHash}`, limit: 1 })
-  const blob = batch.blobs[0]
-  const pathname = blob?.pathname
-  if (!pathname) return null
-  const match = pathname.match(/^citizens\/[0-9a-f-]+__[a-f0-9]{24}__(\d+)\.json$/)
-  if (!match) return null
-  const stored = options.includeRecord ? await readCitizenRecord(blob.downloadUrl) : {}
-  return { citizenId, founderNumber: Number(match[1]), ...stored }
-}
-
-async function readCitizenRecord(downloadUrl: string | undefined): Promise<Partial<CitizenAuthRecord>> {
-  if (!downloadUrl) return {}
-  try {
-    const response = await fetch(downloadUrl)
-    if (!response.ok) return {}
-    const value = await response.json() as unknown
-    if (!isRecord(value)) return {}
-    return telegramCitizenAuthFields(value)
-  } catch {
-    return {}
-  }
+  const sql = db() as unknown as { query: (statement: string, params?: unknown[]) => Promise<unknown> }
+  const rows = (await sql.query(
+    'SELECT founder_number, raw FROM citizens WHERE citizen_id = $1 AND token_hash = $2 LIMIT 1',
+    [citizenId, tokenHash],
+  )) as Array<{ founder_number: number | null; raw: unknown }>
+  const row = rows[0]
+  if (!row) return null
+  const stored = options.includeRecord && isRecord(row.raw) ? telegramCitizenAuthFields(row.raw) : {}
+  return { citizenId, founderNumber: row.founder_number ?? 0, ...stored }
 }
 
 function telegramCitizenAuthFields(value: Record<string, unknown>): Partial<CitizenAuthRecord> {

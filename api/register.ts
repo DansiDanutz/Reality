@@ -34,10 +34,10 @@ type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unk
  *     partial unique index on founder_number — two citizens can never hold
  *     the same number, exactly 2,000, first come first served
  *
- * The citizens/ and telegram-users/ Blob records are still written AFTER the
- * authoritative commit, best-effort: reality-area.ts is the last endpoint
- * authenticating against Blob (avatar/cloud-save/auth-google migrated in
- * issue #1007 PR 1). A mirror failure is logged, never surfaced.
+ * Nothing authenticates against Blob anymore (issue #1007): the citizens/
+ * mirror is gone. Only the telegram-users/ account record is still written
+ * after the authoritative commit, best-effort — telegram-auth.ts owns that
+ * prefix. A mirror failure is logged, never surfaced.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -156,24 +156,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const telegramId = telegramAccountRecord ? Number(telegramAccountRecord.telegramUserId) : Number.NaN
     await updateCitizenAfterClaim(sql, citizenId, record, Number.isSafeInteger(telegramId) ? telegramId : null)
 
-    // Blob compatibility mirror — endpoints outside this epic still
-    // authenticate against citizens/ and telegram-users/. Best-effort:
-    // the registration above is already durable in Postgres.
-    try {
-      await put(
-        `citizens/${citizenId}__${tokenHash}__${founderNumber ?? 0}.json`,
-        JSON.stringify(record),
-        { access: 'private', addRandomSuffix: false, allowOverwrite: false, contentType: 'application/json' },
-      )
-      if (telegramAccountRecord && verifiedTelegramSession) {
+    // Telegram account mirror — telegram-auth.ts still reads this prefix.
+    // Best-effort: the registration above is already durable in Postgres.
+    if (telegramAccountRecord && verifiedTelegramSession) {
+      try {
         await put(
           telegramRealityAccountPath(verifiedTelegramSession.user),
           JSON.stringify(telegramAccountRecord),
           { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
         )
+      } catch (error) {
+        console.error(`register: telegram account mirror failed for citizen ${citizenId} (postgres registration is durable)`, error)
       }
-    } catch (error) {
-      console.error(`register: blob compatibility mirror failed for citizen ${citizenId} (postgres registration is durable)`, error)
     }
 
     res.status(200).json({

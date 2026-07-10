@@ -17,7 +17,17 @@ import handler, {
   normalizeServicePurchaseIntent,
   verifyCitizen,
 } from './reality-area'
+import { resetDbForTest } from './_db'
 import { realityOperatorQueueTokenClaims, signRealityOperatorQueueToken } from './reality-operator-token'
+
+// Citizen auth reads the citizens table since issue #1007: every pg query
+// in this file is a verifyCitizen lookup, answered from pgVerifyRows.
+let pgVerifyRows: unknown[] = []
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => pgVerifyRows)
+
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
+}))
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
@@ -27,8 +37,6 @@ vi.mock('@vercel/blob', () => ({
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'founder-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
-const FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
-const NON_FOUNDER_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__0.json`
 const SERVER_CLOCK_TOKEN = 'test-server-clock-token'
 const SERVER_CLOCK_HEADERS = { 'x-reality-server-clock-token': SERVER_CLOCK_TOKEN }
 const OPERATOR_AUTH_SECRET = 'operator-auth-secret'
@@ -237,13 +245,18 @@ type DashboardWithBuildGuidance = ReturnType<typeof serverDashboard> & {
 
 beforeEach(() => {
   process.env.REALITY_SERVER_CLOCK_TOKEN = SERVER_CLOCK_TOKEN
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+  pgVerifyRows = [{ founder_number: 12, raw: {} }] // FOUNDER seat by default
 })
 
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  pgQueryMock.mockClear()
+  resetDbForTest()
   if (ORIGINAL_SERVER_CLOCK_TOKEN === undefined) {
     delete process.env.REALITY_SERVER_CLOCK_TOKEN
   } else {
@@ -257,17 +270,26 @@ afterEach(() => {
 })
 
 describe('reality area authority API', () => {
-  test('verifies registered citizens from the server token record', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([FOUNDER_PATH]))
-
+  test('verifies registered citizens from the citizens table token hash', async () => {
     await expect(verifyCitizen(CITIZEN_ID, TOKEN)).resolves.toEqual({
       citizenId: CITIZEN_ID,
       founderNumber: 12,
     })
+    const [statement, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(statement).toMatch(/FROM citizens/i)
+    expect(params).toEqual([CITIZEN_ID, TOKEN_HASH])
+  })
+
+  test('treats an unclaimed founder slot (null) as founder number 0', async () => {
+    pgVerifyRows = [{ founder_number: null, raw: {} }]
+    await expect(verifyCitizen(CITIZEN_ID, TOKEN)).resolves.toEqual({
+      citizenId: CITIZEN_ID,
+      founderNumber: 0,
+    })
   })
 
   test('returns structured storage failure when citizen verification is unavailable', async () => {
-    vi.mocked(list).mockRejectedValueOnce(new Error('citizen token store unavailable'))
+    pgQueryMock.mockRejectedValueOnce(new Error('citizen registry unavailable'))
     const res = responseRecorder()
 
     await handler({
@@ -284,14 +306,13 @@ describe('reality area authority API', () => {
       error: 'Citizen credentials are temporarily unavailable.',
       code: 'citizen_verification_unavailable',
     })
-    expect(list).toHaveBeenCalledTimes(1)
-    expect(list).toHaveBeenCalledWith({ prefix: `citizens/${CITIZEN_ID}__${TOKEN_HASH}`, limit: 1 })
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
   })
 
   test('can read verified Telegram identity from the stored citizen record', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+    pgVerifyRows = [{ founder_number: 12, raw: {
       name: 'David',
       createdAt: '2026-07-06T03:00:00.000Z',
       telegramUserId: '42424242',
@@ -299,7 +320,7 @@ describe('reality area authority API', () => {
       telegramUsername: 'davidreality',
       telegramName: 'David Reality',
       telegramLinkedAt: '2026-07-06T03:00:00.000Z',
-    }), { status: 200 })))
+    } }]
 
     await expect(verifyCitizen(CITIZEN_ID, TOKEN, { includeRecord: true })).resolves.toEqual({
       citizenId: CITIZEN_ID,
@@ -313,8 +334,7 @@ describe('reality area authority API', () => {
   })
 
   test('ignores mismatched Telegram identity from the stored citizen record', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+    pgVerifyRows = [{ founder_number: 12, raw: {
       name: 'David',
       createdAt: '2026-07-06T03:00:00.000Z',
       telegramUserId: '42424242',
@@ -322,7 +342,7 @@ describe('reality area authority API', () => {
       telegramUsername: 'davidreality',
       telegramName: 'David Reality',
       telegramLinkedAt: '2026-07-06T03:00:00.000Z',
-    }), { status: 200 })))
+    } }]
 
     await expect(verifyCitizen(CITIZEN_ID, TOKEN, { includeRecord: true })).resolves.toEqual({
       citizenId: CITIZEN_ID,
@@ -769,7 +789,7 @@ describe('reality area authority API', () => {
   })
 
   test('requires a registered citizen before reading area state', async () => {
-    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    pgVerifyRows = [] // token hash not in the citizens table
     const res = responseRecorder()
 
     await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
@@ -784,7 +804,6 @@ describe('reality area authority API', () => {
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = existingState()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1007,7 +1026,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-14T04:00:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://overdue-review-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1099,7 +1117,6 @@ describe('reality area authority API', () => {
       }],
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recent-activity-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1127,7 +1144,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-06T05:00:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -1158,7 +1174,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-06T05:00:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -1191,7 +1206,6 @@ describe('reality area authority API', () => {
       transactions: existingState().transactions.slice(0, 1),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://legacy-area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(legacy), { status: 200 })))
     const res = responseRecorder()
@@ -1221,7 +1235,6 @@ describe('reality area authority API', () => {
       areaEvents: [departureEvent],
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://departed-sim-area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(departed), { status: 200 })))
     const res = responseRecorder()
@@ -1255,9 +1268,8 @@ describe('reality area authority API', () => {
   })
 
   test('requires a founder seat before claiming an area', async () => {
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([NON_FOUNDER_PATH]))
-      .mockResolvedValueOnce(blobList([]))
+    pgVerifyRows = [{ founder_number: null, raw: {} }] // registered, no founder seat
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
 
     await handler({
@@ -1282,7 +1294,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
 
@@ -1407,7 +1418,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
     const res = responseRecorder()
@@ -1434,17 +1444,15 @@ describe('reality area authority API', () => {
   test('preserves server-verified Telegram identity on a new founder area claim', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
-      .mockResolvedValueOnce(blobList([]))
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+    pgVerifyRows = [{ founder_number: 12, raw: {
       name: 'David',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
       telegramUsername: 'davidreality',
       telegramName: 'David Reality',
       telegramLinkedAt: '2026-07-06T03:10:00.000Z',
-    }), { status: 200 })))
+    } }]
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
 
     await handler({
@@ -1475,17 +1483,15 @@ describe('reality area authority API', () => {
   test('does not copy mismatched Telegram citizen linkage into a new area claim', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH], 'blob://citizen-record'))
-      .mockResolvedValueOnce(blobList([]))
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+    pgVerifyRows = [{ founder_number: 12, raw: {
       name: 'David',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:777',
       telegramUsername: 'davidreality',
       telegramName: 'David Reality',
       telegramLinkedAt: '2026-07-06T03:10:00.000Z',
-    }), { status: 200 })))
+    } }]
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
 
     await handler({
@@ -1531,7 +1537,6 @@ describe('reality area authority API', () => {
       })),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://inherited-business-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1635,7 +1640,6 @@ describe('reality area authority API', () => {
       ],
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://handoff-readiness-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1704,7 +1708,6 @@ describe('reality area authority API', () => {
       cash: 80,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://land-rights-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1775,7 +1778,6 @@ describe('reality area authority API', () => {
       ),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://payout-readiness-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1844,7 +1846,6 @@ describe('reality area authority API', () => {
       ),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://legacy-ledger-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1881,7 +1882,6 @@ describe('reality area authority API', () => {
   test('rejects TON settlement intents without storing wallet or value movement data', async () => {
     const existing = existingState()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://settlement-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1915,7 +1915,6 @@ describe('reality area authority API', () => {
   test('rejects estate protection intents without naming heirs or transferring assets', async () => {
     const existing = existingState()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://estate-protection-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -1969,7 +1968,6 @@ describe('reality area authority API', () => {
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     const existing = existingState()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2002,7 +2000,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-06T05:00:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-claimed-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -2040,7 +2037,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-06T05:00:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-claimed-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -2075,7 +2071,6 @@ describe('reality area authority API', () => {
     vi.setSystemTime(new Date('2026-07-06T04:00:00.000Z'))
     const existing = existingState()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://area-state'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2222,7 +2217,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-staffing-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2262,7 +2256,6 @@ describe('reality area authority API', () => {
       }],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-debt-dashboard-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2300,7 +2293,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://insurance-dashboard-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2370,7 +2362,6 @@ describe('reality area authority API', () => {
       ],
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://heir-dashboard-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2410,7 +2401,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
     const unclaimed = responseRecorder()
 
@@ -2446,7 +2436,6 @@ describe('reality area authority API', () => {
       }],
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://saturated-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(saturatedState), { status: 200 })))
     const saturated = responseRecorder()
@@ -2474,7 +2463,6 @@ describe('reality area authority API', () => {
       money: 1,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-build-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
     const res = responseRecorder()
@@ -2508,7 +2496,6 @@ describe('reality area authority API', () => {
       cash: 0,
     }), 56)
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://expanded-food-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(expanded), { status: 200 })))
     const res = responseRecorder()
@@ -2553,7 +2540,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T04:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-build-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -2607,7 +2593,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2635,7 +2620,6 @@ describe('reality area authority API', () => {
 
     const accepted = responseRecorder()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
 
@@ -2687,7 +2671,6 @@ describe('reality area authority API', () => {
       quality: 0.5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://low-quality-water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2729,7 +2712,6 @@ describe('reality area authority API', () => {
       quality: 0.15,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://zero-capacity-clinic-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -2772,7 +2754,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-service-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -2828,7 +2809,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-service-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -2865,7 +2845,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
     const unclaimed = responseRecorder()
 
@@ -2882,7 +2861,6 @@ describe('reality area authority API', () => {
     expect(unclaimed.body).toMatchObject({ ok: false, code: 'area_not_claimed' })
 
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://empty-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
     const unavailable = responseRecorder()
@@ -2907,7 +2885,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://broke-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(brokeState), { status: 200 })))
     const broke = responseRecorder()
@@ -2935,7 +2912,6 @@ describe('reality area authority API', () => {
       },
     )
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-service-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
     const driftedFounder = responseRecorder()
@@ -2962,7 +2938,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-service-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(hospitalizedState), { status: 200 })))
     const unavailableFounder = responseRecorder()
@@ -2991,7 +2966,6 @@ describe('reality area authority API', () => {
       cash: 50,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const rejected = responseRecorder()
@@ -3018,7 +2992,6 @@ describe('reality area authority API', () => {
 
     const accepted = responseRecorder()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
 
@@ -3096,7 +3069,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([]))
     const unclaimed = responseRecorder()
 
@@ -3113,7 +3085,6 @@ describe('reality area authority API', () => {
     expect(unclaimed.body).toMatchObject({ ok: false, code: 'area_not_claimed' })
 
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://empty-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
     const missing = responseRecorder()
@@ -3141,7 +3112,6 @@ describe('reality area authority API', () => {
       staffCitizenIds: ['founder-area-0012:sim-water'],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://full-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(fullState), { status: 200 })))
     const full = responseRecorder()
@@ -3170,7 +3140,6 @@ describe('reality area authority API', () => {
       cash: 50,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const missingWorker = responseRecorder()
@@ -3210,7 +3179,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-hire-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -3275,7 +3243,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-hire-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -4584,7 +4551,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://refresh-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -4622,7 +4588,6 @@ describe('reality area authority API', () => {
 
   test('refreshArea returns structured storage failure when the founder area cannot load', async () => {
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockRejectedValueOnce(new Error('blob list failed'))
     const res = responseRecorder()
 
@@ -4642,14 +4607,13 @@ describe('reality area authority API', () => {
       code: 'area_load_unavailable',
       state: null,
     })
-    expect(list).toHaveBeenNthCalledWith(1, { prefix: `citizens/${CITIZEN_ID}__${TOKEN_HASH}`, limit: 1 })
-    expect(list).toHaveBeenNthCalledWith(2, { prefix: areaStatePath(CITIZEN_ID), limit: 1 })
+    expect(pgQueryMock).toHaveBeenCalledTimes(1) // citizen verified from Postgres
+    expect(list).toHaveBeenNthCalledWith(1, { prefix: areaStatePath(CITIZEN_ID), limit: 1 })
     expect(put).not.toHaveBeenCalled()
   })
 
   test('refreshArea rejects client-controlled state fields without mutating the area', async () => {
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://bad-refresh-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
     const res = responseRecorder()
@@ -4669,8 +4633,8 @@ describe('reality area authority API', () => {
       code: 'client_controlled_server_field',
       error: 'Invalid refreshArea intent.',
     })
-    expect(list).toHaveBeenCalledTimes(1)
-    expect(list).toHaveBeenCalledWith({ prefix: `citizens/${CITIZEN_ID}__${TOKEN_HASH}`, limit: 1 })
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -4685,7 +4649,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://public-clock-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -4723,7 +4686,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -4772,7 +4734,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -4828,7 +4789,6 @@ describe('reality area authority API', () => {
       staffCitizenIds: ['founder-area-0012:sim-water'],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://sim-departure-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -4905,7 +4865,6 @@ describe('reality area authority API', () => {
       )),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://real-and-owner-departure-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -4937,7 +4896,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-06T06:30:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recent-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(recentlyUpdated), { status: 200 })))
     const res = responseRecorder()
@@ -4969,7 +4927,6 @@ describe('reality area authority API', () => {
       updatedAt: '2026-07-06T05:00:00.000Z',
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://catch-up-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(waiting), { status: 200 })))
     const res = responseRecorder()
@@ -5009,7 +4966,6 @@ describe('reality area authority API', () => {
       quality: 1,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://degraded-water-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5055,7 +5011,6 @@ describe('reality area authority API', () => {
       quality: 0.15,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://capacity-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5095,7 +5050,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-decay-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(advanceReadyState()), { status: 200 })))
     const res = responseRecorder()
@@ -5137,7 +5091,6 @@ describe('reality area authority API', () => {
       cash: 10,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-collapse-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5270,7 +5223,6 @@ describe('reality area authority API', () => {
       state: { kind: 'hospitalized', until: '2026-07-06T07:00:00.000Z' },
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-recovery-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(recovering), { status: 200 })))
     const res = responseRecorder()
@@ -5326,7 +5278,6 @@ describe('reality area authority API', () => {
       quality: 0.35,
     }])
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://business-degrade-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5365,7 +5316,6 @@ describe('reality area authority API', () => {
       cash: 10,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://clinic-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5438,7 +5388,6 @@ describe('reality area authority API', () => {
       cash: 1_000,
     }])
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://insured-clinic-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5523,7 +5472,6 @@ describe('reality area authority API', () => {
       cash: 0,
     }])
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://empty-insurer-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5569,7 +5517,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-renewal-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5620,7 +5567,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://founder-lapse-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5663,7 +5609,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://recovery-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5712,7 +5657,6 @@ describe('reality area authority API', () => {
       cash: 10,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -5787,7 +5731,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -5847,7 +5790,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -5896,7 +5838,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -6096,7 +6037,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-evidence-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -6169,7 +6109,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://reviewed-departure-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -6228,7 +6167,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-review-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -6332,7 +6270,6 @@ describe('reality area authority API', () => {
       founderCovenant: baseFounderCovenant('2026-07-06T07:00:00.000Z'),
     }
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-review-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -6380,7 +6317,6 @@ describe('reality area authority API', () => {
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
     const existing = existingState()
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://review-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -6419,7 +6355,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()
@@ -6508,7 +6443,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     const res = responseRecorder()
@@ -6564,7 +6498,6 @@ describe('reality area authority API', () => {
       cash: 5,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://stale-insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
     vi.mocked(put).mockRejectedValueOnce(new Error('blob storage unavailable'))
@@ -6604,7 +6537,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://missing-insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
     const missing = responseRecorder()
@@ -6629,7 +6561,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://wrong-kind-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(wrongKindState), { status: 200 })))
     const wrongKind = responseRecorder()
@@ -6656,7 +6587,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(hospitalizedState), { status: 200 })))
     const unavailable = responseRecorder()
@@ -6684,7 +6614,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://already-insured-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(insuredState), { status: 200 })))
     const alreadyInsured = responseRecorder()
@@ -6709,7 +6638,6 @@ describe('reality area authority API', () => {
       cash: 0,
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://broke-insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(brokeState), { status: 200 })))
     const broke = responseRecorder()
@@ -6737,7 +6665,6 @@ describe('reality area authority API', () => {
       },
     )
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://drifted-insurance-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(driftedFounderState), { status: 200 })))
     const driftedFounder = responseRecorder()
@@ -6759,7 +6686,6 @@ describe('reality area authority API', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://no-debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
     const missing = responseRecorder()
@@ -6789,7 +6715,6 @@ describe('reality area authority API', () => {
       }],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://hospitalized-debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(hospitalizedState), { status: 200 })))
     const unavailable = responseRecorder()
@@ -6819,7 +6744,6 @@ describe('reality area authority API', () => {
       }],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://broke-debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(brokeState), { status: 200 })))
     const broke = responseRecorder()
@@ -6848,7 +6772,6 @@ describe('reality area authority API', () => {
       }],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://low-area-balance-debt-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(lowAreaBalanceState), { status: 200 })))
     const lowAreaBalance = responseRecorder()
@@ -6878,7 +6801,6 @@ describe('reality area authority API', () => {
       staffCitizenIds: ['founder-area-0012:sim-water'],
     })
     vi.mocked(list)
-      .mockResolvedValueOnce(blobList([FOUNDER_PATH]))
       .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://staffed-area'))
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
     const res = responseRecorder()

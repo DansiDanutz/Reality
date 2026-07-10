@@ -74,12 +74,11 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     const [claimSql] = pgQueryMock.mock.calls[1] as [string]
     expect(claimSql).toMatch(/UPDATE citizens SET founder_number/i)
 
-    // The Blob mirror keeps legacy endpoints (reality-area, avatar,
-    // cloud-save) authenticating until they migrate — no names/ or
-    // founders/ blobs anymore, Postgres owns those claims
-    const tokenHash = createHash('sha256').update(body.token).digest('hex').slice(0, 24)
+    // Postgres owns the whole registry now — the only Blob write left is
+    // the regip/ throttle marker (and telegram-users/ for linked accounts)
+    expect(body.token).toBeTruthy()
     const paths = vi.mocked(put).mock.calls.map(([pathname]) => String(pathname))
-    expect(paths).toContain(`citizens/${body.citizenId}__${tokenHash}__1.json`)
+    expect(paths.some((p) => p.startsWith('citizens/'))).toBe(false)
     expect(paths.some((p) => p.startsWith('names/'))).toBe(false)
     expect(paths.some((p) => p.startsWith('founders/'))).toBe(false)
   })
@@ -178,20 +177,29 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(consoleError).toHaveBeenCalled()
   })
 
-  test('a Blob mirror failure never fails a registration that already committed', async () => {
+  test('a Telegram mirror failure never fails a registration that already committed', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
     stubPg()
     mockHappyPg(1)
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     vi.mocked(put)
       .mockResolvedValueOnce({ url: 'blob://regip' } as never) // throttle marker
-      .mockRejectedValueOnce(new Error('blob unavailable')) // citizens/ mirror
+      .mockRejectedValueOnce(new Error('blob unavailable')) // telegram-users/ mirror
     const res = responseRecorder()
 
     await handler({
       method: 'POST',
       headers: { 'x-forwarded-for': REGISTER_IP },
-      body: { name: 'David' },
+      body: {
+        name: 'David',
+        telegramInitData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 42424242, first_name: 'David' }),
+        }),
+      },
     } as never, res as never)
 
     expect(res.statusCode).toBe(200)
@@ -213,8 +221,6 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.body).toMatchObject({ ok: true, founderNumber: null, slotsClaimed: FOUNDER_SLOTS })
-    const paths = vi.mocked(put).mock.calls.map(([pathname]) => String(pathname))
-    expect(paths.some((p) => p.startsWith('citizens/') && p.endsWith('__0.json'))).toBe(true)
   })
 
   test('rejects names with no letters or digits — they would reduce to an empty identity slug', async () => {
