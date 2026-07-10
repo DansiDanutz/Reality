@@ -106,19 +106,44 @@ export function useNotifications(): void {
     const prefs = s.notificationPrefs
     const allowed = decisions.filter((d) => prefs[d.tag] !== false)
     for (const d of allowed) {
-      try {
-        new Notification(d.title, {
-          body: d.body,
-          tag: d.tag, // browser collapses duplicate tags
-          icon: '/icon-192.png',
-        })
-        logRef.current = markNotified(logRef.current, d.id, lastSeenAt)
-      } catch {
-        // Notification construction can throw in some browsers (e.g. service
-        // worker required). Fail silently — the in-app toast still works.
-      }
+      // Mark before the async fire: showNotification resolving later must not
+      // let a second tick double-fire the same decision.
+      logRef.current = markNotified(logRef.current, d.id, lastSeenAt)
+      void showSystemNotification(d.title, {
+        body: d.body,
+        tag: d.tag, // browser collapses duplicate tags
+        icon: '/icon-192.png',
+      })
     }
   }, [lastSeenAt, permission])
+}
+
+/**
+ * Fire a system notification the way the platform demands. Android Chrome
+ * throws on page-created `new Notification()` — notifications there must go
+ * through the service worker registration. Desktop accepts either; we prefer
+ * the worker (its notificationclick refocuses the game tab) and fall back to
+ * the page API, failing silently if both are unavailable.
+ */
+async function showSystemNotification(title: string, options: NotificationOptions): Promise<void> {
+  try {
+    if ('serviceWorker' in navigator) {
+      // getRegistration (not .ready): .ready never settles when registration
+      // failed, which would swallow the fallback path below.
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (reg?.active) {
+        await reg.showNotification(title, options)
+        return
+      }
+    }
+  } catch {
+    // fall through to the page API
+  }
+  try {
+    new Notification(title, options)
+  } catch {
+    // Neither path available — the in-app toast still covers the visible tab.
+  }
 }
 
 /**

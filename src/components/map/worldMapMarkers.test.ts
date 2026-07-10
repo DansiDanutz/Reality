@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
+import { clusterResourceNodes, constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
 
 const PROGRESS = {
   percent: 42,
@@ -59,5 +59,52 @@ describe('newlyBuiltAssetIds', () => {
 
   test('reports nothing when nothing changed', () => {
     expect(newlyBuiltAssetIds(new Set(['a']), [{ id: 'a' }])).toEqual([])
+  })
+})
+
+describe('clusterResourceNodes', () => {
+  const node = (id: string, kind: string, lat: number, lng: number) => ({ id, kind, lat, lng })
+
+  test('collapses same-kind nodes within the radius into one cluster', () => {
+    // ~50m apart at the equator (0.00045° lat ≈ 50m)
+    const clusters = clusterResourceNodes([
+      node('a', 'wood', 44.4, 26.1),
+      node('b', 'wood', 44.4004, 26.1),
+      node('c', 'wood', 44.4002, 26.1003),
+    ])
+    expect(clusters).toHaveLength(1)
+    expect(clusters[0].nodes.map((n) => n.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  test('places the cluster marker at the centroid of its nodes', () => {
+    const clusters = clusterResourceNodes([
+      node('a', 'wood', 44.4, 26.1),
+      node('b', 'wood', 44.4004, 26.1),
+    ])
+    expect(clusters[0].lat).toBeCloseTo(44.4002, 6)
+    expect(clusters[0].lng).toBeCloseTo(26.1, 6)
+  })
+
+  test('keeps different kinds separate even at the same spot', () => {
+    const clusters = clusterResourceNodes([
+      node('a', 'wood', 44.4, 26.1),
+      node('b', 'stone', 44.4, 26.1),
+    ])
+    expect(clusters).toHaveLength(2)
+    expect(clusters.map((c) => c.kind).sort()).toEqual(['stone', 'wood'])
+  })
+
+  test('keeps far-apart nodes of the same kind as separate markers', () => {
+    // ~1.1km apart — two distinct places on the map
+    const clusters = clusterResourceNodes([
+      node('a', 'wood', 44.4, 26.1),
+      node('b', 'wood', 44.41, 26.1),
+    ])
+    expect(clusters).toHaveLength(2)
+    expect(clusters.every((c) => c.nodes.length === 1)).toBe(true)
+  })
+
+  test('empty input produces no clusters', () => {
+    expect(clusterResourceNodes([])).toEqual([])
   })
 })

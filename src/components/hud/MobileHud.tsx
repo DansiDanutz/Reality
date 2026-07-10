@@ -39,20 +39,46 @@ const NEED_META: { key: NeedKey; icon: string; label: string }[] = [
   { key: 'fun', icon: '🎈', label: 'Fun' },
 ]
 
-// Every game area reachable from the desktop top bar, one thumb-sized row
-// each. Shop and Work have their own tabs, so they're not repeated here.
-const MENU_ITEMS: { id: Exclude<PanelId, null>; icon: string; label: string; hint: string }[] = [
-  { id: 'assets', icon: '🏠', label: 'Assets', hint: 'Your land, homes and businesses' },
-  { id: 'construction', icon: '🏗️', label: 'Build', hint: 'Construction projects' },
-  { id: 'cook', icon: '🍳', label: 'Kitchen', hint: 'Cook groceries into meals' },
-  { id: 'achievements', icon: '🏆', label: 'Goals & achievements', hint: 'Daily challenges and trophies' },
-  { id: 'journal', icon: '📖', label: 'Journal', hint: 'Your life so far' },
-  { id: 'boxes', icon: '🎁', label: 'Mystery boxes', hint: 'Try your luck' },
-  { id: 'top', icon: '🥇', label: 'Leaderboard', hint: 'Top citizens worldwide' },
-  { id: 'founder', icon: '🗺️', label: 'Founder area', hint: 'Your claimed territory' },
-  { id: 'operator', icon: '🛠️', label: 'Founder ops', hint: 'Operator tools' },
-  { id: 'health', icon: '⚕️', label: 'Health guide', hint: 'How vitals work' },
-  { id: 'profile', icon: '👤', label: 'Profile', hint: 'Avatar, save and settings' },
+// Every game area reachable from the desktop top bar, grouped the way a
+// player thinks (empire → progress → daily life → settings), one thumb-sized
+// row each. Shop and Work have their own tabs, so they're not repeated here.
+interface MenuItem {
+  id: Exclude<PanelId, null>
+  icon: string
+  label: string
+  hint: string
+}
+
+const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
+  {
+    title: 'Your empire',
+    items: [
+      { id: 'assets', icon: '🏠', label: 'Assets', hint: 'Your land, homes and businesses' },
+      { id: 'construction', icon: '🏗️', label: 'Build', hint: 'Construction projects' },
+      { id: 'founder', icon: '🗺️', label: 'Founder area', hint: 'Your claimed territory' },
+      { id: 'operator', icon: '🛠️', label: 'Founder ops', hint: 'Operator tools' },
+    ],
+  },
+  {
+    title: 'Progress',
+    items: [
+      { id: 'achievements', icon: '🏆', label: 'Goals & achievements', hint: 'Daily challenges and trophies' },
+      { id: 'journal', icon: '📖', label: 'Journal', hint: 'Your life so far' },
+      { id: 'top', icon: '🥇', label: 'Leaderboard', hint: 'Top citizens worldwide' },
+      { id: 'boxes', icon: '🎁', label: 'Mystery boxes', hint: 'Try your luck' },
+    ],
+  },
+  {
+    title: 'Daily life',
+    items: [
+      { id: 'cook', icon: '🍳', label: 'Kitchen', hint: 'Cook groceries into meals' },
+      { id: 'health', icon: '⚕️', label: 'Health guide', hint: 'How vitals work' },
+    ],
+  },
+  {
+    title: 'Settings',
+    items: [{ id: 'profile', icon: '👤', label: 'Profile', hint: 'Avatar, save and settings' }],
+  },
 ]
 
 const tone = (v: number) => (v < 20 ? 'crit' : v < 45 ? 'low' : 'ok')
@@ -211,28 +237,35 @@ export default function MobileHud() {
               )}
               {sheet === 'menu' && (
                 <nav className="mmenu" aria-label="All game areas">
-                  {MENU_ITEMS.map((item) => (
-                    <button className="mmenu-item" key={item.id} onClick={() => openPanel(item.id)}>
-                      <span className="mmenu-icon" aria-hidden>{item.icon}</span>
-                      <span className="mmenu-text">
-                        <span className="mmenu-label">
-                          {item.label}
-                          {item.id === 'achievements' && readyCount > 0 && (
-                            <span className="mmenu-badge mono">{readyCount}</span>
-                          )}
-                        </span>
-                        <span className="mmenu-hint">{item.hint}</span>
-                      </span>
-                      <span className="mmenu-chevron" aria-hidden>›</span>
-                    </button>
+                  {MENU_SECTIONS.map((section) => (
+                    <section className="mmenu-section" key={section.title}>
+                      <h3 className="mmenu-section-title">{section.title}</h3>
+                      {section.items.map((item) => (
+                        <button className="mmenu-item" key={item.id} onClick={() => openPanel(item.id)}>
+                          <span className="mmenu-icon" aria-hidden>{item.icon}</span>
+                          <span className="mmenu-text">
+                            <span className="mmenu-label">
+                              {item.label}
+                              {item.id === 'achievements' && readyCount > 0 && (
+                                <span className="mmenu-badge mono">{readyCount}</span>
+                              )}
+                            </span>
+                            <span className="mmenu-hint">{item.hint}</span>
+                          </span>
+                          <span className="mmenu-chevron" aria-hidden>›</span>
+                        </button>
+                      ))}
+                      {section.title === 'Settings' && (
+                        <button className="mmenu-item" onClick={toggleSound}>
+                          <span className="mmenu-icon" aria-hidden>{soundOn ? '🔊' : '🔇'}</span>
+                          <span className="mmenu-text">
+                            <span className="mmenu-label">Sound {soundOn ? 'on' : 'off'}</span>
+                            <span className="mmenu-hint">Tap to {soundOn ? 'mute' : 'unmute'} game sounds</span>
+                          </span>
+                        </button>
+                      )}
+                    </section>
                   ))}
-                  <button className="mmenu-item" onClick={toggleSound}>
-                    <span className="mmenu-icon" aria-hidden>{soundOn ? '🔊' : '🔇'}</span>
-                    <span className="mmenu-text">
-                      <span className="mmenu-label">Sound {soundOn ? 'on' : 'off'}</span>
-                      <span className="mmenu-hint">Tap to {soundOn ? 'mute' : 'unmute'} game sounds</span>
-                    </span>
-                  </button>
                 </nav>
               )}
             </div>

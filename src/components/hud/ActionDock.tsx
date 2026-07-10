@@ -4,6 +4,7 @@ import { useIsMobile } from '../../lib/useIsMobile'
 import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
+import NotifyNudge from './NotifyNudge'
 
 const countdown = (endsAt: number): string => {
   const ms = Math.max(0, endsAt - Date.now())
@@ -126,6 +127,7 @@ export default function ActionDock() {
     return (
       <div className="dock">
         {guide}
+        <NotifyNudge activityKind={activity.kind} />
         <div className="placing-banner activity-banner">
           <span className="placing-pulse" />
           <div className="activity-info">

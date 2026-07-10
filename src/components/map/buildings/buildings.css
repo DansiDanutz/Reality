@@ -6,9 +6,33 @@
   cursor: pointer;
   line-height: 0;
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
-  transition: transform var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out), filter var(--duration-fast) var(--ease-out);
 }
-.map-building:hover { transform: scale(1.08); }
+/* HoMM town-object affordance: the building answers the cursor — a lift and
+   a warm glow that says "you can enter", plus a name plate (adventure-map
+   hover label). Hover-only, so touch devices lose nothing. */
+.map-building:hover {
+  transform: scale(1.1) translateY(-2px);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(240, 180, 41, 0.45));
+}
+.map-building:hover::after {
+  content: attr(data-name);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(5, 7, 14, 0.88);
+  border: 1px solid rgba(240, 180, 41, 0.4);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  pointer-events: none;
+}
 .map-building svg { display: block; }
 
 /* Collectable-income indicator: the same "ready" language as the old
