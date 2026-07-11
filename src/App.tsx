@@ -4,6 +4,7 @@ import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
 import CourierPackagePrompt from './components/hud/CourierPackagePrompt'
+import DayReceipt from './components/hud/DayReceipt'
 import GoalsCard from './components/hud/GoalsCard'
 import GoldenOpportunityPrompt from './components/hud/GoldenOpportunityPrompt'
 import InstallBanner from './components/hud/InstallBanner'
@@ -262,6 +263,7 @@ export default function App() {
           <Toasts />
           <CelebrationOverlay />
           <WeekFanfare />
+          <DayReceipt />
           <GoldenOpportunityPrompt />
           <CourierPackagePrompt />
           <InstallBanner />
