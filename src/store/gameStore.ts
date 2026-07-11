@@ -141,7 +141,7 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | 'handbook' | null
 
 export type MapTarget =
   | { kind: 'asset'; id: string }

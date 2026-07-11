@@ -691,6 +691,36 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* The Path card — "what am I winning": stage rail + reach tier with the
+   next unlock always visible. Lives in the Status sheet and the handbook. */
+.path-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  border-radius: var(--radius-lg);
+}
+.path-card-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.path-card-row { display: flex; flex-direction: column; gap: 5px; }
+.path-card-label { font-size: 13px; font-weight: 600; }
+.path-card-next { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
+/* Handbook map legend rows. */
+.handbook-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.handbook-legend-row { display: flex; gap: 10px; align-items: baseline; }
+.handbook-legend-symbol { flex-shrink: 0; min-width: 64px; font-size: 12px; color: var(--gold); }
+.handbook-legend-text { font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.handbook-legend-text strong { color: var(--sky); }
+
 /* The paid advisor — the "i" button on both guide surfaces, and its report. */
 .advisor-btn {
   display: inline-flex;

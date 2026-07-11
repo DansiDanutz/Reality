@@ -9,6 +9,7 @@ import FinanceCard from './FinanceCard'
 import GoalsCard from './GoalsCard'
 import MoodCard from './MoodCard'
 import NeedsPanel from './NeedsPanel'
+import PathCard from './PathCard'
 import TutorialPanel from './TutorialPanel'
 
 /**
@@ -50,6 +51,12 @@ interface MenuItem {
 }
 
 const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
+  {
+    title: 'Start here',
+    items: [
+      { id: 'handbook', icon: '🧭', label: 'How to play', hint: 'Rules, map legend, and your path' },
+    ],
+  },
   {
     title: 'Your empire',
     items: [
@@ -231,6 +238,7 @@ export default function MobileHud() {
                 <div className="msheet-stack">
                   <AvatarCard />
                   <NeedsPanel />
+                  <PathCard />
                   <MoodCard />
                   <FinanceCard />
                 </div>
