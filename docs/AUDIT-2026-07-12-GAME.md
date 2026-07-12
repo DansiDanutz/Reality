@@ -6,22 +6,29 @@ Complements [AUDIT-2026-07-03.md](AUDIT-2026-07-03.md), which covered multi-agen
 collaboration process, not the game itself. Written by the Claude Code session in
 `~/Fable`.*
 
+*Update: F1–F5, F9 (6 of 9 findings) were fixed in this same PR as a
+follow-through implementation pass — see the struck-through severities and
+"Fixed in this PR" notes throughout. F6–F8 were deliberately left for later,
+scoped-down work (see §9). Sections below are left largely as originally
+written, with corrections inline, so the record of what was found and what
+changed stays legible.*
+
 ---
 
 ## 1. Executive summary
 
-The game is **healthy at the mechanics level and unhealthy at the documentation
-level**. Build is green, 1,509 tests pass across 126 files (1,508 at the
-start of this audit, +1 added by the `advanceWorldArea` fix below), production
-dependencies have zero known vulnerabilities, and the core invariants
-(immutable state, injected time/randomness, server-validated economy) genuinely
-hold under inspection. But the five governing docs (`ARCHITECTURE.md`,
-`GAME_DESIGN.md`, `ECONOMY.md`, `ROADMAP.md`, `ROADMAPS.md`) all describe a
-**stage of the project that no longer exists** — every one of them was last
-touched 2026-07-08, and the Postgres cutover (Phase 1b.1–1b.6) plus the auth
-migration shipped 2026-07-09 through 2026-07-11. Anyone — human or agent —
-reading the docs today to understand "what stage is this game at" gets the
-wrong answer.
+The game is **healthy at the mechanics level and was unhealthy at the
+documentation level** (see §2 for exact before/after test counts). Build is
+green, production dependencies have zero known vulnerabilities, and the core
+invariants (immutable state, injected time/randomness, server-validated
+economy) genuinely hold under inspection. But the five governing docs
+(`ARCHITECTURE.md`, `GAME_DESIGN.md`, `ECONOMY.md`, `ROADMAP.md`,
+`ROADMAPS.md`) all **described a stage of the project that no longer
+existed** — every one of them was last touched 2026-07-08, and the Postgres
+cutover (Phase 1b.1–1b.6) plus the auth migration shipped 2026-07-09 through
+2026-07-11. Anyone — human or agent — reading the docs before this PR to
+understand "what stage is this game at" would have gotten the wrong answer;
+all five are rewritten as part of this same PR (F1, see §3).
 
 The second major theme: an entire founder-economy subsystem (~2,600 lines,
 13 modules: credit lines, profit waterfalls, legacy royalties, covenant
@@ -42,14 +49,15 @@ document that would have named the mechanic once and let everyone import it.
 
 | Check | Result |
 |---|---|
-| `npx vitest run` | **1,508 tests passed**, 126 files, 14.6s (measured at audit start; 1,509 after fixes in this PR) |
+| `npx vitest run` | **1,508 tests passed**, 126 files, 14.6s at audit start → **1,513 tests, 127 files** after this PR's fixes (new tests for the `advanceWorldArea` step cap and the shared founder eligibility-gate helper) |
 | `npm run build` (`tsc -b && vite build`) | **Green**, 716ms |
 | `npm audit --omit=dev` | **0 vulnerabilities** (10 dev-only, non-shipping) |
-| `npm run lint` (oxlint) | 6 warnings, 0 errors (not wired into CI — see §6.5) |
-| Largest JS chunk (gzipped) | `WorldMap` 282 KB, `index` 242 KB, `streetScene` 152 KB — **~676 KB gzip for JS alone**, before CSS (~30 KB gzip) |
-| `docs/ARCHITECTURE.md` "known beta debt" claim | "Bundle is ~600 kB gzipped" — **already exceeded**, debt is growing not shrinking |
+| `npm run lint` (oxlint) | 6 warnings, 0 errors; now wired into CI (F9, fixed in this PR) |
+| Largest JS chunk (gzipped) | `WorldMap` 282 KB, `index` 242 KB, `streetScene` 152 KB — **~676 KB gzip for JS alone**, before CSS (~30 KB gzip) — still open, see F8 |
+| `docs/ARCHITECTURE.md` "known beta debt" claim | Was "Bundle is ~600 kB gzipped" (already exceeded); `ARCHITECTURE.md`'s "Known debts" section now states the real ~676 KB figure |
 
-CI (`verify` job) runs `vitest` + `build` only — no lint gate (§6.5).
+CI (`verify` job) now also runs `npm run lint` (fixed in this PR — was
+`vitest` + `build` only).
 
 ---
 
@@ -87,12 +95,14 @@ intents (`workShift`, `buyItem`, `placeAsset`) are server-validated; anti-cheat
 is partial (rate limits + plausibility caps exist, full validation doesn't
 cover everything client-predicted).
 
-**Recommendation:** rewrite `ARCHITECTURE.md`'s beta/v1 split to describe what's
-actually live today (Postgres-backed registry/world/leaderboard/auth, intent
-ledger, still-client-driven personal sim), correct the four stale numbers in
-`GAME_DESIGN.md`/`ECONOMY.md`, and fix `CLAUDE.md`'s `advance()` reference to
-name `liveRealtime()`/`tick()` correctly — that file is the first thing every
-agent session reads, so its accuracy compounds across the whole project.
+**Recommendation (done in this PR):** rewrote `ARCHITECTURE.md`'s beta/v1
+split to describe what's actually live today (Postgres-backed
+registry/world/leaderboard/auth, intent ledger, still-client-driven personal
+sim, the still-Blob-backed `reality-area.ts` system), corrected the stale
+numbers in `GAME_DESIGN.md`/`ECONOMY.md`/`ROADMAP.md`/`ROADMAPS.md`, and
+fixed `CLAUDE.md`'s `advance()` reference to name `liveRealtime()`/`tick()`
+correctly — that file is the first thing every agent session reads, so its
+accuracy compounds across the whole project.
 
 ---
 
@@ -325,7 +335,7 @@ wage display through `cashflowOf`/a shared helper instead of recomputing it.
 
 | # | Finding | Severity | Blast radius | Effort to fix |
 |---|---|---|---|---|
-| F1 | 5 governing docs describe a pre-Postgres-cutover repo | HIGH | Every future agent/contributor session starts from a wrong mental model | Doc rewrite, ~half a day |
+| F1 | 5 governing docs described a pre-Postgres-cutover repo | ~~HIGH~~ FIXED | Every future agent/contributor session would start from a wrong mental model | Fixed in this PR: all 5 docs rewritten |
 | F2 | `CLAUDE.md` cited a nonexistent `advance()` function | ~~HIGH~~ FIXED | First file every agent reads is factually wrong about the core invariant | Fixed in this PR |
 | F3 | 13-module founder-economy subsystem had no design doc | ~~MEDIUM~~ FIXED | Constants/gates were duplicating (3× and 2× respectively); would keep drifting without one source of truth | Fixed in this PR: ECONOMY.md section + constant/gate dedup |
 | F4 | `AGENTS.md`'s api/-self-containment rule read as an absolute ban, not matching `intent.ts`'s deliberate, already-guarded cross-import | LOW (downgraded — see §5) | Doc-only: without the named exception, a future agent could "fix" `intent.ts` by duplicating economy logic, which is worse | Fixed in this PR: reworded `AGENTS.md:117` |
@@ -333,7 +343,7 @@ wage display through `cashflowOf`/a shared helper instead of recomputing it.
 | F6 | `worldSim.ts` is a 3,689-line, zero-section monolith | LOW-MEDIUM | Slows every future change to shared-world/founder-covenant logic | Medium: extract covenant module |
 | F7 | `gameStore.ts` under-tested relative to size (0.58×) | LOW | Store is the single funnel for all discrete actions | Ongoing |
 | F8 | JS bundle (~676 KB gzip) already exceeds the doc's own "~600 KB" debt note | LOW | Load time on slow connections/mobile | Medium: code-split `WorldMap`/`streetScene` |
-| F9 | Lint not wired into CI | LOW | Style/hook-dependency issues ship silently (6 warnings currently, 0 errors) | 1-line CI change |
+| F9 | Lint was not wired into CI | ~~LOW~~ FIXED | Style/hook-dependency issues shipped silently (6 warnings currently, 0 errors) | Fixed in this PR: `npm run lint` added to `.github/workflows/ci.yml`'s `verify` job |
 
 Nothing found rises to CRITICAL — no data loss, no economy-breaking exploit,
 no failing test/build.
@@ -371,8 +381,9 @@ no failing test/build.
 1. ~~Fix `CLAUDE.md`'s `advance()` reference (F2)~~ — done in this PR,
    cheapest, highest-leverage fix since it's the first thing every session
    reads.
-2. Rewrite `ARCHITECTURE.md`'s beta/v1 split and correct the stale numbers in
-   `GAME_DESIGN.md`/`ECONOMY.md`/`ROADMAP.md`/`ROADMAPS.md` (F1).
+2. ~~Rewrite `ARCHITECTURE.md`'s beta/v1 split and correct the stale numbers
+   in `GAME_DESIGN.md`/`ECONOMY.md`/`ROADMAP.md`/`ROADMAPS.md` (F1)~~ — done
+   in this PR.
 3. ~~Add the missing step cap to `advanceWorldArea` (F5)~~ — done in this PR,
    with a bounded-not-collapsed guard (see §6.3) and a regression test.
 4. ~~Resolve the `api/intent.ts` self-containment violation (F4)~~ — on a
@@ -382,8 +393,10 @@ no failing test/build.
    problem for a real one).
 5. ~~Write the founder-economy design doc and collapse the duplicated
    constants/gates it will surface (F3)~~ — done in this PR (see §4).
-6. Wire `oxlint` into CI (F9) — one line, currently 0-cost since there are 0
-   errors today.
+6. ~~Wire `oxlint` into CI (F9)~~ — done in this PR: added to `verify`,
+   confirmed 0-cost today (0 errors) and confirmed it actually fails the
+   build on a real error-level violation (tested locally with a scratch
+   rules-of-hooks violation, then reverted).
 7. Schedule, don't rush: `worldSim.ts` module split (F6), `gameStore.ts` test
    coverage (F7), bundle code-splitting (F8).
 
