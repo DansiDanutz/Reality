@@ -38,8 +38,8 @@ Reality runs on the actual clock. This is the game's founding rule and its name.
 
 ## Work & progression
 
-- 10 careers from Barista ($15/h) to Pilot ($60/h); higher tiers gated by level (1–4).
-- A shift = 6 game hours, paid instantly, costs needs, grants 20 XP. Level N requires N×100 XP.
+- 10 careers from Barista ($15/h) to Pilot ($60/h); higher tiers gated by level.
+- A shift = 8 real hours (matching Rule #1 above), paid instantly, costs needs, grants 40 XP. Level N requires N×100 XP.
 - Design intent: wages alone keep you alive and slowly saving; businesses are how you get rich. Founders skip the grind — that's the founder privilege.
 
 ## Property & businesses

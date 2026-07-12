@@ -1,3 +1,5 @@
+import { CITIZEN_BALANCE, FOUNDER_BALANCE, FOUNDER_SLOTS } from './catalog'
+
 export type FounderSeatPolicyStatus = 'available' | 'full' | 'invalid_registry_state'
 
 export type FounderSeatPolicyBlocker =
@@ -59,9 +61,13 @@ export interface FounderSeatPolicyAssessment {
   blockers: readonly FounderSeatPolicyBlocker[]
 }
 
-export const FOUNDER_SEAT_CAPACITY = 2_000
-export const FOUNDER_STARTER_CREDIT_AMOUNT = 200_000
-export const REGULAR_CITIZEN_STARTER_CREDIT_AMOUNT = 2_500
+// Single source of truth: catalog.ts. Re-exported under these names because
+// this module's own types/callers already refer to them this way — see
+// the founder-economy design doc in ECONOMY.md for why these numbers used
+// to be declared independently in three places.
+export const FOUNDER_SEAT_CAPACITY = FOUNDER_SLOTS
+export const FOUNDER_STARTER_CREDIT_AMOUNT = FOUNDER_BALANCE
+export const REGULAR_CITIZEN_STARTER_CREDIT_AMOUNT = CITIZEN_BALANCE
 
 const BASE_BLOCKERS: readonly FounderSeatPolicyBlocker[] = [
   'founder_seat_purchase_disabled',

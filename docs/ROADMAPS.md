@@ -65,8 +65,8 @@ and in this repo.
 
 | System | Where | Status |
 |--------|-------|--------|
-| The Market: 115 real-priced catalog items in 10 categories, search | `src/game/catalog.ts`, `Market.tsx` | ✅ |
-| 5 careers (Courier $16/h → Software Developer $48/h), XP, level gates | catalog + engine | ✅ |
+| The Market: 115 real-priced catalog items in 13 categories, search | `src/game/catalog.ts`, `Market.tsx` | ✅ |
+| 10 careers (Barista $15/h → Pilot $60/h), XP, level gates | catalog + engine | ✅ |
 | Career gear with wage bonuses; education with instant XP | catalog | ✅ |
 | Businesses placed anywhere on Earth; passive income; business upgrades | engine + `businessUpgrades.ts` | ✅ |
 | Land lease, founder legacy royalty, TON settlement scaffolding | `src/game/` | ✅ |
@@ -76,7 +76,7 @@ and in this repo.
 
 | System | Where | Status |
 |--------|-------|--------|
-| Real founder registry — exactly 2,000 slots, first-come, atomic claims, live counter | `api/` + Vercel Blob | ✅ online |
+| Real founder registry — exactly 2,000 slots, first-come, atomic claims, live counter | `api/` + Postgres (Neon) since Phase 1b | ✅ online |
 | Citizen identity — token-based registration, automatic save migration | `api/` | ✅ online |
 | Shared world map — every citizen's businesses visible on the globe | `api/` | ✅ online |
 | Global net-worth leaderboard | `api/` | ✅ online |
@@ -94,8 +94,13 @@ and in this repo.
 | Playwright e2e suite (`npm run test:e2e`) | ✅ |
 | Protected merge-only `main`, agent coordination contract | ✅ ([AGENTS.md](../AGENTS.md)) |
 
-**Known trust gap (by design, for now):** the beta is client-authoritative — clients
-self-report scores. Fine for beta, fatal for a real economy. Closing it *is* Phase 1b.
+**Trust gap — mostly closed by Phase 1b (shipped 2026-07-09/10):** `/api/intent`
+now validates `workShift`/`buyItem`/`placeAsset` server-side and appends to a
+Postgres ledger, so money/XP no longer trusts client-reported values for those
+actions. **Still open:** the shared area economy (`api/reality-area.ts`) ticks
+via a polling/cron job, not a live server tick, and there's no full
+server-side replay of the personal-life sim beyond the three validated
+intents — see ARCHITECTURE.md's "what's still genuinely missing."
 
 ---
 
@@ -125,23 +130,26 @@ Remaining beta marketing checklist:
 - ✅ Global map shows *everyone's* businesses — the world looks inhabited
 - ✅ Net-worth leaderboard
 
-### Phase 1b — The Authoritative Server 🔨 next (the big one)
+### Phase 1b — The Authoritative Server ✅ shipped (2026-07-09/10, issues #999–#1013)
 
-- [ ] **Postgres** (Neon via Vercel Marketplace) replaces Blob for citizens, assets,
-      scores; founder registry becomes a sequence with a `count <= 2000` guard
-- [ ] **Ledger, not balances** — every dollar movement is a row; balances are
-      projections. Non-negotiable before P2P trading
-- [ ] **Intents API** — client sends `{action:'startShift'}`; the server runs the same
-      simulation from the shared package and returns state; client keeps predicting
-      locally, divergence → correction frame
-- [ ] **Identity** — Google sign-in becomes primary (one account, one citizen); citizen
-      tokens remain for guest play, marked "unverified" on leaderboards
-- [ ] Anti-cheat: server-side simulation + rate limits + ledger audits — no client
-      trust anywhere money moves
-- [ ] World persists 24/7 server-side
+- [x] **Postgres** (Neon) replaces Blob for citizens, assets, scores; founder registry
+      is a partial-unique-index-guarded claim, exactly 2,000, first-come
+- [x] **Ledger, not balances** — `reality_append_intent` appends one row per
+      transaction; balances are a projection over the ledger
+- [x] **Intents API** (`/api/intent`) — client sends `{type:'workShift'|'buyItem'|'placeAsset'}`;
+      the server recomputes the result from the same `src/game/` rules the client
+      predicts with; divergence → correction frame
+- [x] **Identity** — Google sign-in via `auth-google.ts`, verified against Postgres;
+      citizen tokens remain for guest play
+- [~] Anti-cheat: the three intents above are fully server-validated with rate limits
+      and plausibility caps; **not yet done** — a comprehensive server-side replay of
+      everything the personal-life sim predicts client-side
+- [~] World persists in Postgres; **not yet done** — a live 24/7 server tick (the
+      shared area economy in `api/reality-area.ts` still advances via polling/cron,
+      not a push-based clock)
 
-Deliverable: the same game, but the world is *true*. Founder-registry wipe-and-restart
-announced up front; beta saves honored with a cosmetic "Beta Veteran" badge.
+Shipped without the announced wipe-and-restart: Phase 1b.2's one-shot backfill
+migrated existing citizens/registry state into Postgres rather than resetting it.
 
 ### Phase 2 — Society 📋 planned
 
@@ -176,8 +184,8 @@ the shared simulation package; the client predicts, the server decides.
 
 | Phase | Infrastructure | Key deliverable |
 |-------|----------------|-----------------|
-| 0 (today) | Client-only React/Vite; Vercel functions + private Blob; localStorage + Google cloud saves | A fun, complete single-player loop |
-| 1b | Postgres (Neon); ledger; intents API; server-side simulation | A *true* world — no client trust where money moves |
+| 0 (shipped) | Client React/Vite; Vercel functions + private Blob; localStorage + Google cloud saves | A fun, complete single-player loop |
+| 1b (shipped) | Postgres (Neon); ledger; intents API; server-validated `workShift`/`buyItem`/`placeAsset` | No client trust on the three money/XP actions the intents API covers |
 | 2 | WebSockets/SSE presence; OSM deeds mirrored per-city; P2P economy tables; city sharding | The living, trading world |
 | 3 | Elections & treasuries on-ledger; events engine; moderation; economy observability dashboard | Society infrastructure |
 
@@ -193,7 +201,7 @@ Cross-cutting engineering laws:
 - Observability from Phase 1b: structured logs on every intent; anomaly alerts on the
   ledger (any account ±$50k/day gets a human look)
 
-Cost curve: beta ~$0 → Phase 1b ~$25/mo → Phase 2 at 50k MAU under $1k/mo. The
+Cost curve: beta ~$0 → Phase 1b (shipped) ~$25/mo → Phase 2 at 50k MAU under $1k/mo. The
 architecture is chosen so success never outruns the wallet.
 
 ---
@@ -266,15 +274,15 @@ wage or income multipliers — nothing that moves a bar.
 | [plan/05-MONETIZATION.md](plan/05-MONETIZATION.md) | Revenue streams, unit economics, what is never for sale |
 | [plan/06-OPEN-DEVELOPMENT.md](plan/06-OPEN-DEVELOPMENT.md) | Players build the game; governance; the Builder career |
 | [plan/07-TECHNICAL-ROADMAP.md](plan/07-TECHNICAL-ROADMAP.md) | Client beta → server-authoritative world, scaling, costs |
-| [plan/08-CONTENT-ROADMAP.md](plan/08-CONTENT-ROADMAP.md) | 78 items → thousands; careers, education, events, seasons |
+| [plan/08-CONTENT-ROADMAP.md](plan/08-CONTENT-ROADMAP.md) | 115 items → thousands; careers, education, events, seasons |
 | [plan/09-RISKS-LEGAL.md](plan/09-RISKS-LEGAL.md) | Data licenses, privacy, moderation, exploits — and mitigations |
 | [plan/10-CRITIQUE.md](plan/10-CRITIQUE.md) | The append-only critique loop that keeps the plan honest |
 | [plan/11-ASSET-GENERATION.md](plan/11-ASSET-GENERATION.md) | Asset generation: prompts, inventory truth, quality gate |
 | [GAME_DESIGN.md](GAME_DESIGN.md) | Mechanics, needs, jobs, progression |
 | [ECONOMY.md](ECONOMY.md) | Money supply, prices, yields, sinks & faucets |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Code layout today, server design for v1 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Code layout, the shipped Postgres/intent server, what's still missing |
 
 ---
 
-_Last consolidated: 2026-07-08. When a phase ships or a chapter changes, update this
+_Last consolidated: 2026-07-12. When a phase ships or a chapter changes, update this
 file in the same PR._

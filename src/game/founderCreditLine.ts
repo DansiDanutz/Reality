@@ -1,3 +1,5 @@
+import { debtAndHospitalizationBlockers } from './founderEligibilityGates'
+
 export type FounderCreditLineBlocker =
   | 'credit_issuance_disabled'
   | 'automatic_credit_disabled'
@@ -105,8 +107,9 @@ export function assessFounderCreditLinePolicy(
   if (requestedDailyCredit <= 0) readinessBlockers.push('positive_request_required')
   if (!activityCaptured) readinessBlockers.push('activity_required')
   if (!usefulActivityCaptured) readinessBlockers.push('usefulness_required')
-  if (outstandingFounderDebt > 0) readinessBlockers.push('debt_review_required')
-  if (hospitalized) readinessBlockers.push('hospitalization_review_required')
+  readinessBlockers.push(
+    ...debtAndHospitalizationBlockers({ outstandingDebt: outstandingFounderDebt, hospitalized }),
+  )
   if (requestedDailyCredit > dailyCreditLimit) readinessBlockers.push('credit_limit_exceeded')
   if (!manualCreditApproved) readinessBlockers.push('manual_credit_review_required')
 

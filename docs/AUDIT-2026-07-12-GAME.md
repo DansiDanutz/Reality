@@ -96,9 +96,10 @@ agent session reads, so its accuracy compounds across the whole project.
 
 ---
 
-## 4. Finding: the founder-economy subsystem has outgrown its documentation
+## 4. Finding: the founder-economy subsystem had outgrown its documentation
 
-**Severity: MEDIUM — no bugs found, but real drift risk.**
+**Severity: ~~MEDIUM~~ FIXED — no bugs found, but a real drift risk, closed
+in this PR (design doc written, duplication removed).**
 
 `docs/GAME_DESIGN.md`'s "founder cohort" section is 2 sentences: first 2,000
 citizens get $200,000 in seed capital. `docs/ECONOMY.md`'s "Founder math" is
@@ -131,25 +132,36 @@ it's undocumented design. The existence of `founderEconomyLanguage.test.ts`
 is itself a signal the team already knows the docs and the mechanics are
 diverging, and is patching the symptom rather than writing the design doc.
 
-**Concrete drift already visible from the lack of a single source of truth:**
+**Concrete drift found from the lack of a single source of truth (both fixed
+in this PR):**
 
 - `founderAreaExpansion.ts` and `founderCreditLine.ts` each **independently
-  re-implement** the same debt/hospitalization eligibility gate
+  re-implemented** the same debt/hospitalization eligibility gate
   (`outstandingDebt`/`outstandingFounderDebt`, `hospitalization_review_required`)
-  with different field names, not shared from a common helper.
-- The $2,000 seat cap and $200,000 credit amount are declared **three times**:
-  `catalog.ts` (`FOUNDER_SLOTS`, `FOUNDER_BALANCE`), `founderSeatPolicy.ts`
-  (`FOUNDER_SEAT_CAPACITY`, `FOUNDER_STARTER_CREDIT_AMOUNT`), and
-  `founderStarterCredit.ts` (`DEFAULT_FOUNDER_STARTER_CREDIT_AMOUNT`) — three
-  independent literals for the same two numbers, one bad edit from drifting
-  apart. (They currently agree — see the `api/reality-area.ts` cross-check
-  in §3 above, which also matches.)
+  with different field names, not shared from a common helper. Extracted to
+  `founderEligibilityGates.ts`'s `debtAndHospitalizationBlockers()`, used by
+  both, with its own test.
+- The $2,000 seat cap and $200,000 credit amount were declared **three
+  times**: `catalog.ts` (`FOUNDER_SLOTS`, `FOUNDER_BALANCE`),
+  `founderSeatPolicy.ts` (`FOUNDER_SEAT_CAPACITY`,
+  `FOUNDER_STARTER_CREDIT_AMOUNT`), and `founderStarterCredit.ts`
+  (`DEFAULT_FOUNDER_STARTER_CREDIT_AMOUNT`) — three independent literals for
+  the same two numbers, one bad edit from drifting apart. (They agreed at
+  audit time — see the `api/reality-area.ts` cross-check in §3 above, which
+  also matches — but agreement isn't a guarantee going forward with three
+  copies.) `founderSeatRegistry.ts` already imported from `catalog.ts`
+  correctly, so the fix was bringing the other two in line with that
+  existing good pattern rather than inventing a new one:
+  `founderSeatPolicy.ts` and `founderStarterCredit.ts` now re-export
+  `FOUNDER_SLOTS`/`FOUNDER_BALANCE` under their existing names instead of
+  redeclaring the literals.
 
-**Recommendation:** write the design doc these modules should have generated
-first — even a "Founder Economy" appendix to `ECONOMY.md` naming each
-mechanic, its numbers, and its player-facing framing — then use it to collapse
-the three constant declarations to one import from `catalog.ts` and extract
-the duplicated eligibility gate into a shared helper.
+**Recommendation (done in this PR):** wrote the design doc these modules
+should have generated first — a "The founder economy (beyond the grant)"
+section in `ECONOMY.md` naming each mechanic, its numbers, and what's live
+vs. designed-ahead-of-launch — then used it to collapse the three constant
+declarations to one source of truth and extract the duplicated eligibility
+gate into a shared, tested helper.
 
 ---
 
@@ -315,7 +327,7 @@ wage display through `cashflowOf`/a shared helper instead of recomputing it.
 |---|---|---|---|---|
 | F1 | 5 governing docs describe a pre-Postgres-cutover repo | HIGH | Every future agent/contributor session starts from a wrong mental model | Doc rewrite, ~half a day |
 | F2 | `CLAUDE.md` cited a nonexistent `advance()` function | ~~HIGH~~ FIXED | First file every agent reads is factually wrong about the core invariant | Fixed in this PR |
-| F3 | 13-module founder-economy subsystem has no design doc | MEDIUM | Constants/gates already duplicating (3× and 2× respectively); will keep drifting without one source of truth | Write the doc + 1 refactor pass |
+| F3 | 13-module founder-economy subsystem had no design doc | ~~MEDIUM~~ FIXED | Constants/gates were duplicating (3× and 2× respectively); would keep drifting without one source of truth | Fixed in this PR: ECONOMY.md section + constant/gate dedup |
 | F4 | `AGENTS.md`'s api/-self-containment rule read as an absolute ban, not matching `intent.ts`'s deliberate, already-guarded cross-import | LOW (downgraded — see §5) | Doc-only: without the named exception, a future agent could "fix" `intent.ts` by duplicating economy logic, which is worse | Fixed in this PR: reworded `AGENTS.md:117` |
 | F5 | `advanceWorldArea` had no hourly-step cap | ~~MEDIUM~~ FIXED | Same bug class already fixed once in `liveRealtime`; hang on corrupted/far-future timestamp | Fixed in this PR: bounded loop + test, no mega-step shortcut (see §6.3) |
 | F6 | `worldSim.ts` is a 3,689-line, zero-section monolith | LOW-MEDIUM | Slows every future change to shared-world/founder-covenant logic | Medium: extract covenant module |
@@ -368,8 +380,8 @@ no failing test/build.
    naming the sanctioned exception in `AGENTS.md:117` rather than by
    duplicating economy logic into `api/` (that would have traded a solved
    problem for a real one).
-5. Write the founder-economy design doc and collapse the duplicated
-   constants/gates it will surface (F3).
+5. ~~Write the founder-economy design doc and collapse the duplicated
+   constants/gates it will surface (F3)~~ — done in this PR (see §4).
 6. Wire `oxlint` into CI (F9) — one line, currently 0-cost since there are 0
    errors today.
 7. Schedule, don't rush: `worldSim.ts` module split (F6), `gameStore.ts` test
