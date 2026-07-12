@@ -114,7 +114,14 @@ git push --force-with-lease                 # your OWN feature branch only
   price/formula justification and must keep the invariant tests green.
 - `docs/plan/**` — the plan of record; keep the loop ledger (`10-CRITIQUE.md`)
   append-only and honest.
-- `api/**` — Vercel functions must stay self-contained (no `src/` imports).
+- `api/**` — Vercel functions must stay self-contained. The one sanctioned
+  exception is pure *value* imports from `src/game/` (e.g. `api/intent.ts`
+  importing `engine.ts`/`catalog.ts`) so the server never re-implements — and
+  risks drifting from — the economy's own rules; every such import must carry
+  an explicit `.js` specifier, enforced by `api/esmImports.test.ts`
+  (regression guard for #1013, where a missing specifier shipped `api/intent`
+  dead in production). Don't add a new cross-import without that guard
+  covering it.
 
 ## Never
 

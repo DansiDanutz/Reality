@@ -11,7 +11,8 @@ collaboration process, not the game itself. Written by the Claude Code session i
 ## 1. Executive summary
 
 The game is **healthy at the mechanics level and unhealthy at the documentation
-level**. Build is green, 1,508 tests pass across 126 files, production
+level**. Build is green, 1,509 tests pass across 126 files (1,508 at the
+start of this audit, +1 added by the `advanceWorldArea` fix below), production
 dependencies have zero known vulnerabilities, and the core invariants
 (immutable state, injected time/randomness, server-validated economy) genuinely
 hold under inspection. But the five governing docs (`ARCHITECTURE.md`,
@@ -41,7 +42,7 @@ document that would have named the mechanic once and let everyone import it.
 
 | Check | Result |
 |---|---|
-| `npx vitest run` | **1,508 tests passed**, 126 files, 14.6s |
+| `npx vitest run` | **1,508 tests passed**, 126 files, 14.6s (measured at audit start; 1,509 after fixes in this PR) |
 | `npm run build` (`tsc -b && vite build`) | **Green**, 716ms |
 | `npm audit --omit=dev` | **0 vulnerabilities** (10 dev-only, non-shipping) |
 | `npm run lint` (oxlint) | 6 warnings, 0 errors (not wired into CI — see §6.5) |
@@ -152,9 +153,9 @@ the duplicated eligibility gate into a shared helper.
 
 ---
 
-## 5. Finding: API/server layer is solid, with one self-containment violation
+## 5. Finding: API/server layer is solid; one policy doc was wrong, now fixed
 
-**Severity: MEDIUM (one item) / informational (rest).**
+**Severity: LOW (was MEDIUM at first read — see correction below) / informational (rest).**
 
 The Postgres/auth layer was audited for injection, auth bypass, and
 client-trust issues and is in good shape:
@@ -182,17 +183,27 @@ client-trust issues and is in good shape:
   data — no cross-citizen overwrite found.
 - **Secrets**: none hardcoded; all read from `process.env`.
 
-**One real violation**: `api/intent.ts` imports from `../src/game/engine.js`
-and `../src/game/catalog.js`, directly breaking `AGENTS.md`'s own rule —
-*"`api/**` must stay self-contained (no `src/` imports)"* — a rule other
-files in the same directory (e.g. `avatar.ts`, which has a comment
-explaining *why* it avoids this) visibly follow. This already caused a real
-incident: commit `8130b58`, *"explicit .js specifiers on engine's value
-imports — api/intent was dead in production"*, i.e. this exact import
-pattern already broke the money/XP endpoint once in production because
-Vercel's bundler didn't trace it correctly. The `.js`-specifier fix
-papered over the symptom; the rule violation itself is still there and can
-recur the next time someone edits `engine.ts`'s export shape.
+**Corrected on implementation pass:** the first read of this flagged
+`api/intent.ts`'s import from `../src/game/engine.js`/`../src/game/catalog.js`
+as an unresolved violation of `AGENTS.md`'s old, unqualified *"`api/**` must
+stay self-contained (no `src/` imports)"* wording. Re-reading `intent.ts`'s
+own top comment (*"validated against the SAME pure engine rules the client
+runs — imported directly, never duplicated"*) and its git history changes the
+picture: this cross-import is a **deliberate** design choice, not an
+oversight — duplicating wage/price formulas into a second copy inside `api/`
+would be strictly worse for a money game (two sources of truth that can
+silently disagree) than one well-guarded cross-import. The production
+incident (commit `8130b58`, *"api/intent was dead in production"*, #1013)
+was real, but the **same commit** that fixed it also added
+`api/esmImports.test.ts` — a permanent regression guard that walks every
+relative value import reachable from every `api/` entrypoint, transitively
+through `src/`, and fails the unit gate if any of them is missing its `.js`
+specifier. That test already runs in CI on every PR. So the actual gap
+wasn't the cross-import or even the missing specifier (both fixed) — it was
+that `AGENTS.md`'s ownership-map rule still read as an absolute ban, when the
+codebase already has a working, tested exception. `AGENTS.md:117` has been
+reworded (this PR) to name the exception and point at the guard, so the next
+agent doesn't independently "fix" `intent.ts` by duplicating economy logic.
 
 **Minor, non-blocking:**
 - Rate limiting (registration, funnel tracking) is IP-hash based and
@@ -202,12 +213,10 @@ recur the next time someone edits `engine.ts`'s export shape.
   worth a pass to make sure no query parameter values leak into logs, but
   nothing sensitive was found today.
 
-**Recommendation:** either move the shared wage/XP constants `intent.ts` needs
-into a small self-contained duplicate (matching the rest of `api/`'s
-self-containment discipline) or formally amend `AGENTS.md` to say `api/`
-may import read-only pure functions from `src/game/` *if* each import is
-covered by a "does Vercel actually bundle this" test — right now the rule is
-violated silently and was only caught after a production outage.
+**Recommendation (revised):** none needed on the code — `intent.ts` and
+`esmImports.test.ts` are correct as they are. `AGENTS.md:117` now names the
+exception explicitly (this PR); keep it in sync if a future PR adds a second
+cross-import from `src/game/` elsewhere in `api/`.
 
 ---
 
@@ -232,18 +241,31 @@ Architecturally defensible (personal life vs. shared world are different
 domains) — but `CLAUDE.md`'s "one simulation path, no exceptions" doesn't
 scope the claim, so as written it overclaims.
 
-**6.3 — Confirmed correctness gap: `advanceWorldArea` has no step cap.**
-`engine.ts`'s `liveRealtime()` caps hourly stepping at
+**6.3 — Correctness gap: `advanceWorldArea` had no step cap — fixed in this
+PR.** `engine.ts`'s `liveRealtime()` caps hourly stepping at
 `MAX_HOURLY_STEPS = 24 * 366` (with a code comment noting this fixes a past
 bug where an unbounded loop was possible). `worldSim.ts:992`'s
-`advanceWorldArea()` has the identical shape (`while (t < targetTime) { … t
-+= WORLD_SIM_HOUR_MS }`) but **no equivalent cap** — verified directly, no
-`MAX_HOURLY_STEPS`-style guard exists in that function. A corrupted or
-far-future `toMs` reaching this path would force a fully synchronous,
+`advanceWorldArea()` had the identical shape (`while (t < targetTime) { … t
++= WORLD_SIM_HOUR_MS }`) with **no equivalent cap** — verified directly, no
+`MAX_HOURLY_STEPS`-style guard existed in that function. A corrupted or
+far-future `toMs` reaching this path would have forced a fully synchronous,
 uncapped hour-by-hour loop — the same bug class `engine.ts` already paid down
-once, reintroduced in the sibling sim path. **This is worth a follow-up fix**,
-not just a note — cheap to add (mirror `engine.ts`'s guard) and the failure
-mode (server hang on bad input) is real.
+once, reintroduced in the sibling sim path.
+
+Fixed by adding the same `MAX_HOURLY_STEPS` guard, but **not** by copying
+`liveRealtime`'s "collapse the remainder into one giant final step" behavior:
+that shortcut is only safe in `engine.ts` because its per-citizen quantities
+saturate (needs floor at 0, upkeep drains to $0, business income caps at
+`PENDING_CAP_DAYS`), so one big final step converges to the same state as
+many small ones. `worldSim.ts`'s shared economy has period-based logic keyed
+off `context.at` crossing real calendar boundaries (weekly founder-covenant
+reviews, monthly insurance renewals) — collapsing a multi-year gap into one
+step would silently skip renewals instead of settling correctly. Instead,
+the fix bounds the loop and stops early on overflow, leaving the area's
+clock lagging; the next call resumes and keeps making bounded progress,
+hour-by-hour, with no shortcut through the periodic logic. Covered by a new
+test: `advanceWorldArea caps hourly steps against a corrupted far-future
+clock instead of hanging` (`worldSim.test.ts`).
 
 **6.4 — Determinism holds; internal style is inconsistent.** No
 `Date.now()`/`Math.random()` calls exist inside `engine.ts`, `worldSim.ts`, or
@@ -278,12 +300,12 @@ than their source. `gameStore.ts` (3,694 lines, ~143 action closures) has a
 0.58× ratio — the weakest coverage-to-size ratio of the core files, worth
 attention given it's the one place all discrete actions funnel through.
 
-**Recommendation:** add a step cap to `advanceWorldArea` mirroring
-`liveRealtime`'s guard (small, testable fix); split `worldSim.ts`'s
-founder-covenant logic into its own module; scope `CLAUDE.md`'s "one sim
-path" claim to the personal-life loop explicitly since the shared-world loop
-is a legitimate second path; extract `WorkPanel.tsx`'s wage display through
-`cashflowOf`/a shared helper instead of recomputing it.
+**Recommendation:** ~~add a step cap to `advanceWorldArea`~~ — done in this PR
+(see §6.3). Still open: split `worldSim.ts`'s founder-covenant logic into its
+own module; scope `CLAUDE.md`'s "one sim path" claim to the personal-life
+loop explicitly since the shared-world loop is a legitimate second path
+(also addressed in this PR's `CLAUDE.md` wording); extract `WorkPanel.tsx`'s
+wage display through `cashflowOf`/a shared helper instead of recomputing it.
 
 ---
 
@@ -292,10 +314,10 @@ is a legitimate second path; extract `WorkPanel.tsx`'s wage display through
 | # | Finding | Severity | Blast radius | Effort to fix |
 |---|---|---|---|---|
 | F1 | 5 governing docs describe a pre-Postgres-cutover repo | HIGH | Every future agent/contributor session starts from a wrong mental model | Doc rewrite, ~half a day |
-| F2 | `CLAUDE.md` cites a nonexistent `advance()` function | HIGH | First file every agent reads is factually wrong about the core invariant | 1-line fix |
+| F2 | `CLAUDE.md` cited a nonexistent `advance()` function | ~~HIGH~~ FIXED | First file every agent reads is factually wrong about the core invariant | Fixed in this PR |
 | F3 | 13-module founder-economy subsystem has no design doc | MEDIUM | Constants/gates already duplicating (3× and 2× respectively); will keep drifting without one source of truth | Write the doc + 1 refactor pass |
-| F4 | `api/intent.ts` violates `AGENTS.md`'s api/-self-containment rule | MEDIUM | Already caused one production outage (`#1013`); can recur on any `engine.ts` export-shape change | Small: inline constants or add a bundling test |
-| F5 | `advanceWorldArea` has no hourly-step cap | MEDIUM | Same bug class already fixed once in `liveRealtime`; hang on corrupted/far-future timestamp | Small: mirror existing guard |
+| F4 | `AGENTS.md`'s api/-self-containment rule read as an absolute ban, not matching `intent.ts`'s deliberate, already-guarded cross-import | LOW (downgraded — see §5) | Doc-only: without the named exception, a future agent could "fix" `intent.ts` by duplicating economy logic, which is worse | Fixed in this PR: reworded `AGENTS.md:117` |
+| F5 | `advanceWorldArea` had no hourly-step cap | ~~MEDIUM~~ FIXED | Same bug class already fixed once in `liveRealtime`; hang on corrupted/far-future timestamp | Fixed in this PR: bounded loop + test, no mega-step shortcut (see §6.3) |
 | F6 | `worldSim.ts` is a 3,689-line, zero-section monolith | LOW-MEDIUM | Slows every future change to shared-world/founder-covenant logic | Medium: extract covenant module |
 | F7 | `gameStore.ts` under-tested relative to size (0.58×) | LOW | Store is the single funnel for all discrete actions | Ongoing |
 | F8 | JS bundle (~676 KB gzip) already exceeds the doc's own "~600 KB" debt note | LOW | Load time on slow connections/mobile | Medium: code-split `WorldMap`/`streetScene` |
@@ -334,14 +356,18 @@ no failing test/build.
 
 ## 9. Recommended next steps, in priority order
 
-1. Fix `CLAUDE.md`'s `advance()` reference (F2) — cheapest, highest-leverage
-   fix, since it's the first thing every session reads.
+1. ~~Fix `CLAUDE.md`'s `advance()` reference (F2)~~ — done in this PR,
+   cheapest, highest-leverage fix since it's the first thing every session
+   reads.
 2. Rewrite `ARCHITECTURE.md`'s beta/v1 split and correct the stale numbers in
    `GAME_DESIGN.md`/`ECONOMY.md`/`ROADMAP.md`/`ROADMAPS.md` (F1).
-3. Add the missing step cap to `advanceWorldArea` (F5) — small, testable,
-   closes a real hang risk.
-4. Resolve the `api/intent.ts` self-containment violation (F4) before the
-   next `engine.ts` refactor touches its exports again.
+3. ~~Add the missing step cap to `advanceWorldArea` (F5)~~ — done in this PR,
+   with a bounded-not-collapsed guard (see §6.3) and a regression test.
+4. ~~Resolve the `api/intent.ts` self-containment violation (F4)~~ — on a
+   closer read this was a doc-accuracy problem, not a code problem: fixed by
+   naming the sanctioned exception in `AGENTS.md:117` rather than by
+   duplicating economy logic into `api/` (that would have traded a solved
+   problem for a real one).
 5. Write the founder-economy design doc and collapse the duplicated
    constants/gates it will surface (F3).
 6. Wire `oxlint` into CI (F9) — one line, currently 0-cost since there are 0
@@ -354,4 +380,6 @@ _Audit performed 2026-07-12 by the Claude Code session in `~/Fable`, branch
 (`git log`, `npx vitest run`, `npm run build`, `npm audit`, `npm run lint`)
 plus four parallel focused code-reading passes (docs-vs-code drift, founder
 subsystem, API/server security, core simulation health), each independently
-verified against source before inclusion here._
+verified against source before inclusion here. F4 was revised during the
+follow-up implementation pass after closer reading of `intent.ts`'s own
+design intent and git history — see §5._
