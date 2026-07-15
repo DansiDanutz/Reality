@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { itemById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
 import { assetRowFromPlacement, placementsTodayPg, writeWorldPlacement } from './_worldPg.js'
@@ -85,6 +86,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     !Number.isFinite(nLng) || nLng < -180 || nLng > 180
   ) {
     res.status(400).json({ ok: false, error: 'Invalid asset.' })
+    return
+  }
+
+  const catalogItem = itemById(cleanItemId)
+  if (!catalogItem?.placeable || catalogItem.category !== kind) {
+    res.status(422).json({
+      ok: false,
+      error: 'This item is not a server-authorized placeable asset.',
+      code: 'item_not_placeable',
+    })
     return
   }
 
