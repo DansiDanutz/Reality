@@ -76,6 +76,19 @@ describe('leaderboard API reads (Postgres-authoritative since Phase 1b.6)', () =
 describe('leaderboard API score submissions', () => {
   const BODY = { citizenId: CITIZEN_ID, token: TOKEN, name: 'Water Maker!', netWorth: 9_000_000 }
 
+  test('requires CSRF proof for cookie-authenticated score submissions', async () => {
+    stubPg()
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: { cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1` },
+      body: { name: 'Water Maker!', netWorth: 100 },
+    } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('rejects unregistered citizens via the citizens table', async () => {
     stubPg()
     pgQueryMock.mockResolvedValueOnce([]) // token hash not found

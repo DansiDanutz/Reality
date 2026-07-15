@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
 import { citizenAgeDaysPg, maxPlausibleWorth, writeScore } from './_scoresPg.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 
 const MAX_NET_WORTH = 10_000_000_000
 // Day-0 plausibility ceiling — the FAIL-CLOSED cap when a citizen's age is
@@ -51,7 +52,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { citizenId, token, name, netWorth } = (req.body ?? {}) as Record<string, unknown>
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const cookieSession = sessionFromCookie(req)
+  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
+  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+  const citizenId = body.citizenId ?? cookieSession?.citizenId
+  const token = bodyToken ?? cookieSession?.token
+  const { name, netWorth } = body
   const cleanName = String(name ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'citizen'
   const worth = Math.round(Number(netWorth))
   if (!Number.isFinite(worth) || worth < 0 || worth > MAX_NET_WORTH) {
