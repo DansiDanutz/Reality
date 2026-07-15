@@ -70,7 +70,7 @@ describe('world API placement writes', () => {
     citizenId: CITIZEN_ID,
     token: TOKEN,
     assetId: 'starter-home-1',
-    itemId: 'small_home',
+    itemId: 'microstudio',
     kind: 'home',
     lat: 44.451,
     lng: 26.082,
@@ -136,7 +136,7 @@ describe('world API placement writes', () => {
     expect(upsertParams).toEqual([
       'starter-home-1',
       CITIZEN_ID,
-      'small_home',
+      'microstudio',
       'home',
       44.45,
       26.08,
@@ -161,6 +161,26 @@ describe('world API placement writes', () => {
       error: "You've placed 20 things in the world today. Come back tomorrow.",
     })
     expect(pgQueryMock).toHaveBeenCalledTimes(2) // no writes past the cap
+  })
+
+  test('rejects unknown or kind-mismatched catalog items before authentication or writes', async () => {
+    stubPg()
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...VALID_BODY, itemId: 'not-a-real-item' } } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'This item is not a server-authorized placeable asset.',
+      code: 'item_not_placeable',
+    })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+
+    const mismatched = responseRecorder()
+    await handler({ method: 'POST', body: { ...VALID_BODY, itemId: 'foodcart' } } as never, mismatched as never)
+    expect(mismatched.statusCode).toBe(422)
+    expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
   test('fails loudly when the authoritative write fails', async () => {
