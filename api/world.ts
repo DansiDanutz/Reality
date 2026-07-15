@@ -132,6 +132,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(429).json({ ok: false, error: `You've placed ${PLACEMENTS_PER_DAY} things in the world today. Come back tomorrow.` })
       return
     }
+    if (error instanceof Error && error.message === 'world_place_asset_mismatch') {
+      res.status(409).json({ ok: false, error: 'That asset id already belongs to a different catalog item.', code: 'asset_identity_conflict' })
+      return
+    }
     console.error(`world: placement failed for citizen ${String(citizenId)}`, error)
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })
   }
