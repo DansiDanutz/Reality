@@ -4428,6 +4428,42 @@ async function runServicePurchaseMutation(
   return { ok: false, error: 'area_write_conflict', state: existing }
 }
 
+type BuyInsuranceMutationResult =
+  | { ok: true; state: FounderAreaState }
+  | { ok: false; error: ApplyBuyInsuranceError | 'area_load_unavailable' | 'area_write_conflict'; state: FounderAreaState | null }
+
+async function runBuyInsuranceMutation(
+  citizenId: string,
+  initial: FounderAreaPersistedState | null,
+  intent: Extract<BuyInsuranceIntent, { ok: true }>,
+  now: Date,
+): Promise<BuyInsuranceMutationResult> {
+  let existing: FounderAreaPersistedState | null = initial
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let stateForInsurance: FounderAreaState | null = existing
+    try {
+      stateForInsurance = existing ? await catchUpPersistedAreaState(citizenId, existing, now) : null
+    } catch {
+      return { ok: false, error: 'area_load_unavailable', state: existing }
+    }
+    const result = applyBuyInsuranceIntent(stateForInsurance, { type: 'buyInsurance', insuranceBusinessId: intent.insuranceBusinessId }, now)
+    if (!result.ok) return { ok: false, error: result.error, state: stateForInsurance }
+    try {
+      return { ok: true, state: await persistAreaState(citizenId, result.state, true) }
+    } catch (error) {
+      if (!isAreaWriteConflict(error) || attempt === 1) {
+        return { ok: false, error: isAreaWriteConflict(error) ? 'area_write_conflict' : 'area_load_unavailable', state: stateForInsurance }
+      }
+      try {
+        existing = await readAreaState(citizenId)
+      } catch {
+        return { ok: false, error: 'area_load_unavailable', state: stateForInsurance }
+      }
+    }
+  }
+  return { ok: false, error: 'area_write_conflict', state: existing }
+}
+
 function areaStorageUnavailablePayload(state: FounderAreaState | null): {
   ok: false
   error: string
@@ -5291,37 +5327,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      let stateForInsurance = existing
-      if (existing) {
-        try {
-          stateForInsurance = await catchUpPersistedAreaState(citizen.citizenId, existing, now)
-        } catch {
-          res.status(503).json({
-            ok: false,
-            error: 'Reality area storage is briefly unavailable.',
-            code: 'area_storage_unavailable',
-            ...areaPayload(existing),
-          })
-          return
-        }
-      }
-      const result = applyBuyInsuranceIntent(
-        stateForInsurance,
-        { type: 'buyInsurance', insuranceBusinessId: intent.insuranceBusinessId },
-        now,
-      )
+      const result = await runBuyInsuranceMutation(citizen.citizenId, existing, intent, now)
       if (!result.ok) {
-        res.status(buyInsuranceStatus(result.error)).json({
+        const status = result.error === 'area_load_unavailable' ? 503
+          : result.error === 'area_write_conflict' ? 409
+            : buyInsuranceStatus(result.error)
+        const message = result.error === 'area_load_unavailable'
+          ? 'Reality area storage is briefly unavailable.'
+          : result.error === 'area_write_conflict'
+            ? 'Founder area changed while buying insurance. Retry the purchase.'
+            : buyInsuranceMessage(result.error)
+        res.status(status).json({
           ok: false,
-          error: buyInsuranceMessage(result.error),
-          code: result.error,
-          state: stateForInsurance,
+          error: message,
+          code: result.error === 'area_load_unavailable' ? 'area_storage_unavailable' : result.error,
+          ...areaPayload(result.state),
         })
         return
       }
-
-      const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, ...areaPayload(state) })
+      res.status(200).json({ ok: true, ...areaPayload(result.state) })
       return
     }
 
