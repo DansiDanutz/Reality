@@ -46,6 +46,8 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/p_daily_limit integer/)
     expect(schema).toMatch(/daily_limit/)
     expect(schema).toMatch(/asset_mismatch/)
+    expect(schema).toMatch(/'inventory'/)
+    expect(schema).toMatch(/intent\.buyItem/)
   })
 
   test('provides an atomic registration IP/day reservation boundary', () => {

@@ -136,6 +136,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(409).json({ ok: false, error: 'That asset id already belongs to a different catalog item.', code: 'asset_identity_conflict' })
       return
     }
+    if (error instanceof Error && error.message === 'world_place_inventory_missing') {
+      res.status(422).json({ ok: false, error: 'Buy this placeable asset before placing it.', code: 'inventory_required' })
+      return
+    }
     console.error(`world: placement failed for citizen ${String(citizenId)}`, error)
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })
   }
