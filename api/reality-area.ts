@@ -4597,6 +4597,44 @@ async function runCovenantReviewMutation(
   return { ok: false, error: 'area_write_conflict', state: existing }
 }
 
+type RepayDebtMutationResult =
+  | { ok: true; state: FounderAreaState }
+  | { ok: false; error: ApplyRepayDebtError | 'area_load_unavailable' | 'area_write_conflict'; state: FounderAreaState | null }
+
+async function runRepayDebtMutation(
+  citizenId: string,
+  initial: FounderAreaPersistedState | null,
+  intent: Extract<RepayDebtIntent, { ok: true }>,
+  now: Date,
+): Promise<RepayDebtMutationResult> {
+  let existing: FounderAreaPersistedState | null = initial
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let stateForRepayment: FounderAreaState | null = existing
+    try {
+      stateForRepayment = existing ? await catchUpPersistedAreaState(citizenId, existing, now) : null
+    } catch {
+      return { ok: false, error: 'area_load_unavailable', state: existing }
+    }
+    const result = applyRepayDebtIntent(stateForRepayment, {
+      type: 'repayDebt', debtId: intent.debtId, amount: intent.amount,
+    }, now)
+    if (!result.ok) return { ok: false, error: result.error, state: stateForRepayment }
+    try {
+      return { ok: true, state: await persistAreaState(citizenId, result.state, true) }
+    } catch (error) {
+      if (!isAreaWriteConflict(error) || attempt === 1) {
+        return { ok: false, error: isAreaWriteConflict(error) ? 'area_write_conflict' : 'area_load_unavailable', state: stateForRepayment }
+      }
+      try {
+        existing = await readAreaState(citizenId)
+      } catch {
+        return { ok: false, error: 'area_load_unavailable', state: stateForRepayment }
+      }
+    }
+  }
+  return { ok: false, error: 'area_write_conflict', state: existing }
+}
+
 function areaStorageUnavailablePayload(state: FounderAreaState | null): {
   ok: false
   error: string
@@ -5590,37 +5628,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      let stateForRepayment = existing
-      if (existing) {
-        try {
-          stateForRepayment = await catchUpPersistedAreaState(citizen.citizenId, existing, now)
-        } catch {
-          res.status(503).json({
-            ok: false,
-            error: 'Reality area storage is briefly unavailable.',
-            code: 'area_storage_unavailable',
-            ...areaPayload(existing),
-          })
-          return
-        }
-      }
-      const result = applyRepayDebtIntent(
-        stateForRepayment,
-        { type: 'repayDebt', debtId: intent.debtId, amount: intent.amount },
-        now,
-      )
+      const result = await runRepayDebtMutation(citizen.citizenId, existing, intent, now)
       if (!result.ok) {
-        res.status(repayDebtStatus(result.error)).json({
+        const status = result.error === 'area_load_unavailable' ? 503
+          : result.error === 'area_write_conflict' ? 409
+            : repayDebtStatus(result.error)
+        const message = result.error === 'area_load_unavailable'
+          ? 'Reality area storage is briefly unavailable.'
+          : result.error === 'area_write_conflict'
+            ? 'Founder area changed while repaying debt. Retry the repayment.'
+            : repayDebtMessage(result.error)
+        res.status(status).json({
           ok: false,
-          error: repayDebtMessage(result.error),
-          code: result.error,
-          state: stateForRepayment,
+          error: message,
+          code: result.error === 'area_load_unavailable' ? 'area_storage_unavailable' : result.error,
+          ...areaPayload(result.state),
         })
         return
       }
-
-      const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, ...areaPayload(state) })
+      res.status(200).json({ ok: true, ...areaPayload(result.state) })
       return
     }
 
