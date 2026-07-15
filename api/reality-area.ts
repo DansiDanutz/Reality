@@ -4967,21 +4967,26 @@ async function founderCovenantReviewQueueAreaBlob(
   now: Date,
 ): Promise<FounderCovenantReviewQueueScanResult & { item: FounderCovenantReviewQueueItem | null }> {
   const citizenId = citizenIdFromAreaStatePath(blob.pathname)
-  if (!citizenId || !blob.downloadUrl) {
+  if (!citizenId || (!founderAreaPgEnabled() && !blob.downloadUrl)) {
     return founderCovenantReviewQueueAreaResult(null, null, 'invalid', null, 0, null)
   }
 
   try {
-    const response = await fetch(blob.downloadUrl)
-    if (!response.ok) return founderCovenantReviewQueueAreaResult(citizenId, null, 'unavailable', null, 0, null)
-    const value = await response.json() as unknown
-    if (!isFounderAreaState(value, citizenId)) {
-      return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
+    let state: FounderAreaPersistedState | FounderAreaState | null
+    if (founderAreaPgEnabled()) {
+      state = await readAreaState(citizenId)
+      if (!state) return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
+    } else {
+      const response = await fetch(blob.downloadUrl)
+      if (!response.ok) return founderCovenantReviewQueueAreaResult(citizenId, null, 'unavailable', null, 0, null)
+      const value = await response.json() as unknown
+      if (!isFounderAreaState(value, citizenId)) {
+        return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
+      }
+      state = blob.etag
+        ? { ...normalizeAreaCitizens(value), __storageEtag: blob.etag }
+        : normalizeAreaCitizens(value)
     }
-
-    const state = blob.etag
-      ? { ...normalizeAreaCitizens(value), __storageEtag: blob.etag }
-      : normalizeAreaCitizens(value)
     const previousSimulationAt = state.simulationAt
     const previousTransactionCount = state.transactions.length
     const next = await catchUpPersistedAreaState(citizenId, state, now)
