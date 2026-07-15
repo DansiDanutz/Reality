@@ -2456,6 +2456,35 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('buildBusiness re-reads and reapplies once after a Blob write conflict', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    const existing = existingState()
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://initial-build-area', { etag: 'etag-1' }))
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://fresh-build-area', { etag: 'etag-2' }))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    vi.mocked(put)
+      .mockRejectedValueOnce(Object.assign(new Error('etag mismatch'), { name: 'BlobPreconditionFailedError' }))
+      .mockResolvedValueOnce({ url: 'blob://written', etag: 'etag-3' } as never)
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buildBusiness', businessKind: 'water', businessId: 'water-retry', name: 'Retry Water' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { state: ReturnType<typeof existingState> }).state.businesses[0].id).toBe('water-retry')
+    expect(put).toHaveBeenCalledTimes(2)
+    expect(put).toHaveBeenNthCalledWith(1, expect.any(String), expect.any(String), expect.objectContaining({ ifMatch: 'etag-1' }))
+    expect(put).toHaveBeenNthCalledWith(2, expect.any(String), expect.any(String), expect.objectContaining({ ifMatch: 'etag-2' }))
+  })
+
   test('buildBusiness rejects drifted founder money even when area balance can pay', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))

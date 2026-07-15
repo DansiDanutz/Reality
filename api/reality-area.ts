@@ -4343,6 +4343,54 @@ async function catchUpPersistedAreaState(
   return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
 }
 
+function isAreaWriteConflict(error: unknown): boolean {
+  const value = error as { name?: unknown; code?: unknown; message?: unknown }
+  return value?.name === 'BlobPreconditionFailedError' ||
+    value?.code === 'blob_precondition_failed' ||
+    (typeof value?.message === 'string' && value.message.toLowerCase().includes('precondition'))
+}
+
+type BuildBusinessMutationResult =
+  | { ok: true; state: FounderAreaState }
+  | { ok: false; error: ApplyBuildBusinessError | 'area_load_unavailable' | 'area_write_conflict'; state: FounderAreaState | null }
+
+async function runBuildBusinessMutation(
+  citizenId: string,
+  initial: FounderAreaPersistedState | null,
+  intent: Extract<BuildBusinessIntent, { ok: true }>,
+  now: Date,
+): Promise<BuildBusinessMutationResult> {
+  let existing: FounderAreaPersistedState | null = initial
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let stateForBuild: FounderAreaState | null = existing
+    try {
+      stateForBuild = existing ? await catchUpPersistedAreaState(citizenId, existing, now) : null
+    } catch {
+      return { ok: false, error: 'area_load_unavailable', state: existing }
+    }
+    const result = applyBuildBusinessIntent(
+      stateForBuild,
+      { type: 'buildBusiness', businessKind: intent.businessKind, businessId: intent.businessId, name: intent.name },
+      now,
+    )
+    if (!result.ok) return { ok: false, error: result.error, state: stateForBuild }
+
+    try {
+      return { ok: true, state: await persistAreaState(citizenId, result.state, true) }
+    } catch (error) {
+      if (!isAreaWriteConflict(error) || attempt === 1) {
+        return { ok: false, error: isAreaWriteConflict(error) ? 'area_write_conflict' : 'area_load_unavailable', state: stateForBuild }
+      }
+      try {
+        existing = await readAreaState(citizenId)
+      } catch {
+        return { ok: false, error: 'area_load_unavailable', state: stateForBuild }
+      }
+    }
+  }
+  return { ok: false, error: 'area_write_conflict', state: existing }
+}
+
 function areaStorageUnavailablePayload(state: FounderAreaState | null): {
   ok: false
   error: string
@@ -5018,7 +5066,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       refreshAreaIntent = intent
     }
 
-    let existing: FounderAreaState | null
+    let existing: FounderAreaPersistedState | null
     try {
       existing = await readAreaState(citizen.citizenId)
     } catch (error) {
@@ -5135,24 +5183,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      const stateForBuild = existing ? await catchUpPersistedAreaState(citizen.citizenId, existing, now) : null
-      const result = applyBuildBusinessIntent(
-        stateForBuild,
-        { type: 'buildBusiness', businessKind: intent.businessKind, businessId: intent.businessId, name: intent.name },
-        now,
-      )
+      const result = await runBuildBusinessMutation(citizen.citizenId, existing, intent, now)
       if (!result.ok) {
-        res.status(buildBusinessStatus(result.error)).json({
+        const status = result.error === 'area_load_unavailable' ? 503
+          : result.error === 'area_write_conflict' ? 409
+            : buildBusinessStatus(result.error)
+        const message = result.error === 'area_load_unavailable'
+          ? 'Founder area is temporarily unavailable for build.'
+          : result.error === 'area_write_conflict'
+            ? 'Founder area changed while building. Retry the build.'
+            : buildBusinessMessage(result.error)
+        res.status(status).json({
           ok: false,
-          error: buildBusinessMessage(result.error),
+          error: message,
           code: result.error,
-          state: stateForBuild,
+          state: result.state,
         })
         return
       }
 
-      const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, ...areaPayload(state) })
+      res.status(200).json({ ok: true, ...areaPayload(result.state) })
       return
     }
 
