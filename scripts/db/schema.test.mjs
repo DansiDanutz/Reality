@@ -14,6 +14,11 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/ALTER TABLE citizens ADD COLUMN IF NOT EXISTS token_revoked_at timestamptz/)
   })
 
+  test('gives newly issued tokens a bounded expiry while preserving legacy rows', () => {
+    expect(schema).toMatch(/ALTER TABLE citizens ADD COLUMN IF NOT EXISTS token_expires_at timestamptz/)
+    expect(schema).toMatch(/ALTER COLUMN token_expires_at SET DEFAULT \(now\(\) \+ interval '30 days'\)/)
+  })
+
   test('derives regular and founder genesis from the citizens row', () => {
     expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_ensure_genesis\(/)
     expect(schema).toMatch(/CASE WHEN v_founder IS NULL THEN 2500 ELSE 200000 END/)
