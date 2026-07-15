@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { resetDbForTest } from './_db'
@@ -143,6 +144,40 @@ describe('intent API handler', () => {
     await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
     expect(res.statusCode).toBe(401)
     expect(pgQueryMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('requires CSRF proof when authenticating an intent from the session cookie', async () => {
+    pgOn()
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: { cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1` },
+      body: { intent: BODY.intent },
+    } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
+  test('accepts a CSRF-protected cookie session without a body bearer token', async () => {
+    pgOn()
+    mockVerifyOk()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ xp: 0 }])
+      .mockResolvedValueOnce([{ new_balance: '420.00', refusal: null }])
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: {
+        cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1`,
+        'x-reality-csrf': 'csrf-1',
+      },
+      body: { intent: BODY.intent },
+    } as never, res as never)
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, intent: 'workShift', balance: 420 })
+    expect((pgQueryMock.mock.calls[0][1] as unknown[])[1]).toBe(createHash('sha256').update('cookie-token').digest('hex').slice(0, 24))
   })
 
   test('applies a validated workShift: ledger row appended atomically, balance returned', async () => {
