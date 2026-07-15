@@ -3,6 +3,16 @@
 *The senior developer reviews the senior developer. Updated every loop; nothing here is
 softened. An item leaves this list only by being fixed or consciously accepted.*
 
+## Full authority audit (2026-07-15)
+
+The complete evidence and execution order are in [AUDIT-2026-07-15](../AUDIT-2026-07-15.md).
+The principal correction is architectural: Reality currently has overlapping client,
+Neon-ledger, and Blob-area authorities. Trusted economy work is blocked until gameplay
+uses one atomic server authority, Founder Area separates its simulation cursor from
+mutation time, and client-provided genesis/ownership/placement facts are removed.
+
+Real settlement, land sale, death/inheritance, and TON value transfer remain disabled.
+
 ---
 
 ## Fixed in this loop (2026-07-03)
