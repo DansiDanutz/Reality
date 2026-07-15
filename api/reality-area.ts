@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
-import { founderAreaPgEnabled, readFounderAreaPg, saveFounderAreaPg } from './_founderAreaPg.js'
+import { founderAreaPgEnabled, listFounderAreaPg, readFounderAreaPg, saveFounderAreaPg } from './_founderAreaPg.js'
 import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -4844,6 +4844,35 @@ async function handleFounderCovenantOperatorReview(
   res.status(200).json({ ok: true, ...areaPayload(result.state) })
 }
 
+type FounderAreaScanEntry = { pathname?: string; downloadUrl?: string; etag?: string }
+type FounderAreaScanPage = {
+  entries: FounderAreaScanEntry[]
+  hasMore: boolean
+  nextCursor: string | undefined
+}
+
+async function listFounderAreaScanPage(limit: number, cursor: string | undefined): Promise<FounderAreaScanPage> {
+  if (founderAreaPgEnabled()) {
+    const page = await listFounderAreaPg(limit, cursor)
+    return {
+      entries: page.citizenIds.map((citizenId) => ({ pathname: areaStatePath(citizenId) })),
+      hasMore: page.hasMore,
+      nextCursor: page.nextCursor,
+    }
+  }
+
+  const batch = await list({
+    prefix: 'reality-areas/',
+    limit,
+    ...(cursor ? { cursor } : {}),
+  })
+  return {
+    entries: batch.blobs,
+    hasMore: Boolean(batch.hasMore),
+    nextCursor: typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : undefined,
+  }
+}
+
 async function tickServerClockAreas(
   now: Date,
   limit: number,
@@ -4856,23 +4885,19 @@ async function tickServerClockAreas(
   let nextCursor: string | undefined = cursor
 
   for (let page = 0; page < pages; page += 1) {
-    let batch: Awaited<ReturnType<typeof list>>
+    let batch: FounderAreaScanPage
     try {
-      batch = await list({
-        prefix: 'reality-areas/',
-        limit,
-        ...(nextCursor ? { cursor: nextCursor } : {}),
-      })
+      batch = await listFounderAreaScanPage(limit, nextCursor)
     } catch {
       throw new ServerClockAreaListFailure()
     }
     pagesScanned += 1
-    for (const blob of batch.blobs) {
+    for (const blob of batch.entries) {
       results.push(await tickServerClockAreaBlob(blob, now))
     }
 
     hasMore = Boolean(batch.hasMore)
-    nextCursor = typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : undefined
+    nextCursor = typeof batch.nextCursor === 'string' && batch.nextCursor.trim() ? batch.nextCursor : undefined
     if (!hasMore || !nextCursor) break
   }
 
@@ -4907,18 +4932,14 @@ async function scanFounderCovenantReviewQueue(
   let nextCursor: string | undefined = cursor
 
   for (let page = 0; page < pages; page += 1) {
-    let batch: Awaited<ReturnType<typeof list>>
+    let batch: FounderAreaScanPage
     try {
-      batch = await list({
-        prefix: 'reality-areas/',
-        limit,
-        ...(nextCursor ? { cursor: nextCursor } : {}),
-      })
+      batch = await listFounderAreaScanPage(limit, nextCursor)
     } catch {
       throw new FounderCovenantReviewQueueListFailure()
     }
     pagesScanned += 1
-    for (const blob of batch.blobs) {
+    for (const blob of batch.entries) {
       const result = await founderCovenantReviewQueueAreaBlob(blob, now)
       results.push({
         citizenId: result.citizenId,
@@ -4931,7 +4952,7 @@ async function scanFounderCovenantReviewQueue(
     }
 
     hasMore = Boolean(batch.hasMore)
-    nextCursor = typeof batch.cursor === 'string' && batch.cursor.trim() ? batch.cursor : undefined
+    nextCursor = typeof batch.nextCursor === 'string' && batch.nextCursor.trim() ? batch.nextCursor : undefined
     if (!hasMore || !nextCursor) break
   }
 

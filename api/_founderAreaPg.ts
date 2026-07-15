@@ -11,6 +11,12 @@ export type FounderAreaPgRow = {
   state: unknown
 }
 
+export type FounderAreaPgListPage = {
+  citizenIds: string[]
+  hasMore: boolean
+  nextCursor: string | undefined
+}
+
 export const FOUNDER_AREA_SELECT_SQL = `
   SELECT citizen_id, area_id, revision, simulation_at, updated_at, state
   FROM founder_area_snapshots
@@ -20,6 +26,14 @@ export const FOUNDER_AREA_SELECT_SQL = `
 
 export const FOUNDER_AREA_SAVE_SQL = `
   SELECT reality_save_founder_area($1, $2, $3, $4::jsonb, $5, $6) AS revision
+`.trim()
+
+export const FOUNDER_AREA_LIST_SQL = `
+  SELECT citizen_id
+  FROM founder_area_snapshots
+  WHERE citizen_id > $2
+  ORDER BY citizen_id
+  LIMIT $1
 `.trim()
 
 export function founderAreaPgEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -68,4 +82,22 @@ export async function saveFounderAreaPg(
   const revision = Number(rows[0]?.revision)
   if (!Number.isInteger(revision) || revision < 1) throw new Error('founder_area_revision_missing')
   return revision
+}
+
+export async function listFounderAreaPg(
+  limit: number,
+  cursor: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<FounderAreaPgListPage> {
+  const pageSize = Math.max(1, Math.min(100, Math.floor(limit)))
+  const after = cursor ?? ''
+  const sql = db(env) as unknown as SqlClient
+  const rows = (await sql.query(FOUNDER_AREA_LIST_SQL, [pageSize + 1, after])) as Array<{ citizen_id: string }>
+  const citizenIds = rows.slice(0, pageSize).map((row) => row.citizen_id)
+  const hasMore = rows.length > pageSize
+  return {
+    citizenIds,
+    hasMore,
+    nextCursor: hasMore ? citizenIds.at(-1) : undefined,
+  }
 }

@@ -8,7 +8,9 @@ import { resetDbForTest } from './_db'
 import {
   FOUNDER_AREA_SAVE_SQL,
   FOUNDER_AREA_SELECT_SQL,
+  FOUNDER_AREA_LIST_SQL,
   founderAreaPgEnabled,
+  listFounderAreaPg,
   readFounderAreaPg,
   saveFounderAreaPg,
 } from './_founderAreaPg'
@@ -50,5 +52,18 @@ describe('Founder Area Postgres repository adapter', () => {
     expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_SAVE_SQL, [
       'citizen-1', 'founder-area-0001', 4, JSON.stringify({ balance: 11 }), null, '2026-07-15T10:01:00.000Z',
     ])
+  })
+
+  test('lists authoritative Postgres areas with a stable cursor', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([
+      { citizen_id: 'citizen-1' },
+      { citizen_id: 'citizen-2' },
+      { citizen_id: 'citizen-3' },
+    ])
+    await expect(listFounderAreaPg(2, undefined)).resolves.toEqual({
+      citizenIds: ['citizen-1', 'citizen-2'], hasMore: true, nextCursor: 'citizen-2',
+    })
+    expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_LIST_SQL, [3, ''])
   })
 })
