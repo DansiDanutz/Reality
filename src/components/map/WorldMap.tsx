@@ -687,6 +687,11 @@ export default function WorldMap() {
     }
   }
 
+  const flyToAsset = (asset: PlacedAsset) => {
+    mapRef.current?.flyTo({ center: [asset.lng, asset.lat], zoom: 14, duration: 900, essential: true })
+    setEnteredAssetId(asset.id)
+  }
+
   // The inspect card is transient (HoMM right-click): the next tap anywhere,
   // any map movement, Escape, or a few seconds of silence dismisses it.
   useEffect(() => {
@@ -745,6 +750,23 @@ export default function WorldMap() {
   return (
     <>
       <div ref={containerRef} className={`map-stage${placing || placingConstruction ? ' is-placing' : ''}`} aria-hidden />
+      <aside className="map-accessible-list" aria-label="Your holdings on the map">
+        <h2>Your holdings</h2>
+        {assets.length === 0 ? (
+          <p>No holdings placed yet.</p>
+        ) : (
+          <ul>
+            {assets.map((asset) => (
+              <li key={asset.id}>
+                <button type="button" onClick={() => flyToAsset(asset)}>
+                  {asset.name} ({asset.kind}) — {asset.lat.toFixed(2)}°, {asset.lng.toFixed(2)}°
+                  {asset.kind === 'business' && asset.pendingIncome >= 1 ? ` — ${Math.floor(asset.pendingIncome)} ready to collect` : ''}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </aside>
       {quickInfo && (
         <div
           className="map-quickinfo"
