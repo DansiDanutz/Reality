@@ -3394,6 +3394,39 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('tickAreas rejects persisted area state without an updatedAt timestamp', async () => {
+    const malformed = { ...existingState() } as Record<string, unknown>
+    delete malformed.updatedAt
+    vi.mocked(list).mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://missing-updated-at'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(malformed), { status: 200 })))
+
+    const res = responseRecorder()
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        scanned: 1,
+        caughtUp: 0,
+        current: 0,
+        failed: 1,
+        results: [{
+          citizenId: CITIZEN_ID,
+          status: 'invalid',
+          failureReason: 'invalid_area_state',
+          updatedAt: null,
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas scans area blobs and persists caught-up server-clock state', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
