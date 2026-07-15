@@ -1,4 +1,5 @@
 import { clamp } from './engine'
+import { advanceHealth } from './healthPolicy'
 import type { Needs } from './types'
 
 export type WorldBusinessKind = 'water' | 'food' | 'housing' | 'clinic' | 'insurance'
@@ -3270,12 +3271,7 @@ function decayCitizen(area: WorldArea, citizen: WorldCitizen, hours: number): vo
     fun: clamp(citizen.needs.fun - rates.fun * hours),
   }
 
-  if (citizen.needs.hydration <= 0) citizen.health = clamp(citizen.health - 8 * hours)
-  else if (citizen.needs.hunger <= 0) citizen.health = clamp(citizen.health - 4 * hours)
-  else if (citizen.needs.energy <= 0) citizen.health = clamp(citizen.health - 2 * hours)
-  else if (citizen.needs.hydration > 65 && citizen.needs.hunger > 65 && citizen.needs.energy > 55) {
-    citizen.health = clamp(citizen.health + 1.2 * hours)
-  }
+  citizen.health = advanceHealth(citizen.health, citizen.needs, hours)
 }
 
 function buyNeededServices(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {

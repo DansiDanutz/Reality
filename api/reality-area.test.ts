@@ -7958,7 +7958,7 @@ function simDepartureEvent() {
     simulated: true,
     reason: 'water_unserved',
     serviceKind: 'water',
-    health: 20,
+    health: 29,
     needs: { hunger: 86, hydration: 0, energy: 87, hygiene: 89, fun: 89 },
     message: 'Demo Water Resident left the area because water stayed unserved while health was low.',
   } as const

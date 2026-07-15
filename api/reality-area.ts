@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
+import { advanceHealth } from '../src/game/healthPolicy.js'
 import { founderAreaPgEnabled, listFounderAreaPg, readFounderAreaPg, saveFounderAreaPg } from './_founderAreaPg.js'
 import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token.js'
 
@@ -6473,13 +6474,7 @@ function decayNeeds(citizen: FounderAreaCitizen): void {
 }
 
 function applyUnmetNeedHealthPenalty(citizen: FounderAreaCitizen): void {
-  const criticalNeeds = [
-    citizen.needs.hydration <= 0,
-    citizen.needs.hunger <= 0,
-    citizen.needs.energy <= 0,
-  ].filter(Boolean).length
-  if (criticalNeeds === 0) return
-  citizen.health = clampNeed(citizen.health - criticalNeeds * 15)
+  citizen.health = advanceHealth(citizen.health, citizen.needs, 1)
 }
 
 function shouldHospitalize(citizen: FounderAreaCitizen): boolean {
