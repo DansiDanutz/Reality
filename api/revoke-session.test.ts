@@ -26,6 +26,7 @@ describe('revoke session API', () => {
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ ok: true, revoked: true })
     expect(String(queryMock.mock.calls[0][0])).toContain('token_revoked_at IS NULL')
+    expect(String(queryMock.mock.calls[0][0])).toContain('token_expires_at IS NULL OR token_expires_at > now()')
     expect(String(queryMock.mock.calls[1][0])).toContain('SET token_revoked_at = now()')
   })
 
