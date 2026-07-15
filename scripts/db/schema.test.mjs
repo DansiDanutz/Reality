@@ -28,4 +28,11 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/founder_area_snapshots\.revision = p_expected_revision/)
     expect(schema).toMatch(/founder_area_revision_conflict/)
   })
+
+  test('provides an atomic server-owned world placement boundary', () => {
+    expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_place_asset\(/)
+    expect(schema).toMatch(/PERFORM pg_advisory_xact_lock\(hashtext\(p_citizen::text\)\)/)
+    expect(schema).toMatch(/INSERT INTO assets \(asset_id, citizen_id, item_id, kind, lat, lng, placed_at, raw\)/)
+    expect(schema).toMatch(/'world.place'/)
+  })
 })

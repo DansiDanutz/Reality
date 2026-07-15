@@ -21,6 +21,7 @@ export type WorldAssetRow = {
   lat: number
   lng: number
   placedAt: string
+  price: number
 }
 
 /**
@@ -29,20 +30,9 @@ export type WorldAssetRow = {
  * key: re-placing your own asset moves it, another citizen using the same
  * asset id keeps their own distinct row.
  */
-export const ASSET_UPSERT_SQL = `
-  INSERT INTO assets (asset_id, citizen_id, item_id, kind, lat, lng, placed_at)
-  VALUES ($1, $2, $3, $4, $5, $6, $7)
-  ON CONFLICT (citizen_id, asset_id) DO UPDATE
-    SET item_id = EXCLUDED.item_id,
-        kind = EXCLUDED.kind,
-        lat = EXCLUDED.lat,
-        lng = EXCLUDED.lng,
-        placed_at = EXCLUDED.placed_at
-`.trim()
-
-export const LEDGER_PLACE_INSERT_SQL = `
-  INSERT INTO ledger (citizen_id, intent, amount, meta)
-  VALUES ($1, 'world.place', 0, $2::jsonb)
+export const WORLD_PLACE_SQL = `
+  SELECT new_balance, refusal
+  FROM reality_place_asset($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `.trim()
 
 const PLACEMENT_COUNT_SQL = `
@@ -59,6 +49,7 @@ export function assetRowFromPlacement(input: {
   lat: number
   lng: number
   placedAt: Date
+  price: number
 }): WorldAssetRow {
   return {
     assetId: input.assetId,
@@ -68,25 +59,29 @@ export function assetRowFromPlacement(input: {
     lat: input.lat,
     lng: input.lng,
     placedAt: input.placedAt.toISOString(),
+    price: input.price,
   }
 }
 
-/** Authoritative write: assets upsert + world.place ledger entry. Throws on failure. */
-export async function writeWorldPlacement(row: WorldAssetRow, env: NodeJS.ProcessEnv = process.env): Promise<void> {
+/** Authoritative write: atomic server charge, asset insert, and ledger entry. */
+export async function writeWorldPlacement(row: WorldAssetRow, env: NodeJS.ProcessEnv = process.env): Promise<{ balance: number }> {
   const sql = db(env) as unknown as SqlClient
-  await sql.query(ASSET_UPSERT_SQL, [
-    row.assetId,
+  const rows = (await sql.query(WORLD_PLACE_SQL, [
     row.citizenId,
+    row.assetId,
     row.itemId,
     row.kind,
     row.lat,
     row.lng,
+    row.price,
+    JSON.stringify({ assetId: row.assetId, itemId: row.itemId, kind: row.kind, lat: row.lat, lng: row.lng, price: row.price }),
     row.placedAt,
-  ])
-  await sql.query(LEDGER_PLACE_INSERT_SQL, [
-    row.citizenId,
-    JSON.stringify({ assetId: row.assetId, itemId: row.itemId, kind: row.kind, lat: row.lat, lng: row.lng }),
-  ])
+  ])) as Array<{ new_balance: number | string; refusal: string | null }>
+  const result = rows[0]
+  if (!result || result.refusal === 'insufficient_funds') throw new Error('world_place_insufficient_funds')
+  const balance = Number(result.new_balance)
+  if (!Number.isFinite(balance)) throw new Error('world_place_balance_missing')
+  return { balance }
 }
 
 /** Today's placement actions, counted from the world.place ledger entries. Throws on failure. */

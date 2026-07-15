@@ -119,9 +119,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lat: Number(nLat.toFixed(2)),
       lng: Number(nLng.toFixed(2)),
       placedAt: new Date(),
+      price: catalogItem.price,
     }))
     res.status(200).json({ ok: true })
   } catch (error) {
+    if (error instanceof Error && error.message === 'world_place_insufficient_funds') {
+      res.status(422).json({ ok: false, error: 'Not enough server-authoritative funds for that asset.', code: 'insufficient_funds' })
+      return
+    }
     console.error(`world: placement failed for citizen ${String(citizenId)}`, error)
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })
   }
