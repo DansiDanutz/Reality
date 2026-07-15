@@ -213,6 +213,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       return
     }
+    if (outcome?.refusal === 'rate_limited') {
+      res.status(429).json({ ok: false, code: 'intent_rate_limited', error: 'Too many intents this hour. Slow down.' })
+      return
+    }
     if (!outcome || outcome.refusal === 'insufficient_funds') {
       const balance = outcome?.new_balance !== null && outcome?.new_balance !== undefined ? Number(outcome.new_balance) : 0
       res.status(422).json({
