@@ -284,6 +284,21 @@ describe('intent API handler', () => {
     expect(res.body).toMatchObject({ ok: false, code: 'shift_too_soon' })
   })
 
+  test('returns the atomic database rate refusal as a 429', async () => {
+    pgOn()
+    mockVerifyOk()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 119 }])
+      .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z', xp: 0 }])
+      .mockResolvedValueOnce([{ new_balance: '120.00', refusal: 'rate_limited' }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
+
+    expect(res.statusCode).toBe(429)
+    expect(res.body).toMatchObject({ ok: false, code: 'intent_rate_limited' })
+  })
+
   test('buyItem has no cooldown — the interval param is null', async () => {
     pgOn()
     mockVerifyOk()
