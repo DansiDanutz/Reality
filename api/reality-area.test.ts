@@ -2733,6 +2733,74 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('service purchases seed same-hour capacity from recorded purchases', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T05:37:00.000Z'))
+    const existing = withBusiness({
+      ...withCitizen(existingState(), CITIZEN_ID, {
+        needs: { hydration: 40 },
+      }),
+      transactions: [
+        ...existingState().transactions,
+        {
+          id: 'founder-area-0012:1783314000000:customer-purchase:buyWater:water-1',
+          at: '2026-07-06T05:00:00.000Z',
+          kind: 'customer_purchase',
+          payoutEligibility: 'game_only',
+          fromId: CITIZEN_ID,
+          toId: 'water-1',
+          amount: 2,
+          memo: 'Founder bought water from Founder Water.',
+        },
+        {
+          id: 'founder-area-0012:1783314000000:customer-purchase:buyWater:water-1:2',
+          at: '2026-07-06T05:00:00.000Z',
+          kind: 'customer_purchase',
+          payoutEligibility: 'game_only',
+          fromId: CITIZEN_ID,
+          toId: 'water-1',
+          amount: 2,
+          memo: 'Founder bought water from Founder Water.',
+        },
+        {
+          id: 'founder-area-0012:1783314000000:customer-purchase:buyWater:water-1:3',
+          at: '2026-07-06T05:00:00.000Z',
+          kind: 'customer_purchase',
+          payoutEligibility: 'game_only',
+          fromId: CITIZEN_ID,
+          toId: 'water-1',
+          amount: 2,
+          memo: 'Founder bought water from Founder Water.',
+        },
+      ],
+      updatedAt: '2026-07-06T05:00:00.000Z',
+    }, {
+      id: 'water-1',
+      name: 'Founder Water',
+      kind: 'water',
+      price: 2,
+      cash: 7,
+      quality: 0.05,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://same-tick-service-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyWater' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toMatchObject({ ok: false, code: 'service_not_available' })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('service purchases catch up stale area state and reject a hospitalized founder', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
@@ -6423,6 +6491,52 @@ describe('reality area authority API', () => {
       JSON.stringify(body.state),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('buyInsurance seeds same-hour capacity from recorded premiums', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:24:00.000Z'))
+    const existing = withBusiness({
+      ...existingState(),
+      transactions: [
+        ...existingState().transactions,
+        {
+          id: 'founder-area-0012:1783324800000:insurance-premium:11111111-1111-4111-8111-111111111111:insurance-1',
+          at: '2026-07-06T08:00:00.000Z',
+          kind: 'insurance_premium',
+          payoutEligibility: 'game_only',
+          fromId: CITIZEN_ID,
+          toId: 'insurance-1',
+          amount: 45,
+          memo: 'Founder bought insurance from Founder Insurance.',
+        },
+      ],
+      updatedAt: '2026-07-06T08:00:00.000Z',
+    }, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 50,
+      quality: 0.15,
+    })
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://same-tick-insurance-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toMatchObject({ ok: false, code: 'service_unavailable' })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('buyInsurance catches up stale area state and rejects a hospitalized founder', async () => {
