@@ -5191,23 +5191,28 @@ async function tickServerClockAreaBlob(
   if (!citizenId) {
     return serverClockAreaTickResult(null, null, 'invalid', null, 0, 'invalid_area_path')
   }
-  if (!blob.downloadUrl) {
-    return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'missing_download_url')
-  }
 
   try {
-    const response = await fetch(blob.downloadUrl)
-    if (!response.ok) {
-      return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0, 'area_fetch_unavailable')
+    let state: FounderAreaPersistedState | FounderAreaState | null
+    if (founderAreaPgEnabled()) {
+      state = await readAreaState(citizenId)
+      if (!state) return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'invalid_area_state')
+    } else {
+      if (!blob.downloadUrl) {
+        return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'missing_download_url')
+      }
+      const response = await fetch(blob.downloadUrl)
+      if (!response.ok) {
+        return serverClockAreaTickResult(citizenId, null, 'unavailable', null, 0, 'area_fetch_unavailable')
+      }
+      const value = await response.json() as unknown
+      if (!isFounderAreaState(value, citizenId)) {
+        return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'invalid_area_state')
+      }
+      state = blob.etag
+        ? { ...normalizeAreaCitizens(value), __storageEtag: blob.etag }
+        : normalizeAreaCitizens(value)
     }
-    const value = await response.json() as unknown
-    if (!isFounderAreaState(value, citizenId)) {
-      return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'invalid_area_state')
-    }
-
-    const state = blob.etag
-      ? { ...normalizeAreaCitizens(value), __storageEtag: blob.etag }
-      : normalizeAreaCitizens(value)
     const previousSimulationAt = state.simulationAt
     const previousTransactionCount = state.transactions.length
     const next = await catchUpPersistedAreaState(citizenId, state, now)
