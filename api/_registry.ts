@@ -13,6 +13,7 @@ import { db } from './_db.js'
  */
 
 export const FOUNDER_SLOTS = 2_000
+export const REGISTRATION_IP_LIMIT = 5
 const CLAIM_RETRY_BUDGET = 8
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
@@ -73,6 +74,20 @@ export async function insertCitizenRow(sql: SqlClient, row: CitizenRow): Promise
     row.createdAt,
     JSON.stringify(row.raw),
   ])
+}
+
+/** Atomically reserves one registration attempt for an IP/day pair. */
+export async function claimRegistrationSlotPg(
+  sql: SqlClient,
+  ipHash: string,
+  day: string,
+  limit: number = REGISTRATION_IP_LIMIT,
+): Promise<boolean> {
+  const rows = (await sql.query(
+    'SELECT reality_claim_registration_slot($1, $2::date, $3) AS allowed',
+    [ipHash, day, limit],
+  )) as Array<{ allowed: boolean }>
+  return rows[0]?.allowed === true
 }
 
 /** Refreshes raw and telegram linkage once the founder number is known. */

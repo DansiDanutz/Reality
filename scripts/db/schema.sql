@@ -109,6 +109,16 @@ CREATE OR REPLACE FUNCTION reality_append_intent(p_citizen uuid, p_intent text, 
 ALTER TABLE citizens ADD COLUMN IF NOT EXISTS name_slug text GENERATED ALWAYS AS (btrim(regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g'), '-')) STORED;
 CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_slug_key ON citizens (name_slug);
 
+-- Registration abuse brake: the counter row is locked by the upsert so
+-- concurrent requests cannot all observe the same pre-limit count.
+CREATE TABLE IF NOT EXISTS registration_rate_limits (
+  ip_hash text NOT NULL,
+  day date NOT NULL,
+  attempts integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (ip_hash, day)
+);
+CREATE OR REPLACE FUNCTION reality_claim_registration_slot(p_ip_hash text, p_day date, p_limit integer) RETURNS boolean LANGUAGE plpgsql AS $reality$ BEGIN INSERT INTO registration_rate_limits (ip_hash, day, attempts) VALUES (p_ip_hash, p_day, 1) ON CONFLICT (ip_hash, day) DO UPDATE SET attempts = registration_rate_limits.attempts + 1 WHERE registration_rate_limits.attempts < p_limit; RETURN FOUND; END $reality$;
+
 -- Issue #1010: the intent core derives a citizen's level by summing meta.xp
 -- across their successful intent rows on every economic action. This partial
 -- index keeps that SUM to just the xp-carrying rows instead of the citizen's

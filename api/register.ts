@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { list, put } from '@vercel/blob'
+import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
 import {
   FOUNDER_SLOTS,
+  REGISTRATION_IP_LIMIT,
+  claimRegistrationSlotPg,
   citizenRowFromRegistration,
   claimFounderNumberPg,
   insertCitizenRow,
@@ -88,29 +90,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const registeredAt = new Date()
     const verifiedTelegramSession = verifiedTelegram?.ok ? verifiedTelegram : null
 
-    // Bot brake: a handful of citizens per IP per day is plenty for humans
+    const sql = db() as unknown as SqlClient
+
+    // Bot brake: a handful of citizens per IP per day is plenty for humans.
+    // This reservation is Postgres-authoritative; a Blob list-then-write
+    // check allowed concurrent requests to pass the same observed count.
     const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
     const day = registeredAt.toISOString().slice(0, 10)
-    const safetyPrefix = `regip/${ipHash}__${day}`
-    let recent: Awaited<ReturnType<typeof list>>
     try {
-      recent = await list({ prefix: safetyPrefix, limit: 6 })
-    } catch {
-      res.status(503).json(REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE)
-      return
-    }
-    if (recent.blobs.length >= 5) {
-      res.status(429).json({ ok: false, error: 'Too many new citizens from this connection today. Try again tomorrow.' })
-      return
-    }
-    try {
-      await put(`${safetyPrefix}__${Date.now()}.json`, '1', {
-        access: 'private',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        contentType: 'application/json',
-      })
+      if (!(await claimRegistrationSlotPg(sql, ipHash, day, REGISTRATION_IP_LIMIT))) {
+        res.status(429).json({ ok: false, error: 'Too many new citizens from this connection today. Try again tomorrow.' })
+        return
+      }
     } catch {
       res.status(503).json(REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE)
       return
@@ -119,8 +111,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const citizenId = randomUUID()
     const token = randomUUID()
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
-    const sql = db() as unknown as SqlClient
-
     // The identity claims: name_slug and the partial Telegram unique index
     // make the first registration win. Both conflicts are mapped before a
     // founder slot is claimed, so a duplicate Telegram session cannot leave
