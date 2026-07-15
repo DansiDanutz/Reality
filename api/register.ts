@@ -121,8 +121,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
     const sql = db() as unknown as SqlClient
 
-    // The identity claim: the name_slug unique index makes the first insert
-    // win — a 23505 here means the name already belongs to a citizen.
+    // The identity claims: name_slug and the partial Telegram unique index
+    // make the first registration win. Both conflicts are mapped before a
+    // founder slot is claimed, so a duplicate Telegram session cannot leave
+    // an orphan citizen behind.
     try {
       await insertCitizenRow(sql, citizenRowFromRegistration({
         citizenId,
@@ -131,11 +133,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         founderNumber: null,
         registeredAt,
         record: citizenRecord(clean, registeredAt, null),
-        telegram: null,
+        telegram: verifiedTelegramSession ? { telegramUserId: verifiedTelegramSession.user.id } : null,
       }))
     } catch (error) {
       if ((error as { code?: string }).code === '23505') {
-        res.status(409).json({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
+        if (verifiedTelegramSession) {
+          res.status(409).json({
+            ok: false,
+            code: 'telegram_already_linked',
+            error: 'That Telegram account is already linked to a citizen.',
+          })
+        } else {
+          res.status(409).json({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
+        }
         return
       }
       throw error
