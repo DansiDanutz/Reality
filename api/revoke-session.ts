@@ -18,6 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
     const revoked = await revokeCitizenTokenPg(db() as never, citizenId)
+    res.setHeader('Set-Cookie', 'reality_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax')
     res.status(200).json({ ok: true, revoked })
   } catch {
     res.status(503).json({ ok: false, error: 'Session revocation is briefly unavailable.', code: 'session_revoke_unavailable' })
