@@ -83,8 +83,9 @@
 - The database migration runner now has a credential-free dry-run preflight covering the authority objects required for cutover.
 - Avatar generation quotas now reserve per-citizen and global capacity atomically in Postgres before OpenAI work.
 - Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
+- Founder Area insurance renewals now enforce hourly insurer capacity consistently with initial purchases and `worldSim`.
 - Founder Area backfill now fails early with an explicit Blob credential requirement instead of an opaque SDK stack trace.
-- Local gate: 135 test files, 1,554 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Local gate: 135 test files, 1,555 tests, build, and lint pass; only pre-existing lint warnings remain.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
 ## First autonomous implementation slice

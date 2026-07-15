@@ -5959,6 +5959,50 @@ describe('reality area authority API', () => {
     expect(body.state.transactions).toHaveLength(existing.transactions.length)
   })
 
+  test('advanceHour lapses expired insurance when insurer capacity is exhausted', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    const expiring = withCitizen({ ...existingState(), balance: 100 }, CITIZEN_ID, {
+      money: 100,
+      insuranceBusinessId: 'insurance-1',
+      insurancePaidUntil: '2026-07-06T07:00:00.000Z',
+    })
+    const existing = withBusiness(expiring, {
+      id: 'insurance-1',
+      name: 'Founder Insurance',
+      kind: 'insurance',
+      price: 45,
+      cash: 5,
+    })
+    existing.transactions = Array.from({ length: 8 }, (_, index) => ({
+      id: `capacity-${index}`,
+      at: '2026-07-06T07:00:00.000Z',
+      kind: 'insurance_premium' as const,
+      payoutEligibility: 'game_only' as const,
+      fromId: `sim-${index}`,
+      toId: 'insurance-1',
+      amount: 45,
+      memo: 'capacity reservation',
+    }))
+    vi.mocked(list).mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://capacity-renewal-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existing), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: { citizenId: CITIZEN_ID, token: TOKEN, intent: { type: 'advanceHour' } },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const body = res.body as { ok: true; state: ReturnType<typeof withBusiness> }
+    const founder = body.state.citizens.find((citizen) => citizen.id === CITIZEN_ID)
+    expect(founder?.insuranceBusinessId).toBeUndefined()
+    expect(founder?.insurancePaidUntil).toBeUndefined()
+    expect(founder?.money).toBe(100)
+    expect(body.state.businesses[0].cash).toBe(5)
+  })
+
   test('advanceHour recovers hospitalized Sim Citizens without letting them act during that hour', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))

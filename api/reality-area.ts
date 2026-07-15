@@ -5888,7 +5888,7 @@ function catchUpAreaClock(state: FounderAreaState, now: Date): FounderAreaState 
   const citizens = state.citizens.map(cloneCitizen)
   const businesses = state.businesses.map((business) => ({ ...business, staffCitizenIds: [...business.staffCitizenIds] }))
   for (const tickNow of tickDates) {
-    applyAreaHourTick(state.areaId, state.founderCitizenId, citizens, businesses, tickNow, transactions, areaEvents)
+    applyAreaHourTick(state.areaId, state.founderCitizenId, citizens, businesses, tickNow, state.transactions, transactions, areaEvents)
   }
   const founder = citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const balance = founder ? roundMoney(founder.money) : state.balance
@@ -5913,11 +5913,13 @@ function applyAreaHourTick(
   citizens: FounderAreaCitizen[],
   businesses: FounderAreaBusiness[],
   now: Date,
+  historyTransactions: FounderAreaTransaction[],
   transactions: FounderAreaTransaction[],
   areaEvents: FounderAreaEvent[],
 ): void {
   const at = now.toISOString()
-  renewInsurancePolicies(areaId, citizens, businesses, now, at, transactions)
+  const capacityUsed = seededHourlyCapacityUsed([...historyTransactions, ...transactions], now)
+  renewInsurancePolicies(areaId, citizens, businesses, now, at, transactions, capacityUsed)
   applyFounderHour(areaId, founderCitizenId, citizens, businesses, now, at, transactions)
   degradeUnmanagedBusinesses(citizens, businesses)
   applySimCitizenHour(areaId, citizens, businesses, now, at, transactions, areaEvents)
@@ -6223,6 +6225,7 @@ function renewInsurancePolicies(
   now: Date,
   at: string,
   transactions: FounderAreaTransaction[],
+  capacityUsed: Map<string, number>,
 ): void {
   let renewalSequence = 0
   for (const citizen of citizens) {
@@ -6234,11 +6237,16 @@ function renewInsurancePolicies(
       lapseInsurance(citizen)
       continue
     }
+    if ((capacityUsed.get(insurer.id) ?? 0) >= hourlyServiceCapacity(citizens, insurer)) {
+      lapseInsurance(citizen)
+      continue
+    }
 
     const paidUntil = new Date(now.getTime() + INSURANCE_POLICY_PERIOD_MS).toISOString()
     citizen.money = roundMoney(citizen.money - insurer.price)
     citizen.insurancePaidUntil = paidUntil
     insurer.cash = roundMoney(insurer.cash + insurer.price)
+    capacityUsed.set(insurer.id, (capacityUsed.get(insurer.id) ?? 0) + 1)
     renewalSequence += 1
     transactions.push({
       id: `${areaId}:${now.getTime()}:insurance-renewal:${citizen.id}:${insurer.id}:${renewalSequence}`,
