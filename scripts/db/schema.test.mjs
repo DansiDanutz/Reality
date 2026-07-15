@@ -20,4 +20,12 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/PERFORM reality_ensure_genesis\(p_citizen\)/)
     expect(schema).not.toMatch(/IF v_base IS NULL THEN v_base := p_seed/)
   })
+
+  test('provides an atomic Founder Area snapshot revision boundary', () => {
+    expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS founder_area_snapshots/)
+    expect(schema).toMatch(/revision\s+bigint NOT NULL DEFAULT 0/)
+    expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_save_founder_area\(/)
+    expect(schema).toMatch(/founder_area_snapshots\.revision = p_expected_revision/)
+    expect(schema).toMatch(/founder_area_revision_conflict/)
+  })
 })

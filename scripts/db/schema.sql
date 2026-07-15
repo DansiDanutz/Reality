@@ -115,3 +115,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_slug_key ON citizens (name_slug)
 -- whole ledger history.
 CREATE INDEX IF NOT EXISTS ledger_xp_rows_idx ON ledger (citizen_id)
   WHERE balance_after IS NOT NULL AND jsonb_typeof(meta->'xp') = 'number';
+
+-- Founder Area authority bridge: one server-owned snapshot per founder, with
+-- a monotonic revision used for atomic compare-and-swap writes. The JSON
+-- state remains compatible with the Blob snapshot while the database becomes
+-- the serialization boundary during migration (issue #542).
+CREATE TABLE IF NOT EXISTS founder_area_snapshots (
+  citizen_id    uuid PRIMARY KEY REFERENCES citizens (citizen_id) ON DELETE CASCADE,
+  area_id       text NOT NULL,
+  revision      bigint NOT NULL DEFAULT 0,
+  simulation_at timestamptz,
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  state         jsonb NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS founder_area_snapshots_area_idx ON founder_area_snapshots (area_id);
+-- The function raises founder_area_revision_conflict instead of overwriting
+-- a newer snapshot. Callers must re-read and reapply their pure command.
+CREATE OR REPLACE FUNCTION reality_save_founder_area(p_citizen uuid, p_area_id text, p_expected_revision bigint, p_state jsonb, p_simulation_at timestamptz, p_updated_at timestamptz) RETURNS bigint LANGUAGE plpgsql AS $reality$ DECLARE v_revision bigint; BEGIN INSERT INTO founder_area_snapshots (citizen_id, area_id, revision, state, simulation_at, updated_at) VALUES (p_citizen, p_area_id, 1, p_state, p_simulation_at, p_updated_at) ON CONFLICT (citizen_id) DO UPDATE SET area_id = EXCLUDED.area_id, revision = founder_area_snapshots.revision + 1, state = EXCLUDED.state, simulation_at = EXCLUDED.simulation_at, updated_at = EXCLUDED.updated_at WHERE founder_area_snapshots.revision = p_expected_revision RETURNING revision INTO v_revision; IF NOT FOUND THEN RAISE EXCEPTION 'founder_area_revision_conflict'; END IF; RETURN v_revision; END $reality$;

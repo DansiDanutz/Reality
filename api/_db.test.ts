@@ -53,7 +53,8 @@ describe('schema DDL', () => {
   })
 
   test('the ledger is append-only by shape: identity PK and no updated_at', () => {
-    expect(schema).toMatch(/entry_id\s+bigint GENERATED ALWAYS AS IDENTITY/)
-    expect(schema).not.toMatch(/ledger[\s\S]*updated_at/)
+    const ledger = schema.match(/CREATE TABLE IF NOT EXISTS ledger \(([\s\S]*?)\n\);/)?.[1] ?? ''
+    expect(ledger).toMatch(/entry_id\s+bigint GENERATED ALWAYS AS IDENTITY/)
+    expect(ledger).not.toMatch(/updated_at/)
   })
 })
