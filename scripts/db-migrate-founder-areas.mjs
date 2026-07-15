@@ -9,11 +9,11 @@ import { list } from '@vercel/blob'
 import { neon } from '@neondatabase/serverless'
 import { FOUNDER_AREA_SAVE_SQL, areaStatePathFromBlob, isRevisionConflict, migratableFounderAreaSnapshot } from './db/founder-area-migration-lib.mjs'
 
-const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL
-if (!url) throw new Error('POSTGRES_URL (or DATABASE_URL) is required.')
-
-const sql = neon(url)
 const dryRun = process.env.FOUNDER_AREA_MIGRATION_DRY_RUN === '1'
+const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL
+if (!dryRun && !url) throw new Error('POSTGRES_URL (or DATABASE_URL) is required unless FOUNDER_AREA_MIGRATION_DRY_RUN=1.')
+
+const sql = dryRun ? null : neon(url)
 let cursor
 let scanned = 0
 let migrated = 0
