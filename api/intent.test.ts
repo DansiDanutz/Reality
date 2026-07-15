@@ -195,19 +195,20 @@ describe('intent API handler', () => {
     })
   })
 
-  test('clamps the first-intent seed balance by the plausibility rule', async () => {
+  test('passes no client-controlled seed to the server-owned genesis function', async () => {
     pgOn()
     mockVerifyOk()
     pgQueryMock
       .mockResolvedValueOnce([{ count: 0 }])
       .mockResolvedValueOnce([{ created_at: null, xp: 0 }]) // unknown age → day-0 cap
-      .mockResolvedValueOnce([{ new_balance: '300120.00', refusal: null }])
+      .mockResolvedValueOnce([{ new_balance: '120.00', refusal: null }])
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...BODY, predictedBalance: 9_000_000 } } as never, res as never)
 
-    const [, insertParams] = pgQueryMock.mock.calls[3] as [string, unknown[]]
-    expect(insertParams[3]).toBe(300_000) // seed = min(claimed, maxPlausibleWorth(0)), never the raw 9M
+    const [insertSql, insertParams] = pgQueryMock.mock.calls[3] as [string, unknown[]]
+    expect(insertParams[3]).toBe(0) // the SQL function ignores this compatibility slot and owns genesis
+    expect(insertSql).toMatch(/reality_append_intent/)
   })
 
   test('rejects with the server balance as a correction when funds are insufficient', async () => {

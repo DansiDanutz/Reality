@@ -73,6 +73,12 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(insertParams[1]).toBe('David')
     const [claimSql] = pgQueryMock.mock.calls[1] as [string]
     expect(claimSql).toMatch(/UPDATE citizens SET founder_number/i)
+    const [updateSql] = pgQueryMock.mock.calls[2] as [string]
+
+    // Registration also ensures the server-owned genesis ledger row in the
+    // same post-claim statement; repeated execution is idempotent.
+    expect(updateSql).toMatch(/INSERT INTO ledger/i)
+    expect(updateSql).toMatch(/NOT EXISTS.*ledger/i)
 
     // Postgres owns the whole registry now — the only Blob write left is
     // the regip/ throttle marker (and telegram-users/ for linked accounts)

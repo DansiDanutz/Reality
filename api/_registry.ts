@@ -83,7 +83,24 @@ export async function updateCitizenAfterClaim(
   telegramUserId: number | null,
 ): Promise<void> {
   await sql.query(
-    'UPDATE citizens SET raw = $2::jsonb, telegram_user_id = $3 WHERE citizen_id = $1',
+    `WITH updated AS (
+      UPDATE citizens
+      SET raw = $2::jsonb, telegram_user_id = $3
+      WHERE citizen_id = $1
+      RETURNING citizen_id, founder_number
+    )
+    INSERT INTO ledger (citizen_id, intent, amount, balance_after, meta)
+    SELECT citizen_id,
+      'genesis',
+      CASE WHEN founder_number IS NULL THEN 2500 ELSE 200000 END,
+      CASE WHEN founder_number IS NULL THEN 2500 ELSE 200000 END,
+      jsonb_build_object('source', 'registration', 'founderNumber', founder_number)
+    FROM updated
+    WHERE NOT EXISTS (
+      SELECT 1 FROM ledger existing
+      WHERE existing.citizen_id = updated.citizen_id
+        AND existing.balance_after IS NOT NULL
+    )`.replace(/\s+/g, ' ').trim(),
     [citizenId, JSON.stringify(raw), telegramUserId],
   )
 }
