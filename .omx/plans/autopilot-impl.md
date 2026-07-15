@@ -82,7 +82,8 @@
 - Citizen bearer tokens now have server-side revocation and 30-day expiry for newly issued sessions; legacy rows without an expiry remain valid pending migration.
 - The database migration runner now has a credential-free dry-run preflight covering the authority objects required for cutover.
 - Avatar generation quotas now reserve per-citizen and global capacity atomically in Postgres before OpenAI work.
-- Local gate: 133 test files, 1,551 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
+- Local gate: 133 test files, 1,552 tests, build, and lint pass; only pre-existing lint warnings remain.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
 ## First autonomous implementation slice

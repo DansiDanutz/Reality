@@ -3652,7 +3652,19 @@ export const useGame = create<GameState>()(
       },
       selectMapTarget: (target) => set({ selectedMapTarget: target }),
       setPanel: (panel) => set({ panel }),
-      reset: () => set({ citizen: null, ...FRESH }),
+      reset: () => {
+        const citizen = get().citizen
+        // Revoke the server session when the player explicitly clears this
+        // device. Local state is cleared immediately even if the network is
+        // unavailable; the server-side expiry/revocation remains fail-closed.
+        if (citizen?.citizenId && citizen.token) {
+          void tryPost('/api/revoke-session', {
+            citizenId: citizen.citizenId,
+            token: citizen.token,
+          })
+        }
+        set({ citizen: null, ...FRESH })
+      },
     }),
     {
       name: SAVE_KEY,
