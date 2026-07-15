@@ -85,7 +85,8 @@
 - Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
 - Founder Area insurance renewals now enforce hourly insurer capacity consistently with initial purchases and `worldSim`.
 - Founder Area backfill now fails early with an explicit Blob credential requirement instead of an opaque SDK stack trace.
-- Local gate: 139 test files, 1,572 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Local gate: 139 test files, 1,573 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Overpass abuse fix: a bounded warm-instance per-IP admission brake now runs before upstream mirror work; edge/global limiting remains deployment work.
 - Map accessibility fix: the decorative canvas now has a semantic holdings list with keyboard-focusable controls for each owned property.
 - Session transport fix: registration now issues a bounded Secure/HttpOnly/SameSite session cookie and revocation clears it; legacy token responses remain during migration.
 - E2E release fix: CI now runs Playwright against the production preview, with first-session and 320px mobile shell coverage.

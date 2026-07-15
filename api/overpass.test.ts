@@ -7,6 +7,19 @@ afterEach(() => {
 })
 
 describe('overpass proxy API', () => {
+  test('applies a warm-instance per-IP admission brake before upstream work', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ elements: [] }), { status: 200 }) as never)
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const res = responseRecorder()
+      await handler({ method: 'GET', headers: { 'x-forwarded-for': '203.0.113.99' }, query: { lat: '44.45', lng: '26.08' } } as never, res as never)
+      expect(res.statusCode).toBe(200)
+    }
+    const blocked = responseRecorder()
+    await handler({ method: 'GET', headers: { 'x-forwarded-for': '203.0.113.99' }, query: { lat: '44.45', lng: '26.08' } } as never, blocked as never)
+    expect(blocked.statusCode).toBe(429)
+    expect(blocked.body).toMatchObject({ ok: false, code: 'overpass_rate_limited' })
+    expect(fetchMock).toHaveBeenCalledTimes(12)
+  })
   test('rejects non-GET methods', async () => {
     const res = responseRecorder()
 

@@ -24,6 +24,9 @@ const OVERPASS_ENDPOINTS = [
 // keep the fallbacks short so the total stays inside the 60s function cap.
 const ENDPOINT_TIMEOUTS_MS = [35_000, 10_000, 10_000]
 const DISCOVERY_RADIUS_M = 2_500
+const IP_WINDOW_MS = 60_000
+const REQUESTS_PER_IP_WINDOW = 12
+const ipWindows = new Map<string, { startedAt: number; count: number }>()
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -40,6 +43,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const lng = parseCoordinate(req.query.lng)
   if (lat === null || lng === null || !isLatitude(lat) || !isLongitude(lng)) {
     res.status(400).json({ ok: false, error: 'lat and lng query params are required' })
+    return
+  }
+
+  const ip = String(req.headers?.['x-forwarded-for'] ?? req.headers?.['x-real-ip'] ?? 'unknown').split(',')[0].trim() || 'unknown'
+  if (!admitIp(ip)) {
+    res.setHeader('Retry-After', '60')
+    res.status(429).json({ ok: false, error: 'Map discovery is temporarily rate-limited. Try again shortly.', code: 'overpass_rate_limited' })
     return
   }
 
@@ -93,6 +103,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // All mirrors failed: tell the client cleanly; it keeps its fallback nodes.
   res.setHeader('Cache-Control', 'public, s-maxage=120')
   res.status(502).json({ ok: false, error: 'All Overpass mirrors failed' })
+}
+
+/** Best-effort warm-instance brake; edge/global limiting remains deployment work. */
+function admitIp(ip: string, now = Date.now()): boolean {
+  const previous = ipWindows.get(ip)
+  if (!previous || now - previous.startedAt >= IP_WINDOW_MS) {
+    ipWindows.set(ip, { startedAt: now, count: 1 })
+    return true
+  }
+  if (previous.count >= REQUESTS_PER_IP_WINDOW) return false
+  previous.count += 1
+  return true
 }
 
 function hasOnlyCoordinateParams(query: VercelRequest['query']): boolean {
