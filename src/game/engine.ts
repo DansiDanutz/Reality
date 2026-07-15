@@ -1,5 +1,6 @@
 import { EVENT_CHANCE, LIFE_EVENTS, itemById, recipeById } from './catalog.js'
 import { totalInvested } from './businessUpgrades.js'
+import { advanceHealth } from './healthPolicy.js'
 import type { CommunityActionId } from './community'
 import type { ResourceKind } from './resources'
 import type { Illness, LifeEvent, Needs, Pet, PlacedAsset, Recipe } from './types'
@@ -167,12 +168,8 @@ export function advanceLife(slice: WorldSlice, minutes: number, mode: LifeMode, 
     fun: clamp(slice.needs.fun - r.fun * h),
   }
 
-  // Health mirrors real triage: dehydration kills fastest, then starvation
-  // and exhaustion. A fed, hydrated, rested body heals itself.
-  let health = slice.health
-  if (needs.hydration <= 0) health = clamp(health - 6 * h)
-  else if (needs.hunger <= 0 || needs.energy <= 0) health = clamp(health - 3 * h)
-  else if (needs.hunger > 60 && needs.energy > 60 && needs.hydration > 50) health = clamp(health + 2 * h)
+  // Health mirrors the shared server/world simulation triage policy.
+  const health = advanceHealth(slice.health, needs, h)
 
   const assets = slice.assets.map((a) =>
     a.incomePerDay > 0
