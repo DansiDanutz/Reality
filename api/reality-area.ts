@@ -4391,6 +4391,43 @@ async function runBuildBusinessMutation(
   return { ok: false, error: 'area_write_conflict', state: existing }
 }
 
+type ServicePurchaseMutationResult =
+  | { ok: true; state: FounderAreaState }
+  | { ok: false; error: ApplyServicePurchaseError | 'area_load_unavailable' | 'area_write_conflict'; state: FounderAreaState | null }
+
+async function runServicePurchaseMutation(
+  citizenId: string,
+  initial: FounderAreaPersistedState | null,
+  intent: Extract<ServicePurchaseIntent, { ok: true }>,
+  now: Date,
+): Promise<ServicePurchaseMutationResult> {
+  let existing: FounderAreaPersistedState | null = initial
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let stateForPurchase: FounderAreaState | null = existing
+    try {
+      stateForPurchase = existing ? await catchUpPersistedAreaState(citizenId, existing, now) : null
+    } catch {
+      return { ok: false, error: 'area_load_unavailable', state: existing }
+    }
+    const result = applyServicePurchaseIntent(stateForPurchase, { type: intent.type }, now)
+    if (!result.ok) return { ok: false, error: result.error, state: stateForPurchase }
+
+    try {
+      return { ok: true, state: await persistAreaState(citizenId, result.state, true) }
+    } catch (error) {
+      if (!isAreaWriteConflict(error) || attempt === 1) {
+        return { ok: false, error: isAreaWriteConflict(error) ? 'area_write_conflict' : 'area_load_unavailable', state: stateForPurchase }
+      }
+      try {
+        existing = await readAreaState(citizenId)
+      } catch {
+        return { ok: false, error: 'area_load_unavailable', state: stateForPurchase }
+      }
+    }
+  }
+  return { ok: false, error: 'area_write_conflict', state: existing }
+}
+
 function areaStorageUnavailablePayload(state: FounderAreaState | null): {
   ok: false
   error: string
@@ -5196,8 +5233,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(status).json({
           ok: false,
           error: message,
-          code: result.error,
-          state: result.state,
+          code: result.error === 'area_load_unavailable' ? 'area_storage_unavailable' : result.error,
+          ...areaPayload(result.state),
         })
         return
       }
@@ -5219,33 +5256,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const now = new Date()
-      let stateForService = existing
-      if (existing) {
-        try {
-          stateForService = await catchUpPersistedAreaState(citizen.citizenId, existing, now)
-        } catch {
-          res.status(503).json({
-            ok: false,
-            error: 'Reality area storage is briefly unavailable.',
-            code: 'area_storage_unavailable',
-            ...areaPayload(existing),
-          })
-          return
-        }
-      }
-      const result = applyServicePurchaseIntent(stateForService, { type: intent.type }, now)
+      const result = await runServicePurchaseMutation(citizen.citizenId, existing, intent, now)
       if (!result.ok) {
-        res.status(servicePurchaseStatus(result.error)).json({
+        const status = result.error === 'area_load_unavailable' ? 503
+          : result.error === 'area_write_conflict' ? 409
+            : servicePurchaseStatus(result.error)
+        const message = result.error === 'area_load_unavailable'
+          ? 'Reality area storage is briefly unavailable.'
+          : result.error === 'area_write_conflict'
+            ? 'Founder area changed while buying a service. Retry the purchase.'
+            : servicePurchaseMessage(result.error)
+        res.status(status).json({
           ok: false,
-          error: servicePurchaseMessage(result.error),
-          code: result.error,
-          state: stateForService,
+          error: message,
+          code: result.error === 'area_load_unavailable' ? 'area_storage_unavailable' : result.error,
+          ...areaPayload(result.state),
         })
         return
       }
-
-      const state = await persistAreaState(citizen.citizenId, result.state, true)
-      res.status(200).json({ ok: true, ...areaPayload(state) })
+      res.status(200).json({ ok: true, ...areaPayload(result.state) })
       return
     }
 
