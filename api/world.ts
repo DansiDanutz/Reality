@@ -120,11 +120,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lng: Number(nLng.toFixed(2)),
       placedAt: new Date(),
       price: catalogItem.price,
+      dailyLimit: PLACEMENTS_PER_DAY,
     }))
     res.status(200).json({ ok: true })
   } catch (error) {
     if (error instanceof Error && error.message === 'world_place_insufficient_funds') {
       res.status(422).json({ ok: false, error: 'Not enough server-authoritative funds for that asset.', code: 'insufficient_funds' })
+      return
+    }
+    if (error instanceof Error && error.message === 'world_place_daily_limit') {
+      res.status(429).json({ ok: false, error: `You've placed ${PLACEMENTS_PER_DAY} things in the world today. Come back tomorrow.` })
       return
     }
     console.error(`world: placement failed for citizen ${String(citizenId)}`, error)

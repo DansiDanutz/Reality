@@ -22,6 +22,7 @@ export type WorldAssetRow = {
   lng: number
   placedAt: string
   price: number
+  dailyLimit: number
 }
 
 /**
@@ -32,7 +33,7 @@ export type WorldAssetRow = {
  */
 export const WORLD_PLACE_SQL = `
   SELECT new_balance, refusal
-  FROM reality_place_asset($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  FROM reality_place_asset($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `.trim()
 
 const PLACEMENT_COUNT_SQL = `
@@ -50,6 +51,7 @@ export function assetRowFromPlacement(input: {
   lng: number
   placedAt: Date
   price: number
+  dailyLimit: number
 }): WorldAssetRow {
   return {
     assetId: input.assetId,
@@ -60,6 +62,7 @@ export function assetRowFromPlacement(input: {
     lng: input.lng,
     placedAt: input.placedAt.toISOString(),
     price: input.price,
+    dailyLimit: input.dailyLimit,
   }
 }
 
@@ -76,9 +79,11 @@ export async function writeWorldPlacement(row: WorldAssetRow, env: NodeJS.Proces
     row.price,
     JSON.stringify({ assetId: row.assetId, itemId: row.itemId, kind: row.kind, lat: row.lat, lng: row.lng, price: row.price }),
     row.placedAt,
+    row.dailyLimit,
   ])) as Array<{ new_balance: number | string; refusal: string | null }>
   const result = rows[0]
   if (!result || result.refusal === 'insufficient_funds') throw new Error('world_place_insufficient_funds')
+  if (result.refusal === 'daily_limit') throw new Error('world_place_daily_limit')
   const balance = Number(result.new_balance)
   if (!Number.isFinite(balance)) throw new Error('world_place_balance_missing')
   return { balance }
