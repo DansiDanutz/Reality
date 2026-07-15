@@ -134,8 +134,16 @@ export async function verifyCitizenPg(
   const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
   const sql = db(env) as unknown as SqlClient
   const rows = (await sql.query(
-    'SELECT 1 AS ok FROM citizens WHERE citizen_id = $1 AND token_hash = $2 LIMIT 1',
+    'SELECT 1 AS ok FROM citizens WHERE citizen_id = $1 AND token_hash = $2 AND token_revoked_at IS NULL LIMIT 1',
     [citizenId, tokenHash],
+  )) as unknown[]
+  return rows.length > 0
+}
+
+export async function revokeCitizenTokenPg(sql: SqlClient, citizenId: string): Promise<boolean> {
+  const rows = (await sql.query(
+    'UPDATE citizens SET token_revoked_at = now() WHERE citizen_id = $1 AND token_revoked_at IS NULL RETURNING citizen_id',
+    [citizenId],
   )) as unknown[]
   return rows.length > 0
 }
