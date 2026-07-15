@@ -4369,7 +4369,10 @@ function isAreaWriteConflict(error: unknown): boolean {
   const value = error as { name?: unknown; code?: unknown; message?: unknown }
   return value?.name === 'BlobPreconditionFailedError' ||
     value?.code === 'blob_precondition_failed' ||
-    (typeof value?.message === 'string' && value.message.toLowerCase().includes('precondition'))
+    (typeof value?.message === 'string' && (
+      value.message.toLowerCase().includes('precondition') ||
+      value.message.toLowerCase().includes('founder_area_revision_conflict')
+    ))
 }
 
 type BuildBusinessMutationResult =
