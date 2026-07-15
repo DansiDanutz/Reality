@@ -38,9 +38,9 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | Offline in-game accrual — businesses simulate while you're away (capped at 3 game days) | ✅ |
 | Random life events | ✅ |
 | Trade-route arcs between your holdings on the globe | ✅ |
-| Save game (browser localStorage) | ✅ |
+| Save game (browser localStorage + optional cloud backup) | ✅ |
 | Engine test suite (`npm test`) | ✅ |
-| Server-authoritative simulation, player-to-player trading | 🔜 see [ROADMAP](docs/ROADMAP.md) |
+| Server-authoritative Founder Area, ledger intents, and world placement | 🟡 staged authority; production cutover pending |
 
 ## Documentation
 
@@ -60,7 +60,7 @@ The founder cohort exists to solve the cold-start problem every player economy h
 
 ## Tech
 
-React 19 + TypeScript + Vite · [react-globe.gl](https://github.com/vasturiano/react-globe.gl) (Three.js) · Zustand (state + persistence). Client-only in beta — no accounts, no backend, nothing to configure.
+React 19 + TypeScript + Vite · MapLibre GL + Three.js · Zustand (local projection + persistence) · Vercel API routes · Neon Postgres (registry, ledger, quotas, and staged Founder Area authority) · Vercel Blob (compatibility snapshots and media). Local UI development works without credentials; online registration, shared-world writes, and Founder Area cutover require the documented server environment.
 
 ## License
 
