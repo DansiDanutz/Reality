@@ -65,6 +65,13 @@
 - Run security, accessibility, concurrency, offline, and production-browser checks.
 - Update README/architecture/status docs with measured truth.
 
+## Current autonomous progress (2026-07-15)
+
+- Server-owned genesis, Telegram uniqueness, nested snapshot validation, and `buildBusiness` fresh-reapply are merged and CI-green.
+- Founder service purchases now perform one fresh read/reapply after a Blob CAS conflict, with deterministic retryable failure after the bounded retry.
+- Local gate: 127 test files, 1,520 tests, build, and lint pass; 7 existing lint warnings remain.
+- Next: apply the conflict boundary to insurance, covenant review, and server-clock mutation paths, then replace Blob-only coordination with an authoritative repository transaction.
+
 ## First autonomous implementation slice
 
 Create and claim an issue for server-owned ledger genesis. This is smaller than the full area migration, removes a confirmed money-mint path, and establishes the authoritative-registration pattern required by later work.
