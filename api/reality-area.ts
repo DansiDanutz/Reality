@@ -922,11 +922,15 @@ interface FounderAreaState {
   founderReviewHistory?: FounderAreaCovenantReviewHistoryItem[]
   founderCovenant: FounderAreaCovenantReview
   updatedAt: string
+  simulationAt?: string
 }
 
 type FounderAreaStateInput = Omit<FounderAreaState, 'founderCovenant'> & {
   founderCovenant?: FounderAreaCovenantReview
+  simulationAt?: string
 }
+
+type FounderAreaPersistedState = FounderAreaState & { __storageEtag?: string }
 
 type ClaimAreaIntent =
   | {
@@ -2080,14 +2084,17 @@ function telegramCitizenAuthFields(value: Record<string, unknown>): Partial<Citi
   }
 }
 
-async function readAreaState(citizenId: string): Promise<FounderAreaState | null> {
+async function readAreaState(citizenId: string): Promise<FounderAreaPersistedState | null> {
   const batch = await list({ prefix: areaStatePath(citizenId), limit: 1 })
-  const url = batch.blobs[0]?.downloadUrl
+  const blob = batch.blobs[0]
+  const url = blob?.downloadUrl
   if (!url) return null
   const response = await fetch(url)
   if (!response.ok) return null
   const value = await response.json() as unknown
-  return isFounderAreaState(value, citizenId) ? normalizeAreaCitizens(value) : null
+  if (!isFounderAreaState(value, citizenId)) return null
+  const state = normalizeAreaCitizens(value)
+  return blob?.etag ? { ...state, __storageEtag: blob.etag } : state
 }
 
 function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<ClaimAreaIntent, { ok: true }>, now: Date): FounderAreaState {
@@ -2134,6 +2141,7 @@ function buildFounderAreaState(citizen: CitizenAuthRecord, intent: Extract<Claim
     areaEvents: [],
     founderReviewHistory: [],
     updatedAt: at,
+    simulationAt: at,
   })
 }
 
@@ -4245,9 +4253,12 @@ function areaPayload(state: FounderAreaState | null): {
   state: FounderAreaState | null
   dashboard: FounderAreaDashboard | null
 } {
+  const publicState = state && '__storageEtag' in state
+    ? (({ __storageEtag: _ignoredEtag, ...value }) => value)(state as FounderAreaPersistedState)
+    : state
   return {
-    state,
-    dashboard: state ? founderAreaDashboard(state) : null,
+    state: publicState,
+    dashboard: publicState ? founderAreaDashboard(publicState) : null,
   }
 }
 
@@ -4311,13 +4322,16 @@ async function persistAreaState(
   allowOverwrite: boolean,
 ): Promise<FounderAreaState> {
   const reviewed = withFounderCovenantReview(state)
-  await put(areaStatePath(citizenId), JSON.stringify(reviewed), {
+  const expectedEtag = '__storageEtag' in reviewed ? reviewed.__storageEtag : undefined
+  const { __storageEtag: _ignoredEtag, ...serializable } = reviewed as FounderAreaPersistedState
+  const result = await put(areaStatePath(citizenId), JSON.stringify(serializable), {
     access: 'private',
     addRandomSuffix: false,
     allowOverwrite,
+    ...(expectedEtag ? { ifMatch: expectedEtag } : {}),
     contentType: 'application/json',
   })
-  return reviewed
+  return { ...serializable, __storageEtag: result.etag } as FounderAreaPersistedState
 }
 
 async function catchUpPersistedAreaState(
@@ -4641,7 +4655,7 @@ async function scanFounderCovenantReviewQueue(
 }
 
 async function founderCovenantReviewQueueAreaBlob(
-  blob: { pathname?: string; downloadUrl?: string },
+  blob: { pathname?: string; downloadUrl?: string; etag?: string },
   now: Date,
 ): Promise<FounderCovenantReviewQueueScanResult & { item: FounderCovenantReviewQueueItem | null }> {
   const citizenId = citizenIdFromAreaStatePath(blob.pathname)
@@ -4657,12 +4671,14 @@ async function founderCovenantReviewQueueAreaBlob(
       return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
     }
 
-    const state = normalizeAreaCitizens(value)
-    const previousUpdatedAt = state.updatedAt
+    const state = blob.etag
+      ? { ...normalizeAreaCitizens(value), __storageEtag: blob.etag }
+      : normalizeAreaCitizens(value)
+    const previousSimulationAt = state.simulationAt
     const previousTransactionCount = state.transactions.length
     const next = await catchUpPersistedAreaState(citizenId, state, now)
     const transactionsAdded = Math.max(0, next.transactions.length - previousTransactionCount)
-    const status: ServerClockAreaTickStatus = next.updatedAt === previousUpdatedAt && transactionsAdded === 0
+    const status: ServerClockAreaTickStatus = next.simulationAt === previousSimulationAt && transactionsAdded === 0
       ? 'current'
       : 'caught_up'
     return founderCovenantReviewQueueAreaResult(
@@ -4860,7 +4876,7 @@ function founderCovenantReviewQueuePriority(item: FounderCovenantReviewQueueItem
 }
 
 async function tickServerClockAreaBlob(
-  blob: { pathname?: string; downloadUrl?: string },
+  blob: { pathname?: string; downloadUrl?: string; etag?: string },
   now: Date,
 ): Promise<ServerClockAreaTickResult> {
   const citizenId = citizenIdFromAreaStatePath(blob.pathname)
@@ -4881,12 +4897,14 @@ async function tickServerClockAreaBlob(
       return serverClockAreaTickResult(citizenId, null, 'invalid', null, 0, 'invalid_area_state')
     }
 
-    const state = normalizeAreaCitizens(value)
-    const previousUpdatedAt = state.updatedAt
+    const state = blob.etag
+      ? { ...normalizeAreaCitizens(value), __storageEtag: blob.etag }
+      : normalizeAreaCitizens(value)
+    const previousSimulationAt = state.simulationAt
     const previousTransactionCount = state.transactions.length
     const next = await catchUpPersistedAreaState(citizenId, state, now)
     const transactionsAdded = Math.max(0, next.transactions.length - previousTransactionCount)
-    const status: ServerClockAreaTickStatus = next.updatedAt === previousUpdatedAt && transactionsAdded === 0
+    const status: ServerClockAreaTickStatus = next.simulationAt === previousSimulationAt && transactionsAdded === 0
       ? 'current'
       : 'caught_up'
     return serverClockAreaTickResult(citizenId, next.areaId, status, next.updatedAt, transactionsAdded)
@@ -5585,7 +5603,7 @@ function catchUpAreaClock(state: FounderAreaState, now: Date): FounderAreaState 
   }
   const founder = citizens.find((citizen) => citizen.id === state.founderCitizenId)
   const balance = founder ? roundMoney(founder.money) : state.balance
-  const updatedAt = tickDates.at(-1)?.toISOString() ?? state.updatedAt
+  const simulationAt = tickDates.at(-1)?.toISOString() ?? state.simulationAt ?? state.updatedAt
   const existingAreaEvents = normalizeFounderAreaEvents(state.areaEvents)
 
   return withFounderCovenantReview({
@@ -5595,7 +5613,8 @@ function catchUpAreaClock(state: FounderAreaState, now: Date): FounderAreaState 
     citizens,
     transactions: [...state.transactions, ...transactions],
     areaEvents: [...existingAreaEvents, ...areaEvents],
-    updatedAt,
+    updatedAt: state.simulationAt ? now.toISOString() : simulationAt,
+    simulationAt,
   })
 }
 
@@ -5639,12 +5658,12 @@ function applyAreaHourTick(
 }
 
 function areaClockTickDates(state: FounderAreaState, now: Date): Date[] {
-  const updatedMs = Date.parse(state.updatedAt)
-  if (!Number.isFinite(updatedMs)) return [now]
-  const elapsedMs = now.getTime() - updatedMs
+  const simulationMs = Date.parse(state.simulationAt ?? state.updatedAt)
+  if (!Number.isFinite(simulationMs)) return [now]
+  const elapsedMs = now.getTime() - simulationMs
   if (elapsedMs < SERVER_AREA_TICK_MS) return []
   const tickCount = Math.min(MAX_SERVER_AREA_CATCH_UP_HOURS, Math.floor(elapsedMs / SERVER_AREA_TICK_MS))
-  return Array.from({ length: tickCount }, (_, index) => new Date(updatedMs + (index + 1) * SERVER_AREA_TICK_MS))
+  return Array.from({ length: tickCount }, (_, index) => new Date(simulationMs + (index + 1) * SERVER_AREA_TICK_MS))
 }
 
 function applyServicePurchaseIntent(

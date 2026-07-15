@@ -3506,6 +3506,38 @@ describe('reality area authority API', () => {
     })
   })
 
+  test('tickAreas advances from simulationAt even when ordinary activity updated updatedAt', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    const stale = {
+      ...existingState(),
+      updatedAt: '2026-07-06T07:30:00.000Z',
+      simulationAt: '2026-07-06T03:00:00.000Z',
+    }
+    vi.mocked(list).mockResolvedValueOnce(blobList(
+      [areaStatePath(CITIZEN_ID)],
+      'blob://clock-separate-cursor-area',
+      { etag: 'etag-before-tick' },
+    ))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: { intent: { type: 'tickAreas', limit: 1 } },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { ok: true; clock: { caughtUp: number } }).clock.caughtUp).toBe(1)
+    expect(put).toHaveBeenCalledWith(
+      areaStatePath(CITIZEN_ID),
+      expect.stringContaining('"simulationAt":"2026-07-06T08:00:00.000Z"'),
+      expect.objectContaining({ ifMatch: 'etag-before-tick' }),
+    )
+    vi.useRealTimers()
+  })
+
   test('tickAreas reports failure reasons for invalid and unavailable area ticks', async () => {
     vi.mocked(list).mockResolvedValueOnce({
       blobs: [
@@ -7701,14 +7733,14 @@ function simDepartureEvent() {
 function blobList(
   pathnames: string[],
   downloadUrl = 'blob://download',
-  options: { hasMore?: boolean; cursor?: string } = {},
+  options: { hasMore?: boolean; cursor?: string; etag?: string } = {},
 ): {
-  blobs: { pathname: string; downloadUrl: string }[]
+  blobs: { pathname: string; downloadUrl: string; etag?: string }[]
   hasMore: boolean
   cursor?: string
 } {
   return {
-    blobs: pathnames.map((pathname) => ({ pathname, downloadUrl })),
+    blobs: pathnames.map((pathname) => ({ pathname, downloadUrl, ...(options.etag ? { etag: options.etag } : {}) })),
     hasMore: options.hasMore ?? false,
     ...(options.cursor ? { cursor: options.cursor } : {}),
   }
