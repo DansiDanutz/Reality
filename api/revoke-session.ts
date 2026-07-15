@@ -1,14 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
 import { revokeCitizenTokenPg, verifyCitizenPg } from './_registry.js'
-import { clearSessionCookies } from './_session.js'
+import { clearSessionCookies, csrfMatches, sessionFromCookie } from './_session.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
-  const { citizenId, token } = (req.body ?? {}) as Record<string, unknown>
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const cookieSession = sessionFromCookie(req)
+  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
+  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+  const citizenId = body.citizenId ?? cookieSession?.citizenId
+  const token = bodyToken ?? cookieSession?.token
   if (typeof citizenId !== 'string' || typeof token !== 'string') {
     res.status(400).json({ ok: false, error: 'citizenId and token are required.' })
     return

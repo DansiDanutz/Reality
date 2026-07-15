@@ -14,6 +14,37 @@ afterEach(() => {
 })
 
 describe('revoke session API', () => {
+  test('requires CSRF proof for cookie-authenticated logout', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: { cookie: 'reality_session=00000000-0000-0000-0000-000000000001.cookie-token; reality_csrf=csrf-1' },
+      body: {},
+    } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
+    expect(queryMock).not.toHaveBeenCalled()
+  })
+
+  test('revokes a verified cookie session with matching CSRF proof', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ citizen_id: '00000000-0000-0000-0000-000000000001' }])
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: {
+        cookie: 'reality_session=00000000-0000-0000-0000-000000000001.cookie-token; reality_csrf=csrf-1',
+        'x-reality-csrf': 'csrf-1',
+      },
+      body: {},
+    } as never, res as never)
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toEqual({ ok: true, revoked: true })
+  })
+
   test('revokes a verified token server-side', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     queryMock
