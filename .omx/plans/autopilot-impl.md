@@ -85,7 +85,8 @@
 - Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
 - Founder Area insurance renewals now enforce hourly insurer capacity consistently with initial purchases and `worldSim`.
 - Founder Area backfill now fails early with an explicit Blob credential requirement instead of an opaque SDK stack trace.
-- Local gate: 135 test files, 1,557 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Local gate: 136 test files, 1,558 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Map accessibility fix: the decorative canvas now has a semantic holdings list with keyboard-focusable controls for each owned property.
 - Inventory authority fix: shared-world placement now consumes only server-owned ledger-backed placeable purchases; missing inventory is rejected before charging or inserting the asset.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
