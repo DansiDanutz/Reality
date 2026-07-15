@@ -5659,7 +5659,8 @@ function applyServicePurchaseIntent(
   const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
 
-  const business = chooseAvailableServiceBusiness(state.businesses, intent.serviceKind, state.citizens, new Map())
+  const capacityUsed = seededCapacityUsed(state.transactions, now)
+  const business = chooseAvailableServiceBusiness(state.businesses, intent.serviceKind, state.citizens, capacityUsed)
   if (!business) return { ok: false, error: 'service_not_available' }
   if (!founderHasSpendableFunds(state, actor, business.price)) return { ok: false, error: 'insufficient_funds' }
 
@@ -5724,6 +5725,10 @@ function applyBuyInsuranceIntent(
   if (Number.isFinite(existingPolicyUntil) && existingPolicyUntil > now.getTime()) {
     return { ok: false, error: 'already_insured' }
   }
+  const capacityUsed = seededCapacityUsed(state.transactions, now)
+  if ((capacityUsed.get(insurer.id) ?? 0) >= hourlyServiceCapacity(state.citizens, insurer)) {
+    return { ok: false, error: 'service_unavailable' }
+  }
   if (!founderHasSpendableFunds(state, actor, insurer.price)) return { ok: false, error: 'insufficient_funds' }
 
   const at = now.toISOString()
@@ -5761,6 +5766,17 @@ function applyBuyInsuranceIntent(
       updatedAt: at,
     },
   }
+}
+
+function seededCapacityUsed(transactions: FounderAreaTransaction[], now: Date): Map<string, number> {
+  const capacityUsed = new Map<string, number>()
+  const at = now.toISOString()
+  for (const transaction of transactions) {
+    if (transaction.at !== at) continue
+    if (transaction.kind !== 'customer_purchase' && transaction.kind !== 'insurance_premium') continue
+    capacityUsed.set(transaction.toId, (capacityUsed.get(transaction.toId) ?? 0) + 1)
+  }
+  return capacityUsed
 }
 
 function applyRepayDebtIntent(
@@ -6357,7 +6373,8 @@ function buyInsuranceStatus(error: ApplyBuyInsuranceError): number {
     error === 'actor_unavailable' ||
     error === 'business_not_found' ||
     error === 'not_insurance_business' ||
-    error === 'already_insured'
+    error === 'already_insured' ||
+    error === 'service_unavailable'
   ) {
     return 409
   }
@@ -6377,6 +6394,8 @@ function buyInsuranceMessage(error: ApplyBuyInsuranceError): string {
       return 'Selected business is not an insurance provider.'
     case 'already_insured':
       return 'Founder already has active insurance.'
+    case 'service_unavailable':
+      return 'No insurance capacity remains at the current hour.'
     case 'insufficient_funds':
       return 'Founder balance is too low for this insurance premium.'
     default:
