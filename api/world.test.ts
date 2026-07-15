@@ -180,6 +180,24 @@ describe('world API placement writes', () => {
     })
   })
 
+  test('rejects placement without server-owned inventory', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ new_balance: '200000', refusal: 'inventory' }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Buy this placeable asset before placing it.',
+      code: 'inventory_required',
+    })
+  })
+
   test('rejects unknown or kind-mismatched catalog items before authentication or writes', async () => {
     stubPg()
     const res = responseRecorder()

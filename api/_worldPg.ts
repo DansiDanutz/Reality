@@ -85,6 +85,7 @@ export async function writeWorldPlacement(row: WorldAssetRow, env: NodeJS.Proces
   if (!result || result.refusal === 'insufficient_funds') throw new Error('world_place_insufficient_funds')
   if (result.refusal === 'daily_limit') throw new Error('world_place_daily_limit')
   if (result.refusal === 'asset_mismatch') throw new Error('world_place_asset_mismatch')
+  if (result.refusal === 'inventory') throw new Error('world_place_inventory_missing')
   const balance = Number(result.new_balance)
   if (!Number.isFinite(balance)) throw new Error('world_place_balance_missing')
   return { balance }
