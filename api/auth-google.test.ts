@@ -91,6 +91,41 @@ describe('Google auth API', () => {
     )
   })
 
+  test('requires CSRF proof for explicit cookie-authenticated Google linking', async () => {
+    vi.stubEnv('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
+    vi.stubGlobal('fetch', vi.fn(async () => googleProfileResponse()))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1` },
+      body: { action: 'link', credential: 'good-token' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
+  test('links with a CSRF-protected cookie session when action is explicit', async () => {
+    vi.stubEnv('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
+    vi.stubGlobal('fetch', vi.fn(async () => googleProfileResponse()))
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: {
+        cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1`,
+        'x-reality-csrf': 'csrf-1',
+      },
+      body: { action: 'link', credential: 'good-token' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, linked: true })
+  })
+
   test('restores a linked citizen cloud save for a verified Google account', async () => {
     vi.stubEnv('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
     const account = { citizenId: CITIZEN_ID, linkedAt: '2026-07-06T00:00:00.000Z' }
