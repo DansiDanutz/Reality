@@ -5290,6 +5290,34 @@ describe('reality area authority API', () => {
     expect(body.state.transactions).toHaveLength(waiting.transactions.length)
   })
 
+  test('advanceHour completes multi-day catch-up in bounded persisted batches', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-08T03:00:00.000Z'))
+    const waiting = {
+      ...existingState(),
+      updatedAt: '2026-07-06T03:00:00.000Z',
+    }
+    vi.mocked(list)
+      .mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://multi-day-catch-up-area'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(waiting), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: SERVER_CLOCK_HEADERS,
+      body: {
+        citizenId: CITIZEN_ID,
+        token: TOKEN,
+        intent: { type: 'advanceHour' },
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(put).toHaveBeenCalledTimes(2)
+    expect((res.body as { state: ReturnType<typeof existingState> }).state.updatedAt).toBe('2026-07-08T03:00:00.000Z')
+    expect((res.body as { state: ReturnType<typeof existingState> }).state.simulationAt).toBe('2026-07-08T03:00:00.000Z')
+  })
+
   test('advanceHour scales Sim Citizen service effects by degraded business quality', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
