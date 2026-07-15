@@ -91,6 +91,19 @@ describe('world API placement writes', () => {
     expect(pgQueryMock).not.toHaveBeenCalled()
   })
 
+  test('requires CSRF proof for cookie-authenticated placement', async () => {
+    stubPg()
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: { cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1` },
+      body: { ...VALID_BODY, citizenId: undefined, token: undefined },
+    } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('rejects invalid coordinates before any storage call', async () => {
     stubPg()
     const res = responseRecorder()

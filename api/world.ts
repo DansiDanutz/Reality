@@ -3,6 +3,7 @@ import { itemById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
 import { assetRowFromPlacement, placementsTodayPg, writeWorldPlacement } from './_worldPg.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 
 const WORLD_PLACEMENT_FIELDS = new Set(['citizenId', 'token', 'assetId', 'itemId', 'kind', 'lat', 'lng'])
 
@@ -72,7 +73,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { citizenId, token, assetId, itemId, kind, lat, lng } = body
+  const cookieSession = sessionFromCookie(req)
+  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
+  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+  const citizenId = body.citizenId ?? cookieSession?.citizenId
+  const token = bodyToken ?? cookieSession?.token
+  const { assetId, itemId, kind, lat, lng } = body
   const cleanAssetId = String(assetId ?? '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 60)
   const cleanItemId = String(itemId ?? '').replace(/[^a-z_]/g, '').slice(0, 30)
   const nLat = Number(lat)
