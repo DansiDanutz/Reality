@@ -143,6 +143,22 @@ describe('construction placement guard', () => {
   })
 })
 
+describe('session reset', () => {
+  test('revokes an online session before clearing local state', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })))
+    useGame.setState({ citizen: { name: 'David', founderNumber: 1, createdAt: Date.now(), citizenId: 'citizen-1', token: 'session-1' } })
+
+    useGame.getState().reset()
+    await Promise.resolve()
+
+    expect(fetch).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ citizenId: 'citizen-1', token: 'session-1' }),
+    }))
+    expect(useGame.getState().citizen).toBeNull()
+  })
+})
+
 describe('hard work body gates', () => {
   test('gathering, building, business work, shifts, and gigs require food and water', () => {
     const now = Date.now()
