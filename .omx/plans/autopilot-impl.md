@@ -16,6 +16,7 @@
 
 ## Day 2 — Atomic Founder Area repository
 
+- Progress: Blob ETag conditional writes and a separate simulation cursor are implemented in the current P0 slice; regression coverage is green.
 - Adapt Founder Area to the existing revision-aware repository/CAS contract.
 - Add idempotency keys and unique transaction constraints.
 - Serialize read/advance/validate/write per area in Postgres.
@@ -23,6 +24,7 @@
 
 ## Day 3 — Honest real-time clock
 
+- Progress: persisted `simulationAt` is now independent from `updatedAt` for new snapshots, with backward-compatible legacy fallback.
 - Split `simulatedThroughAt` from mutation timestamps.
 - Advance to command time before every intent.
 - Replace silent 24-hour truncation with bounded batching that reaches the target or reports continuation.
