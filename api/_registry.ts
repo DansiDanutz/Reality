@@ -148,6 +148,20 @@ export async function revokeCitizenTokenPg(sql: SqlClient, citizenId: string): P
   return rows.length > 0
 }
 
+export async function claimAvatarGenerationPg(
+  sql: SqlClient,
+  citizenId: string,
+  day: string,
+  perCitizenLimit: number,
+  globalLimit: number,
+): Promise<'citizen' | 'global' | null> {
+  const rows = (await sql.query(
+    'SELECT reality_claim_avatar_slot($1, $2::date, $3, $4) AS refusal',
+    [citizenId, day, perCitizenLimit, globalLimit],
+  )) as Array<{ refusal: 'citizen' | 'global' | null }>
+  return rows[0]?.refusal ?? null
+}
+
 /**
  * The founder race guard. A single atomic UPDATE claims the lowest free
  * slot; the partial unique index citizens_founder_number_key guarantees two

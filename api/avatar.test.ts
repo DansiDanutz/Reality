@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto'
-import { get, list, put } from '@vercel/blob'
+import { get, put } from '@vercel/blob'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
 import handler from './avatar'
@@ -12,14 +11,11 @@ vi.mock('@neondatabase/serverless', () => ({
 
 vi.mock('@vercel/blob', () => ({
   get: vi.fn(),
-  list: vi.fn(),
   put: vi.fn(async () => ({ url: 'blob://avatar-written' })),
 }))
 
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'avatar-token'
-const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
-const CITIZEN_PATH = `citizens/${CITIZEN_ID}__${TOKEN_HASH}__12.json`
 
 beforeEach(() => {
   vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
@@ -33,7 +29,6 @@ afterEach(() => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
   vi.mocked(get).mockReset()
-  vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
 })
 
@@ -70,7 +65,6 @@ describe('avatar API request authority', () => {
         error: 'Avatar request contains fields the server must own.',
         code: 'client_controlled_avatar_field',
       })
-      expect(list).not.toHaveBeenCalled()
       expect(put).not.toHaveBeenCalled()
       expect(fetchSpy).not.toHaveBeenCalled()
     }
@@ -94,7 +88,6 @@ describe('avatar API request authority', () => {
       ok: false,
       error: 'The avatar studio is not configured on this server yet.',
     })
-    expect(list).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
   })
 
@@ -103,9 +96,7 @@ describe('avatar API request authority', () => {
     vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'))
     vi.stubEnv('OPENAI_API_KEY', 'test-openai-key')
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
-    vi.mocked(list)
-      .mockResolvedValueOnce(blobList([]))
-      .mockResolvedValueOnce(blobList([]))
+    pgQueryMock.mockResolvedValueOnce([{ refusal: null }]) // atomic citizen/global quota reservation
     vi.stubGlobal('fetch', vi.fn(async () =>
       new Response(JSON.stringify({
         data: [{ b64_json: Buffer.from('fake-png').toString('base64') }],
@@ -128,6 +119,8 @@ describe('avatar API request authority', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-openai-key' },
     }))
+    expect(String(pgQueryMock.mock.calls[1][0])).toContain('reality_claim_avatar_slot')
+    expect(pgQueryMock.mock.calls[1][1]).toEqual([CITIZEN_ID, '2026-07-07', 5, 500])
     expect(put).toHaveBeenCalledWith(
       `avatars/${CITIZEN_ID}.png`,
       Buffer.from('fake-png'),
@@ -155,13 +148,6 @@ function validAvatarParams() {
     hairColor: 'dark brown',
     hairStyle: 'short',
     eyeColor: 'brown',
-  }
-}
-
-function blobList(pathnames: string[]): { blobs: { pathname: string }[]; hasMore: boolean } {
-  return {
-    blobs: pathnames.map((pathname) => ({ pathname })),
-    hasMore: false,
   }
 }
 
