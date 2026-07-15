@@ -336,6 +336,35 @@ describe('reality area authority API', () => {
     expect(pgQueryMock.mock.calls[2]?.[1]?.[2]).toBe(4)
   })
 
+  test('runtime Postgres CAS conflicts re-read and reapply once', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    vi.stubEnv('REALITY_FOUNDER_AREA_POSTGRES', '1')
+    const state = existingState()
+    const row = (revision: string) => [{
+      citizen_id: CITIZEN_ID, area_id: state.areaId, revision,
+      simulation_at: state.simulationAt, updated_at: state.updatedAt, state,
+    }]
+    pgQueryMock
+      .mockResolvedValueOnce(pgVerifyRows)
+      .mockResolvedValueOnce(row('4'))
+      .mockRejectedValueOnce(new Error('founder_area_revision_conflict'))
+      .mockResolvedValueOnce(row('5'))
+      .mockResolvedValueOnce([{ revision: '6' }])
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: { citizenId: CITIZEN_ID, token: TOKEN, intent: { type: 'buildBusiness', businessKind: 'water', businessId: 'pg-retry-water' } },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { state: ReturnType<typeof existingState> }).state.businesses[0]?.id).toBe('pg-retry-water')
+    expect(put).not.toHaveBeenCalled()
+    expect(pgQueryMock.mock.calls.filter(([statement]) => String(statement).includes('reality_save_founder_area'))).toHaveLength(2)
+    expect(pgQueryMock.mock.calls[4]?.[1]?.[2]).toBe(5)
+  })
+
   test('treats an unclaimed founder slot (null) as founder number 0', async () => {
     pgVerifyRows = [{ founder_number: null, raw: {} }]
     await expect(verifyCitizen(CITIZEN_ID, TOKEN)).resolves.toEqual({
