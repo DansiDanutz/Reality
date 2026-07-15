@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
 import { revokeCitizenTokenPg, verifyCitizenPg } from './_registry.js'
+import { clearSessionCookies } from './_session.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -18,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
     const revoked = await revokeCitizenTokenPg(db() as never, citizenId)
-    res.setHeader('Set-Cookie', 'reality_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax')
+    clearSessionCookies(res)
     res.status(200).json({ ok: true, revoked })
   } catch {
     res.status(503).json({ ok: false, error: 'Session revocation is briefly unavailable.', code: 'session_revoke_unavailable' })

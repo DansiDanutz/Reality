@@ -3,6 +3,7 @@ import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 
 /**
  * Phase 1b.5 intent/ledger core (issue #904): the server-authoritative
@@ -153,8 +154,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
-  const { citizenId: rawCitizenId, token, intent: rawIntent, predictedBalance } = (req.body ?? {}) as Record<string, unknown>
-  const citizenId = String(rawCitizenId)
+  const { citizenId: rawCitizenId, token: rawToken, intent: rawIntent, predictedBalance } = (req.body ?? {}) as Record<string, unknown>
+  const cookieSession = sessionFromCookie(req)
+  const bodyToken = typeof rawToken === 'string' && rawToken.length > 0 ? rawToken : null
+  const cookieAuth = !bodyToken && cookieSession
+  if (cookieAuth && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, code: 'csrf_required', error: 'A valid Reality CSRF token is required.' })
+    return
+  }
+  const citizenId = String(rawCitizenId ?? cookieSession?.citizenId ?? '')
+  const token = bodyToken ?? cookieSession?.token ?? ''
   const normalized = normalizeIntent(rawIntent)
   if (!normalized.ok) {
     res.status(normalized.code === 'unsupported_intent' ? 400 : 422).json(normalized)

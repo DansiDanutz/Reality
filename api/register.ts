@@ -17,15 +17,13 @@ import {
   verifyTelegramMiniAppInitData,
   type TelegramRealityAccountRecord,
 } from './telegram-auth.js'
+import { issueSessionCookies } from './_session.js'
 
 const REGISTRATION_SAFETY_UNAVAILABLE_RESPONSE = {
   ok: false,
   error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
   code: 'registration_safety_unavailable',
 } as const
-
-const SESSION_COOKIE = 'reality_session'
-const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 
 type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
 
@@ -173,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(`${citizenId}.${token}`)}; Max-Age=${SESSION_MAX_AGE_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Lax`)
+    issueSessionCookies(res, { citizenId, token })
     res.status(200).json({
       ok: true,
       citizenId,
