@@ -34,5 +34,7 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/PERFORM pg_advisory_xact_lock\(hashtext\(p_citizen::text\)\)/)
     expect(schema).toMatch(/INSERT INTO assets \(asset_id, citizen_id, item_id, kind, lat, lng, placed_at, raw\)/)
     expect(schema).toMatch(/'world.place'/)
+    expect(schema).toMatch(/p_daily_limit integer/)
+    expect(schema).toMatch(/daily_limit/)
   })
 })

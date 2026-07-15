@@ -141,6 +141,7 @@ describe('world API placement writes', () => {
       45_000,
       JSON.stringify({ assetId: 'starter-home-1', itemId: 'microstudio', kind: 'home', lat: 44.45, lng: 26.08, price: 45_000 }),
       '2026-07-10T12:00:00.000Z',
+      20,
     ])
   })
 

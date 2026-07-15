@@ -27,6 +27,7 @@ function placement() {
     lng: 26.08,
     placedAt: PLACED_AT,
     price: 45_000,
+    dailyLimit: 20,
   })
 }
 
@@ -50,6 +51,7 @@ describe('assetRowFromPlacement', () => {
       lng: 26.08,
       placedAt: PLACED_AT.toISOString(),
       price: 45_000,
+      dailyLimit: 20,
     })
   })
 })
@@ -74,6 +76,7 @@ describe('writeWorldPlacement (authoritative since Phase 1b.6)', () => {
       45_000,
       JSON.stringify({ assetId: 'starter-home-1', itemId: 'small_home', kind: 'home', lat: 44.45, lng: 26.08, price: 45_000 }),
       PLACED_AT.toISOString(),
+      20,
     ])
   })
 
@@ -87,6 +90,12 @@ describe('writeWorldPlacement (authoritative since Phase 1b.6)', () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     queryMock.mockResolvedValueOnce([{ new_balance: '10', refusal: 'insufficient_funds' }])
     await expect(writeWorldPlacement(placement())).rejects.toThrow('world_place_insufficient_funds')
+  })
+
+  test('turns an atomic daily-limit refusal into a deterministic error', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([{ new_balance: '10', refusal: 'daily_limit' }])
+    await expect(writeWorldPlacement(placement())).rejects.toThrow('world_place_daily_limit')
   })
 })
 
