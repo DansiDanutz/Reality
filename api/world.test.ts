@@ -115,35 +115,33 @@ describe('world API placement writes', () => {
     expect(verifyParams).toEqual([CITIZEN_ID, TOKEN_HASH])
   })
 
-  test('stores a placement: assets upsert + world.place ledger entry, structured columns', async () => {
+  test('stores a placement through one atomic server economy operation', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'))
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }]) // citizen verified
       .mockResolvedValueOnce([{ count: 3 }]) // cap check: 3 today
-      .mockResolvedValueOnce([]) // asset upsert
-      .mockResolvedValueOnce([]) // ledger entry
+      .mockResolvedValueOnce([{ new_balance: '155000', refusal: null }]) // atomic asset + ledger operation
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
 
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ ok: true })
-    const [upsertSql, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    expect(upsertSql).toMatch(/INSERT INTO assets/i)
-    expect(upsertSql).toMatch(/ON CONFLICT \(citizen_id, asset_id\) DO UPDATE/i)
-    expect(upsertParams).toEqual([
-      'starter-home-1',
+    const [placeSql, placeParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    expect(placeSql).toMatch(/reality_place_asset/i)
+    expect(placeParams).toEqual([
       CITIZEN_ID,
+      'starter-home-1',
       'microstudio',
       'home',
       44.45,
       26.08,
+      45_000,
+      JSON.stringify({ assetId: 'starter-home-1', itemId: 'microstudio', kind: 'home', lat: 44.45, lng: 26.08, price: 45_000 }),
       '2026-07-10T12:00:00.000Z',
     ])
-    const [ledgerSql] = pgQueryMock.mock.calls[3] as [string]
-    expect(ledgerSql).toMatch(/INSERT INTO ledger/i)
   })
 
   test('blocks placements once the daily ledger cap is reached', async () => {
