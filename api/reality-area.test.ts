@@ -306,6 +306,27 @@ describe('reality area authority API', () => {
     expect(pgQueryMock.mock.calls[1]?.[0]).toMatch(/FROM founder_area_snapshots/i)
   })
 
+  test('runtime Postgres mode fails closed on a malformed database snapshot', async () => {
+    vi.stubEnv('REALITY_FOUNDER_AREA_POSTGRES', '1')
+    pgQueryMock
+      .mockResolvedValueOnce(pgVerifyRows)
+      .mockResolvedValueOnce([{
+        citizen_id: CITIZEN_ID,
+        area_id: 'founder-area-0012',
+        revision: '7',
+        simulation_at: null,
+        updated_at: '2026-07-06T03:00:00.000Z',
+        state: { malformed: true },
+      }])
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { state: unknown }).state).toBeNull()
+    expect(list).not.toHaveBeenCalled()
+  })
+
   test('runtime Postgres mode persists a mutation through revision CAS without Blob writes', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))

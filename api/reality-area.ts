@@ -2088,7 +2088,8 @@ function telegramCitizenAuthFields(value: Record<string, unknown>): Partial<Citi
 async function readAreaState(citizenId: string): Promise<FounderAreaPersistedState | null> {
   if (founderAreaPgEnabled()) {
     const row = await readFounderAreaPg(citizenId)
-    if (row && isFounderAreaState(row.state, citizenId)) {
+    if (row) {
+      if (!isFounderAreaState(row.state, citizenId)) return null
       const state = normalizeAreaCitizens(row.state)
       return { ...state, __storageRevision: row.revision }
     }
