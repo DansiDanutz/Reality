@@ -1795,6 +1795,7 @@ const BASE_SERVICE_CAPACITY_PER_HOUR: Record<FounderAreaBusinessKind, number> = 
 const STAFF_CAPACITY_MULTIPLIER = 0.75
 const SERVER_AREA_TICK_MS = 3_600_000
 const MAX_SERVER_AREA_CATCH_UP_HOURS = 24
+const MAX_SERVER_AREA_CATCH_UP_BATCHES = 365
 
 export function areaStatePath(citizenId: string): string {
   return `reality-areas/${citizenId}.json`
@@ -4362,8 +4363,13 @@ async function catchUpPersistedAreaState(
   state: FounderAreaState,
   now: Date,
 ): Promise<FounderAreaState> {
-  const caughtUp = catchUpAreaClock(state, now)
-  return caughtUp ? persistAreaState(citizenId, caughtUp, true) : state
+  let current = state
+  for (let batch = 0; batch < MAX_SERVER_AREA_CATCH_UP_BATCHES; batch += 1) {
+    const caughtUp = catchUpAreaClock(current, now)
+    if (!caughtUp) return current
+    current = await persistAreaState(citizenId, caughtUp, true)
+  }
+  throw new Error('area_clock_catch_up_limit')
 }
 
 function isAreaWriteConflict(error: unknown): boolean {
@@ -4538,7 +4544,15 @@ async function runAdvanceHourMutation(
 ): Promise<AdvanceHourMutationResult> {
   let existing: FounderAreaPersistedState | null = initial
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = applyAdvanceHourIntent(existing, rawIntent, now)
+    let caughtUp = existing
+    try {
+      if (existing) caughtUp = await catchUpPersistedAreaState(citizenId, existing, now)
+    } catch {
+      return { ok: false, error: 'area_load_unavailable', state: existing }
+    }
+    if (existing && caughtUp !== existing) return { ok: true, state: caughtUp }
+
+    const result = applyAdvanceHourIntent(caughtUp, rawIntent, now)
     if (!result.ok) return { ok: false, error: result.error, state: existing }
     try {
       return { ok: true, state: await persistAreaState(citizenId, result.state, true) }
