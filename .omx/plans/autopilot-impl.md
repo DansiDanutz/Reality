@@ -76,6 +76,7 @@
 - World placement now charges the server ledger and inserts the asset atomically through `reality_place_asset`, with idempotent retries by citizen and asset id.
 - The daily world-placement quota is enforced inside `reality_place_asset`, so concurrent requests cannot bypass the cap.
 - Existing placement IDs are identity-immutable; mismatched item or kind retries return an explicit conflict.
+- Overpass proxy admission now accepts only scalar `lat`/`lng` parameters, rejecting cache-bypass keys and repeated coordinate values before contacting mirrors.
 - Local gate: 127 test files, 1,520 tests, build, and lint pass; 7 existing lint warnings remain.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
