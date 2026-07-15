@@ -65,6 +65,9 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(res.statusCode).toBe(200)
     expect(res.body).toMatchObject({ ok: true, founderNumber: 1, slotsClaimed: 1, slotsTotal: FOUNDER_SLOTS })
     const body = res.body as { citizenId: string; token: string }
+    expect(res.headers['Set-Cookie']).toContain('reality_session=')
+    expect(res.headers['Set-Cookie']).toContain('HttpOnly')
+    expect(res.headers['Set-Cookie']).toContain('SameSite=Lax')
 
     // Postgres is authoritative: insert, claim, post-claim update
     expect(pgQueryMock).toHaveBeenCalledTimes(4)
@@ -342,11 +345,17 @@ function blobList(pathnames: string[]): { blobs: { pathname: string }[]; hasMore
 function responseRecorder(): {
   statusCode: number
   body: unknown
+  headers: Record<string, string>
+  setHeader: (name: string, value: string) => void
   status: (statusCode: number) => { json: (body: unknown) => void }
 } {
   const recorder = {
     statusCode: 200,
     body: undefined as unknown,
+    headers: {} as Record<string, string>,
+    setHeader(name: string, value: string) {
+      recorder.headers[name] = value
+    },
     status(statusCode: number) {
       recorder.statusCode = statusCode
       return {
