@@ -6809,15 +6809,94 @@ function isFounderAreaState(value: unknown, citizenId: string): value is Founder
     value.founderCitizenId === citizenId &&
     typeof value.areaId === 'string' &&
     typeof value.founderNumber === 'number' &&
+    Number.isInteger(value.founderNumber) &&
     typeof value.balance === 'number' &&
+    Number.isFinite(value.balance) &&
     typeof value.updatedAt === 'string' &&
     Number.isFinite(Date.parse(value.updatedAt)) &&
-    isRecord(value.claim) &&
-    (value.claim.telegramUserId === undefined || typeof value.claim.telegramUserId === 'string') &&
-    (value.claim.telegramAccountId === undefined || typeof value.claim.telegramAccountId === 'string') &&
-    Array.isArray(value.businesses) &&
-    Array.isArray(value.transactions) &&
-    (value.areaEvents === undefined || Array.isArray(value.areaEvents))
+    (value.simulationAt === undefined || (typeof value.simulationAt === 'string' && Number.isFinite(Date.parse(value.simulationAt)))) &&
+    isFounderAreaClaim(value.claim) &&
+    Array.isArray(value.businesses) && value.businesses.every(isFounderAreaBusiness) &&
+    Array.isArray(value.citizens) && value.citizens.every(isFounderAreaCitizen) &&
+    Array.isArray(value.transactions) && value.transactions.every(isFounderAreaTransaction) &&
+    (value.areaEvents === undefined || (Array.isArray(value.areaEvents) && value.areaEvents.every(isFounderAreaEvent)))
+}
+
+function isFounderAreaClaim(value: unknown): value is FounderAreaClaim {
+  return isRecord(value) &&
+    UUID_RE.test(text(value.founderCitizenId)) &&
+    Number.isInteger(value.founderNumber) &&
+    typeof value.label === 'string' && value.label.length > 0 &&
+    Number.isFinite(value.centerLat) && value.centerLat >= -90 && value.centerLat <= 90 &&
+    Number.isFinite(value.centerLng) && value.centerLng >= -180 && value.centerLng <= 180 &&
+    Number.isFinite(value.radiusKm) && value.radiusKm >= MIN_FOUNDER_AREA_RADIUS_KM && value.radiusKm <= MAX_FOUNDER_AREA_RADIUS_KM &&
+    typeof value.claimedAt === 'string' && Number.isFinite(Date.parse(value.claimedAt)) &&
+    isAreaClaimSource(value.source) &&
+    (value.telegramUserId === undefined || typeof value.telegramUserId === 'string') &&
+    (value.telegramAccountId === undefined || typeof value.telegramAccountId === 'string')
+}
+
+function isAreaClaimSource(value: unknown): value is AreaClaimSource {
+  return CLAIM_SOURCES.includes(value as AreaClaimSource)
+}
+
+function isFounderAreaBusinessKind(value: unknown): value is FounderAreaBusinessKind {
+  return BUSINESS_KINDS.includes(value as FounderAreaBusinessKind)
+}
+
+function isFounderAreaTransactionKind(value: unknown): value is FounderAreaTransactionKind {
+  return TRANSACTION_KINDS.includes(value as FounderAreaTransactionKind)
+}
+
+function isFounderAreaBusiness(value: unknown): value is FounderAreaBusiness {
+  return isRecord(value) &&
+    isClientId(text(value.id)) &&
+    typeof value.name === 'string' && value.name.length > 0 &&
+    isFounderAreaBusinessKind(value.kind) &&
+    isClientId(text(value.ownerId)) &&
+    Number.isFinite(value.cash) && Number.isFinite(value.price) &&
+    Number.isFinite(value.wagePerHour) && Number.isFinite(value.quality) &&
+    Array.isArray(value.staffCitizenIds) && value.staffCitizenIds.every((id) => typeof id === 'string' && isClientId(id)) &&
+    typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt)) &&
+    isClientId(text(value.createdBy))
+}
+
+function isFounderAreaCitizen(value: unknown): value is FounderAreaCitizen {
+  return isRecord(value) &&
+    isClientId(text(value.id)) &&
+    typeof value.name === 'string' && value.name.length > 0 &&
+    (value.kind === 'real' || value.kind === 'sim') &&
+    Number.isFinite(value.money) && Number.isFinite(value.debt) &&
+    isFounderAreaNeeds(value.needs) && Number.isFinite(value.health) &&
+    isFounderAreaCitizenState(value.state) &&
+    (value.debts === undefined || (Array.isArray(value.debts) && value.debts.every(isFounderAreaDebt)))
+}
+
+function isFounderAreaCitizenState(value: unknown): boolean {
+  return isRecord(value) && (
+    value.kind === 'active' ||
+    (value.kind === 'hospitalized' && typeof value.until === 'string' && Number.isFinite(Date.parse(value.until)))
+  )
+}
+
+function isFounderAreaDebt(value: unknown): value is FounderAreaDebt {
+  return isRecord(value) && isAreaRecordId(text(value.id)) && value.kind === 'medical' &&
+    isClientId(text(value.creditorId)) && Number.isFinite(value.amount) &&
+    typeof value.issuedAt === 'string' && Number.isFinite(Date.parse(value.issuedAt)) &&
+    typeof value.memo === 'string'
+}
+
+function isFounderAreaTransaction(value: unknown): value is FounderAreaTransaction {
+  return isRecord(value) && isAreaRecordId(text(value.id)) &&
+    typeof value.at === 'string' && Number.isFinite(Date.parse(value.at)) &&
+    isFounderAreaTransactionKind(value.kind) &&
+    (value.payoutEligibility === 'game_only' || value.payoutEligibility === 'payout_eligible') &&
+    isClientId(text(value.fromId)) && isClientId(text(value.toId)) &&
+    Number.isFinite(value.amount) && typeof value.memo === 'string'
+}
+
+function isAreaRecordId(value: string): boolean {
+  return /^[A-Za-z0-9:_-]{1,256}$/.test(value)
 }
 
 function isFounderAreaEvent(value: unknown): value is FounderAreaEvent {
