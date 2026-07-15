@@ -68,9 +68,9 @@
 ## Current autonomous progress (2026-07-15)
 
 - Server-owned genesis, Telegram uniqueness, nested snapshot validation, and `buildBusiness` fresh-reapply are merged and CI-green.
-- Founder service, insurance, and worker-hiring mutations now perform one fresh read/reapply after a Blob CAS conflict, with deterministic retryable failure after the bounded retry.
+- Founder service, insurance, worker-hiring, and server-authorized clock mutations now perform one fresh read/reapply after a Blob CAS conflict, with deterministic retryable failure after the bounded retry.
 - Local gate: 127 test files, 1,520 tests, build, and lint pass; 7 existing lint warnings remain.
-- Next: apply the conflict boundary to covenant review and server-clock mutation paths, then replace Blob-only coordination with an authoritative repository transaction.
+- Next: apply the conflict boundary to covenant review paths, then replace Blob-only coordination with an authoritative repository transaction.
 
 ## First autonomous implementation slice
 
