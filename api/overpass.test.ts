@@ -32,6 +32,21 @@ describe('overpass proxy API', () => {
     }
   })
 
+  test('rejects cache-bypass query variants and repeated coordinate values', async () => {
+    for (const query of [
+      { lat: '44.45', lng: '26.08', cacheBust: 'random' },
+      { lat: ['44.45', '44.46'], lng: '26.08' },
+      { lat: '44.45', lng: ['26.08', '26.09'] },
+    ]) {
+      const res = responseRecorder()
+
+      await handler({ method: 'GET', query } as never, res as never)
+
+      expect(res.statusCode).toBe(400)
+      expect(res.body).toEqual({ ok: false, error: 'lat and lng query params are required' })
+    }
+  })
+
   test('forwards the discovery query and returns elements with a long CDN cache', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ elements: [{ type: 'node', lat: 1, lon: 2 }] }), { status: 200 }) as never,

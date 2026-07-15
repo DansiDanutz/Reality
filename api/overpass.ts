@@ -31,9 +31,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const lat = Number(req.query.lat)
-  const lng = Number(req.query.lng)
-  if (!isLatitude(lat) || !isLongitude(lng)) {
+  if (!hasOnlyCoordinateParams(req.query)) {
+    res.status(400).json({ ok: false, error: 'lat and lng query params are required' })
+    return
+  }
+
+  const lat = parseCoordinate(req.query.lat)
+  const lng = parseCoordinate(req.query.lng)
+  if (lat === null || lng === null || !isLatitude(lat) || !isLongitude(lng)) {
     res.status(400).json({ ok: false, error: 'lat and lng query params are required' })
     return
   }
@@ -88,6 +93,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // All mirrors failed: tell the client cleanly; it keeps its fallback nodes.
   res.setHeader('Cache-Control', 'public, s-maxage=120')
   res.status(502).json({ ok: false, error: 'All Overpass mirrors failed' })
+}
+
+function hasOnlyCoordinateParams(query: VercelRequest['query']): boolean {
+  const keys = Object.keys(query)
+  return keys.length === 2 && keys.includes('lat') && keys.includes('lng')
+}
+
+function parseCoordinate(value: string | string[] | undefined): number | null {
+  if (typeof value !== 'string' || value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 /** Mirror of src/game/mapDiscovery.ts buildDiscoveryQuery — tests keep them identical. */
