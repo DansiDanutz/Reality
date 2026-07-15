@@ -1,6 +1,7 @@
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCitizenPg } from './_registry.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 
 interface GoogleProfile {
   sub: string
@@ -50,7 +51,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { credential, citizenId, token } = (req.body ?? {}) as Record<string, unknown>
+  const { credential, citizenId, token, action } = (req.body ?? {}) as Record<string, unknown>
+  const cookieSession = sessionFromCookie(req)
+  const cookieLink = action === 'link' && !token && cookieSession
+  if (cookieLink && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+  const linkCitizenId = citizenId ?? (action === 'link' ? cookieSession?.citizenId : undefined)
+  const linkToken = token ?? (action === 'link' ? cookieSession?.token : undefined)
 
   try {
     const profile = await verifyGoogle(String(credential ?? ''))
@@ -60,12 +69,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Link flow: bind this Google account to the calling citizen
-    if (citizenId && token) {
-      if (!(await verifyCitizenPg(String(citizenId), String(token)))) {
+    if (linkCitizenId && linkToken) {
+      if (!(await verifyCitizenPg(String(linkCitizenId), String(linkToken)))) {
         res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
         return
       }
-      await put(`accounts/${profile.sub}.json`, JSON.stringify({ citizenId, linkedAt: new Date().toISOString() }), {
+      await put(`accounts/${profile.sub}.json`, JSON.stringify({ citizenId: linkCitizenId, linkedAt: new Date().toISOString() }), {
         access: 'private',
         addRandomSuffix: false,
         allowOverwrite: true,

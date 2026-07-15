@@ -85,7 +85,7 @@
 - Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
 - Founder Area insurance renewals now enforce hourly insurer capacity consistently with initial purchases and `worldSim`.
 - Founder Area backfill now fails early with an explicit Blob credential requirement instead of an opaque SDK stack trace.
-- Local gate: 137 test files, 1,567 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Local gate: 137 test files, 1,569 tests, build, and lint pass; only pre-existing lint warnings remain.
 - Map accessibility fix: the decorative canvas now has a semantic holdings list with keyboard-focusable controls for each owned property.
 - Session transport fix: registration now issues a bounded Secure/HttpOnly/SameSite session cookie and revocation clears it; legacy token responses remain during migration.
 - E2E release fix: CI now runs Playwright against the production preview, with first-session and 320px mobile shell coverage.
@@ -93,6 +93,7 @@
 - Cookie-auth expansion: world placement, avatar generation, and cloud-save now enforce the same CSRF proof for cookie-authenticated requests.
 - Leaderboard auth expansion: score submissions now enforce the same CSRF proof for cookie-authenticated requests.
 - Logout auth expansion: explicit session revocation now enforces the same CSRF proof for cookie-authenticated logout.
+- Google auth expansion: explicit link actions now enforce the same CSRF proof while restore remains unchanged.
 - Inventory authority fix: shared-world placement now consumes only server-owned ledger-backed placeable purchases; missing inventory is rejected before charging or inserting the asset.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
