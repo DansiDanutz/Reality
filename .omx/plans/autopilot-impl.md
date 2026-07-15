@@ -19,6 +19,7 @@
 
 - Progress: Blob ETag conditional writes and a separate simulation cursor are implemented in the current P0 slice; regression coverage is green.
 - Progress: nested Founder Area snapshot validation now rejects malformed persisted citizens and transactions before simulation writes.
+- Progress: `buildBusiness` now has a bounded fresh-read/reapply path for Blob CAS conflicts; broader mutation routing remains pending.
 - Adapt Founder Area to the existing revision-aware repository/CAS contract.
 - Add idempotency keys and unique transaction constraints.
 - Serialize read/advance/validate/write per area in Postgres.
