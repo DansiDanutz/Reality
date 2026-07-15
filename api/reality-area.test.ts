@@ -2733,9 +2733,9 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
-  test('service purchases seed same-tick capacity from recorded purchases', async () => {
+  test('service purchases seed same-hour capacity from recorded purchases', async () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-06T05:00:00.000Z'))
+    vi.setSystemTime(new Date('2026-07-06T05:37:00.000Z'))
     const existing = withBusiness({
       ...withCitizen(existingState(), CITIZEN_ID, {
         needs: { hydration: 40 },
@@ -6493,9 +6493,9 @@ describe('reality area authority API', () => {
     )
   })
 
-  test('buyInsurance seeds same-tick capacity from recorded premiums', async () => {
+  test('buyInsurance seeds same-hour capacity from recorded premiums', async () => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    vi.setSystemTime(new Date('2026-07-06T08:24:00.000Z'))
     const existing = withBusiness({
       ...existingState(),
       transactions: [

@@ -5659,7 +5659,7 @@ function applyServicePurchaseIntent(
   const actor = state.citizens.find((citizen) => citizen.id === state.founderCitizenId)
   if (!actor || actor.state.kind !== 'active') return { ok: false, error: 'actor_unavailable' }
 
-  const capacityUsed = seededCapacityUsed(state.transactions, now)
+  const capacityUsed = seededHourlyCapacityUsed(state.transactions, now)
   const business = chooseAvailableServiceBusiness(state.businesses, intent.serviceKind, state.citizens, capacityUsed)
   if (!business) return { ok: false, error: 'service_not_available' }
   if (!founderHasSpendableFunds(state, actor, business.price)) return { ok: false, error: 'insufficient_funds' }
@@ -5725,7 +5725,7 @@ function applyBuyInsuranceIntent(
   if (Number.isFinite(existingPolicyUntil) && existingPolicyUntil > now.getTime()) {
     return { ok: false, error: 'already_insured' }
   }
-  const capacityUsed = seededCapacityUsed(state.transactions, now)
+  const capacityUsed = seededHourlyCapacityUsed(state.transactions, now)
   if ((capacityUsed.get(insurer.id) ?? 0) >= hourlyServiceCapacity(state.citizens, insurer)) {
     return { ok: false, error: 'service_unavailable' }
   }
@@ -5768,11 +5768,12 @@ function applyBuyInsuranceIntent(
   }
 }
 
-function seededCapacityUsed(transactions: FounderAreaTransaction[], now: Date): Map<string, number> {
+function seededHourlyCapacityUsed(transactions: FounderAreaTransaction[], now: Date): Map<string, number> {
   const capacityUsed = new Map<string, number>()
-  const at = now.toISOString()
+  const hour = Math.floor(now.getTime() / SERVER_AREA_TICK_MS)
   for (const transaction of transactions) {
-    if (transaction.at !== at) continue
+    const transactionMs = Date.parse(transaction.at)
+    if (!Number.isFinite(transactionMs) || Math.floor(transactionMs / SERVER_AREA_TICK_MS) !== hour) continue
     if (transaction.kind !== 'customer_purchase' && transaction.kind !== 'insurance_premium') continue
     capacityUsed.set(transaction.toId, (capacityUsed.get(transaction.toId) ?? 0) + 1)
   }
