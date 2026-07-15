@@ -2,6 +2,7 @@ import { get, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { claimAvatarGenerationPg, verifyCitizenPg } from './_registry.js'
 import { db } from './_db.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const GENERATIONS_PER_DAY = 5
@@ -160,13 +161,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  const cookieSession = sessionFromCookie(req)
+  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
+  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     res.status(503).json({ ok: false, error: 'The avatar studio is not configured on this server yet.' })
     return
   }
 
-  const { citizenId, token, params } = body
+  const citizenId = body.citizenId ?? cookieSession?.citizenId
+  const token = bodyToken ?? cookieSession?.token
+  const params = body.params
   if (!validateAvatarParams(params)) {
     res.status(400).json({ ok: false, error: 'Those measurements do not look right — check the form.' })
     return

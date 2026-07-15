@@ -1,6 +1,7 @@
 import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCitizenPg } from './_registry.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 
 const MAX_SAVE_BYTES = 256_000
 
@@ -11,7 +12,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { citizenId, token, save } = (req.body ?? {}) as Record<string, unknown>
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const cookieSession = sessionFromCookie(req)
+  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
+  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+  const citizenId = body.citizenId ?? cookieSession?.citizenId
+  const token = bodyToken ?? cookieSession?.token
+  const save = body.save
   if (typeof save !== 'string' || save.length === 0 || save.length > MAX_SAVE_BYTES) {
     res.status(400).json({ ok: false, error: 'Invalid save payload.' })
     return

@@ -32,6 +32,18 @@ afterEach(() => {
 })
 
 describe('cloud save API', () => {
+  test('requires CSRF proof for cookie-authenticated saves', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    const res = responseRecorder()
+    await handler({
+      method: 'POST',
+      headers: { cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1` },
+      body: { save: SAVE },
+    } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
   test('stores a valid save for a registered citizen', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
     const res = responseRecorder()
