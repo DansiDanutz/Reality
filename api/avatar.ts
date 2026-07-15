@@ -1,6 +1,7 @@
-import { get, list, put } from '@vercel/blob'
+import { get, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { verifyCitizenPg } from './_registry.js'
+import { claimAvatarGenerationPg, verifyCitizenPg } from './_registry.js'
+import { db } from './_db.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const GENERATIONS_PER_DAY = 5
@@ -177,18 +178,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    // 5 generations per real day per citizen
+    // Reserve the billed generation before calling OpenAI. The old Blob
+    // list-then-write gate allowed concurrent requests to overspend both the
+    // citizen and global budgets.
     const day = new Date().toISOString().slice(0, 10)
-    const used = await list({ prefix: `avatarrate/${citizenId}__${day}`, limit: GENERATIONS_PER_DAY + 1 })
-    if (used.blobs.length >= GENERATIONS_PER_DAY) {
+    const refusal = await claimAvatarGenerationPg(
+      db() as never,
+      String(citizenId),
+      day,
+      GENERATIONS_PER_DAY,
+      GLOBAL_GENERATIONS_PER_DAY,
+    )
+    if (refusal === 'citizen') {
       res.status(429).json({ ok: false, error: `The studio closes after ${GENERATIONS_PER_DAY} portraits a day. Come back tomorrow.` })
       return
     }
-
-    // Global daily ceiling — the cost circuit-breaker (see the constant). The
-    // day-first prefix keeps this list() scoped to today's count only.
-    const globalUsed = await list({ prefix: `avatarglobal/${day}`, limit: GLOBAL_GENERATIONS_PER_DAY + 1 })
-    if (globalUsed.blobs.length >= GLOBAL_GENERATIONS_PER_DAY) {
+    if (refusal === 'global') {
       res.status(503).json({ ok: false, error: 'The avatar studio is at capacity for today. Please try again tomorrow.' })
       return
     }

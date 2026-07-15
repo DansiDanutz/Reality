@@ -54,4 +54,12 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_claim_registration_slot\(/)
     expect(schema).toMatch(/WHERE registration_rate_limits\.attempts < p_limit/)
   })
+
+  test('provides an atomic per-citizen and global avatar quota boundary', () => {
+    expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS avatar_rate_limits/)
+    expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_claim_avatar_slot\(/)
+    expect(schema).toMatch(/pg_advisory_xact_lock\(hashtext\('avatar:'/)
+    expect(schema).toMatch(/p_citizen_limit integer/)
+    expect(schema).toMatch(/p_global_limit integer/)
+  })
 })
