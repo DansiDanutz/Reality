@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS citizens (
 
 CREATE UNIQUE INDEX IF NOT EXISTS citizens_founder_number_key
   ON citizens (founder_number) WHERE founder_number IS NOT NULL;
+-- Telegram identity is a one-to-one claim. Run the duplicate preflight query
+-- before applying this index to an existing database; never reassign identities
+-- silently to make the migration pass.
+CREATE UNIQUE INDEX IF NOT EXISTS citizens_telegram_user_id_key
+  ON citizens (telegram_user_id) WHERE telegram_user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS citizens_token_hash_idx ON citizens (token_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS citizens_name_lower_key ON citizens (lower(name));
 

@@ -9,6 +9,7 @@
 
 ## Day 1 — Server-owned genesis and identity
 
+- Progress: server-owned genesis is merged; Telegram identity uniqueness and deterministic duplicate-registration handling are now implemented and covered by regression tests.
 - Create the starter-credit ledger row at registration from server-owned founder status.
 - Remove client-controlled `predictedBalance` from genesis authority.
 - Add a unique Telegram identity constraint and atomic registration claim.

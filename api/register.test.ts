@@ -71,6 +71,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(insertSql).toMatch(/INSERT INTO citizens/i)
     expect(insertParams[0]).toBe(body.citizenId)
     expect(insertParams[1]).toBe('David')
+    expect(insertParams[4]).toBeNull()
     const [claimSql] = pgQueryMock.mock.calls[1] as [string]
     expect(claimSql).toMatch(/UPDATE citizens SET founder_number/i)
     const [updateSql] = pgQueryMock.mock.calls[2] as [string]
@@ -120,6 +121,8 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     const [updateSql, updateParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
     expect(updateSql).toMatch(/UPDATE citizens SET raw/i)
     expect(updateParams[2]).toBe(42424242)
+    const [, linkedInsertParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(linkedInsertParams[4]).toBe(42424242)
     expect(JSON.parse(String(updateParams[1]))).toMatchObject({ name: 'David', telegramUserId: '42424242' })
     // Telegram account mirror still written for the Telegram auth endpoints
     expect(vi.mocked(put).mock.calls.some(([p]) => p === 'telegram-users/42424242.json')).toBe(true)
@@ -163,6 +166,36 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(res.body).toEqual({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
     // No citizen blob may be written when the identity claim failed
     expect(vi.mocked(put).mock.calls.some(([p]) => String(p).startsWith('citizens/'))).toBe(false)
+  })
+
+  test('returns 409 telegram_already_linked before claiming a founder slot', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    stubPg()
+    pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate telegram key'), { code: '23505' }))
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: {
+        name: 'Another David',
+        telegramInitData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 42424242, first_name: 'David' }),
+        }),
+      },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({
+      ok: false,
+      code: 'telegram_already_linked',
+      error: 'That Telegram account is already linked to a citizen.',
+    })
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
   })
 
   test('fails the registration when Postgres is down — the registry is authoritative now', async () => {
