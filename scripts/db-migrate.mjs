@@ -13,8 +13,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { neon } from '@neondatabase/serverless'
 
+const dryRun = process.argv.includes('--dry-run')
 const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL
-if (!url) {
+if (!url && !dryRun) {
   console.error('POSTGRES_URL (or DATABASE_URL) is required.')
   process.exit(1)
 }
@@ -36,6 +37,23 @@ const statements = schema
       .trim(),
   )
   .filter((s) => s.length > 0)
+
+if (dryRun) {
+  const requiredObjects = [
+    'reality_save_founder_area',
+    'reality_place_asset',
+    'reality_claim_registration_slot',
+    'token_revoked_at',
+    'token_expires_at',
+  ]
+  const missing = requiredObjects.filter((object) => !schema.includes(object))
+  if (missing.length > 0) {
+    console.error(`Dry run failed; missing authority objects: ${missing.join(', ')}`)
+    process.exit(1)
+  }
+  console.log(`Dry run: ${statements.length} idempotent statements; authority objects present: ${requiredObjects.join(', ')}`)
+  process.exit(0)
+}
 
 const sql = neon(url)
 let applied = 0
