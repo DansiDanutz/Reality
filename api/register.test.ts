@@ -29,6 +29,7 @@ function stubPg() {
 /** insert ok → founder slot claimed → post-claim update ok */
 function mockHappyPg(founderNumber: number | null = 1) {
   pgQueryMock
+    .mockResolvedValueOnce([{ allowed: true }]) // atomic IP/day reservation
     .mockResolvedValueOnce([]) // citizen insert
     .mockResolvedValueOnce([{ founder_number: founderNumber }]) // claim
     .mockResolvedValueOnce([]) // post-claim raw/telegram update
@@ -66,15 +67,18 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     const body = res.body as { citizenId: string; token: string }
 
     // Postgres is authoritative: insert, claim, post-claim update
-    expect(pgQueryMock).toHaveBeenCalledTimes(3)
-    const [insertSql, insertParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(pgQueryMock).toHaveBeenCalledTimes(4)
+    const [reservationSql, reservationParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(reservationSql).toMatch(/reality_claim_registration_slot/i)
+    expect(reservationParams).toEqual([REGISTER_IP_HASH, REGISTER_DAY, 5])
+    const [insertSql, insertParams] = pgQueryMock.mock.calls[1] as [string, unknown[]]
     expect(insertSql).toMatch(/INSERT INTO citizens/i)
     expect(insertParams[0]).toBe(body.citizenId)
     expect(insertParams[1]).toBe('David')
     expect(insertParams[4]).toBeNull()
-    const [claimSql] = pgQueryMock.mock.calls[1] as [string]
+    const [claimSql] = pgQueryMock.mock.calls[2] as [string]
     expect(claimSql).toMatch(/UPDATE citizens SET founder_number/i)
-    const [updateSql] = pgQueryMock.mock.calls[2] as [string]
+    const [updateSql] = pgQueryMock.mock.calls[3] as [string]
 
     // Registration also ensures the server-owned genesis ledger row in the
     // same post-claim statement; repeated execution is idempotent.
@@ -118,10 +122,10 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
       telegramName: 'David Reality',
     })
     // Post-claim update carries the full record and the bigint telegram id
-    const [updateSql, updateParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    const [updateSql, updateParams] = pgQueryMock.mock.calls[3] as [string, unknown[]]
     expect(updateSql).toMatch(/UPDATE citizens SET raw/i)
     expect(updateParams[2]).toBe(42424242)
-    const [, linkedInsertParams] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    const [, linkedInsertParams] = pgQueryMock.mock.calls[1] as [string, unknown[]]
     expect(linkedInsertParams[4]).toBe(42424242)
     expect(JSON.parse(String(updateParams[1]))).toMatchObject({ name: 'David', telegramUserId: '42424242' })
     // Telegram account mirror still written for the Telegram auth endpoints
@@ -152,6 +156,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
 
   test('returns 409 name_taken when another citizen holds the name slug', async () => {
     stubPg()
+    pgQueryMock.mockResolvedValueOnce([{ allowed: true }])
     pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505' }))
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
@@ -173,6 +178,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
     vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
     stubPg()
+    pgQueryMock.mockResolvedValueOnce([{ allowed: true }])
     pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate telegram key'), { code: '23505' }))
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
@@ -195,12 +201,12 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
       code: 'telegram_already_linked',
       error: 'That Telegram account is already linked to a citizen.',
     })
-    expect(pgQueryMock).toHaveBeenCalledTimes(1)
+    expect(pgQueryMock).toHaveBeenCalledTimes(2)
   })
 
   test('fails the registration when Postgres is down — the registry is authoritative now', async () => {
     stubPg()
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
@@ -211,9 +217,8 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
       body: { name: 'David' },
     } as never, res as never)
 
-    expect(res.statusCode).toBe(500)
+    expect(res.statusCode).toBe(503)
     expect(vi.mocked(put).mock.calls.some(([p]) => String(p).startsWith('citizens/'))).toBe(false)
-    expect(consoleError).toHaveBeenCalled()
   })
 
   test('a Telegram mirror failure never fails a registration that already committed', async () => {
@@ -225,7 +230,6 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     vi.mocked(put)
-      .mockResolvedValueOnce({ url: 'blob://regip' } as never) // throttle marker
       .mockRejectedValueOnce(new Error('blob unavailable')) // telegram-users/ mirror
     const res = responseRecorder()
 
@@ -282,7 +286,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
     stubPg()
-    vi.mocked(list).mockRejectedValueOnce(new Error('registration safety list unavailable'))
+    pgQueryMock.mockRejectedValueOnce(new Error('registration safety reservation unavailable'))
     const res = responseRecorder()
 
     await handler({
@@ -297,17 +301,14 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
       error: 'Registration safety check is temporarily unavailable. Try again in a minute.',
       code: 'registration_safety_unavailable',
     })
-    expect(list).toHaveBeenCalledWith({ prefix: `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}`, limit: 6 })
-    expect(pgQueryMock).not.toHaveBeenCalled()
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
   })
 
   test('throttles registrations from one connection', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))
     stubPg()
-    vi.mocked(list).mockResolvedValueOnce(blobList(Array.from({ length: 5 }, (_, index) =>
-      `regip/${REGISTER_IP_HASH}__${REGISTER_DAY}__${index}.json`
-    )))
+    pgQueryMock.mockResolvedValueOnce([{ allowed: false }])
     const res = responseRecorder()
 
     await handler({
@@ -317,7 +318,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     } as never, res as never)
 
     expect(res.statusCode).toBe(429)
-    expect(pgQueryMock).not.toHaveBeenCalled()
+    expect(pgQueryMock).toHaveBeenCalledTimes(1)
   })
 })
 

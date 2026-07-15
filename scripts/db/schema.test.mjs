@@ -38,4 +38,11 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/daily_limit/)
     expect(schema).toMatch(/asset_mismatch/)
   })
+
+  test('provides an atomic registration IP/day reservation boundary', () => {
+    expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS registration_rate_limits/)
+    expect(schema).toMatch(/PRIMARY KEY \(ip_hash, day\)/)
+    expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_claim_registration_slot\(/)
+    expect(schema).toMatch(/WHERE registration_rate_limits\.attempts < p_limit/)
+  })
 })

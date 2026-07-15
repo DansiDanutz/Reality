@@ -78,6 +78,7 @@
 - Existing placement IDs are identity-immutable; mismatched item or kind retries return an explicit conflict.
 - Overpass proxy admission now accepts only scalar `lat`/`lng` parameters, rejecting cache-bypass keys and repeated coordinate values before contacting mirrors.
 - Vercel now defines and tests the browser security boundary: CSP, anti-framing, MIME sniffing, referrer, and permissions headers with required map/auth/font origins.
+- Registration’s per-IP/day brake now reserves attempts atomically in Postgres instead of Blob list-then-write.
 - Local gate: 127 test files, 1,520 tests, build, and lint pass; 7 existing lint warnings remain.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
