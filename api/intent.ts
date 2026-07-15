@@ -3,7 +3,6 @@ import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
-import { maxPlausibleWorth } from './_scoresPg.js'
 
 /**
  * Phase 1b.5 intent/ledger core (issue #904): the server-authoritative
@@ -13,9 +12,8 @@ import { maxPlausibleWorth } from './_scoresPg.js'
  * carries the running balance. The ledger IS the economy's source of truth.
  *
  *
- * The client predicts optimistically and sends predictedBalance; when the
- * server's authoritative balance diverges, the response carries a
- * correction frame the client snaps to.
+ * The client predicts optimistically and sends predictedBalance only as a
+ * drift hint; the database owns genesis and every subsequent balance.
  */
 
 const MAX_BUY_QUANTITY = 10
@@ -120,8 +118,7 @@ const RATE_COUNT_SQL = `
 // applyXp cascade. No stored level to drift; refusal rows (balance_after
 // NULL) never count.
 const CITIZEN_CONTEXT_SQL = `
-  SELECT c.created_at,
-    COALESCE((
+  SELECT COALESCE((
       SELECT SUM((l.meta->>'xp')::int) FROM ledger l
       WHERE l.citizen_id = c.citizen_id
         AND l.intent LIKE 'intent.%'
@@ -178,9 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ created_at: string | Date | null; xp: string | number | null }>
-    const createdAt = context[0]?.created_at ? new Date(context[0].created_at).getTime() : Number.NaN
-    const ageDays = Number.isFinite(createdAt) ? Math.max(0, (Date.now() - createdAt) / 86_400_000) : 0
+    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ xp: string | number | null }>
     // SUM() is a bigint aggregate — Neon returns it as a string
     const totalXp = Number(context[0]?.xp ?? 0)
     const level = applyXp(1, 0, Number.isFinite(totalXp) ? totalXp : 0).level
@@ -191,16 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    // First-intent seed: the client's claimed balance, clamped by the same
-    // plausibility rule the leaderboard enforces. FAIL CLOSED on unknown age.
-    const claimed = typeof predictedBalance === 'number' && Number.isFinite(predictedBalance) ? predictedBalance : 0
-    const seed = Math.min(Math.max(claimed, 0), maxPlausibleWorth(ageDays))
-
     const appended = (await sql.query(APPEND_SQL, [
       citizenId,
       `intent.${normalized.intent.type}`,
       evaluated.amount,
-      seed,
+      0,
       JSON.stringify(evaluated.meta),
       cooldownFor(normalized.intent),
     ])) as Array<{ new_balance: string | number | null; refusal: string | null }>
@@ -215,7 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
     if (!outcome || outcome.refusal === 'insufficient_funds') {
-      const balance = outcome?.new_balance !== null && outcome?.new_balance !== undefined ? Number(outcome.new_balance) : seed
+      const balance = outcome?.new_balance !== null && outcome?.new_balance !== undefined ? Number(outcome.new_balance) : 0
       res.status(422).json({
         ok: false,
         code: 'insufficient_funds',
