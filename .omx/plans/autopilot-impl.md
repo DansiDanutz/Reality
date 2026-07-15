@@ -70,7 +70,7 @@
 - Server-owned genesis, Telegram uniqueness, nested snapshot validation, and `buildBusiness` fresh-reapply are merged and CI-green.
 - Founder service, insurance, worker-hiring, server-authorized clock, and founder covenant-review mutations now perform one fresh read/reapply after a Blob CAS conflict, with deterministic retryable failure after the bounded retry.
 - Local gate: 127 test files, 1,520 tests, build, and lint pass; 7 existing lint warnings remain.
-- Next: run the dry-run/backfill operationally, add a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement.
+- Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
 ## First autonomous implementation slice
 
