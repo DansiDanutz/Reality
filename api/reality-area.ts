@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
+import { founderAreaPgEnabled, readFounderAreaPg, saveFounderAreaPg } from './_founderAreaPg.js'
 import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token.js'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -930,7 +931,7 @@ type FounderAreaStateInput = Omit<FounderAreaState, 'founderCovenant'> & {
   simulationAt?: string
 }
 
-type FounderAreaPersistedState = FounderAreaState & { __storageEtag?: string }
+type FounderAreaPersistedState = FounderAreaState & { __storageEtag?: string; __storageRevision?: number }
 
 type ClaimAreaIntent =
   | {
@@ -2085,6 +2086,13 @@ function telegramCitizenAuthFields(value: Record<string, unknown>): Partial<Citi
 }
 
 async function readAreaState(citizenId: string): Promise<FounderAreaPersistedState | null> {
+  if (founderAreaPgEnabled()) {
+    const row = await readFounderAreaPg(citizenId)
+    if (row && isFounderAreaState(row.state, citizenId)) {
+      const state = normalizeAreaCitizens(row.state)
+      return { ...state, __storageRevision: row.revision }
+    }
+  }
   const batch = await list({ prefix: areaStatePath(citizenId), limit: 1 })
   const blob = batch.blobs[0]
   const url = blob?.downloadUrl
@@ -4253,8 +4261,8 @@ function areaPayload(state: FounderAreaState | null): {
   state: FounderAreaState | null
   dashboard: FounderAreaDashboard | null
 } {
-  const publicState = state && '__storageEtag' in state
-    ? (({ __storageEtag: _ignoredEtag, ...value }) => value)(state as FounderAreaPersistedState)
+  const publicState = state && ('__storageEtag' in state || '__storageRevision' in state)
+    ? (({ __storageEtag: _ignoredEtag, __storageRevision: _ignoredRevision, ...value }) => value)(state as FounderAreaPersistedState)
     : state
   return {
     state: publicState,
@@ -4322,8 +4330,22 @@ async function persistAreaState(
   allowOverwrite: boolean,
 ): Promise<FounderAreaState> {
   const reviewed = withFounderCovenantReview(state)
+  if (founderAreaPgEnabled()) {
+    const expectedRevision = '__storageRevision' in reviewed && Number.isInteger(reviewed.__storageRevision)
+      ? reviewed.__storageRevision
+      : 0
+    const { __storageEtag: _ignoredEtag, __storageRevision: _ignoredRevision, ...serializable } = reviewed as FounderAreaPersistedState
+    const revision = await saveFounderAreaPg({
+      citizenId,
+      areaId: serializable.areaId,
+      simulationAt: serializable.simulationAt ?? null,
+      updatedAt: serializable.updatedAt,
+      state: serializable,
+    }, expectedRevision)
+    return { ...serializable, __storageRevision: revision } as FounderAreaPersistedState
+  }
   const expectedEtag = '__storageEtag' in reviewed ? reviewed.__storageEtag : undefined
-  const { __storageEtag: _ignoredEtag, ...serializable } = reviewed as FounderAreaPersistedState
+  const { __storageEtag: _ignoredEtag, __storageRevision: _ignoredRevision, ...serializable } = reviewed as FounderAreaPersistedState
   const result = await put(areaStatePath(citizenId), JSON.stringify(serializable), {
     access: 'private',
     addRandomSuffix: false,
