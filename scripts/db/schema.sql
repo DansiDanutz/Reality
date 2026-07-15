@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS citizens (
   created_at      timestamptz NOT NULL DEFAULT now(),
   raw             jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+ALTER TABLE citizens ADD COLUMN IF NOT EXISTS token_revoked_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS citizens_founder_number_key
   ON citizens (founder_number) WHERE founder_number IS NOT NULL;

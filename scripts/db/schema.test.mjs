@@ -10,6 +10,10 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/duplicate preflight query/i)
   })
 
+  test('stores a server-side token revocation timestamp', () => {
+    expect(schema).toMatch(/ALTER TABLE citizens ADD COLUMN IF NOT EXISTS token_revoked_at timestamptz/)
+  })
+
   test('derives regular and founder genesis from the citizens row', () => {
     expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_ensure_genesis\(/)
     expect(schema).toMatch(/CASE WHEN v_founder IS NULL THEN 2500 ELSE 200000 END/)
