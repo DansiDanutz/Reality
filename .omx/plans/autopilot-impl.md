@@ -73,6 +73,7 @@
 - Multi-day Founder Area catch-up now persists bounded batches through command time and fails explicitly beyond the safety ceiling; it no longer returns silently stale simulation state.
 - Health triage now comes from the shared `src/game/healthPolicy.ts` module across Founder Area, `worldSim`, and the canonical life engine.
 - World placement now rejects unknown or kind-mismatched catalog items before any storage operation; the next ownership step is server inventory proof.
+- World placement now charges the server ledger and inserts the asset atomically through `reality_place_asset`, with idempotent retries by citizen and asset id.
 - Local gate: 127 test files, 1,520 tests, build, and lint pass; 7 existing lint warnings remain.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 
