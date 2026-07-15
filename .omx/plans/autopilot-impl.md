@@ -85,8 +85,8 @@
 - Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
 - Founder Area insurance renewals now enforce hourly insurer capacity consistently with initial purchases and `worldSim`.
 - Founder Area backfill now fails early with an explicit Blob credential requirement instead of an opaque SDK stack trace.
-- Local gate: 139 test files, 1,573 tests, build, and lint pass; only pre-existing lint warnings remain.
-- Overpass abuse fix: a bounded warm-instance per-IP admission brake now runs before upstream mirror work; edge/global limiting remains deployment work.
+- Local gate: 140 test files, 1,576 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Overpass abuse fix: a bounded warm-instance per-IP brake now runs before upstream mirror work, with a Postgres-backed cross-instance IP/global rolling-window admission function when the authoritative database is configured; a true edge/WAF limit remains deployment work.
 - Map accessibility fix: the decorative canvas now has a semantic holdings list with keyboard-focusable controls for each owned property.
 - Session transport fix: registration now issues a bounded Secure/HttpOnly/SameSite session cookie and revocation clears it; legacy token responses remain during migration.
 - E2E release fix: CI now runs Playwright against the production preview, with first-session and 320px mobile shell coverage.
@@ -99,6 +99,7 @@
 - Live CAS probe: a guarded concurrent Founder Area revision test is ready for a dedicated test citizen/area once production credentials are authorized.
 - Inventory authority fix: shared-world placement now consumes only server-owned ledger-backed placeable purchases; missing inventory is rejected before charging or inserting the asset.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
+- Next tranche: publish the cross-instance Overpass admission boundary, then run production cutover/backfill and the guarded live Founder Area CAS contention proof when deployment credentials are authorized.
 
 ## First autonomous implementation slice
 

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { claimOverpassSlot } from './_overpassPg.js'
 
 /**
  * Same-origin proxy for OpenStreetMap Overpass discovery queries. The
@@ -50,6 +51,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!admitIp(ip)) {
     res.setHeader('Retry-After', '60')
     res.status(429).json({ ok: false, error: 'Map discovery is temporarily rate-limited. Try again shortly.', code: 'overpass_rate_limited' })
+    return
+  }
+
+  try {
+    const refusal = await claimOverpassSlot(ip)
+    if (refusal) {
+      res.setHeader('Retry-After', '60')
+      res.status(429).json({ ok: false, error: 'Map discovery is temporarily rate-limited. Try again shortly.', code: 'overpass_rate_limited', scope: refusal })
+      return
+    }
+  } catch (error) {
+    // A configured authority that cannot admit traffic must fail closed; do
+    // not turn a database outage into an unbounded upstream relay.
+    console.error('overpass admission unavailable:', error instanceof Error ? error.message : error)
+    res.status(503).json({ ok: false, error: 'Map discovery is briefly unavailable.', code: 'overpass_admission_unavailable' })
     return
   }
 
@@ -105,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.status(502).json({ ok: false, error: 'All Overpass mirrors failed' })
 }
 
-/** Best-effort warm-instance brake; edge/global limiting remains deployment work. */
+/** Fast warm-instance brake; Postgres adds cross-instance/global limiting. */
 function admitIp(ip: string, now = Date.now()): boolean {
   const previous = ipWindows.get(ip)
   if (!previous || now - previous.startedAt >= IP_WINDOW_MS) {
