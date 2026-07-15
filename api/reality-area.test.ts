@@ -280,6 +280,62 @@ describe('reality area authority API', () => {
     expect(params).toEqual([CITIZEN_ID, TOKEN_HASH])
   })
 
+  test('runtime Postgres mode reads revisioned Founder Area state without Blob fallback', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    vi.stubEnv('REALITY_FOUNDER_AREA_POSTGRES', '1')
+    const state = existingState()
+    pgQueryMock
+      .mockResolvedValueOnce(pgVerifyRows)
+      .mockResolvedValueOnce([{
+        citizen_id: CITIZEN_ID,
+        area_id: state.areaId,
+        revision: '4',
+        simulation_at: state.simulationAt,
+        updated_at: state.updatedAt,
+        state,
+      }])
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { state: ReturnType<typeof existingState> }).state.areaId).toBe(state.areaId)
+    expect(list).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(pgQueryMock.mock.calls[1]?.[0]).toMatch(/FROM founder_area_snapshots/i)
+  })
+
+  test('runtime Postgres mode persists a mutation through revision CAS without Blob writes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:00:00.000Z'))
+    vi.stubEnv('REALITY_FOUNDER_AREA_POSTGRES', '1')
+    const state = existingState()
+    pgQueryMock
+      .mockResolvedValueOnce(pgVerifyRows)
+      .mockResolvedValueOnce([{
+        citizen_id: CITIZEN_ID,
+        area_id: state.areaId,
+        revision: '4',
+        simulation_at: state.simulationAt,
+        updated_at: state.updatedAt,
+        state,
+      }])
+      .mockResolvedValueOnce([{ revision: '5' }])
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: { citizenId: CITIZEN_ID, token: TOKEN, intent: { type: 'buildBusiness', businessKind: 'water', businessId: 'pg-water' } },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect((res.body as { state: ReturnType<typeof existingState> }).state.businesses[0]?.id).toBe('pg-water')
+    expect(put).not.toHaveBeenCalled()
+    expect(pgQueryMock.mock.calls[2]?.[0]).toMatch(/reality_save_founder_area/i)
+    expect(pgQueryMock.mock.calls[2]?.[1]?.[2]).toBe(4)
+  })
+
   test('treats an unclaimed founder slot (null) as founder number 0', async () => {
     pgVerifyRows = [{ founder_number: null, raw: {} }]
     await expect(verifyCitizen(CITIZEN_ID, TOKEN)).resolves.toEqual({
