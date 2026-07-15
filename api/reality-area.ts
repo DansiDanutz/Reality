@@ -4597,6 +4597,47 @@ async function runCovenantReviewMutation(
   return { ok: false, error: 'area_write_conflict', state: existing }
 }
 
+type OperatorCovenantReviewMutationResult =
+  | { ok: true; state: FounderAreaState }
+  | { ok: false; error: OperatorRecordCovenantReviewIntentError | 'area_load_unavailable' | 'area_write_conflict' | 'area_mismatch'; state: FounderAreaState | null }
+
+async function runOperatorCovenantReviewMutation(
+  initial: FounderAreaPersistedState | null,
+  intent: Extract<OperatorRecordCovenantReviewIntent, { ok: true }>,
+  reviewerId: string,
+  now: Date,
+): Promise<OperatorCovenantReviewMutationResult> {
+  let existing: FounderAreaPersistedState | null = initial
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let stateForReview: FounderAreaState | null = existing
+    try {
+      stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
+    } catch {
+      return { ok: false, error: 'area_load_unavailable', state: existing }
+    }
+    if (stateForReview && stateForReview.areaId !== intent.areaId) {
+      return { ok: false, error: 'area_mismatch', state: stateForReview }
+    }
+    const result = applyRecordCovenantReviewIntent(stateForReview, {
+      type: 'recordCovenantReview', actionKind: intent.actionKind, note: intent.note, evidenceKinds: intent.evidenceKinds,
+    }, now, reviewerId)
+    if (!result.ok) return { ok: false, error: result.error, state: stateForReview }
+    try {
+      return { ok: true, state: await persistAreaState(intent.founderCitizenId, result.state, true) }
+    } catch (error) {
+      if (!isAreaWriteConflict(error) || attempt === 1) {
+        return { ok: false, error: isAreaWriteConflict(error) ? 'area_write_conflict' : 'area_load_unavailable', state: stateForReview }
+      }
+      try {
+        existing = await readAreaState(intent.founderCitizenId)
+      } catch {
+        return { ok: false, error: 'area_load_unavailable', state: stateForReview }
+      }
+    }
+  }
+  return { ok: false, error: 'area_write_conflict', state: existing }
+}
+
 type RepayDebtMutationResult =
   | { ok: true; state: FounderAreaState }
   | { ok: false; error: ApplyRepayDebtError | 'area_load_unavailable' | 'area_write_conflict'; state: FounderAreaState | null }
@@ -4770,7 +4811,7 @@ async function handleFounderCovenantOperatorReview(
   }
 
   const now = new Date()
-  let existing: FounderAreaState | null
+  let existing: FounderAreaPersistedState | null
   try {
     existing = await readAreaState(intent.founderCitizenId)
   } catch {
@@ -4781,51 +4822,25 @@ async function handleFounderCovenantOperatorReview(
     })
     return
   }
-  const stateForReview = existing ? await catchUpPersistedAreaState(intent.founderCitizenId, existing, now) : null
-  if (stateForReview && stateForReview.areaId !== intent.areaId) {
-    res.status(operatorRecordCovenantReviewStatus('area_mismatch')).json({
-      ok: false,
-      error: operatorRecordCovenantReviewMessage('area_mismatch'),
-      code: 'area_mismatch',
-      ...areaPayload(stateForReview),
-    })
-    return
-  }
-
-  const result = applyRecordCovenantReviewIntent(
-    stateForReview,
-    {
-      type: 'recordCovenantReview',
-      actionKind: intent.actionKind,
-      note: intent.note,
-      evidenceKinds: intent.evidenceKinds,
-    },
-    now,
-    `telegram-operator:${operatorClaims.telegramUserId}`,
-  )
+  const result = await runOperatorCovenantReviewMutation(existing, intent, `telegram-operator:${operatorClaims.telegramUserId}`, now)
   if (!result.ok) {
-    res.status(operatorRecordCovenantReviewStatus(result.error)).json({
+    const status = result.error === 'area_load_unavailable' ? 503
+      : result.error === 'area_write_conflict' ? 409
+        : operatorRecordCovenantReviewStatus(result.error)
+    const message = result.error === 'area_load_unavailable'
+      ? 'Reality area storage is briefly unavailable.'
+      : result.error === 'area_write_conflict'
+        ? 'Founder area changed while recording operator review. Retry the review.'
+        : operatorRecordCovenantReviewMessage(result.error)
+    res.status(status).json({
       ok: false,
-      error: operatorRecordCovenantReviewMessage(result.error),
-      code: result.error,
-      ...areaPayload(stateForReview),
+      error: message,
+      code: result.error === 'area_load_unavailable' ? 'area_storage_unavailable' : result.error,
+      ...areaPayload(result.state),
     })
     return
   }
-
-  let state: FounderAreaState
-  try {
-    state = await persistAreaState(intent.founderCitizenId, result.state, true)
-  } catch {
-    res.status(503).json({
-      ok: false,
-      error: 'Reality area storage is briefly unavailable.',
-      code: 'area_storage_unavailable',
-      ...areaPayload(stateForReview),
-    })
-    return
-  }
-  res.status(200).json({ ok: true, ...areaPayload(state) })
+  res.status(200).json({ ok: true, ...areaPayload(result.state) })
 }
 
 async function tickServerClockAreas(
