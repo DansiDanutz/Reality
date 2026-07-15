@@ -18,6 +18,7 @@
 ## Day 2 — Atomic Founder Area repository
 
 - Progress: Blob ETag conditional writes and a separate simulation cursor are implemented in the current P0 slice; regression coverage is green.
+- Progress: nested Founder Area snapshot validation now rejects malformed persisted citizens and transactions before simulation writes.
 - Adapt Founder Area to the existing revision-aware repository/CAS contract.
 - Add idempotency keys and unique transaction constraints.
 - Serialize read/advance/validate/write per area in Postgres.

@@ -3427,6 +3427,42 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('tickAreas quarantines persisted area state with malformed nested citizens', async () => {
+    const malformed = structuredClone(existingState()) as Record<string, unknown>
+    const citizens = malformed.citizens as Array<Record<string, unknown>>
+    citizens[0].needs = null
+    vi.mocked(list).mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://malformed-citizen'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(malformed), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: SERVER_CLOCK_HEADERS,
+      query: { clock: 'tickAreas', limit: '1' },
+    } as never, res as never)
+
+    expect(res.body).toMatchObject({ ok: true, clock: { failed: 1, caughtUp: 0, current: 0 } })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('tickAreas quarantines persisted area state with malformed transactions', async () => {
+    const malformed = structuredClone(existingState()) as Record<string, unknown>
+    const transactions = malformed.transactions as Array<Record<string, unknown>>
+    transactions[0].amount = '200000'
+    vi.mocked(list).mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://malformed-transaction'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(malformed), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: SERVER_CLOCK_HEADERS,
+      query: { clock: 'tickAreas', limit: '1' },
+    } as never, res as never)
+
+    expect(res.body).toMatchObject({ ok: true, clock: { failed: 1, caughtUp: 0, current: 0 } })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('tickAreas scans area blobs and persists caught-up server-clock state', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
