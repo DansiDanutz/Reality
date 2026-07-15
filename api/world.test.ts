@@ -162,6 +162,24 @@ describe('world API placement writes', () => {
     expect(pgQueryMock).toHaveBeenCalledTimes(2) // no writes past the cap
   })
 
+  test('surfaces an asset identity conflict without retrying a different write', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ new_balance: '10', refusal: 'asset_mismatch' }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'That asset id already belongs to a different catalog item.',
+      code: 'asset_identity_conflict',
+    })
+  })
+
   test('rejects unknown or kind-mismatched catalog items before authentication or writes', async () => {
     stubPg()
     const res = responseRecorder()

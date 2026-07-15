@@ -36,5 +36,6 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/'world.place'/)
     expect(schema).toMatch(/p_daily_limit integer/)
     expect(schema).toMatch(/daily_limit/)
+    expect(schema).toMatch(/asset_mismatch/)
   })
 })

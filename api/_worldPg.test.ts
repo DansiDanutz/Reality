@@ -97,6 +97,12 @@ describe('writeWorldPlacement (authoritative since Phase 1b.6)', () => {
     queryMock.mockResolvedValueOnce([{ new_balance: '10', refusal: 'daily_limit' }])
     await expect(writeWorldPlacement(placement())).rejects.toThrow('world_place_daily_limit')
   })
+
+  test('rejects an idempotency replay with a different asset identity', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([{ new_balance: '10', refusal: 'asset_mismatch' }])
+    await expect(writeWorldPlacement(placement())).rejects.toThrow('world_place_asset_mismatch')
+  })
 })
 
 describe('placementsTodayPg', () => {
