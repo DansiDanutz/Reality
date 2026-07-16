@@ -95,7 +95,7 @@ describe('citizenAgeDaysPg', () => {
 
     expect(await citizenAgeDaysPg(CITIZEN_ID)).toBe(5)
     const [statement, params] = queryMock.mock.calls[0] as [string, unknown[]]
-    expect(statement).toMatch(/SELECT created_at FROM citizens/i)
+    expect(statement).toMatch(/SELECT name, created_at FROM citizens/i)
     expect(params).toEqual([CITIZEN_ID])
   })
 
