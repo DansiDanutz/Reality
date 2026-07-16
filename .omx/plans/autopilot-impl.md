@@ -107,6 +107,7 @@
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
 - Next tranche: run the guarded production Founder Area backfill and live CAS contention proof when deployment credentials are authorized; keep the Postgres flag disabled until both succeed.
 - Session boundary follow-up: the remaining Founder Area citizen endpoint now participates in the cookie-session/CSRF migration; production cutover evidence is still the next external-authority tranche.
+- Returning-device follow-up: Founder Area client actions now fall back to cookie-session credentials when sessionStorage has no bearer token, preserving the cookie migration across reloads.
 
 ## First autonomous implementation slice
 

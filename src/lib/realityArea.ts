@@ -1064,12 +1064,12 @@ export async function claimRealityFounderArea(
   const label = profile.areaLabel.trim()
 
   try {
+    const auth = citizen.token ? { citizenId: citizen.citizenId, token: citizen.token } : { citizenId: citizen.citizenId }
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      ...(citizen.token ? { headers: { 'Content-Type': 'application/json' } } : cookieSessionRequestInit()),
       body: JSON.stringify({
-        citizenId: citizen.citizenId,
-        token: citizen.token,
+        ...auth,
         intent: {
           type: 'claimArea',
           label,
@@ -1247,12 +1247,12 @@ async function applyRealityAreaPayload(
   if (!ready.ok) return ready
 
   try {
+    const auth = citizen.token ? { citizenId: citizen.citizenId, token: citizen.token } : { citizenId: citizen.citizenId }
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      ...(citizen.token ? { headers: { 'Content-Type': 'application/json' } } : cookieSessionRequestInit()),
       body: JSON.stringify({
-        citizenId: citizen.citizenId,
-        token: citizen.token,
+        ...auth,
         intent: payload,
       }),
     })
@@ -3194,13 +3194,31 @@ function isClaimSource(value: unknown): value is RealityAreaClaimSource {
 function readyFounderCredentials(
   citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
 ): { ok: true } | { ok: false; reason: 'missing_identity' | 'not_founder'; error: string } {
-  if (!citizen.citizenId || !citizen.token) {
+  if (!citizen.citizenId || (!citizen.token && !hasBrowserRealitySession())) {
     return { ok: false, reason: 'missing_identity', error: 'Connect to the world first.' }
   }
   if (citizen.founderNumber <= 0) {
     return { ok: false, reason: 'not_founder', error: 'Founder seat required.' }
   }
   return { ok: true }
+}
+
+function cookieSessionRequestInit(): RequestInit {
+  const csrf = readBrowserCookie('reality_csrf')
+  return {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-Reality-CSRF': csrf } : {}) },
+  }
+}
+
+function hasBrowserRealitySession(): boolean {
+  return Boolean(readBrowserCookie('reality_csrf'))
+}
+
+function readBrowserCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const value = document.cookie.split('; ').find((part) => part.startsWith(`${name}=`))
+  return value ? decodeURIComponent(value.slice(name.length + 1)) : null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
