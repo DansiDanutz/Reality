@@ -114,6 +114,7 @@
 - Worker identity follow-up: world simulation normalizes hireWorker business lookup IDs while preserving imported business identity.
 - Queue transport follow-up: Founder Covenant review queue bridges sanitize cursors and pagination values before authority transport.
 - Telegram auth follow-up: the browser bridge rejects obviously future-dated successful verifier responses while preserving server authority.
+- Telegram bot-account follow-up: registration and client bridges now have explicit regression coverage for the server's bot-user rejection.
 
 ## First autonomous implementation slice
 
