@@ -51,6 +51,9 @@ export function FounderCovenantQueuePanel({
           value={queue.totals.hospitalized}
         />
         <QueueTotalChip label="Debt" tone={queue.totals.indebted > 0 ? 'warning' : 'stable'} value={queue.totals.indebted} />
+        <QueueTotalChip label="Population proof" tone={queue.totals.manualEvidenceGaps.populationGrowth > 0 ? 'warning' : 'stable'} value={queue.totals.manualEvidenceGaps.populationGrowth} />
+        <QueueTotalChip label="Contribution proof" tone={queue.totals.manualEvidenceGaps.externalContribution > 0 ? 'warning' : 'stable'} value={queue.totals.manualEvidenceGaps.externalContribution} />
+        <QueueTotalChip label="Ideas proof" tone={queue.totals.manualEvidenceGaps.ideasFeedback > 0 ? 'warning' : 'stable'} value={queue.totals.manualEvidenceGaps.ideasFeedback} />
         <QueueTotalChip
           label="Blockers"
           tone={queue.totals.blockers > 0 ? 'warning' : 'stable'}

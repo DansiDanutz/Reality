@@ -117,6 +117,7 @@
 - Telegram bot-account follow-up: registration and client bridges now have explicit regression coverage for the server's bot-user rejection.
 - Covenant urgency follow-up: evidence-only queue ordering distinguishes monthly review urgency from weekly review urgency.
 - Evidence backlog follow-up: Founder Covenant queue contracts and presenters now carry per-category manual evidence gap totals.
+- Evidence backlog presenter follow-up: Founder Covenant queue totals now visibly surface population, contribution, and ideas proof gaps as read-only chips.
 
 ## First autonomous implementation slice
 
