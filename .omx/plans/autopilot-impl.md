@@ -42,7 +42,7 @@
 ## Day 5 — Authoritative world projections
 
 - Make placement consume server-owned inventory and validate catalog kind, reach, and ownership atomically.
-- Derive leaderboard name/net worth from canonical citizen and ledger data.
+- DONE (2026-07-16, PR #1109): leaderboard net worth is now reconciled server-side against the ledger — `cappedWorth = min(claim, ageCap, ledgerCredits×1.1)`, fail-closed. Do not re-implement; extend only if asset valuation moves fully server-side.
 - Wire gameplay actions to `/api/intent`; demote local state to projection/cache.
 
 ## Day 6 — Session and abuse resistance
@@ -118,6 +118,26 @@
 - Covenant urgency follow-up: evidence-only queue ordering distinguishes monthly review urgency from weekly review urgency.
 - Evidence backlog follow-up: Founder Covenant queue contracts and presenters now carry per-category manual evidence gap totals.
 - Evidence backlog presenter follow-up: Founder Covenant queue totals now visibly surface population, contribution, and ideas proof gaps as read-only chips.
+
+## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
+
+The 2026-07-16 full audit (Claude) verified most Day 0–6 progress claims as genuinely merged. Five MEDIUM findings are now tracked as GitHub issues and slot into Day 2/Day 6; take them in this order:
+
+1. Registration rate-limit keys on spoofable leftmost `X-Forwarded-For` (`api/register.ts:99`) — use `x-vercel-forwarded-for`/rightmost trusted hop. Cost-abuse vector (avatar generations). [Day 6]
+2. Cloud save last-writer-wins (`api/cloud-save.ts:42`) — add monotonic `savedAt`/revision check; reject older payloads. Data-loss vector. [Day 6]
+3. Bearer-token scrub incomplete at rest (`src/store/gameStore.ts` migrateSave + pre-fix cloud blobs) — scrub in migrateSave and on cloud-save ingest. [Day 6]
+4. Founder Area CAS INSERT arm ignores `p_expected_revision` (`scripts/db/schema.sql`, `reality_save_founder_area`) — require `expected_revision = 0` on insert. [Day 2]
+5. Founder Area Pg reads fail silently open on corrupt snapshots (`api/reality-area.ts` quarantine) — fail closed with logging; add freshness comparison for the Pg/Blob flag-flip path. [Day 2]
+
+Covenant evidence presenter work (#1115/#1116 lane) is complete enough for launch; do not extend it further until the five items above are merged.
+
+## Day 9 — Cinematic scroll-world onboarding (design lane, NEW)
+
+A scroll-scrubbed "fly through the world" intro (oso95/scroll-world engine, MIT) is merged dormant in PR #1103: `src/components/scrollworld/` (engine + React wrapper + config) and `scrollworld/` (generation runbook + Higgsfield prompt pack). Asset generation is Higgsfield-credit-gated and owned by David/Claude — **Codex must NOT generate assets or flip the flag**. Codex-appropriate tasks once assets land (files exist under `public/scrollworld/` and `SCROLL_WORLD_ENABLED` flips):
+
+- E2E: intro renders for citizen-less sessions, Skip and final CTA both reach Welcome, reduced-motion falls back to stills.
+- Perf: verify the intro chunk stays lazy (no scrollworld bytes in the boot path while disabled), posters have explicit dimensions, clips lazy-load.
+- A11y: keyboard path through the intro (skip reachable first), aria labels, focus handoff to Welcome.
 
 ## First autonomous implementation slice
 
