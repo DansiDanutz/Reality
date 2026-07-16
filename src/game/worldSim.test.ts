@@ -607,6 +607,18 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(result.area.transactions).toEqual([])
   })
 
+  test('hireWorker normalizes padded intent and imported business ids without rewriting stored identity', () => {
+    const start = claimedArea({
+      citizens: [sim('worker')],
+      businesses: [business('food', ' food1 ', { ownerId: 'founder' })],
+    })
+    const result = applyWorldIntent(start, { type: 'hireWorker', actorCitizenId: 'founder', businessId: ' food1 ', workerCitizenId: 'worker' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected padded business identity to resolve')
+    expect(result.area.businesses.find((candidate) => candidate.id === ' food1 ')?.staffCitizenIds).toEqual(['worker'])
+    expect(result.area.citizens.find((candidate) => candidate.id === 'worker')?.jobBusinessId).toBe(' food1 ')
+  })
+
   test('hire intents clear stale job assignments before assigning active Sim workers', () => {
     const start = claimedArea({
       citizens: [sim('worker', { jobBusinessId: 'missing-business' })],
