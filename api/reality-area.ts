@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
+import { csrfMatches, sessionFromCookie } from './_session.js'
 import { advanceHealth } from '../src/game/healthPolicy.js'
 import { founderAreaPgEnabled, listFounderAreaPg, readFounderAreaPg, saveFounderAreaPg } from './_founderAreaPg.js'
 import { verifyRealityOperatorQueueToken, type RealityOperatorQueueTokenClaims } from './reality-operator-token.js'
@@ -5342,7 +5343,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const auth = readAuth(req)
+  const bodyAuth = readAuth(req)
+  const cookieSession = sessionFromCookie(req)
+  if (!bodyAuth && cookieSession && req.method === 'POST' && !csrfMatches(req)) {
+    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+    return
+  }
+  const auth = bodyAuth ?? cookieSession
   if (!auth) {
     res.status(400).json({ ok: false, error: 'Missing citizen credentials.' })
     return
