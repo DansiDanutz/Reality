@@ -1064,6 +1064,7 @@ export async function claimRealityFounderArea(
   const citizenId = citizen.citizenId?.trim() ?? ''
   const token = citizen.token?.trim() ?? ''
   const label = profile.areaLabel.trim()
+  const claimSource = isClaimSource(profile.claimSource) ? profile.claimSource : 'manual'
 
   try {
     const auth = token ? { citizenId, token } : { citizenId }
@@ -1078,7 +1079,7 @@ export async function claimRealityFounderArea(
           centerLat: profile.centerLat,
           centerLng: profile.centerLng,
           radiusKm: profile.radiusKm,
-          source: profile.claimSource,
+          source: claimSource,
         },
       }),
     })
@@ -1206,6 +1207,9 @@ export async function recordRealityFounderCovenantOperatorReview(
       code: 'operator_unauthorized',
     }
   }
+  const founderCitizenId = request.founderCitizenId.trim()
+  const areaId = request.areaId.trim()
+  const note = request.note?.trim()
 
   try {
     const response = await fetchImpl('/api/reality-area', {
@@ -1217,10 +1221,10 @@ export async function recordRealityFounderCovenantOperatorReview(
       body: JSON.stringify({
         intent: {
           type: 'recordFounderCovenantOperatorReview',
-          founderCitizenId: request.founderCitizenId,
-          areaId: request.areaId,
+          founderCitizenId,
+          areaId,
           actionKind: request.actionKind,
-          ...(request.note ? { note: request.note } : {}),
+          ...(note ? { note } : {}),
           ...(request.evidenceKinds ? { evidenceKinds: request.evidenceKinds } : {}),
         },
       }),
@@ -1254,7 +1258,7 @@ async function applyRealityAreaPayload(
     const auth = token ? { citizenId, token } : { citizenId }
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
-      ...(citizen.token ? { headers: { 'Content-Type': 'application/json' } } : cookieSessionRequestInit()),
+      ...(token ? { headers: { 'Content-Type': 'application/json' } } : cookieSessionRequestInit()),
       body: JSON.stringify({
         ...auth,
         intent: payload,
