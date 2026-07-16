@@ -16,6 +16,7 @@ import handler, {
   normalizeServerClockTickAreasIntent,
   normalizeServicePurchaseIntent,
   uniqueFounderTransactionId,
+  founderCovenantReviewQueuePriority,
   verifyCitizen,
 } from './reality-area'
 import { resetDbForTest } from './_db'
@@ -30,6 +31,22 @@ describe('Founder Area transaction identity', () => {
     const existing = [{ id: 'area:1:purchase', kind: 'customer_purchase' } as never, { id: 'area:1:purchase:2', kind: 'customer_purchase' } as never]
     expect(uniqueFounderTransactionId(existing, 'area:1:other')).toBe('area:1:other')
     expect(uniqueFounderTransactionId(existing, 'area:1:purchase')).toBe('area:1:purchase:3')
+  })
+})
+
+describe('Founder Covenant queue urgency', () => {
+  test('prioritizes monthly-due review over weekly-due review', () => {
+    const base = {
+      manualReviewRequired: false,
+      overdue: true,
+      activityReview: { hospitalized: false, atRisk: false, indebted: false, active: true, useful: true, building: true, staffed: true },
+      signalCounts: { critical: 0, warning: 0 },
+      reviewQueue: { pendingApprovalCount: 0, pendingNotificationCount: 0 },
+      blockerCount: 0,
+    }
+    const weekly = founderCovenantReviewQueuePriority({ ...base, reviewSchedule: { weeklyReviewDue: true, monthlyReviewDue: false } } as never)
+    const monthly = founderCovenantReviewQueuePriority({ ...base, reviewSchedule: { weeklyReviewDue: true, monthlyReviewDue: true } } as never)
+    expect(monthly).toBeGreaterThan(weekly)
   })
 })
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => pgVerifyRows)
