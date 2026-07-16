@@ -38,18 +38,18 @@ Reality runs on the actual clock. This is the game's founding rule and its name.
 
 ## Work & progression
 
-- 5 careers from Courier ($16/h) to Software Developer ($48/h); higher tiers gated by level.
+- 10 careers from Barista ($15/h) to Pilot ($60/h); higher tiers gated by level (1–4).
 - A shift = 6 game hours, paid instantly, costs needs, grants 20 XP. Level N requires N×100 XP.
 - Design intent: wages alone keep you alive and slowly saving; businesses are how you get rich. Founders skip the grind — that's the founder privilege.
 
 ## Property & businesses
 
-- Homes and businesses are bought in the shop, then **placed by clicking anywhere on Earth**. Location is cosmetic in beta; in the online release location becomes strategy (foot traffic, city districts, land scarcity, rent).
+- Homes and businesses are bought in the shop, then **placed on the map**. Placement now goes through a real lifecycle: land is reserved/leased (`src/game/landReservation.ts`, `landLease.ts`) and buildings go through construction (`src/game/construction.ts`) before they operate — location is no longer purely cosmetic.
 - Homes: better sleep, free hygiene. Businesses: collectable local revenue in beta; the online economy routes revenue through customer demand and ledger events.
 
 ## The founder cohort
 
-First 2,000 citizens get $200,000. Purpose: seed capital so the world has shops before it has customers. Beta simulates the counter locally; the real global registry (first-come, verified, exactly 2,000) requires the server (see ARCHITECTURE).
+First 2,000 citizens get $200,000. Purpose: seed capital so the world has shops before it has customers. The global registry is live: founder numbers are claimed atomically in Postgres at registration (`/api/register` → `claimFounderNumberPg`) — first-come, verified, exactly 2,000 (see ARCHITECTURE).
 
 ## Design pillars
 

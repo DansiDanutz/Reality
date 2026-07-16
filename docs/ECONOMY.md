@@ -6,13 +6,13 @@
 |--------|--------|
 | Founder grant (first 2,000 citizens) | $200,000 each — max $400M seed supply |
 | Regular citizens (post-founder) | $2,500 |
-| Wages | $16–48 per game hour |
+| Wages | $15–60 per game hour |
 | Business income | ~1.3–1.4% of purchase price per game day |
 
 ## Faucets & sinks (beta)
 
 **Faucets** (money in): wages (boosted by owned gear), business income.
-**Sinks** (money out): the Market — 78 items across 10 categories:
+**Sinks** (money out): the Market — 115 items across 13 categories (counts live in `src/game/catalog.ts`; the table below shows the main groupings):
 
 | Category | Range | What money buys |
 |----------|-------|-----------------|
@@ -25,6 +25,8 @@
 | Businesses | $18k–1.2M | Placeable demand-led revenue |
 
 Wage gear totals under +60% even if you buy everything (enforced by test). Education is the bridge between wage-labor and capital: an MBA costs $25k and unlocks the top career instantly.
+
+Additional faucet/sink mechanics now shipped in `src/game/`: **land leases and reservations** (`landLease.ts`, `landReservation.ts`) add recurring land costs as a sink; **payout withholding** (`payoutWithholding.ts`) holds back a share of payouts; **public finance** (`publicFinance.ts`) routes tax-like flows into a public pot; **TON settlement** (`tonSettlement.ts`) handles on-chain settlement of balances; and the **founder credit line** (`founderCreditLine.ts`) extends founders leveraged capital beyond the grant.
 
 Beta is single-player, so property/business purchases are pure sinks against system faucets. In the online release the economy inverts: shop purchases route to *player-owned* businesses, and the system only mints money for wages and founder grants.
 
