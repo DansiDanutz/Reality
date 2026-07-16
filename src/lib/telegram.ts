@@ -30,6 +30,8 @@ interface TelegramWindow {
   }
 }
 
+const TELEGRAM_CLOCK_SKEW_SECONDS = 60
+
 export function telegramMiniAppInitData(source: TelegramWindow = globalThis as TelegramWindow): string | null {
   const initData = source.Telegram?.WebApp?.initData
   return typeof initData === 'string' && initData.trim().length > 0 ? initData : null
@@ -48,6 +50,14 @@ export async function authenticateTelegramMiniApp(
       body: JSON.stringify({ initData }),
     })
     const data = await response.json() as Record<string, unknown>
+    if (response.ok && data.ok === true && isFutureTelegramAuthDate(data.authDate)) {
+      return {
+        ok: false,
+        reason: 'invalid_session',
+        error: 'Telegram session could not be verified.',
+        code: 'auth_date_from_future',
+      }
+    }
     if (!response.ok || data.ok !== true || !isVerifiedTelegramSession(data)) {
       return {
         ok: false,
@@ -68,6 +78,10 @@ export async function authenticateTelegramMiniApp(
   } catch {
     return { ok: false, reason: 'request_failed', error: 'Telegram verification is unavailable.' }
   }
+}
+
+function isFutureTelegramAuthDate(value: unknown): boolean {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > Math.floor(Date.now() / 1000) + TELEGRAM_CLOCK_SKEW_SECONDS
 }
 
 export function citizenWithTelegramSession(
