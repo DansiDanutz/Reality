@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
-import { citizenScoreProfilePg, maxPlausibleWorth, writeScore } from './_scoresPg.js'
+import { citizenScoreProfilePg, maxPlausibleWorth, maxReconciledWorth, writeScore } from './_scoresPg.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
 
 const MAX_NET_WORTH = 10_000_000_000
@@ -74,14 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    // Plausibility cap until the server owns the full simulation: founder
-    // grant + a generous $100k per day of citizenship, from the citizen's
-    // authoritative created_at. FAIL CLOSED — unknown age means the day-0
-    // ceiling, never the raw client number.
+    // Two independent server-side ceilings, both FAIL CLOSED:
+    // 1. Age plausibility: founder grant + a generous $100k per day of
+    //    citizenship, from the citizen's authoritative created_at. Unknown
+    //    age means the day-0 ceiling, never the raw client number.
+    // 2. Ledger reconciliation: real worth can never exceed the citizen's
+    //    accepted ledger credits (plus a small pending-income tolerance) —
+    //    spending converts cash into assets, it never mints new worth.
     const profile = await citizenScoreProfilePg(String(citizenId))
     const cleanName = String(profile.name ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'citizen'
     const ageDays = profile.ageDays
-    const cappedWorth = Math.min(worth, ageDays !== null ? maxPlausibleWorth(ageDays) : FALLBACK_MAX_PLAUSIBLE)
+    const ageCap = ageDays !== null ? maxPlausibleWorth(ageDays) : FALLBACK_MAX_PLAUSIBLE
+    const ledgerCap = maxReconciledWorth(profile.ledgerCredits)
+    const cappedWorth = Math.min(worth, ageCap, ledgerCap)
 
     // One atomic statement: replace the score, audit the cap if it bit.
     await writeScore({
