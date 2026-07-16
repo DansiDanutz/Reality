@@ -96,7 +96,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Bot brake: a handful of citizens per IP per day is plenty for humans.
     // This reservation is Postgres-authoritative; a Blob list-then-write
     // check allowed concurrent requests to pass the same observed count.
-    const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
+    // Vercel's forwarding header is the trusted edge boundary. When only a
+    // forwarded chain is available, use the rightmost hop rather than the
+    // leftmost client-controlled value, so rotating XFF prefixes cannot mint
+    // a fresh rate-limit key on every request.
+    const forwarded = req.headers['x-vercel-forwarded-for'] ?? req.headers['x-real-ip'] ?? req.headers['x-forwarded-for'] ?? 'unknown'
+    const ip = (Array.isArray(forwarded) ? forwarded.at(-1) : String(forwarded).split(',').at(-1))?.trim() || 'unknown'
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
     const day = registeredAt.toISOString().slice(0, 10)
     try {
