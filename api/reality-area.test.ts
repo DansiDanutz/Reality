@@ -15,6 +15,7 @@ import handler, {
   normalizeRepayDebtIntent,
   normalizeServerClockTickAreasIntent,
   normalizeServicePurchaseIntent,
+  uniqueFounderTransactionId,
   verifyCitizen,
 } from './reality-area'
 import { resetDbForTest } from './_db'
@@ -23,6 +24,14 @@ import { realityOperatorQueueTokenClaims, signRealityOperatorQueueToken } from '
 // Citizen auth reads the citizens table since issue #1007: every pg query
 // in this file is a verifyCitizen lookup, answered from pgVerifyRows.
 let pgVerifyRows: unknown[] = []
+
+describe('Founder Area transaction identity', () => {
+  test('adds deterministic suffixes only when a timestamp base collides', () => {
+    const existing = [{ id: 'area:1:purchase', kind: 'customer_purchase' } as never, { id: 'area:1:purchase:2', kind: 'customer_purchase' } as never]
+    expect(uniqueFounderTransactionId(existing, 'area:1:other')).toBe('area:1:other')
+    expect(uniqueFounderTransactionId(existing, 'area:1:purchase')).toBe('area:1:purchase:3')
+  })
+})
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => pgVerifyRows)
 
 vi.mock('@neondatabase/serverless', () => ({

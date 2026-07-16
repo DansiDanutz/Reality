@@ -85,8 +85,9 @@
 - Explicit client account reset now calls `/api/revoke-session` before clearing local state, while remaining usable offline.
 - Founder Area insurance renewals now enforce hourly insurer capacity consistently with initial purchases and `worldSim`.
 - Founder Area backfill now fails early with an explicit Blob credential requirement instead of an opaque SDK stack trace.
-- Local gate: 142 test files, 1,582 tests, build, and lint pass; only pre-existing lint warnings remain.
+- Local gate: 142 test files, 1,583 tests, build, and lint pass; only pre-existing lint warnings remain.
 - Intent authority fix: economic appends now carry a bounded idempotency key into the unique Postgres ledger boundary, so network retries replay rather than duplicate a value-changing action.
+- Transaction identity fix: Founder Area transaction IDs retain their legacy shape when unique and receive deterministic suffixes on collision.
 - Session transport fix: bearer tokens are stripped from durable game saves, same-device compatibility uses sessionStorage, cookie-auth requests include CSRF proof, and returning identities bootstrap from `/api/session` without duplicate registration.
 - Intent integrity fix: the hourly intent limit is enforced again inside the locked Postgres append function, so concurrent requests cannot all pass the pre-check and exceed the budget.
 - Overpass abuse fix: a bounded warm-instance per-IP brake now runs before upstream mirror work, with a Postgres-backed cross-instance IP/global rolling-window admission function when the authoritative database is configured; a true edge/WAF limit remains deployment work.
@@ -102,7 +103,7 @@
 - Live CAS probe: a guarded concurrent Founder Area revision test is ready for a dedicated test citizen/area once production credentials are authorized.
 - Inventory authority fix: shared-world placement now consumes only server-owned ledger-backed placeable purchases; missing inventory is rejected before charging or inserting the asset.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
-- Next tranche: publish the locked intent-rate fix, then run production cutover/backfill and the guarded live Founder Area CAS contention proof when deployment credentials are authorized.
+- Next tranche: publish the transaction identity fix, then run production Founder Area cutover/backfill and the guarded live CAS contention proof when deployment credentials are authorized.
 
 ## First autonomous implementation slice
 

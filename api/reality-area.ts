@@ -2211,6 +2211,14 @@ function normalizeFounderAreaTransaction(transaction: FounderAreaTransaction): F
   }
 }
 
+/** Preserve readable legacy IDs, adding a deterministic suffix only on collision. */
+export function uniqueFounderTransactionId(existing: FounderAreaTransaction[], base: string): string {
+  if (!existing.some((transaction) => transaction.id === base)) return base
+  let suffix = 2
+  while (existing.some((transaction) => transaction.id === `${base}:${suffix}`)) suffix += 1
+  return `${base}:${suffix}`
+}
+
 function normalizeFounderAreaEvents(input: unknown): FounderAreaEvent[] {
   if (!Array.isArray(input)) return []
   return input.filter(isFounderAreaEvent).map((event) => ({
@@ -5798,7 +5806,7 @@ function applyBuildBusinessIntent(
     createdBy: state.founderCitizenId,
   }
   const transaction: FounderAreaTransaction = {
-    id: `${state.areaId}:${now.getTime()}:business-build:${intent.businessId}`,
+    id: uniqueFounderTransactionId(state.transactions, `${state.areaId}:${now.getTime()}:business-build:${intent.businessId}`),
     at,
     kind: 'business_build',
     payoutEligibility: 'game_only',
@@ -5934,7 +5942,7 @@ function applyAreaHourTick(
       worker.money = roundMoney(worker.money + business.wagePerHour)
       paidWorkerIds.push(workerId)
       transactions.push({
-        id: `${areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`,
+        id: uniqueFounderTransactionId([...historyTransactions, ...transactions], `${areaId}:${now.getTime()}:worker-wage:${business.id}:${workerId}:${paidWorkerIds.length}`),
         at,
         kind: 'worker_wage',
         payoutEligibility: 'game_only',
@@ -5978,7 +5986,7 @@ function applyServicePurchaseIntent(
   const nextBalance = roundMoney(state.balance - business.price)
   const serviceQuality = effectiveBusinessQuality(state.citizens, business)
   const transaction: FounderAreaTransaction = {
-    id: `${state.areaId}:${now.getTime()}:customer-purchase:${intent.type}:${business.id}`,
+    id: uniqueFounderTransactionId(state.transactions, `${state.areaId}:${now.getTime()}:customer-purchase:${intent.type}:${business.id}`),
     at,
     kind: 'customer_purchase',
     payoutEligibility: 'game_only',
@@ -6044,7 +6052,7 @@ function applyBuyInsuranceIntent(
   const at = now.toISOString()
   const paidUntil = new Date(now.getTime() + INSURANCE_POLICY_PERIOD_MS).toISOString()
   const transaction: FounderAreaTransaction = {
-    id: `${state.areaId}:${now.getTime()}:insurance-premium:${actor.id}:${insurer.id}`,
+    id: uniqueFounderTransactionId(state.transactions, `${state.areaId}:${now.getTime()}:insurance-premium:${actor.id}:${insurer.id}`),
     at,
     kind: 'insurance_premium',
     payoutEligibility: 'game_only',
@@ -6127,7 +6135,7 @@ function applyRepayDebtIntent(
     business.id === debt.creditorId ? { ...business, cash: roundMoney(business.cash + payment) } : business
   )
   const transaction: FounderAreaTransaction = {
-    id: `${state.areaId}:${now.getTime()}:debt-repayment:${actor.id}:${debt.id}`,
+    id: uniqueFounderTransactionId(state.transactions, `${state.areaId}:${now.getTime()}:debt-repayment:${actor.id}:${debt.id}`),
     at,
     kind: 'debt_repayment',
     payoutEligibility: 'game_only',
@@ -6164,7 +6172,7 @@ function applyRecordCovenantReviewIntent(
   const at = now.toISOString()
   const review = founderCovenantReview(state)
   const entry: FounderAreaCovenantReviewHistoryItem = {
-    id: `${state.areaId}:${now.getTime()}:founder-review:${reviewerId}`,
+    id: uniqueFounderTransactionId(state.transactions, `${state.areaId}:${now.getTime()}:founder-review:${reviewerId}`),
     at,
     reviewerId,
     actionKind: intent.actionKind,
