@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
@@ -20,6 +21,7 @@ import { csrfMatches, sessionFromCookie } from './_session.js'
 const MAX_BUY_QUANTITY = 10
 const INTENTS_PER_HOUR = 120
 const BALANCE_EPSILON = 0.01
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_.:-]{1,128}$/
 
 export type Intent =
   | { type: 'workShift'; jobId: string }
@@ -141,7 +143,7 @@ const CITIZEN_CONTEXT_SQL = `
  */
 const APPEND_SQL = `
   SELECT new_balance, refusal
-  FROM reality_append_intent($1, $2, $3::numeric, $4::numeric, $5::jsonb, $6::interval)
+  FROM reality_append_intent($1, $2, $3::numeric, $4::numeric, $5::jsonb, $6::interval, $7)
 `.trim()
 
 /** A shift pays out at most once per real shift window — Rule #1, real time. */
@@ -154,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
-  const { citizenId: rawCitizenId, token: rawToken, intent: rawIntent, predictedBalance } = (req.body ?? {}) as Record<string, unknown>
+  const { citizenId: rawCitizenId, token: rawToken, intent: rawIntent, predictedBalance, idempotencyKey: rawIdempotencyKey } = (req.body ?? {}) as Record<string, unknown>
   const cookieSession = sessionFromCookie(req)
   const bodyToken = typeof rawToken === 'string' && rawToken.length > 0 ? rawToken : null
   const cookieAuth = !bodyToken && cookieSession
@@ -169,6 +171,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(normalized.code === 'unsupported_intent' ? 400 : 422).json(normalized)
     return
   }
+  const suppliedIdempotencyKey = rawIdempotencyKey === undefined ? null : String(rawIdempotencyKey)
+  if (suppliedIdempotencyKey !== null && !IDEMPOTENCY_KEY_RE.test(suppliedIdempotencyKey)) {
+    res.status(422).json({ ok: false, code: 'invalid_idempotency_key', error: 'Idempotency keys must be 1–128 safe characters.' })
+    return
+  }
+  const idempotencyKey = suppliedIdempotencyKey ?? randomUUID()
 
   try {
     if (!(await verifyCitizenPg(citizenId, String(token)))) {
@@ -179,7 +187,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sql = db() as unknown as SqlClient
 
     const rate = (await sql.query(RATE_COUNT_SQL, [citizenId])) as Array<{ count: number }>
-    if ((rate[0]?.count ?? 0) >= INTENTS_PER_HOUR) {
+    // A caller retrying a known key must reach the atomic function so it can
+    // replay the original result instead of being hidden by this fast gate.
+    if (suppliedIdempotencyKey === null && (rate[0]?.count ?? 0) >= INTENTS_PER_HOUR) {
       res.status(429).json({ ok: false, code: 'intent_rate_limited', error: 'Too many intents this hour. Slow down.' })
       return
     }
@@ -202,6 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       0,
       JSON.stringify(evaluated.meta),
       cooldownFor(normalized.intent),
+      idempotencyKey,
     ])) as Array<{ new_balance: string | number | null; refusal: string | null }>
 
     const outcome = appended[0]
