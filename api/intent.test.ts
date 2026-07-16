@@ -315,6 +315,31 @@ describe('intent API handler', () => {
     expect(params[5]).toBeNull()
   })
 
+  test('passes a caller idempotency key through the atomic append boundary', async () => {
+    pgOn()
+    mockVerifyOk()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 120 }]) // bypassed for supplied retry key
+      .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z', xp: 0 }])
+      .mockResolvedValueOnce([{ new_balance: '420.00', refusal: null }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY, idempotencyKey: 'shift-2026-07-16-1' } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const [, params] = pgQueryMock.mock.calls[3] as [string, unknown[]]
+    expect(params[6]).toBe('shift-2026-07-16-1')
+  })
+
+  test('rejects unsafe idempotency keys before any database call', async () => {
+    pgOn()
+    mockVerifyOk()
+    const res = responseRecorder()
+    await handler({ method: 'POST', body: { ...BODY, idempotencyKey: 'bad key with spaces' } } as never, res as never)
+    expect(res.statusCode).toBe(422)
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('logs the error context when Postgres fails instead of swallowing it', async () => {
     pgOn()
     mockVerifyOk()
