@@ -50,7 +50,23 @@ export const SCORE_UPSERT_SQL = `
   WHERE $3::numeric > $4::numeric
 `.trim()
 
-const CITIZEN_AGE_SQL = 'SELECT created_at FROM citizens WHERE citizen_id = $1'
+const CITIZEN_PROFILE_SQL = 'SELECT name, created_at FROM citizens WHERE citizen_id = $1'
+
+export type CitizenScoreProfile = { ageDays: number | null; name: string | null }
+
+/** Read the authoritative display name and age in one database round trip. */
+export async function citizenScoreProfilePg(citizenId: string, env: NodeJS.ProcessEnv = process.env): Promise<CitizenScoreProfile> {
+  const sql = db(env) as unknown as SqlClient
+  const rows = (await sql.query(CITIZEN_PROFILE_SQL, [citizenId])) as Array<{ name?: string | null; created_at?: string | Date | null }>
+  const row = rows[0]
+  if (!row) return { ageDays: null, name: null }
+  if (!row.created_at) return { ageDays: null, name: row.name ?? null }
+  const createdAt = new Date(row.created_at).getTime()
+  return {
+    ageDays: Number.isFinite(createdAt) ? Math.max(0, (Date.now() - createdAt) / 86_400_000) : null,
+    name: row.name ?? null,
+  }
+}
 
 /**
  * Citizen age in (fractional) days from the citizens table — the source for
@@ -59,12 +75,7 @@ const CITIZEN_AGE_SQL = 'SELECT created_at FROM citizens WHERE citizen_id = $1'
  * errors propagate — there is no Blob fallback anymore.
  */
 export async function citizenAgeDaysPg(citizenId: string, env: NodeJS.ProcessEnv = process.env): Promise<number | null> {
-  const sql = db(env) as unknown as SqlClient
-  const rows = (await sql.query(CITIZEN_AGE_SQL, [citizenId])) as Array<{ created_at: string | Date }>
-  if (!rows[0]?.created_at) return null
-  const createdAt = new Date(rows[0].created_at).getTime()
-  if (!Number.isFinite(createdAt)) return null
-  return Math.max(0, (Date.now() - createdAt) / 86_400_000)
+  return (await citizenScoreProfilePg(citizenId, env)).ageDays
 }
 
 /** Authoritative write: score upsert + capped-claim audit, one atomic statement. Throws on failure. */

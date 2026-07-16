@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
-import { citizenAgeDaysPg, maxPlausibleWorth, writeScore } from './_scoresPg.js'
+import { citizenScoreProfilePg, maxPlausibleWorth, writeScore } from './_scoresPg.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
 
 const MAX_NET_WORTH = 10_000_000_000
@@ -61,8 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const citizenId = body.citizenId ?? cookieSession?.citizenId
   const token = bodyToken ?? cookieSession?.token
-  const { name, netWorth } = body
-  const cleanName = String(name ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'citizen'
+  const { netWorth } = body
   const worth = Math.round(Number(netWorth))
   if (!Number.isFinite(worth) || worth < 0 || worth > MAX_NET_WORTH) {
     res.status(400).json({ ok: false, error: 'Invalid net worth.' })
@@ -79,7 +78,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // grant + a generous $100k per day of citizenship, from the citizen's
     // authoritative created_at. FAIL CLOSED — unknown age means the day-0
     // ceiling, never the raw client number.
-    const ageDays = await citizenAgeDaysPg(String(citizenId))
+    const profile = await citizenScoreProfilePg(String(citizenId))
+    const cleanName = String(profile.name ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'citizen'
+    const ageDays = profile.ageDays
     const cappedWorth = Math.min(worth, ageDays !== null ? maxPlausibleWorth(ageDays) : FALLBACK_MAX_PLAUSIBLE)
 
     // One atomic statement: replace the score, audit the cap if it bit.

@@ -107,7 +107,7 @@ describe('leaderboard API score submissions', () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }]) // verified
-      .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z' }]) // 5 days old
+      .mockResolvedValueOnce([{ name: 'Canonical Citizen', created_at: '2026-07-05T12:00:00.000Z' }]) // authoritative profile
       .mockResolvedValueOnce([]) // atomic upsert-with-audit
     const res = responseRecorder()
 
@@ -118,7 +118,7 @@ describe('leaderboard API score submissions', () => {
     expect(upsertSql).toMatch(/INSERT INTO scores/i)
     expect(upsertSql).toMatch(/INSERT INTO ledger/i)
     // 5 days → 200k + 6 * 100k = 800k cap
-    expect(upsertParams.slice(0, 5)).toEqual([CITIZEN_ID, 'water-maker', 9_000_000, 800_000, NOW.toISOString()])
+    expect(upsertParams.slice(0, 5)).toEqual([CITIZEN_ID, 'canonical-citizen', 9_000_000, 800_000, NOW.toISOString()])
     expect(JSON.parse(String(upsertParams[5]))).toEqual({
       reason: 'implausible_net_worth',
       claimed: 9_000_000,
@@ -130,7 +130,7 @@ describe('leaderboard API score submissions', () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }])
-      .mockResolvedValueOnce([]) // no citizen row → unknown age
+      .mockResolvedValueOnce([]) // no profile row → fail-closed day-0 cap/name fallback
       .mockResolvedValueOnce([])
     const res = responseRecorder()
 
