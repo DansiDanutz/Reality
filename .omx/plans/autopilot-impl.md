@@ -112,6 +112,7 @@
 - Claim/review transport follow-up: Founder Area client bridges sanitize claim sources and operator review fields before transport.
 - Debt identity follow-up: world simulation normalizes repayment lookup IDs while preserving imported debt identity and fail-closed mutation behavior.
 - Worker identity follow-up: world simulation normalizes hireWorker business lookup IDs while preserving imported business identity.
+- Queue transport follow-up: Founder Covenant review queue bridges sanitize cursors and pagination values before authority transport.
 
 ## First autonomous implementation slice
 
