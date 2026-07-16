@@ -645,6 +645,7 @@ describe('FounderAreaPanel covenant presenters', () => {
         unstaffedBusinesses: 1,
         insuredFounders: 0,
         pendingApprovals: 2,
+        manualEvidenceGaps: { populationGrowth: 1, externalContribution: 1, ideasFeedback: 1 },
         pendingNotifications: 1,
         blockers: 5,
         signalCounts: {

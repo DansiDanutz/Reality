@@ -116,6 +116,7 @@
 - Telegram auth follow-up: the browser bridge rejects obviously future-dated successful verifier responses while preserving server authority.
 - Telegram bot-account follow-up: registration and client bridges now have explicit regression coverage for the server's bot-user rejection.
 - Covenant urgency follow-up: evidence-only queue ordering distinguishes monthly review urgency from weekly review urgency.
+- Evidence backlog follow-up: Founder Covenant queue contracts and presenters now carry per-category manual evidence gap totals.
 
 ## First autonomous implementation slice
 
