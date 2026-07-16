@@ -98,6 +98,26 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(paths.some((p) => p.startsWith('founders/'))).toBe(false)
   })
 
+  test('keys the registration brake on the trusted/rightmost forwarding hop', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    stubPg()
+    mockHappyPg(1)
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: {
+        'x-vercel-forwarded-for': `spoofed-prefix, ${REGISTER_IP}`,
+        'x-forwarded-for': 'attacker-controlled-ip',
+      },
+      body: { name: 'David' },
+    } as never, res as never)
+
+    expect(pgQueryMock.mock.calls[0]?.[1]?.[0]).toBe(REGISTER_IP_HASH)
+  })
+
   test('verifies Telegram initData and links the account in Postgres and the mirror', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(NOW_SECONDS * 1000))

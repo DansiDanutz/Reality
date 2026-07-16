@@ -121,6 +121,7 @@
 - CAS resurrection follow-up: the Founder Area save function now rejects non-zero revisions when the authoritative row is absent instead of inserting a fresh revision-1 snapshot.
 - Corrupt-snapshot observability follow-up: malformed Postgres Founder Area rows remain fail-closed and now produce a non-secret diagnostic for repair triage.
 - Bearer-at-rest follow-up: legacy save migration and cloud-save ingestion now scrub citizen bearer tokens before persistence.
+- Registration brake follow-up: registration now derives its IP key from the trusted Vercel forwarding boundary or rightmost forwarded hop instead of a spoofable leftmost XFF value.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
