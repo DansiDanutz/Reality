@@ -107,7 +107,7 @@ describe('leaderboard API score submissions', () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }]) // verified
-      .mockResolvedValueOnce([{ name: 'Canonical Citizen', created_at: '2026-07-05T12:00:00.000Z' }]) // authoritative profile
+      .mockResolvedValueOnce([{ name: 'Canonical Citizen', created_at: '2026-07-05T12:00:00.000Z', credited: '5000000.00' }]) // authoritative profile
       .mockResolvedValueOnce([]) // atomic upsert-with-audit
     const res = responseRecorder()
 
@@ -126,11 +126,11 @@ describe('leaderboard API score submissions', () => {
     })
   })
 
-  test('falls back to the fail-closed day-0 cap when the citizen age is unknown', async () => {
+  test('falls back to the fail-closed founder-grant bound when the citizen profile is unknown', async () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }])
-      .mockResolvedValueOnce([]) // no profile row → fail-closed day-0 cap/name fallback
+      .mockResolvedValueOnce([]) // no profile row → fail-closed grant bound/name fallback
       .mockResolvedValueOnce([])
     const res = responseRecorder()
 
@@ -138,7 +138,47 @@ describe('leaderboard API score submissions', () => {
 
     expect(res.statusCode).toBe(200)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    expect(upsertParams[3]).toBe(300_000)
+    // 200k founder grant + 10% pending-income tolerance — tighter than the 300k day-0 age cap.
+    expect(upsertParams[3]).toBe(220_000)
+  })
+
+  test('clamps a claimed worth to the server ledger credits, not the client number', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }]) // verified
+      // Day-0 citizen (age cap 300k) whose ledger has only credited $2,500 —
+      // a POSTed 300k claim must reconcile down to the ledger, not the age cap.
+      .mockResolvedValueOnce([{ name: 'Fresh Citizen', created_at: NOW.toISOString(), credited: '2500.00' }])
+      .mockResolvedValueOnce([])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY, netWorth: 300_000 } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const [profileSql] = pgQueryMock.mock.calls[1] as [string]
+    expect(profileSql).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
+    expect(profileSql).toMatch(/balance_after IS NOT NULL/i)
+    const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    // 2,500 credited * 1.1 tolerance = 2,750 — the ledger bound wins.
+    expect(upsertParams.slice(2, 4)).toEqual([300_000, 2_750])
+  })
+
+  test('keeps the ledger bound fail-closed when the citizen has no accepted ledger rows', async () => {
+    stubPg()
+    pgQueryMock
+      .mockResolvedValueOnce([{ ok: 1 }])
+      .mockResolvedValueOnce([{ name: 'Ledgerless Citizen', created_at: '2026-07-05T12:00:00.000Z', credited: null }])
+      .mockResolvedValueOnce([])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { ...BODY } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
+    // No ledger rows → founder-grant bound (220k), even though the age cap allows more.
+    expect(upsertParams[3]).toBe(220_000)
   })
 
   test('rejects invalid net worth before any storage call', async () => {
