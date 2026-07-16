@@ -91,6 +91,21 @@ describe('Reality area client', () => {
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).not.toHaveProperty('token')
   })
 
+  test('trims citizen credentials before Founder Area transport', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await claimRealityFounderArea({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12 }, profile, fetchImpl as never)
+    const claimBody = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
+    expect(claimBody.citizenId).toBe('citizen-1')
+    expect(claimBody.token).toBe('token-1')
+
+    await applyRealityFounderAreaIntent({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12 }, { type: 'refreshArea' } as never, fetchImpl as never)
+    const applyBody = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body)) as Record<string, unknown>
+    expect(applyBody.citizenId).toBe('citizen-1')
+    expect(applyBody.token).toBe('token-1')
+  })
+
   test('trims founder area claim labels before sending', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
