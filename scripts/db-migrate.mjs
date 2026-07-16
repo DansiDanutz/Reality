@@ -47,6 +47,8 @@ if (dryRun) {
     'ledger_citizen_idempotency_key',
     'token_revoked_at',
     'token_expires_at',
+    'reality_save_cloud_snapshot',
+    'cloud_saves',
   ]
   const missing = requiredObjects.filter((object) => !schema.includes(object))
   if (missing.length > 0) {
