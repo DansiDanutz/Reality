@@ -1145,6 +1145,19 @@ describe('Reality area client', () => {
     })
   })
 
+  test('sanitizes malformed founder covenant queue parameters before transport', async () => {
+    const queue = serverFounderCovenantReviewQueue()
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, founderCovenantReviewQueue: queue }))
+    await readRealityFounderCovenantOperatorQueue({
+      operatorToken: 'operator-token',
+      limit: Number.NaN,
+      pages: 0,
+      cursor: '   ',
+    }, fetchImpl as never)
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe('/api/reality-area?review=founderCovenantQueue')
+  })
+
   test('uses an operator-only request boundary for founder covenant review queues', async () => {
     const queue = serverFounderCovenantReviewQueue()
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>

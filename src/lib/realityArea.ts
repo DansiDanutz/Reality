@@ -1158,9 +1158,10 @@ export async function readRealityFounderCovenantReviewQueue(
   }
 
   const query = new URLSearchParams({ review: 'founderCovenantQueue' })
-  if (request.limit !== undefined) query.set('limit', String(request.limit))
-  if (request.pages !== undefined) query.set('pages', String(request.pages))
-  if (request.cursor !== undefined) query.set('cursor', request.cursor)
+  if (Number.isFinite(request.limit) && request.limit! > 0) query.set('limit', String(request.limit))
+  if (Number.isFinite(request.pages) && request.pages! > 0) query.set('pages', String(request.pages))
+  const cursor = request.cursor?.trim()
+  if (cursor) query.set('cursor', cursor)
 
   try {
     const response = await fetchImpl(`/api/reality-area?${query.toString()}`, {
