@@ -10,6 +10,9 @@ import { neon } from '@neondatabase/serverless'
 import { FOUNDER_AREA_SAVE_SQL, areaStatePathFromBlob, isRevisionConflict, migratableFounderAreaSnapshot } from './db/founder-area-migration-lib.mjs'
 
 const dryRun = process.env.FOUNDER_AREA_MIGRATION_DRY_RUN === '1'
+if (!dryRun && process.env.FOUNDER_AREA_MIGRATION_ALLOW_WRITE !== '1') {
+  throw new Error('Refusing Founder Area backfill writes. Set FOUNDER_AREA_MIGRATION_ALLOW_WRITE=1 for an explicitly authorized migration.')
+}
 const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL
 if (!dryRun && !url) throw new Error('POSTGRES_URL (or DATABASE_URL) is required unless FOUNDER_AREA_MIGRATION_DRY_RUN=1.')
 if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_OIDC_TOKEN) {
