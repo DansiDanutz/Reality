@@ -914,6 +914,28 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('accepts a CSRF-protected session cookie for area reads and writes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
+    pgVerifyRows = [{ founder_number: 12, raw: {} }]
+    vi.mocked(list).mockResolvedValueOnce(blobList([areaStatePath(CITIZEN_ID)], 'blob://area-state'))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(existingState()), { status: 200 })))
+    const getRes = responseRecorder()
+    await handler({ method: 'GET', headers: { cookie: `reality_session=${CITIZEN_ID}.${TOKEN}; reality_csrf=csrf-1` }, query: {} } as never, getRes as never)
+    expect(getRes.statusCode).toBe(200)
+
+    const postRes = responseRecorder()
+    await handler({ method: 'POST', headers: { cookie: `reality_session=${CITIZEN_ID}.${TOKEN}; reality_csrf=csrf-1`, 'x-reality-csrf': 'csrf-1' }, body: { intent: { type: 'refreshArea' } } } as never, postRes as never)
+    expect(postRes.statusCode).not.toBe(403)
+  })
+
+  test('rejects a session-cookie mutation without CSRF proof', async () => {
+    const res = responseRecorder()
+    await handler({ method: 'POST', headers: { cookie: `reality_session=${CITIZEN_ID}.${TOKEN}; reality_csrf=csrf-1` }, body: { intent: { type: 'refreshArea' } } } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toMatchObject({ code: 'csrf_required' })
+  })
+
   test('returns an existing server-owned area state without creating money', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T03:30:00.000Z'))
