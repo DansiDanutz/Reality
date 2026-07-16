@@ -34,8 +34,13 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS founder_area_snapshots/)
     expect(schema).toMatch(/revision\s+bigint NOT NULL DEFAULT 0/)
     expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_save_founder_area\(/)
-    expect(schema).toMatch(/founder_area_snapshots\.revision = p_expected_revision/)
+    expect(schema).toMatch(/revision = p_expected_revision/)
     expect(schema).toMatch(/founder_area_revision_conflict/)
+  })
+
+  test('does not let a non-zero CAS revision create a fresh snapshot row', () => {
+    expect(schema).toMatch(/IF p_expected_revision = 0 THEN[\s\S]*?ELSE[\s\S]*?WHERE citizen_id = p_citizen AND revision = p_expected_revision/)
+    expect(schema).toMatch(/WHERE founder_area_snapshots\.revision = 0/)
   })
 
   test('provides an atomic server-owned world placement boundary', () => {

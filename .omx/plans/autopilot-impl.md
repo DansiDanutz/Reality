@@ -118,6 +118,7 @@
 - Covenant urgency follow-up: evidence-only queue ordering distinguishes monthly review urgency from weekly review urgency.
 - Evidence backlog follow-up: Founder Covenant queue contracts and presenters now carry per-category manual evidence gap totals.
 - Evidence backlog presenter follow-up: Founder Covenant queue totals now visibly surface population, contribution, and ideas proof gaps as read-only chips.
+- CAS resurrection follow-up: the Founder Area save function now rejects non-zero revisions when the authoritative row is absent instead of inserting a fresh revision-1 snapshot.
 
 ## First autonomous implementation slice
 
