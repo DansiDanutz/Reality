@@ -118,6 +118,7 @@ function operatorQueue(): RealityFounderCovenantReviewQueueDashboard {
       unstaffedBusinesses: 1,
       insuredFounders: 0,
       pendingApprovals: 1,
+      manualEvidenceGaps: { populationGrowth: 1, externalContribution: 1, ideasFeedback: 1 },
       pendingNotifications: 1,
       blockers: 3,
       signalCounts: { total: 2, info: 0, warning: 1, critical: 1 },

@@ -4604,6 +4604,11 @@ describe('reality area authority API', () => {
       current: 0,
       failed: 0,
       totals: {
+        manualEvidenceGaps: {
+          populationGrowth: expect.any(Number),
+          externalContribution: expect.any(Number),
+          ideasFeedback: expect.any(Number),
+        },
         founders: 1,
         active: 0,
         useful: 0,

@@ -3318,6 +3318,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       pendingApprovals: review.reviewQueue.pendingApprovalCount,
       pendingNotifications: review.reviewQueue.pendingNotificationCount,
       blockers: review.reviewQueue.blockerCount,
+      manualEvidenceGaps: { populationGrowth: 1, externalContribution: 1, ideasFeedback: 1 },
       signalCounts: {
         total: review.signals.length,
         info: review.signals.filter((signal) => signal.severity === 'info').length,

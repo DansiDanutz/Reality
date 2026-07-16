@@ -1304,6 +1304,11 @@ interface FounderCovenantReviewQueueDashboard {
     pendingApprovals: number
     pendingNotifications: number
     blockers: number
+    manualEvidenceGaps: {
+      populationGrowth: number
+      externalContribution: number
+      ideasFeedback: number
+    }
     signalCounts: FounderCovenantReviewQueueSignalCounts
   }
   items: FounderCovenantReviewQueueItem[]
@@ -5190,6 +5195,11 @@ function founderCovenantReviewQueueTotals(
     pendingApprovals: items.reduce((total, item) => total + item.reviewQueue.pendingApprovalCount, 0),
     pendingNotifications: items.reduce((total, item) => total + item.reviewQueue.pendingNotificationCount, 0),
     blockers: items.reduce((total, item) => total + item.blockerCount, 0),
+    manualEvidenceGaps: {
+      populationGrowth: items.reduce((total, item) => total + (item.reviewInputs.some((input) => input.kind === 'population_growth' && input.manualEvidenceRequired) ? 1 : 0), 0),
+      externalContribution: items.reduce((total, item) => total + (item.reviewInputs.some((input) => input.kind === 'external_contribution' && input.manualEvidenceRequired) ? 1 : 0), 0),
+      ideasFeedback: items.reduce((total, item) => total + (item.reviewInputs.some((input) => input.kind === 'ideas_feedback' && input.manualEvidenceRequired) ? 1 : 0), 0),
+    },
     signalCounts: founderCovenantReviewQueueAggregateSignalCounts(items),
   }
 }
