@@ -137,9 +137,9 @@ describe('Google auth API', () => {
       if (url === 'blob://save') return new Response(save, { status: 200 })
       return new Response('not found', { status: 404 })
     }))
+    pgQueryMock.mockResolvedValueOnce([{ state: JSON.parse(save) }])
     vi.mocked(list)
       .mockResolvedValueOnce(blobList(['accounts/google-user-1.json'], 'blob://account'))
-      .mockResolvedValueOnce(blobList([`saves/${CITIZEN_ID}.json`], 'blob://save'))
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { credential: 'good-token' } } as never, res as never)
@@ -156,6 +156,7 @@ describe('Google auth API', () => {
       },
       save,
     })
+    expect(list).toHaveBeenCalledTimes(1)
   })
 
   test('returns a structured service failure when Google or storage is unavailable', async () => {

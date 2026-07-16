@@ -46,6 +46,7 @@ describe('cloud save API', () => {
   })
   test('stores a valid save for a registered citizen', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
+    pgQueryMock.mockResolvedValueOnce([{ accepted: true }]) // monotonic cloud-save reservation
     const res = responseRecorder()
 
     await handler({
@@ -64,6 +65,7 @@ describe('cloud save API', () => {
 
   test('scrubs bearer tokens from legacy saves before storing them', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    pgQueryMock.mockResolvedValueOnce([{ accepted: true }])
     const res = responseRecorder()
     const save = JSON.stringify({ version: 1, citizen: { id: CITIZEN_ID, token: 'legacy-secret' } })
 
@@ -78,6 +80,21 @@ describe('cloud save API', () => {
       JSON.stringify({ version: 1, citizen: { id: CITIZEN_ID } }),
       { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
     )
+  })
+
+  test('rejects a save older than the authoritative cloud snapshot', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    pgQueryMock.mockResolvedValueOnce([{ accepted: false }])
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      body: { citizenId: CITIZEN_ID, token: TOKEN, save: JSON.stringify({ lastSeenAt: 100 }) },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({ ok: false, error: 'A newer cloud save already exists.', code: 'stale_save' })
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('rejects malformed and oversized save payloads before storage access', async () => {
@@ -136,6 +153,7 @@ describe('cloud save API', () => {
 
   test('returns a structured service failure when save storage is unavailable', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    pgQueryMock.mockResolvedValueOnce([{ accepted: true }])
     vi.mocked(put).mockRejectedValueOnce(new Error('blob write unavailable'))
     const res = responseRecorder()
 

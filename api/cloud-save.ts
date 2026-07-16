@@ -2,6 +2,7 @@ import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCitizenPg } from './_registry.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
+import { saveCloudSnapshotPg } from './_cloudSavePg.js'
 
 const MAX_SAVE_BYTES = 256_000
 
@@ -35,10 +36,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   const sanitizedSave = scrubPersistedToken(parsedSave)
+  const savedAt = persistedSaveTimestamp(parsedSave)
 
   try {
     if (!(await verifyCitizenPg(String(citizenId), String(token)))) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
+      return
+    }
+    const accepted = await saveCloudSnapshotPg(String(citizenId), savedAt, JSON.parse(sanitizedSave))
+    if (!accepted) {
+      res.status(409).json({ ok: false, error: 'A newer cloud save already exists.', code: 'stale_save' })
       return
     }
     await put(`saves/${citizenId}.json`, sanitizedSave, {
@@ -55,6 +62,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       code: 'cloud_save_unavailable',
     })
   }
+}
+
+function persistedSaveTimestamp(value: unknown): number {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const candidate = (value as Record<string, unknown>).lastSeenAt
+    if (typeof candidate === 'number' && Number.isSafeInteger(candidate) && candidate >= 0) return candidate
+  }
+  return Date.now()
 }
 
 function scrubPersistedToken(value: unknown): string {

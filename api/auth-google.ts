@@ -2,6 +2,7 @@ import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCitizenPg } from './_registry.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
+import { readCloudSnapshotPg } from './_cloudSavePg.js'
 
 interface GoogleProfile {
   sub: string
@@ -88,10 +89,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const account = await readBlobJson(`accounts/${profile.sub}.json`)
     let save: string | null = null
     if (account?.citizenId) {
-      const batch = await list({ prefix: `saves/${account.citizenId}.json`, limit: 1 })
-      if (batch.blobs[0]) {
-        const r = await fetch(batch.blobs[0].downloadUrl)
-        if (r.ok) save = await r.text()
+      save = await readCloudSnapshotPg(String(account.citizenId))
+      if (save === null) {
+        const batch = await list({ prefix: `saves/${account.citizenId}.json`, limit: 1 })
+        if (batch.blobs[0]) {
+          const r = await fetch(batch.blobs[0].downloadUrl)
+          if (r.ok) save = await r.text()
+        }
       }
     }
     res.status(200).json({

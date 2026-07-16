@@ -38,6 +38,12 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/founder_area_revision_conflict/)
   })
 
+  test('orders cloud saves server-side before Blob compatibility writes', () => {
+    expect(schema).toMatch(/CREATE TABLE IF NOT EXISTS cloud_saves/)
+    expect(schema).toMatch(/CREATE OR REPLACE FUNCTION reality_save_cloud_snapshot\(/)
+    expect(schema).toMatch(/cloud_saves\.saved_at < EXCLUDED\.saved_at/)
+  })
+
   test('does not let a non-zero CAS revision create a fresh snapshot row', () => {
     expect(schema).toMatch(/IF p_expected_revision = 0 THEN[\s\S]*?ELSE[\s\S]*?WHERE citizen_id = p_citizen AND revision = p_expected_revision/)
     expect(schema).toMatch(/WHERE founder_area_snapshots\.revision = 0/)
