@@ -76,6 +76,21 @@ describe('Reality area client', () => {
     expect(body.transactions).toBeUndefined()
   })
 
+  test('reuses the cookie session when a returning citizen has no bearer token', async () => {
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+
+    await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: '', founderNumber: 12 }, profile, fetchImpl as never))
+      .resolves.toMatchObject({ ok: true })
+
+    expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
+    })
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).not.toHaveProperty('token')
+  })
+
   test('trims founder area claim labels before sending', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
