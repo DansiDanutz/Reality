@@ -120,6 +120,7 @@
 - Evidence backlog presenter follow-up: Founder Covenant queue totals now visibly surface population, contribution, and ideas proof gaps as read-only chips.
 - CAS resurrection follow-up: the Founder Area save function now rejects non-zero revisions when the authoritative row is absent instead of inserting a fresh revision-1 snapshot.
 - Corrupt-snapshot observability follow-up: malformed Postgres Founder Area rows remain fail-closed and now produce a non-secret diagnostic for repair triage.
+- Bearer-at-rest follow-up: legacy save migration and cloud-save ingestion now scrub citizen bearer tokens before persistence.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

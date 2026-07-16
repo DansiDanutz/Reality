@@ -437,7 +437,7 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && state.courierLastDay === undefined) state.courierLastDay = 0
         if (state && !state.courierOpenedDays) state.courierOpenedDays = []
         if (state && !state.completedCourierDays) state.completedCourierDays = []
-        return state
+        return withoutPersistedToken(state)
 }
 
 /**

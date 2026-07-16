@@ -62,6 +62,24 @@ describe('cloud save API', () => {
     )
   })
 
+  test('scrubs bearer tokens from legacy saves before storing them', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    const res = responseRecorder()
+    const save = JSON.stringify({ version: 1, citizen: { id: CITIZEN_ID, token: 'legacy-secret' } })
+
+    await handler({
+      method: 'POST',
+      body: { citizenId: CITIZEN_ID, token: TOKEN, save },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(put).toHaveBeenCalledWith(
+      `saves/${CITIZEN_ID}.json`,
+      JSON.stringify({ version: 1, citizen: { id: CITIZEN_ID } }),
+      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+    )
+  })
+
   test('rejects malformed and oversized save payloads before storage access', async () => {
     const malformed = responseRecorder()
     await handler({
