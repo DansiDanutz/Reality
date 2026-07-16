@@ -7,7 +7,17 @@ vi.mock('@neondatabase/serverless', () => ({
 }))
 
 import { resetDbForTest } from './_db'
-import { SCORE_UPSERT_SQL, citizenAgeDaysPg, maxPlausibleWorth, writeScore } from './_scoresPg'
+import {
+  CITIZEN_PROFILE_SQL,
+  FOUNDER_GRANT,
+  LEDGER_WORTH_TOLERANCE,
+  SCORE_UPSERT_SQL,
+  citizenAgeDaysPg,
+  citizenScoreProfilePg,
+  maxPlausibleWorth,
+  maxReconciledWorth,
+  writeScore,
+} from './_scoresPg'
 
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const REPORTED_AT = new Date('2026-07-10T12:00:00.000Z')
@@ -40,6 +50,54 @@ describe('maxPlausibleWorth', () => {
 
   test('rounds partial days up — the cap only ever raises with age', () => {
     expect(maxPlausibleWorth(2.3)).toBe(200_000 + Math.ceil(3.3) * 100_000)
+  })
+})
+
+describe('maxReconciledWorth', () => {
+  test('bounds a claim by the accepted ledger credits plus the pending-income tolerance', () => {
+    expect(maxReconciledWorth(2_500)).toBe(2_750)
+    expect(maxReconciledWorth(1_000_000)).toBe(1_100_000)
+  })
+
+  test('fails closed to the founder grant when the ledger has no accepted rows', () => {
+    expect(maxReconciledWorth(null)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(Number.NaN)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
+  })
+
+  test('never goes negative on a corrupt credit sum', () => {
+    expect(maxReconciledWorth(-500)).toBe(0)
+  })
+})
+
+describe('citizenScoreProfilePg', () => {
+  test('reads name, age, and accepted ledger credits in one round trip', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'))
+    queryMock.mockResolvedValueOnce([
+      { name: 'water-maker', created_at: '2026-07-05T12:00:00.000Z', credited: '12500.00' },
+    ])
+
+    const profile = await citizenScoreProfilePg(CITIZEN_ID)
+
+    expect(queryMock).toHaveBeenCalledTimes(1)
+    const [statement, params] = queryMock.mock.calls[0] as [string, unknown[]]
+    expect(statement).toBe(CITIZEN_PROFILE_SQL)
+    expect(statement).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
+    expect(statement).toMatch(/balance_after IS NOT NULL/i)
+    expect(params).toEqual([CITIZEN_ID])
+    expect(profile).toEqual({ ageDays: 5, name: 'water-maker', ledgerCredits: 12_500 })
+  })
+
+  test('reports null ledger credits for a citizen with no accepted ledger rows', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([
+      { name: 'water-maker', created_at: '2026-07-05T12:00:00.000Z', credited: null },
+    ])
+
+    const profile = await citizenScoreProfilePg(CITIZEN_ID)
+
+    expect(profile.ledgerCredits).toBeNull()
   })
 })
 
@@ -95,7 +153,7 @@ describe('citizenAgeDaysPg', () => {
 
     expect(await citizenAgeDaysPg(CITIZEN_ID)).toBe(5)
     const [statement, params] = queryMock.mock.calls[0] as [string, unknown[]]
-    expect(statement).toMatch(/SELECT name, created_at FROM citizens/i)
+    expect(statement).toBe(CITIZEN_PROFILE_SQL)
     expect(params).toEqual([CITIZEN_ID])
   })
 
