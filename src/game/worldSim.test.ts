@@ -1788,6 +1788,30 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(start.citizens.find((candidate) => candidate.id === 'c1')?.debt).toBe(300)
   })
 
+  test('repayDebt normalizes padded intent and imported debt ids without rewriting stored identity', () => {
+    const start = claimedArea({
+      citizens: [sim('c1', {
+        money: 100,
+        debt: 40,
+        debts: [{ id: ' imported-debt ', kind: 'medical', creditorId: 'clinic1', amount: 40, issuedAt: HOUR, memo: 'Imported debt.' }],
+      })],
+      businesses: [business('clinic', 'clinic1', { cash: 0 })],
+    })
+    const result = applyWorldIntent(start, { type: 'repayDebt', actorCitizenId: 'c1', debtId: '  imported-debt  ', amount: 10 })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected padded debt identity to resolve')
+    expect(result.area.citizens.find((citizen) => citizen.id === 'c1')?.debts?.[0]).toMatchObject({ id: ' imported-debt ', amount: 30 })
+  })
+
+  test('repayDebt rejects a blank normalized debt id without mutation', () => {
+    const start = claimedArea({ citizens: [sim('c1', { money: 100, debt: 40, debts: [{ id: 'debt1', kind: 'medical', creditorId: 'clinic1', amount: 40, issuedAt: HOUR, memo: 'Debt.' }] })], businesses: [business('clinic', 'clinic1', { cash: 0 })] })
+    const result = applyWorldIntent(start, { type: 'repayDebt', actorCitizenId: 'c1', debtId: '   ', amount: 10 })
+    expect(result).toMatchObject({ ok: false, error: 'debt_not_found' })
+    expect(start.citizens.find((citizen) => citizen.id === 'c1')?.money).toBe(100)
+    expect(start.businesses[0].cash).toBe(0)
+    expect(start.transactions).toEqual([])
+  })
+
   test('repayDebt intent caps overpayment at the debt balance and removes cleared lines', () => {
     const start = claimedArea({
       citizens: [sim('c1', {
