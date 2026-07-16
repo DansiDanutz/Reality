@@ -2097,7 +2097,13 @@ async function readAreaState(citizenId: string): Promise<FounderAreaPersistedSta
   if (founderAreaPgEnabled()) {
     const row = await readFounderAreaPg(citizenId)
     if (row) {
-      if (!isFounderAreaState(row.state, citizenId)) return null
+      if (!isFounderAreaState(row.state, citizenId)) {
+        console.error('founder area: malformed Postgres snapshot', {
+          citizenId,
+          revision: row.revision,
+        })
+        return null
+      }
       const state = normalizeAreaCitizens(row.state)
       return { ...state, __storageRevision: row.revision }
     }
