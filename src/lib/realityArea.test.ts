@@ -106,6 +106,14 @@ describe('Reality area client', () => {
     expect(applyBody.token).toBe('token-1')
   })
 
+  test('falls back to manual when a malformed claim source crosses the browser boundary', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState() }))
+    await claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 12 }, { ...profile, claimSource: 'spoofed' as never }, fetchImpl as never)
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
+    expect(body.intent).toMatchObject({ source: 'manual' })
+  })
+
   test('trims founder area claim labels before sending', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
@@ -1211,6 +1219,22 @@ describe('Reality area client', () => {
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body.citizenId).toBeUndefined()
     expect(body.token).toBeUndefined()
+  })
+
+  test('trims operator review identifiers and omits blank notes', async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(200, { ok: true, state: serverState(), dashboard: serverDashboard() }))
+    await recordRealityFounderCovenantOperatorReview({
+      operatorToken: ' operator-token ',
+      founderCitizenId: ' founder-1 ',
+      areaId: ' area-1 ',
+      actionKind: 'record_review',
+      note: '   ',
+    }, fetchImpl as never)
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as { intent: Record<string, unknown> }
+    expect(body.intent).toMatchObject({ founderCitizenId: 'founder-1', areaId: 'area-1' })
+    expect(body.intent).not.toHaveProperty('note')
+    expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({ Authorization: 'Bearer operator-token' })
   })
 
   test('strips client-owned state from operator review payloads before sending', async () => {
