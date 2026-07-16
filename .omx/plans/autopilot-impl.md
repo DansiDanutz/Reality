@@ -89,6 +89,7 @@
 - Intent authority fix: economic appends now carry a bounded idempotency key into the unique Postgres ledger boundary, so network retries replay rather than duplicate a value-changing action.
 - Transaction identity fix: Founder Area transaction IDs retain their legacy shape when unique and receive deterministic suffixes on collision.
 - Leaderboard identity fix: score submissions now derive display names from the authoritative citizens table instead of trusting client text.
+- Migration evidence fix: the dry-run now verifies the intent append function and idempotency index explicitly, preventing a false-green cutover checklist after schema changes.
 - Session transport fix: bearer tokens are stripped from durable game saves, same-device compatibility uses sessionStorage, cookie-auth requests include CSRF proof, and returning identities bootstrap from `/api/session` without duplicate registration.
 - Intent integrity fix: the hourly intent limit is enforced again inside the locked Postgres append function, so concurrent requests cannot all pass the pre-check and exceed the budget.
 - Overpass abuse fix: a bounded warm-instance per-IP brake now runs before upstream mirror work, with a Postgres-backed cross-instance IP/global rolling-window admission function when the authoritative database is configured; a true edge/WAF limit remains deployment work.

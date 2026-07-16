@@ -40,9 +40,11 @@ const statements = schema
 
 if (dryRun) {
   const requiredObjects = [
+    'reality_append_intent',
     'reality_save_founder_area',
     'reality_place_asset',
     'reality_claim_registration_slot',
+    'ledger_citizen_idempotency_key',
     'token_revoked_at',
     'token_expires_at',
   ]
