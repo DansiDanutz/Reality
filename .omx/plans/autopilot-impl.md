@@ -105,7 +105,7 @@
 - Live CAS probe: a guarded concurrent Founder Area revision test is ready for a dedicated test citizen/area once production credentials are authorized.
 - Inventory authority fix: shared-world placement now consumes only server-owned ledger-backed placeable purchases; missing inventory is rejected before charging or inserting the asset.
 - Next: with authorized database/blob credentials, run the dry-run/backfill, execute a live concurrent Postgres test, and complete operational cutover evidence before broad flag enablement. Current session lacks those credentials; do not enable the flag.
-- Next tranche: publish the transaction identity fix, then run production Founder Area cutover/backfill and the guarded live CAS contention proof when deployment credentials are authorized.
+- Next tranche: run the guarded production Founder Area backfill and live CAS contention proof when deployment credentials are authorized; keep the Postgres flag disabled until both succeed.
 
 ## First autonomous implementation slice
 
