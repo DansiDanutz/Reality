@@ -5214,10 +5214,12 @@ function compareFounderCovenantReviewQueueItems(
     left.founderNumber - right.founderNumber
 }
 
-function founderCovenantReviewQueuePriority(item: FounderCovenantReviewQueueItem): number {
+export function founderCovenantReviewQueuePriority(item: FounderCovenantReviewQueueItem): number {
   let priority = 0
   if (item.manualReviewRequired) priority += 120
   if (item.overdue) priority += 100
+  if (item.reviewSchedule.monthlyReviewDue) priority += 20
+  else if (item.reviewSchedule.weeklyReviewDue) priority += 10
   if (item.activityReview.hospitalized) priority += 90
   if (item.activityReview.atRisk) priority += 70
   if (item.activityReview.indebted) priority += 50
