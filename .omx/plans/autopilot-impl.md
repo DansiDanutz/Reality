@@ -111,6 +111,11 @@
 - Credential transport follow-up: Founder Area client bridges normalize citizen IDs and tokens before sending them to the server authority.
 - Claim/review transport follow-up: Founder Area client bridges sanitize claim sources and operator review fields before transport.
 - Debt identity follow-up: world simulation normalizes repayment lookup IDs while preserving imported debt identity and fail-closed mutation behavior.
+- Worker identity follow-up: world simulation normalizes hireWorker business lookup IDs while preserving imported business identity.
+- Queue transport follow-up: Founder Covenant review queue bridges sanitize cursors and pagination values before authority transport.
+- Telegram auth follow-up: the browser bridge rejects obviously future-dated successful verifier responses while preserving server authority.
+- Telegram bot-account follow-up: registration and client bridges now have explicit regression coverage for the server's bot-user rejection.
+- Covenant urgency follow-up: evidence-only queue ordering distinguishes monthly review urgency from weekly review urgency.
 
 ## First autonomous implementation slice
 

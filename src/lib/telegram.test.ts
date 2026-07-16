@@ -92,6 +92,33 @@ describe('Telegram Mini App client bridge', () => {
     }
   })
 
+  test('maps bot-user rejection to an invalid Telegram session', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({ ok: false, error: 'Invalid Telegram session.', code: 'bot_user' }),
+    }))
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_session',
+      error: 'Invalid Telegram session.',
+      code: 'bot_user',
+    })
+  })
+
+  test('rejects successful Telegram sessions dated in the future', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-16T10:00:00.000Z'))
+    const session = verifiedSession()
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, ...session, authDate: Math.floor(Date.now() / 1000) + 61 }) }))
+    await expect(authenticateTelegramMiniApp(fetchImpl as never, 'auth_date=1&hash=abc')).resolves.toEqual({
+      ok: false,
+      reason: 'invalid_session',
+      error: 'Telegram session could not be verified.',
+      code: 'auth_date_from_future',
+    })
+    vi.useRealTimers()
+  })
+
   test('maps a verified Telegram session onto a local citizen', () => {
     const citizen: Citizen = {
       name: 'David',
@@ -114,7 +141,7 @@ describe('Telegram Mini App client bridge', () => {
 function verifiedSession(): VerifiedTelegramMiniAppSession {
   return {
     realityAccountId: 'telegram:42424242',
-    authDate: 1_800_000_000,
+    authDate: 1_750_000_000,
     startParam: 'founder-seat',
     telegramUser: {
       id: '42424242',

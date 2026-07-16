@@ -136,6 +136,21 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     expect(vi.mocked(put).mock.calls.some(([p]) => p === 'telegram-users/42424242.json')).toBe(true)
   })
 
+  test('rejects bot Telegram initData before reserving registration capacity', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    const initData = signedInitData({
+      auth_date: String(NOW_SECONDS),
+      user: JSON.stringify({ id: 42424242, first_name: 'Reality Bot', is_bot: true }),
+    })
+    const res = responseRecorder()
+    await handler({ method: 'POST', headers: { 'x-forwarded-for': REGISTER_IP }, body: { name: 'Bot', telegramInitData: initData } } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toMatchObject({ ok: false, code: 'bot_user' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('rejects supplied Telegram initData when the signature is not valid', async () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
     const res = responseRecorder()
