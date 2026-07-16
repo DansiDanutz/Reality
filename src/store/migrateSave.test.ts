@@ -43,6 +43,11 @@ const v1Save = {
 }
 
 describe('migrateSave - backfills every field added after v1', () => {
+  test('scrubs legacy bearer tokens while migrating old saves', () => {
+    const out = migrateSave({ ...v1Save, citizen: { ...v1Save.citizen, token: 'legacy-secret' } } as never)
+    expect(out.citizen).not.toHaveProperty('token')
+  })
+
   test('a v1 save gets all current backfills', () => {
     const out = migrateSave({ ...v1Save })
 

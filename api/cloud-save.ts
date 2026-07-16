@@ -27,19 +27,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  let parsedSave: unknown
   try {
-    JSON.parse(save) // must be well-formed
+    parsedSave = JSON.parse(save) // must be well-formed
   } catch {
     res.status(400).json({ ok: false, error: 'Invalid save payload.' })
     return
   }
+  const sanitizedSave = scrubPersistedToken(parsedSave)
 
   try {
     if (!(await verifyCitizenPg(String(citizenId), String(token)))) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }
-    await put(`saves/${citizenId}.json`, save, {
+    await put(`saves/${citizenId}.json`, sanitizedSave, {
       access: 'private',
       addRandomSuffix: false,
       allowOverwrite: true,
@@ -53,4 +55,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       code: 'cloud_save_unavailable',
     })
   }
+}
+
+function scrubPersistedToken(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return JSON.stringify(value)
+  const root = value as Record<string, unknown>
+  const citizen = root.citizen
+  if (!citizen || typeof citizen !== 'object' || Array.isArray(citizen) || !('token' in citizen)) {
+    return JSON.stringify(value)
+  }
+  const { token: _token, ...safeCitizen } = citizen as Record<string, unknown>
+  return JSON.stringify({ ...root, citizen: safeCitizen })
 }
