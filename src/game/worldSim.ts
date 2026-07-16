@@ -3045,7 +3045,9 @@ function repayDebtFromIntent(
     return { ok: false, area, error: 'invalid_debt_payment' }
   }
 
-  const debt = actor.debts?.find((candidate) => candidate.id === intent.debtId)
+  const requestedDebtId = intent.debtId.trim()
+  if (!requestedDebtId) return { ok: false, area, error: 'debt_not_found' }
+  const debt = actor.debts?.find((candidate) => candidate.id.trim() === requestedDebtId)
   if (!debt || payableMoney(debt.amount) <= 0) return { ok: false, area, error: 'debt_not_found' }
 
   const payment = roundMoney(Math.min(intent.amount, debt.amount))
