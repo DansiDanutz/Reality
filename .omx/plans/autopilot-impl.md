@@ -111,6 +111,7 @@
 - Credential transport follow-up: Founder Area client bridges normalize citizen IDs and tokens before sending them to the server authority.
 - Claim/review transport follow-up: Founder Area client bridges sanitize claim sources and operator review fields before transport.
 - Debt identity follow-up: world simulation normalizes repayment lookup IDs while preserving imported debt identity and fail-closed mutation behavior.
+- Worker identity follow-up: world simulation normalizes hireWorker business lookup IDs while preserving imported business identity.
 
 ## First autonomous implementation slice
 
