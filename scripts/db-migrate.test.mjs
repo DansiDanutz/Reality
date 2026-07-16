@@ -11,6 +11,8 @@ describe('database migration preflight', () => {
 
     expect(output).toMatch(/Dry run: \d+ idempotent statements/)
     expect(output).toContain('reality_save_founder_area')
+    expect(output).toContain('reality_append_intent')
+    expect(output).toContain('ledger_citizen_idempotency_key')
     expect(output).toContain('reality_claim_registration_slot')
     expect(output).toContain('token_expires_at')
   })
