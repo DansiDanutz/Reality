@@ -1,0 +1,47 @@
+/* Reality theming for the scroll-world engine (tokens from src/styles/tokens.css). */
+.scrollworld-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.scrollworld-mount {
+  --sw-bg: var(--bg);
+  --sw-ink: var(--text);
+  --sw-accent: var(--gold);
+  --sw-font-display: var(--font-display);
+  --sw-font-body: var(--font-body);
+}
+
+.scrollworld-skip {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+  z-index: 61;
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.scrollworld-skip:hover,
+.scrollworld-skip:focus-visible {
+  color: var(--text);
+  border-color: var(--gold);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrollworld-skip {
+    transition: none;
+  }
+}
