@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import ActionDock from './components/hud/ActionDock'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
@@ -36,6 +36,7 @@ import ConstructionPanel from './components/panels/ConstructionPanel'
 import TargetsIntro from './components/panels/TargetsIntro'
 import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
+import { SCROLL_WORLD_ENABLED } from './components/scrollworld/scrollworld.config'
 import WorkPanel from './components/panels/WorkPanel'
 import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
@@ -71,8 +72,10 @@ const PANEL_LABELS: Record<string, string> = {
 // MapLibre is heavy — split it out so the shell paints instantly
 const WorldMap = lazy(() => import('./components/map/WorldMap'))
 const StreetMode = lazy(loadStreetMode)
+const ScrollWorldIntro = lazy(() => import('./components/scrollworld/ScrollWorldIntro'))
 
 export default function App() {
+  const [introDone, setIntroDone] = useState(!SCROLL_WORLD_ENABLED)
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
   const panel = useGame((s) => s.panel)
@@ -197,7 +200,12 @@ export default function App() {
         <Suspense fallback={<div className="globe-loading" aria-hidden />}>
           <WorldMap />
         </Suspense>
-        {!citizen && <Welcome />}
+        {!citizen && introDone && <Welcome />}
+        {!citizen && !introDone && (
+          <Suspense fallback={<div className="globe-loading" aria-hidden />}>
+            <ScrollWorldIntro onEnter={() => setIntroDone(true)} />
+          </Suspense>
+        )}
         {citizen && !targetsSeen && <TargetsIntro />}
         {citizen && streetMode && (
           <Suspense fallback={<div className="street-overlay"><p className="street-loading">Lacing up…</p></div>}>
