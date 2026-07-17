@@ -48,6 +48,9 @@ in logs, kanban issues, and the audit reports cited above.
 - Server log line is generated from `server/routers.ts` in
   `enrollmentRouter.verify` right after the `new Date() > challenge.expiresAt`
   check.
+- **Observed in logs:** This is the most frequent enrollment failure in production
+  logs and was repeatedly flagged in DAN-717 enrollment smoke tests and the
+  2026-03-24 production readiness audit.
 
 ### Root cause
 
@@ -100,6 +103,9 @@ This is almost always operational, not a bug:
 - `enrollment_challenges.status` is set to `failed`.
 - `enrollment.progress` `identity` event is `failed` with detail
   `Signature verification failed.` or `Invalid key or signature format`.
+- **Observed in logs:** This failure mode appears in CI logs when the SDK
+  regenerates the keypair between request and verify, and was documented in
+  DAN-763 enrollment diagnostics and the 2026-04-08 deep audit.
 
 ### Root cause
 
@@ -182,6 +188,9 @@ The most frequent ways this breaks:
   as `Webhook URL is not HTTPS`, `Webhook URL contains embedded credentials`,
   or `Webhook URL exposes credentials in query parameters` (see
   `server/_core/enrollmentAudit.ts`, `runSecurityChecks`).
+- **Observed in logs:** SSRF webhook rejections surface in enrollment audit
+  logs and were flagged as a recurring blocker in DAN-13574 and the 2026-04-08
+  security audit.
 
 ### Root cause
 
@@ -243,6 +252,9 @@ flagged if it redirects to a private address.
   and `docs/agent-enrollment-system.md` both flag this as a remaining
   blocker: production `enrollment_challenges` lacks the columns introduced
   by `supabase/migrations/20260311093000_enrollment_challenge_metadata.sql`.
+- **Observed in logs:** Missing-column 500 errors were recorded in the 2026-03-24
+  production readiness audit and tracked under DAN-13574 as a migration
+  deployment blocker.
 
 ### Root cause
 
@@ -316,6 +328,10 @@ This typically happens when:
   `Agent creation or audit failed.` or the raw DB error.
 - Server log line: `Enrollment: createAgent failed: <message>` or
   `Enrollment: createAgentSession failed: <message>`.
+- **Observed in logs:** `Failed to create agent` and tenant-connectivity errors
+  appear in server logs whenever the Supabase project is paused or the pooler
+  URL rotates, and were documented in DAN-717 and the 2026-03-24 readiness
+  audit.
 
 ### Root cause
 
