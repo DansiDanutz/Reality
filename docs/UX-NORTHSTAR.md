@@ -35,6 +35,11 @@ availability states × nested time-tick rewards × calm motif-based music.**
 - Return loop: notifications that work on phones, asked contextually (#1016).
 - Building hover = lift + gold glow + name plate; entering plays a soft
   wooden door; resource markers cluster with counts (#1016).
+- **P4 shipped:** stepping into a building hard-cuts to an illustrated
+  interior that reflects what you own — furniture you bought appears in the
+  home, a business's fit-out grows with its level — over a calm ambient loop
+  (fireplace / room murmur, mute-aware). Collecting income happens in the
+  scene: coins leave the till, a gold gain floats up, the balance counts up.
 - Sound: warmer music-box timbre, chime cooldown so bursts never stack into
   a barrage; celebratory chimes (achieve/legendary/streak/lucky) always play.
 - Menu grouped by mental model: Empire / Progress / Daily life / Settings.

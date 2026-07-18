@@ -301,6 +301,97 @@ export function stopAmbience(): void {
   }, 600)
 }
 
+// ── Interior ambience: the P4 "step inside" sound bed ──────────────────────
+// A calm loop while you're inside one of your buildings — a fireplace at home,
+// a low room murmur in a business. Separate from the street ambience node so
+// the two never fight, and routed through the master gain so the volume slider
+// and mute cover it like everything else. Follows the sound-design rules: very
+// quiet, no attack transients, never alarm-like.
+type InteriorKind = 'home' | 'business'
+let interior: { gain: GainNode; source: AudioBufferSourceNode; crackle: ReturnType<typeof setTimeout> | null } | null = null
+let interiorKind: InteriorKind | null = null
+
+/** A single soft fireplace crackle — a tiny band-passed noise pop. */
+function fireCrackle(context: AudioContext, gain: number): void {
+  const now = context.currentTime
+  const len = Math.floor(context.sampleRate * 0.05)
+  const buffer = context.createBuffer(1, len, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len)
+  const noise = context.createBufferSource()
+  noise.buffer = buffer
+  const filter = context.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1600
+  filter.Q.value = 0.8
+  const g = context.createGain()
+  g.gain.setValueAtTime(gain, now)
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06)
+  noise.connect(filter).connect(g).connect(out(context))
+  noise.start(now)
+  noise.stop(now + 0.08)
+}
+
+export function startInteriorAmbience(kind: InteriorKind): void {
+  const context = ensureContext()
+  if (!context) return
+  if (interior && interiorKind === kind) return
+  if (interior) stopInteriorAmbience()
+  interiorKind = kind
+  // 2s of gentle brown noise, looped and low-passed — the room's air. Home is
+  // warmer and quieter (fire glow); a business is a touch brighter and busier
+  // (a room with people and machines in it).
+  const length = context.sampleRate * 2
+  const buffer = context.createBuffer(1, length, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  let lastOut = 0
+  for (let i = 0; i < length; i++) {
+    const white = Math.random() * 2 - 1
+    lastOut = (lastOut + 0.02 * white) / 1.02
+    data[i] = lastOut * 3.5
+  }
+  const source = context.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+  const filter = context.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = kind === 'home' ? 340 : 520
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0, context.currentTime)
+  gain.gain.linearRampToValueAtTime(kind === 'home' ? 0.045 : 0.05, context.currentTime + 1.4)
+  source.connect(filter).connect(gain).connect(out(context))
+  source.start()
+  // Home only: schedule occasional fire crackles for character. Reschedules
+  // itself while the fire is lit; cleared in stopInteriorAmbience.
+  let crackle: ReturnType<typeof setTimeout> | null = null
+  if (kind === 'home') {
+    const tick = () => {
+      if (!interior) return
+      fireCrackle(context, 0.02 + Math.random() * 0.015)
+      crackle = setTimeout(tick, 900 + Math.random() * 2600)
+      interior.crackle = crackle
+    }
+    crackle = setTimeout(tick, 700 + Math.random() * 1500)
+  }
+  interior = { gain, source, crackle }
+}
+
+export function stopInteriorAmbience(): void {
+  if (!interior || !ctx) return
+  const { gain, source, crackle } = interior
+  if (crackle) clearTimeout(crackle)
+  interior = null
+  interiorKind = null
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4)
+  setTimeout(() => {
+    try {
+      source.stop()
+    } catch {
+      /* already stopped */
+    }
+  }, 500)
+}
+
 /**
  * A distant one-shot ambient event — a faint siren, a dog bark, a distant
  * horn. Played probabilistically by StreetMode to make the world feel alive
