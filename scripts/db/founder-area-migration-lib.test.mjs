@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { FOUNDER_AREA_SAVE_SQL, isRevisionConflict, migratableFounderAreaSnapshot } from './founder-area-migration-lib.mjs'
+import { FOUNDER_AREA_SAVE_SQL, compareFounderAreaFreshness, isRevisionConflict, migratableFounderAreaSnapshot } from './founder-area-migration-lib.mjs'
 
 const base = {
   founderCitizenId: '12345678-1234-1234-1234-123456789abc', areaId: 'founder-area-0001', founderNumber: 1,
@@ -7,6 +7,12 @@ const base = {
 }
 
 describe('Founder Area migration boundary', () => {
+  test('detects a newer Blob snapshot before a flag-flip shadow', () => {
+    expect(compareFounderAreaFreshness('2026-07-18T12:00:00.000Z', '2026-07-18T11:00:00.000Z')).toBe('candidate_newer')
+    expect(compareFounderAreaFreshness('2026-07-18T10:00:00.000Z', '2026-07-18T11:00:00.000Z')).toBe('existing_newer')
+    expect(compareFounderAreaFreshness('2026-07-18T11:00:00.000Z', '2026-07-18T11:00:00.000Z')).toBe('equal')
+  })
+
   test('accepts a valid snapshot and preserves the simulation cursor', () => {
     expect(migratableFounderAreaSnapshot({ ...base, simulationAt: '2026-07-15T09:00:00.000Z' })).toMatchObject({
       citizenId: base.founderCitizenId, areaId: base.areaId, simulationAt: '2026-07-15T09:00:00.000Z',

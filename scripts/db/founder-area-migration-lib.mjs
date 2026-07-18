@@ -2,6 +2,13 @@ export const FOUNDER_AREA_SAVE_SQL = `
   SELECT reality_save_founder_area($1, $2, $3, $4::jsonb, $5, $6) AS revision
 `.trim()
 
+export const FOUNDER_AREA_EXISTING_SQL = `
+  SELECT revision, updated_at
+  FROM founder_area_snapshots
+  WHERE citizen_id = $1
+  LIMIT 1
+`.trim()
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function areaStatePathFromBlob(blob) {
@@ -29,4 +36,13 @@ export function migratableFounderAreaSnapshot(value) {
 
 export function isRevisionConflict(error) {
   return typeof error?.message === 'string' && error.message.includes('founder_area_revision_conflict')
+}
+
+export function compareFounderAreaFreshness(candidateUpdatedAt, existingUpdatedAt) {
+  const candidateMs = Date.parse(candidateUpdatedAt)
+  const existingMs = Date.parse(existingUpdatedAt)
+  if (!Number.isFinite(candidateMs) || !Number.isFinite(existingMs)) return 'invalid'
+  if (candidateMs > existingMs) return 'candidate_newer'
+  if (candidateMs < existingMs) return 'existing_newer'
+  return 'equal'
 }
