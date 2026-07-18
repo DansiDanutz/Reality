@@ -1,12 +1,9 @@
 import { useMemo } from 'react'
-import { missedSeriousWorkYesterday } from '../../game/community'
-import { educationActionCount } from '../../game/education'
 import { formatMoney } from '../../game/engine'
-import { lifeDayFromCreatedAt } from '../../game/lifeLadder'
 import { planLifeRoadmap } from '../../game/lifeRoadmap'
 import { MILLIONAIRE_STAGE_META } from '../../game/millionairePath'
 import { useGame } from '../../store/gameStore'
-import { dispatchLifePlanRoute } from '../hud/goalsCardActions'
+import { lifeLadderSnapshotOf, runLifePlanRoute } from '../hud/lifePlanInput'
 import { formatPlanMinutes } from '../hud/goalsCardView'
 
 /**
@@ -38,9 +35,8 @@ export default function JourneyPanel() {
   // Simulating a month is real work — do it once per panel open (the inputs
   // that matter don't shift meaningfully mid-view).
   const roadmap = useMemo(() => {
-    if (!citizen) return null
-    return planLifeRoadmap({
-      lifeDay: lifeDayFromCreatedAt(citizen.createdAt),
+    const snapshot = lifeLadderSnapshotOf({
+      citizen,
       money,
       needs,
       health,
@@ -48,56 +44,23 @@ export default function JourneyPanel() {
       xp,
       jobId,
       shiftsWorked,
-      activityKind: activity?.kind ?? null,
+      activity,
       assets,
       inventory,
       resources,
       constructionProjects,
       businessDevelopmentProjects,
-      educationActions: educationActionCount(educationProgress),
       educationProgress,
-      communityActionsThisWeek: community.actionsThisWeek,
-      communityActionsToday: community.actionsToday,
-      communityRespect: community.respect,
-      communityFriendship: community.friendship,
-      communityTrust: community.trust,
-      brokenCommitments: community.brokenCommitments,
-      communityHelperMinutesUsedThisWeek: community.helperMinutesUsedThisWeek,
-      seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
-    }, 30)
+      community,
+    })
+    return snapshot ? planLifeRoadmap(snapshot, 30) : null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [citizen?.citizenId])
 
   if (!citizen || !roadmap || roadmap.days.length === 0) return null
 
   const today = roadmap.days[0]
-  const doToday = () => {
-    const s = useGame.getState()
-    dispatchLifePlanRoute(today.primary.route, {
-      resourceNodes: s.resourceNodes,
-      openMarket: s.openMarket,
-      selectMapTarget: s.selectMapTarget,
-      setPanel: s.setPanel,
-      startGatherResource: s.startGatherResource,
-      depositConstructionResources: s.depositConstructionResources,
-      payConstructionPermit: s.payConstructionPermit,
-      startConstructionWork: s.startConstructionWork,
-      hireConstructionWorker: s.hireConstructionWorker,
-      completeConstructionIfReady: s.completeConstructionIfReady,
-      depositBusinessDevelopmentResources: s.depositBusinessDevelopmentResources,
-      payBusinessDevelopmentBudget: s.payBusinessDevelopmentBudget,
-      startBusinessDevelopmentWork: s.startBusinessDevelopmentWork,
-      hireBusinessDevelopmentWorker: s.hireBusinessDevelopmentWorker,
-      completeBusinessDevelopmentIfReady: s.completeBusinessDevelopmentIfReady,
-      startShift: s.startShift,
-      startCommunityAction: s.startCommunityAction,
-      startStudy: s.startStudy,
-      consume: s.consume,
-      cook: s.cook,
-      quickDrink: s.quickDrink,
-      startSleep: s.startSleep,
-    })
-  }
+  const doToday = () => runLifePlanRoute(today.primary.route)
 
   const finalStageLabel = MILLIONAIRE_STAGE_META[roadmap.finalStage].label
   const lastDay = roadmap.days[roadmap.days.length - 1]
