@@ -128,6 +128,7 @@
 - Production authority evidence: the Vercel production schema is now applied, the guarded Blob backfill dry-run found no legacy Founder Area snapshots, and the live CAS probe passed with one winner/one conflict after fixing the Neon driver call shape; only the explicit runtime cutover decision remains.
 - Same-tick capacity follow-up: pure `worldSim` manual service and insurance intents now seed recorded current-hour purchases before applying capacity checks, closing the standalone intent bypass tracked in issue #647.
 - Intent boundary follow-up: server-bound world intent decoding now rejects unrecognized fields per intent, closing the protocol-drift vector tracked in issue #186.
+- Service-capacity follow-up: sub-hour world-sim ticks now use the elapsed portion of the current hour and reconcile recorded purchases, making minute and hourly advancement batch-invariant; affordability is checked before capacity is reserved (issue #176).
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

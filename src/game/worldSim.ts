@@ -3131,6 +3131,10 @@ function matchesShopMoney(value: number, shopValue: number): boolean {
 }
 
 function advanceStep(area: WorldArea, context: StepContext): void {
+  // Reconcile purchases already recorded in this simulation hour before
+  // applying the next slice. This lets sub-hour callers share the same
+  // hourly capacity budget instead of resetting it on every tick.
+  seedRecordedServiceCapacity(area, context)
   const departingCitizens = new Map<string, WorldDepartureReason>()
   const recoveredCitizenIds = new Set<string>()
   for (const citizen of area.citizens) {
@@ -3328,7 +3332,7 @@ function hasRemainingServiceCapacity(area: WorldArea, kind: WorldBusinessKind, c
   return area.businesses.some((business) => {
     if (business.kind !== kind) return false
     const used = context.capacityUsed[business.id] ?? 0
-    return used < serviceCapacity(area, business, context.hours)
+    return used < serviceCapacityAt(area, business, context)
   })
 }
 
@@ -3499,7 +3503,7 @@ function repaySimMedicalDebt(area: WorldArea, citizen: WorldCitizen, context: St
 
 function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepContext): WorldBusiness | null {
   const candidates = area.businesses
-    .filter((business) => business.kind === kind && serviceCapacity(area, business, context.hours) > 0)
+    .filter((business) => business.kind === kind && serviceCapacityAt(area, business, context) > 0)
     .sort((a, b) => a.id.localeCompare(b.id))
   if (candidates.length === 0) return null
 
@@ -3512,7 +3516,7 @@ function chooseBusiness(area: WorldArea, kind: WorldBusinessKind, context: StepC
 }
 
 function hasRemainingBusinessCapacity(area: WorldArea, business: WorldBusiness, context: StepContext): boolean {
-  const capacity = serviceCapacity(area, business, context.hours)
+  const capacity = serviceCapacityAt(area, business, context)
   const used = context.capacityUsed[business.id] ?? 0
   return used < capacity
 }
@@ -3528,6 +3532,18 @@ function serviceCapacity(area: WorldArea, business: WorldBusiness, hours: number
   const staffMultiplier = activeStaff === 0 ? 1 : 1 + activeStaff * 0.75
   const quality = effectiveBusinessQuality(business, area)
   return Math.floor(BASE_CAPACITY_PER_HOUR[business.kind] * hours * staffMultiplier * quality)
+}
+
+function serviceCapacityAt(area: WorldArea, business: WorldBusiness, context: StepContext): number {
+  // For partial ticks, capacity is the elapsed portion of the current hour,
+  // not the duration of the latest request. At an exact boundary the hour
+  // just completed is fully available. This makes one-minute and one-hour
+  // advancement produce the same service opportunities.
+  const elapsedInHour = context.at % WORLD_SIM_HOUR_MS
+  const effectiveHours = context.hours >= 1
+    ? context.hours
+    : (elapsedInHour === 0 ? 1 : elapsedInHour / WORLD_SIM_HOUR_MS)
+  return serviceCapacity(area, business, effectiveHours)
 }
 
 function ownerUnavailableWithoutStaff(area: WorldArea, business: WorldBusiness, activeStaff: number): boolean {
