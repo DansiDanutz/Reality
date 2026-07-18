@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { settleDayLedger } from './dayReceipt'
+import { settleDayLedger } from './dayReceiptLedger'
 
 describe('day-close receipt ledger', () => {
   test('first run opens a ledger for today, no receipt', () => {

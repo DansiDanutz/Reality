@@ -3,7 +3,7 @@ import { dayOfLife } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
 import { playChime } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
-import { settleDayLedger, type DayLedgerSnapshot } from './dayReceipt'
+import { settleDayLedger, type DayLedgerSnapshot } from './dayReceiptLedger'
 
 /**
  * Day-close receipt — the smallest tick of the reward cadence (day → week →
