@@ -250,6 +250,21 @@ body {
 .map-resource-stone { background: #c7ced8; }
 .map-resource-metal { background: #9cc8ff; }
 .map-resource-glass { background: #82f0e5; }
+/* Touch placement confirm — floats above the dock while the ghost pin is
+   at map center. */
+.map-place-confirm {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(180px + env(safe-area-inset-bottom));
+  z-index: 11;
+  min-height: 44px;
+  padding: 10px 22px;
+  font-size: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.map-place-confirm:disabled { opacity: 0.9; color: var(--warn); border-color: rgba(229, 72, 77, 0.4); background: rgba(229, 72, 77, 0.1); }
+
 /* The inspect card (universal right-click / long-press quick-info). Pointer
    events off — it's a transient answer, never an obstacle. */
 .map-quickinfo {
@@ -676,6 +691,36 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* The Path card — "what am I winning": stage rail + reach tier with the
+   next unlock always visible. Lives in the Status sheet and the handbook. */
+.path-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  border-radius: var(--radius-lg);
+}
+.path-card-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.path-card-row { display: flex; flex-direction: column; gap: 5px; }
+.path-card-label { font-size: 13px; font-weight: 600; }
+.path-card-next { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
+/* Handbook map legend rows. */
+.handbook-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.handbook-legend-row { display: flex; gap: 10px; align-items: baseline; }
+.handbook-legend-symbol { flex-shrink: 0; min-width: 64px; font-size: 12px; color: var(--gold); }
+.handbook-legend-text { font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.handbook-legend-text strong { color: var(--sky); }
+
 /* The paid advisor — the "i" button on both guide surfaces, and its report. */
 .advisor-btn {
   display: inline-flex;
@@ -738,6 +783,33 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   margin: 2px 0 0; font-size: 12px; color: var(--sky); line-height: 1.5;
 }
 .advisor-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* Day-close receipt — a quiet settle line, top-center, auto-fades. */
+.day-receipt {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  background: var(--surface);
+  border: 1px solid rgba(240, 180, 41, 0.45);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-family: var(--font-body);
+  cursor: pointer;
+  animation: install-slide-in 320ms var(--ease-out);
+}
+.day-receipt-title { font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em; }
+.day-receipt-net { font-size: 14px; font-weight: 700; }
+.day-receipt-net.pos { color: var(--ok); }
+.day-receipt-net.neg { color: var(--warn); }
+.day-receipt-streak { font-size: 11.5px; color: #ff8a3d; }
 
 /* New-week fanfare — the cadence celebration. Tap anywhere to dismiss. */
 .week-fanfare {
@@ -3491,6 +3563,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   /* Welcome-back report: full-width card under the strip. Same stacking rule
      as toasts — it owns the map screen but never covers an open sheet. */
   .away-card { top: 96px; z-index: 11; width: calc(100vw - 16px); max-width: calc(100vw - 16px); }
+  /* Day-close receipt follows the same rule. */
+  .day-receipt { top: 96px; z-index: 11; max-width: calc(100vw - 16px); }
 
   /* (Courier + golden-opportunity phone overrides live next to their base
      rules further down — CSS order matters and the base rules come later.) */

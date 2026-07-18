@@ -35,6 +35,28 @@
 }
 .map-building svg { display: block; }
 
+/* ── Placement ghost ───────────────────────────────────── */
+/* The building you're about to place, floating over the map while you look
+   for the right spot. The OUTER element belongs to MapLibre (it positions
+   via transform — never animate it); the inner wrapper bobs. */
+.map-ghost { pointer-events: none; line-height: 0; }
+.map-ghost-inner {
+  opacity: 0.85;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(240, 180, 41, 0.35));
+  animation: ghost-bob 1.6s ease-in-out infinite;
+}
+.map-ghost.out-of-reach .map-ghost-inner {
+  opacity: 0.5;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(229, 72, 77, 0.6)) grayscale(0.4);
+}
+@keyframes ghost-bob {
+  0%, 100% { transform: translateY(-4px); }
+  50% { transform: translateY(-11px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-ghost-inner { animation: none; }
+}
+
 /* Collectable-income indicator: the same "ready" language as the old
    beacons — a pulsing gold ring behind the sprite. The marker element is
    already MapLibre-positioned (absolute) — do NOT set position here; a more

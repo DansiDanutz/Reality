@@ -88,9 +88,13 @@ export default function ActionDock() {
       <div className="dock placing-banner">
         <span className="placing-pulse" />
         <span>
-          {placing
-            ? <>Click the map inside your highlighted reach to place <strong>{placing.name}</strong></>
-            : <>Click the map inside your highlighted reach to place your <strong>Starter House foundation</strong></>}
+          {isMobile
+            ? (placing
+                ? <>Move the map under the floating <strong>{placing.name}</strong>, then tap <strong>Place here</strong></>
+                : <>Move the map under the floating site, then tap <strong>Place here</strong></>)
+            : (placing
+                ? <>Click the map inside your highlighted reach to place <strong>{placing.name}</strong></>
+                : <>Click the map inside your highlighted reach to place your <strong>Starter House foundation</strong></>)}
         </span>
         <button className="btn ghost" onClick={placing ? cancelPlacing : cancelPlacingConstruction}>
           {placing ? 'Cancel & refund' : 'Cancel'}

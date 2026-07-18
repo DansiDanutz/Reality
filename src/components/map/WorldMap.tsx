@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { constructionProgress, type ConstructionProject } from '../../game/construction'
-import { netWorthOf, reachOf } from '../../game/engine'
+import { distanceKm, netWorthOf, reachOf } from '../../game/engine'
 import { fetchMapDiscovery } from '../../game/mapDiscovery'
 import { DEFAULT_MAP_ANCHOR, playableMapAnchorFor } from '../../game/mapAnchor'
 import { workersHallFor, type WorkersHall } from '../../game/workersHall'
@@ -14,7 +14,7 @@ import type { PlacedAsset } from '../../game/types'
 import { itemById } from '../../game/catalog'
 import BuildingInterior from './buildings/BuildingInterior'
 import { resolveArchetype } from './buildings/registry'
-import { buildingSpriteSVG } from './buildings/sprites'
+import { buildingSpriteSVG, constructionSiteSVG } from './buildings/sprites'
 import './buildings/buildings.css'
 import { openWorkersHallFromMap } from './workersHallMapAction'
 import {
@@ -166,6 +166,8 @@ export default function WorldMap() {
   const [enteredAssetId, setEnteredAssetId] = useState<string | null>(null)
   // The transient inspect card (right-click / long-press on any marker).
   const [quickInfo, setQuickInfo] = useState<QuickInfoAt | null>(null)
+  // Placement ghost state: is the pin inside the player's buildable reach?
+  const [ghostInReach, setGhostInReach] = useState(true)
 
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
@@ -325,11 +327,105 @@ export default function WorldMap() {
     }
   }, [])
 
+  // The placement ghost — house-hunting made visible. While placing, a
+  // translucent sprite of the building floats over the map so the player can
+  // FIND a good spot before committing: on touch it pins to the map center
+  // (move the world under it, confirm with "Place here"); on desktop it
+  // follows the cursor and a click sets it down. Beyond the player's reach
+  // it tints red and the confirm disables — the rule explains itself.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || (!placing && !placingConstruction)) return
+
+    const el = document.createElement('div')
+    el.className = 'map-ghost'
+    const sprite = placing
+      ? buildingSpriteSVG(
+          resolveArchetype({ kind: placing.category === 'home' ? 'home' : 'business' } as PlacedAsset, placing),
+          { level: 1 },
+        )
+      : constructionSiteSVG('home', 'materials', 0)
+    // MapLibre owns the marker element's transform — animate an inner wrapper.
+    el.innerHTML = `<div class="map-ghost-inner">${sprite}</div>`
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat(map.getCenter())
+      .addTo(map)
+
+    const s = useGame.getState()
+    const anchor =
+      s.citizen?.spawnLat !== undefined
+        ? { lat: s.citizen.spawnLat, lng: s.citizen.spawnLng! }
+        : s.assets[0] ?? (s.citizen ? DEFAULT_MAP_ANCHOR : null)
+    const reach = anchor
+      ? reachOf(
+          s.level,
+          s.assets.filter((a) => a.kind === 'business').length,
+          s.assets.some((a) => a.kind === 'home'),
+          netWorthOf(s.money, s.inventory, s.assets),
+        )
+      : null
+
+    const update = (at: { lat: number; lng: number }) => {
+      marker.setLngLat([at.lng, at.lat])
+      const inReach = !anchor || !reach || !Number.isFinite(reach.km)
+        ? true
+        : distanceKm(anchor.lat, anchor.lng, at.lat, at.lng) <= reach.km
+      el.classList.toggle('out-of-reach', !inReach)
+      setGhostInReach(inReach)
+    }
+
+    const coarse = window.matchMedia('(pointer: coarse)').matches
+    const onMouseMove = (e: maplibregl.MapMouseEvent) => update(e.lngLat)
+    const onMove = () => update(map.getCenter())
+    if (coarse) map.on('move', onMove)
+    else map.on('mousemove', onMouseMove)
+    update(map.getCenter())
+
+    // Start the hunt at home: if the map is somewhere else entirely, fly to
+    // the buildable area so the ghost begins inside the golden ring instead
+    // of stranded over an ocean saying "beyond your reach".
+    const ghostRefStillPlacing = () => {
+      const st = useGame.getState()
+      return Boolean(st.placing || st.placingConstruction)
+    }
+    if (anchor && reach && Number.isFinite(reach.km)) {
+      const c = map.getCenter()
+      if (distanceKm(anchor.lat, anchor.lng, c.lat, c.lng) > reach.km) {
+        ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
+        map.stop() // clear any wedged animation — it would swallow the flight
+        map.flyTo({ center: [anchor.lng, anchor.lat], zoom: Math.max(map.getZoom(), 13), duration: 1800, essential: true })
+        // Guarantee arrival: if the platform dropped the animation (observed
+        // frozen cameras in some environments), snap home so the player is
+        // never stranded over an ocean with a red ghost.
+        window.setTimeout(() => {
+          if (!ghostRefStillPlacing()) return
+          const now = map.getCenter()
+          if (distanceKm(anchor.lat, anchor.lng, now.lat, now.lng) > reach.km) {
+            map.jumpTo({ center: [anchor.lng, anchor.lat], zoom: Math.max(map.getZoom(), 13) })
+            update(map.getCenter())
+          }
+        }, 2_200)
+      }
+    }
+
+    return () => {
+      map.off('move', onMove)
+      map.off('mousemove', onMouseMove)
+      marker.remove()
+      setGhostInReach(true)
+    }
+  }, [placing, placingConstruction, styleReady])
+
   // Click-to-place (reads placing from the store at click time)
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const onClick = (e: maplibregl.MapMouseEvent) => {
+      // Touch placement commits ONLY via the "Place here" button: the ghost
+      // sits at map center, so a stray tap must pan/explore, never place at
+      // the tapped point (it could even bypass the disabled out-of-reach
+      // confirm). Same media query as the button, so the two agree.
+      if (window.matchMedia('(pointer: coarse)').matches) return
       const s = useGame.getState()
       if (s.placing) s.placeAt(e.lngLat.lat, e.lngLat.lng)
       else if (s.placingConstruction) s.placeConstructionAt(e.lngLat.lat, e.lngLat.lng)
@@ -767,6 +863,25 @@ export default function WorldMap() {
           </ul>
         )}
       </aside>
+      {/* Touch placement confirm — the ghost sits at map center; this sets it
+          down there. Desktop places at the cursor, so no button (it would
+          disagree with where the ghost is). */}
+      {(placing || placingConstruction) && window.matchMedia('(pointer: coarse)').matches && (
+        <button
+          className="btn primary map-place-confirm"
+          disabled={!ghostInReach}
+          onClick={() => {
+            const map = mapRef.current
+            if (!map) return
+            const c = map.getCenter()
+            const s = useGame.getState()
+            if (s.placing) s.placeAt(c.lat, c.lng)
+            else if (s.placingConstruction) s.placeConstructionAt(c.lat, c.lng)
+          }}
+        >
+          {ghostInReach ? '✓ Place here' : 'Beyond your reach'}
+        </button>
+      )}
       {quickInfo && (
         <div
           className="map-quickinfo"

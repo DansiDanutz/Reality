@@ -22,6 +22,7 @@ export const TOPBAR_NAV_ITEMS: readonly TopBarNavItem[] = [
   { id: 'top', label: 'Top' },
   { id: 'achievements', label: '🏆', title: 'Achievements', badge: true },
   { id: 'profile', label: 'Profile' },
+  { id: 'handbook', label: '?', title: 'How to play' },
 ]
 
 export function topBarNavPanelIds(): TopBarNavPanelId[] {

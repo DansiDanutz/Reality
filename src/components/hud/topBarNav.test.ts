@@ -18,6 +18,7 @@ describe('topBarNavPanelIds', () => {
       'top',
       'achievements',
       'profile',
+      'handbook',
     ])
   })
 })
