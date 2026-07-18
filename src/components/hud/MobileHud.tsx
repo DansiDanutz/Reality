@@ -54,6 +54,7 @@ const MENU_SECTIONS: { title: string; items: MenuItem[] }[] = [
   {
     title: 'Start here',
     items: [
+      { id: 'journey', icon: '🌱', label: 'Your first 30 days', hint: 'Your simulated month — follow it and watch the numbers' },
       { id: 'handbook', icon: '🧭', label: 'How to play', hint: 'Rules, map legend, and your path' },
     ],
   },

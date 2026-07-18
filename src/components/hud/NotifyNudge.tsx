@@ -12,7 +12,8 @@ import { notificationsSupported, requestNotificationPermission } from '../../lib
  * only renders while permission is still undecided.
  */
 
-const DISMISS_KEY = 'reality-notify-nudge-dismissed'
+export const NOTIFY_NUDGE_DISMISS_KEY = 'reality-notify-nudge-dismissed'
+const DISMISS_KEY = NOTIFY_NUDGE_DISMISS_KEY
 
 export default function NotifyNudge({ activityKind }: { activityKind: string }) {
   const [dismissed, setDismissed] = useState(() => {
@@ -26,7 +27,18 @@ export default function NotifyNudge({ activityKind }: { activityKind: string }) 
     notificationsSupported() ? Notification.permission : null,
   )
 
-  if (dismissed || permission !== 'default') return null
+  // Re-read the flag each render (parent re-renders per tick): the First
+  // Commitment card sets it while this component is already mounted, and a
+  // cached useState value would keep the nudge visible until a remount.
+  let dismissedNow = dismissed
+  if (!dismissedNow) {
+    try {
+      dismissedNow = localStorage.getItem(DISMISS_KEY) === '1'
+    } catch {
+      dismissedNow = false
+    }
+  }
+  if (dismissedNow || permission !== 'default') return null
   if (activityKind !== 'shift' && activityKind !== 'sleep') return null
 
   const moment = activityKind === 'sleep' ? 'your citizen wakes up' : 'this shift ends'

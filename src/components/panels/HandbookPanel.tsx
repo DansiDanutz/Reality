@@ -1,3 +1,4 @@
+import { useGame } from '../../store/gameStore'
 import PathCard from '../hud/PathCard'
 import { HANDBOOK_SECTIONS, MAP_LEGEND } from './HandbookContent'
 
@@ -12,6 +13,9 @@ export default function HandbookPanel() {
       <h2 className="panel-title">How to play</h2>
       <p className="panel-sub">Everything Reality expects you to know — and where you stand right now.</p>
       <PathCard />
+      <button className="btn primary" onClick={() => useGame.getState().setPanel('journey')}>
+        🌱 Open your first 30 days
+      </button>
       {HANDBOOK_SECTIONS.map((section) => (
         <div className="guide-section" key={section.title}>
           <span className="guide-title">{section.icon} {section.title}</span>

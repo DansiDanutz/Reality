@@ -141,7 +141,7 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 
-export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | 'handbook' | null
+export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | 'handbook' | 'journey' | null
 
 export type MapTarget =
   | { kind: 'asset'; id: string }
@@ -1867,7 +1867,15 @@ export const useGame = create<GameState>()(
         }
         if (!wasAway && !s.activity) {
           const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
-          if (event) {
+          // Day-one grace: a brand-new citizen getting "your card got skimmed"
+          // in their first minutes reads as the game punishing them before
+          // they understand it. Good news lands from day 1; bad news waits
+          // until day 2, when the loops are familiar.
+          const firstDayBadNews = s.citizen !== null
+            && dayOfLife(s.citizen.createdAt) <= 1
+            && ((event?.money ?? 0) < 0
+              || Object.values(event?.effects ?? {}).some((v) => (v ?? 0) < 0))
+          if (event && !firstDayBadNews) {
             if (event.effects) needs = applyEffects(needs, event.effects)
             money = Math.max(0, money + (event.money ?? 0))
             log = note(log, event.text)

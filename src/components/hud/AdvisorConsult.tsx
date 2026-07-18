@@ -66,6 +66,7 @@ export default function AdvisorConsult() {
       communityFriendship: s.community.friendship,
       communityTrust: s.community.trust,
       brokenCommitments: s.community.brokenCommitments,
+      communityHelperMinutesUsedThisWeek: s.community.helperMinutesUsedThisWeek,
       seriousWorkMissedYesterday: missedSeriousWorkYesterday(s.community),
     })
     setReport({ advice, plan })

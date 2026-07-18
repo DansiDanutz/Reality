@@ -5,6 +5,7 @@ import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
 import CourierPackagePrompt from './components/hud/CourierPackagePrompt'
 import DayReceipt from './components/hud/DayReceipt'
+import FirstCommitment from './components/hud/FirstCommitment'
 import GoalsCard from './components/hud/GoalsCard'
 import GoldenOpportunityPrompt from './components/hud/GoldenOpportunityPrompt'
 import InstallBanner from './components/hud/InstallBanner'
@@ -35,6 +36,7 @@ import LeaderboardPanel from './components/panels/LeaderboardPanel'
 import MysteryBoxPanel from './components/panels/MysteryBoxPanel'
 import ConstructionPanel from './components/panels/ConstructionPanel'
 import HandbookPanel from './components/panels/HandbookPanel'
+import JourneyPanel from './components/panels/JourneyPanel'
 import TargetsIntro from './components/panels/TargetsIntro'
 import ProfilePanel from './components/panels/ProfilePanel'
 import Welcome from './components/panels/Welcome'
@@ -70,6 +72,7 @@ const PANEL_LABELS: Record<string, string> = {
   boxes: 'Mystery Boxes',
   construction: 'Build',
   handbook: 'How to play',
+  journey: 'Your first 30 days',
 }
 
 // MapLibre is heavy — split it out so the shell paints instantly
@@ -94,7 +97,7 @@ export default function App() {
   const mapAnchorLat = mapAnchor?.lat
   const mapAnchorLng = mapAnchor?.lng
 
-  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'home' || panel === 'business' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes' || panel === 'construction' || panel === 'handbook'
+  const drawerOpen = panel === 'work' || panel === 'assets' || panel === 'home' || panel === 'business' || panel === 'founder' || panel === 'operator' || panel === 'top' || panel === 'profile' || panel === 'health' || panel === 'cook' || panel === 'achievements' || panel === 'journal' || panel === 'boxes' || panel === 'construction' || panel === 'handbook' || panel === 'journey'
   const drawerRef = useFocusTrap<HTMLDivElement>(drawerOpen)
 
   // Web notifications — fires system notifications when the tab is hidden
@@ -264,6 +267,7 @@ export default function App() {
           <CelebrationOverlay />
           <WeekFanfare />
           <DayReceipt />
+          <FirstCommitment />
           <GoldenOpportunityPrompt />
           <CourierPackagePrompt />
           <InstallBanner />
@@ -288,6 +292,7 @@ export default function App() {
           {panel === 'boxes' && <MysteryBoxPanel />}
           {panel === 'construction' && <ConstructionPanel />}
           {panel === 'handbook' && <HandbookPanel />}
+          {panel === 'journey' && <JourneyPanel />}
         </div>
       )}
     </div>
