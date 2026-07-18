@@ -2994,7 +2994,15 @@ function buyInsuranceFromIntent(
   const insurer = area.businesses.find((business) => business.id.trim() === insuranceBusinessId)
   if (!insurer) return { ok: false, area, error: 'business_not_found' }
   if (insurer.kind !== 'insurance') return { ok: false, area, error: 'not_insurance_business' }
-  if (serviceCapacity(area, insurer, 1) <= 0) return { ok: false, area, error: 'service_not_available' }
+  const context: StepContext = {
+    at: area.now,
+    hours: 1,
+    servedByKind: zeroKindRecord(),
+    capacityUsed: {},
+    summary: emptyWorldAreaSummary(),
+  }
+  seedRecordedServiceCapacity(area, context)
+  if (!hasRemainingBusinessCapacity(area, insurer, context)) return { ok: false, area, error: 'service_not_available' }
 
   const premium = insurer.price ?? DEFAULT_PRICES.insurance
   if (actor.money < premium) return { ok: false, area, error: 'insufficient_funds' }
@@ -3003,6 +3011,7 @@ function buyInsuranceFromIntent(
   actor.insuranceBusinessId = insurer.id
   actor.insurancePaidUntil = area.now + INSURANCE_POLICY_PERIOD_MS
   insurer.cash = roundMoney(insurer.cash + premium)
+  reserveBusinessCapacity(context, insurer)
   recordTransaction(area, area.now, {
     kind: 'insurance_premium',
     fromId: actor.id,
@@ -3032,6 +3041,7 @@ function buyServiceFromIntent(
     capacityUsed: {},
     summary: emptyWorldAreaSummary(),
   }
+  seedRecordedServiceCapacity(area, context)
   const business = chooseBusiness(area, kind, context)
   if (!business) return { ok: false, area, error: 'service_not_available' }
 
@@ -3442,6 +3452,18 @@ function purchaseInsurancePolicy(
     memo: `${citizen.name} bought insurance from ${insurer.name}.`,
   })
   return true
+}
+
+function seedRecordedServiceCapacity(area: WorldArea, context: StepContext): void {
+  const tick = Math.floor(area.now / WORLD_SIM_HOUR_MS)
+  for (const transaction of area.transactions) {
+    if (Math.floor(transaction.at / WORLD_SIM_HOUR_MS) !== tick) continue
+    if (transaction.kind !== 'customer_purchase' && transaction.kind !== 'insurance_premium') continue
+    const business = area.businesses.find((candidate) => candidate.id === transaction.toId)
+    if (!business) continue
+    context.capacityUsed[business.id] = (context.capacityUsed[business.id] ?? 0) + 1
+    context.servedByKind[business.kind] += 1
+  }
 }
 
 function repaySimMedicalDebt(area: WorldArea, citizen: WorldCitizen, context: StepContext): void {
