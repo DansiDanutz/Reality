@@ -40,6 +40,12 @@ availability states × nested time-tick rewards × calm motif-based music.**
   home, a business's fit-out grows with its level — over a calm ambient loop
   (fireplace / room murmur, mute-aware). Collecting income happens in the
   scene: coins leave the till, a gold gain floats up, the balance counts up.
+  A map-level collect pill brings that same beat to the main screen.
+- **P5 shipped:** a gentle generative ambient bed on the world map — a warm
+  drone under sparse pentatonic music-box notes (the approved chime voice, so
+  always consonant, no catchable loop), keyed to the citizen's real local hour
+  (brighter by day, lower/slower at night), governed by the sound toggle +
+  volume. Synthesized locally, no assets; street mode keeps its own ambience.
 - Sound: warmer music-box timbre, chime cooldown so bursts never stack into
   a barrage; celebratory chimes (achieve/legendary/streak/lucky) always play.
 - Menu grouped by mental model: Empire / Progress / Daily life / Settings.
