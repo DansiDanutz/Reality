@@ -17,6 +17,7 @@ import handler, {
   normalizeServicePurchaseIntent,
   uniqueFounderTransactionId,
   founderCovenantReviewQueuePriority,
+  founderCovenantReviewSchedule,
   verifyCitizen,
 } from './reality-area'
 import { resetDbForTest } from './_db'
@@ -47,6 +48,27 @@ describe('Founder Covenant queue urgency', () => {
     const weekly = founderCovenantReviewQueuePriority({ ...base, reviewSchedule: { weeklyReviewDue: true, monthlyReviewDue: false } } as never)
     const monthly = founderCovenantReviewQueuePriority({ ...base, reviewSchedule: { weeklyReviewDue: true, monthlyReviewDue: true } } as never)
     expect(monthly).toBeGreaterThan(weekly)
+  })
+})
+
+describe('Founder Covenant activity freshness', () => {
+  test('uses the simulation cursor instead of mutation time for review due-ness', () => {
+    const state = existingState() as never
+    const schedule = founderCovenantReviewSchedule({
+      ...state,
+      updatedAt: '2026-07-14T04:00:00.000Z',
+      simulationAt: '2026-07-06T03:00:00.000Z',
+    })
+
+    expect(schedule.weeklyReviewDue).toBe(false)
+
+    const caughtUp = founderCovenantReviewSchedule({
+      ...state,
+      updatedAt: '2026-07-14T04:00:00.000Z',
+      simulationAt: '2026-07-14T04:00:00.000Z',
+    })
+    expect(caughtUp.weeklyReviewDue).toBe(true)
+    expect(caughtUp.overdue).toBe(true)
   })
 })
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => pgVerifyRows)
