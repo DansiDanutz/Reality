@@ -1118,6 +1118,54 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('manual service intents count recorded purchases in the current simulation hour', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder', quality: 0.05, price: 2 })],
+      transactions: [1, 2, 3].map((sequence) => ({
+        id: `same-hour-water-${sequence}`,
+        at: 0,
+        kind: 'customer_purchase' as const,
+        payoutEligibility: 'game_only' as const,
+        fromId: 'resident',
+        toId: 'water1',
+        amount: 2,
+        memo: 'Earlier water purchase in this hour.',
+      })),
+    })
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.transactions).toHaveLength(3)
+  })
+
+  test('manual insurance intents count recorded premiums in the current simulation hour', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 100 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', quality: 0.05, price: 45 })],
+      transactions: [{
+        id: 'same-hour-insurance',
+        at: 0,
+        kind: 'insurance_premium',
+        payoutEligibility: 'game_only',
+        fromId: 'resident',
+        toId: 'ins1',
+        amount: 45,
+        memo: 'Earlier insurance purchase in this hour.',
+      }],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.transactions).toHaveLength(1)
+  })
+
   test('buyWater intent rejects unattended businesses while the owner is hospitalized', () => {
     const start = claimedArea({
       citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
@@ -1389,6 +1437,21 @@ describe('advanceWorldArea — local real-time economy', () => {
     expect(out.transactions).toMatchObject([
       { kind: 'customer_purchase', fromId: 'payer', toId: 'clinic1', amount: 90 },
     ])
+  })
+
+  test('sub-hour ticks preserve the same service capacity as an hourly tick', () => {
+    const start = area({
+      citizens: [sim('thirsty', { money: 100, needs: fullNeeds({ hydration: 45 }) })],
+      businesses: [business('water', 'water1', { price: 2 })],
+    })
+
+    const hourly = advanceWorldArea(start, HOUR).area
+    let minute = start
+    for (let i = 0; i < 60; i += 1) minute = advanceWorldArea(minute, minute.now + HOUR / 60).area
+
+    expect(minute.citizens[0].money).toBe(hourly.citizens[0].money)
+    expect(minute.businesses[0].cash).toBe(hourly.businesses[0].cash)
+    expect(minute.transactions.filter((transaction) => transaction.kind === 'customer_purchase')).toHaveLength(1)
   })
 
   test('worker wages move from the business till to the worker ledger', () => {

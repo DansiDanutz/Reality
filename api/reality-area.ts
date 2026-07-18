@@ -3222,15 +3222,17 @@ function founderCovenantApprovalNotificationKind(
   return kind === 'send_warning' ? 'founder_warning' : 'manual_review_required'
 }
 
-function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAreaCovenantReviewSchedule {
+export function founderCovenantReviewSchedule(state: FounderAreaStateInput): FounderAreaCovenantReviewSchedule {
   const lastReviewMs = latestFounderReviewMs(state)
   const claimMs = safeDateMs(state.claim.claimedAt, state.updatedAt)
   const scheduleAnchor = lastReviewMs ?? claimMs
   const nextWeeklyReviewMs = scheduleAnchor + FOUNDER_COVENANT_WEEKLY_REVIEW_MS
   const nextMonthlyReviewMs = scheduleAnchor + FOUNDER_COVENANT_MONTHLY_REVIEW_MS
-  const updatedMs = safeDateMs(state.updatedAt, state.claim.claimedAt)
-  const weeklyReviewDue = updatedMs >= nextWeeklyReviewMs
-  const monthlyReviewDue = updatedMs >= nextMonthlyReviewMs
+  // Review cadence follows the authoritative simulation cursor. Mutation
+  // timestamps are metadata and must not postpone a review indefinitely.
+  const simulationMs = safeDateMs(state.simulationAt ?? state.updatedAt, state.updatedAt)
+  const weeklyReviewDue = simulationMs >= nextWeeklyReviewMs
+  const monthlyReviewDue = simulationMs >= nextMonthlyReviewMs
   return {
     lastReviewAt: lastReviewMs === null ? null : new Date(lastReviewMs).toISOString(),
     nextWeeklyReviewAt: new Date(nextWeeklyReviewMs).toISOString(),

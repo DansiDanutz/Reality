@@ -7,7 +7,7 @@
  */
 import { list } from '@vercel/blob'
 import { neon } from '@neondatabase/serverless'
-import { FOUNDER_AREA_SAVE_SQL, areaStatePathFromBlob, isRevisionConflict, migratableFounderAreaSnapshot } from './db/founder-area-migration-lib.mjs'
+import { FOUNDER_AREA_EXISTING_SQL, FOUNDER_AREA_SAVE_SQL, areaStatePathFromBlob, compareFounderAreaFreshness, isRevisionConflict, migratableFounderAreaSnapshot } from './db/founder-area-migration-lib.mjs'
 
 const dryRun = process.env.FOUNDER_AREA_MIGRATION_DRY_RUN === '1'
 if (!dryRun && process.env.FOUNDER_AREA_MIGRATION_ALLOW_WRITE !== '1') {
@@ -24,6 +24,7 @@ let cursor
 let scanned = 0
 let migrated = 0
 let skipped = 0
+let stale = 0
 let invalid = 0
 do {
   const batch = await list({ prefix: 'reality-areas/', ...(cursor ? { cursor } : {}), limit: 1000 })
@@ -46,6 +47,18 @@ do {
       continue
     }
     try {
+      const existingRows = await sql.query(FOUNDER_AREA_EXISTING_SQL, [candidate.citizenId])
+      const existing = existingRows[0]
+      if (existing) {
+        const freshness = compareFounderAreaFreshness(candidate.updatedAt, existing.updated_at)
+        if (freshness === 'candidate_newer') {
+          stale += 1
+          console.error(`Newer Blob Founder Area snapshot is shadowed by Postgres: ${areaStatePathFromBlob(blob)}`)
+          continue
+        }
+        skipped += 1
+        continue
+      }
       await sql.query(FOUNDER_AREA_SAVE_SQL, [
         candidate.citizenId,
         candidate.areaId,
@@ -63,4 +76,5 @@ do {
   cursor = batch.hasMore ? batch.cursor : undefined
 } while (cursor)
 
-console.log(JSON.stringify({ dryRun, scanned, migrated, skipped, invalid }))
+console.log(JSON.stringify({ dryRun, scanned, migrated, skipped, stale, invalid }))
+if (stale > 0) process.exitCode = 2

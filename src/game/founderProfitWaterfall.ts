@@ -52,6 +52,7 @@ export interface FounderProfitWaterfallAssessment {
   currency: 'game_credits'
   founderCitizenId: string
   periodBusinessProfit: number
+  taxRate: number
   outstandingObligations: readonly FounderProfitWaterfallObligation[]
   repaymentDrafts: readonly FounderProfitRepaymentDraft[]
   totals: {
@@ -59,6 +60,9 @@ export interface FounderProfitWaterfallAssessment {
     repaymentDrafted: number
     remainingObligations: number
     surplusGameCredits: number
+    taxableSurplus: number
+    taxAmount: number
+    netGameCredits: number
     payoutEligibleSurplus: 0
   }
   readyForManualReview: boolean
@@ -83,10 +87,12 @@ export function assessFounderProfitWaterfall(input: {
   obligations?: readonly FounderProfitWaterfallObligationInput[]
   serverAuthorityReady?: boolean
   manualProfitReviewApproved?: boolean
+  taxRate?: number | null
   reviewedAt?: number | null
 }): FounderProfitWaterfallAssessment {
   const founderCitizenId = normalizedText(input.founderCitizenId)
   const periodBusinessProfit = positiveMoney(input.periodBusinessProfit ?? 0)
+  const taxRate = normalizedRate(input.taxRate ?? 0)
   const obligations = normalizedObligations(input.obligations ?? [])
   const hasInvalidCreditor = (input.obligations ?? []).some((obligation) =>
     positiveMoney(obligation.outstandingAmount) > 0 && !normalizedText(obligation.creditorAccountId)
@@ -112,6 +118,8 @@ export function assessFounderProfitWaterfall(input: {
     : []
   const repaymentDrafted = sumMoney(repaymentDrafts.map((draft) => draft.amount))
   const totalOutstanding = sumMoney(obligations.map((obligation) => obligation.outstandingAmount))
+  const surplusGameCredits = roundMoney(Math.max(0, periodBusinessProfit - repaymentDrafted))
+  const taxAmount = roundMoney(surplusGameCredits * taxRate)
 
   return {
     enabled: false,
@@ -122,13 +130,17 @@ export function assessFounderProfitWaterfall(input: {
     currency: 'game_credits',
     founderCitizenId: founderCitizenId ?? '',
     periodBusinessProfit,
+    taxRate,
     outstandingObligations: obligations,
     repaymentDrafts,
     totals: {
       profitAvailable: periodBusinessProfit,
       repaymentDrafted,
       remainingObligations: roundMoney(Math.max(0, totalOutstanding - repaymentDrafted)),
-      surplusGameCredits: roundMoney(Math.max(0, periodBusinessProfit - repaymentDrafted)),
+      surplusGameCredits,
+      taxableSurplus: surplusGameCredits,
+      taxAmount,
+      netGameCredits: roundMoney(surplusGameCredits - taxAmount),
       payoutEligibleSurplus: 0,
     },
     readyForManualReview,
@@ -202,6 +214,11 @@ function normalizedInstant(value: number | null): number | null {
 function positiveMoney(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0
   return roundMoney(value)
+}
+
+function normalizedRate(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(1, roundMoney(value))
 }
 
 function sumMoney(values: readonly number[]): number {
