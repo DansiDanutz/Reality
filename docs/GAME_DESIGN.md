@@ -53,7 +53,7 @@ First 2,000 citizens get $200,000. Purpose: seed capital so the world has shops 
 
 ## Design pillars
 
-1. **One simulation path** — every action routes through the same `advance()` world step. No special cases.
+1. **One simulation path** — every personal-life action routes through the same `tick()`/`liveRealtime()` world step (see ARCHITECTURE). No special cases.
 2. **Real-life legibility** — if it doesn't map to something in a working society, it doesn't go in.
 3. **The map is the game** — everything you own is visible on the planet. Wealth has geography.
 4. **Respect the clock** — sessions of 5 minutes must feel productive (one day ≈ 2.4 min).

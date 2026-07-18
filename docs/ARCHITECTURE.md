@@ -115,9 +115,10 @@ the API is unreachable.
   for the map, the street scene) — consider code-splitting `WorldMap` and
   `streetScene` behind dynamic `import()`.
 - Google Fonts served from CDN — self-host at launch (CSP + performance).
-- `api/reality-area.ts`'s own area state is still Blob-backed, a second
-  migration (registry/world/leaderboard already moved to Postgres in Phase
-  1b) that hasn't started.
+- `api/reality-area.ts`'s own area state is mid-migration from Blob to
+  Postgres (`api/_founderAreaPg.ts`, dual-path behind `founderAreaPgEnabled()`)
+  — a second migration from the Phase 1b registry/world/leaderboard cutover,
+  in progress but not yet cut over.
 - Offline time for the personal-life sim only advances on the next client
   session (`liveRealtime()`'s offline catch-up runs client-side); nothing
   ticks a citizen's personal needs/health server-side while they're away.
