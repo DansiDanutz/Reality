@@ -1118,6 +1118,54 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('manual service intents count recorded purchases in the current simulation hour', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
+      businesses: [business('water', 'water1', { ownerId: 'founder', quality: 0.05, price: 2 })],
+      transactions: [1, 2, 3].map((sequence) => ({
+        id: `same-hour-water-${sequence}`,
+        at: 0,
+        kind: 'customer_purchase' as const,
+        payoutEligibility: 'game_only' as const,
+        fromId: 'resident',
+        toId: 'water1',
+        amount: 2,
+        memo: 'Earlier water purchase in this hour.',
+      })),
+    })
+
+    const result = applyWorldIntent(start, { type: 'buyWater', actorCitizenId: 'resident' })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.transactions).toHaveLength(3)
+  })
+
+  test('manual insurance intents count recorded premiums in the current simulation hour', () => {
+    const start = claimedArea({
+      citizens: [sim('resident', { kind: 'real', money: 100 })],
+      businesses: [business('insurance', 'ins1', { ownerId: 'founder', quality: 0.05, price: 45 })],
+      transactions: [{
+        id: 'same-hour-insurance',
+        at: 0,
+        kind: 'insurance_premium',
+        payoutEligibility: 'game_only',
+        fromId: 'resident',
+        toId: 'ins1',
+        amount: 45,
+        memo: 'Earlier insurance purchase in this hour.',
+      }],
+    })
+
+    const result = applyWorldIntent(start, {
+      type: 'buyInsurance',
+      actorCitizenId: 'resident',
+      insuranceBusinessId: 'ins1',
+    })
+
+    expect(result).toMatchObject({ ok: false, error: 'service_not_available' })
+    expect(result.area.transactions).toHaveLength(1)
+  })
+
   test('buyWater intent rejects unattended businesses while the owner is hospitalized', () => {
     const start = claimedArea({
       citizens: [sim('resident', { kind: 'real', money: 20, needs: fullNeeds({ hydration: 20 }) })],
