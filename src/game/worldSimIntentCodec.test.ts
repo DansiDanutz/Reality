@@ -358,6 +358,22 @@ describe('decodeClientWorldIntentPayload', () => {
     }
   })
 
+  test('rejects extra fields even when they are not on the forbidden-field list', () => {
+    const cases = [
+      { type: 'buyWater', price: 1 },
+      { type: 'buildBusiness', businessKind: 'water', businessId: 'water-a', wagePerHour: 1 },
+      { type: 'hireWorker', businessId: 'food-a', workerCitizenId: 'worker', cash: 1 },
+      { type: 'buyInsurance', insuranceBusinessId: 'ins-a', coverage: 1 },
+      { type: 'repayDebt', debtId: 'debt-a', amount: 10, policyTerms: 'client' },
+    ]
+    for (const payload of cases) {
+      expect(decodeClientWorldIntentPayload(payload, 'founder')).toEqual({
+        ok: false,
+        error: 'client_controlled_server_field',
+      })
+    }
+  })
+
   test('rejects invalid payload shape, actor identity, and intent type', () => {
     expect(decodeClientWorldIntentPayload(null, 'founder')).toEqual({ ok: false, error: 'invalid_payload' })
     expect(decodeClientWorldIntentPayload([], 'founder')).toEqual({ ok: false, error: 'invalid_payload' })

@@ -70,6 +70,16 @@ const CLIENT_INTENT_TYPES = [
   'buyInsurance',
   'repayDebt',
 ] as const
+const CLIENT_INTENT_FIELDS: Record<typeof CLIENT_INTENT_TYPES[number], readonly string[]> = {
+  buildBusiness: ['type', 'businessId', 'businessKind', 'name'],
+  buyWater: ['type'],
+  buyFood: ['type'],
+  buyHousing: ['type'],
+  visitClinic: ['type'],
+  hireWorker: ['type', 'businessId', 'workerCitizenId'],
+  buyInsurance: ['type', 'insuranceBusinessId'],
+  repayDebt: ['type', 'debtId', 'amount'],
+}
 const COVENANT_REVIEW_ACTION_KINDS: FounderCovenantManualActionKind[] = [
   'record_review',
   'send_warning',
@@ -252,6 +262,9 @@ export function decodeClientWorldIntentPayload(
 
   const { type } = payload
   if (!isOneOf(type, CLIENT_INTENT_TYPES)) return { ok: false, error: 'invalid_intent_type' }
+  if (Object.keys(payload).some((key) => !CLIENT_INTENT_FIELDS[type].includes(key))) {
+    return { ok: false, error: 'client_controlled_server_field' }
+  }
 
   switch (type) {
     case 'buildBusiness':
