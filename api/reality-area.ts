@@ -2102,7 +2102,7 @@ async function readAreaState(citizenId: string): Promise<FounderAreaPersistedSta
           citizenId,
           revision: row.revision,
         })
-        return null
+        throw new Error('founder_area_snapshot_malformed')
       }
       const state = normalizeAreaCitizens(row.state)
       return { ...state, __storageRevision: row.revision }
@@ -5408,7 +5408,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let existing: FounderAreaPersistedState | null
     try {
       existing = await readAreaState(citizen.citizenId)
-    } catch (error) {
+    } catch {
       if (req.method === 'POST' && intentType === 'refreshArea') {
         res.status(refreshAreaStatus('area_load_unavailable')).json({
           ok: false,
@@ -5418,7 +5418,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
         return
       }
-      throw error
+      res.status(503).json({
+        ok: false,
+        error: 'Reality area storage is briefly unavailable.',
+        code: 'area_storage_unavailable',
+        state: null,
+        founderNumber: citizen.founderNumber,
+      })
+      return
     }
     if (req.method === 'GET') {
       let state = existing
