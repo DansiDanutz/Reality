@@ -6,6 +6,7 @@ import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
 import AdvisorConsult from './AdvisorConsult'
+import CollectPill from './CollectPill'
 import { guideMessage } from './guideVoice'
 import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
 import NotifyNudge from './NotifyNudge'
@@ -156,6 +157,7 @@ export default function ActionDock() {
     // stack above it in flow (never overlapping, whatever the banner height).
     return (
       <div className="dock">
+        <CollectPill />
         {guide}
         <NotifyNudge activityKind={activity.kind} />
         <div className="placing-banner activity-banner">
@@ -184,6 +186,7 @@ export default function ActionDock() {
 
   return (
     <div className="dock">
+      <CollectPill />
       {guide}
       <div className="dock-actions">
         <button
