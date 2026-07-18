@@ -360,6 +360,26 @@ describe('advanceWorldArea — local real-time economy', () => {
     }
   })
 
+  test('advanceWorldArea caps hourly steps against a corrupted far-future clock instead of hanging', () => {
+    const MAX_HOURLY_STEPS = 24 * 366
+    const start = area({ now: 0, citizens: [sim('resident', { money: 100 })] })
+    const farFuture = (MAX_HOURLY_STEPS + 100) * HOUR
+
+    const { area: partial } = advanceWorldArea(start, farFuture)
+
+    // Bounded work per call: the clock advances but does not reach the
+    // corrupted target in a single call — it stops at the step cap instead
+    // of looping once per hour for the whole (possibly unbounded) span.
+    expect(partial.now).toBe(MAX_HOURLY_STEPS * HOUR)
+    expect(partial.now).toBeLessThan(farFuture)
+
+    // A follow-up call resumes from where the last one left off and keeps
+    // making progress — the area's clock lags a corrupted target, it never
+    // gets stuck.
+    const { area: resumed } = advanceWorldArea(partial, farFuture)
+    expect(resumed.now).toBeGreaterThan(partial.now)
+  })
+
   test('advanceWorldArea normalizes malformed stored clocks without ticking from a fake baseline', () => {
     for (const storedNow of [Number.NaN, Number.NEGATIVE_INFINITY, -HOUR]) {
       const start = area({

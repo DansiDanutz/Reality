@@ -19,17 +19,17 @@ Single-player life sim on the 3D Earth: needs, jobs, shop, placeable homes & bus
 - ✅ Global map shows *everyone's* businesses (violet beacons) — the world looks inhabited
 - ✅ Net-worth leaderboard (Top panel)
 
-**Phase 1b — next**
-- Server-authoritative simulation (intents, ledger) — see ARCHITECTURE
-- Move registry/world/leaderboard from Blob to Postgres
-- World persists 24/7 server-side; anti-cheat on score reporting
+**Phase 1b — shipped ✅** (2026-07-09/10)
+- ✅ Server-authoritative simulation: `/api/intent` validates `workShift`/`buyItem`/`placeAsset` against the server's own copy of the economy rules and appends to a Postgres ledger — see ARCHITECTURE
+- ✅ Registry, world, and leaderboard moved from Blob to Postgres; citizen auth verifies against Postgres, not the old Blob mirror
+- Still open: no live-tick/WebSocket world (the shared area economy ticks via a polling/cron job, not a push); anti-cheat covers the intents above but not a full server-side replay of the personal-life sim
 
 ## Phase 2 — Society
 
-- **Player-to-player economy**: shop inventory comes from player businesses; owners set prices
-- Employment: player businesses hire player workers at negotiated wages
-- Land scarcity per city hex → real estate market, rent
-- Chat / local presence (see who's in your city)
+- **Player-to-player economy** (planned): shop inventory comes from player businesses; owners set prices
+- Employment (planned): player businesses hire player workers at negotiated wages
+- Land scarcity per city hex → real estate market, rent (infrastructure exists in `api/reality-area.ts`/`src/game/landLease.ts`, mostly behind disabled flags — see ECONOMY.md)
+- Chat / local presence (see who's in your city) (planned)
 
 ## Phase 3 — Civilization
 

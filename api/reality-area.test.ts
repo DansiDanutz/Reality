@@ -349,7 +349,8 @@ describe('reality area authority API', () => {
 
     await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
 
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(503)
+    expect((res.body as { code: string; state: unknown }).code).toBe('area_storage_unavailable')
     expect((res.body as { state: unknown }).state).toBeNull()
     expect(list).not.toHaveBeenCalled()
     expect(consoleError).toHaveBeenCalledWith('founder area: malformed Postgres snapshot', {
