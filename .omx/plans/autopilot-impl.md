@@ -130,6 +130,7 @@
 - Intent boundary follow-up: server-bound world intent decoding now rejects unrecognized fields per intent, closing the protocol-drift vector tracked in issue #186.
 - Service-capacity follow-up: sub-hour world-sim ticks now use the elapsed portion of the current hour and reconcile recorded purchases, making minute and hourly advancement batch-invariant; affordability is checked before capacity is reserved (issue #176).
 - Founder Covenant freshness follow-up: review due-ness now follows the authoritative simulation cursor instead of mutation timestamps, so ordinary writes cannot defer evidence review (issue #180).
+- Founder credit waterfall follow-up: the existing pure profit policy now models founder-credit repayment before taxable and net surplus, clamps tax inputs, and keeps repayment/payout execution disabled (issue #201).
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

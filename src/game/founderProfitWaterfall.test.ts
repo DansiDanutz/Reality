@@ -15,6 +15,7 @@ describe('founder profit waterfall', () => {
       currency: 'game_credits',
       founderCitizenId: '',
       periodBusinessProfit: 0,
+      taxRate: 0,
       outstandingObligations: [],
       repaymentDrafts: [],
       totals: {
@@ -22,6 +23,9 @@ describe('founder profit waterfall', () => {
         repaymentDrafted: 0,
         remainingObligations: 0,
         surplusGameCredits: 0,
+        taxableSurplus: 0,
+        taxAmount: 0,
+        netGameCredits: 0,
         payoutEligibleSurplus: 0,
       },
       readyForManualReview: false,
@@ -99,6 +103,9 @@ describe('founder profit waterfall', () => {
       repaymentDrafted: 900,
       remainingObligations: 300,
       surplusGameCredits: 0,
+      taxableSurplus: 0,
+      taxAmount: 0,
+      netGameCredits: 0,
       payoutEligibleSurplus: 0,
     })
   })
@@ -135,6 +142,9 @@ describe('founder profit waterfall', () => {
       repaymentDrafted: 300,
       remainingObligations: 0,
       surplusGameCredits: 950,
+      taxableSurplus: 950,
+      taxAmount: 0,
+      netGameCredits: 950,
       payoutEligibleSurplus: 0,
     })
   })
@@ -191,6 +201,9 @@ describe('founder profit waterfall', () => {
       repaymentDrafted: 0,
       remainingObligations: 0,
       surplusGameCredits: 0,
+      taxableSurplus: 0,
+      taxAmount: 0,
+      netGameCredits: 0,
       payoutEligibleSurplus: 0,
     })
     expect(assessment.blockers).toEqual([
@@ -199,5 +212,50 @@ describe('founder profit waterfall', () => {
       'positive_profit_required',
       'obligation_creditor_required',
     ])
+  })
+
+  test('repays founder credit before calculating taxable and net surplus', () => {
+    const assessment = assessFounderProfitWaterfall({
+      founderCitizenId: 'founder-1',
+      periodBusinessProfit: 1_000,
+      taxRate: 0.2,
+      serverAuthorityReady: true,
+      manualProfitReviewApproved: true,
+      obligations: [{
+        id: 'starter-credit',
+        kind: 'founder_credit',
+        creditorAccountId: 'system:founder-credit-bank',
+        outstandingAmount: 600,
+      }],
+    })
+
+    expect(assessment.totals).toMatchObject({
+      repaymentDrafted: 600,
+      surplusGameCredits: 400,
+      taxableSurplus: 400,
+      taxAmount: 80,
+      netGameCredits: 320,
+      payoutEligibleSurplus: 0,
+    })
+    expect(assessment.repaymentDrafts[0]).toMatchObject({
+      obligationKind: 'founder_credit',
+      amount: 600,
+      executionEnabled: false,
+    })
+  })
+
+  test('clamps malformed tax rates without creating a payout path', () => {
+    const assessment = assessFounderProfitWaterfall({
+      founderCitizenId: 'founder-1',
+      periodBusinessProfit: 100,
+      taxRate: Number.POSITIVE_INFINITY,
+      serverAuthorityReady: true,
+      manualProfitReviewApproved: true,
+    })
+
+    expect(assessment.taxRate).toBe(0)
+    expect(assessment.totals.netGameCredits).toBe(100)
+    expect(assessment.totals.payoutEligibleSurplus).toBe(0)
+    expect(assessment.executionEnabled).toBe(false)
   })
 })
