@@ -33,7 +33,7 @@ try {
 const sql = neon(databaseUrl)
 const citizenId = process.env.REALITY_CUTOVER_CITIZEN_ID
 const areaId = process.env.REALITY_CUTOVER_AREA_ID
-const current = await sql(
+const current = await sql.query(
   'SELECT revision, simulation_at, updated_at FROM founder_area_snapshots WHERE citizen_id = $1 AND area_id = $2 LIMIT 1',
   [citizenId, areaId],
 )
@@ -44,7 +44,7 @@ if (current.length === 0) {
 
 const expectedRevision = Number(current[0].revision)
 const now = new Date().toISOString()
-const attempt = () => sql(
+const attempt = () => sql.query(
   'SELECT reality_save_founder_area($1, $2, $3, $4::jsonb, $5::timestamptz, $6::timestamptz) AS revision',
   [citizenId, areaId, expectedRevision, JSON.stringify(state), current[0].simulation_at ?? now, now],
 )
