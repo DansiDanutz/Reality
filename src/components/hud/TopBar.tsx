@@ -59,7 +59,10 @@ export default function TopBar() {
           <span className="stat-value">{citizen.name} · L{level}</span>
         </div>
         <div className="stat stat-clock">
-          <span className="stat-label">{placeName} · day {day}</span>
+          {/* Before spawn detection the zone falls back to UTC — a cold label
+              that reads like an error to a new player. Day alone until the
+              real hometown is known. */}
+          <span className="stat-label">{placeName === 'UTC' ? `day ${day}` : `${placeName} · day ${day}`}</span>
           <span className="stat-value mono">{clock.time}</span>
         </div>
         {streakLength >= 2 && (
