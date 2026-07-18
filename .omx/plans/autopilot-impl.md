@@ -120,6 +120,7 @@
 - Evidence backlog presenter follow-up: Founder Covenant queue totals now visibly surface population, contribution, and ideas proof gaps as read-only chips.
 - CAS resurrection follow-up: the Founder Area save function now rejects non-zero revisions when the authoritative row is absent instead of inserting a fresh revision-1 snapshot.
 - Corrupt-snapshot observability follow-up: malformed Postgres Founder Area rows remain fail-closed and now produce a non-secret diagnostic for repair triage.
+- Corrupt-snapshot response follow-up: malformed authoritative Postgres Founder Area rows now surface as an explicit storage-unavailable response instead of an apparently unclaimed area.
 - Bearer-at-rest follow-up: legacy save migration and cloud-save ingestion now scrub citizen bearer tokens before persistence.
 - Registration brake follow-up: registration now derives its IP key from the trusted Vercel forwarding boundary or rightmost forwarded hop instead of a spoofable leftmost XFF value.
 - Cloud-save ordering follow-up: cloud-save writes now pass through a Postgres monotonic timestamp gate, and restore prefers the authoritative snapshot over the Blob mirror.
