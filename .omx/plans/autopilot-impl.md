@@ -127,6 +127,7 @@
 - Cloud-save ordering follow-up: cloud-save writes now pass through a Postgres monotonic timestamp gate, and restore prefers the authoritative snapshot over the Blob mirror.
 - Production authority evidence: the Vercel production schema is now applied, the guarded Blob backfill dry-run found no legacy Founder Area snapshots, and the live CAS probe passed with one winner/one conflict after fixing the Neon driver call shape; only the explicit runtime cutover decision remains.
 - Same-tick capacity follow-up: pure `worldSim` manual service and insurance intents now seed recorded current-hour purchases before applying capacity checks, closing the standalone intent bypass tracked in issue #647.
+- Intent boundary follow-up: server-bound world intent decoding now rejects unrecognized fields per intent, closing the protocol-drift vector tracked in issue #186.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
