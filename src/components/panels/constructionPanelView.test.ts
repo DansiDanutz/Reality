@@ -9,6 +9,8 @@ import {
   constructionCompletionActionLabel,
   constructionFinalStageView,
   constructionForecastCards,
+  constructionWorkActionHint,
+  projectCompletionActionHint,
 } from './constructionPanelView'
 
 const business = (): PlacedAsset => ({
@@ -56,6 +58,30 @@ describe('constructionCompletionActionLabel', () => {
   test('labels ready builds by the place the player can enter next', () => {
     expect(constructionCompletionActionLabel('home', true)).toBe('Enter house')
     expect(constructionCompletionActionLabel('business', true)).toBe('Open business')
+  })
+})
+
+describe('construction action accessibility hints', () => {
+  test('explains the exact missing materials before work is available', () => {
+    expect(constructionWorkActionHint({
+      resourcesComplete: false,
+      permitComplete: false,
+      laborComplete: false,
+      missing: { wood: 2, glass: 1 },
+      permitFee: 500,
+    })).toBe('Blocked: deposit 2 wood, 1 glass before working.')
+  })
+
+  test('explains permit and completion gates', () => {
+    expect(constructionWorkActionHint({
+      resourcesComplete: true,
+      permitComplete: false,
+      laborComplete: false,
+      missing: {},
+      permitFee: 500,
+    })).toBe('Blocked: pay the $500 permit before working.')
+    expect(projectCompletionActionHint(false, 'build')).toBe('Blocked: finish materials, permit, and labor before opening.')
+    expect(projectCompletionActionHint(true, 'business')).toBe('Ready: open the completed business.')
   })
 })
 

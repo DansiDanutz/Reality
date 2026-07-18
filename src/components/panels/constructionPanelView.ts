@@ -1,6 +1,6 @@
 import type { BusinessDevelopmentDayForecast, ConstructionDayForecast, ResourceTripForecast } from '../../game/lifeLadder'
 import { formatMoney } from '../../game/engine'
-import { RESOURCE_META } from '../../game/resources'
+import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import type { AssetKind } from '../../game/types'
 
 export interface ForecastCardView {
@@ -25,6 +25,31 @@ export function constructionFinalStageView(
 export function constructionCompletionActionLabel(planKind: AssetKind, complete: boolean): string {
   if (!complete) return 'Complete'
   return planKind === 'business' ? 'Open business' : 'Enter house'
+}
+
+export function constructionWorkActionHint(input: {
+  resourcesComplete: boolean
+  permitComplete: boolean
+  laborComplete: boolean
+  missing: Partial<Record<ResourceKind, number>>
+  permitFee: number
+}): string {
+  if (!input.resourcesComplete) {
+    const missing = RESOURCE_KINDS
+      .filter((kind) => (input.missing[kind] ?? 0) > 0)
+      .map((kind) => `${input.missing[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`)
+      .join(', ')
+    return `Blocked: deposit ${missing || 'all required materials'} before working.`
+  }
+  if (!input.permitComplete) return `Blocked: pay the ${formatMoney(input.permitFee)} permit before working.`
+  if (input.laborComplete) return 'Blocked: all required labor is complete.'
+  return 'Ready: work for 60 minutes.'
+}
+
+export function projectCompletionActionHint(complete: boolean, subject: 'build' | 'business'): string {
+  return complete
+    ? `Ready: open the completed ${subject}.`
+    : `Blocked: finish materials, ${subject === 'build' ? 'permit, ' : 'budget, '}and labor before opening.`
 }
 
 export function constructionForecastCards(forecast: ConstructionDayForecast): ForecastCardView[] {
