@@ -421,6 +421,11 @@ export default function WorldMap() {
     const map = mapRef.current
     if (!map) return
     const onClick = (e: maplibregl.MapMouseEvent) => {
+      // Touch placement commits ONLY via the "Place here" button: the ghost
+      // sits at map center, so a stray tap must pan/explore, never place at
+      // the tapped point (it could even bypass the disabled out-of-reach
+      // confirm). Same media query as the button, so the two agree.
+      if (window.matchMedia('(pointer: coarse)').matches) return
       const s = useGame.getState()
       if (s.placing) s.placeAt(e.lngLat.lat, e.lngLat.lng)
       else if (s.placingConstruction) s.placeConstructionAt(e.lngLat.lat, e.lngLat.lng)
