@@ -1,3 +1,5 @@
+import { FOUNDER_BALANCE } from './catalog'
+
 export type FounderStarterCreditBlocker =
   | 'starter_credit_obligation_recording_disabled'
   | 'starter_credit_repayment_disabled'
@@ -58,7 +60,9 @@ export interface FounderStarterCreditPolicyAssessment {
 }
 
 export const FOUNDER_STARTER_CREDIT_BANK_ACCOUNT_ID = 'system:founder-credit'
-export const DEFAULT_FOUNDER_STARTER_CREDIT_AMOUNT = 200_000
+// Single source of truth: catalog.ts's FOUNDER_BALANCE (see ECONOMY.md's
+// founder-economy section for why this used to be a third independent literal).
+export const DEFAULT_FOUNDER_STARTER_CREDIT_AMOUNT = FOUNDER_BALANCE
 
 const BASE_DISABLED_BLOCKERS: readonly FounderStarterCreditBlocker[] = [
   'starter_credit_obligation_recording_disabled',

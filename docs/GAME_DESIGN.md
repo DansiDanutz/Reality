@@ -38,8 +38,8 @@ Reality runs on the actual clock. This is the game's founding rule and its name.
 
 ## Work & progression
 
-- 10 careers from Barista ($15/h) to Pilot ($60/h); higher tiers gated by level (1–4).
-- A shift = 6 game hours, paid instantly, costs needs, grants 20 XP. Level N requires N×100 XP.
+- 10 careers from Barista ($15/h) to Pilot ($60/h); higher tiers gated by level.
+- A shift = 8 real hours (matching Rule #1 above), paid instantly, costs needs, grants 40 XP. Level N requires N×100 XP.
 - Design intent: wages alone keep you alive and slowly saving; businesses are how you get rich. Founders skip the grind — that's the founder privilege.
 
 ## Property & businesses
@@ -53,7 +53,7 @@ First 2,000 citizens get $200,000. Purpose: seed capital so the world has shops 
 
 ## Design pillars
 
-1. **One simulation path** — every action routes through the same `advance()` world step. No special cases.
+1. **One simulation path** — every personal-life action routes through the same `tick()`/`liveRealtime()` world step (see ARCHITECTURE). No special cases.
 2. **Real-life legibility** — if it doesn't map to something in a working society, it doesn't go in.
 3. **The map is the game** — everything you own is visible on the planet. Wealth has geography.
 4. **Respect the clock** — sessions of 5 minutes must feel productive (one day ≈ 2.4 min).

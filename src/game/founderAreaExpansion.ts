@@ -1,3 +1,5 @@
+import { debtAndHospitalizationBlockers } from './founderEligibilityGates'
+
 export type FounderAreaExpansionScope =
   | 'starter_area'
   | 'neighborhood'
@@ -295,8 +297,7 @@ function founderAreaExpansionReadinessBlockers(input: {
     }
   }
 
-  if (input.outstandingDebt > 0) blockers.push('debt_review_required')
-  if (input.hospitalized) blockers.push('hospitalization_review_required')
+  blockers.push(...debtAndHospitalizationBlockers(input))
   if (!input.manualExpansionApproved) blockers.push('manual_expansion_review_required')
   return uniqueBlockers(blockers)
 }

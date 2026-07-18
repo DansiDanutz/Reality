@@ -19,6 +19,8 @@ jobs:
       - run: npx vitest run
       # Type-check + production build
       - run: npm run build
+      # Style/hook-dependency regressions (oxlint; errors fail the build, warnings don't)
+      - run: npm run lint
 
   e2e:
     needs: verify

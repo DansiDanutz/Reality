@@ -1001,8 +1001,19 @@ export function advanceWorldArea(input: WorldArea, toMs: number): AdvanceWorldAr
   }
   if (targetTime === null || targetTime <= area.now) return { area, summary }
 
+  // Cap iterations against a corrupted or absurd far-future `toMs`: a full
+  // year of hourly steps (8,784 iterations) is cheap and covers any
+  // realistic absence — see liveRealtime's identical MAX_HOURLY_STEPS in
+  // engine.ts. Unlike liveRealtime, we do NOT collapse the remaining span
+  // into one giant final step: this economy has period-based logic (weekly
+  // covenant reviews, monthly insurance renewals) keyed off `context.at`
+  // crossing real boundaries, so a single mega-step would silently skip
+  // renewals instead of settling to an exact asymptotic state. Stopping
+  // early instead just leaves the area's clock lagging; the next call
+  // resumes from there and eventually catches up, hour by hour, correctly.
+  const MAX_HOURLY_STEPS = 24 * 366
   let t = area.now
-  while (t < targetTime) {
+  for (let guard = 0; t < targetTime && guard < MAX_HOURLY_STEPS; guard++) {
     const next = Math.min(targetTime, t + WORLD_SIM_HOUR_MS)
     const context: StepContext = {
       at: next,
