@@ -13,7 +13,7 @@ import { availableCommunityHelperMinutes } from '../../game/community'
 import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
-import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards } from './constructionPanelView'
+import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards, constructionWorkActionHint, projectCompletionActionHint } from './constructionPanelView'
 import { selectedWorkerHours, workerCommunityCreditText, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
@@ -317,12 +317,19 @@ export default function ConstructionPanel() {
               const completionLabel = constructionCompletionActionLabel(project.resultKind, progress.complete)
               const canWork = progress.resourcesComplete && progress.permitComplete && !progress.laborComplete
               const workLabel = !progress.resourcesComplete
-                ? 'Deposit first'
+                ? 'Deposit materials first'
                 : !progress.permitComplete
-                  ? 'Permit first'
+                  ? `Pay permit first (${formatMoney(project.permitFee)})`
                   : progress.laborComplete
                     ? 'Labor done'
                     : 'Work 60m'
+              const workHint = constructionWorkActionHint({
+                resourcesComplete: progress.resourcesComplete,
+                permitComplete: progress.permitComplete,
+                laborComplete: progress.laborComplete,
+                missing,
+                permitFee: project.permitFee,
+              })
               return (
                 <li className="item construction-project" key={project.id}>
                   <div className="item-info construction-project-info">
@@ -356,10 +363,10 @@ export default function ConstructionPanel() {
                     <button className="btn small ghost" disabled={project.permitFeePaid} onClick={() => payConstructionPermit(project.id)}>
                       {project.permitFeePaid ? 'Permit paid' : `Permit ${formatMoney(project.permitFee)}`}
                     </button>
-                    <button className={canWork ? 'btn small primary' : 'btn small ghost'} disabled={!canWork} onClick={() => startConstructionWork(project.id)}>
+                    <button className={canWork ? 'btn small primary' : 'btn small ghost'} disabled={!canWork} title={workHint} aria-label={workHint} onClick={() => startConstructionWork(project.id)}>
                       {workLabel}
                     </button>
-                    <button className="btn small primary" disabled={!progress.complete} onClick={() => completeConstructionIfReady(project.id)}>
+                    <button className="btn small primary" disabled={!progress.complete} title={projectCompletionActionHint(progress.complete, 'build')} aria-label={projectCompletionActionHint(progress.complete, 'build')} onClick={() => completeConstructionIfReady(project.id)}>
                       {completionLabel}
                     </button>
                   </div>
