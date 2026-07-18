@@ -1439,6 +1439,21 @@ describe('advanceWorldArea — local real-time economy', () => {
     ])
   })
 
+  test('sub-hour ticks preserve the same service capacity as an hourly tick', () => {
+    const start = area({
+      citizens: [sim('thirsty', { money: 100, needs: fullNeeds({ hydration: 45 }) })],
+      businesses: [business('water', 'water1', { price: 2 })],
+    })
+
+    const hourly = advanceWorldArea(start, HOUR).area
+    let minute = start
+    for (let i = 0; i < 60; i += 1) minute = advanceWorldArea(minute, minute.now + HOUR / 60).area
+
+    expect(minute.citizens[0].money).toBe(hourly.citizens[0].money)
+    expect(minute.businesses[0].cash).toBe(hourly.businesses[0].cash)
+    expect(minute.transactions.filter((transaction) => transaction.kind === 'customer_purchase')).toHaveLength(1)
+  })
+
   test('worker wages move from the business till to the worker ledger', () => {
     const start = area({
       citizens: [sim('worker', { jobBusinessId: 'food1' })],
