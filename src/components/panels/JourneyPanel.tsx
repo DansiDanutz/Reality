@@ -62,6 +62,7 @@ export default function JourneyPanel() {
       communityFriendship: community.friendship,
       communityTrust: community.trust,
       brokenCommitments: community.brokenCommitments,
+      communityHelperMinutesUsedThisWeek: community.helperMinutesUsedThisWeek,
       seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
     }, 30)
     // eslint-disable-next-line react-hooks/exhaustive-deps

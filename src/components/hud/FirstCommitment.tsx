@@ -71,6 +71,12 @@ export default function FirstCommitment() {
               <button
                 className="btn primary"
                 onClick={() => {
+                  // Either way the ping question was answered here — the
+                  // nudge below must not re-ask (its cached permission state
+                  // can't see the grant until a remount).
+                  try {
+                    localStorage.setItem(NOTIFY_NUDGE_DISMISS_KEY, '1')
+                  } catch { /* session-only */ }
                   markSeen()
                   void requestNotificationPermission()
                 }}

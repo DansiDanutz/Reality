@@ -1873,7 +1873,8 @@ export const useGame = create<GameState>()(
           // until day 2, when the loops are familiar.
           const firstDayBadNews = s.citizen !== null
             && dayOfLife(s.citizen.createdAt) <= 1
-            && (event?.money ?? 0) < 0
+            && ((event?.money ?? 0) < 0
+              || Object.values(event?.effects ?? {}).some((v) => (v ?? 0) < 0))
           if (event && !firstDayBadNews) {
             if (event.effects) needs = applyEffects(needs, event.effects)
             money = Math.max(0, money + (event.money ?? 0))
