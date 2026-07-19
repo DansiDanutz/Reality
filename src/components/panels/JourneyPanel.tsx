@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { formatMoney } from '../../game/engine'
+import { educationActionCount } from '../../game/education'
 import { planLifeRoadmap } from '../../game/lifeRoadmap'
 import { MILLIONAIRE_STAGE_META } from '../../game/millionairePath'
 import { useGame } from '../../store/gameStore'
 import { lifeLadderSnapshotOf, runLifePlanRoute } from '../hud/lifePlanInput'
 import { formatPlanMinutes } from '../hud/goalsCardView'
+import { courierRequirementProgress } from '../../game/courierPackages'
 
 /**
  * Your First 30 Days — the guest's guided tour of the whole idea. Not a
@@ -31,6 +33,9 @@ export default function JourneyPanel() {
   const businessDevelopmentProjects = useGame((s) => s.businessDevelopmentProjects)
   const educationProgress = useGame((s) => s.educationProgress)
   const community = useGame((s) => s.community)
+  const activeCourierPackage = useGame((s) => s.activeCourierPackage)
+  const timesEaten = useGame((s) => s.timesEaten)
+  const sawStreetMode = useGame((s) => s.sawStreetMode)
 
   // Simulating a month is real work — do it once per panel open (the inputs
   // that matter don't shift meaningfully mid-view).
@@ -60,6 +65,20 @@ export default function JourneyPanel() {
   if (!citizen || !roadmap || roadmap.days.length === 0) return null
 
   const today = roadmap.days[0]
+  const courierProgress = activeCourierPackage
+    ? courierRequirementProgress(activeCourierPackage, {
+        timesEaten,
+        sawStreetMode,
+        resources,
+        constructionProjects,
+        hasHome: assets.some((asset) => asset.kind === 'home'),
+        jobId,
+        shiftsWorked,
+        educationProgress,
+        educationActions: educationActionCount(educationProgress),
+        communityActionsThisWeek: community.actionsThisWeek,
+      })
+    : null
   const doToday = () => runLifePlanRoute(today.primary.route)
 
   const finalStageLabel = MILLIONAIRE_STAGE_META[roadmap.finalStage].label
@@ -89,6 +108,14 @@ export default function JourneyPanel() {
         <button className="btn primary" onClick={doToday} disabled={today.primary.route.kind === 'none'}>
           Do today's step
         </button>
+        {activeCourierPackage && courierProgress && (
+          <div className="journey-courier" role="status" aria-label={`Courier day ${activeCourierPackage.day}: ${courierProgress.detail}`}>
+            <strong>📦 Courier day {activeCourierPackage.day}</strong>
+            <span>{activeCourierPackage.objective}</span>
+            <span>{courierProgress.detail}</span>
+            {!courierProgress.ready && courierProgress.missing.length > 0 && <span>Next: {courierProgress.nextAction} — {courierProgress.missing.join(' · ')}</span>}
+          </div>
+        )}
       </div>
 
       <ol className="journey-days">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PENDING_CAP_DAYS } from '../../game/engine'
 import type { PlacedAsset } from '../../game/types'
-import { collectPillModel } from './collectPill'
+import { collectPillModel } from './collectPillModel'
 
 const biz = (incomePerDay: number, pendingIncome: number): PlacedAsset => ({
   id: `b${incomePerDay}-${pendingIncome}`,

@@ -4,7 +4,7 @@ import { prefersReducedMotion } from '../../lib/motion'
 import { playChime } from '../../lib/sound'
 import { useGame } from '../../store/gameStore'
 import AnimatedMoney from './AnimatedMoney'
-import { collectPillModel } from './collectPill'
+import { collectPillModel } from './collectPillModel'
 
 /**
  * The map-level collect pill — the P4 collect-juice, brought to the main

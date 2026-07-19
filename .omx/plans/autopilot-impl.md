@@ -132,6 +132,7 @@
 - Founder Covenant freshness follow-up: review due-ness now follows the authoritative simulation cursor instead of mutation timestamps, so ordinary writes cannot defer evidence review (issue #180).
 - Founder credit waterfall follow-up: the existing pure profit policy now models founder-credit repayment before taxable and net surplus, clamps tax inputs, and keeps repayment/payout execution disabled (issue #201).
 - Daily-loop foundation follow-up: local calendar day keys, day indexes, exact next local midnights, and one-per-day grant checks now share a pure DST-aware helper used by the store (issue #199).
+- Courier/resource construction follow-up (issue #203): courier progress is now a pure deterministic presenter with exact resource shortfalls, construction material/permit/labor evidence, and direct next actions; the evidence is surfaced in the courier prompt, Today card, and Journey panel with accessible status text and mobile-safe wrapping.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

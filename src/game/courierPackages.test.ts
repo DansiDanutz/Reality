@@ -4,6 +4,7 @@ import {
   courierPackageForLifePlan,
   courierPackageForDay,
   courierRequirementMet,
+  courierRequirementProgress,
   shouldCreateCourierPackage,
 } from './courierPackages'
 import { STARTER_HOUSE_RECIPE, createConstructionProject } from './construction'
@@ -76,6 +77,52 @@ describe('courierPackages', () => {
       constructionProjects: [project],
       hasHome: false,
     })).toBe(true)
+  })
+
+  test('presents exact resource progress and safe fallback for malformed inventory', () => {
+    const pkg = courierPackageForDay(4)!
+    expect(courierRequirementProgress(pkg, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: { wood: 12 } as never,
+      constructionProjects: [],
+      hasHome: false,
+    })).toMatchObject({
+      ready: false,
+      detail: 'Wood: 12/25',
+      missing: ['13 more wood'],
+      nextAction: 'Gather wood',
+    })
+    expect(courierRequirementProgress(pkg, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: { wood: Number.NaN } as never,
+      constructionProjects: [],
+      hasHome: false,
+    }).detail).toBe('Wood: 0/25')
+  })
+
+  test('presents construction materials, permit, and labor evidence with a direct next step', () => {
+    const project = createConstructionProject('starter-house', 45, 21, 1)
+    const pkg = courierPackageForDay(8)!
+    const progress = courierRequirementProgress(pkg, {
+      timesEaten: 0,
+      sawStreetMode: false,
+      resources: freshResources(),
+      constructionProjects: [{
+        ...project,
+        deposited: freshResources({ wood: 25, stone: 15, metal: 4 }),
+        laborDoneMinutes: 60,
+      }],
+      hasHome: false,
+    })
+    expect(progress.ready).toBe(false)
+    expect(progress.detail).toContain('Wood: 25/120')
+    expect(progress.detail).toContain('Metal: 4/20')
+    expect(progress.detail).toContain('Permit: unpaid (500 credits)')
+    expect(progress.detail).toContain('Labor: 60/480 minutes')
+    expect(progress.missing).toEqual(['4 more metal', '5 more glass'])
+    expect(progress.nextAction).toBe('Gather and deposit materials')
   })
 
   test('checks Life Ladder job, shift, education, and community requirements', () => {
