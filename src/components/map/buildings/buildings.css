@@ -86,7 +86,10 @@
    their full color and pop against the calmer map. The globe view (zoomed out)
    never gets the class, so it stays pristine. */
 .map-stage.street-tone .maplibregl-canvas {
-  filter: saturate(0.85) brightness(0.78);
+  /* Hue-preserving darken only: keeps the recolored navy buildings and the
+     per-owner dots true (a hue-rotate would muddy both), while sinking the
+     bright real-world land to a neutral that sits under the dark game shell. */
+  filter: saturate(0.85) brightness(0.72);
 }
 
 /* ── Interior overlay ──────────────────────────────────── */

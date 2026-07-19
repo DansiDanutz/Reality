@@ -43,3 +43,4 @@ dist-ssr
 danslab-*.jpeg
 danslab-*.jpg
 /docs/runbooks/
+/map-preview-out/

@@ -264,19 +264,22 @@ export default function WorldMap() {
       } catch {
         /* older style spec — the default sky is fine */
       }
-      // The base map is a real OSM city, and its generic grey 3D building
-      // extrusions dominate the view and clash with our stylized buildings —
-      // it reads like a plain city map with a sticker on it. Hide the 3D
-      // extrusions so the player's OWN buildings are the only things standing
-      // up (the HoMM adventure-map look), and thin the flat footprints so the
-      // streetscape becomes a calm canvas rather than a busy grey field.
+      // The base map is a real OSM city, and its generic bright-grey 3D
+      // building extrusions clash with our stylized buildings — it reads like a
+      // plain city map, not our world. Rather than delete them (which leaves a
+      // dead, empty plane), RECOLOR them into the game's dark palette and drop
+      // their opacity: the city keeps its form and life, but recedes into a
+      // quiet nighttime cityscape our own gold-windowed buildings stand out
+      // against. Flat footprints are thinned to the same end.
       try {
         for (const layer of map.getStyle().layers ?? []) {
           const sourceLayer = (layer as { 'source-layer'?: string })['source-layer']
           if (layer.type === 'fill-extrusion') {
-            map.setLayoutProperty(layer.id, 'visibility', 'none')
+            map.setPaintProperty(layer.id, 'fill-extrusion-color', '#39435f')
+            map.setPaintProperty(layer.id, 'fill-extrusion-opacity', 0.72)
           } else if (layer.type === 'fill' && sourceLayer === 'building') {
-            map.setPaintProperty(layer.id, 'fill-opacity', 0.3)
+            map.setPaintProperty(layer.id, 'fill-color', '#2f3a55')
+            map.setPaintProperty(layer.id, 'fill-opacity', 0.5)
           }
         }
       } catch {
