@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { clusterResourceNodes, constructionMarkerView, newlyBuiltAssetIds } from './worldMapMarkers'
+import { clusterResourceNodes, constructionMarkerView, newlyBuiltAssetIds, worldPropertyFeatures } from './worldMapMarkers'
+import { colorForCitizen } from './ownerColor'
 
 const PROGRESS = {
   percent: 42,
@@ -106,5 +107,27 @@ describe('clusterResourceNodes', () => {
 
   test('empty input produces no clusters', () => {
     expect(clusterResourceNodes([])).toEqual([])
+  })
+})
+
+describe('worldPropertyFeatures', () => {
+  const asset = (cid: string, kind = 'home', lat = 44.4, lng = 26.1) => ({ cid, kind, lat, lng })
+
+  test('drops your own assets, keeps everyone else', () => {
+    const fc = worldPropertyFeatures([asset('me000000'), asset('them1111'), asset('them2222')], 'me000000')
+    expect(fc.type).toBe('FeatureCollection')
+    expect(fc.features).toHaveLength(2)
+  })
+
+  test('stamps each feature with its owner color and [lng, lat] point', () => {
+    const fc = worldPropertyFeatures([asset('them1111', 'business', 40.7, -74)], 'me000000')
+    const f = fc.features[0]
+    expect(f.geometry).toEqual({ type: 'Point', coordinates: [-74, 40.7] })
+    expect(f.properties).toEqual({ kind: 'business', color: colorForCitizen('them1111') })
+  })
+
+  test('two different owners get two different colors', () => {
+    const fc = worldPropertyFeatures([asset('aaaa1111'), asset('bbbb2222')], undefined)
+    expect(fc.features[0].properties.color).not.toBe(fc.features[1].properties.color)
   })
 })

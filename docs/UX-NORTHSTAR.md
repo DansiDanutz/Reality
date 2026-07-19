@@ -80,6 +80,14 @@ data? No — very small, generated locally.
 **P6 — Ownership flags.** Other players' buildings visible with their color/
 avatar stamp (needs the server world layer — pairs with ARCHITECTURE.md
 phase 2). Territory read directly off the map, no overlay.
+- **Phase 1 shipped:** the `/api/world` cluster layer already showed everyone's
+  buildings as anonymous violet dots — now each is colored by a stable
+  per-owner hash (`colorForCitizen`, avalanched so even near-identical ids read
+  distinct), so the map looks inhabited by many people. No server change,
+  clustering intact.
+- Phase 2 (next): extend `/api/world` with the owner's display name + a
+  foreign-building inspect card ("who owns this"). Phase 3: territory flags
+  (needs a public founder-area read; that system is mid-migration).
 
 **Anti-goals** (things HoMM teaches us NOT to do): no alarm-like sounds, no
 punishing red flashes; never hide the build tree behind affordability; no

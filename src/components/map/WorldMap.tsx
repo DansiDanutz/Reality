@@ -25,7 +25,7 @@ import {
   workersHallQuickInfo,
   type QuickInfoAt,
 } from './mapQuickInfo'
-import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds } from './worldMapMarkers'
+import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds, worldPropertyFeatures } from './worldMapMarkers'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -590,14 +590,9 @@ export default function WorldMap() {
     if (!map || !styleReady) return
     const SOURCE = 'world-properties'
     const myCid = citizenId?.slice(0, 8)
-    const features = world
-      .filter((w) => w.cid !== myCid)
-      .map((w) => ({
-        type: 'Feature' as const,
-        properties: { kind: w.kind },
-        geometry: { type: 'Point' as const, coordinates: [w.lng, w.lat] },
-      }))
-    const data = { type: 'FeatureCollection' as const, features }
+    // Each other-player dot is stamped with its owner's stable color so the
+    // world reads as inhabited by many people, not an anonymous violet field.
+    const data = worldPropertyFeatures(world, myCid)
     const src = map.getSource(SOURCE) as maplibregl.GeoJSONSource | undefined
     if (src) {
       src.setData(data)
@@ -612,7 +607,8 @@ export default function WorldMap() {
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-radius': 5,
-        'circle-color': '#a78bfa',
+        // Per-owner color (P6). Coalesce guards any legacy feature without one.
+        'circle-color': ['coalesce', ['get', 'color'], '#a78bfa'],
         'circle-opacity': 0.85,
         'circle-stroke-width': 1.5,
         'circle-stroke-color': '#05070e',
