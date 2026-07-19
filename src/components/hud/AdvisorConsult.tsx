@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ADVISOR_FEE } from '../../game/catalog'
-import { missedSeriousWorkYesterday } from '../../game/community'
-import { educationActionCount } from '../../game/education'
 import { adviceOf, formatMoney, type Advice } from '../../game/engine'
-import { lifeDayFromCreatedAt, planLifeDay, type LifePlan } from '../../game/lifeLadder'
+import { planLifeDay, type LifePlan } from '../../game/lifeLadder'
 import { millionaireStageProgress } from '../../game/millionairePath'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
 import { buildEtaSummary, formatPlanMinutes, interiorEtaSummary, millionaireEtaSummary } from './goalsCardView'
+import { lifeLadderSnapshotOf } from './lifePlanInput'
 
 /**
  * The paid advisor — the "i" button. The free guide bar gives one line; five
@@ -32,7 +31,8 @@ export default function AdvisorConsult() {
 
   const consult = () => {
     const s = useGame.getState()
-    if (!s.citizen || !s.consultAdvisor()) return
+    const snapshot = lifeLadderSnapshotOf(s)
+    if (!snapshot || !s.consultAdvisor()) return
     const advice = adviceOf({
       needs: s.needs,
       health: s.health,
@@ -43,32 +43,7 @@ export default function AdvisorConsult() {
       businesses: s.assets.filter((a) => a.kind === 'business').length,
       pendingIncome: s.assets.reduce((sum, a) => sum + a.pendingIncome, 0),
     })
-    const plan = planLifeDay({
-      lifeDay: lifeDayFromCreatedAt(s.citizen.createdAt),
-      money: s.money,
-      needs: s.needs,
-      health: s.health,
-      level: s.level,
-      xp: s.xp,
-      jobId: s.jobId,
-      shiftsWorked: s.shiftsWorked,
-      activityKind: s.activity?.kind ?? null,
-      assets: s.assets,
-      inventory: s.inventory,
-      resources: s.resources,
-      constructionProjects: s.constructionProjects,
-      businessDevelopmentProjects: s.businessDevelopmentProjects,
-      educationActions: educationActionCount(s.educationProgress),
-      educationProgress: s.educationProgress,
-      communityActionsThisWeek: s.community.actionsThisWeek,
-      communityActionsToday: s.community.actionsToday,
-      communityRespect: s.community.respect,
-      communityFriendship: s.community.friendship,
-      communityTrust: s.community.trust,
-      brokenCommitments: s.community.brokenCommitments,
-      communityHelperMinutesUsedThisWeek: s.community.helperMinutesUsedThisWeek,
-      seriousWorkMissedYesterday: missedSeriousWorkYesterday(s.community),
-    })
+    const plan = planLifeDay(snapshot)
     setReport({ advice, plan })
   }
 

@@ -301,6 +301,174 @@ export function stopAmbience(): void {
   }, 600)
 }
 
+// ── Interior ambience: the P4 "step inside" sound bed ──────────────────────
+// A calm loop while you're inside one of your buildings — a fireplace at home,
+// a low room murmur in a business. Separate from the street ambience node so
+// the two never fight, and routed through the master gain so the volume slider
+// and mute cover it like everything else. Follows the sound-design rules: very
+// quiet, no attack transients, never alarm-like.
+type InteriorKind = 'home' | 'business'
+let interior: { gain: GainNode; source: AudioBufferSourceNode; crackle: ReturnType<typeof setTimeout> | null } | null = null
+let interiorKind: InteriorKind | null = null
+
+/** A single soft fireplace crackle — a tiny band-passed noise pop. */
+function fireCrackle(context: AudioContext, gain: number): void {
+  const now = context.currentTime
+  const len = Math.floor(context.sampleRate * 0.05)
+  const buffer = context.createBuffer(1, len, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len)
+  const noise = context.createBufferSource()
+  noise.buffer = buffer
+  const filter = context.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1600
+  filter.Q.value = 0.8
+  const g = context.createGain()
+  g.gain.setValueAtTime(gain, now)
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06)
+  noise.connect(filter).connect(g).connect(out(context))
+  noise.start(now)
+  noise.stop(now + 0.08)
+}
+
+export function startInteriorAmbience(kind: InteriorKind): void {
+  const context = ensureContext()
+  if (!context) return
+  if (interior && interiorKind === kind) return
+  if (interior) stopInteriorAmbience()
+  interiorKind = kind
+  // 2s of gentle brown noise, looped and low-passed — the room's air. Home is
+  // warmer and quieter (fire glow); a business is a touch brighter and busier
+  // (a room with people and machines in it).
+  const length = context.sampleRate * 2
+  const buffer = context.createBuffer(1, length, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  let lastOut = 0
+  for (let i = 0; i < length; i++) {
+    const white = Math.random() * 2 - 1
+    lastOut = (lastOut + 0.02 * white) / 1.02
+    data[i] = lastOut * 3.5
+  }
+  const source = context.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+  const filter = context.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = kind === 'home' ? 340 : 520
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0, context.currentTime)
+  gain.gain.linearRampToValueAtTime(kind === 'home' ? 0.045 : 0.05, context.currentTime + 1.4)
+  source.connect(filter).connect(gain).connect(out(context))
+  source.start()
+  // Home only: schedule occasional fire crackles for character. Reschedules
+  // itself while the fire is lit; cleared in stopInteriorAmbience.
+  let crackle: ReturnType<typeof setTimeout> | null = null
+  if (kind === 'home') {
+    const tick = () => {
+      if (!interior) return
+      fireCrackle(context, 0.02 + Math.random() * 0.015)
+      crackle = setTimeout(tick, 900 + Math.random() * 2600)
+      interior.crackle = crackle
+    }
+    crackle = setTimeout(tick, 700 + Math.random() * 1500)
+  }
+  interior = { gain, source, crackle }
+}
+
+export function stopInteriorAmbience(): void {
+  if (!interior || !ctx) return
+  const { gain, source, crackle } = interior
+  if (crackle) clearTimeout(crackle)
+  interior = null
+  interiorKind = null
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4)
+  setTimeout(() => {
+    try {
+      source.stop()
+    } catch {
+      /* already stopped */
+    }
+  }, 500)
+}
+
+// ── Ambient map music: the P5 "cozy" bed for the world map ─────────────────
+// The north star's single biggest calm lever. Not a looping track — a sparse,
+// generative wash: a barely-there warm drone (root + fifth) under occasional
+// music-box notes drawn from a PENTATONIC scale, so every note is consonant
+// and there's no loop point to catch. Keyed to the citizen's real local hour
+// (Rule #1): brighter and a touch busier by day, lower and slower at night.
+// Routed through the master gain, so the volume slider and mute cover it; the
+// map component only starts it when sound is on and you're not in street mode
+// (which has its own ambience). Deliberately quiet enough to sit under speech.
+const PENTA_DAY = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5] // C5 D5 E5 G5 A5 C6
+const PENTA_NIGHT = [196.0, 233.08, 261.63, 293.66, 349.23, 392.0] // G3 A#3 C4 D4 F4 G4
+
+let mapMusic: { drone: OscillatorNode[]; gain: GainNode; timer: ReturnType<typeof setTimeout> | null } | null = null
+let mapMusicNight = false
+
+/** Resume the audio context after a user gesture — call on the map's first
+ *  interaction so a returning player (who reloaded straight into the game with
+ *  no click yet) hears the bed as soon as they touch the world. */
+export function resumeAudio(): void {
+  ensureContext()
+}
+
+export function startMapMusic(night: boolean): void {
+  const context = ensureContext()
+  if (!context) return
+  if (mapMusic && mapMusicNight === night) return
+  if (mapMusic) stopMapMusic()
+  mapMusicNight = night
+
+  // Warm sustained drone — root + fifth, felt more than heard.
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0, context.currentTime)
+  gain.gain.linearRampToValueAtTime(night ? 0.01 : 0.014, context.currentTime + 3)
+  const rootHz = night ? 98.0 : 130.81 // G2 / C3
+  const drone = [rootHz, rootHz * 1.5].map((f) => {
+    const osc = context.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.value = f
+    const filter = context.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 600
+    osc.connect(filter).connect(gain).connect(out(context))
+    osc.start()
+    return osc
+  })
+
+  mapMusic = { drone, gain, timer: null }
+
+  // Sparse pentatonic notes in the approved music-box voice — always consonant,
+  // spaced so the ear never catches a repeat. Reschedules itself while active.
+  const scale = night ? PENTA_NIGHT : PENTA_DAY
+  const schedule = () => {
+    if (!mapMusic) return
+    const freq = scale[Math.floor(Math.random() * scale.length)]
+    tone(context, freq, context.currentTime, night ? 1.8 : 1.3, night ? 0.02 : 0.026)
+    const gap = (night ? 6500 : 3800) + Math.random() * (night ? 5500 : 3200)
+    mapMusic.timer = setTimeout(schedule, gap)
+  }
+  mapMusic.timer = setTimeout(schedule, 1400)
+}
+
+export function stopMapMusic(): void {
+  if (!mapMusic || !ctx) return
+  const { drone, gain, timer } = mapMusic
+  if (timer) clearTimeout(timer)
+  mapMusic = null
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5)
+  const stopAt = ctx.currentTime + 1.7
+  for (const osc of drone) {
+    try {
+      osc.stop(stopAt)
+    } catch {
+      /* already stopped */
+    }
+  }
+}
+
 /**
  * A distant one-shot ambient event — a faint siren, a dog bark, a distant
  * horn. Played probabilistically by StreetMode to make the world feel alive

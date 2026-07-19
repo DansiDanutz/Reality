@@ -162,8 +162,10 @@ export default function WorldMap() {
   const knownAssetIdsRef = useRef<Set<string> | null>(null)
   const workersHallMarkerRef = useRef<maplibregl.Marker | null>(null)
   const [styleReady, setStyleReady] = useState(false)
-  /** Your own building the interior overlay is open for (null = closed). */
-  const [enteredAssetId, setEnteredAssetId] = useState<string | null>(null)
+  /** Your own building the interior overlay is open for (null = closed). In
+   *  the store so ambience can duck the map bed while you're inside. */
+  const enteredAssetId = useGame((s) => s.enteredAssetId)
+  const setEnteredAssetId = useGame((s) => s.setEnteredAssetId)
   // The transient inspect card (right-click / long-press on any marker).
   const [quickInfo, setQuickInfo] = useState<QuickInfoAt | null>(null)
   // Placement ghost state: is the pin inside the player's buildable reach?

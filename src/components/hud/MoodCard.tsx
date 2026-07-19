@@ -1,7 +1,10 @@
 import { adviceOf, moodOf, netWorthOf, tierOf } from '../../game/engine'
+import { planLifeDay } from '../../game/lifeLadder'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
 import AdvisorConsult from './AdvisorConsult'
+import { guideMessage } from './guideVoice'
+import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
 
 /**
  * The living guide — a stylized 3D character on the right of the HUD.
@@ -40,6 +43,12 @@ export default function MoodCard() {
     businesses,
     pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
   })
+  // One Voice: strategy lines come from the same planner that powers the
+  // Today card and the journey (guideVoice.ts referees; urgent survival
+  // keeps the citizen's own words). getState() is safe — the needs
+  // subscription re-renders this card every tick.
+  const planSnapshot = lifeLadderSnapshotOf(useGame.getState())
+  const msg = guideMessage(advice, planSnapshot ? planLifeDay(planSnapshot) : null)
 
   return (
     <aside className={`mood-card mood-${mood}`} aria-label="Your citizen">
@@ -60,11 +69,26 @@ export default function MoodCard() {
       <p className="mood-label">
         {illness ? (illness.kind === 'cold' ? '🤧 Fighting a cold' : '🤒 Down with the flu') : MOOD_LABEL[mood]}
       </p>
-      <p className="mood-say" role="status">“{advice.text}”</p>
-      {advice.cta && advice.action !== 'none' && (
-        <button className="btn small primary" onClick={() => runAdviceAction(advice.action)}>
-          {advice.cta}
-        </button>
+      {msg.kind === 'advice' ? (
+        <>
+          <p className="mood-say" role="status">“{msg.text}”</p>
+          {msg.cta && msg.action !== 'none' && (
+            <button className="btn small primary" onClick={() => runAdviceAction(msg.action)}>
+              {msg.cta}
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mood-say" role="status">{msg.text}</p>
+          <button
+            className="btn small primary"
+            onClick={() => runLifePlanRoute(msg.task.route)}
+            disabled={msg.task.route.kind === 'none'}
+          >
+            {msg.cta}
+          </button>
+        </>
       )}
       <AdvisorConsult />
     </aside>

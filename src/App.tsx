@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import ActionDock from './components/hud/ActionDock'
+import MapAmbience from './components/hud/MapAmbience'
 import AvatarCard from './components/hud/AvatarCard'
 import AwayReport from './components/hud/AwayReport'
 import CelebrationOverlay from './components/hud/CelebrationOverlay'
@@ -255,6 +256,7 @@ export default function App() {
               </>
             )}
             <ActionDock />
+            <MapAmbience />
           </>
         )}
       </div>

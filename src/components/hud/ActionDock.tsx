@@ -1,10 +1,14 @@
 import { jobById } from '../../game/catalog'
 import { adviceOf, moodOf, netWorthOf, tierOf } from '../../game/engine'
+import { planLifeDay } from '../../game/lifeLadder'
 import { useIsMobile } from '../../lib/useIsMobile'
 import { preloadStreetMode } from '../street/loadStreetMode'
 import { useGame } from '../../store/gameStore'
 import { runAdviceAction } from './adviceActions'
 import AdvisorConsult from './AdvisorConsult'
+import CollectPill from './CollectPill'
+import { guideMessage } from './guideVoice'
+import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
 import NotifyNudge from './NotifyNudge'
 
 const countdown = (endsAt: number): string => {
@@ -41,9 +45,11 @@ export default function ActionDock() {
 
   // The mobile guide bar: on desktop the guide character card is always on
   // screen, but on phones it lives inside the Status sheet — without this the
-  // map screen gives no direction at all. One line of advice, one button that
-  // does it, always visible above the dock (also during shifts and sleep,
-  // where the advice says what's worth doing meanwhile).
+  // map screen gives no direction at all. One line, one button that does it,
+  // always visible above the dock (also during shifts and sleep, where it
+  // says what's worth doing meanwhile). One Voice: urgent survival speaks in
+  // the citizen's words; otherwise the bar shows the SAME primary task the
+  // Today card and journey show (guideVoice.ts is the referee).
   const businesses = assets.filter((a) => a.kind === 'business').length
   const advice = isMobile
     ? adviceOf({
@@ -57,9 +63,13 @@ export default function ActionDock() {
         pendingIncome: assets.reduce((sum, a) => sum + a.pendingIncome, 0),
       })
     : null
+  // getState() is safe here: the lastSeenAt subscription re-renders the dock
+  // every tick, so the snapshot is never stale for more than a beat.
+  const planSnapshot = advice ? lifeLadderSnapshotOf(useGame.getState()) : null
+  const msg = advice ? guideMessage(advice, planSnapshot ? planLifeDay(planSnapshot) : null) : null
   const mood = moodOf(needs, health)
   const tier = tierOf(level, businesses, netWorthOf(money, inventory, assets))
-  const guide = advice ? (
+  const guide = msg ? (
     <div className="dock-guide" role="status">
       <img
         className="dock-guide-img"
@@ -73,11 +83,26 @@ export default function ActionDock() {
           else img.style.display = 'none'
         }}
       />
-      <span className="dock-guide-text">“{advice.text}”</span>
-      {advice.cta && advice.action !== 'none' && (
-        <button className="btn small primary" onClick={() => runAdviceAction(advice.action)}>
-          {advice.cta}
-        </button>
+      {msg.kind === 'advice' ? (
+        <>
+          <span className="dock-guide-text">“{msg.text}”</span>
+          {msg.cta && msg.action !== 'none' && (
+            <button className="btn small primary" onClick={() => runAdviceAction(msg.action)}>
+              {msg.cta}
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <span className="dock-guide-text">{msg.text}</span>
+          <button
+            className="btn small primary"
+            onClick={() => runLifePlanRoute(msg.task.route)}
+            disabled={msg.task.route.kind === 'none'}
+          >
+            {msg.cta}
+          </button>
+        </>
       )}
       <AdvisorConsult />
     </div>
@@ -132,6 +157,7 @@ export default function ActionDock() {
     // stack above it in flow (never overlapping, whatever the banner height).
     return (
       <div className="dock">
+        <CollectPill />
         {guide}
         <NotifyNudge activityKind={activity.kind} />
         <div className="placing-banner activity-banner">
@@ -160,6 +186,7 @@ export default function ActionDock() {
 
   return (
     <div className="dock">
+      <CollectPill />
       {guide}
       <div className="dock-actions">
         <button

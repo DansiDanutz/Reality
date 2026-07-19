@@ -1,8 +1,6 @@
 import { useEffect } from 'react'
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
-import { missedSeriousWorkYesterday } from '../../game/community'
-import { educationActionCount } from '../../game/education'
-import { lifeDayFromCreatedAt, planLifeDay } from '../../game/lifeLadder'
+import { planLifeDay } from '../../game/lifeLadder'
 import { MILLIONAIRE_STAGE_META, MILLIONAIRE_STAGE_ORDER, millionaireStageProgress } from '../../game/millionairePath'
 import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
 import { track } from '../../lib/analytics'
@@ -13,7 +11,7 @@ import {
   millionaireEtaSummary,
   routineShortLabel,
 } from './goalsCardView'
-import { dispatchLifePlanRoute } from './goalsCardActions'
+import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
 
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
@@ -44,27 +42,6 @@ export default function GoalsCard() {
   const community = useGame((s) => s.community)
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
-  const setPanel = useGame((s) => s.setPanel)
-  const selectMapTarget = useGame((s) => s.selectMapTarget)
-  const openMarket = useGame((s) => s.openMarket)
-  const startGatherResource = useGame((s) => s.startGatherResource)
-  const depositConstructionResources = useGame((s) => s.depositConstructionResources)
-  const payConstructionPermit = useGame((s) => s.payConstructionPermit)
-  const startConstructionWork = useGame((s) => s.startConstructionWork)
-  const hireConstructionWorker = useGame((s) => s.hireConstructionWorker)
-  const completeConstructionIfReady = useGame((s) => s.completeConstructionIfReady)
-  const depositBusinessDevelopmentResources = useGame((s) => s.depositBusinessDevelopmentResources)
-  const payBusinessDevelopmentBudget = useGame((s) => s.payBusinessDevelopmentBudget)
-  const startBusinessDevelopmentWork = useGame((s) => s.startBusinessDevelopmentWork)
-  const hireBusinessDevelopmentWorker = useGame((s) => s.hireBusinessDevelopmentWorker)
-  const completeBusinessDevelopmentIfReady = useGame((s) => s.completeBusinessDevelopmentIfReady)
-  const startShift = useGame((s) => s.startShift)
-  const startCommunityAction = useGame((s) => s.startCommunityAction)
-  const startStudy = useGame((s) => s.startStudy)
-  const consume = useGame((s) => s.consume)
-  const cook = useGame((s) => s.cook)
-  const quickDrink = useGame((s) => s.quickDrink)
-  const startSleep = useGame((s) => s.startSleep)
 
   useEffect(() => {
     if (citizen) track('today_plan_viewed')
@@ -114,8 +91,8 @@ export default function GoalsCard() {
   // "1 to go!" — the near-completion nudge. A player at 2/3 is one action
   // away from the bonus; this makes that concrete and tappable.
   const oneLeft = !allDone && total > 0 && done === total - 1
-  const lifePlan = planLifeDay({
-    lifeDay: lifeDayFromCreatedAt(citizen.createdAt),
+  const snapshot = lifeLadderSnapshotOf({
+    citizen,
     money,
     needs,
     health,
@@ -123,48 +100,19 @@ export default function GoalsCard() {
     xp,
     jobId,
     shiftsWorked,
-    activityKind: activity?.kind ?? null,
+    activity,
     assets,
     inventory,
     resources,
     constructionProjects,
     businessDevelopmentProjects,
-    educationActions: educationActionCount(educationProgress),
     educationProgress,
-    communityActionsThisWeek: community.actionsThisWeek,
-    communityActionsToday: community.actionsToday,
-    communityRespect: community.respect,
-    communityFriendship: community.friendship,
-    communityTrust: community.trust,
-    brokenCommitments: community.brokenCommitments,
-    communityHelperMinutesUsedThisWeek: community.helperMinutesUsedThisWeek,
-    seriousWorkMissedYesterday: missedSeriousWorkYesterday(community),
+    community,
   })
+  if (!snapshot) return null
+  const lifePlan = planLifeDay(snapshot)
 
-  const openRoute = (route: typeof lifePlan.primary.route) => dispatchLifePlanRoute(route, {
-    resourceNodes,
-    openMarket,
-    selectMapTarget,
-    setPanel,
-    startGatherResource,
-    depositConstructionResources,
-    payConstructionPermit,
-    startConstructionWork,
-    hireConstructionWorker,
-    completeConstructionIfReady,
-    depositBusinessDevelopmentResources,
-    payBusinessDevelopmentBudget,
-    startBusinessDevelopmentWork,
-    hireBusinessDevelopmentWorker,
-    completeBusinessDevelopmentIfReady,
-    startShift,
-    startCommunityAction,
-    startStudy,
-    consume,
-    cook,
-    quickDrink,
-    startSleep,
-  })
+  const openRoute = runLifePlanRoute
   const openPrimary = () => openRoute(lifePlan.primary.route)
   const agendaPreview = lifePlan.agenda.filter((item) => item.id !== lifePlan.primary.id).slice(0, 2)
   const buildEta = buildEtaSummary(lifePlan.constructionForecast)
