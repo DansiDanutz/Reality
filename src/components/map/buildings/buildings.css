@@ -80,6 +80,15 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+/* Street-zoom basemap tone: the real-world OSM tiles are bright and clash with
+   the dark game shell, so at street level we dim + desaturate the CANVAS only.
+   Building sprites are separate DOM markers (.maplibregl-marker), so they keep
+   their full color and pop against the calmer map. The globe view (zoomed out)
+   never gets the class, so it stays pristine. */
+.map-stage.street-tone .maplibregl-canvas {
+  filter: saturate(0.85) brightness(0.78);
+}
+
 /* ── Interior overlay ──────────────────────────────────── */
 .building-overlay {
   position: fixed;

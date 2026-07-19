@@ -260,6 +260,24 @@ export default function WorldMap() {
       } catch {
         /* older style spec — the default sky is fine */
       }
+      // The base map is a real OSM city, and its generic grey 3D building
+      // extrusions dominate the view and clash with our stylized buildings —
+      // it reads like a plain city map with a sticker on it. Hide the 3D
+      // extrusions so the player's OWN buildings are the only things standing
+      // up (the HoMM adventure-map look), and thin the flat footprints so the
+      // streetscape becomes a calm canvas rather than a busy grey field.
+      try {
+        for (const layer of map.getStyle().layers ?? []) {
+          const sourceLayer = (layer as { 'source-layer'?: string })['source-layer']
+          if (layer.type === 'fill-extrusion') {
+            map.setLayoutProperty(layer.id, 'visibility', 'none')
+          } else if (layer.type === 'fill' && sourceLayer === 'building') {
+            map.setPaintProperty(layer.id, 'fill-opacity', 0.3)
+          }
+        }
+      } catch {
+        /* the OSM style's layer set varies by version — leave it as-is on any mismatch */
+      }
       setStyleReady(true)
     })
 
@@ -310,6 +328,9 @@ export default function WorldMap() {
       const z = map.getZoom()
       if (z >= TILT_ZOOM && map.getPitch() < 20) map.easeTo({ pitch: 58, duration: 900 })
       if (z < TILT_ZOOM - 1.5 && map.getPitch() > 40) map.easeTo({ pitch: 0, duration: 700 })
+      // Calm the bright real-world basemap once you're down at street level so
+      // it recedes under the dark game shell; the globe view stays pristine.
+      containerRef.current?.classList.toggle('street-tone', z >= 12)
       // "first_zoom_to_street" means FIRST — guard so it fires once per
       // session instead of on every zoomend past street level.
       if (z >= 15 && !trackedStreetZoom) {
