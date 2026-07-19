@@ -137,6 +137,8 @@
 - Map accessibility follow-up: resource nodes and construction projects now have semantic keyboard/screen-reader controls beside the decorative canvas, with exact labels and direct gather/Build activation routes.
 - Map accessibility density follow-up: resource controls are grouped by kind and dense groups collapse by default; action handlers restore focus to the initiating control after gather or Build navigation.
 - Map accessibility E2E follow-up: built-app Playwright coverage now verifies keyboard resource gathering, construction Build routing, exact accessible names, focus restoration, grouped disclosure, and 320px containment.
+- First 15 minutes UX follow-up (issue #1145): a persisted-outcome guide now presents one primary action through orientation, care, first income, courier/resource discovery, construction, and recap on desktop and mobile Today surfaces. It reuses the existing route dispatcher and preserves server authority; first-session, malformed-state, keyboard-label, and 320px E2E coverage is green. Remaining risk: manual VoiceOver/NVDA validation of first-session copy and focus order.
+- First-session completion follow-up (issue #1147): the guide now persists explicit lifecycle metadata, migrates legacy saves, and reports ownership/resource progress plus the next local-midnight courier/challenge cue. Reloaded recap and Journey completion are covered in Playwright; manual real-map resource/construction playthrough remains.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

@@ -52,8 +52,14 @@ test.describe('First session', () => {
       await expect(beginBtn).toBeHidden()
     }
 
+    // The first-session guide should make the next click obvious and route to
+    // the real Market surface without teaching a duplicate economy path.
+    const firstGuide = page.getByRole('region', { name: 'First 15 minutes guide' })
+    await expect(firstGuide).toBeVisible()
+    await expect(firstGuide.getByRole('heading', { name: 'Keep your citizen going' })).toBeVisible()
+    await firstGuide.getByRole('button', { name: /Open Market for food/ }).click()
+
     // ── 2. Open the Market and buy food ─────────────────
-    await page.getByRole('button', { name: 'Shop', exact: true }).click()
     // Market is a dialog; wait for its first product card to render.
     const market = page.getByRole('dialog', { name: 'Reality Market' })
     await expect(market).toBeVisible()
@@ -120,6 +126,7 @@ test.describe('First session', () => {
     // Either it takes the job or starts a shift — either way, the citizen
     // becomes "busy" with an activity, surfaced as an activity banner.
     await takeJobBtn.click()
+    await page.keyboard.press('Escape')
 
     // Confirm: a founder was created, food was eaten, and work was started.
     // The strongest end-to-end assertion is that localStorage now holds a
@@ -137,5 +144,42 @@ test.describe('First session', () => {
     expect(saved.citizen?.name).toBe('Test Founder')
     // Either a job was taken OR an activity (shift) was started.
     expect(saved.jobId || saved.activity, 'a job or shift should have started').toBeTruthy()
+    await expect(firstGuide.getByRole('heading', { name: /Clock in once|Find your first income/ })).toBeVisible()
+  })
+
+  test('persists the first-session recap and its local-midnight return cue', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.getByRole('textbox', { name: 'Citizen name' }).fill('Recap Founder')
+    await page.getByRole('button', { name: 'Claim founder slot' }).click()
+    await expect(page.getByRole('button', { name: 'Shop', exact: true })).toBeVisible({ timeout: 10_000 })
+    const begin = page.getByRole('button', { name: /^Begin your life in/ })
+    if (await begin.isVisible().catch(() => false)) await begin.click()
+
+    await page.evaluate(() => {
+      const raw = localStorage.getItem('reality-save-v1')
+      if (!raw) throw new Error('save missing after citizen creation')
+      const save = JSON.parse(raw) as { state: Record<string, unknown> & { firstSessionGuide?: Record<string, unknown> } }
+      save.state.targetsSeen = true
+      save.state.timesEaten = 1
+      save.state.jobId = 'barista'
+      save.state.shiftsWorked = 1
+      save.state.resources = { wood: 25, stone: 15, metal: 0, glass: 0 }
+      save.state.constructionProjects = [{ id: 'recap-site', recipeId: 'starter-house', name: 'Starter House', itemId: 'studio', resultKind: 'home', lat: 44.4, lng: 26.1, deposited: { wood: 25, stone: 15, metal: 0, glass: 0 }, required: { wood: 25, stone: 15, metal: 0, glass: 0 }, permitFee: 500, permitFeePaid: false, laborDoneMinutes: 0, laborRequiredMinutes: 60, hiredLaborMinutes: 0, workerContracts: [], status: 'planned', incomePerDay: 0, placedAt: Date.now() }]
+      save.state.activeCourierPackage = null
+      save.state.firstSessionGuide = { startedAt: Date.now(), dismissed: true, completedAt: null }
+      localStorage.setItem('reality-save-v1', JSON.stringify(save))
+    })
+    await page.reload()
+
+    const guide = page.getByRole('region', { name: 'First 15 minutes guide' })
+    await expect(guide.getByRole('heading', { name: 'Your first loop is underway' })).toBeVisible()
+    await expect(guide).toContainText(/Tomorrow after your local midnight/)
+    await guide.getByRole('button', { name: /Open Journey/ }).click()
+    await expect(page.getByRole('dialog', { name: 'Your first 30 days', exact: true })).toBeVisible()
+    const completedAt = await page.evaluate(() => JSON.parse(localStorage.getItem('reality-save-v1') ?? '{}').state?.firstSessionGuide?.completedAt)
+    expect(completedAt).toEqual(expect.any(Number))
   })
 })
