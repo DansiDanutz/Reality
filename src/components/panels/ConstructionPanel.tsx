@@ -13,7 +13,7 @@ import { availableCommunityHelperMinutes } from '../../game/community'
 import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
-import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards, constructionWorkActionHint, projectCompletionActionHint } from './constructionPanelView'
+import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards, constructionRecoveryAction, constructionWorkActionHint, projectCompletionActionHint } from './constructionPanelView'
 import { selectedWorkerHours, workerCommunityCreditText, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
@@ -59,6 +59,7 @@ export default function ConstructionPanel() {
   const completeConstructionIfReady = useGame((s) => s.completeConstructionIfReady)
   const selectMapTarget = useGame((s) => s.selectMapTarget)
   const setPanel = useGame((s) => s.setPanel)
+  const openMarket = useGame((s) => s.openMarket)
   const activeProject =
     (selectedMapTarget?.kind === 'construction'
       ? projects.find((project) => project.id === selectedMapTarget.id)
@@ -264,6 +265,9 @@ export default function ConstructionPanel() {
         ) : (
           <>
             <p className="panel-sub">The hall is open on the map. Place or select a construction site before hiring workers by the hour.</p>
+            <button className="btn primary" onClick={startPlacingConstruction} aria-label="Place a construction site before choosing labor">
+              Place a build site
+            </button>
             <div className="worker-grid">
               {CONSTRUCTION_WORKERS.map((worker) => (
                 <article className="worker-card" key={worker.id}>
@@ -330,6 +334,18 @@ export default function ConstructionPanel() {
                 missing,
                 permitFee: project.permitFee,
               })
+              const recovery = constructionRecoveryAction({
+                hasProject: true,
+                resourcesComplete: progress.resourcesComplete,
+                missing,
+                permitComplete: progress.permitComplete,
+                permitFee: project.permitFee,
+                money,
+                laborComplete: progress.laborComplete,
+              })
+              const recoveryNode = recovery?.kind === 'gather'
+                ? resourceNodes.find((node) => node.kind === recovery.resource)
+                : null
               return (
                 <li className="item construction-project" key={project.id}>
                   <div className="item-info construction-project-info">
@@ -366,6 +382,23 @@ export default function ConstructionPanel() {
                     <button className={canWork ? 'btn small primary' : 'btn small ghost'} disabled={!canWork} title={workHint} aria-label={workHint} onClick={() => startConstructionWork(project.id)}>
                       {workLabel}
                     </button>
+                    {recovery && (
+                      <button
+                        className="btn small primary recovery-action"
+                        title={recovery.hint}
+                        aria-label={recovery.hint}
+                        onClick={() => {
+                          if (recovery.kind === 'gather' && recoveryNode) startGatherResource(recoveryNode.id)
+                          else if (recovery.kind === 'gather') setPanel('construction')
+                          else if (recovery.kind === 'market') openMarket()
+                          else if (recovery.kind === 'permit') payConstructionPermit(project.id)
+                          else if (recovery.kind === 'labor') setPanel('construction')
+                          else startPlacingConstruction()
+                        }}
+                      >
+                        {recovery.label}
+                      </button>
+                    )}
                     <button className="btn small primary" disabled={!progress.complete} title={projectCompletionActionHint(progress.complete, 'build')} aria-label={projectCompletionActionHint(progress.complete, 'build')} onClick={() => completeConstructionIfReady(project.id)}>
                       {completionLabel}
                     </button>
