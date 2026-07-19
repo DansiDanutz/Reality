@@ -52,8 +52,14 @@ test.describe('First session', () => {
       await expect(beginBtn).toBeHidden()
     }
 
+    // The first-session guide should make the next click obvious and route to
+    // the real Market surface without teaching a duplicate economy path.
+    const firstGuide = page.getByRole('region', { name: 'First 15 minutes guide' })
+    await expect(firstGuide).toBeVisible()
+    await expect(firstGuide.getByRole('heading', { name: 'Keep your citizen going' })).toBeVisible()
+    await firstGuide.getByRole('button', { name: /Open Market for food/ }).click()
+
     // ── 2. Open the Market and buy food ─────────────────
-    await page.getByRole('button', { name: 'Shop', exact: true }).click()
     // Market is a dialog; wait for its first product card to render.
     const market = page.getByRole('dialog', { name: 'Reality Market' })
     await expect(market).toBeVisible()
@@ -120,6 +126,7 @@ test.describe('First session', () => {
     // Either it takes the job or starts a shift — either way, the citizen
     // becomes "busy" with an activity, surfaced as an activity banner.
     await takeJobBtn.click()
+    await page.keyboard.press('Escape')
 
     // Confirm: a founder was created, food was eaten, and work was started.
     // The strongest end-to-end assertion is that localStorage now holds a
@@ -137,5 +144,6 @@ test.describe('First session', () => {
     expect(saved.citizen?.name).toBe('Test Founder')
     // Either a job was taken OR an activity (shift) was started.
     expect(saved.jobId || saved.activity, 'a job or shift should have started').toBeTruthy()
+    await expect(firstGuide.getByRole('heading', { name: /Clock in once|Find your first income/ })).toBeVisible()
   })
 })

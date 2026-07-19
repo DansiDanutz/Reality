@@ -1,5 +1,6 @@
 import { TUTORIAL_STEPS } from '../../game/tutorial'
 import { useGame } from '../../store/gameStore'
+import FirstSessionGuide from './FirstSessionGuide'
 
 export default function TutorialPanel() {
   const citizen = useGame((s) => s.citizen)
@@ -22,7 +23,9 @@ export default function TutorialPanel() {
   const current = TUTORIAL_STEPS.find((s) => !claimed.includes(s.id))
 
   return (
-    <aside className="tutorial" aria-label="Objectives">
+    <div className="tutorial-stack">
+      <FirstSessionGuide />
+      <aside className="tutorial" aria-label="Objectives">
       <div className="tutorial-head">
         <span className="tutorial-title">First days in Reality</span>
         <span className="tutorial-progress mono">{doneCount}/{TUTORIAL_STEPS.length}</span>
@@ -48,6 +51,7 @@ export default function TutorialPanel() {
           )
         })}
       </ol>
-    </aside>
+      </aside>
+    </div>
   )
 }

@@ -14,6 +14,7 @@ import {
 } from './goalsCardView'
 import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
 import { courierRequirementProgress } from '../../game/courierPackages'
+import FirstSessionGuide from './FirstSessionGuide'
 
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
@@ -185,8 +186,10 @@ export default function GoalsCard() {
     : null
 
   return (
-    <section
-      className="goals-card"
+    <div className="goals-stack">
+      <FirstSessionGuide />
+      <section
+        className="goals-card"
       aria-label={`Today plan: ${lifePlan.primary.title}. Path stage ${stageProgress.current} of ${stageProgress.total}: ${stageProgress.label}. ${activeEta ? `${activeEta}. ` : ''}Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
       <button type="button" className="goals-card-main" onClick={openPrimary}>
@@ -237,6 +240,7 @@ export default function GoalsCard() {
       </button>
       {agenda}
       {routine}
-    </section>
+      </section>
+    </div>
   )
 }

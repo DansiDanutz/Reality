@@ -1942,6 +1942,29 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   font-family: var(--font-body);
   transition: border-color 150ms var(--ease-out);
 }
+.goals-stack,
+.tutorial-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.first-session-guide {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(125, 216, 255, 0.34);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(25, 57, 83, 0.92), rgba(18, 27, 43, 0.94));
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+.first-session-guide.complete { border-color: rgba(115, 224, 161, 0.42); }
+.first-session-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.first-session-guide-kicker { color: var(--sky); font: 600 10px var(--font-mono); letter-spacing: 0.12em; }
+.first-session-guide-progress { color: var(--muted); font-size: 11px; }
+.first-session-guide-title { margin: 8px 0 4px; font-size: 15px; line-height: 1.25; }
+.first-session-guide-detail { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.first-session-guide-cta { min-height: 36px; }
 .goals-card:hover,
 .goals-card:focus-within { border-color: var(--gold); }
 .goals-card-main {
@@ -3614,7 +3637,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   /* Cards borrowed from the desktop HUD reflow to full width inside sheets. */
   .msheet .needs { position: relative; left: auto; bottom: auto; z-index: auto; justify-content: space-between; padding: 14px 12px 10px; gap: 8px; }
   .msheet .mood-card { position: relative; right: auto; top: auto; bottom: auto; transform: none; z-index: auto; width: 100%; }
-  .msheet .goals-card, .msheet .tutorial { box-shadow: none; }
+  .msheet .goals-card, .msheet .tutorial, .msheet .first-session-guide { box-shadow: none; }
   .msheet .finance {
     padding: 12px;
     background: var(--surface);
