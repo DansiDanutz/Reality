@@ -1,5 +1,6 @@
 import type { AssetKind } from '../../game/types'
 import { constructionSiteSVG, type ConstructionPhase } from './buildings/sprites'
+import { colorForCitizen } from './ownerColor'
 
 /**
  * Pure view-models for WorldMap DOM markers (issue #1005) — kept free of
@@ -85,6 +86,34 @@ function metersBetween(aLat: number, aLng: number, bLat: number, bLng: number): 
   const dLat = (bLat - aLat) * METERS_PER_DEG_LAT
   const dLng = (bLng - aLng) * METERS_PER_DEG_LAT * Math.cos(((aLat + bLat) / 2) * (Math.PI / 180))
   return Math.hypot(dLat, dLng)
+}
+
+/**
+ * Other players' placed buildings → a GeoJSON FeatureCollection for the
+ * clustered `world-properties` layer, each point stamped with its owner's
+ * stable color (P6). Your own assets (matching `myCid`) are filtered out —
+ * they render as gold-glow DOM markers you can step into. Pure and
+ * MapLibre-free: the layer just consumes the data.
+ */
+export interface WorldPropertyInput {
+  cid: string
+  kind: string
+  lat: number
+  lng: number
+  name?: string | null
+}
+
+export function worldPropertyFeatures(world: readonly WorldPropertyInput[], myCid: string | undefined) {
+  const features = world
+    .filter((w) => w.cid !== myCid)
+    .map((w) => ({
+      type: 'Feature' as const,
+      // name rides along for the inspect card (P6); '' when unknown so the
+      // MapLibre feature-properties round-trip has no null to trip on.
+      properties: { kind: w.kind, color: colorForCitizen(w.cid), name: w.name ?? '' },
+      geometry: { type: 'Point' as const, coordinates: [w.lng, w.lat] as [number, number] },
+    }))
+  return { type: 'FeatureCollection' as const, features }
 }
 
 export function clusterResourceNodes<T extends ClusterableNode>(

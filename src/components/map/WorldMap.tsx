@@ -21,12 +21,13 @@ import {
   assetQuickInfo,
   attachQuickInfo,
   constructionQuickInfo,
+  ownerQuickInfo,
   resourceQuickInfo,
   workersHallQuickInfo,
   type QuickInfoAt,
 } from './mapQuickInfo'
-import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds } from './worldMapMarkers'
-import { constructionAccessibleLabel, groupResourceNodesForAccessibility, resourceAccessibleLabel } from './mapAccessibleView'
+import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds, worldPropertyFeatures } from './worldMapMarkers'
+import { constructionAccessibleLabel, groupResourceNodesForAccessibility, nearestForeignProperties, ownerAccessibleLabel, resourceAccessibleLabel } from './mapAccessibleView'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -56,6 +57,8 @@ interface WorldAsset {
   kind: string
   lat: number
   lng: number
+  /** Owner display name (public), joined server-side for the inspect card (P6). */
+  name?: string | null
 }
 
 /** Interpolate a great-circle route between two points for the empire arcs */
@@ -261,6 +264,27 @@ export default function WorldMap() {
       } catch {
         /* older style spec — the default sky is fine */
       }
+      // The base map is a real OSM city, and its generic bright-grey 3D
+      // building extrusions clash with our stylized buildings — it reads like a
+      // plain city map, not our world. Rather than delete them (which leaves a
+      // dead, empty plane), RECOLOR them into the game's dark palette and drop
+      // their opacity: the city keeps its form and life, but recedes into a
+      // quiet nighttime cityscape our own gold-windowed buildings stand out
+      // against. Flat footprints are thinned to the same end.
+      try {
+        for (const layer of map.getStyle().layers ?? []) {
+          const sourceLayer = (layer as { 'source-layer'?: string })['source-layer']
+          if (layer.type === 'fill-extrusion') {
+            map.setPaintProperty(layer.id, 'fill-extrusion-color', '#39435f')
+            map.setPaintProperty(layer.id, 'fill-extrusion-opacity', 0.72)
+          } else if (layer.type === 'fill' && sourceLayer === 'building') {
+            map.setPaintProperty(layer.id, 'fill-color', '#2f3a55')
+            map.setPaintProperty(layer.id, 'fill-opacity', 0.5)
+          }
+        }
+      } catch {
+        /* the OSM style's layer set varies by version — leave it as-is on any mismatch */
+      }
       setStyleReady(true)
     })
 
@@ -311,6 +335,9 @@ export default function WorldMap() {
       const z = map.getZoom()
       if (z >= TILT_ZOOM && map.getPitch() < 20) map.easeTo({ pitch: 58, duration: 900 })
       if (z < TILT_ZOOM - 1.5 && map.getPitch() > 40) map.easeTo({ pitch: 0, duration: 700 })
+      // Calm the bright real-world basemap once you're down at street level so
+      // it recedes under the dark game shell; the globe view stays pristine.
+      containerRef.current?.classList.toggle('street-tone', z >= 12)
       // "first_zoom_to_street" means FIRST — guard so it fires once per
       // session instead of on every zoomend past street level.
       if (z >= 15 && !trackedStreetZoom) {
@@ -594,14 +621,9 @@ export default function WorldMap() {
     if (!map || !styleReady) return
     const SOURCE = 'world-properties'
     const myCid = citizenId?.slice(0, 8)
-    const features = world
-      .filter((w) => w.cid !== myCid)
-      .map((w) => ({
-        type: 'Feature' as const,
-        properties: { kind: w.kind },
-        geometry: { type: 'Point' as const, coordinates: [w.lng, w.lat] },
-      }))
-    const data = { type: 'FeatureCollection' as const, features }
+    // Each other-player dot is stamped with its owner's stable color so the
+    // world reads as inhabited by many people, not an anonymous violet field.
+    const data = worldPropertyFeatures(world, myCid)
     const src = map.getSource(SOURCE) as maplibregl.GeoJSONSource | undefined
     if (src) {
       src.setData(data)
@@ -616,7 +638,8 @@ export default function WorldMap() {
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-radius': 5,
-        'circle-color': '#a78bfa',
+        // Per-owner color (P6). Coalesce guards any legacy feature without one.
+        'circle-color': ['coalesce', ['get', 'color'], '#a78bfa'],
         'circle-opacity': 0.85,
         'circle-stroke-width': 1.5,
         'circle-stroke-color': '#05070e',
@@ -655,6 +678,18 @@ export default function WorldMap() {
         map.easeTo({ center: [feat.geometry.coordinates[0], feat.geometry.coordinates[1]], zoom, duration: 800 })
       })
     })
+    // Tapping another player's building says WHO owns it — look-only (P6). The
+    // dot is a plain circle-layer feature, so this reads its properties rather
+    // than using the DOM-marker attachQuickInfo path.
+    map.on('click', `${SOURCE}-dots`, (e) => {
+      const feat = e.features?.[0]
+      if (!feat) return
+      const props = (feat.properties ?? {}) as { name?: string; kind?: string }
+      setQuickInfo({ ...ownerQuickInfo(props.name, props.kind ?? 'home'), x: e.point.x, y: e.point.y })
+    })
+    // A pointer cursor tells the player these dots are inspectable.
+    map.on('mouseenter', `${SOURCE}-dots`, () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', `${SOURCE}-dots`, () => { map.getCanvas().style.cursor = '' })
   }, [world, citizenId, styleReady])
 
   // Your life starts in your own town: open the map on the citizen's real
@@ -802,6 +837,14 @@ export default function WorldMap() {
     window.requestAnimationFrame(() => document.getElementById(id)?.focus())
   }
   const accessibleResourceGroups = useMemo(() => groupResourceNodesForAccessibility(resourceNodes), [resourceNodes])
+  // Other players' buildings live in an aria-hidden map layer; surface the
+  // nearest few as focusable controls so their owner (P6) is reachable without
+  // a pointer (keyboard / screen reader).
+  const accessibleNeighbors = useMemo(() => {
+    const home = assets.find((a) => a.kind === 'home')
+    const anchor = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : null)
+    return nearestForeignProperties(world, citizenId?.slice(0, 8), anchor, 24)
+  }, [world, citizenId, assets, spawnLat, spawnLng])
 
   // The inspect card is transient (HoMM right-click): the next tap anywhere,
   // any map movement, Escape, or a few seconds of silence dismisses it.
@@ -917,6 +960,33 @@ export default function WorldMap() {
                   </button>
                 </li>
               ))}
+            </ul>
+          </section>
+        )}
+        {accessibleNeighbors.length > 0 && (
+          <section aria-label="Neighbors">
+            <h2>Neighbors</h2>
+            <ul>
+              {accessibleNeighbors.map((prop) => {
+                const id = `map-neighbor-${prop.cid}-${prop.lat.toFixed(2)}-${prop.lng.toFixed(2)}`
+                const who = prop.name && prop.name.trim() ? prop.name.trim() : 'A fellow founder'
+                return (
+                  <li key={id}>
+                    <button
+                      id={id}
+                      type="button"
+                      onClick={() => {
+                        flyToPoint(prop.lat, prop.lng)
+                        setQuickInfo({ ...ownerQuickInfo(prop.name, prop.kind), x: window.innerWidth / 2, y: window.innerHeight / 2 })
+                        focusAccessibleControl(id)
+                      }}
+                      aria-label={ownerAccessibleLabel(prop.name, prop.kind)}
+                    >
+                      {who} · {prop.kind === 'business' ? 'business' : 'home'}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </section>
         )}
