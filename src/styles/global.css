@@ -105,6 +105,9 @@ body {
 }
 .map-accessible-list h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .map-accessible-list section + section { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.map-accessible-group { margin: 4px 0; }
+.map-accessible-group summary { padding: 5px 6px; color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; }
+.map-accessible-group summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .map-accessible-list p { margin: 0; font-size: 13px; color: var(--muted); }
 .map-accessible-list ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .map-accessible-list button { width: 100%; padding: 5px 6px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
