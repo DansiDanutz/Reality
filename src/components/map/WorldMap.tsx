@@ -26,7 +26,7 @@ import {
   type QuickInfoAt,
 } from './mapQuickInfo'
 import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds } from './worldMapMarkers'
-import { constructionAccessibleLabel, resourceAccessibleLabel } from './mapAccessibleView'
+import { constructionAccessibleLabel, groupResourceNodesForAccessibility, resourceAccessibleLabel } from './mapAccessibleView'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -798,6 +798,11 @@ export default function WorldMap() {
     mapRef.current?.flyTo({ center: [lng, lat], zoom: 14, duration: 900, essential: true })
   }
 
+  const focusAccessibleControl = (id: string) => {
+    window.requestAnimationFrame(() => document.getElementById(id)?.focus())
+  }
+  const accessibleResourceGroups = useMemo(() => groupResourceNodesForAccessibility(resourceNodes), [resourceNodes])
+
   // The inspect card is transient (HoMM right-click): the next tap anywhere,
   // any map movement, Escape, or a few seconds of silence dismisses it.
   useEffect(() => {
@@ -875,19 +880,25 @@ export default function WorldMap() {
         {resourceNodes.length > 0 && (
           <section aria-label="Nearby resources">
             <h2>Nearby resources</h2>
-            <ul>
-              {resourceNodes.map((node) => (
-                <li key={node.id}>
-                  <button
-                    type="button"
-                    onClick={() => { flyToPoint(node.lat, node.lng); startGatherResource(node.id) }}
-                    aria-label={resourceAccessibleLabel(node)}
-                  >
-                    {node.label} · {node.kind} · +{node.yieldAmount} · {node.source === 'fallback' ? 'fallback' : 'mapped'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {accessibleResourceGroups.map((group) => (
+              <details className="map-accessible-group" key={group.kind} open={group.nodes.length <= 4}>
+                <summary>{group.label}</summary>
+                <ul>
+                  {group.nodes.map((node) => (
+                    <li key={node.id}>
+                      <button
+                        id={`map-resource-${node.id}`}
+                        type="button"
+                        onClick={() => { flyToPoint(node.lat, node.lng); startGatherResource(node.id); focusAccessibleControl(`map-resource-${node.id}`) }}
+                        aria-label={resourceAccessibleLabel(node)}
+                      >
+                        {node.label} · +{node.yieldAmount} · {node.source === 'fallback' ? 'fallback' : 'mapped'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
           </section>
         )}
         {constructionProjects.length > 0 && (
@@ -897,8 +908,9 @@ export default function WorldMap() {
               {constructionProjects.map((project) => (
                 <li key={project.id}>
                   <button
+                    id={`map-construction-${project.id}`}
                     type="button"
-                    onClick={() => { flyToPoint(project.lat, project.lng); selectMapTarget({ kind: 'construction', id: project.id }); setPanel('construction') }}
+                    onClick={() => { flyToPoint(project.lat, project.lng); selectMapTarget({ kind: 'construction', id: project.id }); setPanel('construction'); focusAccessibleControl(`map-construction-${project.id}`) }}
                     aria-label={constructionAccessibleLabel(project)}
                   >
                     {project.name} · {constructionProgress(project).percent}% · Open Build
