@@ -136,6 +136,7 @@
 - Blocked-action recovery follow-up: construction now provides direct placement, gather, Market, permit, and labor recovery actions with tested accessible hints; map quick-info phase copy points players to the relevant Build action and 320px construction controls use larger touch targets.
 - Map accessibility follow-up: resource nodes and construction projects now have semantic keyboard/screen-reader controls beside the decorative canvas, with exact labels and direct gather/Build activation routes.
 - Map accessibility density follow-up: resource controls are grouped by kind and dense groups collapse by default; action handlers restore focus to the initiating control after gather or Build navigation.
+- Map accessibility E2E follow-up: built-app Playwright coverage now verifies keyboard resource gathering, construction Build routing, exact accessible names, focus restoration, grouped disclosure, and 320px containment.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
