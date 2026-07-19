@@ -1408,6 +1408,7 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 }
 .asset-income { font-size: 11px; color: var(--ok); }
 .asset-actions { gap: 4px; }
+.recovery-action { border-color: rgba(240, 180, 41, 0.55); }
 .asset-maxed {
   font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
   color: var(--muted); padding: 2px 6px;
@@ -4556,6 +4557,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .business-room { min-height: 92px; }
   .business-upgrade-card { align-items: flex-start; flex-direction: column; }
   .construction-bar-row { grid-template-columns: 52px minmax(70px, 1fr) 56px; }
+  .construction-project .asset-actions { align-items: stretch; }
+  .construction-project .asset-actions .btn { min-height: 40px; }
 }
 
 @media (max-width: 640px) {

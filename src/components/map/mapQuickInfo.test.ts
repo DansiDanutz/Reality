@@ -64,7 +64,7 @@ describe('map quick-info content', () => {
     const info = constructionQuickInfo({ name: 'Starter House', resultKind: 'home' }, 'awaiting permit, 60% complete')
     expect(info.lines).toContain('Home under construction')
     expect(info.lines).toContain('awaiting permit, 60% complete')
-    expect(info.hint).toBe('Tap to manage the build')
+    expect(info.hint).toBe('Tap to open Build and pay the permit')
   })
 
   test('the workers hall explains hiring', () => {

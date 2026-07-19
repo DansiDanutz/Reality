@@ -46,6 +46,44 @@ export function constructionWorkActionHint(input: {
   return 'Ready: work for 60 minutes.'
 }
 
+export type ConstructionRecoveryAction =
+  | { kind: 'place'; label: string; hint: string }
+  | { kind: 'gather'; resource: ResourceKind; label: string; hint: string }
+  | { kind: 'market'; label: string; hint: string }
+  | { kind: 'permit'; label: string; hint: string }
+  | { kind: 'labor'; label: string; hint: string }
+
+export function constructionRecoveryAction(input: {
+  hasProject: boolean
+  resourcesComplete: boolean
+  missing: Partial<Record<ResourceKind, number>>
+  permitComplete: boolean
+  permitFee: number
+  money: number
+  laborComplete: boolean
+}): ConstructionRecoveryAction | null {
+  if (!input.hasProject) return { kind: 'place', label: 'Place a build site', hint: 'Place a Starter House foundation before gathering, paying, or assigning labor.' }
+  if (!input.resourcesComplete) {
+    const resource = RESOURCE_KINDS.find((kind) => (input.missing[kind] ?? 0) > 0)
+    if (resource) return {
+      kind: 'gather',
+      resource,
+      label: `Gather ${RESOURCE_META[resource].label}`,
+      hint: `Gather ${input.missing[resource]} more ${RESOURCE_META[resource].label.toLowerCase()} before depositing materials.`,
+    }
+  }
+  if (!input.permitComplete) {
+    if (input.money < input.permitFee) return {
+      kind: 'market',
+      label: 'Open Market',
+      hint: `You need ${formatMoney(input.permitFee - Math.max(0, input.money))} more credits before paying the permit.`,
+    }
+    return { kind: 'permit', label: `Pay permit · ${formatMoney(input.permitFee)}`, hint: `Pay the ${formatMoney(input.permitFee)} permit to unlock construction labor.` }
+  }
+  if (!input.laborComplete) return { kind: 'labor', label: 'View labor options', hint: 'Materials and permit are ready. Choose player work or a Workers Hall contract.' }
+  return null
+}
+
 export function projectCompletionActionHint(complete: boolean, subject: 'build' | 'business'): string {
   return complete
     ? `Ready: open the completed ${subject}.`
