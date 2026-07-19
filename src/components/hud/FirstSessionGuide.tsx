@@ -18,12 +18,14 @@ export default function FirstSessionGuide() {
   }
   const guide = firstSessionGuideOf(snapshot)
   const tutorialComplete = useGame((s) => s.tutorialClaimed.length >= TUTORIAL_STEPS.length)
+  const firstSessionCompletedAt = useGame((s) => s.firstSessionGuide.completedAt)
   const openCourierPackage = useGame((s) => s.openCourierPackage)
+  const completeFirstSessionGuide = useGame((s) => s.completeFirstSessionGuide)
   const setPanel = useGame((s) => s.setPanel)
 
   // Veterans keep their existing Today card uncluttered. New citizens still
   // see the recap until the original tutorial hand-off has completed.
-  if (guide.complete && tutorialComplete) return null
+  if ((firstSessionCompletedAt !== null && firstSessionCompletedAt !== undefined) || (guide.complete && tutorialComplete)) return null
 
   const onPrimary = () => {
     if (guide.step === 'gather' && guide.route === null) {
@@ -31,6 +33,7 @@ export default function FirstSessionGuide() {
       return
     }
     if (guide.route?.kind === 'journey') {
+      completeFirstSessionGuide()
       setPanel('journey')
       return
     }

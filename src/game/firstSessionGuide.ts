@@ -2,6 +2,12 @@ import type { LifePlanRoute } from './lifeLadder'
 
 export type FirstSessionStep = 'orient' | 'care' | 'earn' | 'gather' | 'build' | 'recap'
 
+export interface FirstSessionPersistence {
+  startedAt: number
+  dismissed: boolean
+  completedAt: number | null
+}
+
 export interface FirstSessionSnapshot {
   targetsSeen: boolean
   timesEaten: number
@@ -46,7 +52,11 @@ export function firstSessionGuideOf(snapshot: FirstSessionSnapshot): FirstSessio
   }
   const hasHome = snapshot.assets.some((asset) => asset.kind === 'home')
   if ((!Array.isArray(snapshot.constructionProjects) || snapshot.constructionProjects.length === 0) && !hasHome) return guide('build', 5, 'Put a roof on your life', 'Open Build to place the starter site. If a requirement is missing, the panel gives you the exact route to fix it.', 'Open Build', { kind: 'panel', panel: 'construction' })
-  return guide('recap', 6, 'Your first loop is underway', 'You have cared for your citizen, earned time, gathered value, and started ownership. Keep following Today or explore your Journey.', 'Open Journey', { kind: 'journey' }, true)
+  const ownership = hasHome ? 'Home owned' : 'Construction site underway'
+  const resourceTotal = snapshot.resources && typeof snapshot.resources === 'object'
+    ? Object.values(snapshot.resources).reduce((sum, amount) => sum + (Number.isFinite(amount) ? Math.max(0, amount) : 0), 0)
+    : 0
+  return guide('recap', 6, 'Your first loop is underway', `${ownership}. You have gathered ${resourceTotal} resources. Tomorrow after your local midnight, the next courier package and daily challenges will be ready.`, 'Open Journey', { kind: 'journey' }, true)
 }
 
 function guide(step: FirstSessionStep, index: number, title: string, detail: string, cta: string, route: LifePlanRoute | { kind: 'journey' } | null, complete = false): FirstSessionGuide {

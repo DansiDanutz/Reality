@@ -441,6 +441,7 @@ describe('migrateSave - completeness guard', () => {
       'resources', 'resourceNodes', 'servicePois', 'constructionProjects', 'placingConstruction',
       'selectedMapTarget', 'educationProgress', 'community', 'businessDevelopmentProjects',
       'activeCourierPackage', 'courierLastDay', 'courierOpenedDays', 'completedCourierDays',
+      'firstSessionGuide',
     ] as const
     for (const f of tickCriticalFields) {
       expect((out as unknown as Record<string, unknown>)[f], `field ${f} is undefined after migrate`).toBeDefined()
@@ -452,9 +453,14 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    // 20 = integration bump: strictly above main's v7 chain AND the parallel
+    // 21 = first-session guide persistence bump: strictly above main's v7 chain AND the parallel
     // branch's v19 chain, so migrate runs (idempotently) for every save.
-    expect(SAVE_VERSION).toBe(20)
+    expect(SAVE_VERSION).toBe(21)
+  })
+
+  test('backfills the first-session guide lifecycle for legacy citizens', () => {
+    const out = migrateSave({ ...v1Save, citizen: { name: 'Legacy', createdAt: 123 } as never, targetsSeen: true, tutorialClaimed: [] })
+    expect(out.firstSessionGuide).toEqual({ startedAt: 123, dismissed: true, completedAt: null })
   })
 })
 

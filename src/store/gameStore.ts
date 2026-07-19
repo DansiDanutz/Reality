@@ -107,6 +107,7 @@ import {
   courierRequirementMet,
   shouldCreateCourierPackage,
 } from '../game/courierPackages'
+import type { FirstSessionPersistence } from '../game/firstSessionGuide'
 import { planLifeDay } from '../game/lifeLadder'
 import {
   type ResourceInventory,
@@ -323,7 +324,7 @@ const SESSION_TOKEN_KEY = 'reality-session-token'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 20
+export const SAVE_VERSION = 21
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -336,7 +337,7 @@ export const SAVE_VERSION = 20
  *   v3 → v4: illness + lastIllnessRollAt
  *   v4 → v5: streak (length, lastClaimDay, best) + luckyMomentsSeen(+Ids)
  *   v6 → v7: itemLastUsedAt (per-item use cooldown for durable effects)
- *   v7 → v20: day-loop integration (one bump; every backfill below is
+ *   v7 → v21: day-loop integration and first-session UX (one bump; every backfill below is
  *     presence-based and idempotent, so one version covers them all):
  *     courier packages, resource inventory, construction projects + worker
  *     labor/contract ledgers, education progress, community progression,
@@ -438,6 +439,21 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && state.courierLastDay === undefined) state.courierLastDay = 0
         if (state && !state.courierOpenedDays) state.courierOpenedDays = []
         if (state && !state.completedCourierDays) state.completedCourierDays = []
+        if (state && !state.firstSessionGuide) {
+          const legacyComplete = (state.tutorialClaimed?.length ?? 0) >= TUTORIAL_STEPS.length
+          state.firstSessionGuide = {
+            startedAt: state.citizen?.createdAt ?? 0,
+            dismissed: Boolean(state.targetsSeen),
+            completedAt: legacyComplete ? (state.citizen?.createdAt ?? Date.now()) : null,
+          }
+        } else if (state?.firstSessionGuide) {
+          const persistedGuide = state.firstSessionGuide
+          state.firstSessionGuide = {
+            startedAt: Number.isFinite(persistedGuide.startedAt) && persistedGuide.startedAt > 0 ? persistedGuide.startedAt : (state.citizen?.createdAt ?? 0),
+            dismissed: persistedGuide.dismissed === true,
+            completedAt: typeof persistedGuide.completedAt === 'number' && Number.isFinite(persistedGuide.completedAt) && persistedGuide.completedAt > 0 ? persistedGuide.completedAt : null,
+          }
+        }
         return withoutPersistedToken(state)
 }
 
@@ -720,6 +736,8 @@ interface GameState {
   lastIllnessRollAt: number
   /** One-time "How Reality works" targets screen */
   targetsSeen: boolean
+  /** Persisted UX lifecycle for the first-session guide; progress derives from gameplay outcomes. */
+  firstSessionGuide: FirstSessionPersistence
   /** True once the player has opened the Achievements panel (tutorial discovery) */
   sawAchievementsPanel: boolean
   /** True once the player has entered Street Mode (one-time controls overlay). */
@@ -817,6 +835,7 @@ interface GameState {
   consultAdvisor: () => boolean
   startGig: () => void
   markTargetsSeen: () => void
+  completeFirstSessionGuide: () => void
   markAchievementsSeen: () => void
   markStreetModeSeen: () => void
   createCitizen: (name: string, spawn?: SpawnLocation | null) => void
@@ -922,6 +941,7 @@ const FRESH = {
   illness: null as Illness | null,
   lastIllnessRollAt: 0,
   targetsSeen: false,
+  firstSessionGuide: { startedAt: 0, dismissed: false, completedAt: null } as FirstSessionPersistence,
   sawAchievementsPanel: false,
   sawStreetMode: false,
   dailyCounters: freshDailyCounters(),
@@ -1197,6 +1217,7 @@ export const useGame = create<GameState>()(
           },
           ...FRESH,
           money: FOUNDER_BALANCE,
+          firstSessionGuide: { startedAt: Date.now(), dismissed: false, completedAt: null },
           lastSeenAt: Date.now(),
           log: [
             spawn?.city
@@ -3045,7 +3066,7 @@ export const useGame = create<GameState>()(
       },
 
       markTargetsSeen: () => {
-        set({ targetsSeen: true })
+        set({ targetsSeen: true, firstSessionGuide: { ...get().firstSessionGuide, dismissed: true } })
         // One-time nudge (issue #38): once the player is past the intro, if they
         // haven't generated an avatar yet, point them at the Profile studio. This
         // is the only place it fires — markTargetsSeen is a one-shot transition.
@@ -3053,6 +3074,16 @@ export const useGame = create<GameState>()(
         if (s.citizen && !s.citizen.avatarUrl) {
           set({ toasts: withToast(s.toasts, 'Give yourself a face — Profile → Create your avatar', 'sky') })
         }
+      },
+
+      completeFirstSessionGuide: () => {
+        const s = get()
+        const current = s.firstSessionGuide ?? FRESH.firstSessionGuide
+        if (current.completedAt !== null) return
+        set({
+          firstSessionGuide: { ...current, completedAt: Date.now() },
+          log: note(s.log, 'First life loop complete. Today now follows your own priorities.'),
+        })
       },
 
       markAchievementsSeen: () => {
