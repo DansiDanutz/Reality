@@ -119,11 +119,16 @@ describe('worldPropertyFeatures', () => {
     expect(fc.features).toHaveLength(2)
   })
 
-  test('stamps each feature with its owner color and [lng, lat] point', () => {
-    const fc = worldPropertyFeatures([asset('them1111', 'business', 40.7, -74)], 'me000000')
+  test('stamps each feature with owner color, name, and [lng, lat] point', () => {
+    const fc = worldPropertyFeatures([{ ...asset('them1111', 'business', 40.7, -74), name: 'Ana' }], 'me000000')
     const f = fc.features[0]
     expect(f.geometry).toEqual({ type: 'Point', coordinates: [-74, 40.7] })
-    expect(f.properties).toEqual({ kind: 'business', color: colorForCitizen('them1111') })
+    expect(f.properties).toEqual({ kind: 'business', color: colorForCitizen('them1111'), name: 'Ana' })
+  })
+
+  test('a missing owner name becomes an empty string (no null through MapLibre)', () => {
+    const fc = worldPropertyFeatures([asset('them1111')], undefined)
+    expect(fc.features[0].properties.name).toBe('')
   })
 
   test('two different owners get two different colors', () => {

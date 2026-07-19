@@ -31,8 +31,8 @@ describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([
-        { citizen_id: CITIZEN_ID, item_id: 'small_home', kind: 'home', lat: 44.45, lng: 26.08 },
-        { citizen_id: 'deadbeef-0000-4000-8000-000000000001', item_id: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65 },
+        { citizen_id: CITIZEN_ID, item_id: 'small_home', kind: 'home', lat: 44.45, lng: 26.08, name: 'Ana' },
+        { citizen_id: 'deadbeef-0000-4000-8000-000000000001', item_id: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65, name: null },
       ])
       .mockResolvedValueOnce([{ count: 8 }])
     const res = responseRecorder()
@@ -41,11 +41,14 @@ describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.headers['Cache-Control']).toBe('s-maxage=30, stale-while-revalidate=120')
+    // Owner name is joined in and surfaced (P6); a missing citizen row → null.
+    const [readSql] = pgQueryMock.mock.calls[0] as [string]
+    expect(readSql).toMatch(/LEFT JOIN citizens/i)
     expect(res.body).toEqual({
       ok: true,
       assets: [
-        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.45, lng: 26.08 },
-        { cid: 'deadbeef', itemId: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65 },
+        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.45, lng: 26.08, name: 'Ana' },
+        { cid: 'deadbeef', itemId: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65, name: null },
       ],
       stats: { assets: 2, founders: 8 },
     })

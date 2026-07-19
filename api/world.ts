@@ -30,9 +30,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       const sql = db() as unknown as SqlClient
+      // Join the owner's display name (public — it's on the leaderboard) so the
+      // map can say WHO owns each building (P6). LEFT JOIN keeps assets whose
+      // citizen row is somehow missing; the client falls back to "a founder".
       const rows = (await sql.query(
-        `SELECT citizen_id, item_id, kind, lat, lng FROM assets ORDER BY placed_at DESC LIMIT ${WORLD_READ_LIMIT}`,
-      )) as Array<{ citizen_id: string; item_id: string; kind: string; lat: number; lng: number }>
+        `SELECT a.citizen_id, a.item_id, a.kind, a.lat, a.lng, c.name
+         FROM assets a LEFT JOIN citizens c ON c.citizen_id = a.citizen_id
+         ORDER BY a.placed_at DESC LIMIT ${WORLD_READ_LIMIT}`,
+      )) as Array<{ citizen_id: string; item_id: string; kind: string; lat: number; lng: number; name: string | null }>
       const founders = (await sql.query(
         'SELECT count(*)::int AS count FROM citizens WHERE founder_number IS NOT NULL',
       )) as Array<{ count: number }>
@@ -42,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         kind: row.kind,
         lat: Number(row.lat),
         lng: Number(row.lng),
+        name: row.name ?? null,
       }))
       res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120')
       res.status(200).json({ ok: true, assets, stats: { assets: assets.length, founders: founders[0]?.count ?? 0 } })

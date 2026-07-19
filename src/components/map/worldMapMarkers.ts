@@ -100,6 +100,7 @@ export interface WorldPropertyInput {
   kind: string
   lat: number
   lng: number
+  name?: string | null
 }
 
 export function worldPropertyFeatures(world: readonly WorldPropertyInput[], myCid: string | undefined) {
@@ -107,7 +108,9 @@ export function worldPropertyFeatures(world: readonly WorldPropertyInput[], myCi
     .filter((w) => w.cid !== myCid)
     .map((w) => ({
       type: 'Feature' as const,
-      properties: { kind: w.kind, color: colorForCitizen(w.cid) },
+      // name rides along for the inspect card (P6); '' when unknown so the
+      // MapLibre feature-properties round-trip has no null to trip on.
+      properties: { kind: w.kind, color: colorForCitizen(w.cid), name: w.name ?? '' },
       geometry: { type: 'Point' as const, coordinates: [w.lng, w.lat] as [number, number] },
     }))
   return { type: 'FeatureCollection' as const, features }

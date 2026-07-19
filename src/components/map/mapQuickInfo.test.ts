@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { ResourceNode } from '../../game/resources'
 import type { PlacedAsset } from '../../game/types'
-import { assetQuickInfo, constructionQuickInfo, resourceQuickInfo, workersHallQuickInfo } from './mapQuickInfo'
+import { assetQuickInfo, constructionQuickInfo, ownerQuickInfo, resourceQuickInfo, workersHallQuickInfo } from './mapQuickInfo'
 
 const business = (pendingIncome: number, level = 2): PlacedAsset => ({
   id: 'b1',
@@ -69,5 +69,18 @@ describe('map quick-info content', () => {
 
   test('the workers hall explains hiring', () => {
     expect(workersHallQuickInfo().lines[0]).toContain('Hire workers')
+  })
+
+  test('a foreign building names its owner and stays look-only (no hint)', () => {
+    const info = ownerQuickInfo('Ana', 'business')
+    expect(info.title).toBe('Ana')
+    expect(info.lines[0]).toBe("Another founder's business")
+    expect(info.hint).toBeUndefined()
+  })
+
+  test('a foreign building falls back gracefully when the owner has no name', () => {
+    expect(ownerQuickInfo(null, 'home').title).toBe('A fellow founder')
+    expect(ownerQuickInfo('   ', 'home').title).toBe('A fellow founder')
+    expect(ownerQuickInfo(undefined, 'home').lines[0]).toBe("Another founder's home")
   })
 })

@@ -85,8 +85,10 @@ phase 2). Territory read directly off the map, no overlay.
   per-owner hash (`colorForCitizen`, avalanched so even near-identical ids read
   distinct), so the map looks inhabited by many people. No server change,
   clustering intact.
-- Phase 2 (next): extend `/api/world` with the owner's display name + a
-  foreign-building inspect card ("who owns this"). Phase 3: territory flags
+- **Phase 2 shipped:** `/api/world` now joins the owner's display name (public,
+  as on the leaderboard); tapping a foreign building shows a look-only inspect
+  card — "Ana · Another founder's business · You share the same real Earth" —
+  no action, you can't touch someone else's property. Phase 3: territory flags
   (needs a public founder-area read; that system is mid-migration).
 
 **Anti-goals** (things HoMM teaches us NOT to do): no alarm-like sounds, no

@@ -21,6 +21,7 @@ import {
   assetQuickInfo,
   attachQuickInfo,
   constructionQuickInfo,
+  ownerQuickInfo,
   resourceQuickInfo,
   workersHallQuickInfo,
   type QuickInfoAt,
@@ -55,6 +56,8 @@ interface WorldAsset {
   kind: string
   lat: number
   lng: number
+  /** Owner display name (public), joined server-side for the inspect card (P6). */
+  name?: string | null
 }
 
 /** Interpolate a great-circle route between two points for the empire arcs */
@@ -647,6 +650,18 @@ export default function WorldMap() {
         map.easeTo({ center: [feat.geometry.coordinates[0], feat.geometry.coordinates[1]], zoom, duration: 800 })
       })
     })
+    // Tapping another player's building says WHO owns it — look-only (P6). The
+    // dot is a plain circle-layer feature, so this reads its properties rather
+    // than using the DOM-marker attachQuickInfo path.
+    map.on('click', `${SOURCE}-dots`, (e) => {
+      const feat = e.features?.[0]
+      if (!feat) return
+      const props = (feat.properties ?? {}) as { name?: string; kind?: string }
+      setQuickInfo({ ...ownerQuickInfo(props.name, props.kind ?? 'home'), x: e.point.x, y: e.point.y })
+    })
+    // A pointer cursor tells the player these dots are inspectable.
+    map.on('mouseenter', `${SOURCE}-dots`, () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', `${SOURCE}-dots`, () => { map.getCanvas().style.cursor = '' })
   }, [world, citizenId, styleReady])
 
   // Your life starts in your own town: open the map on the citizen's real

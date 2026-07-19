@@ -69,6 +69,20 @@ export function constructionQuickInfo(
   }
 }
 
+/**
+ * Tapping another player's building (P6): a look-only card that says who they
+ * are and that you share the same real Earth. No hint — foreign property is
+ * inspect-only; you can't act on it (never pay-to-win).
+ */
+export function ownerQuickInfo(name: string | null | undefined, kind: string): QuickInfoContent {
+  const who = name && name.trim() ? name.trim() : 'A fellow founder'
+  const what = kind === 'business' ? 'business' : 'home'
+  return {
+    title: who,
+    lines: [`Another founder's ${what}`, 'You share the same real Earth'],
+  }
+}
+
 export function workersHallQuickInfo(): QuickInfoContent {
   return {
     title: 'Workers Hall',
