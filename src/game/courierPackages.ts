@@ -48,6 +48,111 @@ export interface CourierSnapshot {
   communityActionsThisWeek?: number
 }
 
+export interface CourierRequirementProgress {
+  ready: boolean
+  detail: string
+  missing: string[]
+  nextAction: string
+}
+
+function safeCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+}
+
+function resourceProgress(snapshot: CourierSnapshot, resource: ResourceKind, amount: number): CourierRequirementProgress {
+  const have = safeCount(snapshot.resources?.[resource])
+  const need = safeCount(amount)
+  const label = RESOURCE_META[resource].label
+  const ready = have >= need
+  return {
+    ready,
+    detail: `${label}: ${have}/${need}`,
+    missing: ready ? [] : [`${need - have} more ${label.toLowerCase()}`],
+    nextAction: ready ? 'Ready to claim' : `Gather ${label.toLowerCase()}`,
+  }
+}
+
+function constructionChecklist(snapshot: CourierSnapshot): string[] {
+  const project = snapshot.constructionProjects?.[0]
+  if (!project) return snapshot.hasHome ? ['Home complete'] : ['Place a Starter House site']
+  const lines = (['wood', 'stone', 'metal', 'glass'] as ResourceKind[]).map((kind) =>
+    `${RESOURCE_META[kind].label}: ${safeCount(project.deposited?.[kind])}/${safeCount(project.required?.[kind])}`,
+  )
+  lines.push(`Permit: ${project.permitFeePaid ? 'paid' : `unpaid (${safeCount(project.permitFee)} credits)`}`)
+  lines.push(`Labor: ${safeCount(project.laborDoneMinutes)}/${safeCount(project.laborRequiredMinutes)} minutes`)
+  return lines
+}
+
+export function courierRequirementProgress(pkg: CourierPackage, snapshot: CourierSnapshot): CourierRequirementProgress {
+  const requirement = pkg.requirement
+  switch (requirement.kind) {
+    case 'none': return { ready: true, detail: 'Ready to open', missing: [], nextAction: 'Open package' }
+    case 'food': {
+      const have = safeCount(snapshot.timesEaten)
+      const need = safeCount(requirement.timesEaten)
+      return { ready: have >= need, detail: `Meals: ${have}/${need}`, missing: have >= need ? [] : [`Eat ${need - have} more time`], nextAction: have >= need ? 'Ready to claim' : 'Find food' }
+    }
+    case 'job': return { ready: Boolean(snapshot.jobId), detail: snapshot.jobId ? 'Job: assigned' : 'Job: not assigned', missing: snapshot.jobId ? [] : ['Choose a job'], nextAction: snapshot.jobId ? 'Ready to claim' : 'Find work' }
+    case 'shift': {
+      const have = safeCount(snapshot.shiftsWorked)
+      const need = safeCount(requirement.shiftsWorked)
+      return { ready: have >= need, detail: `Shifts: ${have}/${need}`, missing: have >= need ? [] : [`Work ${need - have} more shift`], nextAction: have >= need ? 'Ready to claim' : 'Work shift' }
+    }
+    case 'education-enrolled': {
+      const ready = (snapshot.educationProgress ?? []).some((progress) => progress.courseId === requirement.courseId)
+      return { ready, detail: `Course: ${ready ? 'enrolled' : 'not enrolled'}`, missing: ready ? [] : ['Enroll in the course'], nextAction: ready ? 'Ready to claim' : 'Enroll' }
+    }
+    case 'education-study': {
+      const have = safeCount((snapshot.educationProgress ?? []).find((progress) => progress.courseId === requirement.courseId)?.studiedMinutes)
+      const need = safeCount(requirement.studiedMinutes)
+      return { ready: have >= need, detail: `Study: ${have}/${need} minutes`, missing: have >= need ? [] : [`Study ${need - have} more minutes`], nextAction: have >= need ? 'Ready to claim' : 'Study' }
+    }
+    case 'education': {
+      const have = safeCount(snapshot.educationActions)
+      const need = safeCount(requirement.educationActions)
+      return { ready: have >= need, detail: `Study actions: ${have}/${need}`, missing: have >= need ? [] : [`Complete ${need - have} more study action`], nextAction: have >= need ? 'Ready to claim' : 'Study' }
+    }
+    case 'community': {
+      const have = safeCount(snapshot.communityActionsThisWeek)
+      const need = safeCount(requirement.actionsThisWeek)
+      return { ready: have >= need, detail: `Community actions: ${have}/${need}`, missing: have >= need ? [] : [`Help ${need - have} more time`], nextAction: have >= need ? 'Ready to claim' : 'Help locally' }
+    }
+    case 'street-mode-seen': return { ready: snapshot.sawStreetMode === true, detail: `Walk mode: ${snapshot.sawStreetMode ? 'seen' : 'not visited'}`, missing: snapshot.sawStreetMode ? [] : ['Enter Walk mode once'], nextAction: snapshot.sawStreetMode ? 'Ready to claim' : 'Walk' }
+    case 'resource': return resourceProgress(snapshot, requirement.resource, requirement.amount)
+    case 'construction-site': {
+      const ready = snapshot.hasHome || (snapshot.constructionProjects?.length ?? 0) > 0
+      return { ready, detail: ready ? 'Construction site: placed' : 'Construction site: not placed', missing: ready ? [] : ['Place a Starter House site'], nextAction: ready ? 'Ready to claim' : 'Place site' }
+    }
+    case 'construction-deposit': {
+      const project = snapshot.constructionProjects?.[0]
+      if (!project && snapshot.hasHome) return { ready: true, detail: 'Home: complete', missing: [], nextAction: 'Ready to claim' }
+      if (!project) return { ready: false, detail: 'Construction site: not placed', missing: ['Place a Starter House site'], nextAction: 'Place site' }
+      const missing = Object.entries(requirement.resources).flatMap(([kind, amount]) => {
+        const have = safeCount(project.deposited?.[kind as ResourceKind])
+        const need = safeCount(amount)
+        return have >= need ? [] : [`${need - have} more ${RESOURCE_META[kind as ResourceKind].label.toLowerCase()}`]
+      })
+      const ready = missing.length === 0
+      return { ready, detail: constructionChecklist(snapshot).join(' · '), missing, nextAction: ready ? 'Ready to claim' : 'Gather and deposit materials' }
+    }
+    case 'construction-labor': {
+      const project = snapshot.constructionProjects?.[0]
+      if (!project && snapshot.hasHome) return { ready: true, detail: 'Home: complete', missing: [], nextAction: 'Ready to claim' }
+      if (!project) return { ready: false, detail: 'Construction site: not placed', missing: ['Place a Starter House site'], nextAction: 'Place site' }
+      const have = safeCount(project.laborDoneMinutes)
+      const need = safeCount(requirement.minutes)
+      return { ready: have >= need, detail: constructionChecklist(snapshot).join(' · '), missing: have >= need ? [] : [`${need - have} more labor minutes`], nextAction: have >= need ? 'Ready to claim' : 'Work construction' }
+    }
+    case 'home-built-or-progress': {
+      const project = snapshot.constructionProjects?.[0]
+      const have = safeCount(project?.laborDoneMinutes)
+      const need = safeCount(requirement.laborMinutes)
+      const ready = snapshot.hasHome || have >= need
+      return { ready, detail: snapshot.hasHome ? 'Home: complete' : `Labor: ${have}/${need} minutes`, missing: ready ? [] : [`${need - have} more labor minutes or finish the home`], nextAction: ready ? 'Ready to claim' : 'Work construction' }
+    }
+  }
+}
+
 export const COURIER_MVP_DAYS = 10
 export const COURIER_CAMPAIGN_DAYS = 60
 

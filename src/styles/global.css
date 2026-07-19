@@ -4013,6 +4013,15 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   line-height: 1.35;
 }
 .courier-objective { color: var(--text); margin-top: 6px; }
+.courier-progress,
+.courier-missing {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.courier-progress { color: var(--sky); }
+.courier-progress.ready { color: var(--ok); }
+.courier-missing { color: var(--muted); }
 .courier-reward {
   display: inline-block;
   margin-top: 8px;
@@ -4025,6 +4034,24 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   justify-content: flex-end;
   gap: 8px;
 }
+.goals-card-courier,
+.journey-courier {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  border-radius: 8px;
+  background: rgba(240, 180, 41, 0.07);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.goals-card-courier > span:first-child,
+.journey-courier strong { color: var(--gold); }
+.goals-card-courier.ready { border-color: rgba(91, 214, 150, 0.4); }
+.goals-card-courier.ready > span:first-child { color: var(--ok); }
+.journey-courier { margin-top: 12px; font-size: 12px; }
 
 .resource-wallet {
   display: grid;

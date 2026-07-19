@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { challengesForDay, challengeSetSummary, type DailyChallengeSnapshot } from '../../game/dailyChallenges'
 import { planLifeDay } from '../../game/lifeLadder'
+import { educationActionCount } from '../../game/education'
 import { MILLIONAIRE_STAGE_META, MILLIONAIRE_STAGE_ORDER, millionaireStageProgress } from '../../game/millionairePath'
 import { dailyChallengeContextOf, useGame } from '../../store/gameStore'
 import { track } from '../../lib/analytics'
@@ -12,6 +13,7 @@ import {
   routineShortLabel,
 } from './goalsCardView'
 import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
+import { courierRequirementProgress } from '../../game/courierPackages'
 
 /**
  * The always-visible goals card — replaces the tutorial objectives card once
@@ -42,6 +44,9 @@ export default function GoalsCard() {
   const community = useGame((s) => s.community)
   const streakLength = useGame((s) => s.streakLength)
   const dailyCounters = useGame((s) => s.dailyCounters)
+  const activeCourierPackage = useGame((s) => s.activeCourierPackage)
+  const timesEaten = useGame((s) => s.timesEaten)
+  const sawStreetMode = useGame((s) => s.sawStreetMode)
 
   useEffect(() => {
     if (citizen) track('today_plan_viewed')
@@ -111,6 +116,20 @@ export default function GoalsCard() {
   })
   if (!snapshot) return null
   const lifePlan = planLifeDay(snapshot)
+  const courierProgress = activeCourierPackage
+    ? courierRequirementProgress(activeCourierPackage, {
+        timesEaten,
+        sawStreetMode,
+        resources,
+        constructionProjects,
+        hasHome: assets.some((asset) => asset.kind === 'home'),
+        jobId,
+        shiftsWorked,
+        educationProgress,
+        educationActions: educationActionCount(educationProgress),
+        communityActionsThisWeek: community.actionsThisWeek,
+      })
+    : null
 
   const openRoute = runLifePlanRoute
   const openPrimary = () => openRoute(lifePlan.primary.route)
@@ -192,6 +211,12 @@ export default function GoalsCard() {
         )}
         <span className="goals-card-primary">{lifePlan.primary.title}</span>
         <span className="goals-card-reason">{lifePlan.primary.detail}</span>
+        {activeCourierPackage && courierProgress && (
+          <span className={`goals-card-courier${courierProgress.ready ? ' ready' : ''}`} aria-label={`Courier day ${activeCourierPackage.day}: ${courierProgress.detail}. ${courierProgress.missing.join(' ')}`}>
+            <span>📦 Courier D{activeCourierPackage.day}: {courierProgress.detail}</span>
+            {!courierProgress.ready && courierProgress.missing.length > 0 && <span>Needs: {courierProgress.missing.join(' · ')}</span>}
+          </span>
+        )}
         {activeEta && <span className="goals-card-forecast">{activeEta}</span>}
         <span className="goals-card-stage">
           <span className="goals-card-stage-copy">

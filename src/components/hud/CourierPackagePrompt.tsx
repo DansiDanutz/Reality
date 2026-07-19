@@ -1,4 +1,4 @@
-import { courierRequirementMet } from '../../game/courierPackages'
+import { courierRequirementMet, courierRequirementProgress } from '../../game/courierPackages'
 import { educationActionCount } from '../../game/education'
 import { RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useIsMobile } from '../../lib/useIsMobile'
@@ -50,6 +50,18 @@ export default function CourierPackagePrompt() {
   if (isMobile && (activity || placing || placingConstruction)) return null
 
   const ready = courierRequirementMet(pkg, {
+    timesEaten,
+    sawStreetMode,
+    resources,
+    constructionProjects,
+    hasHome,
+    jobId,
+    shiftsWorked,
+    educationProgress,
+    educationActions: educationActionCount(educationProgress),
+    communityActionsThisWeek: community.actionsThisWeek,
+  })
+  const progress = courierRequirementProgress(pkg, {
     timesEaten,
     sawStreetMode,
     resources,
@@ -138,6 +150,8 @@ export default function CourierPackagePrompt() {
                 ? `Gather ${RESOURCE_META[resourceKind].label}`
                 : 'Open package'
 
+  const actionLabel = ready ? 'Claim reward' : progress.nextAction
+
   return (
     <div className="courier-package" role="status" aria-live="polite">
       <div className="courier-stamp mono">DAY {pkg.day}</div>
@@ -145,13 +159,19 @@ export default function CourierPackagePrompt() {
         <h2 className="courier-title">{pkg.title}</h2>
         <p className="courier-story">{opened ? pkg.story : 'A courier package is waiting at your door.'}</p>
         <p className="courier-objective">{pkg.objective}</p>
+        <p className={`courier-progress${ready ? ' ready' : ''}`} role="status" aria-label={`Courier progress: ${progress.detail}`}>
+          {progress.detail}
+        </p>
+        {!ready && progress.missing.length > 0 && (
+          <p className="courier-missing" role="note">Needs: {progress.missing.join(' · ')}</p>
+        )}
         <span className="courier-reward mono">+${pkg.rewardCash} · +{pkg.rewardXp} XP</span>
       </div>
       <div className="courier-actions">
-        <button className={`btn small ${ready ? 'primary' : ''}`} onClick={primaryAction}>
+        <button className={`btn small ${ready ? 'primary' : ''}`} onClick={primaryAction} aria-label={`${actionLabel}. ${ready ? 'Claim courier reward.' : progress.missing.join(' ')}`}>
           {label}
         </button>
-        <button className="btn small ghost" onClick={() => setPanel('construction')}>
+        <button className="btn small ghost" onClick={() => setPanel('construction')} aria-label="Open construction panel">
           Build
         </button>
       </div>
