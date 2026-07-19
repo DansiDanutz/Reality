@@ -146,4 +146,40 @@ test.describe('First session', () => {
     expect(saved.jobId || saved.activity, 'a job or shift should have started').toBeTruthy()
     await expect(firstGuide.getByRole('heading', { name: /Clock in once|Find your first income/ })).toBeVisible()
   })
+
+  test('persists the first-session recap and its local-midnight return cue', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.getByRole('textbox', { name: 'Citizen name' }).fill('Recap Founder')
+    await page.getByRole('button', { name: 'Claim founder slot' }).click()
+    await expect(page.getByRole('button', { name: 'Shop', exact: true })).toBeVisible({ timeout: 10_000 })
+    const begin = page.getByRole('button', { name: /^Begin your life in/ })
+    if (await begin.isVisible().catch(() => false)) await begin.click()
+
+    await page.evaluate(() => {
+      const raw = localStorage.getItem('reality-save-v1')
+      if (!raw) throw new Error('save missing after citizen creation')
+      const save = JSON.parse(raw) as { state: Record<string, unknown> & { firstSessionGuide?: Record<string, unknown> } }
+      save.state.targetsSeen = true
+      save.state.timesEaten = 1
+      save.state.jobId = 'barista'
+      save.state.shiftsWorked = 1
+      save.state.resources = { wood: 25, stone: 15, metal: 0, glass: 0 }
+      save.state.constructionProjects = [{ id: 'recap-site', recipeId: 'starter-house', name: 'Starter House', itemId: 'studio', resultKind: 'home', lat: 44.4, lng: 26.1, deposited: { wood: 25, stone: 15, metal: 0, glass: 0 }, required: { wood: 25, stone: 15, metal: 0, glass: 0 }, permitFee: 500, permitFeePaid: false, laborDoneMinutes: 0, laborRequiredMinutes: 60, hiredLaborMinutes: 0, workerContracts: [], status: 'planned', incomePerDay: 0, placedAt: Date.now() }]
+      save.state.activeCourierPackage = null
+      save.state.firstSessionGuide = { startedAt: Date.now(), dismissed: true, completedAt: null }
+      localStorage.setItem('reality-save-v1', JSON.stringify(save))
+    })
+    await page.reload()
+
+    const guide = page.getByRole('region', { name: 'First 15 minutes guide' })
+    await expect(guide.getByRole('heading', { name: 'Your first loop is underway' })).toBeVisible()
+    await expect(guide).toContainText(/Tomorrow after your local midnight/)
+    await guide.getByRole('button', { name: /Open Journey/ }).click()
+    await expect(page.getByRole('dialog', { name: 'Your first 30 days', exact: true })).toBeVisible()
+    const completedAt = await page.evaluate(() => JSON.parse(localStorage.getItem('reality-save-v1') ?? '{}').state?.firstSessionGuide?.completedAt)
+    expect(completedAt).toEqual(expect.any(Number))
+  })
 })
