@@ -9,6 +9,7 @@ import {
   constructionCompletionActionLabel,
   constructionFinalStageView,
   constructionForecastCards,
+  constructionRecoveryAction,
   constructionWorkActionHint,
   projectCompletionActionHint,
 } from './constructionPanelView'
@@ -82,6 +83,67 @@ describe('construction action accessibility hints', () => {
     })).toBe('Blocked: pay the $500 permit before working.')
     expect(projectCompletionActionHint(false, 'build')).toBe('Blocked: finish materials, permit, and labor before opening.')
     expect(projectCompletionActionHint(true, 'business')).toBe('Ready: open the completed business.')
+  })
+})
+
+describe('construction recovery actions', () => {
+  test('routes missing materials to the first exact resource', () => {
+    expect(constructionRecoveryAction({
+      hasProject: true,
+      resourcesComplete: false,
+      missing: { wood: 4, glass: 2 },
+      permitComplete: false,
+      permitFee: 500,
+      money: 1_000,
+      laborComplete: false,
+    })).toEqual({
+      kind: 'gather',
+      resource: 'wood',
+      label: 'Gather Wood',
+      hint: 'Gather 4 more wood before depositing materials.',
+    })
+  })
+
+  test('routes permit shortfalls to Market or payment', () => {
+    expect(constructionRecoveryAction({
+      hasProject: true,
+      resourcesComplete: true,
+      missing: {},
+      permitComplete: false,
+      permitFee: 500,
+      money: 100,
+      laborComplete: false,
+    })).toMatchObject({ kind: 'market', label: 'Open Market' })
+    expect(constructionRecoveryAction({
+      hasProject: true,
+      resourcesComplete: true,
+      missing: {},
+      permitComplete: false,
+      permitFee: 500,
+      money: 500,
+      laborComplete: false,
+    })).toMatchObject({ kind: 'permit', label: 'Pay permit · $500' })
+  })
+
+  test('routes placement and labor blockers directly', () => {
+    expect(constructionRecoveryAction({
+      hasProject: false,
+      resourcesComplete: false,
+      missing: {},
+      permitComplete: false,
+      permitFee: 500,
+      money: 0,
+      laborComplete: false,
+    })?.kind).toBe('place')
+    expect(constructionRecoveryAction({
+      hasProject: true,
+      resourcesComplete: true,
+      missing: {},
+      permitComplete: true,
+      permitFee: 500,
+      money: 0,
+      laborComplete: false,
+    })?.kind).toBe('labor')
   })
 })
 

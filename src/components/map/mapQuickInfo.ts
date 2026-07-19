@@ -59,13 +59,18 @@ export function constructionQuickInfo(
   project: Pick<ConstructionProject, 'name' | 'resultKind'>,
   phaseSummary: string,
 ): QuickInfoContent {
+  const hint = phaseSummary.startsWith('gathering materials')
+    ? 'Tap to open Build and gather or deposit materials'
+    : phaseSummary.startsWith('awaiting permit')
+      ? 'Tap to open Build and pay the permit'
+      : 'Tap to open Build and choose labor'
   return {
     title: project.name,
     lines: [
       project.resultKind === 'business' ? 'Business under construction' : 'Home under construction',
       phaseSummary,
     ],
-    hint: 'Tap to manage the build',
+    hint,
   }
 }
 
