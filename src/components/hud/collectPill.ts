@@ -27,16 +27,20 @@ const NEAR_CAP_FRACTION = 0.8
 
 export function collectPillModel(assets: readonly PlacedAsset[]): CollectPillModel {
   let total = 0
-  let cap = 0
+  // The cap is enforced PER business in the sim, so nearCap must be per business
+  // too — a small shop can be maxed out and bleeding income while a big, empty
+  // till keeps the aggregate low. Warn as soon as ANY earning business tops out.
+  let nearCap = false
   for (const a of assets) {
     if (a.kind !== 'business') continue
     total += a.pendingIncome
-    cap += a.incomePerDay * PENDING_CAP_DAYS
+    const cap = a.incomePerDay * PENDING_CAP_DAYS
+    if (cap > 0 && a.pendingIncome >= cap * NEAR_CAP_FRACTION) nearCap = true
   }
   const floored = Math.floor(total)
   return {
     total: floored,
     show: floored >= 1,
-    nearCap: cap > 0 && total >= cap * NEAR_CAP_FRACTION,
+    nearCap,
   }
 }

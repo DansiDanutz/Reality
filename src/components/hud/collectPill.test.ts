@@ -45,4 +45,12 @@ describe('collectPillModel', () => {
   it('never flags nearCap when there is no earning capacity', () => {
     expect(collectPillModel([biz(0, 0)]).nearCap).toBe(false)
   })
+
+  it('flags nearCap per business — a small maxed shop is not masked by a big empty one', () => {
+    const smallCap = 200 * PENDING_CAP_DAYS
+    // Small cart fully capped ($600 pending), big bakery empty ($0). Aggregate
+    // is well under 80% of combined capacity, but the cart is bleeding income.
+    const m = collectPillModel([biz(200, smallCap), biz(5000, 0)])
+    expect(m.nearCap).toBe(true)
+  })
 })

@@ -32,6 +32,7 @@ export default function MapAmbience() {
   const citizen = useGame((s) => s.citizen)
   const soundOn = useGame((s) => s.soundOn)
   const streetMode = useGame((s) => s.streetMode)
+  const enteredAssetId = useGame((s) => s.enteredAssetId)
   const assets = useGame((s) => s.assets)
   useGame((s) => s.lastSeenAt) // re-evaluate day/night as the real clock advances
 
@@ -39,7 +40,9 @@ export default function MapAmbience() {
   const lat = home?.lat ?? citizen?.spawnLat
   const lng = home?.lng ?? citizen?.spawnLng
   const night = isNightAt(lat, lng)
-  const active = !!citizen && soundOn && !streetMode
+  // Step inside and the map bed ducks out — the interior gets its own
+  // soundscape (fireplace / murmur), a clean hard-cut rather than two beds.
+  const active = !!citizen && soundOn && !streetMode && !enteredAssetId
 
   useEffect(() => {
     if (!active) {

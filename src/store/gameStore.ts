@@ -699,6 +699,9 @@ interface GameState {
   placingConstruction: 'starter-house' | null
   /** Map target selected from menus/markers. Drives camera focus. */
   selectedMapTarget: MapTarget | null
+  /** The owned building whose interior "step inside" overlay is open, if any.
+   *  Lifted out of WorldMap so ambience (MapAmbience) can duck the map bed. */
+  enteredAssetId: string | null
   panel: PanelId
   log: string[]
   cloudSyncedAt: number | null
@@ -870,6 +873,7 @@ interface GameState {
   claimAchievement: (achievementId: string) => void
   toggleTutorial: () => void
   selectMapTarget: (target: MapTarget | null) => void
+  setEnteredAssetId: (id: string | null) => void
   setPanel: (panel: PanelId) => void
   reset: () => void
 }
@@ -906,6 +910,7 @@ const FRESH = {
   placing: null as ShopItem | null,
   placingConstruction: null as 'starter-house' | null,
   selectedMapTarget: null as MapTarget | null,
+  enteredAssetId: null as string | null,
   panel: null as PanelId,
   log: [] as string[],
   cloudSyncedAt: null as number | null,
@@ -3696,6 +3701,7 @@ export const useGame = create<GameState>()(
         set({ streetMode: on, panel: null })
       },
       selectMapTarget: (target) => set({ selectedMapTarget: target }),
+      setEnteredAssetId: (id) => set({ enteredAssetId: id }),
       setPanel: (panel) => set({ panel }),
       reset: () => {
         const citizen = get().citizen
@@ -3743,6 +3749,7 @@ export const useGame = create<GameState>()(
               key !== 'toasts' &&
               key !== 'marketNeed' &&
               key !== 'selectedMapTarget' &&
+              key !== 'enteredAssetId' &&
               key !== 'online' &&
               key !== 'dismissedOfflineAt',
           ),
