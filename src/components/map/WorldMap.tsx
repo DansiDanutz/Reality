@@ -27,7 +27,7 @@ import {
   type QuickInfoAt,
 } from './mapQuickInfo'
 import { clusterResourceNodes, constructionMarkerView, constructionPhaseSummary, newlyBuiltAssetIds, worldPropertyFeatures } from './worldMapMarkers'
-import { constructionAccessibleLabel, groupResourceNodesForAccessibility, resourceAccessibleLabel } from './mapAccessibleView'
+import { constructionAccessibleLabel, groupResourceNodesForAccessibility, nearestForeignProperties, ownerAccessibleLabel, resourceAccessibleLabel } from './mapAccessibleView'
 
 /** Circle of `km` radius around a point, as a GeoJSON ring (spherical) */
 function circleRing(lat: number, lng: number, km: number, points = 96): [number, number][] {
@@ -837,6 +837,14 @@ export default function WorldMap() {
     window.requestAnimationFrame(() => document.getElementById(id)?.focus())
   }
   const accessibleResourceGroups = useMemo(() => groupResourceNodesForAccessibility(resourceNodes), [resourceNodes])
+  // Other players' buildings live in an aria-hidden map layer; surface the
+  // nearest few as focusable controls so their owner (P6) is reachable without
+  // a pointer (keyboard / screen reader).
+  const accessibleNeighbors = useMemo(() => {
+    const home = assets.find((a) => a.kind === 'home')
+    const anchor = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : null)
+    return nearestForeignProperties(world, citizenId?.slice(0, 8), anchor, 24)
+  }, [world, citizenId, assets, spawnLat, spawnLng])
 
   // The inspect card is transient (HoMM right-click): the next tap anywhere,
   // any map movement, Escape, or a few seconds of silence dismisses it.
@@ -952,6 +960,33 @@ export default function WorldMap() {
                   </button>
                 </li>
               ))}
+            </ul>
+          </section>
+        )}
+        {accessibleNeighbors.length > 0 && (
+          <section aria-label="Neighbors">
+            <h2>Neighbors</h2>
+            <ul>
+              {accessibleNeighbors.map((prop) => {
+                const id = `map-neighbor-${prop.cid}-${prop.lat.toFixed(2)}-${prop.lng.toFixed(2)}`
+                const who = prop.name && prop.name.trim() ? prop.name.trim() : 'A fellow founder'
+                return (
+                  <li key={id}>
+                    <button
+                      id={id}
+                      type="button"
+                      onClick={() => {
+                        flyToPoint(prop.lat, prop.lng)
+                        setQuickInfo({ ...ownerQuickInfo(prop.name, prop.kind), x: window.innerWidth / 2, y: window.innerHeight / 2 })
+                        focusAccessibleControl(id)
+                      }}
+                      aria-label={ownerAccessibleLabel(prop.name, prop.kind)}
+                    >
+                      {who} · {prop.kind === 'business' ? 'business' : 'home'}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </section>
         )}
