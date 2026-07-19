@@ -223,13 +223,13 @@ export default function BusinessPanel() {
             </div>
             <div className="house-actions">
               <button className="btn primary" onClick={() => depositBusinessDevelopmentResources(project.id)}>Deposit materials</button>
-              <button className={money >= project.budgetCost && !project.budgetPaid ? 'btn primary' : 'btn ghost'} disabled={project.budgetPaid || money < project.budgetCost} onClick={() => payBusinessDevelopmentBudget(project.id)}>
+              <button className={money >= project.budgetCost && !project.budgetPaid ? 'btn primary' : 'btn ghost'} disabled={project.budgetPaid || money < project.budgetCost} title={project.budgetPaid ? 'Ready: development budget is already paid.' : money < project.budgetCost ? `Blocked: save ${formatMoney(project.budgetCost - money)} more to fund the development budget.` : `Ready: pay ${formatMoney(project.budgetCost)}.`} aria-label={project.budgetPaid ? 'Ready: development budget is already paid.' : money < project.budgetCost ? `Blocked: save ${formatMoney(project.budgetCost - money)} more to fund the development budget.` : `Ready: pay ${formatMoney(project.budgetCost)}.`} onClick={() => payBusinessDevelopmentBudget(project.id)}>
                 {project.budgetPaid ? 'Budget paid' : `Pay ${formatMoney(project.budgetCost)}`}
               </button>
-              <button className="btn primary" disabled={!projectProgress?.resourcesComplete || !projectProgress.budgetComplete || projectProgress.laborComplete} onClick={() => startBusinessDevelopmentWork(project.id)}>
+              <button className="btn primary" disabled={!projectProgress?.resourcesComplete || !projectProgress.budgetComplete || projectProgress.laborComplete} title={!projectProgress?.resourcesComplete ? 'Blocked: deposit all required materials first.' : !projectProgress.budgetComplete ? 'Blocked: pay the development budget first.' : projectProgress.laborComplete ? 'Blocked: all interior labor is complete.' : 'Ready: work for 60 minutes.'} aria-label={!projectProgress?.resourcesComplete ? 'Blocked: deposit all required materials first.' : !projectProgress.budgetComplete ? 'Blocked: pay the development budget first.' : projectProgress.laborComplete ? 'Blocked: all interior labor is complete.' : 'Ready: work for 60 minutes.'} onClick={() => startBusinessDevelopmentWork(project.id)}>
                 {studyLaborBonus > 0 ? `Work 60m -> ${formatMinutes(Math.round(60 * studyLaborMultiplier))}` : 'Work 60m'}
               </button>
-              <button className="btn ghost" disabled={!projectProgress?.complete} onClick={() => completeBusinessDevelopmentIfReady(project.id)}>
+              <button className="btn ghost" disabled={!projectProgress?.complete} title={projectProgress?.complete ? 'Ready: open the upgraded business.' : 'Blocked: finish materials, budget, and labor before opening.'} aria-label={projectProgress?.complete ? 'Ready: open the upgraded business.' : 'Blocked: finish materials, budget, and labor before opening.'} onClick={() => completeBusinessDevelopmentIfReady(project.id)}>
                 Finish L{project.levelTo}
               </button>
             </div>

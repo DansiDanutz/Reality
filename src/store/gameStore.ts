@@ -28,6 +28,7 @@ import {
 import type { ShopCategory } from '../game/types'
 import { ADVISOR_FEE, CITIZEN_BALANCE, FOUNDER_BALANCE, RECIPES, SHOP_ITEMS, itemById, jobById, recipeById } from '../game/catalog'
 import { dayOfLife, zoneFor } from '../game/clock'
+import { localDayIndex, nextLocalMidnightMs } from '../game/localDay'
 import { TUTORIAL_STEPS } from '../game/tutorial'
 import { ACHIEVEMENTS, newlyUnlocked, type AchievementSnapshot } from '../game/achievements'
 import { computeStreakClaim, streakLabel, type StreakState } from '../game/streak'
@@ -459,16 +460,7 @@ function dayIndexOf(now: number, lat?: number, lng?: number): number {
   } catch {
     zone = 'UTC'
   }
-  // YYYY-MM-DD in the local zone → unique per calendar day. Counting days
-  // since epoch via Date.UTC keeps the index stable and timezone-independent.
-  const ymd = new Intl.DateTimeFormat('en-CA', {
-    timeZone: zone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(now))
-  // en-CA gives us ISO-like YYYY-MM-DD which Date.parse understands as UTC.
-  return Math.floor(Date.parse(ymd + 'T00:00:00Z') / 86_400_000)
+  return localDayIndex(now, zone)
 }
 
 /**
@@ -484,20 +476,7 @@ export function msToLocalMidnight(now: number, lat?: number, lng?: number): numb
   } catch {
     zone = 'UTC'
   }
-  try {
-    const parts = new Intl.DateTimeFormat('en-GB', {
-      timeZone: zone,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    }).formatToParts(new Date(now))
-    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0)
-    const elapsedMs = ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000
-    return 86_400_000 - elapsedMs
-  } catch {
-    return 86_400_000 - (now % 86_400_000)
-  }
+  return nextLocalMidnightMs(now, zone) - now
 }
 
 function dailyCounterDayFor(s: Pick<GameState, 'assets' | 'citizen'>): number {
