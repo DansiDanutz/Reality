@@ -1995,7 +1995,7 @@ describe('business interior development', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
     expect(useGame.getState().panel).toBe('business')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'No matching interior materials to deposit yet.',
+      text: 'Blocked: deposit wood 0/20, stone 0/10, metal 0/20, glass 0/10. Open Map to gather the missing interior materials.',
       tone: 'blocked',
     })
 
@@ -2004,7 +2004,7 @@ describe('business interior development', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
     expect(useGame.getState().panel).toBe('business')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Development budget needs $960.',
+      text: 'Blocked: deposit wood 0/20, stone 0/10, metal 0/20, glass 0/10. Open Map to gather the missing interior materials.',
       tone: 'blocked',
     })
 
@@ -2013,7 +2013,7 @@ describe('business interior development', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
     expect(useGame.getState().panel).toBe('business')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Deposit interior materials before work starts.',
+      text: 'Blocked: deposit wood 0/20, stone 0/10, metal 0/20, glass 0/10. Open Map to gather the missing interior materials.',
       tone: 'blocked',
     })
 
@@ -2022,7 +2022,7 @@ describe('business interior development', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: plan.businessId })
     expect(useGame.getState().panel).toBe('business')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Interior development still needs materials, budget, or labor.',
+      text: 'Blocked: deposit wood 0/20, stone 0/10, metal 0/20, glass 0/10. Open Map to gather the missing interior materials.',
       tone: 'blocked',
     })
   })
