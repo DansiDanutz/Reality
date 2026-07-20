@@ -23,4 +23,18 @@ test('unaffordable Market actions expose current and required cash accessibly', 
   const blocked = market.locator('button[aria-label^="Blocked:"]').first()
   await expect(blocked).toBeDisabled()
   await expect(blocked).toHaveAccessibleName(/current funds are \$[\d,]+\//)
+
+  await page.keyboard.press('Escape')
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('reality-save-v1')
+    if (!raw) throw new Error('save missing')
+    const save = JSON.parse(raw)
+    save.state.jobId = 'barista'
+    save.state.needs = { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 }
+    localStorage.setItem('reality-save-v1', JSON.stringify(save))
+  })
+  await page.reload()
+  await page.getByRole('button', { name: 'Work', exact: true }).click()
+  const work = page.getByRole('dialog', { name: 'Work', exact: true })
+  await expect(work.getByRole('button', { name: /Blocked: water 5\/15/ })).toBeEnabled()
 })
