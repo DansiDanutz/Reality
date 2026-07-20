@@ -199,7 +199,7 @@ describe('hard work body gates', () => {
     useGame.getState().startGatherResource('wood-node')
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Drink water before gathering wood.',
+      text: 'Blocked: water 5/15. Open Market to drink before gathering wood.',
       tone: 'blocked',
     })
 
@@ -213,7 +213,7 @@ describe('hard work body gates', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: constructionProject.id })
     expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Eat before construction work.',
+      text: 'Blocked: food 5/15. Open Market to eat before construction work.',
       tone: 'blocked',
     })
 
@@ -228,7 +228,7 @@ describe('hard work body gates', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'asset', id: businessReady.businessId })
     expect(useGame.getState().panel).toBe('business')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Drink water before interior work.',
+      text: 'Blocked: water 5/15. Open Market to drink before interior work.',
       tone: 'blocked',
     })
 
@@ -239,7 +239,7 @@ describe('hard work body gates', () => {
     useGame.getState().startShift()
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Drink water before starting a shift.',
+      text: 'Blocked: water 5/15. Open Market to drink before starting a shift.',
       tone: 'blocked',
     })
 
@@ -250,7 +250,28 @@ describe('hard work body gates', () => {
     useGame.getState().startGig()
     expect(useGame.getState().activity).toBeNull()
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Eat before taking a gig.',
+      text: 'Blocked: food 5/15. Open Market to eat before taking a gig.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({
+      ...base,
+      needs: { hunger: 80, hydration: 80, energy: 10, hygiene: 80, fun: 80 },
+      resourceNodes: [{
+        id: 'wood-node', kind: 'wood', label: 'Local timber lot', lat: 45, lng: 21,
+        source: 'fallback', yieldAmount: 25, gatherMinutes: 5, energyCost: 8,
+      }],
+    })
+    useGame.getState().startGatherResource('wood-node')
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Blocked: energy 10/13. Rest before gathering wood.',
+      tone: 'blocked',
+    })
+
+    useGame.setState({ ...base, health: 10, needs: { hunger: 80, hydration: 80, energy: 80, hygiene: 80, fun: 80 } })
+    useGame.getState().startShift()
+    expect(useGame.getState().toasts.at(-1)).toMatchObject({
+      text: 'Blocked: health 10/20. Open Status to recover before starting a shift.',
       tone: 'blocked',
     })
   })

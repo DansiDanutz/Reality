@@ -142,6 +142,7 @@
 - First-week loop proof (issue #1149): added a single deterministic built-app Playwright journey through Market food/use, work/shift, courier opening, fallback resource gathering, construction blocker copy/recovery, and persisted recap/Journey handoff. Material blockers now expose current/required counts while preserving direct recovery actions. Remaining risk: manual assistive-technology and real-map permit/labor exploration remain follow-up work.
 - First-week hardening tranche (issue #1151): permit blocker controls now expose current/required cash and direct Market recovery; Journey roadmap memoization now tracks all gameplay inputs so its primary action cannot go stale mid-session; 320px mobile coverage proves Escape focus restoration and 44px navigation targets. Remaining risk: manual VoiceOver/NVDA and live-map permit/labor validation remain.
 - Keyboard activation follow-up: map construction controls now prove both Enter and Space activation plus Escape focus restoration in the built-app E2E suite; no production authority boundaries changed.
+- First-week blocker consistency (issue #1154): body-work gates and Market affordability controls now expose exact current/required values in persisted-action feedback and accessible labels across the shared first-week routes.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
