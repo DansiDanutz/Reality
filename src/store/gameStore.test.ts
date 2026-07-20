@@ -924,7 +924,7 @@ describe('construction worker contracts', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
     expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Deposit construction materials before work starts.',
+      text: 'Blocked: deposit wood 0/120, stone 0/60, metal 0/20, glass 0/10 before work starts.',
       tone: 'blocked',
     })
 
@@ -939,7 +939,7 @@ describe('construction worker contracts', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
     expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Pay the building permit before work starts.',
+      text: 'Blocked: permit unpaid; funds $0/$500. Open Market to earn $500 more before work starts.',
       tone: 'blocked',
     })
 

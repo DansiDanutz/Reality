@@ -112,6 +112,7 @@ import { planLifeDay } from '../game/lifeLadder'
 import {
   type ResourceInventory,
   type ResourceNode,
+  RESOURCE_KINDS,
   RESOURCE_META,
   addResources,
   formatResourceList,
@@ -1039,6 +1040,13 @@ function bodyWorkBlockerText(
   }
   if (blocker === 'energy') return `Blocked: energy ${Math.round(needs.energy)}/${floors.energy}. Rest before ${action}.`
   return `Blocked: health ${Math.round(health)}/20. Open Status to recover before ${action}.`
+}
+
+function constructionMaterialsProgressText(project: ConstructionProject): string {
+  return RESOURCE_KINDS
+    .filter((kind) => (project.deposited[kind] ?? 0) < (project.required[kind] ?? 0))
+    .map((kind) => `${RESOURCE_META[kind].label.toLowerCase()} ${project.deposited[kind] ?? 0}/${project.required[kind] ?? 0}`)
+    .join(', ')
 }
 
 /**
@@ -2610,7 +2618,7 @@ export const useGame = create<GameState>()(
         const progress = constructionProgress(project)
         if (!progress.resourcesComplete) {
           set({
-            toasts: withToast(s.toasts, 'Deposit construction materials before work starts.', 'blocked'),
+            toasts: withToast(s.toasts, `Blocked: deposit ${constructionMaterialsProgressText(project)} before work starts.`, 'blocked'),
             selectedMapTarget: { kind: 'construction', id: projectId },
             panel: 'construction',
           })
@@ -2618,7 +2626,7 @@ export const useGame = create<GameState>()(
         }
         if (!progress.permitComplete) {
           set({
-            toasts: withToast(s.toasts, 'Pay the building permit before work starts.', 'blocked'),
+            toasts: withToast(s.toasts, `Blocked: permit ${project.permitFeePaid ? 'paid' : 'unpaid'}; funds ${formatMoney(Math.max(0, s.money))}/${formatMoney(project.permitFee)}. Open Market to earn ${formatMoney(Math.max(0, project.permitFee - s.money))} more before work starts.`, 'blocked'),
             selectedMapTarget: { kind: 'construction', id: projectId },
             panel: 'construction',
           })
