@@ -1022,11 +1022,23 @@ function bodyWorkBlocker(
   return null
 }
 
-function bodyWorkBlockerText(blocker: BodyWorkBlocker, action: string): string {
-  if (blocker === 'hydration') return `Drink water before ${action}.`
-  if (blocker === 'hunger') return `Eat before ${action}.`
-  if (blocker === 'energy') return `Rest before ${action}.`
-  return `Recover before ${action}.`
+function bodyWorkBlockerText(
+  blocker: BodyWorkBlocker,
+  action: string,
+  needs: Needs,
+  health: number,
+  floors: { energy: number; hunger?: number; hydration?: number },
+): string {
+  if (blocker === 'hydration') {
+    const required = floors.hydration ?? 15
+    return `Blocked: water ${Math.round(needs.hydration)}/${required}. Open Market to drink before ${action}.`
+  }
+  if (blocker === 'hunger') {
+    const required = floors.hunger ?? 15
+    return `Blocked: food ${Math.round(needs.hunger)}/${required}. Open Market to eat before ${action}.`
+  }
+  if (blocker === 'energy') return `Blocked: energy ${Math.round(needs.energy)}/${floors.energy}. Rest before ${action}.`
+  return `Blocked: health ${Math.round(health)}/20. Open Status to recover before ${action}.`
 }
 
 /**
@@ -2429,7 +2441,7 @@ export const useGame = create<GameState>()(
         if (!node) return
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: node.energyCost + 5 })
         if (blocker) {
-          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, `gathering ${RESOURCE_META[node.kind].label.toLowerCase()}`), 'blocked') })
+          set({ toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, `gathering ${RESOURCE_META[node.kind].label.toLowerCase()}`, s.needs, s.health, { energy: node.energyCost + 5 }), 'blocked') })
           return
         }
         const now = Date.now()
@@ -2580,7 +2592,7 @@ export const useGame = create<GameState>()(
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
         if (blocker) {
           set({
-            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'construction work'), 'blocked'),
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'construction work', s.needs, s.health, { energy: 20 }), 'blocked'),
             selectedMapTarget: { kind: 'construction', id: projectId },
             panel: 'construction',
           })
@@ -2860,7 +2872,7 @@ export const useGame = create<GameState>()(
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 20 })
         if (blocker) {
           set({
-            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'interior work'), 'blocked'),
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, 'interior work', s.needs, s.health, { energy: 20 }), 'blocked'),
             selectedMapTarget: { kind: 'asset', id: project.businessId },
             panel: 'business',
           })
@@ -3043,7 +3055,7 @@ export const useGame = create<GameState>()(
         // work. The daily loop should make body care non-optional.
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 15 })
         if (blocker) {
-          const text = bodyWorkBlockerText(blocker, 'taking a gig')
+          const text = bodyWorkBlockerText(blocker, 'taking a gig', s.needs, s.health, { energy: 15 })
           set({ log: note(s.log, text), toasts: withToast(s.toasts, text, 'blocked') })
           return
         }
@@ -3231,7 +3243,7 @@ export const useGame = create<GameState>()(
         }
         const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 25 })
         if (blocker) {
-          const text = bodyWorkBlockerText(blocker, 'starting a shift')
+          const text = bodyWorkBlockerText(blocker, 'starting a shift', s.needs, s.health, { energy: 25 })
           set({ log: note(s.log, text), toasts: withToast(s.toasts, text, 'blocked') })
           return
         }

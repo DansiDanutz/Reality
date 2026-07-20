@@ -295,7 +295,8 @@ export default function Market() {
                         <button
                           className={`btn small primary${!courseCompleted && !courseEnrolled && !affordable ? ' blocked' : ''}`}
                           disabled={courseCompleted || (courseEnrolled ? Boolean(activity) || studyMinutes <= 0 : !affordable)}
-                          title={!courseCompleted && !courseEnrolled && !affordable ? `You have ${formatMoney(money)} — earn ${formatMoney(item.price - money)} more to enroll` : undefined}
+                          title={!courseCompleted && !courseEnrolled && !affordable ? `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.` : undefined}
+                          aria-label={!courseCompleted && !courseEnrolled && !affordable ? `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.` : undefined}
                           onClick={() => courseEnrolled ? startStudy(course.id) : buy(item.id)}
                         >
                           {courseCompleted ? 'Done' : studyingThis ? 'Studying' : courseEnrolled ? 'Study' : affordable ? 'Enroll' : `Need ${formatMoney(item.price - money)}`}
@@ -306,7 +307,8 @@ export default function Market() {
                         <button
                           className={`btn small primary${affordable ? '' : ' blocked'}`}
                           disabled={!affordable}
-                          title={affordable ? undefined : `You have ${formatMoney(money)} — earn ${formatMoney(item.price - money)} more`}
+                          title={affordable ? undefined : `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.`}
+                          aria-label={affordable ? undefined : `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.`}
                           onClick={() => buy(item.id)}
                         >
                           {affordable
