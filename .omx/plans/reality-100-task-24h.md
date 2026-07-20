@@ -183,4 +183,5 @@ Run a measured manual assistive-technology and real-map construction review. Onl
 - Tasks 066–067 and 087: Workers Hall controls now expose exact current/required labor and cash blockers, with a direct Market recovery action when a contract is unaffordable; store coverage proves the authoritative toast wording.
 - Tasks 052, 063, 087: zero-match construction deposits now report every deposited-versus-required material and direct the player to Map, replacing a dead-end generic toast.
 - Tasks 062, 066, 070: final construction completion attempts now identify the first unmet authoritative gate (materials, permit cash, or labor minutes) with current/required values and the next recovery route.
+- Tasks 061–063 and 087: permit payment blockers now expose current versus required funds and a direct Market recovery route from the authoritative store action.
 - Remaining tasks continue in dependency order; do not mark the plan complete until release gates and main verification are evidenced.

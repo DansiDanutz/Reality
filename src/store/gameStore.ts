@@ -2568,7 +2568,7 @@ export const useGame = create<GameState>()(
         const paid = payPermit(project, s.money)
         if (!paid.paid) {
           set({
-            toasts: withToast(s.toasts, `Permit needs ${formatMoney(project.permitFee)}.`, 'blocked'),
+            toasts: withToast(s.toasts, `Blocked: permit requires ${formatMoney(project.permitFee)}; funds ${formatMoney(Math.max(0, s.money))}/${formatMoney(project.permitFee)}. Open Market to earn ${formatMoney(Math.max(0, project.permitFee - s.money))} more.`, 'blocked'),
             selectedMapTarget: { kind: 'construction', id: projectId },
             panel: 'construction',
           })

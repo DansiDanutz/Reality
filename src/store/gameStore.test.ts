@@ -1004,7 +1004,7 @@ describe('construction worker contracts', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
     expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'Permit needs $500.',
+      text: 'Blocked: permit requires $500; funds $0/$500. Open Market to earn $500 more.',
       tone: 'blocked',
     })
 
