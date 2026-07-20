@@ -178,4 +178,5 @@ Run a measured manual assistive-technology and real-map construction review. Onl
 - Tasks 054–068: authoritative construction-work toasts now include material current/required rows and permit funds current/required plus exact cash shortfall; store regression coverage is green.
 - Tasks 026 and 029 browser proof: Work's Start shift control now exposes exact body-gate accessible names for health, energy, food, water, and busy-state blockers; the blocker journey covers the water branch.
 - Tasks 031–038 compatibility proof: courier creation now normalizes malformed age/local-day/completion values and refuses invalid scheduler inputs; courier regression coverage includes malformed scheduler state.
+- Tasks 041–044 and 095: save migration now discards malformed resource nodes and normalizes valid nodes to safe metadata, preserving deterministic fallback discovery for missing kinds.
 - Remaining tasks continue in dependency order; do not mark the plan complete until release gates and main verification are evidenced.

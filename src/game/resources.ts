@@ -16,6 +16,29 @@ export interface ResourceNode {
   energyCost: number
 }
 
+export function normalizeResourceNode(input: unknown): ResourceNode | null {
+  if (!input || typeof input !== 'object') return null
+  const value = input as Partial<ResourceNode>
+  if (!RESOURCE_KINDS.includes(value.kind as ResourceKind)) return null
+  if (value.source !== 'osm' && value.source !== 'fallback') return null
+  const lat = typeof value.lat === 'number' && Number.isFinite(value.lat) ? value.lat : null
+  const lng = typeof value.lng === 'number' && Number.isFinite(value.lng) ? value.lng : null
+  if (lat === null || lng === null) return null
+  const meta = RESOURCE_META[value.kind as ResourceKind]
+  const positive = (candidate: unknown, fallback: number) => typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0 ? Math.floor(candidate) : fallback
+  return {
+    id: typeof value.id === 'string' && value.id.trim() ? value.id : `${value.source}-${value.kind}-${lat.toFixed(4)}-${lng.toFixed(4)}`,
+    kind: value.kind as ResourceKind,
+    label: typeof value.label === 'string' && value.label.trim() ? value.label : meta.label,
+    lat,
+    lng,
+    source: value.source,
+    yieldAmount: positive(value.yieldAmount, meta.yieldAmount),
+    gatherMinutes: positive(value.gatherMinutes, meta.gatherMinutes),
+    energyCost: positive(value.energyCost, meta.energyCost),
+  }
+}
+
 export const EMPTY_RESOURCES: ResourceInventory = {
   wood: 0,
   stone: 0,
