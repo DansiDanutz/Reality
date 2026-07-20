@@ -52,6 +52,18 @@ export function constructionWorkActionHint(input: {
   return 'Ready: work for 60 minutes.'
 }
 
+export function constructionPermitActionHint(input: {
+  paid: boolean
+  fee: number
+  money: number
+}): string {
+  if (input.paid) return 'Permit paid: this legal gate is complete.'
+  if (input.money < input.fee) {
+    return `Blocked: permit requires ${formatMoney(input.fee)}; current funds are ${formatMoney(Math.max(0, input.money))}/${formatMoney(input.fee)}. Open Market to earn ${formatMoney(input.fee - Math.max(0, input.money))} more.`
+  }
+  return `Ready: pay the ${formatMoney(input.fee)} permit to unlock construction labor.`
+}
+
 export type ConstructionRecoveryAction =
   | { kind: 'place'; label: string; hint: string }
   | { kind: 'gather'; resource: ResourceKind; label: string; hint: string }
@@ -82,7 +94,7 @@ export function constructionRecoveryAction(input: {
     if (input.money < input.permitFee) return {
       kind: 'market',
       label: 'Open Market',
-      hint: `You need ${formatMoney(input.permitFee - Math.max(0, input.money))} more credits before paying the permit.`,
+      hint: `Blocked: permit requires ${formatMoney(input.permitFee)}; current funds are ${formatMoney(Math.max(0, input.money))}/${formatMoney(input.permitFee)}. Open Market to earn ${formatMoney(input.permitFee - Math.max(0, input.money))} more.`,
     }
     return { kind: 'permit', label: `Pay permit · ${formatMoney(input.permitFee)}`, hint: `Pay the ${formatMoney(input.permitFee)} permit to unlock construction labor.` }
   }

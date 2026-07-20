@@ -16,4 +16,18 @@ test('first-session shell remains usable at 320px', async ({ page }) => {
   await expect(guide.getByRole('button', { name: /Open Market for food/ })).toHaveAccessibleName(/Open Market for food/)
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow, 'mobile shell should not overflow horizontally').toBeLessThanOrEqual(0)
+
+  const todayTab = page.getByRole('button', { name: 'Today', exact: true })
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Today', exact: true })).toBeHidden()
+  await todayTab.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Today', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(todayTab).toBeFocused()
+  const touchTargets = await page.locator('.mnav-btn').evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect()
+    return { width: rect.width, height: rect.height }
+  }))
+  expect(touchTargets.every(({ width, height }) => width >= 44 && height >= 44), 'mobile navigation targets should be at least 44px').toBe(true)
 })

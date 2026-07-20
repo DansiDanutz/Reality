@@ -9,6 +9,7 @@ import {
   constructionCompletionActionLabel,
   constructionFinalStageView,
   constructionForecastCards,
+  constructionPermitActionHint,
   constructionRecoveryAction,
   constructionWorkActionHint,
   projectCompletionActionHint,
@@ -63,6 +64,12 @@ describe('constructionCompletionActionLabel', () => {
 })
 
 describe('construction action accessibility hints', () => {
+  test('explains permit cash as current versus required and routes recovery', () => {
+    expect(constructionPermitActionHint({ paid: false, fee: 500, money: 100 })).toBe('Blocked: permit requires $500; current funds are $100/$500. Open Market to earn $400 more.')
+    expect(constructionPermitActionHint({ paid: false, fee: 500, money: 500 })).toBe('Ready: pay the $500 permit to unlock construction labor.')
+    expect(constructionPermitActionHint({ paid: true, fee: 500, money: 0 })).toBe('Permit paid: this legal gate is complete.')
+  })
+
   test('explains the exact missing materials before work is available', () => {
     expect(constructionWorkActionHint({
       resourcesComplete: false,
@@ -115,7 +122,7 @@ describe('construction recovery actions', () => {
       permitFee: 500,
       money: 100,
       laborComplete: false,
-    })).toMatchObject({ kind: 'market', label: 'Open Market' })
+    })).toMatchObject({ kind: 'market', label: 'Open Market', hint: 'Blocked: permit requires $500; current funds are $100/$500. Open Market to earn $400 more.' })
     expect(constructionRecoveryAction({
       hasProject: true,
       resourcesComplete: true,
