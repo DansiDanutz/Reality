@@ -147,6 +147,7 @@
 - Work gate accessibility: Start shift now exposes exact body-readiness accessible labels derived from live state, with browser coverage for hydration blockers.
 - Courier compatibility hardening: scheduler input normalization now prevents malformed age/day values from creating invalid or duplicate package grants.
 - Resource save compatibility hardening: migration now filters malformed resource nodes and normalizes valid node metadata before map and construction consumers read it.
+- Construction save compatibility hardening: migration now drops malformed project identities/coordinates and normalizes persisted construction progress and worker contracts to safe finite values, preserving legacy starter-house defaults.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

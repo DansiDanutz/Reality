@@ -188,6 +188,35 @@ describe('migrateSave - backfills every field added after v1', () => {
     })
   })
 
+  test('malformed construction projects fail closed while numeric progress is normalized', () => {
+    const out = migrateSave({
+      ...v1Save,
+      constructionProjects: [
+        null,
+        { id: 'missing-position', recipeId: 'starter-house' },
+        {
+          id: 'starter-house-dirty', recipeId: 'starter-house', lat: 45.7, lng: 21.2,
+          required: { wood: Number.NaN, stone: -4 }, deposited: { wood: 4.9 },
+          laborRequiredMinutes: Number.POSITIVE_INFINITY, laborDoneMinutes: -3,
+          permitFee: Number.NaN, permitFeePaid: 'yes', status: 'unknown', placedAt: Number.NaN,
+        },
+      ],
+    } as never)
+
+    expect(out.constructionProjects).toHaveLength(1)
+    expect(out.constructionProjects[0]).toMatchObject({
+      id: 'starter-house-dirty',
+      required: { wood: 120, stone: 0, metal: 20, glass: 10 },
+      deposited: { wood: 4, stone: 0, metal: 0, glass: 0 },
+      laborRequiredMinutes: 0,
+      laborDoneMinutes: 0,
+      permitFee: 0,
+      permitFeePaid: false,
+      status: 'planned',
+      placedAt: 0,
+    })
+  })
+
   test('old worker contracts backfill Workers Hall source', () => {
     const out = migrateSave({
       ...v1Save,
