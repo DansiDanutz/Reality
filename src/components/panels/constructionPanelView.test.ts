@@ -69,8 +69,10 @@ describe('construction action accessibility hints', () => {
       permitComplete: false,
       laborComplete: false,
       missing: { wood: 2, glass: 1 },
+      current: { wood: 0, glass: 3 },
+      required: { wood: 2, glass: 4 },
       permitFee: 500,
-    })).toBe('Blocked: deposit 2 wood, 1 glass before working.')
+    })).toBe('Blocked: deposit wood 0/2, glass 3/4 before working.')
   })
 
   test('explains permit and completion gates', () => {
