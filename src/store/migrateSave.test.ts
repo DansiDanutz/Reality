@@ -113,6 +113,19 @@ describe('migrateSave - backfills every field added after v1', () => {
     expect(out.needs.hunger).toBe(80)
   })
 
+  test('malformed resource nodes are discarded while valid nodes are normalized', () => {
+    const out = migrateSave({
+      ...v1Save,
+      resourceNodes: [
+        { kind: 'unknown', lat: 45, lng: 21 },
+        { kind: 'wood', source: 'fallback', lat: 45, lng: 21, label: '', yieldAmount: Number.NaN },
+      ],
+    } as never)
+    expect(out.resourceNodes).toEqual([expect.objectContaining({
+      kind: 'wood', source: 'fallback', label: 'Wood', yieldAmount: 25, gatherMinutes: 5, energyCost: 8,
+    })])
+  })
+
   test('a v3 save with hydration and pets is migrated idempotently', () => {
     const v3Save = {
       ...v1Save,

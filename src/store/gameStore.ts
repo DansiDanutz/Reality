@@ -117,6 +117,7 @@ import {
   addResources,
   formatResourceList,
   freshResources,
+  normalizeResourceNode,
 } from '../game/resources'
 import type { ServicePoi } from '../game/mapDiscovery'
 import { DEFAULT_MAP_ANCHOR } from '../game/mapAnchor'
@@ -401,6 +402,9 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.itemLastUsedAt) state.itemLastUsedAt = {}
         if (state && !state.resources) state.resources = freshResources()
         if (state && !state.resourceNodes) state.resourceNodes = []
+        if (state && Array.isArray(state.resourceNodes)) {
+          state.resourceNodes = state.resourceNodes.map(normalizeResourceNode).filter((node): node is ResourceNode => node !== null)
+        }
         if (state && !state.servicePois) state.servicePois = []
         if (state && !state.constructionProjects) state.constructionProjects = []
         if (state && state.constructionProjects) {
