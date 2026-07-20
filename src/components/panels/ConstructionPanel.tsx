@@ -332,6 +332,8 @@ export default function ConstructionPanel() {
                 permitComplete: progress.permitComplete,
                 laborComplete: progress.laborComplete,
                 missing,
+                current: project.deposited,
+                required: project.required,
                 permitFee: project.permitFee,
               })
               const recovery = constructionRecoveryAction({

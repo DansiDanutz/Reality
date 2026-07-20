@@ -32,12 +32,18 @@ export function constructionWorkActionHint(input: {
   permitComplete: boolean
   laborComplete: boolean
   missing: Partial<Record<ResourceKind, number>>
+  current?: Partial<Record<ResourceKind, number>>
+  required?: Partial<Record<ResourceKind, number>>
   permitFee: number
 }): string {
   if (!input.resourcesComplete) {
     const missing = RESOURCE_KINDS
       .filter((kind) => (input.missing[kind] ?? 0) > 0)
-      .map((kind) => `${input.missing[kind]} ${RESOURCE_META[kind].label.toLowerCase()}`)
+      .map((kind) => {
+        const current = input.current?.[kind] ?? 0
+        const required = input.required?.[kind] ?? current + (input.missing[kind] ?? 0)
+        return `${RESOURCE_META[kind].label.toLowerCase()} ${current}/${required}`
+      })
       .join(', ')
     return `Blocked: deposit ${missing || 'all required materials'} before working.`
   }
