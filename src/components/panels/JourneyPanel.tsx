@@ -37,8 +37,9 @@ export default function JourneyPanel() {
   const timesEaten = useGame((s) => s.timesEaten)
   const sawStreetMode = useGame((s) => s.sawStreetMode)
 
-  // Simulating a month is real work — do it once per panel open (the inputs
-  // that matter don't shift meaningfully mid-view).
+  // Simulating a month is real work, but the primary action and courier handoff
+  // must stay truthful if a player completes food, work, or gathering while the
+  // Journey panel remains open. Recompute from the state that feeds the plan.
   const roadmap = useMemo(() => {
     const snapshot = lifeLadderSnapshotOf({
       citizen,
@@ -59,8 +60,24 @@ export default function JourneyPanel() {
       community,
     })
     return snapshot ? planLifeRoadmap(snapshot, 30) : null
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [citizen?.citizenId])
+  }, [
+    citizen,
+    money,
+    needs,
+    health,
+    level,
+    xp,
+    jobId,
+    shiftsWorked,
+    activity,
+    assets,
+    inventory,
+    resources,
+    constructionProjects,
+    businessDevelopmentProjects,
+    educationProgress,
+    community,
+  ])
 
   if (!citizen || !roadmap || roadmap.days.length === 0) return null
 

@@ -13,7 +13,7 @@ import { availableCommunityHelperMinutes } from '../../game/community'
 import { communityAdvantageOf } from '../../game/millionairePath'
 import { RESOURCE_KINDS, RESOURCE_META, type ResourceKind } from '../../game/resources'
 import { useGame } from '../../store/gameStore'
-import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards, constructionRecoveryAction, constructionWorkActionHint, projectCompletionActionHint } from './constructionPanelView'
+import { constructionCompletionActionLabel, constructionFinalStageView, constructionForecastCards, constructionPermitActionHint, constructionRecoveryAction, constructionWorkActionHint, projectCompletionActionHint } from './constructionPanelView'
 import { selectedWorkerHours, workerCommunityCreditText, workerHourChoices } from './workerContractView'
 
 function pct(current: number, target: number): number {
@@ -378,7 +378,13 @@ export default function ConstructionPanel() {
                   <div className="item-buy asset-actions">
                     <button className="btn small ghost" onClick={() => { selectMapTarget({ kind: 'construction', id: project.id }); setPanel(null) }}>Show map</button>
                     <button className="btn small ghost" onClick={() => depositConstructionResources(project.id)}>Deposit</button>
-                    <button className="btn small ghost" disabled={project.permitFeePaid} onClick={() => payConstructionPermit(project.id)}>
+                    <button
+                      className="btn small ghost"
+                      disabled={project.permitFeePaid}
+                      title={constructionPermitActionHint({ paid: project.permitFeePaid, fee: project.permitFee, money })}
+                      aria-label={constructionPermitActionHint({ paid: project.permitFeePaid, fee: project.permitFee, money })}
+                      onClick={() => payConstructionPermit(project.id)}
+                    >
                       {project.permitFeePaid ? 'Permit paid' : `Permit ${formatMoney(project.permitFee)}`}
                     </button>
                     <button className={canWork ? 'btn small primary' : 'btn small ghost'} disabled={!canWork} title={workHint} aria-label={workHint} onClick={() => startConstructionWork(project.id)}>
