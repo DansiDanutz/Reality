@@ -176,4 +176,5 @@ Run a measured manual assistive-technology and real-map construction review. Onl
 - Task 087: unaffordable Market purchase and enrollment controls now expose exact current/required funds through accessible names as well as visual titles.
 - Tasks 029 and 087 regression proof: store tests cover exact energy/health blocker text and a built-app test covers unaffordable Market accessible names with current/required funds.
 - Tasks 054–068: authoritative construction-work toasts now include material current/required rows and permit funds current/required plus exact cash shortfall; store regression coverage is green.
+- Tasks 026 and 029 browser proof: Work's Start shift control now exposes exact body-gate accessible names for health, energy, food, water, and busy-state blockers; the blocker journey covers the water branch.
 - Remaining tasks continue in dependency order; do not mark the plan complete until release gates and main verification are evidenced.

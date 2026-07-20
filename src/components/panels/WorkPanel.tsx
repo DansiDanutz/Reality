@@ -11,11 +11,22 @@ export default function WorkPanel() {
   const inventory = useGame((s) => s.inventory)
   const educationProgress = useGame((s) => s.educationProgress)
   const activity = useGame((s) => s.activity)
+  const needs = useGame((s) => s.needs)
+  const health = useGame((s) => s.health)
   const takeJob = useGame((s) => s.takeJob)
   const startShift = useGame((s) => s.startShift)
 
   const wageBonus = wageBonusFrom(inventory) + educationWageBonusFrom(educationProgress)
   const rank = careerRankOf(shiftsWorked)
+  const shiftBlocker = health < 20
+    ? `Blocked: health ${Math.round(health)}/20. Open Status to recover before starting a shift.`
+    : needs.energy < 25
+      ? `Blocked: energy ${Math.round(needs.energy)}/25. Rest before starting a shift.`
+      : needs.hunger < 15
+        ? `Blocked: food ${Math.round(needs.hunger)}/15. Open Market to eat before starting a shift.`
+        : needs.hydration < 15
+          ? `Blocked: water ${Math.round(needs.hydration)}/15. Open Market to drink before starting a shift.`
+          : null
 
   return (
     <section className="panel" aria-label="Work">
@@ -42,7 +53,13 @@ export default function WorkPanel() {
                   {effectiveWage > job.wage ? `${formatMoney(job.wage)} -> ${formatMoney(effectiveWage)}/h` : `${formatMoney(job.wage)}/h`}
                 </span>
                 {current ? (
-                  <button className="btn small primary" disabled={!!activity} onClick={startShift}>
+                  <button
+                    className="btn small primary"
+                    disabled={!!activity}
+                    title={activity ? 'Busy: finish the current activity before starting a shift.' : shiftBlocker ?? 'Ready: start an 8-hour shift.'}
+                    aria-label={activity ? 'Busy: finish the current activity before starting a shift.' : shiftBlocker ?? 'Ready: start an 8-hour shift.'}
+                    onClick={startShift}
+                  >
                     {activity ? 'Busy' : 'Start shift'}
                   </button>
                 ) : (
