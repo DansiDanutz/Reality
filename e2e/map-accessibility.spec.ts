@@ -75,7 +75,12 @@ test.describe('Semantic map controls', () => {
     await expect(siteButton).toHaveAccessibleName(/Starter House, home construction site\. .*Open Build to continue/)
     await siteButton.focus()
     await page.keyboard.press('Enter')
-    await expect(page.getByRole('dialog', { name: 'Build', exact: true })).toBeVisible()
+    const build = page.getByRole('dialog', { name: 'Build', exact: true })
+    await expect(build).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(siteButton).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(build).toBeVisible()
   })
 
   test('the semantic map list stays within the viewport at 320px', async ({ page }) => {
