@@ -87,7 +87,6 @@ import {
   type ConstructionProject,
   type ConstructionWorkerContract,
   type ConstructionWorkerId,
-  STARTER_HOUSE_RECIPE,
   businessConstructionRecipe,
   completeConstructionProject,
   createConstructionProject,
@@ -99,6 +98,7 @@ import {
   payPermit,
   addConstructionLabor,
   constructionProgress,
+  normalizeConstructionProject,
   totalResourceCount,
 } from '../game/construction'
 import {
@@ -408,21 +408,9 @@ export function migrateSave(persisted: unknown): GameState {
         if (state && !state.servicePois) state.servicePois = []
         if (state && !state.constructionProjects) state.constructionProjects = []
         if (state && state.constructionProjects) {
-          state.constructionProjects = state.constructionProjects.map((project) => ({
-            ...project,
-            itemId: project.itemId ?? STARTER_HOUSE_RECIPE.itemId,
-            resultKind: project.resultKind ?? 'home',
-            incomePerDay: project.incomePerDay ?? 0,
-            hiredLaborMinutes: project.hiredLaborMinutes ?? 0,
-            workerContracts: Array.isArray(project.workerContracts)
-              ? project.workerContracts.map((contract) => ({
-                  ...contract,
-                  source: 'workers-hall' as const,
-                  communityCreditMinutes: contract.communityCreditMinutes ?? 0,
-                  communityCreditValue: contract.communityCreditValue ?? 0,
-                }))
-              : [],
-          }))
+          state.constructionProjects = state.constructionProjects
+            .map((project) => normalizeConstructionProject(project))
+            .filter((project): project is ConstructionProject => project !== null)
         }
         if (state && state.placingConstruction === undefined) state.placingConstruction = null
         if (state && state.selectedMapTarget === undefined) state.selectedMapTarget = null

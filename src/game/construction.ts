@@ -41,6 +41,58 @@ export interface ConstructionProject {
   placedAt: number
 }
 
+/** Normalize persisted projects at the save boundary; malformed projects fail closed. */
+export function normalizeConstructionProject(input: unknown): ConstructionProject | null {
+  if (!input || typeof input !== 'object') return null
+  const value = input as Partial<ConstructionProject>
+  if (typeof value.id !== 'string' || !value.id.trim()) return null
+  if (typeof value.recipeId !== 'string' || !value.recipeId.trim()) return null
+  const finite = (candidate: unknown, fallback: number) => typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : fallback
+  const nonNegative = (candidate: unknown, fallback = 0) => Math.max(0, Math.floor(finite(candidate, fallback)))
+  const lat = finite(value.lat, Number.NaN)
+  const lng = finite(value.lng, Number.NaN)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  const fallbackRequired = value.recipeId === 'starter-house' ? STARTER_HOUSE_RECIPE.required : EMPTY_RESOURCES
+  const normalizeInventory = (candidate: unknown, fallback: ResourceInventory) => {
+    const source = candidate && typeof candidate === 'object' ? candidate as Partial<ResourceInventory> : {}
+    return Object.fromEntries(RESOURCE_KINDS.map((kind) => [kind, nonNegative(source[kind], fallback[kind])])) as ResourceInventory
+  }
+  const status = value.status === 'building' || value.status === 'complete' ? value.status : 'planned'
+  const contracts = Array.isArray(value.workerContracts) ? value.workerContracts.filter((contract): contract is ConstructionWorkerContract => Boolean(contract && typeof contract === 'object' && typeof contract.id === 'string')) : []
+  return {
+    id: value.id,
+    recipeId: value.recipeId as ConstructionRecipeId,
+    name: typeof value.name === 'string' && value.name.trim() ? value.name : 'Construction project',
+    itemId: typeof value.itemId === 'string' && value.itemId.trim() ? value.itemId : STARTER_HOUSE_RECIPE.itemId,
+    resultKind: value.resultKind === 'business' ? 'business' : 'home',
+    lat,
+    lng,
+    required: normalizeInventory(value.required, fallbackRequired),
+    deposited: normalizeInventory(value.deposited, EMPTY_RESOURCES),
+    laborRequiredMinutes: nonNegative(value.laborRequiredMinutes),
+    laborDoneMinutes: nonNegative(value.laborDoneMinutes),
+    hiredLaborMinutes: nonNegative(value.hiredLaborMinutes),
+    workerContracts: contracts.map((contract) => ({
+      ...contract,
+      source: 'workers-hall' as const,
+      hiredAt: finite(contract.hiredAt, 0),
+      paidUntil: finite(contract.paidUntil, 0),
+      paidMinutes: nonNegative(contract.paidMinutes),
+      workedMinutes: nonNegative(contract.workedMinutes),
+      laborMultiplier: nonNegative(contract.laborMultiplier, 1),
+      ratePerHour: nonNegative(contract.ratePerHour),
+      cost: nonNegative(contract.cost),
+      communityCreditMinutes: nonNegative(contract.communityCreditMinutes),
+      communityCreditValue: nonNegative(contract.communityCreditValue),
+    })),
+    permitFee: nonNegative(value.permitFee),
+    permitFeePaid: value.permitFeePaid === true,
+    incomePerDay: finite(value.incomePerDay, 0),
+    status,
+    placedAt: finite(value.placedAt, 0),
+  }
+}
+
 export type ConstructionWorkerId = 'helper' | 'builder' | 'crew'
 export type WorkerContractSource = 'workers-hall'
 
