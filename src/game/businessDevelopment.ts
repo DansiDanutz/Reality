@@ -9,6 +9,7 @@ import {
   RESOURCE_KINDS,
   type ResourceInventory,
   freshResources,
+  resourceInventory,
   resourceShortfall,
 } from './resources'
 import type { PlacedAsset } from './types'
@@ -115,7 +116,8 @@ function normalizeBusinessDevelopmentWorkerContracts(
   return contracts.flatMap((contract, index) => {
     const worker = workerById(contract.workerId as ConstructionWorkerId)
     if (!worker) return []
-    const paidMinutes = Math.max(0, Math.floor(Number(contract.paidMinutes ?? 0)))
+    const safeNumber = (value: unknown, fallback: number) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
+    const paidMinutes = Math.max(0, Math.floor(safeNumber(contract.paidMinutes, 0)))
     if (paidMinutes <= 0) return []
     return [{
       id: String(contract.id ?? `${projectId}:${worker.id}:${index}`),
@@ -125,21 +127,23 @@ function normalizeBusinessDevelopmentWorkerContracts(
       hiredAt: Number.isFinite(contract.hiredAt) ? Number(contract.hiredAt) : Date.now(),
       paidUntil: Number.isFinite(contract.paidUntil) ? Number(contract.paidUntil) : Date.now(),
       paidMinutes,
-      workedMinutes: Math.min(paidMinutes, Math.max(0, Number(contract.workedMinutes ?? 0))),
-      laborMultiplier: Math.max(0, Number(contract.laborMultiplier ?? worker.laborMultiplier)),
-      ratePerHour: Math.max(0, Number(contract.ratePerHour ?? worker.ratePerHour)),
-      cost: Math.max(0, Number(contract.cost ?? worker.ratePerHour * (paidMinutes / 60))),
-      communityCreditMinutes: Math.max(0, Number(contract.communityCreditMinutes ?? 0)),
-      communityCreditValue: Math.max(0, Number(contract.communityCreditValue ?? 0)),
+      workedMinutes: Math.min(paidMinutes, Math.max(0, safeNumber(contract.workedMinutes, 0))),
+      laborMultiplier: Math.max(0, safeNumber(contract.laborMultiplier, worker.laborMultiplier)),
+      ratePerHour: Math.max(0, safeNumber(contract.ratePerHour, worker.ratePerHour)),
+      cost: Math.max(0, safeNumber(contract.cost, worker.ratePerHour * (paidMinutes / 60))),
+      communityCreditMinutes: Math.max(0, safeNumber(contract.communityCreditMinutes, 0)),
+      communityCreditValue: Math.max(0, safeNumber(contract.communityCreditValue, 0)),
     }]
   })
 }
 
 export function normalizeBusinessDevelopmentProject(project: Partial<BusinessDevelopmentProject>): BusinessDevelopmentProject | null {
   if (!project.id || !project.businessId || !project.businessName || !project.itemId) return null
-  const levelFrom = Math.max(1, Math.floor(project.levelFrom ?? 1))
-  const levelTo = Math.max(levelFrom + 1, Math.floor(project.levelTo ?? levelFrom + 1))
-  const laborRequiredMinutes = Math.max(5, Math.floor(project.laborRequiredMinutes ?? 60))
+  const finite = (value: unknown, fallback: number) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  const nonNegative = (value: unknown, fallback = 0) => Math.max(0, Math.floor(finite(value, fallback)))
+  const levelFrom = Math.max(1, nonNegative(project.levelFrom, 1))
+  const levelTo = Math.max(levelFrom + 1, nonNegative(project.levelTo, levelFrom + 1))
+  const laborRequiredMinutes = Math.max(5, nonNegative(project.laborRequiredMinutes, 60))
   return {
     id: String(project.id),
     businessId: String(project.businessId),
@@ -147,18 +151,18 @@ export function normalizeBusinessDevelopmentProject(project: Partial<BusinessDev
     itemId: String(project.itemId),
     levelFrom,
     levelTo,
-    incomeBefore: Math.max(0, Number(project.incomeBefore ?? 0)),
-    incomeAfter: Math.max(0, Number(project.incomeAfter ?? 0)),
-    incomeDelta: Math.max(0, Number(project.incomeDelta ?? 0)),
-    required: freshResources(project.required),
-    deposited: freshResources(project.deposited),
+    incomeBefore: nonNegative(project.incomeBefore),
+    incomeAfter: nonNegative(project.incomeAfter),
+    incomeDelta: nonNegative(project.incomeDelta),
+    required: resourceInventory(project.required),
+    deposited: resourceInventory(project.deposited),
     laborRequiredMinutes,
-    laborDoneMinutes: Math.min(laborRequiredMinutes, Math.max(0, Math.floor(project.laborDoneMinutes ?? 0))),
-    hiredLaborMinutes: Math.max(0, Math.floor(project.hiredLaborMinutes ?? 0)),
+    laborDoneMinutes: Math.min(laborRequiredMinutes, nonNegative(project.laborDoneMinutes)),
+    hiredLaborMinutes: nonNegative(project.hiredLaborMinutes),
     workerContracts: normalizeBusinessDevelopmentWorkerContracts(project.workerContracts, String(project.id)),
-    budgetCost: Math.max(0, Math.floor(project.budgetCost ?? 0)),
+    budgetCost: nonNegative(project.budgetCost),
     budgetPaid: Boolean(project.budgetPaid),
-    startedAt: Number.isFinite(project.startedAt) ? Number(project.startedAt) : Date.now(),
+    startedAt: finite(project.startedAt, Date.now()),
   }
 }
 

@@ -432,6 +432,27 @@ describe('migrateSave - backfills every field added after v1', () => {
     })
   })
 
+  test('malformed business development progress is normalized to finite values', () => {
+    const out = migrateSave({
+      ...v1Save,
+      businessDevelopmentProjects: [{
+        id: 'foodcart-dirty', businessId: 'foodcart-1', businessName: 'Food Cart', itemId: 'foodcart',
+        levelFrom: Number.NaN, levelTo: Number.POSITIVE_INFINITY,
+        required: { wood: Number.NaN, stone: -5 }, deposited: { wood: Number.NaN },
+        laborRequiredMinutes: Number.NaN, laborDoneMinutes: Number.NaN, hiredLaborMinutes: Number.NaN,
+        budgetCost: Number.NaN, incomeBefore: Number.NaN, incomeAfter: Number.NaN, incomeDelta: Number.NaN,
+        workerContracts: [{ workerId: 'helper', paidMinutes: 60, workedMinutes: Number.NaN, laborMultiplier: Number.NaN, cost: Number.NaN }],
+      }],
+    } as never)
+
+    expect(out.businessDevelopmentProjects[0]).toMatchObject({
+      levelFrom: 1, levelTo: 2, required: { wood: 0, stone: 0, metal: 0, glass: 0 },
+      deposited: { wood: 0, stone: 0, metal: 0, glass: 0 }, laborRequiredMinutes: 60,
+      laborDoneMinutes: 0, hiredLaborMinutes: 0, budgetCost: 0,
+      workerContracts: [expect.objectContaining({ paidMinutes: 60, workedMinutes: 0, laborMultiplier: 1, cost: 16 })],
+    })
+  })
+
   test('a citizen with an active illness keeps it', () => {
     const v4Save = {
       ...v1Save,

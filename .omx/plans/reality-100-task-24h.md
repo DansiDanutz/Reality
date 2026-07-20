@@ -185,4 +185,5 @@ Run a measured manual assistive-technology and real-map construction review. Onl
 - Tasks 062, 066, 070: final construction completion attempts now identify the first unmet authoritative gate (materials, permit cash, or labor minutes) with current/required values and the next recovery route.
 - Tasks 061–063 and 087: permit payment blockers now expose current versus required funds and a direct Market recovery route from the authoritative store action.
 - Tasks 052, 062–067, 070, 087: business interior deposits, budgets, work, worker hiring, and completion now share exact current/required blocker evidence and recovery routing while preserving business-development authority.
+- Task 095: business-development migration now rejects no valid project identity and normalizes NaN/negative resources, progress, budgets, incomes, and worker-contract values to finite compatibility-safe state.
 - Remaining tasks continue in dependency order; do not mark the plan complete until release gates and main verification are evidenced.
