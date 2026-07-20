@@ -792,6 +792,23 @@ describe('completed home benefits', () => {
 })
 
 describe('construction worker contracts', () => {
+  test('worker cash blockers expose current versus required funds and Market recovery', () => {
+    const project = createConstructionProject('starter-house', 45, 21, 1_000)
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 1, createdAt: 1_000, citizenId: 'ada', spawnLat: 45, spawnLng: 21 },
+      money: 0,
+      constructionProjects: [{ ...project, deposited: freshResources(project.required), permitFeePaid: true, status: 'building' }],
+      selectedMapTarget: { kind: 'construction', id: project.id },
+      panel: 'construction',
+      toasts: [],
+    })
+
+    useGame.getState().hireConstructionWorker(project.id, 'helper', 1)
+
+    expect(useGame.getState().toasts.at(-1)?.text).toContain('Blocked: worker costs $16; funds $0/$16.')
+    expect(useGame.getState().toasts.at(-1)?.text).toContain('Open Market to earn $16 more.')
+  })
+
   test('a bought business becomes a map construction project before interior development', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))

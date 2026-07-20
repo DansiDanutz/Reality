@@ -2655,8 +2655,8 @@ export const useGame = create<GameState>()(
             ? 'Workers need the materials deposited first.'
             : hired.reason === 'permit'
               ? 'Workers need the permit paid before they build.'
-              : hired.reason === 'money'
-                ? `Need ${formatMoney(hired.cost)} to hire that worker.`
+                : hired.reason === 'money'
+                ? `Blocked: worker costs ${formatMoney(hired.cost)}; funds ${formatMoney(Math.max(0, s.money))}/${formatMoney(hired.cost)}. Open Market to earn ${formatMoney(Math.max(0, hired.cost - s.money))} more.`
                 : hired.reason === 'labor'
                   ? 'Labor is already complete.'
                   : 'That worker is not available.'

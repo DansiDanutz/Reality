@@ -219,13 +219,13 @@ export default function ConstructionPanel() {
                 const estimate = estimateConstructionWorkerHire(activeProject, worker.id, hours, communityCreditMinutes)
                 const canHire = estimate !== null && estimate.blockedBy === null && money >= estimate.cost && estimate.laborMinutes > 0
                 const blocker = estimate?.blockedBy === 'materials'
-                  ? 'deposit materials first'
+                  ? `blocked: deposit ${RESOURCE_KINDS.filter((kind) => (activeProject.deposited[kind] ?? 0) < (activeProject.required[kind] ?? 0)).map((kind) => `${RESOURCE_META[kind].label.toLowerCase()} ${(activeProject.deposited[kind] ?? 0)}/${activeProject.required[kind] ?? 0}`).join(', ')}`
                     : estimate?.blockedBy === 'permit'
-                      ? 'pay permit first'
-                      : estimate?.blockedBy === 'labor'
-                        ? 'labor complete'
+                      ? `blocked: permit unpaid; funds ${formatMoney(money)}/${formatMoney(activeProject.permitFee)}`
+                        : estimate?.blockedBy === 'labor'
+                        ? 'blocked: labor complete; no remaining minutes'
                         : estimate && money < estimate.cost
-                          ? `need ${formatMoney(estimate.cost)}`
+                          ? `blocked: funds ${formatMoney(money)}/${formatMoney(estimate.cost)}`
                           : null
                 const cost = estimate?.cost ?? worker.ratePerHour * hours
                 const laborMinutes = estimate?.laborMinutes ?? Math.round(hours * 60 * worker.laborMultiplier)
@@ -254,9 +254,20 @@ export default function ConstructionPanel() {
                       {hours}h contract = {formatMinutes(laborMinutes)} labor · {formatMoney(cost)} total
                       {communityCreditText ? ` · ${communityCreditText}` : ''}
                     </span>
-                    <button className={canHire ? 'btn small primary' : 'btn small ghost'} disabled={!canHire} onClick={() => hireConstructionWorker(activeProject.id, worker.id, hours)}>
+                    <button
+                      className={canHire ? 'btn small primary' : 'btn small ghost'}
+                      disabled={!canHire}
+                      title={blocker ?? `Hire ${hours}h for ${formatMoney(cost)}`}
+                      aria-label={blocker ?? `Hire ${hours}h for ${formatMoney(cost)}`}
+                      onClick={() => hireConstructionWorker(activeProject.id, worker.id, hours)}
+                    >
                       {blocker ?? `Hire ${hours}h · ${formatMoney(cost)}`}
                     </button>
+                    {estimate && money < estimate.cost && (
+                      <button className="btn small ghost" type="button" onClick={() => openMarket()}>
+                        Open Market to earn {formatMoney(estimate.cost - money)} more
+                      </button>
+                    )}
                   </article>
                 )
               })}
