@@ -152,6 +152,7 @@
 - Deposit recovery clarity: empty construction deposits now expose exact material progress and a direct Map gathering route instead of a generic dead end.
 - Completion recovery clarity: construction completion now reports the first unmet materials, permit, or labor gate with current/required values and direct recovery guidance.
 - Permit recovery clarity: authoritative permit payment now emits current/required funds and a direct Market recovery route when cash is insufficient.
+- Interior recovery clarity: business development actions now expose exact material, budget, labor, and worker-cash blockers with direct recovery guidance.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 

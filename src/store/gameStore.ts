@@ -73,6 +73,8 @@ import {
   addBusinessDevelopmentLabor,
   advanceBusinessDevelopmentWorkerContracts,
   businessDevelopmentProgress,
+  businessDevelopmentShortfall,
+  businessDevelopmentLaborBreakdown,
   completeBusinessDevelopmentProject,
   createBusinessDevelopmentProject,
   depositBusinessDevelopmentResources,
@@ -1048,6 +1050,18 @@ function constructionCompletionBlockerText(project: ConstructionProject, money: 
   if (!progress.permitComplete) return `Blocked: permit unpaid; funds ${formatMoney(Math.max(0, money))}/${formatMoney(project.permitFee)}. Open Market to earn ${formatMoney(Math.max(0, project.permitFee - money))} more.`
   const labor = constructionLaborBreakdown(project)
   return `Blocked: labor ${labor.totalMinutes}/${project.laborRequiredMinutes} minutes. Work at the site or hire Workers Hall help for ${formatLaborMinutes(labor.remainingMinutes)} more.`
+}
+
+function businessDevelopmentBlockerText(project: BusinessDevelopmentProject, money: number): string {
+  const progress = businessDevelopmentProgress(project)
+  if (!progress.resourcesComplete) {
+    const missing = businessDevelopmentShortfall(project)
+    const text = RESOURCE_KINDS.filter((kind) => missing[kind] > 0).map((kind) => `${RESOURCE_META[kind].label.toLowerCase()} ${project.deposited[kind] ?? 0}/${project.required[kind] ?? 0}`).join(', ')
+    return `Blocked: deposit ${text}. Open Map to gather the missing interior materials.`
+  }
+  if (!progress.budgetComplete) return `Blocked: development budget requires ${formatMoney(project.budgetCost)}; funds ${formatMoney(Math.max(0, money))}/${formatMoney(project.budgetCost)}. Open Market to earn ${formatMoney(Math.max(0, project.budgetCost - money))} more.`
+  const labor = businessDevelopmentLaborBreakdown(project)
+  return `Blocked: interior labor ${labor.totalMinutes}/${project.laborRequiredMinutes} minutes. Work inside or hire Workers Hall help for ${formatLaborMinutes(labor.remainingMinutes)} more.`
 }
 
 /**
@@ -2812,7 +2826,7 @@ export const useGame = create<GameState>()(
         const moved = totalResourceCount(out.deposited)
         if (moved <= 0) {
           set({
-            toasts: withToast(s.toasts, 'No matching interior materials to deposit yet.', 'blocked'),
+            toasts: withToast(s.toasts, businessDevelopmentBlockerText({ ...project, deposited: project.deposited }, s.money), 'blocked'),
             selectedMapTarget: { kind: 'asset', id: project.businessId },
             panel: 'business',
           })
@@ -2848,7 +2862,7 @@ export const useGame = create<GameState>()(
         const paid = payBusinessDevelopmentBudget(project, s.money)
         if (!paid.paid) {
           set({
-            toasts: withToast(s.toasts, `Development budget needs ${formatMoney(project.budgetCost)}.`, 'blocked'),
+            toasts: withToast(s.toasts, businessDevelopmentBlockerText(project, s.money), 'blocked'),
             selectedMapTarget: { kind: 'asset', id: project.businessId },
             panel: 'business',
           })
@@ -2890,7 +2904,7 @@ export const useGame = create<GameState>()(
         const progress = businessDevelopmentProgress(project)
         if (!progress.resourcesComplete) {
           set({
-            toasts: withToast(s.toasts, 'Deposit interior materials before work starts.', 'blocked'),
+            toasts: withToast(s.toasts, businessDevelopmentBlockerText(project, s.money), 'blocked'),
             selectedMapTarget: { kind: 'asset', id: project.businessId },
             panel: 'business',
           })
@@ -2898,7 +2912,7 @@ export const useGame = create<GameState>()(
         }
         if (!progress.budgetComplete) {
           set({
-            toasts: withToast(s.toasts, 'Pay the development budget before work starts.', 'blocked'),
+            toasts: withToast(s.toasts, businessDevelopmentBlockerText(project, s.money), 'blocked'),
             selectedMapTarget: { kind: 'asset', id: project.businessId },
             panel: 'business',
           })
@@ -2952,7 +2966,7 @@ export const useGame = create<GameState>()(
             : hired.reason === 'budget'
               ? 'Workers need the development budget paid first.'
               : hired.reason === 'money'
-                ? `Need ${formatMoney(hired.cost)} to hire that worker.`
+                ? `Blocked: interior worker costs ${formatMoney(hired.cost)}; funds ${formatMoney(Math.max(0, s.money))}/${formatMoney(hired.cost)}. Open Market to earn ${formatMoney(Math.max(0, hired.cost - s.money))} more.`
                 : hired.reason === 'labor'
                   ? 'Interior labor is already complete.'
                   : 'That worker is not available.'
@@ -2993,7 +3007,7 @@ export const useGame = create<GameState>()(
         if (!completed.asset || !completed.project) {
           const project = s.businessDevelopmentProjects.find((candidate) => candidate.id === projectId)
           set({
-            toasts: withToast(s.toasts, 'Interior development still needs materials, budget, or labor.', 'blocked'),
+            toasts: withToast(s.toasts, project ? businessDevelopmentBlockerText(project, s.money) : 'Interior development still needs materials, budget, or labor.', 'blocked'),
             selectedMapTarget: project ? { kind: 'asset', id: project.businessId } : s.selectedMapTarget,
             panel: project ? 'business' : s.panel,
           })
