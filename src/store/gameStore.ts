@@ -2525,7 +2525,7 @@ export const useGame = create<GameState>()(
         const moved = totalResourceCount(out.deposited)
         if (moved <= 0) {
           set({
-            toasts: withToast(s.toasts, 'No matching construction materials to deposit yet.', 'blocked'),
+            toasts: withToast(s.toasts, `Blocked: deposit ${constructionMaterialsProgressText(project)}. Open Map to gather the missing materials.`, 'blocked'),
             selectedMapTarget: { kind: 'construction', id: projectId },
             panel: 'construction',
           })

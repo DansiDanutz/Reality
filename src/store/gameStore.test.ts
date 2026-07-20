@@ -995,7 +995,7 @@ describe('construction worker contracts', () => {
     expect(useGame.getState().selectedMapTarget).toEqual({ kind: 'construction', id: project.id })
     expect(useGame.getState().panel).toBe('construction')
     expect(useGame.getState().toasts.at(-1)).toMatchObject({
-      text: 'No matching construction materials to deposit yet.',
+      text: 'Blocked: deposit wood 0/120, stone 0/60, metal 0/20, glass 0/10. Open Map to gather the missing materials.',
       tone: 'blocked',
     })
 

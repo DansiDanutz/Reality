@@ -149,6 +149,7 @@
 - Resource save compatibility hardening: migration now filters malformed resource nodes and normalizes valid node metadata before map and construction consumers read it.
 - Construction save compatibility hardening: migration now drops malformed project identities/coordinates and normalizes persisted construction progress and worker contracts to safe finite values, preserving legacy starter-house defaults.
 - Worker recovery clarity: Workers Hall hire controls now expose exact cash/labor/material/permit blockers and route unaffordable contracts to Market without changing authoritative hire checks.
+- Deposit recovery clarity: empty construction deposits now expose exact material progress and a direct Map gathering route instead of a generic dead end.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
