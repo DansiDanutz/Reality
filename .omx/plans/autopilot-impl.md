@@ -143,6 +143,7 @@
 - First-week hardening tranche (issue #1151): permit blocker controls now expose current/required cash and direct Market recovery; Journey roadmap memoization now tracks all gameplay inputs so its primary action cannot go stale mid-session; 320px mobile coverage proves Escape focus restoration and 44px navigation targets. Remaining risk: manual VoiceOver/NVDA and live-map permit/labor validation remain.
 - Keyboard activation follow-up: map construction controls now prove both Enter and Space activation plus Escape focus restoration in the built-app E2E suite; no production authority boundaries changed.
 - First-week blocker consistency (issue #1154): body-work gates and Market affordability controls now expose exact current/required values in persisted-action feedback and accessible labels across the shared first-week routes.
+- Construction gate consistency: authoritative store toasts now expose material and permit current/required progress, with exact permit shortfall recovery guidance.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
