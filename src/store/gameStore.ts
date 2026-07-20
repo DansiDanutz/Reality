@@ -98,6 +98,7 @@ import {
   payPermit,
   addConstructionLabor,
   constructionProgress,
+  constructionLaborBreakdown,
   normalizeConstructionProject,
   totalResourceCount,
 } from '../game/construction'
@@ -1039,6 +1040,14 @@ function constructionMaterialsProgressText(project: ConstructionProject): string
     .filter((kind) => (project.deposited[kind] ?? 0) < (project.required[kind] ?? 0))
     .map((kind) => `${RESOURCE_META[kind].label.toLowerCase()} ${project.deposited[kind] ?? 0}/${project.required[kind] ?? 0}`)
     .join(', ')
+}
+
+function constructionCompletionBlockerText(project: ConstructionProject, money: number): string {
+  const progress = constructionProgress(project)
+  if (!progress.resourcesComplete) return `Blocked: deposit ${constructionMaterialsProgressText(project)}. Open Map to gather the missing materials.`
+  if (!progress.permitComplete) return `Blocked: permit unpaid; funds ${formatMoney(Math.max(0, money))}/${formatMoney(project.permitFee)}. Open Market to earn ${formatMoney(Math.max(0, project.permitFee - money))} more.`
+  const labor = constructionLaborBreakdown(project)
+  return `Blocked: labor ${labor.totalMinutes}/${project.laborRequiredMinutes} minutes. Work at the site or hire Workers Hall help for ${formatLaborMinutes(labor.remainingMinutes)} more.`
 }
 
 /**
@@ -2696,7 +2705,7 @@ export const useGame = create<GameState>()(
         if (!completed.asset) {
           const project = s.constructionProjects.find((candidate) => candidate.id === projectId)
           set({
-            toasts: withToast(s.toasts, 'Construction still needs materials, labor, or the permit.', 'blocked'),
+            toasts: withToast(s.toasts, project ? constructionCompletionBlockerText(project, s.money) : 'Construction still needs materials, labor, or the permit.', 'blocked'),
             selectedMapTarget: project ? { kind: 'construction', id: projectId } : s.selectedMapTarget,
             panel: project ? 'construction' : s.panel,
           })
