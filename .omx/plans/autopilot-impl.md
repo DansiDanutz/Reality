@@ -145,6 +145,7 @@
 - First-week blocker consistency (issue #1154): body-work gates and Market affordability controls now expose exact current/required values in persisted-action feedback and accessible labels across the shared first-week routes.
 - Construction gate consistency: authoritative store toasts now expose material and permit current/required progress, with exact permit shortfall recovery guidance.
 - Work gate accessibility: Start shift now exposes exact body-readiness accessible labels derived from live state, with browser coverage for hydration blockers.
+- Courier compatibility hardening: scheduler input normalization now prevents malformed age/day values from creating invalid or duplicate package grants.
 
 ## Priority queue — 2026-07-16 audit follow-ups (work these BEFORE further covenant presenter polish)
 
