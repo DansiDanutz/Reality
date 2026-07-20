@@ -302,9 +302,12 @@ export function shouldCreateCourierPackage(args: {
   courierLastDay: number
   completedDays: number[]
 }): CourierPackage | null {
-  if (args.courierLastDay === args.localDay) return null
-  if (args.completedDays.includes(args.citizenAgeDay)) return null
-  return courierPackageForDay(args.citizenAgeDay)
+  const ageDay = Number.isFinite(args.citizenAgeDay) ? Math.max(1, Math.floor(args.citizenAgeDay)) : 0
+  const localDay = Number.isFinite(args.localDay) ? Math.floor(args.localDay) : null
+  const lastDay = Number.isFinite(args.courierLastDay) ? Math.floor(args.courierLastDay) : null
+  if (localDay !== null && lastDay === localDay) return null
+  if (ageDay <= 0 || args.completedDays.some((day) => Number.isFinite(day) && Math.floor(day) === ageDay)) return null
+  return courierPackageForDay(ageDay)
 }
 
 export function courierPackageForLifePlan(citizenAgeDay: number, primary: LifePlanTask, snapshot: CourierSnapshot): CourierPackage | null {

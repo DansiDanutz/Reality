@@ -48,6 +48,21 @@ describe('courierPackages', () => {
     })).toBeNull()
   })
 
+  test('fails safely on malformed scheduler values', () => {
+    expect(shouldCreateCourierPackage({
+      citizenAgeDay: Number.NaN,
+      localDay: Number.NaN,
+      courierLastDay: Number.NaN,
+      completedDays: [1],
+    })).toBeNull()
+    expect(shouldCreateCourierPackage({
+      citizenAgeDay: 1.9,
+      localDay: 20_001,
+      courierLastDay: Number.NaN,
+      completedDays: [2],
+    })?.day).toBe(1)
+  })
+
   test('checks resource and construction requirements', () => {
     const woodDay = courierPackageForDay(4)!
     expect(courierRequirementMet(woodDay, {
