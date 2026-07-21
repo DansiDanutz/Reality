@@ -246,6 +246,19 @@ export default function Market() {
               const courseRemaining = course ? educationRemainingMinutes(course, courseProgress) : 0
               const studyingThis = Boolean(course && activity?.kind === 'study' && activity.courseId === course.id)
               const studyMinutes = course ? nextStudyBlockMinutes(course, courseProgress) : 0
+              const courseActionHint = course
+                ? courseCompleted
+                  ? `${item.name} complete; no further study required.`
+                  : courseEnrolled
+                    ? studyingThis
+                      ? `${item.name} study is in progress.`
+                      : studyMinutes > 0
+                        ? `Study ${item.name} for ${studyMinutes} minutes; remaining course time ${courseRemaining} minutes.`
+                        : `Blocked: ${item.name} has no study block available right now.`
+                    : affordable
+                      ? `Enroll in ${item.name} for ${formatMoney(item.price)}; the next step is studying it.`
+                      : `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.`
+                : undefined
               return (
                 <li className={`card${soldToYou || petOwned || courseEnrolled ? ' owned' : ''}`} key={item.id} title={item.description}>
                   <img
@@ -295,8 +308,8 @@ export default function Market() {
                         <button
                           className={`btn small primary${!courseCompleted && !courseEnrolled && !affordable ? ' blocked' : ''}`}
                           disabled={courseCompleted || (courseEnrolled ? Boolean(activity) || studyMinutes <= 0 : !affordable)}
-                          title={!courseCompleted && !courseEnrolled && !affordable ? `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.` : undefined}
-                          aria-label={!courseCompleted && !courseEnrolled && !affordable ? `Blocked: ${item.name} requires ${formatMoney(item.price)}; current funds are ${formatMoney(Math.max(0, money))}/${formatMoney(item.price)}. Earn ${formatMoney(item.price - money)} more.` : undefined}
+                          title={courseActionHint}
+                          aria-label={courseActionHint}
                           onClick={() => courseEnrolled ? startStudy(course.id) : buy(item.id)}
                         >
                           {courseCompleted ? 'Done' : studyingThis ? 'Studying' : courseEnrolled ? 'Study' : affordable ? 'Enroll' : `Need ${formatMoney(item.price - money)}`}
