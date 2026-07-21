@@ -177,4 +177,6 @@ A scroll-scrubbed "fly through the world" intro (oso95/scroll-world engine, MIT)
 
 ## First autonomous implementation slice
 
+- Care-action blocker clarity (2026-07-21): study and community-help now expose exact body readiness values and recovery routes through the shared blocker presenter.
+
 Create and claim an issue for server-owned ledger genesis. This is smaller than the full area migration, removes a confirmed money-mint path, and establishes the authoritative-registration pattern required by later work.
