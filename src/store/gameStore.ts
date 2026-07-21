@@ -2754,9 +2754,10 @@ export const useGame = create<GameState>()(
           set({ toasts: withToast(s.toasts, `${course.name} is already complete.`, 'sky') })
           return
         }
-        if (s.needs.energy < 15 || s.needs.hunger < 10 || s.needs.hydration < 10 || s.health < 20) {
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 15, hunger: 10, hydration: 10 })
+        if (blocker) {
           set({
-            toasts: withToast(s.toasts, 'Too worn down to study. Eat, drink, and rest first.', 'blocked'),
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, `studying ${course.name}`, s.needs, s.health, { energy: 15, hunger: 10, hydration: 10 }), 'blocked'),
             log: note(s.log, 'Study blocked: your body needs food, water, or rest first.'),
           })
           return
@@ -2785,9 +2786,10 @@ export const useGame = create<GameState>()(
         if (s.activity) return
         const action = communityActionById(actionId)
         if (!action) return
-        if (s.needs.energy < 15 || s.needs.hunger < 10 || s.needs.hydration < 10 || s.health < 20) {
+        const blocker = bodyWorkBlocker(s.needs, s.health, { energy: 15, hunger: 10, hydration: 10 })
+        if (blocker) {
           set({
-            toasts: withToast(s.toasts, 'Too worn down to help well. Eat, drink, and rest first.', 'blocked'),
+            toasts: withToast(s.toasts, bodyWorkBlockerText(blocker, `helping with ${action.title.toLowerCase()}`, s.needs, s.health, { energy: 15, hunger: 10, hydration: 10 }), 'blocked'),
             log: note(s.log, 'Community action blocked: your body needs food, water, or rest first.'),
           })
           return
