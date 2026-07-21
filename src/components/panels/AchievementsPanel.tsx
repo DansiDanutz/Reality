@@ -255,7 +255,7 @@ function CommunityBoard({
 }) {
   return (
     <div className="daily-challenges community-board" aria-label="Community board">
-      <header className="daily-head">
+      <header className="daily-head" role="status" aria-live="polite">
         <span className="daily-title">🤝 Community board</span>
         <span className="daily-count mono">{community.actionsThisWeek}/3 this week</span>
       </header>
@@ -365,7 +365,11 @@ function DailyChallengesBlock({
           const pct = Math.min(100, Math.round((prog.current / prog.target) * 100))
           const r = challengeRewardFor(c, context)
           return (
-            <li key={c.id} className={`daily-item${isClaimed || prog.complete ? ' complete' : ''}`}>
+            <li
+              key={c.id}
+              className={`daily-item${isClaimed || prog.complete ? ' complete' : ''}`}
+              aria-label={`${c.label}: ${prog.current} of ${prog.target}; ${isClaimed || prog.complete ? 'complete' : `earn ${formatMoney(r.cash)} when complete`}`}
+            >
               <div className="daily-item-label">
                 <span className="daily-item-mark" aria-hidden>{isClaimed || prog.complete ? '✓' : '○'}</span>
                 <span className="daily-item-text">{c.label}</span>

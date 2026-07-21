@@ -122,7 +122,7 @@ export default function JourneyPanel() {
         <span className="journey-today-detail">
           {today.primary.detail} · {formatPlanMinutes(today.primary.minutes)}
         </span>
-        <button className="btn primary" onClick={doToday} disabled={today.primary.route.kind === 'none'}>
+        <button className="btn primary" onClick={doToday} disabled={today.primary.route.kind === 'none'} aria-label={`Do today's step: ${today.primary.title}. ${today.primary.detail}. ${formatPlanMinutes(today.primary.minutes)}.`}>
           Do today's step
         </button>
         {activeCourierPackage && courierProgress && (

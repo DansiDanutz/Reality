@@ -192,7 +192,7 @@ export default function GoalsCard() {
         className="goals-card"
       aria-label={`Today plan: ${lifePlan.primary.title}. Path stage ${stageProgress.current} of ${stageProgress.total}: ${stageProgress.label}. ${activeEta ? `${activeEta}. ` : ''}Routine: ${routineSummary}. ${done} of ${total} daily challenges done${streakLength >= 2 ? `, ${streakLength}-day streak` : ''}.`}
     >
-      <button type="button" className="goals-card-main" onClick={openPrimary}>
+      <button type="button" className="goals-card-main" onClick={openPrimary} aria-label={`Today primary action: ${lifePlan.primary.title}. ${lifePlan.primary.detail}. ${formatPlanMinutes(lifePlan.primary.minutes)}.`}>
         <header className="goals-card-head">
           <span className="goals-card-title">🎯 Today</span>
           {streakLength >= 2 && (
