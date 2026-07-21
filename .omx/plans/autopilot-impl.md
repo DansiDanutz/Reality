@@ -178,5 +178,6 @@ A scroll-scrubbed "fly through the world" intro (oso95/scroll-world engine, MIT)
 ## First autonomous implementation slice
 
 - Care-action blocker clarity (2026-07-21): study and community-help now expose exact body readiness values and recovery routes through the shared blocker presenter.
+- Community/education accessibility pass (2026-07-21): Community Board and Market education controls now expose descriptive accessible labels and linked descriptions for duration, rewards, progress, completion, busy, and affordability states.
 
 Create and claim an issue for server-owned ledger genesis. This is smaller than the full area migration, removes a confirmed money-mint path, and establishes the authoritative-registration pattern required by later work.

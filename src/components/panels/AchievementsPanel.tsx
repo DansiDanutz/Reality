@@ -285,12 +285,19 @@ function CommunityBoard({
               <span className="daily-item-text">{action.title}</span>
               <span className="daily-item-difficulty">{action.minutes}m</span>
             </div>
-            <p className="ach-detail">{action.detail}</p>
+            <p className="ach-detail" id={`community-action-${action.id}-detail`}>{action.detail}</p>
             <div className="ach-foot">
               <span className="ach-reward mono">
                 +{action.rewards.respect} respect · +{action.rewards.friendship} friendship · +{action.rewards.trust} trust · +{action.rewards.xp} XP
               </span>
-              <button className={busy ? 'btn small ghost' : 'btn small primary'} disabled={busy} onClick={() => onStart(action.id)}>
+              <button
+                className={busy ? 'btn small ghost' : 'btn small primary'}
+                disabled={busy}
+                aria-describedby={`community-action-${action.id}-detail`}
+                aria-label={`${active ? 'Helping now' : busy ? 'Busy' : `Start ${action.title}`} — ${action.minutes} minutes; rewards ${action.rewards.respect} respect, ${action.rewards.friendship} friendship, ${action.rewards.trust} trust, and ${action.rewards.xp} XP`}
+                title={busy ? 'Blocked: finish the current activity before starting community help.' : undefined}
+                onClick={() => onStart(action.id)}
+              >
                 {active ? 'Helping now' : busy ? 'Busy' : 'Start'}
               </button>
             </div>

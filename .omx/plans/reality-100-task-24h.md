@@ -187,4 +187,5 @@ Run a measured manual assistive-technology and real-map construction review. Onl
 - Tasks 052, 062–067, 070, 087: business interior deposits, budgets, work, worker hiring, and completion now share exact current/required blocker evidence and recovery routing while preserving business-development authority.
 - Task 095: business-development migration now rejects no valid project identity and normalizes NaN/negative resources, progress, budgets, incomes, and worker-contract values to finite compatibility-safe state.
 - Tasks 026, 029, 087: study and community-help body gates now expose exact current/required health, energy, food, and water values with Market/Status recovery guidance.
+- Tasks 081–087: Community Board actions now expose descriptive accessible names, reward/duration descriptions, busy-state titles, and linked action detail; Market education actions now describe enrollment, study progress, completion, and affordability states accessibly.
 - Remaining tasks continue in dependency order; do not mark the plan complete until release gates and main verification are evidenced.
