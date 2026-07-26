@@ -9,7 +9,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   const h = req.headers
   const lat = Number(h['x-vercel-ip-latitude'])
   const lng = Number(h['x-vercel-ip-longitude'])
-  const city = h['x-vercel-ip-city'] ? decodeURIComponent(String(h['x-vercel-ip-city'])) : undefined
+  const city = decodeCity(h['x-vercel-ip-city'])
   const country = h['x-vercel-ip-country'] ? String(h['x-vercel-ip-country']) : undefined
 
   // Per-visitor data — must never be cached by the CDN
@@ -20,6 +20,15 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
   res.status(200).json({ ok: true, city, country, lat, lng })
+}
+
+function decodeCity(value: string | string[] | undefined): string | undefined {
+  if (!value) return undefined
+  try {
+    return decodeURIComponent(String(value))
+  } catch {
+    return undefined
+  }
 }
 
 function isLatitude(value: number): boolean {

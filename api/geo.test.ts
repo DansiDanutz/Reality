@@ -10,7 +10,7 @@ describe('geo API', () => {
       headers: {
         'x-vercel-ip-latitude': '44.45',
         'x-vercel-ip-longitude': '26.08',
-        'x-vercel-ip-city': 'Bucharest',
+        'x-vercel-ip-city': 'Bucure%C8%99ti',
         'x-vercel-ip-country': 'RO',
       },
     } as never, res as never)
@@ -19,7 +19,7 @@ describe('geo API', () => {
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({
       ok: true,
-      city: 'Bucharest',
+      city: 'București',
       country: 'RO',
       lat: 44.45,
       lng: 26.08,
@@ -41,6 +41,29 @@ describe('geo API', () => {
       expect(res.statusCode).toBe(200)
       expect(res.body).toEqual({ ok: false })
     }
+  })
+
+  test('keeps valid coordinates when the city header has malformed encoding', () => {
+    const res = responseRecorder()
+
+    expect(() => handler({
+      method: 'GET',
+      headers: {
+        'x-vercel-ip-latitude': '44.45',
+        'x-vercel-ip-longitude': '26.08',
+        'x-vercel-ip-city': 'Bucharest%2',
+        'x-vercel-ip-country': 'RO',
+      },
+    } as never, res as never)).not.toThrow()
+
+    expect(res.headers).toEqual({ 'Cache-Control': 'private, no-store' })
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toEqual({
+      ok: true,
+      country: 'RO',
+      lat: 44.45,
+      lng: 26.08,
+    })
   })
 })
 
