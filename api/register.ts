@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { trustedClientIp } from './_clientIp.js'
 import { db } from './_db.js'
 import {
   FOUNDER_SLOTS,
@@ -100,8 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // forwarded chain is available, use the rightmost hop rather than the
     // leftmost client-controlled value, so rotating XFF prefixes cannot mint
     // a fresh rate-limit key on every request.
-    const forwarded = req.headers['x-vercel-forwarded-for'] ?? req.headers['x-real-ip'] ?? req.headers['x-forwarded-for'] ?? 'unknown'
-    const ip = (Array.isArray(forwarded) ? forwarded.at(-1) : String(forwarded).split(',').at(-1))?.trim() || 'unknown'
+    const ip = trustedClientIp(req.headers ?? {})
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
     const day = registeredAt.toISOString().slice(0, 10)
     try {

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { claimOverpassSlot } from './_overpassPg.js'
+import { trustedClientIp } from './_clientIp.js'
 
 /**
  * Same-origin proxy for OpenStreetMap Overpass discovery queries. The
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const ip = String(req.headers?.['x-forwarded-for'] ?? req.headers?.['x-real-ip'] ?? 'unknown').split(',')[0].trim() || 'unknown'
+  const ip = trustedClientIp(req.headers ?? {})
   if (!admitIp(ip)) {
     res.setHeader('Retry-After', '60')
     res.status(429).json({ ok: false, error: 'Map discovery is temporarily rate-limited. Try again shortly.', code: 'overpass_rate_limited' })

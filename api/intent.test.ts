@@ -351,8 +351,8 @@ describe('intent API handler', () => {
 
     expect(res.statusCode).toBe(500)
     expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining(CITIZEN_ID),
-      expect.any(Error),
+      'intent: append failed',
+      { citizenId: CITIZEN_ID, intent: 'workShift', errorType: 'Error' },
     )
   })
 

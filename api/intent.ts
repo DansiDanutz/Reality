@@ -255,7 +255,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     res.status(200).json(body)
   } catch (error) {
-    console.error(`intent: append failed for citizen ${citizenId} (${normalized.intent.type})`, error)
+    console.error('intent: append failed', {
+      citizenId,
+      intent: normalized.intent.type,
+      errorType: error instanceof Error ? error.name : typeof error,
+    })
     res.status(500).json({ ok: false, error: 'The economy is briefly unavailable.' })
   }
 }

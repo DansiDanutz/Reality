@@ -27,6 +27,16 @@ function stubPg() {
 }
 
 describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
+  test('rejects ignored query variants before authoritative world reads', async () => {
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { cacheBust: 'random' } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Query parameters are not allowed.' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('serves the shared map from the assets table with founder stats', async () => {
     stubPg()
     pgQueryMock

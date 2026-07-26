@@ -28,6 +28,10 @@ type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unk
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
+    if (Object.keys(req.query ?? {}).length > 0) {
+      res.status(400).json({ ok: false, error: 'Query parameters are not allowed.' })
+      return
+    }
     try {
       const sql = db() as unknown as SqlClient
       // Join the owner's display name (public — it's on the leaderboard) so the
@@ -155,7 +159,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(422).json({ ok: false, error: 'Buy this placeable asset before placing it.', code: 'inventory_required' })
       return
     }
-    console.error(`world: placement failed for citizen ${String(citizenId)}`, error)
+    console.error('world: placement failed', {
+      citizenId: String(citizenId),
+      errorType: error instanceof Error ? error.name : typeof error,
+    })
     res.status(500).json({ ok: false, error: 'The world is briefly unavailable.' })
   }
 }

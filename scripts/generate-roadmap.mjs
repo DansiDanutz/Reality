@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { parseAchievementsSource } from './roadmap-achievements.mjs'
 
 const root = process.cwd()
 const outFile = path.join(root, 'public', 'roadmap.html')
@@ -49,21 +50,7 @@ const parsePlan = () => {
 
 const parseAchievements = () => {
   const source = read('src/game/achievements.ts')
-  const pattern =
-    /id:\s*'((?:\\.|[^'])*)'[\s\S]*?title:\s*'((?:\\.|[^'])*)'[\s\S]*?detail:\s*'((?:\\.|[^'])*)'[\s\S]*?category:\s*'((?:\\.|[^'])*)'[\s\S]*?tier:\s*'((?:\\.|[^'])*)'[\s\S]*?xp:\s*([\d_]+)[\s\S]*?bounty:\s*([\d_]+)/g
-  const achievements = []
-  for (const match of source.matchAll(pattern)) {
-    achievements.push({
-      id: match[1].replaceAll("\\'", "'"),
-      title: match[2].replaceAll("\\'", "'"),
-      detail: match[3].replaceAll("\\'", "'"),
-      category: match[4],
-      tier: match[5],
-      xp: Number(match[6].replaceAll('_', '')),
-      bounty: Number(match[7].replaceAll('_', '')),
-    })
-  }
-  return achievements
+  return parseAchievementsSource(source)
 }
 
 const countCatalog = () => {

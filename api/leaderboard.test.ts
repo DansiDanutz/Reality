@@ -28,6 +28,16 @@ afterEach(() => {
 })
 
 describe('leaderboard API reads (Postgres-authoritative since Phase 1b.6)', () => {
+  test('rejects ignored query variants before authoritative leaderboard reads', async () => {
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { cacheBust: 'random' } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Query parameters are not allowed.' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('ranks the scores table by capped worth and exposes a bounded top list', async () => {
     stubPg()
     pgQueryMock

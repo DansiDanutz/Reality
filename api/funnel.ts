@@ -23,6 +23,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
+  if (Object.keys(req.query ?? {}).length > 0) {
+    res.status(400).json({ ok: false, error: 'Query parameters are not allowed.' })
+    return
+  }
   try {
     const counts = await Promise.all(FUNNEL_EVENTS.map((e) => countPrefix(`funnel/${e}/`)))
     const funnel = FUNNEL_EVENTS.map((event, i) => ({ event, uniques: counts[i] }))

@@ -12,6 +12,16 @@ afterEach(() => {
 })
 
 describe('funnel API', () => {
+  test('rejects ignored query variants before expensive aggregate reads', async () => {
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { cacheBust: 'random' } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Query parameters are not allowed.' })
+    expect(list).not.toHaveBeenCalled()
+  })
+
   test('counts every configured funnel event in journey order', async () => {
     vi.mocked(list).mockImplementation(async ({ prefix }) => {
       const eventIndex = FUNNEL_EVENTS.findIndex((event) => prefix === `funnel/${event}/`)
