@@ -13,7 +13,7 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # releases/v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # releases/v7.0.1
         with:
           fetch-depth: 0
           # With a fine-grained PAT in ROADMAP_PUSH_TOKEN (contents+PRs write),
