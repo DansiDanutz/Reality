@@ -20,6 +20,10 @@ type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unk
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
+    if (Object.keys(req.query ?? {}).length > 0) {
+      res.status(400).json({ ok: false, error: 'Query parameters are not allowed.' })
+      return
+    }
     try {
       const sql = db() as unknown as SqlClient
       const rows = (await sql.query(
@@ -98,7 +102,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
     res.status(200).json({ ok: true })
   } catch (error) {
-    console.error(`leaderboard: submission failed for citizen ${String(citizenId)}`, error)
+    console.error('leaderboard: submission failed', {
+      citizenId: String(citizenId),
+      errorType: error instanceof Error ? error.name : typeof error,
+    })
     res.status(500).json({ ok: false, error: 'The leaderboard is briefly unavailable.' })
   }
 }

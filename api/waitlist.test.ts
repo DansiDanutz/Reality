@@ -30,6 +30,16 @@ afterEach(() => {
 })
 
 describe('founder waitlist API', () => {
+  test('rejects ignored query variants before listing the waitlist', async () => {
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { cacheBust: 'random' } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'Query parameters are not allowed.' })
+    expect(list).not.toHaveBeenCalled()
+  })
+
   test('returns signup count with manual founder replacement gates', async () => {
     vi.mocked(list)
       .mockResolvedValueOnce(blobList(['waitlist/a.json', 'waitlist/b.json'], true, 'page-2'))

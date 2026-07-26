@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { trustedClientIp } from './_clientIp'
 import handler, { buildDiscoveryQuery } from './overpass'
 import { buildDiscoveryQuery as clientBuildDiscoveryQuery } from '../src/game/mapDiscovery'
 
@@ -7,6 +8,16 @@ afterEach(() => {
 })
 
 describe('overpass proxy API', () => {
+  test('keys admission on Vercel trusted forwarding data and the rightmost fallback hop', () => {
+    expect(trustedClientIp({
+      'x-vercel-forwarded-for': 'spoofed-prefix, 203.0.113.10',
+      'x-forwarded-for': 'attacker-controlled-ip',
+    })).toBe('203.0.113.10')
+    expect(trustedClientIp({
+      'x-forwarded-for': 'spoofed-prefix, 203.0.113.11',
+    })).toBe('203.0.113.11')
+  })
+
   test('applies a warm-instance per-IP admission brake before upstream work', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ elements: [] }), { status: 200 }) as never)
     for (let attempt = 0; attempt < 12; attempt++) {

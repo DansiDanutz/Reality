@@ -27,6 +27,10 @@ const FOUNDER_WAITLIST_POLICY = {
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
+    if (Object.keys(req.query ?? {}).length > 0) {
+      res.status(400).json({ ok: false, error: 'Query parameters are not allowed.' })
+      return
+    }
     try {
       let count = 0
       let cursor: string | undefined

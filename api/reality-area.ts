@@ -2070,7 +2070,12 @@ export async function verifyCitizen(
   const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
   const sql = db() as unknown as { query: (statement: string, params?: unknown[]) => Promise<unknown> }
   const rows = (await sql.query(
-    'SELECT founder_number, raw FROM citizens WHERE citizen_id = $1 AND token_hash = $2 LIMIT 1',
+    `SELECT founder_number, raw FROM citizens
+     WHERE citizen_id = $1
+       AND token_hash = $2
+       AND token_revoked_at IS NULL
+       AND (token_expires_at IS NULL OR token_expires_at > now())
+     LIMIT 1`,
     [citizenId, tokenHash],
   )) as Array<{ founder_number: number | null; raw: unknown }>
   const row = rows[0]

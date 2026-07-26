@@ -325,6 +325,8 @@ describe('reality area authority API', () => {
     })
     const [statement, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
     expect(statement).toMatch(/FROM citizens/i)
+    expect(statement).toMatch(/token_revoked_at IS NULL/i)
+    expect(statement).toMatch(/token_expires_at IS NULL OR token_expires_at > now\(\)/i)
     expect(params).toEqual([CITIZEN_ID, TOKEN_HASH])
   })
 

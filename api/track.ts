@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { trustedClientIp } from './_clientIp.js'
 import { FUNNEL_EVENTS } from './funnelEvents.js'
 
 const FUNNEL_EVENT_SET = new Set<string>(FUNNEL_EVENTS)
@@ -24,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Bot brake: a real person crosses at most a dozen milestones, ever
-    const ip = String(req.headers['x-forwarded-for'] ?? req.headers['x-real-ip'] ?? 'unknown').split(',')[0].trim()
+    const ip = trustedClientIp(req.headers ?? {})
     const ipHash = createHash('sha256').update(ip).digest('hex').slice(0, 16)
     const day = new Date().toISOString().slice(0, 10)
     const recent = await list({ prefix: `trackip/${ipHash}__${day}`, limit: 41 })
