@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
 import { db } from './_db.js'

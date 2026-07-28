@@ -1,5 +1,5 @@
 import { get, put } from '@vercel/blob'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { claimAvatarGenerationPg, verifyCitizenPg } from './_registry.js'
 import { db } from './_db.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'

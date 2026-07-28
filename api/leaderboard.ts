@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
 import { citizenScoreProfilePg, maxPlausibleWorth, maxReconciledWorth, writeScore } from './_scoresPg.js'

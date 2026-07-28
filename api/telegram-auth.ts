@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const FOUNDER_SEAT_LIMIT = 2_000

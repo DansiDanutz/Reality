@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { itemById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'

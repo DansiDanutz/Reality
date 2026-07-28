@@ -1,5 +1,5 @@
 import { list, put } from '@vercel/blob'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { verifyCitizenPg } from './_registry.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
 import { readCloudSnapshotPg } from './_cloudSavePg.js'

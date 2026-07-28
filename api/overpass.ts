@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { claimOverpassSlot } from './_overpassPg.js'
 import { trustedClientIp } from './_clientIp.js'
 

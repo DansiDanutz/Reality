@@ -41,6 +41,17 @@ describe('api/ ESM import graph', () => {
     .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
     .map((name) => resolve(ROOT, 'api', name))
 
+  test('keeps Vercel request types local and out of the runtime dependency graph', () => {
+    const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
+      devDependencies?: Record<string, string>
+    }
+
+    expect(packageJson.devDependencies?.['@vercel/node']).toBeUndefined()
+    for (const entrypoint of entrypoints) {
+      expect(readFileSync(entrypoint, 'utf8')).not.toContain("from '@vercel/node'")
+    }
+  })
+
   test('every relative value import reachable from api/ carries a .js extension', () => {
     const queue = [...entrypoints]
     const seen = new Set<string>()
