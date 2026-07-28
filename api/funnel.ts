@@ -1,5 +1,5 @@
 import { list } from '@vercel/blob'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { FUNNEL_EVENTS } from './funnelEvents.js'
 
 async function countPrefix(prefix: string): Promise<number> {

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 
 /**
  * Beta error telemetry. POST {message, stack?, path?} records one blob per

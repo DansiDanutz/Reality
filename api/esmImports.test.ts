@@ -16,6 +16,14 @@ import { describe, expect, test } from 'vitest'
 
 const ROOT = resolve(__dirname, '..')
 
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(directory, entry.name)
+    if (entry.isDirectory()) return sourceFiles(path)
+    return /\.[cm]?[jt]sx?$/.test(entry.name) ? [path] : []
+  })
+}
+
 // Catches `import ... from` AND `export ... from` — re-exports survive
 // compilation identically and would break the same way.
 const IMPORT_RE = /^(?:import|export)\s+(type\s+)?[\s\S]*?from\s+['"]([^'"]+)['"]/gm
@@ -40,6 +48,33 @@ describe('api/ ESM import graph', () => {
   const entrypoints = readdirSync(resolve(ROOT, 'api'))
     .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
     .map((name) => resolve(ROOT, 'api', name))
+
+  test('keeps Vercel request types local and out of the runtime dependency graph', () => {
+    const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+      optionalDependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
+    }
+
+    for (const dependencies of [
+      packageJson.dependencies,
+      packageJson.devDependencies,
+      packageJson.optionalDependencies,
+      packageJson.peerDependencies,
+    ]) {
+      expect(dependencies?.['@vercel/node']).toBeUndefined()
+    }
+    const projectSources = [
+      ...sourceFiles(resolve(ROOT, 'api')),
+      ...sourceFiles(resolve(ROOT, 'src')),
+    ]
+    const vercelNodeImport =
+      /(?:from|import\s*)\s*['"]@vercel\/node(?:\/[^'"]*)?['"]|require\(\s*['"]@vercel\/node(?:\/[^'"]*)?['"]\s*\)/
+    for (const sourceFile of projectSources) {
+      expect(readFileSync(sourceFile, 'utf8')).not.toMatch(vercelNodeImport)
+    }
+  })
 
   test('every relative value import reachable from api/ carries a .js extension', () => {
     const queue = [...entrypoints]

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 
 export const SESSION_COOKIE = 'reality_session'
 export const CSRF_COOKIE = 'reality_csrf'

@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { db } from './_db.js'
 import { revokeCitizenTokenPg, verifyCitizenPg } from './_registry.js'
 import { clearSessionCookies, csrfMatches, sessionFromCookie } from './_session.js'

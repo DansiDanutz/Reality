@@ -1,4 +1,4 @@
-import type { VercelRequest } from '@vercel/node'
+import type { VercelRequest } from './_vercel.js'
 
 /**
  * Resolve the least client-controllable address at the Vercel edge.

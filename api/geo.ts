@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { VercelRequest, VercelResponse } from './_vercel.js'
 
 /**
  * Where is this player, really? Vercel attaches the visitor's IP geolocation
