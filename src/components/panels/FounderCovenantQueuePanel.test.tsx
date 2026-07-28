@@ -6,22 +6,6 @@ import type {
 } from '../../lib/realityArea'
 import { FounderCovenantQueuePanel } from './FounderCovenantQueuePanel'
 import {
-  founderCovenantOperatorQueueActivitySignalText,
-  founderCovenantOperatorQueueCadenceText,
-  founderCovenantOperatorQueueEconomicExposureText,
-  founderCovenantOperatorQueueItemDateSummary,
-  founderCovenantOperatorQueueItemStatusClass,
-  founderCovenantOperatorQueueItemStatusLabel,
-  founderCovenantOperatorQueueItemTitle,
-  founderCovenantOperatorQueueApprovalRequestText,
-  founderCovenantOperatorQueueChecklistText,
-  founderCovenantOperatorQueueEvidenceInputText,
-  founderCovenantOperatorQueueManualActionText,
-  founderCovenantOperatorQueueNotificationDraftText,
-  founderCovenantOperatorQueueReviewReadinessText,
-  founderCovenantOperatorQueueStageText,
-  founderCovenantOperatorQueuePriorityReasons,
-  founderCovenantOperatorQueuePriorityScore,
   founderCovenantOperatorQueueReviewRows,
 } from './founderAreaPanelView'
 
@@ -118,43 +102,46 @@ describe('FounderCovenantQueuePanel', () => {
         score: 91,
       },
     })
+    const [manualRow] = founderCovenantOperatorQueueReviewRows({ items: [manual] })
+    const [watchRow] = founderCovenantOperatorQueueReviewRows({ items: [watch] })
+    const [trackedRow] = founderCovenantOperatorQueueReviewRows({ items: [tracked] })
 
-    expect(founderCovenantOperatorQueueItemTitle(manual)).toBe('#0012 · Bucharest Founder Block')
-    expect(founderCovenantOperatorQueueItemStatusClass(manual)).toBe('manual_review')
-    expect(founderCovenantOperatorQueueItemStatusLabel(manual)).toBe('Manual')
-    expect(founderCovenantOperatorQueueItemStatusClass(watch)).toBe('watch')
-    expect(founderCovenantOperatorQueueItemStatusLabel(watch)).toBe('Due')
-    expect(founderCovenantOperatorQueueItemStatusClass(tracked)).toBe('met')
-    expect(founderCovenantOperatorQueueItemStatusLabel(tracked)).toBe('Tracked')
-    expect(founderCovenantOperatorQueueItemDateSummary(manual)).toBe(
+    expect(manualRow.title).toBe('#0012 · Bucharest Founder Block')
+    expect(manualRow.statusClass).toBe('manual_review')
+    expect(manualRow.statusLabel).toBe('Manual')
+    expect(watchRow.statusClass).toBe('watch')
+    expect(watchRow.statusLabel).toBe('Due')
+    expect(trackedRow.statusClass).toBe('met')
+    expect(trackedRow.statusLabel).toBe('Tracked')
+    expect(manualRow.dateSummary).toBe(
       'caught up · checked 2026-07-06 · last none · weekly 2026-07-12 · monthly 2026-08-05',
     )
-    expect(founderCovenantOperatorQueueCadenceText(manual)).toBe(
+    expect(manualRow.cadenceText).toBe(
       'weekly due · monthly 2026-08-05 · overdue · automation disabled',
     )
-    expect(founderCovenantOperatorQueueActivitySignalText(manual)).toBe(
+    expect(manualRow.activitySignalText).toBe(
       'Manual: Active no, Hospitalized yes, At risk yes · Watch: Useful no, Staffed no, Indebted yes · Met: Building yes',
     )
-    expect(founderCovenantOperatorQueueEconomicExposureText(manual)).toBe(
+    expect(manualRow.economicExposureText).toBe(
       'Founder $199,500 · debt $350 (1) · businesses 2 / $25 · unstaffed 1 · uninsured · hospitalized · game credits only',
     )
-    expect(founderCovenantOperatorQueueStageText(manual)).toBe(
+    expect(manualRow.stageText).toBe(
       'Suggested: Warning · Locked: Active, Probation, Removed, Waitlist replacement',
     )
-    expect(founderCovenantOperatorQueueReviewReadinessText(manual)).toBe(
+    expect(manualRow.reviewReadinessText).toBe(
       'Blocked: 3 approval blockers before enforcement. · 3 evidence gaps, 1 approval request, 3 blockers, overdue',
     )
-    expect(founderCovenantOperatorQueueChecklistText(manual)).toBe(
+    expect(manualRow.checklistText).toBe(
       'Manual: Active, Hospital, At risk · Watch: Useful, Staffed, Debt',
     )
-    expect(founderCovenantOperatorQueueEvidenceInputText(manual)).toBe(
+    expect(manualRow.evidenceInputText).toBe(
       'Population growth, External contribution, Ideas and feedback',
     )
-    expect(founderCovenantOperatorQueueManualActionText(manual)).toBe(
+    expect(manualRow.manualActionText).toBe(
       'Record review evidence-only, Send warning locked',
     )
-    expect(founderCovenantOperatorQueueApprovalRequestText(manual)).toBe('Send warning locked (2 blockers)')
-    expect(founderCovenantOperatorQueueNotificationDraftText(manual)).toBe('Manual review locked (Telegram)')
+    expect(manualRow.approvalRequestText).toBe('Send warning locked (2 blockers)')
+    expect(manualRow.notificationDraftText).toBe('Manual review locked (Telegram)')
   })
 
   test('orders founder covenant review rows by manual triage priority', () => {
@@ -240,13 +227,11 @@ describe('FounderCovenantQueuePanel', () => {
     })
 
     expect(rows.map((row) => row.founderCitizenId)).toEqual(['founder-12', 'founder-13', 'founder-11'])
-    expect(founderCovenantOperatorQueuePriorityScore(manual)).toBeGreaterThan(
-      founderCovenantOperatorQueuePriorityScore(watch),
-    )
-    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('population proof missing')
-    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('contribution proof missing')
-    expect(founderCovenantOperatorQueuePriorityReasons(manual)).toContain('ideas proof missing')
-    expect(founderCovenantOperatorQueuePriorityReasons(tracked)).toEqual(['tracked'])
+    expect(rows[0]!.priorityScore).toBeGreaterThan(rows[1]!.priorityScore)
+    expect(rows[0]!.priorityReasons).toContain('population proof missing')
+    expect(rows[0]!.priorityReasons).toContain('contribution proof missing')
+    expect(rows[0]!.priorityReasons).toContain('ideas proof missing')
+    expect(rows[2]!.priorityReasons).toEqual(['tracked'])
   })
 
   test('renders an empty page as evidence-only review state', () => {

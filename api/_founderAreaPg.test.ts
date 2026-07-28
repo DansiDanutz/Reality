@@ -42,6 +42,14 @@ describe('Founder Area Postgres repository adapter', () => {
     expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_SELECT_SQL, ['citizen-1'])
   })
 
+  test('returns null when no revisioned snapshot exists', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([])
+
+    await expect(readFounderAreaPg('citizen-1')).resolves.toBeNull()
+    expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_SELECT_SQL, ['citizen-1'])
+  })
+
   test('saves through the database CAS function and returns the new revision', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     queryMock.mockResolvedValueOnce([{ revision: '5' }])
@@ -52,6 +60,16 @@ describe('Founder Area Postgres repository adapter', () => {
     expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_SAVE_SQL, [
       'citizen-1', 'founder-area-0001', 4, JSON.stringify({ balance: 11 }), null, '2026-07-15T10:01:00.000Z',
     ])
+  })
+
+  test('throws when the CAS save does not return a revision', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([{}])
+
+    await expect(saveFounderAreaPg({
+      citizenId: 'citizen-1', areaId: 'founder-area-0001', simulationAt: null,
+      updatedAt: '2026-07-15T10:01:00.000Z', state: { balance: 11 },
+    }, 4)).rejects.toThrow('founder_area_revision_missing')
   })
 
   test('lists authoritative Postgres areas with a stable cursor', async () => {
@@ -65,5 +83,15 @@ describe('Founder Area Postgres repository adapter', () => {
       citizenIds: ['citizen-1', 'citizen-2'], hasMore: true, nextCursor: 'citizen-2',
     })
     expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_LIST_SQL, [3, ''])
+  })
+
+  test('omits the next cursor on the final Postgres list page', async () => {
+    vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+    queryMock.mockResolvedValueOnce([{ citizen_id: 'citizen-3' }])
+
+    await expect(listFounderAreaPg(2, 'citizen-2')).resolves.toEqual({
+      citizenIds: ['citizen-3'], hasMore: false, nextCursor: undefined,
+    })
+    expect(queryMock).toHaveBeenCalledWith(FOUNDER_AREA_LIST_SQL, [3, 'citizen-2'])
   })
 })

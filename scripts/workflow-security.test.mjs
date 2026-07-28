@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 
 const workflowPaths = [
   new URL('../.github/workflows/ci.yml', import.meta.url),
+  new URL('../.github/workflows/cleanup-audit.yml', import.meta.url),
   new URL('../.github/workflows/roadmap-daily.yml', import.meta.url),
 ]
 
@@ -19,5 +20,17 @@ describe('workflow security boundary', () => {
   test('keeps verification jobs explicitly read-only', async () => {
     const workflow = await readFile(workflowPaths[0], 'utf8')
     expect(workflow).toMatch(/permissions:\n\s+contents: read/)
+  })
+
+  test('cleanup audit stages only the generated report path', async () => {
+    const workflow = await readFile(workflowPaths[1], 'utf8')
+    expect(workflow).toContain('node scripts/generate-cleanup-audit.mjs')
+    expect(workflow).toContain('CLEANUP_AUDIT_TEST_STATUS: ${{ steps.tests.outcome }}')
+    expect(workflow).toContain("if: steps.tests.outcome != 'success' || steps.build.outcome != 'success' || steps.lint.outcome != 'success'")
+    expect(workflow).toContain("git diff --quiet -- docs/automation/cleanup-audit.md")
+    expect(workflow).toContain("git diff --quiet -- . ':(exclude)docs/automation/cleanup-audit.md'")
+    expect(workflow).toContain("git ls-files --others --exclude-standard | grep -v '^docs/automation/cleanup-audit.md$'")
+    expect(workflow).toContain('git add docs/automation/cleanup-audit.md')
+    expect(workflow).toContain('if [ "$staged" != "docs/automation/cleanup-audit.md" ]; then')
   })
 })

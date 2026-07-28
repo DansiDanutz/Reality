@@ -3642,6 +3642,61 @@ describe('reality area authority API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('tickAreas enumerates Postgres-backed areas without Blob listing in Postgres mode', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T08:00:00.000Z'))
+    vi.stubEnv('REALITY_FOUNDER_AREA_POSTGRES', '1')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const state = {
+      ...existingState(),
+      updatedAt: '2026-07-06T08:00:00.000Z',
+      simulationAt: '2026-07-06T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-06T08:00:00.000Z'),
+    }
+    pgQueryMock
+      .mockResolvedValueOnce([{ citizen_id: CITIZEN_ID }])
+      .mockResolvedValueOnce([{
+        citizen_id: CITIZEN_ID,
+        area_id: state.areaId,
+        revision: '4',
+        simulation_at: state.simulationAt,
+        updated_at: state.updatedAt,
+        state,
+      }])
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { clock: 'tickAreas', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      clock: {
+        scanned: 1,
+        current: 1,
+        caughtUp: 0,
+        failed: 0,
+        hasMore: false,
+        results: [{
+          citizenId: CITIZEN_ID,
+          areaId: state.areaId,
+          status: 'current',
+          updatedAt: state.updatedAt,
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(pgQueryMock.mock.calls[0]).toEqual([expect.stringMatching(/SELECT citizen_id\s+FROM founder_area_snapshots/i), [2, '']])
+    expect(pgQueryMock.mock.calls[1]?.[0]).toMatch(/FROM founder_area_snapshots/i)
+  })
+
   test('tickAreas rejects persisted area state without an updatedAt timestamp', async () => {
     const malformed = { ...existingState() } as Record<string, unknown>
     delete malformed.updatedAt
@@ -4147,6 +4202,68 @@ describe('reality area authority API', () => {
     })
     expect(list).toHaveBeenCalledWith({ prefix: 'reality-areas/', limit: 1 })
     expect(put).not.toHaveBeenCalled()
+  })
+
+  test('founder covenant review queue enumerates Postgres-backed areas without Blob listing in Postgres mode', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-14T08:00:00.000Z'))
+    vi.stubEnv('REALITY_FOUNDER_AREA_POSTGRES', '1')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const state = {
+      ...existingState(),
+      updatedAt: '2026-07-14T08:00:00.000Z',
+      simulationAt: '2026-07-14T08:00:00.000Z',
+      founderCovenant: baseFounderCovenant('2026-07-14T08:00:00.000Z'),
+    }
+    pgQueryMock
+      .mockResolvedValueOnce([{ citizen_id: CITIZEN_ID }])
+      .mockResolvedValueOnce([{
+        citizen_id: CITIZEN_ID,
+        area_id: state.areaId,
+        revision: '4',
+        simulation_at: state.simulationAt,
+        updated_at: state.updatedAt,
+        state,
+      }])
+    const res = responseRecorder()
+
+    await handler({
+      method: 'GET',
+      headers: { authorization: `Bearer ${SERVER_CLOCK_TOKEN}` },
+      query: { review: 'founderCovenantQueue', limit: '1' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      founderCovenantReviewQueue: {
+        scanned: 1,
+        current: 1,
+        caughtUp: 0,
+        failed: 0,
+        hasMore: false,
+        items: [{
+          founderCitizenId: CITIZEN_ID,
+          areaId: state.areaId,
+          updatedAt: state.updatedAt,
+          scanStatus: 'current',
+          transactionsAdded: 0,
+        }],
+        results: [{
+          citizenId: CITIZEN_ID,
+          areaId: state.areaId,
+          status: 'current',
+          updatedAt: state.updatedAt,
+          transactionsAdded: 0,
+        }],
+      },
+    })
+    expect(list).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(pgQueryMock.mock.calls[0]).toEqual([expect.stringMatching(/SELECT citizen_id\s+FROM founder_area_snapshots/i), [2, '']])
+    expect(pgQueryMock.mock.calls[1]?.[0]).toMatch(/FROM founder_area_snapshots/i)
   })
 
   test('founder covenant review queue accepts short-lived Telegram operator queue tokens', async () => {
