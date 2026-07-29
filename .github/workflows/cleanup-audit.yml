@@ -9,6 +9,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: cleanup-audit
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -57,7 +61,8 @@ jobs:
           BUILD_STATUS: ${{ steps.build.outcome }}
           LINT_STATUS: ${{ steps.lint.outcome }}
         run: |
-          if git diff --quiet -- docs/automation/cleanup-audit.md; then
+          if git diff --quiet -- docs/automation/cleanup-audit.md &&
+            ! git ls-files --others --exclude-standard -- docs/automation/cleanup-audit.md | grep -q .; then
             echo "Cleanup audit report is already current."
             exit 0
           fi
