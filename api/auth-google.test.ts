@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
-import handler from './auth-google'
+import rawHandler from './auth-google'
+import { withCitizenSessionHandler } from './_sessionTest'
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -18,6 +18,7 @@ vi.mock('@vercel/blob', () => ({
 const GOOGLE_CLIENT_ID = 'reality-google-client'
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'founder-token'
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 
 beforeEach(() => {
   vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
@@ -34,6 +35,15 @@ afterEach(() => {
 })
 
 describe('Google auth API', () => {
+  test('does not authenticate link requests with legacy body credentials', async () => {
+    vi.stubEnv('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
+    const res = responseRecorder()
+    await rawHandler({ method: 'POST', body: { credential: 'good-token', action: 'link', citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toMatchObject({ ok: false, code: 'session_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('stays disabled with a structured response until configured', async () => {
     const res = responseRecorder()
 
@@ -70,7 +80,7 @@ describe('Google auth API', () => {
 
     await handler({
       method: 'POST',
-      body: { credential: 'good-token', citizenId: CITIZEN_ID, token: TOKEN },
+      body: { credential: 'good-token', action: 'link' },
     } as never, res as never)
 
     expect(res.statusCode).toBe(200)

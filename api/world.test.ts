@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
-import handler from './world'
+import rawHandler from './world'
+import { withCitizenSessionHandler } from './_sessionTest'
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -12,6 +13,7 @@ vi.mock('@neondatabase/serverless', () => ({
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const TOKEN = 'world-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 
 afterEach(() => {
   vi.useRealTimers()
@@ -80,14 +82,20 @@ describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
 
 describe('world API placement writes', () => {
   const VALID_BODY = {
-    citizenId: CITIZEN_ID,
-    token: TOKEN,
     assetId: 'starter-home-1',
     itemId: 'microstudio',
     kind: 'home',
     lat: 44.451,
     lng: 26.082,
   }
+
+  test('does not authenticate legacy body credentials', async () => {
+    const res = responseRecorder()
+    await rawHandler({ method: 'POST', body: { ...VALID_BODY, citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({ ok: false, code: 'client_controlled_server_field' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
 
   test('rejects client-owned fields before any storage call', async () => {
     stubPg()
@@ -110,7 +118,7 @@ describe('world API placement writes', () => {
     await handler({
       method: 'POST',
       headers: { cookie: `reality_session=${CITIZEN_ID}.cookie-token; reality_csrf=csrf-1` },
-      body: { ...VALID_BODY, citizenId: undefined, token: undefined },
+      body: { ...VALID_BODY },
     } as never, res as never)
     expect(res.statusCode).toBe(403)
     expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })

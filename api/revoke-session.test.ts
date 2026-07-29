@@ -45,28 +45,29 @@ describe('revoke session API', () => {
     expect(res.body).toEqual({ ok: true, revoked: true })
   })
 
-  test('revokes a verified token server-side', async () => {
+  test('does not accept body credentials in place of the cookie session', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    queryMock
-      .mockResolvedValueOnce([{ ok: 1 }])
-      .mockResolvedValueOnce([{ citizen_id: '00000000-0000-0000-0000-000000000001' }])
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { citizenId: '00000000-0000-0000-0000-000000000001', token: 'session-token' } } as never, res as never)
 
-    expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ ok: true, revoked: true })
-    expect((res.headers['Set-Cookie'] as unknown as string[]).join('\n')).toContain('reality_session=; Max-Age=0')
-    expect(String(queryMock.mock.calls[0][0])).toContain('token_revoked_at IS NULL')
-    expect(String(queryMock.mock.calls[0][0])).toContain('token_expires_at IS NULL OR token_expires_at > now()')
-    expect(String(queryMock.mock.calls[1][0])).toContain('SET token_revoked_at = now()')
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toMatchObject({ ok: false, code: 'session_required' })
+    expect(queryMock).not.toHaveBeenCalled()
   })
 
-  test('rejects an invalid token without revoking anything', async () => {
+  test('rejects an invalid cookie token without revoking anything', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     const res = responseRecorder()
 
-    await handler({ method: 'POST', body: { citizenId: '00000000-0000-0000-0000-000000000001', token: 'wrong' } } as never, res as never)
+    await handler({
+      method: 'POST',
+      headers: {
+        cookie: 'reality_session=00000000-0000-0000-0000-000000000001.wrong; reality_csrf=csrf-1',
+        'x-reality-csrf': 'csrf-1',
+      },
+      body: {},
+    } as never, res as never)
 
     expect(res.statusCode).toBe(401)
     expect(queryMock).toHaveBeenCalledTimes(1)

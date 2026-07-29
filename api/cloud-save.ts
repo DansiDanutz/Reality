@@ -15,13 +15,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = (req.body ?? {}) as Record<string, unknown>
   const cookieSession = sessionFromCookie(req)
-  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
-  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+  if (!cookieSession) {
+    res.status(401).json({ ok: false, error: 'An active Reality session is required.', code: 'session_required' })
+    return
+  }
+  if (!csrfMatches(req)) {
     res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
     return
   }
-  const citizenId = body.citizenId ?? cookieSession?.citizenId
-  const token = bodyToken ?? cookieSession?.token
+  const { citizenId, token } = cookieSession
   const save = body.save
   if (typeof save !== 'string' || save.length === 0 || save.length > MAX_SAVE_BYTES) {
     res.status(400).json({ ok: false, error: 'Invalid save payload.' })

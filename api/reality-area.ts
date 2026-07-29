@@ -2084,6 +2084,20 @@ export async function verifyCitizen(
   return { citizenId, founderNumber: row.founder_number ?? 0, ...stored }
 }
 
+/** A trusted server-clock bearer selects an area by citizen id, not by a citizen secret. */
+async function readServerClockCitizen(citizenId: string): Promise<CitizenAuthRecord | null> {
+  if (!UUID_RE.test(citizenId)) return null
+  const sql = db() as unknown as { query: (statement: string, params?: unknown[]) => Promise<unknown> }
+  const rows = (await sql.query(
+    `SELECT founder_number FROM citizens
+     WHERE citizen_id = $1
+     LIMIT 1`,
+    [citizenId],
+  )) as Array<{ founder_number: number | null }>
+  const row = rows[0]
+  return row ? { citizenId, founderNumber: row.founder_number ?? 0 } : null
+}
+
 function telegramCitizenAuthFields(value: Record<string, unknown>): Partial<CitizenAuthRecord> {
   const telegramUserId = text(value.telegramUserId)
   const telegramAccountId = text(value.telegramAccountId)
@@ -5368,22 +5382,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const bodyAuth = readAuth(req)
-  const cookieSession = sessionFromCookie(req)
-  if (!bodyAuth && cookieSession && req.method === 'POST' && !csrfMatches(req)) {
-    res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
-    return
-  }
-  const auth = bodyAuth ?? cookieSession
-  if (!auth) {
-    res.status(400).json({ ok: false, error: 'Missing citizen credentials.' })
-    return
+  const serverClockCitizenId = intentType === 'advanceHour' && hasServerClockAuthority(req)
+    ? field(req.body, 'citizenId')
+    : null
+  const cookieSession = serverClockCitizenId ? null : sessionFromCookie(req)
+  if (!serverClockCitizenId) {
+    if (cookieSession && req.method === 'POST' && !csrfMatches(req)) {
+      res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
+      return
+    }
+    if (!cookieSession) {
+      res.status(401).json({ ok: false, error: 'An active Reality session is required.', code: 'session_required' })
+      return
+    }
   }
 
   try {
     let citizen: CitizenAuthRecord | null
     try {
-      citizen = await verifyCitizen(auth.citizenId, auth.token, { includeRecord: intentType === 'claimArea' })
+      citizen = serverClockCitizenId
+        ? await readServerClockCitizen(serverClockCitizenId)
+        : await verifyCitizen(cookieSession!.citizenId, cookieSession!.token, { includeRecord: intentType === 'claimArea' })
     } catch {
       res.status(503).json({
         ok: false,
@@ -6981,13 +7000,6 @@ function operatorRecordCovenantReviewMessage(error: ApplyOperatorRecordCovenantR
     default:
       return recordCovenantReviewMessage(error)
   }
-}
-
-function readAuth(req: VercelRequest): { citizenId: string; token: string } | null {
-  const source = req.method === 'GET' ? req.query : req.body
-  const citizenId = field(source, 'citizenId')
-  const token = field(source, 'token')
-  return citizenId && token ? { citizenId, token } : null
 }
 
 function readServerClockOrBodyIntent(req: VercelRequest): unknown {

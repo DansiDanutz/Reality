@@ -1,7 +1,8 @@
 import { get, put } from '@vercel/blob'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
-import handler from './avatar'
+import rawHandler from './avatar'
+import { withCitizenSessionHandler } from './_sessionTest'
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -16,6 +17,7 @@ vi.mock('@vercel/blob', () => ({
 
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'avatar-token'
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 
 beforeEach(() => {
   vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
@@ -33,6 +35,14 @@ afterEach(() => {
 })
 
 describe('avatar API request authority', () => {
+  test('does not authenticate legacy body credentials', async () => {
+    const res = responseRecorder()
+    await rawHandler({ method: 'POST', body: { citizenId: CITIZEN_ID, token: TOKEN, params: {} } } as never, res as never)
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toMatchObject({ ok: false, code: 'client_controlled_avatar_field' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('rejects client-controlled avatar economy fields before storage or OpenAI work', async () => {
     const fetchSpy = vi.fn()
     vi.stubGlobal('fetch', fetchSpy)
@@ -52,8 +62,6 @@ describe('avatar API request authority', () => {
       await handler({
         method: 'POST',
         body: {
-          citizenId: CITIZEN_ID,
-          token: TOKEN,
           params: validAvatarParams(),
           [field]: field === 'balance' || field === 'money' ? 999_999 : 'client-value',
         },
@@ -77,8 +85,6 @@ describe('avatar API request authority', () => {
     await handler({
       method: 'POST',
       body: {
-        citizenId: CITIZEN_ID,
-        token: TOKEN,
         params: validAvatarParams(),
       },
     } as never, res as never)
@@ -107,8 +113,6 @@ describe('avatar API request authority', () => {
     await handler({
       method: 'POST',
       body: {
-        citizenId: CITIZEN_ID,
-        token: TOKEN,
         params: validAvatarParams(),
       },
     } as never, res as never)

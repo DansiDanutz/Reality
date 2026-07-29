@@ -1066,18 +1066,14 @@ export async function claimRealityFounderArea(
 ): Promise<RealityAreaClaimResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
-  const citizenId = citizen.citizenId?.trim() ?? ''
-  const token = citizen.token?.trim() ?? ''
   const label = profile.areaLabel.trim()
   const claimSource = isClaimSource(profile.claimSource) ? profile.claimSource : 'manual'
 
   try {
-    const auth = token ? { citizenId, token } : { citizenId }
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
-      ...(citizen.token ? { headers: { 'Content-Type': 'application/json' } } : cookieSessionRequestInit()),
+      ...cookieSessionRequestInit(),
       body: JSON.stringify({
-        ...auth,
         intent: {
           type: 'claimArea',
           label,
@@ -1257,16 +1253,11 @@ async function applyRealityAreaPayload(
 ): Promise<RealityAreaApplyResult> {
   const ready = readyFounderCredentials(citizen)
   if (!ready.ok) return ready
-  const citizenId = citizen.citizenId?.trim() ?? ''
-  const token = citizen.token?.trim() ?? ''
-
   try {
-    const auth = token ? { citizenId, token } : { citizenId }
     const response = await fetchImpl('/api/reality-area', {
       method: 'POST',
-      ...(token ? { headers: { 'Content-Type': 'application/json' } } : cookieSessionRequestInit()),
+      ...cookieSessionRequestInit(),
       body: JSON.stringify({
-        ...auth,
         intent: payload,
       }),
     })
@@ -3216,7 +3207,7 @@ function isClaimSource(value: unknown): value is RealityAreaClaimSource {
 function readyFounderCredentials(
   citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
 ): { ok: true } | { ok: false; reason: 'missing_identity' | 'not_founder'; error: string } {
-  if (!citizen.citizenId?.trim() || (!(citizen.token?.trim()) && !hasBrowserRealitySession())) {
+  if (!citizen.citizenId?.trim() || !hasBrowserRealitySession()) {
     return { ok: false, reason: 'missing_identity', error: 'Connect to the world first.' }
   }
   if (citizen.founderNumber <= 0) {

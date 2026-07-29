@@ -11,7 +11,7 @@ const GENERATIONS_PER_DAY = 5
 // (register allows 5/IP/day), and every generation is a billed OpenAI call.
 // Real usage is far below this; it exists only to bound worst-case spend.
 const GLOBAL_GENERATIONS_PER_DAY = 500
-const AVATAR_POST_FIELDS = new Set(['citizenId', 'token', 'params'])
+const AVATAR_POST_FIELDS = new Set(['params'])
 
 // Kept in sync with src/lib/avatarPrompt.ts (api functions must be
 // self-contained — Vercel does not bundle imports from src/)
@@ -112,8 +112,8 @@ async function generateImage(prompt: string, apiKey: string): Promise<Buffer | n
 
 /**
  * The Avatar Creator.
- * POST {citizenId, token, params} — renders the player's personal avatar from
- * their self-description and stores it. GET ?cid=... — serves the stored
+ * POST {params} — renders the player's personal avatar from their HttpOnly
+ * citizen session and self-description. GET ?cid=... — serves the stored
  * avatar (our blob store is private; this endpoint is the public face).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -162,8 +162,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const cookieSession = sessionFromCookie(req)
-  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
-  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+  if (!cookieSession) {
+    res.status(401).json({ ok: false, error: 'An active Reality session is required.', code: 'session_required' })
+    return
+  }
+  if (!csrfMatches(req)) {
     res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
     return
   }
@@ -174,8 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const citizenId = body.citizenId ?? cookieSession?.citizenId
-  const token = bodyToken ?? cookieSession?.token
+  const { citizenId, token } = cookieSession
   const params = body.params
   if (!validateAvatarParams(params)) {
     res.status(400).json({ ok: false, error: 'Those measurements do not look right — check the form.' })

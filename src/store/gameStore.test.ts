@@ -144,8 +144,28 @@ describe('construction placement guard', () => {
 })
 
 describe('session reset', () => {
+  test('validates a rehydrated citizen through the HttpOnly cookie session', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true, citizenId: 'citizen-1' }), { status: 200 })))
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        token: '',
+        online: false,
+      },
+    })
+
+    await useGame.getState().registerOnline()
+
+    expect(fetch).toHaveBeenCalledWith('/api/session', { credentials: 'include' })
+    expect(useGame.getState().citizen?.online).toBe(true)
+  })
+
   test('revokes an online session before clearing local state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })))
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
     useGame.setState({ citizen: { name: 'David', founderNumber: 1, createdAt: Date.now(), citizenId: 'citizen-1', token: 'session-1' } })
 
     useGame.getState().reset()
@@ -153,7 +173,9 @@ describe('session reset', () => {
 
     expect(fetch).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ citizenId: 'citizen-1', token: 'session-1' }),
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
+      body: JSON.stringify({}),
     }))
     expect(useGame.getState().citizen).toBeNull()
   })

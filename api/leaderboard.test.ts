@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
-import handler from './leaderboard'
+import rawHandler from './leaderboard'
+import { withCitizenSessionHandler } from './_sessionTest'
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -11,6 +12,7 @@ vi.mock('@neondatabase/serverless', () => ({
 
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const TOKEN = 'leaderboard-token'
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
 const NOW = new Date('2026-07-10T12:00:00.000Z')
 
@@ -84,6 +86,14 @@ describe('leaderboard API reads (Postgres-authoritative since Phase 1b.6)', () =
 })
 
 describe('leaderboard API score submissions', () => {
+  test('does not authenticate legacy body credentials', async () => {
+    const res = responseRecorder()
+    await rawHandler({ method: 'POST', body: { citizenId: CITIZEN_ID, token: TOKEN, netWorth: 1 } } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toMatchObject({ ok: false, code: 'session_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   const BODY = { citizenId: CITIZEN_ID, token: TOKEN, name: 'Water Maker!', netWorth: 9_000_000 }
 
   test('requires CSRF proof for cookie-authenticated score submissions', async () => {

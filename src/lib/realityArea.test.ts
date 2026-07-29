@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   advanceRealityFounderArea,
   applyRealityFounderAreaIntent,
@@ -35,13 +35,17 @@ const profile: FounderAreaProfile = {
 }
 
 describe('Reality area client', () => {
+  beforeEach(() => {
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+  })
+
   test('uses Telegram as the claim source when the citizen has a verified Telegram account', () => {
     expect(founderAreaClaimSource({ telegramAccountId: 'telegram:42', spawnLat: 44, spawnLng: 26 })).toBe('telegram')
     expect(founderAreaClaimSource({ spawnLat: 44, spawnLng: 26 })).toBe('geolocation')
     expect(founderAreaClaimSource({})).toBe('manual')
   })
 
-  test('sends only the claim intent and credentials to the server area authority', async () => {
+  test('sends only the claim intent through the cookie-authenticated server authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
 
@@ -54,10 +58,9 @@ describe('Reality area client', () => {
     expect(result).toEqual({ ok: true, state: serverState(), restoredExisting: false })
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: {
           type: 'claimArea',
           label: 'Bucharest Founder Area',
@@ -91,19 +94,19 @@ describe('Reality area client', () => {
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).not.toHaveProperty('token')
   })
 
-  test('trims citizen credentials before Founder Area transport', async () => {
+  test('never transports citizen credentials to Founder Area', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
 
     await claimRealityFounderArea({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12 }, profile, fetchImpl as never)
     const claimBody = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
-    expect(claimBody.citizenId).toBe('citizen-1')
-    expect(claimBody.token).toBe('token-1')
+    expect(claimBody.citizenId).toBeUndefined()
+    expect(claimBody.token).toBeUndefined()
 
     await applyRealityFounderAreaIntent({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12 }, { type: 'refreshArea' } as never, fetchImpl as never)
     const applyBody = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body)) as Record<string, unknown>
-    expect(applyBody.citizenId).toBe('citizen-1')
-    expect(applyBody.token).toBe('token-1')
+    expect(applyBody.citizenId).toBeUndefined()
+    expect(applyBody.token).toBeUndefined()
   })
 
   test('falls back to manual when a malformed claim source crosses the browser boundary', async () => {
@@ -134,8 +137,6 @@ describe('Reality area client', () => {
     const request = fetchImpl.mock.calls[0]?.[1]
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body).toEqual({
-      citizenId: 'citizen-1',
-      token: 'token-1',
       intent: {
         type: 'claimArea',
         label: 'Bucharest Founder Area',
@@ -824,10 +825,9 @@ describe('Reality area client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: {
           type: 'buildBusiness',
           businessKind: 'water',
@@ -865,8 +865,6 @@ describe('Reality area client', () => {
     const request = fetchImpl.mock.calls[0]?.[1]
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body).toEqual({
-      citizenId: 'citizen-1',
-      token: 'token-1',
       intent: {
         type: 'buildBusiness',
         businessKind: 'water',
@@ -888,10 +886,9 @@ describe('Reality area client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: { type: 'buyWater' },
       }),
     })
@@ -910,10 +907,9 @@ describe('Reality area client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
       }),
     })
@@ -942,8 +938,6 @@ describe('Reality area client', () => {
     const request = fetchImpl.mock.calls[0]?.[1]
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body).toEqual({
-      citizenId: 'citizen-1',
-      token: 'token-1',
       intent: { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 },
     })
   })
@@ -961,10 +955,9 @@ describe('Reality area client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' },
       }),
     })
@@ -1002,10 +995,9 @@ describe('Reality area client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: { type: 'refreshArea' },
       }),
     })
@@ -1061,10 +1053,9 @@ describe('Reality area client', () => {
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
       body: JSON.stringify({
-        citizenId: 'citizen-1',
-        token: 'token-1',
         intent: {
           type: 'recordCovenantReview',
           actionKind: 'record_review',
@@ -1101,8 +1092,6 @@ describe('Reality area client', () => {
     const request = fetchImpl.mock.calls[0]?.[1]
     const body = JSON.parse((request?.body ?? '{}') as string) as Record<string, unknown>
     expect(body).toEqual({
-      citizenId: 'citizen-1',
-      token: 'token-1',
       intent: {
         type: 'recordCovenantReview',
         actionKind: 'record_review',

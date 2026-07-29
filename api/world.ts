@@ -5,7 +5,7 @@ import { verifyCitizenPg } from './_registry.js'
 import { assetRowFromPlacement, placementsTodayPg, writeWorldPlacement } from './_worldPg.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
 
-const WORLD_PLACEMENT_FIELDS = new Set(['citizenId', 'token', 'assetId', 'itemId', 'kind', 'lat', 'lng'])
+const WORLD_PLACEMENT_FIELDS = new Set(['assetId', 'itemId', 'kind', 'lat', 'lng'])
 
 /**
  * Per-citizen daily placement cap. A citizen can place at most this many
@@ -84,13 +84,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const cookieSession = sessionFromCookie(req)
-  const bodyToken = typeof body.token === 'string' && body.token.length > 0 ? body.token : null
-  if (!bodyToken && cookieSession && !csrfMatches(req)) {
+  if (!cookieSession) {
+    res.status(401).json({ ok: false, error: 'An active Reality session is required.', code: 'session_required' })
+    return
+  }
+  if (!csrfMatches(req)) {
     res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
     return
   }
-  const citizenId = body.citizenId ?? cookieSession?.citizenId
-  const token = bodyToken ?? cookieSession?.token
+  const { citizenId, token } = cookieSession
   const { assetId, itemId, kind, lat, lng } = body
   const cleanAssetId = String(assetId ?? '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 60)
   const cleanItemId = String(itemId ?? '').replace(/[^a-z_]/g, '').slice(0, 30)

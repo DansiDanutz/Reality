@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import handler, {
+import rawHandler, {
   areaStatePath,
   normalizeAdvanceHourIntent,
   normalizeBuildBusinessIntent,
@@ -20,6 +20,7 @@ import handler, {
   founderCovenantReviewSchedule,
   verifyCitizen,
 } from './reality-area'
+import { withCitizenSessionHandler } from './_sessionTest'
 import { resetDbForTest } from './_db'
 import { realityOperatorQueueTokenClaims, signRealityOperatorQueueToken } from './reality-operator-token'
 
@@ -85,6 +86,7 @@ vi.mock('@vercel/blob', () => ({
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'founder-token'
 const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex').slice(0, 24)
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 const SERVER_CLOCK_TOKEN = 'test-server-clock-token'
 const SERVER_CLOCK_HEADERS = { 'x-reality-server-clock-token': SERVER_CLOCK_TOKEN }
 const OPERATOR_AUTH_SECRET = 'operator-auth-secret'
@@ -318,6 +320,19 @@ afterEach(() => {
 })
 
 describe('reality area authority API', () => {
+  test('does not authenticate legacy query or body credentials', async () => {
+    const getRes = responseRecorder()
+    await rawHandler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, getRes as never)
+    expect(getRes.statusCode).toBe(401)
+    expect(getRes.body).toMatchObject({ ok: false, code: 'session_required' })
+
+    const postRes = responseRecorder()
+    await rawHandler({ method: 'POST', body: { citizenId: CITIZEN_ID, token: TOKEN, intent: { type: 'refreshArea' } } } as never, postRes as never)
+    expect(postRes.statusCode).toBe(401)
+    expect(postRes.body).toMatchObject({ ok: false, code: 'session_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('verifies registered citizens from the citizens table token hash', async () => {
     await expect(verifyCitizen(CITIZEN_ID, TOKEN)).resolves.toEqual({
       citizenId: CITIZEN_ID,
