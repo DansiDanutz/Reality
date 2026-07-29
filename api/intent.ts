@@ -156,16 +156,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
     return
   }
-  const { citizenId: rawCitizenId, token: rawToken, intent: rawIntent, predictedBalance, idempotencyKey: rawIdempotencyKey } = (req.body ?? {}) as Record<string, unknown>
+  const { intent: rawIntent, predictedBalance, idempotencyKey: rawIdempotencyKey } = (req.body ?? {}) as Record<string, unknown>
   const cookieSession = sessionFromCookie(req)
-  const bodyToken = typeof rawToken === 'string' && rawToken.length > 0 ? rawToken : null
-  const cookieAuth = !bodyToken && cookieSession
-  if (cookieAuth && !csrfMatches(req)) {
+  if (!cookieSession) {
+    res.status(401).json({ ok: false, code: 'session_required', error: 'An active Reality session is required.' })
+    return
+  }
+  if (!csrfMatches(req)) {
     res.status(403).json({ ok: false, code: 'csrf_required', error: 'A valid Reality CSRF token is required.' })
     return
   }
-  const citizenId = String(rawCitizenId ?? cookieSession?.citizenId ?? '')
-  const token = bodyToken ?? cookieSession?.token ?? ''
+  const { citizenId, token } = cookieSession
   const normalized = normalizeIntent(rawIntent)
   if (!normalized.ok) {
     res.status(normalized.code === 'unsupported_intent' ? 400 : 422).json(normalized)

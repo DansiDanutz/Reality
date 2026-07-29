@@ -43,9 +43,13 @@ const v1Save = {
 }
 
 describe('migrateSave - backfills every field added after v1', () => {
-  test('scrubs legacy bearer tokens while migrating old saves', () => {
-    const out = migrateSave({ ...v1Save, citizen: { ...v1Save.citizen, token: 'legacy-secret' } } as never)
+  test('scrubs legacy bearer state and forces cookie revalidation while migrating old saves', () => {
+    const out = migrateSave({
+      ...v1Save,
+      citizen: { ...v1Save.citizen, token: 'legacy-secret', online: true },
+    } as never)
     expect(out.citizen).not.toHaveProperty('token')
+    expect(out.citizen?.online).toBe(false)
   })
 
   test('a v1 save gets all current backfills', () => {
@@ -516,9 +520,9 @@ describe('migrateSave - completeness guard', () => {
 describe('persist configuration', () => {
   test('the persist version matches the latest migration', async () => {
     const { SAVE_VERSION } = await import('./gameStore')
-    // 21 = first-session guide persistence bump: strictly above main's v7 chain AND the parallel
-    // branch's v19 chain, so migrate runs (idempotently) for every save.
-    expect(SAVE_VERSION).toBe(21)
+    // 22 = cookie-session cutover bump: strictly above main's v7 chain and the parallel
+    // branch's v19 chain, so migration runs for every previously persisted save.
+    expect(SAVE_VERSION).toBe(22)
   })
 
   test('backfills the first-session guide lifecycle for legacy citizens', () => {

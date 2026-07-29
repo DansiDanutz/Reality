@@ -1,7 +1,8 @@
 import { list, put } from '@vercel/blob'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { resetDbForTest } from './_db'
-import handler from './cloud-save'
+import rawHandler from './cloud-save'
+import { withCitizenSessionHandler } from './_sessionTest'
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock('@neondatabase/serverless', () => ({
 
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
 const TOKEN = 'founder-token'
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 const SAVE = JSON.stringify({ version: 1, citizen: { id: CITIZEN_ID, name: 'David' } })
 
 beforeEach(() => {
@@ -32,6 +34,14 @@ afterEach(() => {
 })
 
 describe('cloud save API', () => {
+  test('does not authenticate legacy body credentials', async () => {
+    const res = responseRecorder()
+    await rawHandler({ method: 'POST', body: { citizenId: CITIZEN_ID, token: TOKEN, save: SAVE } } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toMatchObject({ ok: false, code: 'session_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
+
   test('requires CSRF proof for cookie-authenticated saves', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
     const res = responseRecorder()

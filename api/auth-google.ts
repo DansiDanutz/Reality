@@ -33,8 +33,8 @@ async function readBlobJson(prefix: string): Promise<Record<string, unknown> | n
 
 /**
  * Google sign-in. Two flows through one endpoint:
- * - Link: {credential, citizenId, token} — attach this Google account to the
- *   current citizen so their save is backed up and restorable anywhere.
+ * - Link: {credential, action:'link'} — attach this Google account to the
+ *   current HttpOnly citizen session after CSRF validation.
  * - Restore: {credential} — return the linked citizen's cloud save so a new
  *   device can continue the same life.
  */
@@ -52,15 +52,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const { credential, citizenId, token, action } = (req.body ?? {}) as Record<string, unknown>
+  const { credential, action } = (req.body ?? {}) as Record<string, unknown>
   const cookieSession = sessionFromCookie(req)
-  const cookieLink = action === 'link' && !token && cookieSession
-  if (cookieLink && !csrfMatches(req)) {
+  if (action === 'link' && !cookieSession) {
+    res.status(401).json({ ok: false, error: 'An active Reality session is required.', code: 'session_required' })
+    return
+  }
+  if (action === 'link' && !csrfMatches(req)) {
     res.status(403).json({ ok: false, error: 'A valid Reality CSRF token is required.', code: 'csrf_required' })
     return
   }
-  const linkCitizenId = citizenId ?? (action === 'link' ? cookieSession?.citizenId : undefined)
-  const linkToken = token ?? (action === 'link' ? cookieSession?.token : undefined)
+  const linkCitizenId = action === 'link' ? cookieSession?.citizenId : undefined
+  const linkToken = action === 'link' ? cookieSession?.token : undefined
 
   try {
     const profile = await verifyGoogle(String(credential ?? ''))

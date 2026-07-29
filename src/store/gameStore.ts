@@ -321,7 +321,6 @@ export function dailyChallengeContextOf(s: DailyChallengeContextState): DailyCha
 export type ToastTone = 'gold' | 'ok' | 'sky' | 'meal' | 'achieve' | 'streak' | 'lucky' | 'legendary' | 'blocked'
 
 const SAVE_KEY = 'reality-save-v1'
-const SESSION_TOKEN_KEY = 'reality-session-token'
 
 /**
  * The persist schema version. zustand/persist only calls migrateSave when a
@@ -329,7 +328,7 @@ const SESSION_TOKEN_KEY = 'reality-session-token'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 21
+export const SAVE_VERSION = 22
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -349,6 +348,8 @@ export const SAVE_VERSION = 21
  *     business interior development, service POIs / Workers Hall, Mystery
  *     Box credit ledger. Versions 8–19 were burned on a parallel branch
  *     that never shipped to production — 20 is strictly above both chains.
+ *   v21 → v22: clear persisted browser-session state so every citizen
+ *     revalidates the HttpOnly cookie after the bearer cutover.
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
@@ -619,29 +620,17 @@ function readCookie(name: string): string | null {
   return value ? decodeURIComponent(value.slice(name.length + 1)) : null
 }
 
-function readSessionToken(): string | null {
-  try { return sessionStorage.getItem(SESSION_TOKEN_KEY) } catch { return null }
-}
-
-function writeSessionToken(token: string | null): void {
-  try {
-    if (token) sessionStorage.setItem(SESSION_TOKEN_KEY, token)
-    else sessionStorage.removeItem(SESSION_TOKEN_KEY)
-  } catch { /* storage is optional */ }
-}
-
 /** Keep the bearer out of the durable game save; the HttpOnly cookie is the authority. */
-export function withoutPersistedToken<T extends { citizen?: { token?: string } | null }>(state: T): T {
+export function withoutPersistedToken<T extends { citizen?: { token?: string; online?: boolean } | null }>(state: T): T {
   if (!state.citizen) return state
   const { token: _token, ...safeCitizen } = state.citizen
-  return { ...state, citizen: safeCitizen } as T
+  const rehydratableCitizen = 'online' in state.citizen ? { ...safeCitizen, online: false } : safeCitizen
+  return { ...state, citizen: rehydratableCitizen } as T
 }
 
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
   if (!citizen?.citizenId) return
   void tryPost('/api/world', {
-    citizenId: citizen.citizenId,
-    token: citizen.token,
     assetId: asset.id,
     itemId: asset.itemId,
     kind: asset.kind,
@@ -1308,12 +1297,7 @@ export const useGame = create<GameState>()(
 
       registerOnline: async () => {
         const s = get()
-        if (!s.citizen || s.citizen.token) return
-        const storedToken = readSessionToken()
-        if (storedToken && s.citizen.citizenId) {
-          set({ citizen: { ...s.citizen, token: storedToken, online: true } })
-          return
-        }
+        if (!s.citizen || s.citizen.online) return
         if (s.citizen.citizenId) {
           const session = await tryGet('/api/session')
           if (session?.ok) {
@@ -1366,7 +1350,7 @@ export const useGame = create<GameState>()(
           citizen: {
             ...latest.citizen,
             citizenId: d.citizenId as string,
-            token: d.token as string,
+            token: '',
             founderNumber,
             online: true,
             telegramUserId: typeof d.telegramUserId === 'string' ? d.telegramUserId : latest.citizen.telegramUserId,
@@ -1386,8 +1370,6 @@ export const useGame = create<GameState>()(
               : citizenGrantLog(),
           ),
         })
-        writeSessionToken(d.token as string)
-
         const { citizen, assets } = get()
         for (const a of assets) {
           publishPlacedAsset(citizen, a)
@@ -1420,8 +1402,6 @@ export const useGame = create<GameState>()(
         const s = get()
         if (!s.citizen?.citizenId) return
         await tryPost('/api/leaderboard', {
-          citizenId: s.citizen.citizenId,
-          token: s.citizen.token,
           name: s.citizen.name,
           netWorth: netWorthOf(s.money, s.inventory, s.assets),
         })
@@ -1433,8 +1413,6 @@ export const useGame = create<GameState>()(
         const d = await tryPost('/api/auth-google', {
           credential,
           action: 'link',
-          citizenId: s.citizen.citizenId,
-          token: s.citizen.token,
         })
         if (!d?.ok) return (d?.error as string) ?? 'Google sign-in failed. Try again.'
         const profile = d.profile as { email?: string; name?: string; picture?: string; sub?: string }
@@ -1466,8 +1444,6 @@ export const useGame = create<GameState>()(
         }
         if (!save) return
         const d = await tryPost('/api/cloud-save', {
-          citizenId: s.citizen.citizenId,
-          token: s.citizen.token,
           save,
         })
         if (d?.ok) set({ cloudSyncedAt: Date.now() })
@@ -3743,14 +3719,12 @@ export const useGame = create<GameState>()(
 
       generateAvatar: async (params) => {
         // A citizen created offline (or whose first registration didn't stick)
-        // has no token yet — register on demand so the studio just works instead
+        // has no verified cookie session yet — register on demand so the studio works instead
         // of dead-ending on "connect first".
-        if (get().citizen && !get().citizen?.token) await get().registerOnline()
+        if (get().citizen && !get().citizen?.online) await get().registerOnline()
         const s = get()
         if (!s.citizen?.citizenId) return 'Connect to the world first — the avatar studio needs an online citizen.'
         const d = await tryPost('/api/avatar', {
-          citizenId: s.citizen.citizenId,
-          token: s.citizen.token,
           params,
         })
         if (!d?.ok) return (d?.error as string) ?? 'The avatar studio is unreachable. Try again.'
@@ -3777,12 +3751,8 @@ export const useGame = create<GameState>()(
         // device. Local state is cleared immediately even if the network is
         // unavailable; the server-side expiry/revocation remains fail-closed.
         if (citizen?.citizenId) {
-          void tryPost('/api/revoke-session', {
-            citizenId: citizen.citizenId,
-            token: citizen.token,
-          })
+          void tryPost('/api/revoke-session', {})
         }
-        writeSessionToken(null)
         set({ citizen: null, ...FRESH })
       },
     }),

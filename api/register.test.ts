@@ -64,7 +64,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.body).toMatchObject({ ok: true, founderNumber: 1, slotsClaimed: 1, slotsTotal: FOUNDER_SLOTS })
-    const body = res.body as { citizenId: string; token: string }
+    const body = res.body as { citizenId: string; token?: string }
     const cookies = res.headers['Set-Cookie'] as unknown as string[]
     expect(cookies.join('\n')).toContain('reality_session=')
     expect(cookies.join('\n')).toContain('HttpOnly')
@@ -91,7 +91,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
 
     // Postgres owns the whole registry now — the only Blob write left is
     // the regip/ throttle marker (and telegram-users/ for linked accounts)
-    expect(body.token).toBeTruthy()
+    expect(body.token).toBeUndefined()
     const paths = vi.mocked(put).mock.calls.map(([pathname]) => String(pathname))
     expect(paths.some((p) => p.startsWith('citizens/'))).toBe(false)
     expect(paths.some((p) => p.startsWith('names/'))).toBe(false)

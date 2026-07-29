@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { resetDbForTest } from './_db'
-import handler, { evaluateIntent, normalizeIntent } from './intent'
+import rawHandler, { evaluateIntent, normalizeIntent } from './intent'
+import { withCitizenSessionHandler } from './_sessionTest'
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
 
@@ -12,6 +13,7 @@ vi.mock('@neondatabase/serverless', () => ({
 
 const CITIZEN_ID = '12345678-1234-1234-1234-123456789abc'
 const TOKEN = 'intent-token'
+const handler = withCitizenSessionHandler(rawHandler, CITIZEN_ID, TOKEN)
 
 function pgOn() {
   vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
@@ -111,7 +113,15 @@ describe('evaluateIntent — engine rules, no duplication', () => {
 })
 
 describe('intent API handler', () => {
-  const BODY = { citizenId: CITIZEN_ID, token: TOKEN, intent: { type: 'workShift', jobId: 'barista' } }
+  const BODY = { intent: { type: 'workShift', jobId: 'barista' } }
+
+  test('does not authenticate legacy body credentials', async () => {
+    const res = responseRecorder()
+    await rawHandler({ method: 'POST', body: { ...BODY, citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toMatchObject({ ok: false, code: 'session_required' })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+  })
 
   test('rejects non-POST methods', async () => {
     const res = responseRecorder()
