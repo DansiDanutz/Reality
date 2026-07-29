@@ -328,7 +328,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 21
+export const SAVE_VERSION = 22
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -348,6 +348,8 @@ export const SAVE_VERSION = 21
  *     business interior development, service POIs / Workers Hall, Mystery
  *     Box credit ledger. Versions 8–19 were burned on a parallel branch
  *     that never shipped to production — 20 is strictly above both chains.
+ *   v21 → v22: clear persisted browser-session state so every citizen
+ *     revalidates the HttpOnly cookie after the bearer cutover.
  *
  * The function mutates and returns its input (matching zustand/persist's
  * migrate signature). Every field added after v1 MUST have a backfill here,
