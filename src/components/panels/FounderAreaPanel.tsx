@@ -21,11 +21,6 @@ import {
   type RealityAreaCovenantManualEvidenceKind,
   type RealityAreaCovenantReviewPayload,
   type RealityAreaDashboard,
-  type RealityAreaHandoffDashboard,
-  type RealityAreaLandRightsDashboard,
-  type RealityAreaLegacyRoyaltyDashboard,
-  type RealityAreaPayoutReadinessDashboard,
-  type RealityAreaSettlementDashboard,
   type RealityAreaState,
 } from '../../lib/realityArea'
 import { useGame } from '../../store/gameStore'
@@ -150,14 +145,14 @@ export default function FounderAreaPanel() {
 
   const result = panelState.status === 'ready' ? panelState.result : null
   const dashboard = result?.dashboard
-  const founderIdentityDashboard = dashboard ? getFounderIdentityDashboard(dashboard) : null
+  const founderIdentityDashboard = dashboard ? getFounderDashboardSection(dashboard, 'founderIdentity') : null
   const areaEventsDashboard = dashboard ? getFounderAreaEventsDashboard(dashboard) : null
-  const growthDashboard = dashboard ? getFounderGrowthDashboard(dashboard) : null
-  const settlementDashboard = dashboard ? getFounderSettlementDashboard(dashboard) : null
-  const payoutReadinessDashboard = dashboard ? getFounderPayoutReadinessDashboard(dashboard) : null
-  const legacyRoyaltyDashboard = dashboard ? getFounderLegacyRoyaltyDashboard(dashboard) : null
-  const handoffDashboard = dashboard ? getFounderHandoffDashboard(dashboard) : null
-  const landRightsDashboard = dashboard ? getFounderLandRightsDashboard(dashboard) : null
+  const growthDashboard = dashboard ? getFounderDashboardSection(dashboard, 'growth') : null
+  const settlementDashboard = dashboard ? getFounderDashboardSection(dashboard, 'settlement') : null
+  const payoutReadinessDashboard = dashboard ? getFounderDashboardSection(dashboard, 'payoutReadiness') : null
+  const legacyRoyaltyDashboard = dashboard ? getFounderDashboardSection(dashboard, 'legacyRoyalty') : null
+  const handoffDashboard = dashboard ? getFounderDashboardSection(dashboard, 'handoff') : null
+  const landRightsDashboard = dashboard ? getFounderDashboardSection(dashboard, 'landRights') : null
   const area = result?.area
   const founder = dashboard?.citizens.find((candidate) => candidate.id === profile.founderId)
   const transactions = result?.transactions ?? []
@@ -1016,52 +1011,21 @@ async function hydrateServerArea(
   }
 }
 
-function getFounderIdentityDashboard(
+function getFounderDashboardSection<K extends keyof Pick<
+  RealityAreaDashboard,
+  'founderIdentity' | 'growth' | 'settlement' | 'payoutReadiness' | 'legacyRoyalty' | 'handoff' | 'landRights'
+>>(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaDashboard['founderIdentity'] | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'founderIdentity'>>).founderIdentity ?? null
+  key: K,
+): RealityAreaDashboard[K] | null {
+  const areaDashboard = dashboard as unknown as Partial<RealityAreaDashboard>
+  return (areaDashboard[key] as RealityAreaDashboard[K] | undefined) ?? null
 }
 
 function getFounderAreaEventsDashboard(
   dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
 ): AreaEventsDashboard | null {
   return dashboard.areaEvents ?? null
-}
-
-function getFounderGrowthDashboard(
-  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaDashboard['growth'] | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'growth'>>).growth ?? null
-}
-
-function getFounderSettlementDashboard(
-  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaSettlementDashboard | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'settlement'>>).settlement ?? null
-}
-
-function getFounderPayoutReadinessDashboard(
-  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaPayoutReadinessDashboard | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'payoutReadiness'>>).payoutReadiness ?? null
-}
-
-function getFounderLegacyRoyaltyDashboard(
-  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaLegacyRoyaltyDashboard | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'legacyRoyalty'>>).legacyRoyalty ?? null
-}
-
-function getFounderHandoffDashboard(
-  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaHandoffDashboard | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'handoff'>>).handoff ?? null
-}
-
-function getFounderLandRightsDashboard(
-  dashboard: NonNullable<WorldServerCommandResult['dashboard']>,
-): RealityAreaLandRightsDashboard | null {
-  return (dashboard as Partial<Pick<RealityAreaDashboard, 'landRights'>>).landRights ?? null
 }
 
 function NeedMetric({ label, demand, shortage }: { label: string; demand: number; shortage: number }) {

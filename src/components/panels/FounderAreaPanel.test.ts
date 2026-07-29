@@ -13,8 +13,8 @@ import {
   founderCovenantNotificationDraftGateText,
   founderCovenantNotificationDraftStatusLabel,
   founderCovenantNotificationDraftText,
-  founderCovenantOperatorQueueItemSummary,
   founderCovenantOperatorQueuePageSummary,
+  founderCovenantOperatorQueueReviewRows,
   founderCovenantOperatorQueueSummary,
   founderCovenantReviewActionSummary,
   founderCovenantReviewApprovalSummary,
@@ -67,6 +67,7 @@ import {
   founderSettlementStatusLabel,
   founderSettlementSummaryItems,
 } from './founderAreaPanelView'
+import type { RealityFounderCovenantReviewQueueItem } from '../../lib/realityArea'
 
 describe('FounderAreaPanel covenant presenters', () => {
   test('requires executable payloads before resident action buttons can submit', () => {
@@ -692,6 +693,13 @@ describe('FounderAreaPanel covenant presenters', () => {
       blockerCount: 5,
       transactionsAdded: 1,
     } as const
+    const queueItem: RealityFounderCovenantReviewQueueItem = {
+      ...founderOperatorQueueItemBase(),
+      ...item,
+    }
+    const [row] = founderCovenantOperatorQueueReviewRows({
+      items: [queueItem],
+    })
 
     expect(founderCovenantOperatorQueueSummary(queue)).toBe(
       '2 founders · 1 manual review · 1 overdue · 1 hospitalized · 1 indebted · 2 warning signals · 1 critical · $350 debt · more available',
@@ -699,7 +707,7 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderCovenantOperatorQueuePageSummary(queue)).toBe(
       '2 scanned · 1 caught up · 0 current · 1 failed · next page ready',
     )
-    expect(founderCovenantOperatorQueueItemSummary(item)).toBe(
+    expect(row?.summary).toBe(
       'Manual review · manual review · score 35/100 · $350 debt · 2 warnings · 1 critical · 5 blockers · 1 tx',
     )
   })
@@ -1025,3 +1033,98 @@ describe('FounderAreaPanel covenant presenters', () => {
     expect(founderLegacyRoyaltyBlockerText('compliance_review_required')).toBe('Compliance review')
   })
 })
+
+function founderOperatorQueueItemBase(): RealityFounderCovenantReviewQueueItem {
+  return {
+    areaId: 'founder-area-0012',
+    areaLabel: 'Bucharest Founder Block',
+    founderCitizenId: 'founder-12',
+    founderNumber: 12,
+    updatedAt: '2026-07-06T04:00:00.000Z',
+    overdue: true,
+    covenantStatus: 'manual_review',
+    manualReviewRequired: true,
+    nextAction: 'manual_review' as const,
+    replacementEnabled: false,
+    waitlistHandoffEnabled: false,
+    activityReview: {
+      checkedAt: '2026-07-06T04:00:00.000Z',
+      active: false,
+      useful: false,
+      building: true,
+      staffed: false,
+      indebted: true,
+      hospitalized: true,
+      atRisk: true,
+      score: 35,
+    },
+    economicExposure: {
+      founderCash: 199_500,
+      outstandingDebt: 350,
+      debtCount: 1,
+      businessCash: 25,
+      businessCount: 2,
+      unstaffedBusinessCount: 1,
+      insured: false,
+      hospitalized: true,
+      gameCreditsOnly: true,
+      payoutEligibleCredits: 0,
+      manualPayoutReviewRequired: true,
+    },
+    reviewQueue: {
+      evidenceOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+      recordReviewEnabled: true,
+      nextStep: 'record_review' as const,
+      recommendedActionKinds: ['record_review'] as const,
+      pendingApprovalKinds: ['send_warning'] as const,
+      pendingApprovalCount: 1,
+      pendingNotificationKinds: ['manual_review_required'] as const,
+      pendingNotificationCount: 1,
+      blockerCount: 2,
+      blockers: ['approval_workflow_disabled', 'telegram_delivery_disabled'] as const,
+    },
+    recommendedActionKinds: ['send_warning'] as const,
+    pendingApprovalKinds: ['send_warning'] as const,
+    pendingNotificationKinds: ['manual_review_required'] as const,
+    checkedAt: '2026-07-06T04:00:00.000Z',
+    lastReviewAt: null,
+    nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
+    nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+    reviewSchedule: {
+      lastReviewAt: null,
+      nextWeeklyReviewAt: '2026-07-12T04:00:00.000Z',
+      nextMonthlyReviewAt: '2026-08-05T04:00:00.000Z',
+      weeklyReviewDue: true,
+      monthlyReviewDue: false,
+      overdue: true,
+      automationEnabled: false,
+    },
+    latestReview: null,
+    signalKinds: [],
+    activitySignals: [],
+    stages: [],
+    reviewReadiness: {
+      label: 'Blocked',
+      summary: '3 approval blockers before enforcement.',
+      status: 'blocked',
+      evidenceRequiredCount: 3,
+      approvalRequestCount: 1,
+      blockerCount: 3,
+      overdue: true,
+      manualOnly: true,
+      automationEnabled: false,
+      executionEnabled: false,
+    },
+    reviewChecklist: [],
+    reviewInputs: [],
+    manualActions: [],
+    signalCounts: { total: 0, info: 0, warning: 0, critical: 0 },
+    pendingApprovalRequests: [],
+    pendingNotificationDrafts: [],
+    blockerCount: 0,
+    scanStatus: 'caught_up' as const,
+    transactionsAdded: 0,
+  }
+}

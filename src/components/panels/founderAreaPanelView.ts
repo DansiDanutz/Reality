@@ -37,23 +37,23 @@ import type {
   RealityFounderCovenantReviewQueueItem,
 } from '../../lib/realityArea'
 
-export type FounderCovenantReviewTone = 'stable' | 'warning' | 'critical'
+type FounderCovenantReviewTone = 'stable' | 'warning' | 'critical'
 
-export interface FounderCovenantReviewItem {
+interface FounderCovenantReviewItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderLedgerSummaryItem {
+interface FounderLedgerSummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderAreaEventSummaryItem {
+interface FounderAreaEventSummaryItem {
   key: string
   label: string
   value: string
@@ -107,56 +107,56 @@ export function founderExecutableInsurancePayload<T extends FounderPanelPayloadC
     : null
 }
 
-export interface FounderSettlementSummaryItem {
+interface FounderSettlementSummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderLegacyRoyaltySummaryItem {
+interface FounderLegacyRoyaltySummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderGrowthSummaryItem {
+interface FounderGrowthSummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderHandoffSummaryItem {
+interface FounderHandoffSummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderLandRightsSummaryItem {
+interface FounderLandRightsSummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderPayoutReadinessSummaryItem {
+interface FounderPayoutReadinessSummaryItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export interface FounderCovenantScheduleItem {
+interface FounderCovenantScheduleItem {
   key: string
   label: string
   value: string
   tone: FounderCovenantReviewTone
 }
 
-export type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
+type FounderCovenantOperatorQueueStatusClass = 'met' | 'watch' | 'manual_review'
 
 export interface FounderCovenantOperatorQueueReviewRow {
   key: string
@@ -794,7 +794,7 @@ export function founderCovenantOperatorQueuePageSummary(
   return `${queue.scanned} scanned · ${queue.caughtUp} caught up · ${queue.current} current · ${queue.failed} failed${queue.hasMore ? ' · next page ready' : ''}`
 }
 
-export function founderCovenantOperatorQueueItemSummary(
+function founderCovenantOperatorQueueItemSummary(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
     | 'covenantStatus'
@@ -811,13 +811,13 @@ export function founderCovenantOperatorQueueItemSummary(
   return `${status} · ${review} · score ${item.activityReview.score}/100 · ${formatMoney(item.economicExposure.outstandingDebt)} debt · ${item.signalCounts.warning} warning${item.signalCounts.warning === 1 ? '' : 's'} · ${item.signalCounts.critical} critical · ${item.blockerCount} blocker${item.blockerCount === 1 ? '' : 's'} · ${item.transactionsAdded} tx`
 }
 
-export function founderCovenantOperatorQueueItemTitle(
+function founderCovenantOperatorQueueItemTitle(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'founderNumber' | 'areaLabel'>,
 ): string {
   return `#${String(item.founderNumber).padStart(4, '0')} · ${item.areaLabel}`
 }
 
-export function founderCovenantOperatorQueueItemStatusClass(
+function founderCovenantOperatorQueueItemStatusClass(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'manualReviewRequired' | 'covenantStatus' | 'overdue' | 'activityReview'>,
 ): FounderCovenantOperatorQueueStatusClass {
   if (item.manualReviewRequired || item.covenantStatus === 'manual_review') return 'manual_review'
@@ -825,7 +825,7 @@ export function founderCovenantOperatorQueueItemStatusClass(
   return 'met'
 }
 
-export function founderCovenantOperatorQueueItemStatusLabel(
+function founderCovenantOperatorQueueItemStatusLabel(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'manualReviewRequired' | 'covenantStatus' | 'overdue' | 'activityReview'>,
 ): string {
   if (item.manualReviewRequired || item.covenantStatus === 'manual_review') return 'Manual'
@@ -834,14 +834,14 @@ export function founderCovenantOperatorQueueItemStatusLabel(
   return 'Tracked'
 }
 
-export function founderCovenantOperatorQueueItemDateSummary(
+function founderCovenantOperatorQueueItemDateSummary(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'scanStatus' | 'checkedAt' | 'lastReviewAt' | 'nextWeeklyReviewAt' | 'nextMonthlyReviewAt'>,
 ): string {
   const lastReview = item.lastReviewAt ? shortDate(item.lastReviewAt) : 'none'
   return `${founderCovenantOperatorQueueScanStatusLabel(item.scanStatus)} · checked ${shortDate(item.checkedAt)} · last ${lastReview} · weekly ${shortDate(item.nextWeeklyReviewAt)} · monthly ${shortDate(item.nextMonthlyReviewAt)}`
 }
 
-export function founderCovenantOperatorQueueCadenceText(
+function founderCovenantOperatorQueueCadenceText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewSchedule'>,
 ): string {
   const schedule = item.reviewSchedule
@@ -851,7 +851,7 @@ export function founderCovenantOperatorQueueCadenceText(
   return `${weekly} · ${monthly} · ${overdue} · automation disabled`
 }
 
-export function founderCovenantOperatorQueueSignalText(
+function founderCovenantOperatorQueueSignalText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'signalKinds'>,
 ): string {
   return item.signalKinds.length > 0 ? item.signalKinds.join(', ') : 'none'
@@ -889,14 +889,14 @@ export function founderCovenantOperatorQueueReviewRows(
     .sort((a, b) => b.priorityScore - a.priorityScore || a.title.localeCompare(b.title))
 }
 
-export function founderCovenantOperatorQueueLatestReviewText(
+function founderCovenantOperatorQueueLatestReviewText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'latestReview'>,
 ): string | null {
   if (!item.latestReview) return null
   return `Latest review ${shortDate(item.latestReview.reviewedAt)} · ${item.latestReview.reviewerId} · ${item.latestReview.summary}`
 }
 
-export function founderCovenantOperatorQueueActivitySignalText(
+function founderCovenantOperatorQueueActivitySignalText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'activitySignals'>,
 ): string {
   if (item.activitySignals.length === 0) return 'none'
@@ -916,7 +916,7 @@ function founderCovenantActivitySignalLabel(
   return `${signal.label} ${signal.value ? 'yes' : 'no'}`
 }
 
-export function founderCovenantOperatorQueueEconomicExposureText(
+function founderCovenantOperatorQueueEconomicExposureText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'economicExposure'>,
 ): string {
   const exposure = item.economicExposure
@@ -933,7 +933,7 @@ export function founderCovenantOperatorQueueEconomicExposureText(
   ].join(' · ')
 }
 
-export function founderCovenantOperatorQueueStageText(
+function founderCovenantOperatorQueueStageText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'stages'>,
 ): string {
   if (item.stages.length === 0) return 'none'
@@ -947,7 +947,7 @@ export function founderCovenantOperatorQueueStageText(
   return parts.join(' · ')
 }
 
-export function founderCovenantOperatorQueueReviewReadinessText(
+function founderCovenantOperatorQueueReviewReadinessText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewReadiness'>,
 ): string {
   const readiness = item.reviewReadiness
@@ -966,7 +966,7 @@ export function founderCovenantOperatorQueueReviewReadinessText(
   return `${readiness.label}: ${readiness.summary}${detailText}`
 }
 
-export function founderCovenantOperatorQueueChecklistText(
+function founderCovenantOperatorQueueChecklistText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewChecklist'>,
 ): string {
   if (item.reviewChecklist.length === 0) return 'none'
@@ -979,7 +979,7 @@ export function founderCovenantOperatorQueueChecklistText(
   return parts.join(' · ')
 }
 
-export function founderCovenantOperatorQueueEvidenceInputText(
+function founderCovenantOperatorQueueEvidenceInputText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'reviewInputs'>,
 ): string {
   const manual = item.reviewInputs.filter((input) => input.manualEvidenceRequired || input.status === 'manual_needed')
@@ -988,7 +988,7 @@ export function founderCovenantOperatorQueueEvidenceInputText(
   return watch.length > 0 ? `Watch: ${watch.map((input) => input.label).join(', ')}` : 'complete'
 }
 
-export function founderCovenantOperatorQueueManualActionText(
+function founderCovenantOperatorQueueManualActionText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'manualActions'>,
 ): string {
   const suggested = item.manualActions.filter((action) => action.recommended)
@@ -1001,7 +1001,7 @@ export function founderCovenantOperatorQueueManualActionText(
     .join(', ')
 }
 
-export function founderCovenantOperatorQueueApprovalRequestText(
+function founderCovenantOperatorQueueApprovalRequestText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingApprovalRequests'>,
 ): string {
   if (item.pendingApprovalRequests.length === 0) return 'none'
@@ -1015,7 +1015,7 @@ export function founderCovenantOperatorQueueApprovalRequestText(
     .join(', ')
 }
 
-export function founderCovenantOperatorQueueNotificationDraftText(
+function founderCovenantOperatorQueueNotificationDraftText(
   item: Pick<RealityFounderCovenantReviewQueueItem, 'pendingNotificationDrafts'>,
 ): string {
   if (item.pendingNotificationDrafts.length === 0) return 'none'
@@ -1024,7 +1024,7 @@ export function founderCovenantOperatorQueueNotificationDraftText(
     .join(', ')
 }
 
-export function founderCovenantOperatorQueuePriorityScore(
+function founderCovenantOperatorQueuePriorityScore(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
     | 'manualReviewRequired'
@@ -1061,7 +1061,7 @@ export function founderCovenantOperatorQueuePriorityScore(
   return score
 }
 
-export function founderCovenantOperatorQueuePriorityReasons(
+function founderCovenantOperatorQueuePriorityReasons(
   item: Pick<
     RealityFounderCovenantReviewQueueItem,
     | 'manualReviewRequired'

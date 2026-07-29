@@ -1,0 +1,116 @@
+name: Cleanup Audit
+
+on:
+  schedule:
+    - cron: "45 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cleanup-audit
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # releases/v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.ROADMAP_PUSH_TOKEN || github.token }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # releases/v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: tests
+        continue-on-error: true
+        run: npx vitest run
+      - id: build
+        continue-on-error: true
+        run: npm run build
+      - id: lint
+        continue-on-error: true
+        run: npm run lint
+      - name: Generate cleanup audit report
+        env:
+          CLEANUP_AUDIT_TEST_STATUS: ${{ steps.tests.outcome }}
+          CLEANUP_AUDIT_BUILD_STATUS: ${{ steps.build.outcome }}
+          CLEANUP_AUDIT_LINT_STATUS: ${{ steps.lint.outcome }}
+        run: node scripts/generate-cleanup-audit.mjs
+      - name: Fail on unexpected generator writes
+        run: |
+          if ! git diff --quiet -- . ':(exclude)docs/automation/cleanup-audit.md'; then
+            echo "Cleanup audit generator touched unexpected files."
+            git diff --name-only -- . ':(exclude)docs/automation/cleanup-audit.md'
+            exit 1
+          fi
+          unexpected_untracked="$(git ls-files --others --exclude-standard | grep -v '^docs/automation/cleanup-audit.md$' || true)"
+          if [ -n "$unexpected_untracked" ]; then
+            echo "Cleanup audit generator created unexpected files:"
+            printf '%s\n' "$unexpected_untracked"
+            exit 1
+          fi
+      - name: Open or update cleanup audit PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_STATUS: ${{ steps.tests.outcome }}
+          BUILD_STATUS: ${{ steps.build.outcome }}
+          LINT_STATUS: ${{ steps.lint.outcome }}
+        run: |
+          if git diff --quiet -- docs/automation/cleanup-audit.md &&
+            ! git ls-files --others --exclude-standard -- docs/automation/cleanup-audit.md | grep -q .; then
+            echo "Cleanup audit report is already current."
+            exit 0
+          fi
+
+          if ! git diff --quiet -- . ':(exclude)docs/automation/cleanup-audit.md'; then
+            echo "Unexpected modified files detected."
+            git diff --name-only -- . ':(exclude)docs/automation/cleanup-audit.md'
+            exit 1
+          fi
+          unexpected_untracked="$(git ls-files --others --exclude-standard | grep -v '^docs/automation/cleanup-audit.md$' || true)"
+          if [ -n "$unexpected_untracked" ]; then
+            echo "Unexpected untracked files detected:"
+            printf '%s\n' "$unexpected_untracked"
+            exit 1
+          fi
+
+          branch="automation/cleanup-audit"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add docs/automation/cleanup-audit.md
+
+          staged="$(git diff --cached --name-only)"
+          if [ "$staged" != "docs/automation/cleanup-audit.md" ]; then
+            echo "Unexpected staged paths: $staged"
+            exit 1
+          fi
+
+          git commit \
+            -m "Publish the cleanup audit without mutating source files" \
+            -m "Scheduled automation regenerates the bounded cleanup audit report from static repository evidence and publishes it through a PR because main is protected." \
+            -m "Constraint: The routine may update only docs/automation/cleanup-audit.md" \
+            -m "Tested: vitest ${TEST_STATUS}; build ${BUILD_STATUS}; lint ${LINT_STATUS}"
+          git push --force-with-lease origin "$branch"
+
+          {
+            printf '%s\n\n' "Cleanup audit refresh."
+            printf '%s\n' "- Generated report: \`docs/automation/cleanup-audit.md\`" "- Scope: audit-only; no source mutations are allowed." "- PR branch: \`automation/cleanup-audit\`"
+            printf '\n%s\n' "This workflow stages only the generated report and refuses any unexpected file changes."
+          } > /tmp/cleanup-audit-pr-body.md
+
+          if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh pr edit "$branch" --repo "$GITHUB_REPOSITORY" --body-file /tmp/cleanup-audit-pr-body.md
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" --title "Refresh cleanup audit report" --body-file /tmp/cleanup-audit-pr-body.md
+          fi
+      - name: Fail if verification failed
+        if: steps.tests.outcome != 'success' || steps.build.outcome != 'success' || steps.lint.outcome != 'success'
+        run: |
+          echo "Cleanup audit was generated, but verification failed."
+          exit 1
