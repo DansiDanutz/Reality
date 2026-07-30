@@ -216,6 +216,39 @@ describe('session reset', () => {
     expect(useGame.getState().citizen).toBeNull()
   })
 
+  test('revokes a session issued after reset wins an in-flight registration', async () => {
+    let resolveRegistration!: (response: Response) => void
+    const registrationResponse = new Promise<Response>((resolve) => {
+      resolveRegistration = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/register') return registrationResponse
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: { name: 'David', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+
+    const registration = useGame.getState().registerOnline()
+    useGame.getState().reset()
+    resolveRegistration(new Response(JSON.stringify({
+      ok: true,
+      citizenId: 'citizen-new',
+      founderNumber: 0,
+    }), { status: 200 }))
+    await registration
+
+    expect(useGame.getState().citizen).toBeNull()
+    expect(fetchMock).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
+      body: JSON.stringify({}),
+    }))
+  })
+
   test('revokes an online session before clearing local state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })))
     vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })

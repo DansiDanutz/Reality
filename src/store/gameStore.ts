@@ -1339,7 +1339,10 @@ export const useGame = create<GameState>()(
           citizenSessionGeneration !== sessionGeneration
           || !cur.citizen
           || cur.citizen.citizenId
-        ) return
+        ) {
+          if (d?.ok) await tryPost('/api/revoke-session', {})
+          return
+        }
 
         if (!d?.ok) {
           // Unique names: on collision, take a numbered variant and retry once
@@ -1353,7 +1356,10 @@ export const useGame = create<GameState>()(
               log: note(cur.log, `"${cur.citizen.name}" was already a citizen — you are ${variant}.`),
             })
             const retry = await tryPost('/api/register', retryPayload)
-            if (citizenSessionGeneration !== sessionGeneration || !get().citizen) return
+            if (citizenSessionGeneration !== sessionGeneration || !get().citizen) {
+              if (retry?.ok) await tryPost('/api/revoke-session', {})
+              return
+            }
             if (retry?.ok) {
               d = retry
             } else {
