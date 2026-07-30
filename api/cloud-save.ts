@@ -37,6 +37,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ ok: false, error: 'Invalid save payload.' })
     return
   }
+  const saveCitizenId = persistedSaveCitizenId(parsedSave)
+  if (saveCitizenId !== String(citizenId)) {
+    res.status(403).json({
+      ok: false,
+      error: 'Cloud save identity does not match the active session.',
+      code: 'citizen_mismatch',
+    })
+    return
+  }
   const sanitizedSave = scrubPersistedToken(parsedSave)
   const savedAt = persistedSaveTimestamp(parsedSave)
 
@@ -64,6 +73,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       code: 'cloud_save_unavailable',
     })
   }
+}
+
+function persistedSaveCitizenId(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const citizen = (value as Record<string, unknown>).citizen
+  if (!citizen || typeof citizen !== 'object' || Array.isArray(citizen)) return null
+  const record = citizen as Record<string, unknown>
+  const candidate = record.citizenId ?? record.id
+  return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
 }
 
 function persistedSaveTimestamp(value: unknown): number {

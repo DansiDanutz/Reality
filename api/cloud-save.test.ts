@@ -54,6 +54,28 @@ describe('cloud save API', () => {
     expect(res.body).toMatchObject({ ok: false, code: 'csrf_required' })
     expect(pgQueryMock).not.toHaveBeenCalled()
   })
+  test('rejects a save whose embedded citizen differs from the cookie session', async () => {
+    const res = responseRecorder()
+    const mismatchedSave = JSON.stringify({
+      version: 1,
+      citizen: { id: '22222222-2222-4222-8222-222222222222', name: 'Mallory' },
+    })
+
+    await handler({
+      method: 'POST',
+      body: { save: mismatchedSave },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toEqual({
+      ok: false,
+      error: 'Cloud save identity does not match the active session.',
+      code: 'citizen_mismatch',
+    })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('stores a valid save for a registered citizen', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // citizens-table token hash match
     pgQueryMock.mockResolvedValueOnce([{ accepted: true }]) // monotonic cloud-save reservation
@@ -99,7 +121,7 @@ describe('cloud save API', () => {
 
     await handler({
       method: 'POST',
-      body: { citizenId: CITIZEN_ID, token: TOKEN, save: JSON.stringify({ lastSeenAt: 100 }) },
+      body: { citizenId: CITIZEN_ID, token: TOKEN, save: JSON.stringify({ lastSeenAt: 100, citizen: { id: CITIZEN_ID } }) },
     } as never, res as never)
 
     expect(res.statusCode).toBe(409)

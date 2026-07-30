@@ -1222,6 +1222,8 @@ function workerContractFinishedText(names: string[], subject: string, remainingM
   return `${who} finished paid Workers Hall time on ${subject}; ${formatLaborMinutes(remainingMinutes)} ${kind} remains.`
 }
 
+let citizenSessionGeneration = 0
+
 export const useGame = create<GameState>()(
   persist(
     (set, get) => ({
@@ -1229,6 +1231,7 @@ export const useGame = create<GameState>()(
       ...FRESH,
 
       createCitizen: (name, spawn) => {
+        citizenSessionGeneration += 1
         set({
           citizen: {
             name: name.trim(),
@@ -1298,16 +1301,32 @@ export const useGame = create<GameState>()(
       registerOnline: async () => {
         const s = get()
         if (!s.citizen || s.citizen.online) return
+        const sessionGeneration = citizenSessionGeneration
         if (s.citizen.citizenId) {
+          const expectedCitizenId = s.citizen.citizenId
           const session = await tryGet('/api/session')
+          const currentCitizen = get().citizen
+          if (
+            citizenSessionGeneration !== sessionGeneration
+            || !currentCitizen
+            || currentCitizen.citizenId !== expectedCitizenId
+          ) return
+          if (session?.ok && session.citizenId === expectedCitizenId) {
+            set({ citizen: { ...currentCitizen, online: true } })
+            return
+          }
           if (session?.ok) {
-            set({ citizen: { ...get().citizen!, online: true } })
+            // A cookie for another citizen must never authorize this persisted
+            // save. Clear the mismatched local identity before any background
+            // cloud or gameplay mutation can run under the wrong account.
+            citizenSessionGeneration += 1
+            set({ citizen: null, ...FRESH })
             return
           }
           // A persisted identity with no valid cookie is an offline citizen,
           // not a new registration. Never create a second server identity
           // merely because this device lost its session transport.
-          set({ citizen: { ...get().citizen!, online: false } })
+          set({ citizen: { ...currentCitizen, online: false } })
           return
         }
         const telegramInitData = telegramMiniAppInitData()
@@ -1316,7 +1335,11 @@ export const useGame = create<GameState>()(
           : { name: s.citizen.name }
         let d = await tryPost('/api/register', registrationPayload)
         const cur = get()
-        if (!cur.citizen || cur.citizen.token) return
+        if (
+          citizenSessionGeneration !== sessionGeneration
+          || !cur.citizen
+          || cur.citizen.citizenId
+        ) return
 
         if (!d?.ok) {
           // Unique names: on collision, take a numbered variant and retry once
@@ -1330,6 +1353,7 @@ export const useGame = create<GameState>()(
               log: note(cur.log, `"${cur.citizen.name}" was already a citizen — you are ${variant}.`),
             })
             const retry = await tryPost('/api/register', retryPayload)
+            if (citizenSessionGeneration !== sessionGeneration || !get().citizen) return
             if (retry?.ok) {
               d = retry
             } else {
@@ -1345,7 +1369,11 @@ export const useGame = create<GameState>()(
         const founderNumber = (d.founderNumber as number | null) ?? 0
         const isFounder = founderNumber > 0
         const latest = get()
-        if (!latest.citizen) return
+        if (
+          citizenSessionGeneration !== sessionGeneration
+          || !latest.citizen
+          || latest.citizen.citizenId
+        ) return
         set({
           citizen: {
             ...latest.citizen,
@@ -3746,6 +3774,7 @@ export const useGame = create<GameState>()(
       setEnteredAssetId: (id) => set({ enteredAssetId: id }),
       setPanel: (panel) => set({ panel }),
       reset: () => {
+        citizenSessionGeneration += 1
         const citizen = get().citizen
         // Revoke the server session when the player explicitly clears this
         // device. Local state is cleared immediately even if the network is

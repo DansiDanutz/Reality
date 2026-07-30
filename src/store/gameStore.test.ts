@@ -163,6 +163,59 @@ describe('session reset', () => {
     expect(useGame.getState().citizen?.online).toBe(true)
   })
 
+  test('clears a persisted citizen when the cookie belongs to another identity', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ ok: true, citizenId: 'citizen-2' }),
+      { status: 200 },
+    )))
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        token: '',
+        online: false,
+      },
+    })
+
+    await useGame.getState().registerOnline()
+
+    expect(useGame.getState().citizen).toBeNull()
+  })
+
+  test('does not repopulate citizen state when reset wins an in-flight validation', async () => {
+    let resolveSession!: (response: Response) => void
+    const sessionResponse = new Promise<Response>((resolve) => {
+      resolveSession = resolve
+    })
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/session') return sessionResponse
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }))
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        token: '',
+        online: false,
+      },
+    })
+
+    const validation = useGame.getState().registerOnline()
+    useGame.getState().reset()
+    resolveSession(new Response(
+      JSON.stringify({ ok: true, citizenId: 'citizen-1' }),
+      { status: 200 },
+    ))
+    await validation
+
+    expect(useGame.getState().citizen).toBeNull()
+  })
+
   test('revokes an online session before clearing local state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })))
     vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
