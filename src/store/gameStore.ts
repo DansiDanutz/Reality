@@ -1336,9 +1336,9 @@ export const useGame = create<GameState>()(
           }
           if (session?.ok) {
             // A restored save can legitimately differ from a stale browser
-            // cookie. Revoke that transport identity, but never erase the
-            // restored life merely because another session was still present.
-            await tryPost('/api/revoke-session', {})
+            // cookie. Clear only this browser's transport; globally revoking
+            // the unrelated citizen would sign that account out everywhere.
+            await tryPost('/api/clear-session', {})
             const restoredCitizen = get().citizen
             if (
               citizenSessionGeneration !== sessionGeneration
