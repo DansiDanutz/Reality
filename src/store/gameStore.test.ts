@@ -242,6 +242,44 @@ describe('session reset', () => {
     }
   })
 
+  test('revalidates an offline citizen when the session service recovers', async () => {
+    let sessionCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/session') {
+        sessionCalls += 1
+        if (sessionCalls === 1) {
+          return new Response(JSON.stringify({ ok: false, error: 'temporarily unavailable' }), {
+            status: 503,
+          })
+        }
+        return new Response(JSON.stringify({ ok: true, citizenId: 'citizen-1' }), {
+          status: 200,
+        })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        online: false,
+      },
+    })
+
+    await useGame.getState().registerOnline()
+    expect(useGame.getState().citizen?.online).toBe(false)
+
+    await useGame.getState().reportScore()
+
+    expect(sessionCalls).toBe(2)
+    expect(useGame.getState().citizen?.online).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith('/api/leaderboard', expect.anything())
+  })
+
   test('does not repopulate citizen state when reset wins an in-flight validation', async () => {
     let resolveSession!: (response: Response) => void
     const sessionResponse = new Promise<Response>((resolve) => {
