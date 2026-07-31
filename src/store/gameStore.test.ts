@@ -163,7 +163,7 @@ describe('session reset', () => {
     expect(useGame.getState().citizen?.online).toBe(true)
   })
 
-  test('preserves a restored citizen while revoking another identity cookie', async () => {
+  test('preserves a restored citizen while clearing another identity cookie locally', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === '/api/session') {
         return new Response(
@@ -189,7 +189,7 @@ describe('session reset', () => {
 
     await useGame.getState().registerOnline()
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/clear-session', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
     }))
