@@ -249,6 +249,96 @@ describe('session reset', () => {
     }))
   })
 
+  test('serializes concurrent registration calls so only one session is adopted', async () => {
+    let resolveRegistration!: (response: Response) => void
+    const registrationResponse = new Promise<Response>((resolve) => {
+      resolveRegistration = resolve
+    })
+    let registerCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/register') {
+        registerCalls += 1
+        return registrationResponse
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useGame.setState({
+      citizen: { name: 'David', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+
+    const first = useGame.getState().registerOnline()
+    const second = useGame.getState().registerOnline()
+    await Promise.resolve()
+    expect(registerCalls).toBe(1)
+
+    resolveRegistration(new Response(JSON.stringify({
+      ok: true,
+      citizenId: 'citizen-first',
+      founderNumber: 1,
+    }), { status: 200 }))
+    await Promise.all([first, second])
+
+    expect(registerCalls).toBe(1)
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      citizenId: 'citizen-first',
+      online: true,
+    }))
+  })
+
+  test('settles stale registration cleanup before registering a replacement citizen', async () => {
+    let resolveFirstRegistration!: (response: Response) => void
+    const firstRegistration = new Promise<Response>((resolve) => {
+      resolveFirstRegistration = resolve
+    })
+    let registerCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/register') {
+        registerCalls += 1
+        if (registerCalls === 1) return firstRegistration
+        return new Response(JSON.stringify({
+          ok: true,
+          citizenId: 'citizen-b',
+          founderNumber: 0,
+        }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: { name: 'Citizen A', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+
+    const staleRegistration = useGame.getState().registerOnline()
+    useGame.getState().reset()
+    useGame.setState({
+      citizen: { name: 'Citizen B', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+    const replacementRegistration = useGame.getState().registerOnline()
+    await Promise.resolve()
+    expect(registerCalls).toBe(1)
+
+    resolveFirstRegistration(new Response(JSON.stringify({
+      ok: true,
+      citizenId: 'citizen-a',
+      founderNumber: 0,
+    }), { status: 200 }))
+    await Promise.all([staleRegistration, replacementRegistration])
+
+    expect(registerCalls).toBe(2)
+    expect(fetchMock).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }))
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      name: 'Citizen B',
+      citizenId: 'citizen-b',
+      online: true,
+    }))
+  })
+
   test('revokes an online session before clearing local state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })))
     vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
