@@ -2094,7 +2094,7 @@ function serverState(): RealityAreaState {
     version: 1,
     areaId: 'founder-area-0012',
     founderCitizenId: 'citizen-1',
-    founderNumber: 12, online: true,
+    founderNumber: 12,
     balance: 200_000,
     claim: {
       founderCitizenId: 'citizen-1',
