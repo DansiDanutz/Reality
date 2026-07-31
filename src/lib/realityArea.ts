@@ -1053,6 +1053,7 @@ export type RealityFounderCovenantOperatorReviewResult =
   | { ok: false; reason: 'missing_operator_token' | 'request_failed' | 'server_rejected'; error: string; code?: string }
 
 type RealityAreaAuthorityPayload = RealityAreaServerPayload | RealityAreaCovenantReviewPayload | RealityAreaRefreshPayload
+type FounderAreaCitizenAuthority = Pick<Citizen, 'citizenId' | 'token' | 'founderNumber' | 'online'>
 
 export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId' | 'spawnLat' | 'spawnLng'>): RealityAreaClaimSource {
   if (citizen.telegramAccountId) return 'telegram'
@@ -1060,7 +1061,7 @@ export function founderAreaClaimSource(citizen: Pick<Citizen, 'telegramAccountId
 }
 
 export async function claimRealityFounderArea(
-  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  citizen: FounderAreaCitizenAuthority,
   profile: FounderAreaProfile,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaClaimResult> {
@@ -1105,7 +1106,7 @@ export async function claimRealityFounderArea(
 }
 
 export async function applyRealityFounderAreaIntent(
-  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  citizen: FounderAreaCitizenAuthority,
   payload: RealityAreaServerPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
@@ -1113,7 +1114,7 @@ export async function applyRealityFounderAreaIntent(
 }
 
 export async function advanceRealityFounderArea(
-  _citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  _citizen: FounderAreaCitizenAuthority,
   _fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
   return {
@@ -1125,14 +1126,14 @@ export async function advanceRealityFounderArea(
 }
 
 export async function refreshRealityFounderArea(
-  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  citizen: FounderAreaCitizenAuthority,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
   return applyRealityAreaPayload(citizen, { type: 'refreshArea' }, fetchImpl)
 }
 
 export async function recordRealityFounderCovenantReview(
-  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  citizen: FounderAreaCitizenAuthority,
   payload: RealityAreaCovenantReviewPayload,
   fetchImpl: typeof fetch = fetch,
 ): Promise<RealityAreaApplyResult> {
@@ -1247,7 +1248,7 @@ export async function recordRealityFounderCovenantOperatorReview(
 }
 
 async function applyRealityAreaPayload(
-  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  citizen: FounderAreaCitizenAuthority,
   payload: RealityAreaAuthorityPayload,
   fetchImpl: typeof fetch,
 ): Promise<RealityAreaApplyResult> {
@@ -3205,9 +3206,9 @@ function isClaimSource(value: unknown): value is RealityAreaClaimSource {
 }
 
 function readyFounderCredentials(
-  citizen: Pick<Citizen, 'citizenId' | 'token' | 'founderNumber'>,
+  citizen: FounderAreaCitizenAuthority,
 ): { ok: true } | { ok: false; reason: 'missing_identity' | 'not_founder'; error: string } {
-  if (!citizen.citizenId?.trim() || !hasBrowserRealitySession()) {
+  if (citizen.online !== true || !citizen.citizenId?.trim() || !hasBrowserRealitySession()) {
     return { ok: false, reason: 'missing_identity', error: 'Connect to the world first.' }
   }
   if (citizen.founderNumber <= 0) {

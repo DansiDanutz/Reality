@@ -163,6 +163,278 @@ describe('session reset', () => {
     expect(useGame.getState().citizen?.online).toBe(true)
   })
 
+  test('preserves a restored citizen while clearing another identity cookie locally', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/session') {
+        return new Response(
+          JSON.stringify({ ok: true, citizenId: 'citizen-2' }),
+          { status: 200 },
+        )
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        token: '',
+        online: false,
+      },
+      money: 4321,
+    })
+
+    await useGame.getState().registerOnline()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/clear-session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }))
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      citizenId: 'citizen-1',
+      online: false,
+    }))
+    expect(useGame.getState().money).toBe(4321)
+  })
+
+  test('blocks protected actions when stale-cookie cleanup is not acknowledged', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/session') {
+        return new Response(
+          JSON.stringify({ ok: true, citizenId: 'citizen-a' }),
+          { status: 200 },
+        )
+      }
+      if (url === '/api/clear-session') {
+        return new Response(JSON.stringify({ ok: false }), { status: 503 })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: {
+        name: 'Citizen B',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-b',
+        googleSub: 'google-b',
+        online: false,
+      },
+    })
+
+    await useGame.getState().registerOnline()
+    await useGame.getState().reportScore()
+    const linkError = await useGame.getState().linkGoogle('credential-b')
+    await useGame.getState().pushCloudSave()
+
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      citizenId: 'citizen-b',
+      online: false,
+    }))
+    expect(linkError).toBe('Connect to the world first — Google linking needs an online citizen.')
+    for (const protectedPath of ['/api/leaderboard', '/api/auth-google', '/api/cloud-save']) {
+      expect(fetchMock).not.toHaveBeenCalledWith(protectedPath, expect.anything())
+    }
+  })
+
+  test('revalidates an offline citizen when the session service recovers', async () => {
+    let sessionCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/session') {
+        sessionCalls += 1
+        if (sessionCalls === 1) {
+          return new Response(JSON.stringify({ ok: false, error: 'temporarily unavailable' }), {
+            status: 503,
+          })
+        }
+        return new Response(JSON.stringify({ ok: true, citizenId: 'citizen-1' }), {
+          status: 200,
+        })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        online: false,
+      },
+    })
+
+    await useGame.getState().registerOnline()
+    expect(useGame.getState().citizen?.online).toBe(false)
+
+    await useGame.getState().reportScore()
+
+    expect(sessionCalls).toBe(2)
+    expect(useGame.getState().citizen?.online).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith('/api/leaderboard', expect.anything())
+  })
+
+  test('does not repopulate citizen state when reset wins an in-flight validation', async () => {
+    let resolveSession!: (response: Response) => void
+    const sessionResponse = new Promise<Response>((resolve) => {
+      resolveSession = resolve
+    })
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/session') return sessionResponse
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }))
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: {
+        name: 'David',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-1',
+        token: '',
+        online: false,
+      },
+    })
+
+    const validation = useGame.getState().registerOnline()
+    useGame.getState().reset()
+    resolveSession(new Response(
+      JSON.stringify({ ok: true, citizenId: 'citizen-1' }),
+      { status: 200 },
+    ))
+    await validation
+
+    expect(useGame.getState().citizen).toBeNull()
+  })
+
+  test('revokes a session issued after reset wins an in-flight registration', async () => {
+    let resolveRegistration!: (response: Response) => void
+    const registrationResponse = new Promise<Response>((resolve) => {
+      resolveRegistration = resolve
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/register') return registrationResponse
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: { name: 'David', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+
+    const registration = useGame.getState().registerOnline()
+    useGame.getState().reset()
+    resolveRegistration(new Response(JSON.stringify({
+      ok: true,
+      citizenId: 'citizen-new',
+      founderNumber: 0,
+    }), { status: 200 }))
+    await registration
+
+    expect(useGame.getState().citizen).toBeNull()
+    expect(fetchMock).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Reality-CSRF': 'csrf-1' },
+      body: JSON.stringify({}),
+    }))
+  })
+
+  test('serializes concurrent registration calls so only one session is adopted', async () => {
+    let resolveRegistration!: (response: Response) => void
+    const registrationResponse = new Promise<Response>((resolve) => {
+      resolveRegistration = resolve
+    })
+    let registerCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/register') {
+        registerCalls += 1
+        return registrationResponse
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useGame.setState({
+      citizen: { name: 'David', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+
+    const first = useGame.getState().registerOnline()
+    const second = useGame.getState().registerOnline()
+    await Promise.resolve()
+    expect(registerCalls).toBe(1)
+
+    resolveRegistration(new Response(JSON.stringify({
+      ok: true,
+      citizenId: 'citizen-first',
+      founderNumber: 1,
+    }), { status: 200 }))
+    await Promise.all([first, second])
+
+    expect(registerCalls).toBe(1)
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      citizenId: 'citizen-first',
+      online: true,
+    }))
+  })
+
+  test('settles stale registration cleanup before registering a replacement citizen', async () => {
+    let resolveFirstRegistration!: (response: Response) => void
+    const firstRegistration = new Promise<Response>((resolve) => {
+      resolveFirstRegistration = resolve
+    })
+    let registerCalls = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/register') {
+        registerCalls += 1
+        if (registerCalls === 1) return firstRegistration
+        return new Response(JSON.stringify({
+          ok: true,
+          citizenId: 'citizen-b',
+          founderNumber: 0,
+        }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: { name: 'Citizen A', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+
+    const staleRegistration = useGame.getState().registerOnline()
+    useGame.getState().reset()
+    useGame.setState({
+      citizen: { name: 'Citizen B', founderNumber: 0, createdAt: Date.now(), online: false },
+    })
+    const replacementRegistration = useGame.getState().registerOnline()
+    await Promise.resolve()
+    expect(registerCalls).toBe(1)
+
+    resolveFirstRegistration(new Response(JSON.stringify({
+      ok: true,
+      citizenId: 'citizen-a',
+      founderNumber: 0,
+    }), { status: 200 }))
+    await Promise.all([staleRegistration, replacementRegistration])
+
+    expect(registerCalls).toBe(2)
+    expect(fetchMock).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }))
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      name: 'Citizen B',
+      citizenId: 'citizen-b',
+      online: true,
+    }))
+  })
+
   test('revokes an online session before clearing local state', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })))
     vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })

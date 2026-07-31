@@ -37,6 +37,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ ok: false, error: 'Invalid save payload.' })
     return
   }
+  const saveCitizenId = persistedSaveCitizenId(parsedSave)
+  if (saveCitizenId !== String(citizenId)) {
+    res.status(403).json({
+      ok: false,
+      error: 'Cloud save identity does not match the active session.',
+      code: 'citizen_mismatch',
+    })
+    return
+  }
   const sanitizedSave = scrubPersistedToken(parsedSave)
   const savedAt = persistedSaveTimestamp(parsedSave)
 
@@ -66,21 +75,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-function persistedSaveTimestamp(value: unknown): number {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const candidate = (value as Record<string, unknown>).lastSeenAt
-    if (typeof candidate === 'number' && Number.isSafeInteger(candidate) && candidate >= 0) return candidate
+function persistedState(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const root = value as Record<string, unknown>
+  const wrappedState = root.state
+  if (wrappedState && typeof wrappedState === 'object' && !Array.isArray(wrappedState)) {
+    return wrappedState as Record<string, unknown>
   }
+  return root
+}
+
+function persistedSaveCitizenId(value: unknown): string | null {
+  const state = persistedState(value)
+  if (!state) return null
+  const citizen = state.citizen
+  if (!citizen || typeof citizen !== 'object' || Array.isArray(citizen)) return null
+  const record = citizen as Record<string, unknown>
+  const candidate = record.citizenId ?? record.id
+  return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+}
+
+function persistedSaveTimestamp(value: unknown): number {
+  const state = persistedState(value)
+  const candidate = state?.lastSeenAt
+  if (typeof candidate === 'number' && Number.isSafeInteger(candidate) && candidate >= 0) return candidate
   return Date.now()
 }
 
 function scrubPersistedToken(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return JSON.stringify(value)
   const root = value as Record<string, unknown>
-  const citizen = root.citizen
-  if (!citizen || typeof citizen !== 'object' || Array.isArray(citizen) || !('token' in citizen)) {
+  const state = persistedState(value)
+  const citizen = state?.citizen
+  if (!state || !citizen || typeof citizen !== 'object' || Array.isArray(citizen) || !('token' in citizen)) {
     return JSON.stringify(value)
   }
   const { token: _token, ...safeCitizen } = citizen as Record<string, unknown>
-  return JSON.stringify({ ...root, citizen: safeCitizen })
+  const safeState = { ...state, citizen: safeCitizen }
+  return JSON.stringify(root.state === state ? { ...root, state: safeState } : safeState)
 }

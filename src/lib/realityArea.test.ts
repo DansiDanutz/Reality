@@ -45,6 +45,26 @@ describe('Reality area client', () => {
     expect(founderAreaClaimSource({})).toBe('manual')
   })
 
+  test('blocks founder-area authority while the restored citizen is offline', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse(200, { ok: true, state: serverState() }))
+    const offlineFounder = {
+      citizenId: 'citizen-1',
+      token: '',
+      founderNumber: 12,
+      online: false,
+    }
+
+    await expect(claimRealityFounderArea(offlineFounder, profile, fetchImpl as never))
+      .resolves.toMatchObject({ ok: false, reason: 'missing_identity' })
+    await expect(applyRealityFounderAreaIntent(
+      offlineFounder,
+      { type: 'refreshArea' } as never,
+      fetchImpl as never,
+    )).resolves.toMatchObject({ ok: false, reason: 'missing_identity' })
+
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   test('sends only the claim intent through the cookie-authenticated server authority', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
@@ -52,7 +72,7 @@ describe('Reality area client', () => {
     const result = await claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)
 
     expect(result).toEqual({ ok: true, state: serverState(), restoredExisting: false })
@@ -84,7 +104,7 @@ describe('Reality area client', () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
 
-    await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: '', founderNumber: 12 }, profile, fetchImpl as never))
+    await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: '', founderNumber: 12, online: true }, profile, fetchImpl as never))
       .resolves.toMatchObject({ ok: true })
 
     expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({
@@ -98,12 +118,12 @@ describe('Reality area client', () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
 
-    await claimRealityFounderArea({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12 }, profile, fetchImpl as never)
+    await claimRealityFounderArea({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12, online: true }, profile, fetchImpl as never)
     const claimBody = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
     expect(claimBody.citizenId).toBeUndefined()
     expect(claimBody.token).toBeUndefined()
 
-    await applyRealityFounderAreaIntent({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12 }, { type: 'refreshArea' } as never, fetchImpl as never)
+    await applyRealityFounderAreaIntent({ citizenId: '  citizen-1  ', token: '  token-1  ', founderNumber: 12, online: true }, { type: 'refreshArea' } as never, fetchImpl as never)
     const applyBody = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body)) as Record<string, unknown>
     expect(applyBody.citizenId).toBeUndefined()
     expect(applyBody.token).toBeUndefined()
@@ -112,7 +132,7 @@ describe('Reality area client', () => {
   test('falls back to manual when a malformed claim source crosses the browser boundary', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       jsonResponse(200, { ok: true, state: serverState() }))
-    await claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 12 }, { ...profile, claimSource: 'spoofed' as never }, fetchImpl as never)
+    await claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 12, online: true }, { ...profile, claimSource: 'spoofed' as never }, fetchImpl as never)
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
     expect(body.intent).toMatchObject({ source: 'manual' })
   })
@@ -124,7 +144,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       ...profile,
       areaLabel: '  Bucharest Founder Area  ',
@@ -159,7 +179,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -174,7 +194,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -185,7 +205,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'buildBusiness',
       businessKind: 'food',
@@ -209,7 +229,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -232,7 +252,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -259,7 +279,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -283,7 +303,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -307,7 +327,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -331,7 +351,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -359,7 +379,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -387,7 +407,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -411,7 +431,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -435,7 +455,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -466,7 +486,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -490,7 +510,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -524,7 +544,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -551,7 +571,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -578,7 +598,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -605,7 +625,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -633,7 +653,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -664,7 +684,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -695,7 +715,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -724,7 +744,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -789,7 +809,7 @@ describe('Reality area client', () => {
     await expect(claimRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, profile, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -801,9 +821,9 @@ describe('Reality area client', () => {
   test('does not contact the server without a registered founder identity', async () => {
     const fetchImpl = vi.fn()
 
-    await expect(claimRealityFounderArea({ founderNumber: 12 }, profile, fetchImpl as never))
+    await expect(claimRealityFounderArea({ founderNumber: 12, online: true }, profile, fetchImpl as never))
       .resolves.toEqual({ ok: false, reason: 'missing_identity', error: 'Connect to the world first.' })
-    await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 0 }, profile, fetchImpl as never))
+    await expect(claimRealityFounderArea({ citizenId: 'citizen-1', token: 'token-1', founderNumber: 0, online: true }, profile, fetchImpl as never))
       .resolves.toEqual({ ok: false, reason: 'not_founder', error: 'Founder seat required.' })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
@@ -815,7 +835,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'buildBusiness',
       businessKind: 'water',
@@ -848,7 +868,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'buildBusiness',
       businessKind: 'water',
@@ -881,7 +901,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, { type: 'buyWater' }, fetchImpl as never)).resolves.toEqual({ ok: true, state: serverState() })
 
     expect(fetchImpl).toHaveBeenCalledWith('/api/reality-area', {
@@ -901,7 +921,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, { type: 'repayDebt', debtId: 'founder-medical-1', amount: 120 }, fetchImpl as never))
       .resolves.toEqual({ ok: true, state: serverState() })
 
@@ -922,7 +942,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'repayDebt',
       debtId: 'founder-medical-1',
@@ -949,7 +969,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, { type: 'buyInsurance', insuranceBusinessId: 'insurance-1' }, fetchImpl as never))
       .resolves.toEqual({ ok: true, state: serverState() })
 
@@ -969,7 +989,7 @@ describe('Reality area client', () => {
     await expect(advanceRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, fetchImpl as never)).resolves.toEqual({
       ok: false,
       reason: 'server_rejected',
@@ -986,7 +1006,7 @@ describe('Reality area client', () => {
     await expect(refreshRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -1024,7 +1044,7 @@ describe('Reality area client', () => {
     await expect(refreshRealityFounderArea({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, fetchImpl as never)).resolves.toEqual({
       ok: true,
       state: serverState(),
@@ -1039,7 +1059,7 @@ describe('Reality area client', () => {
     await expect(recordRealityFounderCovenantReview({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
@@ -1073,7 +1093,7 @@ describe('Reality area client', () => {
     await expect(recordRealityFounderCovenantReview({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'recordCovenantReview',
       actionKind: 'record_review',
@@ -1570,7 +1590,7 @@ describe('Reality area client', () => {
     await expect(applyRealityFounderAreaIntent({
       citizenId: 'citizen-1',
       token: 'token-1',
-      founderNumber: 12,
+      founderNumber: 12, online: true,
     }, {
       type: 'buildBusiness',
       businessKind: 'water',
@@ -1590,7 +1610,7 @@ describe('Reality area client', () => {
 
   test('rejects malformed server state and surfaces server errors', async () => {
     await expect(claimRealityFounderArea(
-      { citizenId: 'citizen-1', token: 'token-1', founderNumber: 12 },
+      { citizenId: 'citizen-1', token: 'token-1', founderNumber: 12, online: true },
       profile,
       vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
         jsonResponse(200, { ok: true, state: { areaId: 'missing-claim' } })) as never,
@@ -1602,7 +1622,7 @@ describe('Reality area client', () => {
     })
 
     await expect(claimRealityFounderArea(
-      { citizenId: 'citizen-1', token: 'token-1', founderNumber: 12 },
+      { citizenId: 'citizen-1', token: 'token-1', founderNumber: 12, online: true },
       profile,
       vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => { throw new Error('offline') }) as never,
     )).resolves.toEqual({

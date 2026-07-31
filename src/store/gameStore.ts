@@ -630,6 +630,15 @@ export function withoutPersistedToken<T extends { citizen?: { token?: string; on
 
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
   if (!citizen?.citizenId) return
+  if (citizen.online !== true) {
+    void useGame.getState().registerOnline().then(() => {
+      const refreshed = useGame.getState().citizen
+      if (refreshed?.citizenId === citizen.citizenId && refreshed?.online === true) {
+        publishPlacedAsset(refreshed, asset)
+      }
+    })
+    return
+  }
   void tryPost('/api/world', {
     assetId: asset.id,
     itemId: asset.itemId,
@@ -1222,6 +1231,27 @@ function workerContractFinishedText(names: string[], subject: string, remainingM
   return `${who} finished paid Workers Hall time on ${subject}; ${formatLaborMinutes(remainingMinutes)} ${kind} remains.`
 }
 
+let citizenSessionGeneration = 0
+let registrationBusy = false
+const registrationWaiters: Array<() => void> = []
+
+async function serializeRegistration<T>(work: () => Promise<T>): Promise<T> {
+  if (registrationBusy) {
+    await new Promise<void>((resolve) => {
+      registrationWaiters.push(resolve)
+    })
+  } else {
+    registrationBusy = true
+  }
+  try {
+    return await work()
+  } finally {
+    const next = registrationWaiters.shift()
+    if (next) next()
+    else registrationBusy = false
+  }
+}
+
 export const useGame = create<GameState>()(
   persist(
     (set, get) => ({
@@ -1229,6 +1259,7 @@ export const useGame = create<GameState>()(
       ...FRESH,
 
       createCitizen: (name, spawn) => {
+        citizenSessionGeneration += 1
         set({
           citizen: {
             name: name.trim(),
@@ -1295,19 +1326,44 @@ export const useGame = create<GameState>()(
         return null
       },
 
-      registerOnline: async () => {
+      registerOnline: async () => serializeRegistration(async () => {
         const s = get()
         if (!s.citizen || s.citizen.online) return
+        const sessionGeneration = citizenSessionGeneration
         if (s.citizen.citizenId) {
+          const expectedCitizenId = s.citizen.citizenId
           const session = await tryGet('/api/session')
+          const currentCitizen = get().citizen
+          if (
+            citizenSessionGeneration !== sessionGeneration
+            || !currentCitizen
+            || currentCitizen.citizenId !== expectedCitizenId
+          ) return
+          if (session?.ok && session.citizenId === expectedCitizenId) {
+            set({ citizen: { ...currentCitizen, online: true } })
+            return
+          }
           if (session?.ok) {
-            set({ citizen: { ...get().citizen!, online: true } })
+            // A restored save can legitimately differ from a stale browser
+            // cookie. Clear only this browser's transport; globally revoking
+            // the unrelated citizen would sign that account out everywhere.
+            const cleared = await tryPost('/api/clear-session', {})
+            const restoredCitizen = get().citizen
+            if (
+              citizenSessionGeneration !== sessionGeneration
+              || !restoredCitizen
+              || restoredCitizen.citizenId !== expectedCitizenId
+            ) return
+            set({ citizen: { ...restoredCitizen, online: false } })
+            // Until the server acknowledges cookie removal, every protected
+            // action remains disabled by the online-session guards below.
+            if (!cleared?.ok) return
             return
           }
           // A persisted identity with no valid cookie is an offline citizen,
           // not a new registration. Never create a second server identity
           // merely because this device lost its session transport.
-          set({ citizen: { ...get().citizen!, online: false } })
+          set({ citizen: { ...currentCitizen, online: false } })
           return
         }
         const telegramInitData = telegramMiniAppInitData()
@@ -1316,7 +1372,14 @@ export const useGame = create<GameState>()(
           : { name: s.citizen.name }
         let d = await tryPost('/api/register', registrationPayload)
         const cur = get()
-        if (!cur.citizen || cur.citizen.token) return
+        if (
+          citizenSessionGeneration !== sessionGeneration
+          || !cur.citizen
+          || cur.citizen.citizenId
+        ) {
+          if (d?.ok) await tryPost('/api/revoke-session', {})
+          return
+        }
 
         if (!d?.ok) {
           // Unique names: on collision, take a numbered variant and retry once
@@ -1330,6 +1393,10 @@ export const useGame = create<GameState>()(
               log: note(cur.log, `"${cur.citizen.name}" was already a citizen — you are ${variant}.`),
             })
             const retry = await tryPost('/api/register', retryPayload)
+            if (citizenSessionGeneration !== sessionGeneration || !get().citizen) {
+              if (retry?.ok) await tryPost('/api/revoke-session', {})
+              return
+            }
             if (retry?.ok) {
               d = retry
             } else {
@@ -1345,7 +1412,11 @@ export const useGame = create<GameState>()(
         const founderNumber = (d.founderNumber as number | null) ?? 0
         const isFounder = founderNumber > 0
         const latest = get()
-        if (!latest.citizen) return
+        if (
+          citizenSessionGeneration !== sessionGeneration
+          || !latest.citizen
+          || latest.citizen.citizenId
+        ) return
         set({
           citizen: {
             ...latest.citizen,
@@ -1375,7 +1446,7 @@ export const useGame = create<GameState>()(
           publishPlacedAsset(citizen, a)
         }
         void get().reportScore()
-      },
+      }),
 
       linkTelegram: async () => {
         const s = get()
@@ -1399,8 +1470,12 @@ export const useGame = create<GameState>()(
       },
 
       reportScore: async () => {
-        const s = get()
-        if (!s.citizen?.citizenId) return
+        let s = get()
+        if (s.citizen?.citizenId && s.citizen.online !== true) {
+          await get().registerOnline()
+          s = get()
+        }
+        if (!s.citizen?.citizenId || s.citizen.online !== true) return
         await tryPost('/api/leaderboard', {
           name: s.citizen.name,
           netWorth: netWorthOf(s.money, s.inventory, s.assets),
@@ -1408,8 +1483,12 @@ export const useGame = create<GameState>()(
       },
 
       linkGoogle: async (credential) => {
-        const s = get()
-        if (!s.citizen?.citizenId) return 'Connect to the world first — Google linking needs an online citizen.'
+        let s = get()
+        if (s.citizen?.citizenId && s.citizen.online !== true) {
+          await get().registerOnline()
+          s = get()
+        }
+        if (!s.citizen?.citizenId || s.citizen.online !== true) return 'Connect to the world first — Google linking needs an online citizen.'
         const d = await tryPost('/api/auth-google', {
           credential,
           action: 'link',
@@ -1431,8 +1510,12 @@ export const useGame = create<GameState>()(
       },
 
       pushCloudSave: async () => {
-        const s = get()
-        if (!s.citizen?.citizenId || !s.citizen.googleSub) return
+        let s = get()
+        if (s.citizen?.citizenId && s.citizen.online !== true) {
+          await get().registerOnline()
+          s = get()
+        }
+        if (!s.citizen?.citizenId || s.citizen.online !== true || !s.citizen.googleSub) return
         // localStorage access throws in Safari private mode / storage-denied
         // contexts — and this runs on a 120s interval, so an unguarded read
         // would surface a repeating uncaught error. No save readable = no push.
@@ -3723,7 +3806,7 @@ export const useGame = create<GameState>()(
         // of dead-ending on "connect first".
         if (get().citizen && !get().citizen?.online) await get().registerOnline()
         const s = get()
-        if (!s.citizen?.citizenId) return 'Connect to the world first — the avatar studio needs an online citizen.'
+        if (!s.citizen?.citizenId || s.citizen.online !== true) return 'Connect to the world first — the avatar studio needs an online citizen.'
         const d = await tryPost('/api/avatar', {
           params,
         })
@@ -3746,6 +3829,7 @@ export const useGame = create<GameState>()(
       setEnteredAssetId: (id) => set({ enteredAssetId: id }),
       setPanel: (panel) => set({ panel }),
       reset: () => {
+        citizenSessionGeneration += 1
         const citizen = get().citizen
         // Revoke the server session when the player explicitly clears this
         // device. Local state is cleared immediately even if the network is
