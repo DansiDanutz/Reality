@@ -633,7 +633,7 @@ function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
   if (citizen.online !== true) {
     void useGame.getState().registerOnline().then(() => {
       const refreshed = useGame.getState().citizen
-      if (refreshed?.citizenId === citizen.citizenId && refreshed.online === true) {
+      if (refreshed?.citizenId === citizen.citizenId && refreshed?.online === true) {
         publishPlacedAsset(refreshed, asset)
       }
     })
