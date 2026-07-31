@@ -1223,6 +1223,21 @@ function workerContractFinishedText(names: string[], subject: string, remainingM
 }
 
 let citizenSessionGeneration = 0
+let registrationQueue: Promise<void> = Promise.resolve()
+
+async function serializeRegistration<T>(work: () => Promise<T>): Promise<T> {
+  const previous = registrationQueue
+  let release!: () => void
+  registrationQueue = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await previous
+  try {
+    return await work()
+  } finally {
+    release()
+  }
+}
 
 export const useGame = create<GameState>()(
   persist(
@@ -1298,7 +1313,7 @@ export const useGame = create<GameState>()(
         return null
       },
 
-      registerOnline: async () => {
+      registerOnline: async () => serializeRegistration(async () => {
         const s = get()
         if (!s.citizen || s.citizen.online) return
         const sessionGeneration = citizenSessionGeneration
@@ -1409,7 +1424,7 @@ export const useGame = create<GameState>()(
           publishPlacedAsset(citizen, a)
         }
         void get().reportScore()
-      },
+      }),
 
       linkTelegram: async () => {
         const s = get()
