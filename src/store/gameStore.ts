@@ -1335,11 +1335,17 @@ export const useGame = create<GameState>()(
             return
           }
           if (session?.ok) {
-            // A cookie for another citizen must never authorize this persisted
-            // save. Clear the mismatched local identity before any background
-            // cloud or gameplay mutation can run under the wrong account.
-            citizenSessionGeneration += 1
-            set({ citizen: null, ...FRESH })
+            // A restored save can legitimately differ from a stale browser
+            // cookie. Revoke that transport identity, but never erase the
+            // restored life merely because another session was still present.
+            await tryPost('/api/revoke-session', {})
+            const restoredCitizen = get().citizen
+            if (
+              citizenSessionGeneration !== sessionGeneration
+              || !restoredCitizen
+              || restoredCitizen.citizenId !== expectedCitizenId
+            ) return
+            set({ citizen: { ...restoredCitizen, online: false } })
             return
           }
           // A persisted identity with no valid cookie is an offline citizen,
