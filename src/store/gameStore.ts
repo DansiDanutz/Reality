@@ -629,7 +629,7 @@ export function withoutPersistedToken<T extends { citizen?: { token?: string; on
 }
 
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
-  if (!citizen?.citizenId) return
+  if (!citizen?.citizenId || citizen.online !== true) return
   void tryPost('/api/world', {
     assetId: asset.id,
     itemId: asset.itemId,
@@ -1338,7 +1338,7 @@ export const useGame = create<GameState>()(
             // A restored save can legitimately differ from a stale browser
             // cookie. Clear only this browser's transport; globally revoking
             // the unrelated citizen would sign that account out everywhere.
-            await tryPost('/api/clear-session', {})
+            const cleared = await tryPost('/api/clear-session', {})
             const restoredCitizen = get().citizen
             if (
               citizenSessionGeneration !== sessionGeneration
@@ -1346,6 +1346,9 @@ export const useGame = create<GameState>()(
               || restoredCitizen.citizenId !== expectedCitizenId
             ) return
             set({ citizen: { ...restoredCitizen, online: false } })
+            // Until the server acknowledges cookie removal, every protected
+            // action remains disabled by the online-session guards below.
+            if (!cleared?.ok) return
             return
           }
           // A persisted identity with no valid cookie is an offline citizen,
@@ -1459,7 +1462,7 @@ export const useGame = create<GameState>()(
 
       reportScore: async () => {
         const s = get()
-        if (!s.citizen?.citizenId) return
+        if (!s.citizen?.citizenId || s.citizen.online !== true) return
         await tryPost('/api/leaderboard', {
           name: s.citizen.name,
           netWorth: netWorthOf(s.money, s.inventory, s.assets),
@@ -1468,7 +1471,7 @@ export const useGame = create<GameState>()(
 
       linkGoogle: async (credential) => {
         const s = get()
-        if (!s.citizen?.citizenId) return 'Connect to the world first — Google linking needs an online citizen.'
+        if (!s.citizen?.citizenId || s.citizen.online !== true) return 'Connect to the world first — Google linking needs an online citizen.'
         const d = await tryPost('/api/auth-google', {
           credential,
           action: 'link',
@@ -1491,7 +1494,7 @@ export const useGame = create<GameState>()(
 
       pushCloudSave: async () => {
         const s = get()
-        if (!s.citizen?.citizenId || !s.citizen.googleSub) return
+        if (!s.citizen?.citizenId || s.citizen.online !== true || !s.citizen.googleSub) return
         // localStorage access throws in Safari private mode / storage-denied
         // contexts — and this runs on a 120s interval, so an unguarded read
         // would surface a repeating uncaught error. No save readable = no push.
@@ -3782,7 +3785,7 @@ export const useGame = create<GameState>()(
         // of dead-ending on "connect first".
         if (get().citizen && !get().citizen?.online) await get().registerOnline()
         const s = get()
-        if (!s.citizen?.citizenId) return 'Connect to the world first — the avatar studio needs an online citizen.'
+        if (!s.citizen?.citizenId || s.citizen.online !== true) return 'Connect to the world first — the avatar studio needs an online citizen.'
         const d = await tryPost('/api/avatar', {
           params,
         })
