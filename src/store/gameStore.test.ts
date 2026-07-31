@@ -163,11 +163,18 @@ describe('session reset', () => {
     expect(useGame.getState().citizen?.online).toBe(true)
   })
 
-  test('clears a persisted citizen when the cookie belongs to another identity', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(
-      JSON.stringify({ ok: true, citizenId: 'citizen-2' }),
-      { status: 200 },
-    )))
+  test('preserves a restored citizen while revoking another identity cookie', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/session') {
+        return new Response(
+          JSON.stringify({ ok: true, citizenId: 'citizen-2' }),
+          { status: 200 },
+        )
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
     useGame.setState({
       citizen: {
         name: 'David',
@@ -177,11 +184,20 @@ describe('session reset', () => {
         token: '',
         online: false,
       },
+      money: 4321,
     })
 
     await useGame.getState().registerOnline()
 
-    expect(useGame.getState().citizen).toBeNull()
+    expect(fetchMock).toHaveBeenCalledWith('/api/revoke-session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }))
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      citizenId: 'citizen-1',
+      online: false,
+    }))
+    expect(useGame.getState().money).toBe(4321)
   })
 
   test('does not repopulate citizen state when reset wins an in-flight validation', async () => {
