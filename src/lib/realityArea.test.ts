@@ -2098,7 +2098,7 @@ function serverState(): RealityAreaState {
     balance: 200_000,
     claim: {
       founderCitizenId: 'citizen-1',
-      founderNumber: 12, online: true,
+      founderNumber: 12,
       label: 'Stored Server Area',
       centerLat: 45,
       centerLng: 27,
@@ -2575,7 +2575,7 @@ function serverDashboard(): RealityAreaDashboard {
     updatedAt: '2026-07-06T03:30:00.000Z',
     founderIdentity: {
       citizenId: 'citizen-1',
-      founderNumber: 12, online: true,
+      founderNumber: 12,
       claimSource: 'telegram',
       telegramUserId: '42424242',
       telegramAccountId: 'telegram:42424242',
@@ -2748,7 +2748,7 @@ function serverDashboard(): RealityAreaDashboard {
       successorCandidateCitizenId: null,
       successorCandidateName: null,
       transferPackage: {
-        founderNumber: 12, online: true,
+        founderNumber: 12,
         founderCitizenId: 'citizen-1',
         areaId: 'founder-area-0012',
         businessCount: 1,
@@ -3339,7 +3339,7 @@ function serverFounderCovenantReviewQueue(): RealityFounderCovenantReviewQueueDa
       areaId: dashboard.areaId,
       areaLabel: dashboard.landRights.areaLabel,
       founderCitizenId: review.founderCitizenId,
-      founderNumber: dashboard.founderIdentity.founderNumber, online: true,
+      founderNumber: dashboard.founderIdentity.founderNumber,
       updatedAt: dashboard.updatedAt,
       checkedAt: review.activityReview.checkedAt,
       lastReviewAt: review.reviewSchedule.lastReviewAt,
