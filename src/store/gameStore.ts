@@ -1223,19 +1223,23 @@ function workerContractFinishedText(names: string[], subject: string, remainingM
 }
 
 let citizenSessionGeneration = 0
-let registrationQueue: Promise<void> = Promise.resolve()
+let registrationBusy = false
+const registrationWaiters: Array<() => void> = []
 
 async function serializeRegistration<T>(work: () => Promise<T>): Promise<T> {
-  const previous = registrationQueue
-  let release!: () => void
-  registrationQueue = new Promise<void>((resolve) => {
-    release = resolve
-  })
-  await previous
+  if (registrationBusy) {
+    await new Promise<void>((resolve) => {
+      registrationWaiters.push(resolve)
+    })
+  } else {
+    registrationBusy = true
+  }
   try {
     return await work()
   } finally {
-    release()
+    const next = registrationWaiters.shift()
+    if (next) next()
+    else registrationBusy = false
   }
 }
 
