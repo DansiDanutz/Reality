@@ -629,7 +629,16 @@ export function withoutPersistedToken<T extends { citizen?: { token?: string; on
 }
 
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
-  if (!citizen?.citizenId || citizen.online !== true) return
+  if (!citizen?.citizenId) return
+  if (citizen.online !== true) {
+    void useGame.getState().registerOnline().then(() => {
+      const refreshed = useGame.getState().citizen
+      if (refreshed?.citizenId === citizen.citizenId && refreshed.online === true) {
+        publishPlacedAsset(refreshed, asset)
+      }
+    })
+    return
+  }
   void tryPost('/api/world', {
     assetId: asset.id,
     itemId: asset.itemId,
@@ -1461,7 +1470,11 @@ export const useGame = create<GameState>()(
       },
 
       reportScore: async () => {
-        const s = get()
+        let s = get()
+        if (s.citizen?.citizenId && s.citizen.online !== true) {
+          await get().registerOnline()
+          s = get()
+        }
         if (!s.citizen?.citizenId || s.citizen.online !== true) return
         await tryPost('/api/leaderboard', {
           name: s.citizen.name,
@@ -1470,7 +1483,11 @@ export const useGame = create<GameState>()(
       },
 
       linkGoogle: async (credential) => {
-        const s = get()
+        let s = get()
+        if (s.citizen?.citizenId && s.citizen.online !== true) {
+          await get().registerOnline()
+          s = get()
+        }
         if (!s.citizen?.citizenId || s.citizen.online !== true) return 'Connect to the world first — Google linking needs an online citizen.'
         const d = await tryPost('/api/auth-google', {
           credential,
@@ -1493,7 +1510,11 @@ export const useGame = create<GameState>()(
       },
 
       pushCloudSave: async () => {
-        const s = get()
+        let s = get()
+        if (s.citizen?.citizenId && s.citizen.online !== true) {
+          await get().registerOnline()
+          s = get()
+        }
         if (!s.citizen?.citizenId || s.citizen.online !== true || !s.citizen.googleSub) return
         // localStorage access throws in Safari private mode / storage-denied
         // contexts — and this runs on a 120s interval, so an unguarded read
