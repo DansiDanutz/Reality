@@ -200,6 +200,48 @@ describe('session reset', () => {
     expect(useGame.getState().money).toBe(4321)
   })
 
+  test('blocks protected actions when stale-cookie cleanup is not acknowledged', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/session') {
+        return new Response(
+          JSON.stringify({ ok: true, citizenId: 'citizen-a' }),
+          { status: 200 },
+        )
+      }
+      if (url === '/api/clear-session') {
+        return new Response(JSON.stringify({ ok: false }), { status: 503 })
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('document', { cookie: 'reality_csrf=csrf-1' })
+    useGame.setState({
+      citizen: {
+        name: 'Citizen B',
+        founderNumber: 1,
+        createdAt: Date.now(),
+        citizenId: 'citizen-b',
+        googleSub: 'google-b',
+        online: false,
+      },
+    })
+
+    await useGame.getState().registerOnline()
+    await useGame.getState().reportScore()
+    const linkError = await useGame.getState().linkGoogle('credential-b')
+    await useGame.getState().pushCloudSave()
+
+    expect(useGame.getState().citizen).toEqual(expect.objectContaining({
+      citizenId: 'citizen-b',
+      online: false,
+    }))
+    expect(linkError).toBe('Connect to the world first — Google linking needs an online citizen.')
+    for (const protectedPath of ['/api/leaderboard', '/api/auth-google', '/api/cloud-save']) {
+      expect(fetchMock).not.toHaveBeenCalledWith(protectedPath, expect.anything())
+    }
+  })
+
   test('does not repopulate citizen state when reset wins an in-flight validation', async () => {
     let resolveSession!: (response: Response) => void
     const sessionResponse = new Promise<Response>((resolve) => {
