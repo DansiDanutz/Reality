@@ -16,20 +16,20 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
-    "@types/three": "^0.185.0",
-    "@vercel/blob": "^2.5.0",
+    "@types/three": "^0.185.4",
+    "@vercel/blob": "^2.8.0",
     "maplibre-gl": "^5.24.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "three": "^0.185.1",
     "tz-lookup": "^6.1.25",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^24.13.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
