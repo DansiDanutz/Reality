@@ -1,7 +1,8 @@
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
-import { verifyCitizenPg } from './_registry.js'
-import { csrfMatches, sessionFromCookie } from './_session.js'
+import { db } from './_db.js'
+import { reissueCitizenTokenPg, verifyCitizenPg } from './_registry.js'
+import { csrfMatches, issueSessionCookies, sessionFromCookie } from './_session.js'
 import { readCloudSnapshotPg } from './_cloudSavePg.js'
 
 interface GoogleProfile {
@@ -36,7 +37,10 @@ async function readBlobJson(prefix: string): Promise<Record<string, unknown> | n
  * - Link: {credential, action:'link'} — attach this Google account to the
  *   current HttpOnly citizen session after CSRF validation.
  * - Restore: {credential} — return the linked citizen's cloud save so a new
- *   device can continue the same life.
+ *   device can continue the same life, and sign this device in: a fresh
+ *   token is minted for the linked citizen and set as the session cookie.
+ *   Without that the restored life was an offline citizen whose ledger,
+ *   founder seat and cloud save were unreachable from the new device.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -91,14 +95,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Restore flow: find the linked citizen and hand back their cloud save
     const account = await readBlobJson(`accounts/${profile.sub}.json`)
     let save: string | null = null
+    let session = false
     if (account?.citizenId) {
-      save = await readCloudSnapshotPg(String(account.citizenId))
+      const citizenId = String(account.citizenId)
+      save = await readCloudSnapshotPg(citizenId)
       if (save === null) {
-        const batch = await list({ prefix: `saves/${account.citizenId}.json`, limit: 1 })
+        const batch = await list({ prefix: `saves/${citizenId}.json`, limit: 1 })
         if (batch.blobs[0]) {
           const r = await fetch(batch.blobs[0].downloadUrl)
           if (r.ok) save = await r.text()
         }
+      }
+      const token = await reissueCitizenTokenPg(db() as never, citizenId)
+      if (token) {
+        issueSessionCookies(res, { citizenId, token })
+        session = true
       }
     }
     res.status(200).json({
@@ -106,6 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       linked: Boolean(account),
       profile: { email: profile.email, name: profile.name, picture: profile.picture, sub: profile.sub },
       save,
+      session,
     })
   } catch {
     res.status(503).json({

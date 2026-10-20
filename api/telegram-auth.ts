@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
+import { db } from './_db.js'
+import { reissueCitizenTokenPg } from './_registry.js'
+import { issueSessionCookies } from './_session.js'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
@@ -313,6 +316,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // A Telegram account already linked to a citizen is a sign-in: mint a fresh
+  // token and set the session cookie so this device is online immediately,
+  // instead of handing back a record for a citizen it cannot act as. Best
+  // effort — the identity record above is already durable.
+  let session = false
+  if (accountRecord.citizenId) {
+    try {
+      const token = await reissueCitizenTokenPg(db() as never, accountRecord.citizenId)
+      if (token) {
+        issueSessionCookies(res, { citizenId: accountRecord.citizenId, token })
+        session = true
+      }
+    } catch (error) {
+      console.error(`telegram-auth: session mint failed for citizen ${accountRecord.citizenId}`, error)
+    }
+  }
+
   res.status(200).json({
     ok: true,
     telegramUser: verified.user,
@@ -321,5 +341,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     authDate: verified.authDate,
     queryId: verified.queryId,
     startParam: verified.startParam,
+    session,
   })
 }

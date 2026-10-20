@@ -13,6 +13,13 @@ vi.mock('@vercel/blob', () => ({
   put: vi.fn(async () => ({ url: 'blob://telegram-users/42424242.json' })),
 }))
 
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
+}))
+
+import { resetDbForTest } from './_db'
+
 const BOT_TOKEN = '123456:REALITY_TEST_BOT_TOKEN'
 const NOW_SECONDS = 1_800_000_000
 
@@ -21,7 +28,11 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  pgQueryMock.mockReset()
+  pgQueryMock.mockResolvedValue([])
+  resetDbForTest()
   delete process.env.TELEGRAM_BOT_TOKEN
+  delete process.env.POSTGRES_URL
 })
 
 describe('telegram Mini App auth', () => {
@@ -240,11 +251,13 @@ describe('telegram Mini App auth', () => {
     }
   })
 
-  test('server handler preserves the linked Reality citizen mapping on auth refresh', async () => {
+  test('server handler preserves the linked Reality citizen mapping on auth refresh and signs the device in', async () => {
     process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    process.env.POSTGRES_URL = 'postgres://reality-test'
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T02:30:00.000Z'))
     try {
+      pgQueryMock.mockResolvedValueOnce([{ citizen_id: '11111111-1111-4111-8111-111111111111' }])
       const existingAccount = {
         realityAccountId: 'telegram:42424242',
         telegramUserId: '42424242',
@@ -279,12 +292,42 @@ describe('telegram Mini App auth', () => {
           username: 'newusername',
           lastVerifiedAt: '2026-07-06T02:30:00.000Z',
         },
+        session: true,
       })
       expect(put).toHaveBeenCalledWith(
         'telegram-users/42424242.json',
         JSON.stringify((res.body as { account: unknown }).account),
         { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
       )
+      // A linked Telegram account is a sign-in: a fresh token is minted and the cookie set.
+      expect(String(pgQueryMock.mock.calls[0]?.[0])).toMatch(/UPDATE citizens SET token_hash = \$2/)
+      expect(pgQueryMock.mock.calls[0]?.[1]?.[0]).toBe('11111111-1111-4111-8111-111111111111')
+      const cookies = res.headers['Set-Cookie'] as unknown as string[]
+      expect(cookies[0]).toContain('reality_session=11111111-1111-4111-8111-111111111111.')
+      expect(cookies[0]).toContain('HttpOnly')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler does not mint a session for a Telegram account with no linked citizen', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T02:45:00.000Z'))
+    try {
+      vi.mocked(list).mockResolvedValueOnce(blobList([]))
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David', username: 'davidreality' }),
+      })
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toMatchObject({ ok: true, session: false })
+      expect(pgQueryMock).not.toHaveBeenCalled()
+      expect(res.headers['Set-Cookie']).toBeUndefined()
     } finally {
       vi.useRealTimers()
     }
@@ -401,17 +444,17 @@ function blobList(pathnames: string[], downloadUrl = 'blob://download'): {
 }
 
 function responseRecorder(): {
-  headers: Record<string, string>
+  headers: Record<string, string | string[]>
   statusCode: number
   body: unknown
-  setHeader: (name: string, value: string) => void
+  setHeader: (name: string, value: string | string[]) => void
   status: (statusCode: number) => { json: (body: unknown) => void }
 } {
   const recorder = {
-    headers: {} as Record<string, string>,
+    headers: {} as Record<string, string | string[]>,
     statusCode: 200,
     body: undefined as unknown,
-    setHeader(name: string, value: string) {
+    setHeader(name: string, value: string | string[]) {
       recorder.headers[name] = value
     },
     status(statusCode: number) {

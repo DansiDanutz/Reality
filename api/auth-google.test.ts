@@ -147,7 +147,9 @@ describe('Google auth API', () => {
       if (url === 'blob://save') return new Response(save, { status: 200 })
       return new Response('not found', { status: 404 })
     }))
-    pgQueryMock.mockResolvedValueOnce([{ state: JSON.parse(save) }])
+    pgQueryMock
+      .mockResolvedValueOnce([{ state: JSON.parse(save) }])
+      .mockResolvedValueOnce([{ citizen_id: CITIZEN_ID }]) // fresh token minted for the linked citizen
     vi.mocked(list)
       .mockResolvedValueOnce(blobList(['accounts/google-user-1.json'], 'blob://account'))
     const res = responseRecorder()
@@ -165,8 +167,32 @@ describe('Google auth API', () => {
         picture: 'https://example.test/david.png',
       },
       save,
+      session: true,
     })
     expect(list).toHaveBeenCalledTimes(1)
+    // Restore is a sign-in: the linked citizen gets a rotated token and this device gets the cookie.
+    const mintSql = String(pgQueryMock.mock.calls[1]?.[0])
+    expect(mintSql).toMatch(/UPDATE citizens SET token_hash = \$2/)
+    expect(mintSql).toContain('token_revoked_at = NULL')
+    expect(pgQueryMock.mock.calls[1]?.[1]?.[0]).toBe(CITIZEN_ID)
+    const cookies = res.headers['Set-Cookie'] as string[]
+    expect(cookies[0]).toContain(`reality_session=${encodeURIComponent(`${CITIZEN_ID}.`)}`)
+    expect(cookies[0]).toContain('HttpOnly')
+    expect(JSON.stringify(res.body)).not.toContain(decodeURIComponent(cookies[0].split('.')[1]?.split(';')[0] ?? 'never'))
+  })
+
+  test('does not mint a session when no citizen is linked to the Google account', async () => {
+    vi.stubEnv('GOOGLE_CLIENT_ID', GOOGLE_CLIENT_ID)
+    vi.stubGlobal('fetch', vi.fn(async () => googleProfileResponse()))
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { credential: 'good-token' } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, linked: false, save: null, session: false })
+    expect(pgQueryMock).not.toHaveBeenCalled()
+    expect(res.headers['Set-Cookie']).toBeUndefined()
   })
 
   test('returns a structured service failure when Google or storage is unavailable', async () => {
@@ -223,11 +249,17 @@ function blobList(pathnames: string[], downloadUrl = 'blob://download'): {
 function responseRecorder(): {
   statusCode: number
   body: unknown
+  headers: Record<string, string | string[]>
+  setHeader: (name: string, value: string | string[]) => void
   status: (statusCode: number) => { json: (body: unknown) => void }
 } {
   const recorder = {
     statusCode: 200,
     body: undefined as unknown,
+    headers: {} as Record<string, string | string[]>,
+    setHeader(name: string, value: string | string[]) {
+      recorder.headers[name] = value
+    },
     status(statusCode: number) {
       recorder.statusCode = statusCode
       return {
