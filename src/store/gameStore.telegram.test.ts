@@ -90,6 +90,23 @@ describe('Telegram new-device restore', () => {
     expect(useGame.getState().citizen).toBeNull()
   })
 
+  test('cancels Telegram restore queued behind registration when the device is reset', async () => {
+    let finish!: (response: Response) => void
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (input === '/api/session') return new Promise<Response>((resolve) => { finish = resolve })
+      return Promise.resolve(Response.json({ ...auth, save: snapshot() }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useGame.setState({ citizen: { citizenId: 'ada', name: 'Ada', founderNumber: 12, createdAt: Date.now(), online: false } })
+    const registration = useGame.getState().registerOnline()
+    const queuedRestore = useGame.getState().linkTelegram()
+    useGame.getState().reset()
+    finish(Response.json({ ok: true, citizenId: 'ada' }))
+    await Promise.all([registration, queuedRestore])
+    expect(useGame.getState().citizen).toBeNull()
+    expect(fetchMock.mock.calls.some(([input]) => input === '/api/telegram-auth')).toBe(false)
+  })
+
   test('backs up Telegram-only citizens without a Google link', async () => {
     const save = snapshot()
     const fetchMock = vi.fn(async () => Response.json({ ok: true }))
