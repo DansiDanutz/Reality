@@ -1485,15 +1485,43 @@ export const useGame = create<GameState>()(
         void get().reportScore()
       }),
 
-      linkTelegram: async () => {
+      linkTelegram: async () => serializeRegistration(async () => {
         const s = get()
-        if (!s.citizen) return null
-        const result = await authenticateTelegramMiniApp()
+        const sessionGeneration = citizenSessionGeneration
+        const result = await authenticateTelegramMiniApp(fetch, undefined, !s.citizen)
         if (!result.ok) {
           return result.reason === 'not_in_telegram' ? null : result.error ?? 'Telegram sign-in failed.'
         }
 
         const latest = get()
+        if (citizenSessionGeneration !== sessionGeneration) return null
+        if (!s.citizen) {
+          if (latest.citizen || !result.session.citizenId) return null
+          if (!result.session.online) return 'Telegram could not sign in to your citizen. Please reopen Reality to retry.'
+          if (!result.session.save) return 'No cloud backup exists for this citizen yet. Open Reality on your original device to back it up.'
+          try {
+            const saved = JSON.parse(result.session.save)
+            if (!saved?.state?.citizen || saved.state.citizen.citizenId !== result.session.citizenId) {
+              return 'Your saved life does not match your Telegram citizen.'
+            }
+            if (saved.version > SAVE_VERSION || typeof saved.state.money !== 'number' || !Number.isFinite(saved.state.money)) {
+              return 'Your saved life could not be restored. Please reopen Reality to retry.'
+            }
+            const restored = migrateSave(Object.fromEntries(
+              Object.entries(saved.state).filter(([key]) => key === 'citizen' || Object.hasOwn(FRESH, key)),
+            ))
+            citizenSessionGeneration += 1
+            set({
+              ...FRESH,
+              ...restored,
+              citizen: { ...citizenWithTelegramSession(restored.citizen!, result.session, Date.now()), online: true },
+              cloudSyncedAt: Date.now(),
+            })
+            return null
+          } catch {
+            return 'Your saved life could not be restored. Please reopen Reality to retry.'
+          }
+        }
         if (!latest.citizen) return null
         const wasLinkedToSameUser = latest.citizen.telegramUserId === result.session.telegramUser.id
         set({
@@ -1503,8 +1531,9 @@ export const useGame = create<GameState>()(
             : note(latest.log, `Telegram linked: ${telegramDisplayName(result.session.telegramUser)}.`),
         })
         if (!wasLinkedToSameUser) track('telegram_linked')
+        void get().pushCloudSave()
         return null
-      },
+      }),
 
       reportScore: async () => {
         let s = get()
@@ -1552,7 +1581,7 @@ export const useGame = create<GameState>()(
           await get().registerOnline()
           s = get()
         }
-        if (!s.citizen?.citizenId || s.citizen.online !== true || !s.citizen.googleSub) return
+        if (!s.citizen?.citizenId || s.citizen.online !== true || (!s.citizen.googleSub && !s.citizen.telegramUserId)) return
         // localStorage access throws in Safari private mode / storage-denied
         // contexts — and this runs on a 120s interval, so an unguarded read
         // would surface a repeating uncaught error. No save readable = no push.

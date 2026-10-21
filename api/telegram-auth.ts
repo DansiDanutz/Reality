@@ -4,12 +4,13 @@ import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { db } from './_db.js'
 import { linkedCitizenIdPg, reissueCitizenTokenPg, verifyCitizenPg } from './_registry.js'
 import { issueSessionCookies, sessionFromCookie } from './_session.js'
+import { readCloudSnapshotPg } from './_cloudSavePg.js'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
 const CLOCK_SKEW_SECONDS = 60
 const HASH_RE = /^[a-f0-9]{64}$/i
-const TELEGRAM_AUTH_ALLOWED_BODY_FIELDS = new Set(['initData'])
+const TELEGRAM_AUTH_ALLOWED_BODY_FIELDS = new Set(['initData', 'restore'])
 
 export interface TelegramMiniAppUser {
   id: string
@@ -264,6 +265,9 @@ function readInitData(req: VercelRequest): ReadInitDataResult {
   if (Object.keys(body).some((key) => !TELEGRAM_AUTH_ALLOWED_BODY_FIELDS.has(key))) {
     return { ok: false, error: 'client_owned_body_field' }
   }
+  if (body.restore !== undefined && typeof body.restore !== 'boolean') {
+    return { ok: false, error: 'client_owned_body_field' }
+  }
   return typeof body.initData === 'string' && body.initData.trim().length > 0
     ? { ok: true, initData: body.initData }
     : { ok: false, error: 'missing_init_data' }
@@ -321,11 +325,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // instead of handing back a record for a citizen it cannot act as. Best
   // effort — the identity record above is already durable.
   let session = false
+  let citizenId: string | undefined
+  let save: string | null = null
   try {
     // The Blob mirror is best-effort (register.ts writes it after the
     // citizens row commits), so fall back to the authoritative linkage.
     const linkedCitizenId = accountRecord.citizenId ?? await linkedCitizenIdPg(verified.user.id)
     if (linkedCitizenId) {
+      citizenId = linkedCitizenId
       const existingSession = sessionFromCookie(req)
       const existingLive = existingSession
         ? await verifyCitizenPg(existingSession.citizenId, existingSession.token)
@@ -356,6 +363,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('telegram-auth: session mint failed', error instanceof Error ? error.name : typeof error)
   }
 
+  if (session && citizenId && req.body?.restore === true) {
+    try {
+      save = await readCloudSnapshotPg(citizenId)
+      if (save === null) {
+        const batch = await list({ prefix: `saves/${citizenId}.json`, limit: 1 })
+        const blob = batch.blobs.find((candidate) => candidate.pathname === `saves/${citizenId}.json`)
+        if (blob) {
+          const response = await fetch(blob.downloadUrl)
+          if (!response.ok) throw new Error('Cloud save unavailable')
+          save = await response.text()
+        }
+      }
+    } catch {
+      res.status(503).json({ ok: false, error: 'Your saved life is briefly unavailable. Please reopen Reality to retry.', code: 'telegram_restore_unavailable' })
+      return
+    }
+  }
+
   res.status(200).json({
     ok: true,
     telegramUser: verified.user,
@@ -365,5 +390,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     queryId: verified.queryId,
     startParam: verified.startParam,
     session,
+    citizenId,
+    save,
   })
 }

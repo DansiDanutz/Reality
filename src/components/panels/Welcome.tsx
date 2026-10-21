@@ -124,7 +124,7 @@ function WaitlistForm() {
   )
 }
 
-export default function Welcome() {
+export default function Welcome({ telegramMessage = '' }: { telegramMessage?: string }) {
   const [name, setName] = useState('')
   const [slotsClaimed, setSlotsClaimed] = useState<number | null>(null)
   const [spawn, setSpawn] = useState<SpawnLocation | null>(null)
@@ -193,8 +193,9 @@ export default function Welcome() {
           </p>
         </form>
         <GoogleRestore />
+        {telegramMessage && <p className="welcome-note" role="status">{telegramMessage}</p>}
         <WaitlistForm />
-        <p className="welcome-note">Beta: your world is saved in this browser — link Google in your Profile to back it up.</p>
+        <p className="welcome-note">Beta: your world is saved in this browser. Telegram-linked citizens are backed up automatically; you can also link Google in your Profile.</p>
       </div>
     </div>
   )

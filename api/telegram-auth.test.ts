@@ -36,6 +36,35 @@ afterEach(() => {
 })
 
 describe('telegram Mini App auth', () => {
+  test.each(['blob', 'missing', 'outage'] as const)('handles a %s cloud backup during restore', async (source) => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    process.env.POSTGRES_URL = 'postgres://reality-test'
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const citizenId = '11111111-1111-4111-8111-111111111111'
+    pgQueryMock.mockResolvedValueOnce([{ citizen_id: citizenId }])
+      .mockResolvedValueOnce([{ citizen_id: citizenId }])
+    if (source === 'outage') pgQueryMock.mockRejectedValueOnce(new Error('Database unavailable'))
+    else pgQueryMock.mockResolvedValueOnce([])
+    const save = JSON.stringify({ state: { citizen: { citizenId }, money: 1234 } })
+    vi.mocked(list).mockResolvedValueOnce(blobList(source === 'blob' ? [`saves/${citizenId}.json`] : []))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(save)))
+    const initData = signedInitData({
+      auth_date: String(Math.floor(Date.now() / 1000)),
+      user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+    })
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { initData, restore: true } } as never, res as never)
+
+    if (source === 'outage') {
+      expect(res.statusCode).toBe(503)
+      expect(res.body).toMatchObject({ ok: false, code: 'telegram_restore_unavailable' })
+    } else {
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toMatchObject({ ok: true, session: true, citizenId, save: source === 'blob' ? save : null })
+    }
+  })
+
   test('verifies Telegram Mini App initData and maps it to a Reality account id', () => {
     const initData = signedInitData({
       auth_date: String(NOW_SECONDS - 60),
@@ -383,11 +412,11 @@ describe('telegram Mini App auth', () => {
       await handler({
         method: 'POST',
         headers: { cookie: 'reality_session=22222222-2222-4222-8222-222222222222.other-token' },
-        body: { initData },
+        body: { initData, restore: true },
       } as never, res as never)
 
       expect(res.statusCode).toBe(200)
-      expect(res.body).toMatchObject({ ok: true, session: false, account: { citizenId: '11111111-1111-4111-8111-111111111111' } })
+      expect(res.body).toMatchObject({ ok: true, session: false, save: null, account: { citizenId: '11111111-1111-4111-8111-111111111111' } })
       expect(pgQueryMock).toHaveBeenCalledTimes(1) // verified, never rotated
       expect(String(pgQueryMock.mock.calls[0]?.[0])).toMatch(/^SELECT 1 AS ok FROM citizens/)
       expect(res.headers['Set-Cookie']).toBeUndefined()
@@ -433,7 +462,7 @@ describe('telegram Mini App auth', () => {
     }
   })
 
-  test('server handler signs in from the authoritative citizens row when the Blob mirror lacks the linkage', async () => {
+  test('server handler restores the saved life from the authoritative linkage when the Blob mirror lacks it', async () => {
     process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
     process.env.POSTGRES_URL = 'postgres://reality-test'
     vi.useFakeTimers()
@@ -443,15 +472,17 @@ describe('telegram Mini App auth', () => {
       pgQueryMock
         .mockResolvedValueOnce([{ citizen_id: '11111111-1111-4111-8111-111111111111' }]) // linkage from citizens
         .mockResolvedValueOnce([{ citizen_id: '11111111-1111-4111-8111-111111111111' }]) // fresh token minted
+      const save = { state: { citizen: { citizenId: '11111111-1111-4111-8111-111111111111' }, money: 1234 } }
+      pgQueryMock.mockResolvedValueOnce([{ state: save }])
       const initData = signedInitData({
         auth_date: String(Math.floor(Date.now() / 1000) - 30),
         user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
       })
       const res = responseRecorder()
 
-      await handler({ method: 'POST', body: { initData } } as never, res as never)
+      await handler({ method: 'POST', body: { initData, restore: true } } as never, res as never)
 
-      expect(res.body).toMatchObject({ ok: true, session: true })
+      expect(res.body).toMatchObject({ ok: true, session: true, citizenId: '11111111-1111-4111-8111-111111111111', save: JSON.stringify(save) })
       expect(pgQueryMock.mock.calls[0]).toEqual(['SELECT citizen_id FROM citizens WHERE telegram_user_id = $1::bigint LIMIT 1', ['42424242']])
       expect((res.headers['Set-Cookie'] as unknown as string[])[0]).toContain('reality_session=11111111-1111-4111-8111-111111111111.')
     } finally {

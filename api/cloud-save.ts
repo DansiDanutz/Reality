@@ -7,7 +7,7 @@ import { saveCloudSnapshotPg } from './_cloudSavePg.js'
 
 const MAX_SAVE_BYTES = 256_000
 
-/** Back up a citizen's save so a Google-linked account can restore it anywhere */
+/** Back up a citizen's save so a linked account can restore it anywhere */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ ok: false, error: 'Method not allowed' })
