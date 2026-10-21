@@ -23,6 +23,9 @@ async function patchSave(page: Page, update: (state: Record<string, any>) => voi
     const mutate = new Function('state', `return (${apply})`)(save.state) as unknown
     if (typeof mutate === 'function') mutate(save.state)
     localStorage.setItem('reality-save-v1', JSON.stringify(save))
+    // Freeze writes until the reload: the running game persists on every
+    // tick and would otherwise overwrite this patch before the page reloads.
+    Storage.prototype.setItem = () => {}
   }, update.toString())
 }
 
