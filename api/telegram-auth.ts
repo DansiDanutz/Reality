@@ -3,7 +3,7 @@ import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { db } from './_db.js'
 import { reissueCitizenTokenPg } from './_registry.js'
-import { issueSessionCookies } from './_session.js'
+import { issueSessionCookies, sessionFromCookie } from './_session.js'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
@@ -321,7 +321,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // instead of handing back a record for a citizen it cannot act as. Best
   // effort — the identity record above is already durable.
   let session = false
-  if (accountRecord.citizenId) {
+  const existingSession = sessionFromCookie(req)
+  if (accountRecord.citizenId && existingSession && existingSession.citizenId !== accountRecord.citizenId) {
+    // This browser already holds another citizen's session, and the client
+    // calls this endpoint automatically at startup. Installing the linked
+    // citizen's cookie underneath a client that still runs as the first
+    // citizen would route that citizen's score and save writes to the
+    // linked one. Identity is reconciled through /api/session; a sign-in
+    // that disagrees with the session in hand is refused, not forced.
+    console.warn('telegram-auth: linked citizen differs from the active session; not signing in')
+  } else if (accountRecord.citizenId) {
     try {
       const token = await reissueCitizenTokenPg(db() as never, accountRecord.citizenId)
       if (token) {

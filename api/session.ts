@@ -36,7 +36,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(401).json({ ok: false, error: 'Session is no longer valid.' })
       return
     }
-    if (await renewCitizenTokenPg(sql, session.citizenId)) issueSessionCookies(res, session)
+    // Extend the row when it is inside its window, and re-issue the cookies on
+    // EVERY successful bootstrap, not only when the row moved: a renewal
+    // whose response was lost would otherwise leave the browser cookie on its
+    // original date while the row sat outside the window. The token is never
+    // rotated here, so re-issuing is always safe.
+    await renewCitizenTokenPg(sql, session.citizenId)
+    issueSessionCookies(res, session)
     res.status(200).json({
       ok: true,
       citizenId: row.citizen_id,

@@ -32,7 +32,12 @@ describe('cookie session bootstrap', () => {
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ ok: true, citizenId, name: 'Ada', founderNumber: 4, createdAt: new Date('2026-07-01T00:00:00.000Z').getTime() })
     expect(JSON.stringify(res.body)).not.toContain('secret-token')
-    expect(res.headers['Set-Cookie']).toBeUndefined()
+    // The cookie's Max-Age is refreshed on every bootstrap even when the row
+    // was not extended — a renewal whose response was lost must not strand
+    // the browser on the original expiry date.
+    const cookies = res.headers['Set-Cookie'] as string[]
+    expect(cookies[0]).toContain(`reality_session=${encodeURIComponent(`${citizenId}.secret-token`)}`)
+    expect(cookies[0]).toContain('Max-Age=2592000')
   })
 
   test('slides the session: extends a token inside its renewal window and re-issues the cookies', async () => {

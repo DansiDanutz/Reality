@@ -47,7 +47,7 @@ import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
 import { useIsMobile } from './lib/useIsMobile'
 import { useNotifications } from './lib/useNotifications'
-import { useGame } from './store/gameStore'
+import { refreshCitizenSession, useGame } from './store/gameStore'
 import { loadStreetMode, preloadStreetMode } from './components/street/loadStreetMode'
 import { preloadNeighborhood } from './components/street/osm'
 import { streetAnchorFor } from './components/street/streetAnchor'
@@ -119,9 +119,13 @@ export default function App() {
       void useGame.getState().reportScore()
       void useGame.getState().pushCloudSave()
     }, 120_000)
+    // Sliding session renewal lives on /api/session; an open tab has to keep
+    // visiting it or it expires mid-play.
+    const sessionId = setInterval(() => void refreshCitizenSession(), 10 * 60_000)
     return () => {
       clearInterval(tickId)
       clearInterval(scoreId)
+      clearInterval(sessionId)
     }
   }, [])
 

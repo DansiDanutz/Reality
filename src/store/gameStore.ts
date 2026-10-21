@@ -628,6 +628,27 @@ export function withoutPersistedToken<T extends { citizen?: { token?: string; on
   return { ...state, citizen: rehydratableCitizen } as T
 }
 
+/**
+ * Keep a long-lived page's session alive. The sliding renewal runs only on
+ * /api/session, and registerOnline stops calling it once the citizen is
+ * online — a player who keeps the tab open across the expiry date would
+ * otherwise never reach it. A session the server no longer recognises
+ * (expired, revoked, or now belonging to someone else) takes the citizen
+ * offline so every protected action re-gates on registerOnline.
+ */
+export async function refreshCitizenSession(): Promise<void> {
+  const s = useGame.getState()
+  if (!s.citizen?.citizenId || s.citizen.online !== true) return
+  const expected = s.citizen.citizenId
+  const session = await tryGet('/api/session')
+  if (!session) return // unreachable: tryGet already raised the offline flag
+  const current = useGame.getState().citizen
+  if (!current || current.citizenId !== expected) return
+  if (session.ok !== true || session.citizenId !== expected) {
+    useGame.setState({ citizen: { ...current, online: false } })
+  }
+}
+
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
   if (!citizen?.citizenId) return
   if (citizen.online !== true) {
