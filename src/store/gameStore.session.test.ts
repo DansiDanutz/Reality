@@ -55,6 +55,27 @@ describe('refreshCitizenSession — keeping an open tab signed in', () => {
     expect(useGame.getState().citizen?.online).toBe(false)
   })
 
+  test('keeps the citizen online through a transient session-service outage', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
+      JSON.stringify({ ok: false, error: 'The session service is briefly unavailable.' }),
+      { status: 503 },
+    )))
+    citizen(true)
+
+    await refreshCitizenSession()
+
+    expect(useGame.getState().citizen?.online).toBe(true)
+  })
+
+  test('keeps the citizen online through a network failure', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => { throw new TypeError('Failed to fetch') }))
+    citizen(true)
+
+    await refreshCitizenSession()
+
+    expect(useGame.getState().citizen?.online).toBe(true)
+  })
+
   test('does nothing for an offline citizen', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)

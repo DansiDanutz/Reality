@@ -377,6 +377,7 @@ describe('telegram Mini App auth', () => {
         auth_date: String(Math.floor(Date.now() / 1000) - 30),
         user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
       })
+      pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // the other citizen's cookie is live
       const res = responseRecorder()
 
       await handler({
@@ -387,8 +388,72 @@ describe('telegram Mini App auth', () => {
 
       expect(res.statusCode).toBe(200)
       expect(res.body).toMatchObject({ ok: true, session: false, account: { citizenId: '11111111-1111-4111-8111-111111111111' } })
-      expect(pgQueryMock).not.toHaveBeenCalled()
+      expect(pgQueryMock).toHaveBeenCalledTimes(1) // verified, never rotated
+      expect(String(pgQueryMock.mock.calls[0]?.[0])).toMatch(/^SELECT 1 AS ok FROM citizens/)
       expect(res.headers['Set-Cookie']).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler replaces a dead cookie left by another citizen instead of refusing forever', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    process.env.POSTGRES_URL = 'postgres://reality-test'
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T02:42:00.000Z'))
+    try {
+      vi.mocked(list).mockResolvedValueOnce(blobList(['telegram-users/42424242.json'], 'blob://existing-telegram'))
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+        realityAccountId: 'telegram:42424242', telegramUserId: '42424242',
+        citizenId: '11111111-1111-4111-8111-111111111111', founderNumber: 12,
+        citizenLinkedAt: '2026-07-06T01:00:00.000Z', firstName: 'David',
+        authDate: Math.floor(Date.now() / 1000) - 120, lastVerifiedAt: '2026-07-06T01:00:00.000Z',
+        provider: 'telegram-mini-app',
+      }), { status: 200 })))
+      pgQueryMock
+        .mockResolvedValueOnce([]) // the other citizen's cookie is expired/revoked
+        .mockResolvedValueOnce([{ citizen_id: '11111111-1111-4111-8111-111111111111' }]) // fresh token minted
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+      })
+      const res = responseRecorder()
+
+      await handler({
+        method: 'POST',
+        headers: { cookie: 'reality_session=22222222-2222-4222-8222-222222222222.dead-token' },
+        body: { initData },
+      } as never, res as never)
+
+      expect(res.body).toMatchObject({ ok: true, session: true })
+      expect(String(pgQueryMock.mock.calls[1]?.[0])).toMatch(/UPDATE citizens SET token_hash = \$2/)
+      expect((res.headers['Set-Cookie'] as unknown as string[])[0]).toContain('reality_session=11111111-1111-4111-8111-111111111111.')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  test('server handler signs in from the authoritative citizens row when the Blob mirror lacks the linkage', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    process.env.POSTGRES_URL = 'postgres://reality-test'
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T02:44:00.000Z'))
+    try {
+      vi.mocked(list).mockResolvedValueOnce(blobList([])) // mirror never written
+      pgQueryMock
+        .mockResolvedValueOnce([{ citizen_id: '11111111-1111-4111-8111-111111111111' }]) // linkage from citizens
+        .mockResolvedValueOnce([{ citizen_id: '11111111-1111-4111-8111-111111111111' }]) // fresh token minted
+      const initData = signedInitData({
+        auth_date: String(Math.floor(Date.now() / 1000) - 30),
+        user: JSON.stringify({ id: 42_424_242, first_name: 'David' }),
+      })
+      const res = responseRecorder()
+
+      await handler({ method: 'POST', body: { initData } } as never, res as never)
+
+      expect(res.body).toMatchObject({ ok: true, session: true })
+      expect(pgQueryMock.mock.calls[0]).toEqual(['SELECT citizen_id FROM citizens WHERE telegram_user_id = $1::bigint LIMIT 1', ['42424242']])
+      expect((res.headers['Set-Cookie'] as unknown as string[])[0]).toContain('reality_session=11111111-1111-4111-8111-111111111111.')
     } finally {
       vi.useRealTimers()
     }
@@ -396,6 +461,7 @@ describe('telegram Mini App auth', () => {
 
   test('server handler does not mint a session for a Telegram account with no linked citizen', async () => {
     process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
+    process.env.POSTGRES_URL = 'postgres://reality-test'
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-06T02:45:00.000Z'))
     try {
@@ -410,7 +476,7 @@ describe('telegram Mini App auth', () => {
 
       expect(res.statusCode).toBe(200)
       expect(res.body).toMatchObject({ ok: true, session: false })
-      expect(pgQueryMock).not.toHaveBeenCalled()
+      expect(pgQueryMock).toHaveBeenCalledTimes(1) // the authoritative linkage lookup only
       expect(res.headers['Set-Cookie']).toBeUndefined()
     } finally {
       vi.useRealTimers()

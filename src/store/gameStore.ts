@@ -665,13 +665,24 @@ export async function refreshCitizenSession(): Promise<void> {
   const s = useGame.getState()
   if (!s.citizen?.citizenId || s.citizen.online !== true) return
   const expected = s.citizen.citizenId
-  const session = await tryGet('/api/session')
-  if (!session) return // unreachable: tryGet already raised the offline flag
+  let res: Response
+  try {
+    res = await fetch('/api/session', { credentials: 'include' })
+  } catch {
+    useGame.getState().markApiOffline() // network blip: the session itself is fine
+    return
+  }
+  noteServerClock(res)
+  // A 5xx is the session service having a moment, not a verdict on the
+  // session: keep the citizen online and let the next refresh retry.
+  if (res.status >= 500) return
+  useGame.getState().markApiOk()
+  const session = (await res.json().catch(() => null)) as Record<string, unknown> | null
   const current = useGame.getState().citizen
   if (!current || current.citizenId !== expected) return
-  if (session.ok !== true || session.citizenId !== expected) {
-    useGame.setState({ citizen: { ...current, online: false } })
-  }
+  const rejected = res.status === 401 || res.status === 403
+  const someoneElse = session?.ok === true && session.citizenId !== expected
+  if (rejected || someoneElse) useGame.setState({ citizen: { ...current, online: false } })
 }
 
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {

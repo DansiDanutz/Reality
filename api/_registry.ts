@@ -188,6 +188,17 @@ export async function reissueCitizenTokenPg(sql: SqlClient, citizenId: string): 
   return rows.length > 0 ? token : null
 }
 
+/** The citizen a verified Telegram user is linked to, from the authoritative citizens row. */
+export async function linkedCitizenIdPg(telegramUserId: string, env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
+  if (!/^\d{1,20}$/.test(telegramUserId)) return null
+  const sql = db(env) as unknown as SqlClient
+  const rows = (await sql.query(
+    'SELECT citizen_id FROM citizens WHERE telegram_user_id = $1::bigint LIMIT 1',
+    [telegramUserId],
+  )) as Array<{ citizen_id: string }>
+  return rows[0]?.citizen_id ?? null
+}
+
 export async function revokeCitizenTokenPg(sql: SqlClient, citizenId: string): Promise<boolean> {
   const rows = (await sql.query(
     'UPDATE citizens SET token_revoked_at = now() WHERE citizen_id = $1 AND token_revoked_at IS NULL RETURNING citizen_id',
