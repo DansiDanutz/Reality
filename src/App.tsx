@@ -115,12 +115,20 @@ export default function App() {
     // server clock offset is known before days of absence are settled —
     // otherwise a device clock set forward would be paid out before the
     // first API response could correct it. Offline resolves at once.
+    // The 1 Hz heartbeat starts only after that first tick: an interval tick
+    // firing earlier would settle the absence on the uncorrected clock.
+    let tickId: ReturnType<typeof setInterval> | undefined
+    let unmounted = false
+    const startHeartbeat = () => {
+      if (unmounted) return
+      useGame.getState().tick()
+      tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
+    }
     const bootstrap = useGame.getState().registerOnline()
     const grace = new Promise<void>((resolve) => setTimeout(resolve, 3_000))
-    void Promise.race([bootstrap, grace]).then(() => useGame.getState().tick(), () => useGame.getState().tick())
+    void Promise.race([bootstrap, grace]).then(startHeartbeat, startHeartbeat)
     void useGame.getState().ensureSpawn()
     void useGame.getState().linkTelegram()
-    const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
       void useGame.getState().pushCloudSave()
@@ -129,6 +137,7 @@ export default function App() {
     // visiting it or it expires mid-play.
     const sessionId = setInterval(() => void refreshCitizenSession(), 10 * 60_000)
     return () => {
+      unmounted = true
       clearInterval(tickId)
       clearInterval(scoreId)
       clearInterval(sessionId)

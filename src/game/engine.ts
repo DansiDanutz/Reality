@@ -106,6 +106,8 @@ export interface Activity {
   /** Hourly wage for shifts, already excluding gear bonus */
   wage?: number
   title?: string
+  /** The job a real shift is worked at, stamped at start — gigs carry none. The ledger is told this job, not whatever job is current when the shift ends. */
+  jobId?: string
   /** Recipe being cooked, for 'cook' activities */
   recipeId?: string
   /**

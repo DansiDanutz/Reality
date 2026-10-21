@@ -159,3 +159,53 @@ describe('tick — the shift reaches the ledger', () => {
     expect(fetchMock.mock.calls.some(([url]) => url === '/api/intent')).toBe(false)
   })
 })
+
+describe('review fixes — one clock, the right job', () => {
+  test('a gig never reports a workShift to the ledger', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    liveCitizen(true)
+
+    useGame.getState().startGig()
+    expect(useGame.getState().activity?.jobId).toBeUndefined()
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    expect(fetchMock.mock.calls.some(([url]) => url === '/api/intent')).toBe(false)
+  })
+
+  test('a shift reports the job it was worked at, even if the job changed mid-shift', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    liveCitizen(true)
+
+    useGame.getState().startShift()
+    useGame.setState({ jobId: 'cashier' }) // switched jobs while on shift
+    advanceLiveTo(useGame.getState().activity!.endsAt)
+
+    const intentCall = fetchMock.mock.calls.find(([url]) => url === '/api/intent') as [string, RequestInit] | undefined
+    expect(JSON.parse(String(intentCall![1].body)).intent).toEqual({ type: 'workShift', jobId: 'barista' })
+  })
+
+  test('activities started after the server clock is known are stamped on that clock', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(
+      JSON.stringify({ ok: true, citizenId: 'ada' }),
+      { status: 200, headers: { date: 'Wed, 21 Oct 2026 13:00:00 GMT' } }, // server an hour ahead
+    )))
+    liveCitizen(false)
+    useGame.setState({ lastSeenAt: NOW + 3_600_000 })
+    await useGame.getState().registerOnline()
+
+    useGame.getState().startShift()
+
+    // Stamped on the same clock tick() resolves it with — no early or late finish.
+    expect(useGame.getState().activity?.startedAt).toBe(NOW + 3_600_000)
+  })
+})
