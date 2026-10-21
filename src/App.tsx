@@ -110,8 +110,13 @@ export default function App() {
   // after load also settles everything that happened while you were away —
   // one simulation path, real time in and out of the app.
   useEffect(() => {
-    useGame.getState().tick()
-    void useGame.getState().registerOnline()
+    // The away catch-up waits (briefly) for the session bootstrap so the
+    // server clock offset is known before days of absence are settled —
+    // otherwise a device clock set forward would be paid out before the
+    // first API response could correct it. Offline resolves at once.
+    const bootstrap = useGame.getState().registerOnline()
+    const grace = new Promise<void>((resolve) => setTimeout(resolve, 3_000))
+    void Promise.race([bootstrap, grace]).then(() => useGame.getState().tick(), () => useGame.getState().tick())
     void useGame.getState().ensureSpawn()
     void useGame.getState().linkTelegram()
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)

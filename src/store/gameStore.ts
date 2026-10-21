@@ -141,6 +141,7 @@ import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessa
 import { setSoundVolume as applySoundVolume } from '../lib/sound'
 import { type AvatarParams } from '../lib/avatarPrompt'
 import { detectLocation, type SpawnLocation } from '../lib/geo'
+import { correctedNow, offsetFromDateHeader, rewindPolicy } from '../lib/serverClock'
 import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
@@ -593,6 +594,7 @@ async function tryPost(path: string, body: unknown): Promise<Record<string, unkn
       headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-Reality-CSRF': csrf } : {}) },
       body: JSON.stringify(body),
     })
+    noteServerClock(res)
     const data = (await res.json()) as Record<string, unknown>
     useGame.getState().markApiOk()
     return data
@@ -605,6 +607,7 @@ async function tryPost(path: string, body: unknown): Promise<Record<string, unkn
 async function tryGet(path: string): Promise<Record<string, unknown> | null> {
   try {
     const res = await fetch(path, { credentials: 'include' })
+    noteServerClock(res)
     const data = (await res.json()) as Record<string, unknown>
     useGame.getState().markApiOk()
     return data
@@ -612,6 +615,28 @@ async function tryGet(path: string): Promise<Record<string, unknown> | null> {
     useGame.getState().markApiOffline()
     return null
   }
+}
+
+/**
+ * Server − device clock offset, learned from the `Date` header of every API
+ * response (see src/lib/serverClock.ts). Module state, never persisted: a
+ * saved offset would just be another number a clock-changer could edit.
+ */
+let serverClockOffsetMs: number | null = null
+
+function noteServerClock(res: { headers?: { get?: (name: string) => string | null } } | null | undefined): void {
+  const offset = offsetFromDateHeader(res?.headers?.get?.('date') ?? null, Date.now())
+  if (offset !== null) serverClockOffsetMs = offset
+}
+
+/** The simulation clock: device time corrected by the last known server offset. Exported for tests. */
+export function simulationNow(): number {
+  return correctedNow(Date.now(), serverClockOffsetMs)
+}
+
+/** Test seam — forget the learned offset between cases. */
+export function resetServerClockForTest(): void {
+  serverClockOffsetMs = null
 }
 
 function readCookie(name: string): string | null {
@@ -660,12 +685,25 @@ function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
     })
     return
   }
+  // The placement IS the server-side purchase (reality_place_asset charges the
+  // catalog price once, atomically). A refusal leaves the asset local-only —
+  // the client's balance includes faucets the ledger does not model yet, so
+  // it is not snapped — but it must not pass silently.
   void tryPost('/api/world', {
     assetId: asset.id,
     itemId: asset.itemId,
     kind: asset.kind,
     lat: asset.lat,
     lng: asset.lng,
+  }).then((d) => {
+    if (d && d.ok !== true) console.warn('world: placement not recorded on the shared map', d.code ?? d.error)
+  })
+}
+
+/** Report a finished shift to the server ledger; the response is advisory (see publishPlacedAsset). */
+function recordShiftOnLedger(jobId: string, idempotencyKey: string): void {
+  void tryPost('/api/intent', { intent: { type: 'workShift', jobId }, idempotencyKey }).then((d) => {
+    if (d && d.ok !== true && d.code !== 'shift_too_soon') console.warn('ledger: shift not recorded', d.code ?? d.error)
   })
 }
 
@@ -1558,10 +1596,15 @@ export const useGame = create<GameState>()(
       tick: () => {
         const s = get()
         if (!s.citizen) return
-        const now = Date.now()
+        // Rule #1 is enforced by the server's clock whenever one has been
+        // seen (src/lib/serverClock.ts); the device clock only stands alone
+        // offline. A backwards move beyond NTP-sized discipline is not
+        // re-anchored — that erased the evidence of a forward jump — the sim
+        // simply waits for real time to catch up.
+        const now = simulationNow()
         const from = s.lastSeenAt || now
         if (now <= from) {
-          set({ lastSeenAt: now })
+          if (rewindPolicy(now, from) === 'reanchor') set({ lastSeenAt: now })
           return
         }
 
@@ -1653,6 +1696,13 @@ export const useGame = create<GameState>()(
         const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
         const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
         if (out.shiftsCompleted > 0) {
+          // The server ledger is the economy's record: every finished shift is
+          // reported as a workShift intent so credits grow with real play (the
+          // leaderboard's reconciliation cap is built from them). Keyed on the
+          // shift's start so a retry replays rather than double-pays.
+          if (s.jobId && s.citizen?.online === true) {
+            recordShiftOnLedger(s.jobId, `shift:${s.citizen.citizenId}:${completedShift?.startedAt ?? now}`)
+          }
           if (wageBonusEarned > 0) {
             toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(wageBonusEarned)}!`, 'gold')
           }

@@ -68,9 +68,13 @@ export const CITIZEN_PROFILE_SQL = `
 // silent about a citizen.
 export const FOUNDER_GRANT = 200_000
 
-// Client-only assets (uncollected pending income) are not in the ledger yet;
-// a 10% allowance covers them without reopening the client-asserted hole.
-export const LEDGER_WORTH_TOLERANCE = 1.1
+// What the ledger cannot see on an honest citizen, as a multiple of what it
+// can: the server credits a shift at wage × seniority (api/intent.ts), but
+// the client also pays gear (+0.6 ceiling, engine.test "under +60%") and
+// education (+0.30, education.ts) wage bonuses, and holds uncollected
+// pending income. 1 + 0.6 + 0.3 covers all of it without reopening the
+// client-asserted hole: a cheater is still bounded at 1.9× real credits.
+export const LEDGER_WORTH_TOLERANCE = 1.9
 
 /**
  * Server-reconciled ceiling on a claimed net worth: total accepted ledger

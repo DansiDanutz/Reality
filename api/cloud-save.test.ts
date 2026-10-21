@@ -165,6 +165,33 @@ describe('cloud save API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('refuses a save whose balance no citizen of that age could hold', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }]) // token verified
+    pgQueryMock.mockResolvedValueOnce([{ name: 'David', created_at: new Date(Date.now() - 86_400_000).toISOString(), credited: '200000' }]) // 1 day old
+    const res = responseRecorder()
+    const save = JSON.stringify({ state: { citizen: { id: CITIZEN_ID }, money: 5_000_000, lastSeenAt: 123 }, version: 6 })
+
+    await handler({ method: 'POST', body: { save } } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toEqual({ ok: false, error: 'This save could not be verified.', code: 'implausible_save' })
+    expect(pgQueryMock).toHaveBeenCalledTimes(2) // never reaches the snapshot write
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('accepts a plausible balance, failing closed to the day-0 ceiling when the age is unknown', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    pgQueryMock.mockResolvedValueOnce([{ name: 'David', created_at: null, credited: null }]) // unknown age → $300k ceiling
+    pgQueryMock.mockResolvedValueOnce([{ accepted: true }])
+    const res = responseRecorder()
+    const save = JSON.stringify({ state: { citizen: { id: CITIZEN_ID }, money: 250_000, lastSeenAt: 123 }, version: 6 })
+
+    await handler({ method: 'POST', body: { save } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(put).toHaveBeenCalledTimes(1)
+  })
+
   test('returns a structured service failure when citizen verification storage is unavailable', async () => {
     pgQueryMock.mockRejectedValueOnce(new Error('database unavailable'))
     const res = responseRecorder()

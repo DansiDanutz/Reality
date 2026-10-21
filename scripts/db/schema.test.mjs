@@ -57,8 +57,15 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/p_daily_limit integer/)
     expect(schema).toMatch(/daily_limit/)
     expect(schema).toMatch(/asset_mismatch/)
-    expect(schema).toMatch(/'inventory'/)
-    expect(schema).toMatch(/intent\.buyItem/)
+    // A placement IS the purchase: the function charges p_price once, atomically.
+    // The old inventory gate required a prior intent.buyItem that had already
+    // charged the same price — nothing in the client ever sent one, so every
+    // shared-world placement was refused, and a client that did would have
+    // paid twice (audit E1 / S11).
+    expect(schema).toMatch(/IF v_balance < p_price THEN/)
+    expect(schema).toMatch(/v_balance := v_balance - p_price/)
+    expect(schema).not.toMatch(/'inventory'::text/)
+    expect(schema).not.toMatch(/v_owned/)
   })
 
   test('provides an atomic registration IP/day reservation boundary', () => {

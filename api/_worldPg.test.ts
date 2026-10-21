@@ -104,10 +104,10 @@ describe('writeWorldPlacement (authoritative since Phase 1b.6)', () => {
     await expect(writeWorldPlacement(placement())).rejects.toThrow('world_place_asset_mismatch')
   })
 
-  test('turns missing server-owned inventory into a deterministic error', async () => {
+  test('a placement is the purchase — an accepted write returns the charged balance', async () => {
     vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
-    queryMock.mockResolvedValueOnce([{ new_balance: '200000', refusal: 'inventory' }])
-    await expect(writeWorldPlacement(placement())).rejects.toThrow('world_place_inventory_missing')
+    queryMock.mockResolvedValueOnce([{ new_balance: '155000', refusal: null }])
+    await expect(writeWorldPlacement(placement())).resolves.toEqual({ balance: 155_000 })
   })
 })
 
