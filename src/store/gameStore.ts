@@ -148,7 +148,7 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 import { gameNow, rebaseTimestamps, rewindPolicy } from '../game/time'
-import { serverClockReady, serverTimeMeasured, type ClockMeasurement } from '../lib/serverClock'
+import { serverClockReady, serverTimeMeasured } from '../lib/serverClock'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | 'handbook' | 'journey' | null
 
@@ -756,8 +756,8 @@ interface GameState {
   cloudSyncedAt: number | null
   /**
    * The save's timestamps are on the server's clock. A save stamped before
-   * this device first measured it (a new citizen, or any save from before
-   * trusted time) is rebased once, when the first measurement arrives.
+   * that was known (a citizen created in the first second, a restored or
+   * pre-existing save) is handed off once by the tick: see handOffToTrustedClock.
    */
   clockTrusted: boolean
   /** First-person Street Mode (not persisted) */
@@ -887,7 +887,6 @@ interface GameState {
   reportScore: () => Promise<void>
   linkGoogle: (credential: string) => Promise<string | null>
   pushCloudSave: () => Promise<void>
-  adoptServerClock: (measurement: ClockMeasurement) => void
   tick: () => void
   consume: (itemId: string) => void
   /** Feed one pet — tops up its hunger, charges the daily food cost */
@@ -1299,6 +1298,21 @@ async function serializeRegistration<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * The one-time move of a save onto the trusted clock. Which clock stamped
+ * an older save is unknowable (the device setting may have changed since),
+ * so only what can be seen is corrected: a save whose last instant lies in
+ * the future was stamped by a fast clock, and every timestamp moves back by
+ * that lead, so it resumes now instead of freezing until real time catches
+ * up. A save in the past is ordinary time away and is left alone.
+ */
+function handOffToTrustedClock(s: GameState): Partial<GameState> {
+  const lead = s.lastSeenAt - gameNow()
+  if (lead <= 0) return { clockTrusted: true }
+  const data = Object.fromEntries(Object.entries(s).filter(([, value]) => typeof value !== 'function'))
+  return { ...rebaseTimestamps(data, -lead), clockTrusted: true }
+}
+
 export const useGame = create<GameState>()(
   persist(
     (set, get) => ({
@@ -1612,24 +1626,15 @@ export const useGame = create<GameState>()(
         if (d?.ok) set({ cloudSyncedAt: gameNow() })
       },
 
-      adoptServerClock: ({ previous, offset }) => {
-        const s = get()
-        if (!s.citizen || s.clockTrusted) return
-        // Every timestamp in this save was stamped on the clock the game ran
-        // on before (`previous`); move them onto the trusted one so the move
-        // reads as no time at all, not as hours played ahead or owed.
-        const data = Object.fromEntries(Object.entries(s).filter(([, value]) => typeof value !== 'function'))
-        set({ ...rebaseTimestamps(data, offset - previous), clockTrusted: true })
-      },
-
       // The heartbeat. One simulation path for everything: a 1-second live
       // tick and a 3-day absence run through the same realtime engine.
       tick: () => {
-        const s = get()
-        if (!s.citizen) return
         // Startup waits (briefly) for the server's time: a device clock set
         // forward while the app was closed must not be simulated first.
-        if (!serverClockReady()) return
+        if (!get().citizen || !serverClockReady()) return
+        if (!get().clockTrusted && serverTimeMeasured()) set(handOffToTrustedClock(get()))
+        const s = get()
+        if (!s.citizen) return
         const now = gameNow()
         const from = s.lastSeenAt || now
         const policy = rewindPolicy(now, from)

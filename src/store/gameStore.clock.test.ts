@@ -3,7 +3,8 @@ import { useGame } from './gameStore'
 import { beginServerClock, resetServerClockForTest, syncServerClock } from '../lib/serverClock'
 
 const SERVER_NOW = new Date('2026-10-21T12:00:00.000Z').getTime()
-const HOUR = 3_600_000
+const MIN = 60_000
+const HOUR = 60 * MIN
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -18,39 +19,77 @@ afterEach(() => {
 
 const serverSays = (now: number) => vi.fn(async () => new Response(JSON.stringify({ ok: true, now })))
 
+/** An eight-hour shift in progress, started `startedAt`. */
+const shift = (startedAt: number) => ({ kind: 'shift' as const, startedAt, endsAt: startedAt + 8 * HOUR, wage: 15, title: 'Barista' })
+
 describe('trusted time', () => {
-  test('a citizen created on a fast device clock is moved onto server time, not frozen', async () => {
+  test('a citizen created on a fast device clock resumes on server time, not frozen', async () => {
     vi.setSystemTime(SERVER_NOW + HOUR) // device one hour fast, server not yet measured
     useGame.getState().createCitizen('Ada', null)
-    const workEndsAt = SERVER_NOW + HOUR + 30 * 60_000
-    useGame.setState({ activity: { kind: 'gig', startedAt: SERVER_NOW + HOUR, endsAt: workEndsAt } as never })
+    useGame.setState({ activity: shift(SERVER_NOW + HOUR) })
     expect(useGame.getState().clockTrusted).toBe(false)
 
-    const measurement = await syncServerClock(serverSays(SERVER_NOW) as never)
-    useGame.getState().adoptServerClock(measurement!)
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    useGame.getState().tick()
 
     const s = useGame.getState()
     expect(s.clockTrusted).toBe(true)
     expect(s.lastSeenAt).toBe(SERVER_NOW)
     expect(s.citizen?.createdAt).toBe(SERVER_NOW)
-    expect(s.activity?.endsAt).toBe(SERVER_NOW + 30 * 60_000)
+    expect(s.activity?.endsAt).toBe(SERVER_NOW + 8 * HOUR)
 
-    vi.setSystemTime(SERVER_NOW + HOUR + 10 * 60_000) // ten real minutes later, device still fast
+    vi.setSystemTime(SERVER_NOW + HOUR + 10 * MIN) // ten real minutes later, device still fast
     useGame.getState().tick()
-    expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW + 10 * 60_000)
+    expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW + 10 * MIN)
   })
 
-  test('a citizen created after the measurement is trusted from the start and never rebased', async () => {
+  test('an accurately stamped old save is not moved when the phone clock changed since', async () => {
+    for (const deviceSkew of [8 * HOUR, -8 * HOUR]) {
+      vi.setSystemTime(SERVER_NOW - MIN)
+      useGame.getState().createCitizen('Ada', null)
+      useGame.setState({ clockTrusted: false, lastSeenAt: SERVER_NOW - MIN, activity: shift(SERVER_NOW - HOUR), money: 1_000 })
+
+      vi.setSystemTime(SERVER_NOW + deviceSkew) // the phone was moved before reopening
+      await syncServerClock(serverSays(SERVER_NOW) as never)
+      useGame.getState().tick()
+
+      const s = useGame.getState()
+      expect(s.clockTrusted).toBe(true)
+      expect(s.lastSeenAt).toBe(SERVER_NOW)
+      expect(s.activity?.endsAt).toBe(SERVER_NOW + 7 * HOUR) // the shift still has seven real hours to go
+      useGame.getState().reset()
+      resetServerClockForTest()
+    }
+  })
+
+  test('a fast-stamped save restored after the measurement is handed off on the next tick', async () => {
     vi.setSystemTime(SERVER_NOW + HOUR)
-    const measurement = await syncServerClock(serverSays(SERVER_NOW) as never)
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    // A save written by a device one hour fast, restored after the clock was measured.
+    useGame.setState({
+      citizen: { name: 'Ada', founderNumber: 3, createdAt: SERVER_NOW + HOUR },
+      clockTrusted: false,
+      lastSeenAt: SERVER_NOW + HOUR,
+      activity: shift(SERVER_NOW + HOUR),
+    })
+    useGame.getState().tick()
+    expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW)
+    expect(useGame.getState().activity?.endsAt).toBe(SERVER_NOW + 8 * HOUR)
+
+    vi.setSystemTime(SERVER_NOW + HOUR + 31 * MIN)
+    useGame.getState().tick()
+    expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW + 31 * MIN)
+  })
+
+  test('a citizen created after the measurement is trusted from the start', async () => {
+    vi.setSystemTime(SERVER_NOW + HOUR)
+    await syncServerClock(serverSays(SERVER_NOW) as never)
     useGame.getState().createCitizen('Ada', null)
     expect(useGame.getState().clockTrusted).toBe(true)
     expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW)
-    useGame.getState().adoptServerClock({ previous: 0, offset: measurement!.offset })
-    expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW)
   })
 
-  test('time played ahead of the real clock is paid back, not re-anchored away', () => {
+  test('on a trusted save, time played ahead of the real clock is paid back, not re-anchored away', () => {
     vi.setSystemTime(SERVER_NOW)
     useGame.getState().createCitizen('Ada', null)
     useGame.setState({ clockTrusted: true, lastSeenAt: SERVER_NOW + 2 * HOUR, money: 1_000 })
@@ -59,7 +98,7 @@ describe('trusted time', () => {
     expect(useGame.getState().money).toBe(1_000)
 
     // A small backwards step is ordinary clock discipline.
-    useGame.setState({ lastSeenAt: SERVER_NOW + 60_000 })
+    useGame.setState({ lastSeenAt: SERVER_NOW + MIN })
     useGame.getState().tick()
     expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW)
   })

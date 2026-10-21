@@ -119,10 +119,9 @@ export default function App() {
     // device clock can be changed while the page sleeps.
     beginServerClock()
     const syncClock = () => {
-      void syncServerClock().then((measurement) => {
-        if (measurement) useGame.getState().adoptServerClock(measurement)
-        useGame.getState().tick()
-      })
+      // A tick right after the measurement also hands an untrusted save
+      // over to the trusted clock.
+      void syncServerClock().then(() => useGame.getState().tick())
     }
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncClock()
