@@ -50,9 +50,15 @@ const WAITLIST_KEY = 'reality-waitlist-joined'
 
 function WaitlistForm() {
   const [email, setEmail] = useState('')
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>(
-    localStorage.getItem(WAITLIST_KEY) ? 'done' : 'idle',
-  )
+  // Storage can throw (Safari private mode, blocked site data) — on the very
+  // first screen that used to blank the whole app.
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>(() => {
+    try {
+      return localStorage.getItem(WAITLIST_KEY) ? 'done' : 'idle'
+    } catch {
+      return 'idle'
+    }
+  })
   const [error, setError] = useState('')
   const [count, setCount] = useState(0)
 

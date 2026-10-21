@@ -48,6 +48,7 @@ import { useFocusTrap } from './lib/useFocusTrap'
 import { useIsMobile } from './lib/useIsMobile'
 import { useNotifications } from './lib/useNotifications'
 import { refreshCitizenSession, useGame } from './store/gameStore'
+import ErrorBoundary from './components/ErrorBoundary'
 import { loadStreetMode, preloadStreetMode } from './components/street/loadStreetMode'
 import { preloadNeighborhood } from './components/street/osm'
 import { streetAnchorFor } from './components/street/streetAnchor'
@@ -213,9 +214,11 @@ export default function App() {
         inert={dialogOpen || undefined}
         aria-hidden={dialogOpen || undefined}
       >
-        <Suspense fallback={<div className="globe-loading" aria-hidden />}>
-          <WorldMap />
-        </Suspense>
+        <ErrorBoundary area="The map" inline>
+          <Suspense fallback={<div className="globe-loading" aria-hidden />}>
+            <WorldMap />
+          </Suspense>
+        </ErrorBoundary>
         {!citizen && introDone && <Welcome />}
         {!citizen && !introDone && (
           <Suspense fallback={<div className="globe-loading" aria-hidden />}>
@@ -284,10 +287,11 @@ export default function App() {
           <InstallBanner />
         </>
       )}
-      {panel === 'shop' && <Market />}
+      {panel === 'shop' && <ErrorBoundary area="The market" inline><Market /></ErrorBoundary>}
       {drawerOpen && (
         <div className="drawer" ref={drawerRef} role="dialog" aria-modal="true" aria-label={PANEL_LABELS[panel] ?? 'Panel'}>
           <button className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
+          <ErrorBoundary key={panel} area={PANEL_LABELS[panel] ?? 'This panel'} inline>
           {panel === 'work' && <WorkPanel />}
           {panel === 'assets' && <AssetsPanel />}
           {panel === 'home' && <HousePanel />}
@@ -304,6 +308,7 @@ export default function App() {
           {panel === 'construction' && <ConstructionPanel />}
           {panel === 'handbook' && <HandbookPanel />}
           {panel === 'journey' && <JourneyPanel />}
+          </ErrorBoundary>
         </div>
       )}
     </div>

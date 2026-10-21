@@ -171,11 +171,18 @@ export function advanceLife(slice: WorldSlice, minutes: number, mode: LifeMode, 
   // Health mirrors the shared server/world simulation triage policy.
   const health = advanceHealth(slice.health, needs, h)
 
-  const assets = slice.assets.map((a) =>
-    a.incomePerDay > 0
-      ? { ...a, pendingIncome: Math.min(a.pendingIncome + (a.incomePerDay / 24) * h, a.incomePerDay * PENDING_CAP_DAYS) }
-      : a,
-  )
+  // Structural sharing: an asset whose till did not move (a home, a full till)
+  // keeps its identity, and so does the array when nothing moved — the UI
+  // subscribes to `assets` and would otherwise re-render it every tick.
+  let assetsChanged = false
+  const nextAssets = slice.assets.map((a) => {
+    if (a.incomePerDay <= 0) return a
+    const pendingIncome = Math.min(a.pendingIncome + (a.incomePerDay / 24) * h, a.incomePerDay * PENDING_CAP_DAYS)
+    if (pendingIncome === a.pendingIncome) return a
+    assetsChanged = true
+    return { ...a, pendingIncome }
+  })
+  const assets = assetsChanged ? nextAssets : slice.assets
 
   return { needs, health, assets }
 }

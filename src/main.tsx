@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import ErrorBoundary from './components/ErrorBoundary'
 import { installErrorReporter } from './lib/errorReporter'
 import FunnelDashboard from './components/panels/FunnelDashboard'
 import './styles/tokens.css'
@@ -26,5 +27,7 @@ if ('serviceWorker' in navigator) {
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>{isFunnel ? <FunnelDashboard /> : <App />}</StrictMode>,
+  <StrictMode>
+    <ErrorBoundary>{isFunnel ? <FunnelDashboard /> : <App />}</ErrorBoundary>
+  </StrictMode>,
 )
