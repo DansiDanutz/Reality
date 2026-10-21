@@ -44,3 +44,6 @@ danslab-*.jpeg
 danslab-*.jpg
 /docs/runbooks/
 /map-preview-out/
+
+# Test coverage output
+coverage/

@@ -1011,6 +1011,7 @@ type BuyInsuranceIntentError =
 
 type ApplyBuyInsuranceError =
   | BuyInsuranceIntentError
+  | 'service_unavailable'
   | 'area_not_claimed'
   | 'actor_unavailable'
   | 'business_not_found'
@@ -2288,7 +2289,7 @@ function hasRecentFounderActivity(
   const claimedMs = safeDateMs(state.claim.claimedAt, state.updatedAt)
   const lastReviewMs = reviewSchedule.lastReviewAt === null ? null : Date.parse(reviewSchedule.lastReviewAt)
   const anchorMs = Math.max(
-    Number.isFinite(lastReviewMs) ? lastReviewMs : claimedMs,
+    lastReviewMs !== null && Number.isFinite(lastReviewMs) ? lastReviewMs : claimedMs,
     updatedMs - FOUNDER_COVENANT_WEEKLY_REVIEW_MS,
   )
 
@@ -2303,7 +2304,7 @@ function hasRecentFounderActivity(
   })
 }
 
-function uniqueBusinessKinds(kinds: readonly FounderAreaDepartureServiceKind[]): FounderAreaBusinessKind[] {
+function uniqueBusinessKinds(kinds: readonly FounderAreaBusinessKind[]): FounderAreaBusinessKind[] {
   return BUSINESS_KINDS.filter((kind) => kinds.includes(kind))
 }
 
@@ -3788,7 +3789,7 @@ function firstBuildRecommendations(
         : null,
       clientPayload: canBuildNow
         ? {
-          type: 'buildBusiness',
+          type: 'buildBusiness' as const,
           businessKind: kind,
           businessId: proposedBusinessId as string,
           name: blueprint.name,
@@ -4375,7 +4376,7 @@ async function persistAreaState(
 ): Promise<FounderAreaState> {
   const reviewed = withFounderCovenantReview(state)
   if (founderAreaPgEnabled()) {
-    const expectedRevision = '__storageRevision' in reviewed && Number.isInteger(reviewed.__storageRevision)
+    const expectedRevision = '__storageRevision' in reviewed && typeof reviewed.__storageRevision === 'number' && Number.isInteger(reviewed.__storageRevision)
       ? reviewed.__storageRevision
       : 0
     const { __storageEtag: _ignoredEtag, __storageRevision: _ignoredRevision, ...serializable } = reviewed as FounderAreaPersistedState
@@ -4388,7 +4389,7 @@ async function persistAreaState(
     }, expectedRevision)
     return { ...serializable, __storageRevision: revision } as FounderAreaPersistedState
   }
-  const expectedEtag = '__storageEtag' in reviewed ? reviewed.__storageEtag : undefined
+  const expectedEtag = '__storageEtag' in reviewed && typeof reviewed.__storageEtag === 'string' ? reviewed.__storageEtag : undefined
   const { __storageEtag: _ignoredEtag, __storageRevision: _ignoredRevision, ...serializable } = reviewed as FounderAreaPersistedState
   const result = await put(areaStatePath(citizenId), JSON.stringify(serializable), {
     access: 'private',
@@ -4592,7 +4593,7 @@ async function runAdvanceHourMutation(
     } catch {
       return { ok: false, error: 'area_load_unavailable', state: existing }
     }
-    if (existing && caughtUp !== existing) return { ok: true, state: caughtUp }
+    if (existing && caughtUp && caughtUp !== existing) return { ok: true, state: caughtUp }
 
     const result = applyAdvanceHourIntent(caughtUp, rawIntent, now)
     if (!result.ok) return { ok: false, error: result.error, state: existing }
@@ -4656,7 +4657,7 @@ async function runCovenantReviewMutation(
 
 type OperatorCovenantReviewMutationResult =
   | { ok: true; state: FounderAreaState }
-  | { ok: false; error: OperatorRecordCovenantReviewIntentError | 'area_load_unavailable' | 'area_write_conflict' | 'area_mismatch'; state: FounderAreaState | null }
+  | { ok: false; error: ApplyOperatorRecordCovenantReviewError | 'area_write_conflict'; state: FounderAreaState | null }
 
 async function runOperatorCovenantReviewMutation(
   initial: FounderAreaPersistedState | null,
@@ -5054,6 +5055,7 @@ async function founderCovenantReviewQueueAreaBlob(
       state = await readAreaState(citizenId)
       if (!state) return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
     } else {
+      if (!blob.downloadUrl) return founderCovenantReviewQueueAreaResult(citizenId, null, 'invalid', null, 0, null)
       const response = await fetch(blob.downloadUrl)
       if (!response.ok) return founderCovenantReviewQueueAreaResult(citizenId, null, 'unavailable', null, 0, null)
       const value = await response.json() as unknown
@@ -7177,9 +7179,9 @@ function isFounderAreaClaim(value: unknown): value is FounderAreaClaim {
     UUID_RE.test(text(value.founderCitizenId)) &&
     Number.isInteger(value.founderNumber) &&
     typeof value.label === 'string' && value.label.length > 0 &&
-    Number.isFinite(value.centerLat) && value.centerLat >= -90 && value.centerLat <= 90 &&
-    Number.isFinite(value.centerLng) && value.centerLng >= -180 && value.centerLng <= 180 &&
-    Number.isFinite(value.radiusKm) && value.radiusKm >= MIN_FOUNDER_AREA_RADIUS_KM && value.radiusKm <= MAX_FOUNDER_AREA_RADIUS_KM &&
+    typeof value.centerLat === 'number' && Number.isFinite(value.centerLat) && value.centerLat >= -90 && value.centerLat <= 90 &&
+    typeof value.centerLng === 'number' && Number.isFinite(value.centerLng) && value.centerLng >= -180 && value.centerLng <= 180 &&
+    typeof value.radiusKm === 'number' && Number.isFinite(value.radiusKm) && value.radiusKm >= MIN_FOUNDER_AREA_RADIUS_KM && value.radiusKm <= MAX_FOUNDER_AREA_RADIUS_KM &&
     typeof value.claimedAt === 'string' && Number.isFinite(Date.parse(value.claimedAt)) &&
     isAreaClaimSource(value.source) &&
     (value.telegramUserId === undefined || typeof value.telegramUserId === 'string') &&

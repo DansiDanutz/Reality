@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
+    "lib": ["ES2023"],
+    "types": ["node", "vite/client"],
+    "noEmit": true
+  },
+  "include": ["api/**/*.ts", "src/game/**/*.ts", "src/types/*.d.ts"],
+  "exclude": ["api/**/*.test.ts", "src/game/**/*.test.ts"]
+}
