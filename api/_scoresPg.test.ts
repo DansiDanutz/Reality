@@ -55,8 +55,8 @@ describe('maxPlausibleWorth', () => {
 
 describe('maxReconciledWorth', () => {
   test('bounds a claim by the accepted ledger credits plus the pending-income tolerance', () => {
-    expect(maxReconciledWorth(2_500)).toBe(4_750)
-    expect(maxReconciledWorth(1_000_000)).toBe(1_900_000)
+    expect(maxReconciledWorth(2_500)).toBe(2_750)
+    expect(maxReconciledWorth(1_000_000)).toBe(1_100_000)
   })
 
   test('fails closed to the founder grant when the ledger has no accepted rows', () => {

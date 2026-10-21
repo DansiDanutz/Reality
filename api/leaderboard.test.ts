@@ -158,9 +158,8 @@ describe('leaderboard API score submissions', () => {
 
     expect(res.statusCode).toBe(200)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // Unknown profile → founder-grant bound × the 1.9 reconciliation tolerance (380k);
-    // the day-0 age cap (300k) is tighter and wins.
-    expect(upsertParams[3]).toBe(300_000)
+    // 200k founder grant + 10% pending-income tolerance — tighter than the 300k day-0 age cap.
+    expect(upsertParams[3]).toBe(220_000)
   })
 
   test('clamps a claimed worth to the server ledger credits, not the client number', async () => {
@@ -182,8 +181,8 @@ describe('leaderboard API score submissions', () => {
     expect(profileSql).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
     expect(profileSql).toMatch(/balance_after IS NOT NULL/i)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // 2,500 credited × 1.9 tolerance (gear + education the ledger can't see) = 4,750 — the ledger bound wins.
-    expect(upsertParams.slice(2, 4)).toEqual([300_000, 4_750])
+    // 2,500 credited * 1.1 tolerance = 2,750 — the ledger bound wins.
+    expect(upsertParams.slice(2, 4)).toEqual([300_000, 2_750])
   })
 
   test('keeps the ledger bound fail-closed when the citizen has no accepted ledger rows', async () => {
@@ -198,8 +197,8 @@ describe('leaderboard API score submissions', () => {
 
     expect(res.statusCode).toBe(200)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // No ledger rows → founder-grant bound × 1.9 = 380k, even though the age cap (5 days → 800k) allows more.
-    expect(upsertParams[3]).toBe(380_000)
+    // No ledger rows → founder-grant bound (220k), even though the age cap allows more.
+    expect(upsertParams[3]).toBe(220_000)
   })
 
   test('rejects invalid net worth before any storage call', async () => {

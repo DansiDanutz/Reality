@@ -7,6 +7,12 @@ interface Props {
   area?: string
   /** Inline fallback for a contained area (a panel); the full-screen card otherwise. */
   inline?: boolean
+  /**
+   * How to leave the broken area when it owns its own close control (the
+   * Market): without it the fallback replaces that control, the panel stays
+   * open, the rest of the game stays inert, and a touch player is stuck.
+   */
+  onClose?: () => void
 }
 
 interface State {
@@ -40,6 +46,9 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div className="error-fallback inline" role="alert">
           <p>{area} hit a problem. Your life and your save are safe.</p>
           <button type="button" className="btn small" onClick={this.retry}>Try again</button>
+          {this.props.onClose && (
+            <button type="button" className="btn small" onClick={this.props.onClose}>Close</button>
+          )}
         </div>
       )
     }

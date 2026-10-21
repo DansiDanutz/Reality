@@ -60,33 +60,22 @@ the ledger in one atomic Postgres statement (`reality_append_intent`) that
 carries the running balance, a cooldown, and overdraft gating. The ledger —
 not a mutable balance column — is the source of truth.
 
-What the client actually sends today (audit 2026-10-20, findings E1/E8):
+What the client actually sends today (audit 2026-10-20, finding E1):
 
-- **`workShift`** — fired from `tick()` the moment a shift resolves, keyed
-  `shift:{citizenId}:{startedAt}` so a retry replays instead of double-pays.
-  The server pays `wage × seniority × 8h`; seniority is the one multiplier
-  the ledger can see for itself (it counts accepted shifts). Gear and
-  education bonuses live only in the client save and are covered by the
-  leaderboard's reconciliation tolerance (`LEDGER_WORTH_TOLERANCE`).
 - **Placements** go through `/api/world` POST, and the placement IS the
   purchase: `reality_place_asset` charges the catalog price once,
   atomically, with the daily cap and overdraft gate. It no longer requires
   a prior `buyItem` row (that gate refused every placement, since nothing
   ever sent one, and would have charged twice if something had).
-- The `buyItem`/`placeAsset` intents remain valid but have no client
-  caller yet; the ledger does not yet model the client's other faucets
-  (achievement bounties, streaks, lucky moments, boxes), so the client does
-  **not** snap its balance to the server's on a correction frame — a
-  refused placement stays local-only and is logged. Closing that gap is
-  the next step toward a fully server-authoritative balance.
-
-**Time.** Rule #1 is enforced by the server's clock whenever one has been
-seen: the `Date` header of every API response sets a device→server offset
-(`src/lib/serverClock.ts`) that `tick()` applies, and the first away
-catch-up waits (≤3 s) for the session bootstrap so a device clock set
-forward is corrected before days of absence are paid out. Offline, a
-backwards move beyond NTP-sized discipline is no longer re-anchored —
-accrual freezes until real time catches up.
+- The `workShift`/`buyItem`/`placeAsset` intents are valid (a shift pays
+  `wage × seniority × 8h`; seniority is the one multiplier the ledger can
+  count for itself) but have no client caller yet. Reporting shifts from
+  the client needs a durable outbox with retries, a hand-off from device
+  time to trusted server time, and server-side level reconciliation (the
+  client also levels through education); that is designed as its own
+  change, not bolted on. Until then the ledger sees genesis and placements,
+  the client does **not** snap its balance to the server's, and the
+  device clock remains the time authority (audit finding E2, open).
 
 **Cloud saves** are still client-asserted state, but `/api/cloud-save`
 holds the save's balance to the same age-plausibility ceiling the

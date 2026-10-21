@@ -31,6 +31,11 @@ describe('ErrorBoundary', () => {
     expect(html).not.toContain('Reload')
   })
 
+  test('a contained area that owns its own close control offers Close, so touch players are never trapped', () => {
+    expect(caught({ children: null, area: 'The market', inline: true, onClose: () => {} })).toContain('>Close</button>')
+    expect(caught({ children: null, area: 'The map', inline: true })).not.toContain('>Close</button>')
+  })
+
   test('reports what broke to the beta error reporter', () => {
     const fetchMock = vi.fn(async () => new Response('{}'))
     vi.stubGlobal('fetch', fetchMock)
