@@ -361,6 +361,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   } catch (error) {
     console.error('telegram-auth: session mint failed', error instanceof Error ? error.name : typeof error)
+    if (req.body?.restore === true) {
+      res.status(503).json({ ok: false, error: 'Telegram sign-in is briefly unavailable. Please reopen Reality to retry.', code: 'telegram_restore_unavailable' })
+      return
+    }
   }
 
   if (session && citizenId && req.body?.restore === true) {

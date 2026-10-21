@@ -36,12 +36,13 @@ afterEach(() => {
 })
 
 describe('telegram Mini App auth', () => {
-  test.each(['blob', 'missing', 'outage'] as const)('handles a %s cloud backup during restore', async (source) => {
+  test.each(['blob', 'missing', 'outage', 'linkage-outage'] as const)('handles a %s cloud backup during restore', async (source) => {
     process.env.TELEGRAM_BOT_TOKEN = BOT_TOKEN
     process.env.POSTGRES_URL = 'postgres://reality-test'
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const citizenId = '11111111-1111-4111-8111-111111111111'
-    pgQueryMock.mockResolvedValueOnce([{ citizen_id: citizenId }])
+    if (source === 'linkage-outage') pgQueryMock.mockRejectedValueOnce(new Error('Linkage lookup unavailable'))
+    else pgQueryMock.mockResolvedValueOnce([{ citizen_id: citizenId }])
       .mockResolvedValueOnce([{ citizen_id: citizenId }])
     if (source === 'outage') pgQueryMock.mockRejectedValueOnce(new Error('Database unavailable'))
     else pgQueryMock.mockResolvedValueOnce([])
@@ -56,7 +57,7 @@ describe('telegram Mini App auth', () => {
 
     await handler({ method: 'POST', body: { initData, restore: true } } as never, res as never)
 
-    if (source === 'outage') {
+    if (source === 'outage' || source === 'linkage-outage') {
       expect(res.statusCode).toBe(503)
       expect(res.body).toMatchObject({ ok: false, code: 'telegram_restore_unavailable' })
     } else {
