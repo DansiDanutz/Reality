@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { jobById } from '../../game/catalog'
 import { adviceOf, moodOf, netWorthOf, tierOf } from '../../game/engine'
 import { planLifeDay } from '../../game/lifeLadder'
@@ -12,7 +13,7 @@ import { lifeLadderSnapshotOf, runLifePlanRoute } from './lifePlanInput'
 import NotifyNudge from './NotifyNudge'
 
 const countdown = (endsAt: number): string => {
-  const ms = Math.max(0, endsAt - Date.now())
+  const ms = Math.max(0, endsAt - gameNow())
   const h = Math.floor(ms / 3_600_000)
   const m = Math.floor((ms % 3_600_000) / 60_000)
   return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`
@@ -149,7 +150,7 @@ export default function ActionDock() {
     // Live progress bar: how far through the activity we are. Re-renders
     // every tick via the lastSeenAt subscription above, so the bar fills
     // smoothly in real time. A text countdown is data; a filling bar is felt.
-    const now = Date.now()
+    const now = gameNow()
     const total = activity.endsAt - activity.startedAt
     const elapsed = Math.max(0, now - activity.startedAt)
     const pct = Math.min(100, Math.round((elapsed / total) * 100))

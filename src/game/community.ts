@@ -1,3 +1,4 @@
+import { gameNow } from './time'
 import type { Needs } from './types'
 
 export type CommunityActionId = 'check-neighbor' | 'help-errand' | 'block-cleanup'
@@ -65,15 +66,15 @@ export const COMMUNITY_ACTIONS: CommunityAction[] = [
   },
 ]
 
-export function communityWeek(now = Date.now()): number {
+export function communityWeek(now = gameNow()): number {
   return Math.floor(now / WEEK_MS)
 }
 
-export function communityDay(now = Date.now()): number {
+export function communityDay(now = gameNow()): number {
   return Math.floor(now / DAY_MS)
 }
 
-export function freshCommunityStats(now = Date.now()): CommunityStats {
+export function freshCommunityStats(now = gameNow()): CommunityStats {
   return {
     respect: 0,
     friendship: 0,
@@ -94,7 +95,7 @@ export function freshCommunityStats(now = Date.now()): CommunityStats {
   }
 }
 
-export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | undefined, now = Date.now()): CommunityStats {
+export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | undefined, now = gameNow()): CommunityStats {
   if (!stats) return freshCommunityStats(now)
   return {
     respect: Math.max(0, Math.floor(stats.respect ?? 0)),
@@ -116,31 +117,31 @@ export function normalizeCommunityStats(stats: Partial<CommunityStats> | null | 
   }
 }
 
-export function resetCommunityWeekIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
+export function resetCommunityWeekIfNeeded(stats: CommunityStats, now = gameNow()): CommunityStats {
   const week = communityWeek(now)
   return stats.week === week ? stats : { ...stats, actionsThisWeek: 0, helperMinutesUsedThisWeek: 0, week }
 }
 
-export function resetCommunityWorkDayIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
+export function resetCommunityWorkDayIfNeeded(stats: CommunityStats, now = gameNow()): CommunityStats {
   const day = communityDay(now)
   return stats.workRespectDay === day ? stats : { ...stats, workRespectDay: day, workRespectToday: 0 }
 }
 
-export function resetCommunityActionDayIfNeeded(stats: CommunityStats, now = Date.now()): CommunityStats {
+export function resetCommunityActionDayIfNeeded(stats: CommunityStats, now = gameNow()): CommunityStats {
   const day = communityDay(now)
   return stats.actionDay === day ? stats : { ...stats, actionDay: day, actionsToday: 0 }
 }
 
-export function canStartCommunityAction(stats: CommunityStats, now = Date.now()): boolean {
+export function canStartCommunityAction(stats: CommunityStats, now = gameNow()): boolean {
   return resetCommunityActionDayIfNeeded(stats, now).actionsToday <= 0
 }
 
-export function availableCommunityHelperMinutes(stats: CommunityStats, weeklyHelperMinutes: number, now = Date.now()): number {
+export function availableCommunityHelperMinutes(stats: CommunityStats, weeklyHelperMinutes: number, now = gameNow()): number {
   const current = resetCommunityWeekIfNeeded(stats, now)
   return Math.max(0, Math.floor(weeklyHelperMinutes) - current.helperMinutesUsedThisWeek)
 }
 
-export function spendCommunityHelperMinutes(stats: CommunityStats, minutes: number, now = Date.now()): CommunityStats {
+export function spendCommunityHelperMinutes(stats: CommunityStats, minutes: number, now = gameNow()): CommunityStats {
   const current = resetCommunityWeekIfNeeded(stats, now)
   return {
     ...current,
@@ -152,7 +153,7 @@ export function communityActionById(actionId: CommunityActionId): CommunityActio
   return COMMUNITY_ACTIONS.find((action) => action.id === actionId) ?? null
 }
 
-export function completeCommunityAction(stats: CommunityStats, action: CommunityAction, now = Date.now()): CommunityStats {
+export function completeCommunityAction(stats: CommunityStats, action: CommunityAction, now = gameNow()): CommunityStats {
   const current = resetCommunityActionDayIfNeeded(resetCommunityWeekIfNeeded(stats, now), now)
   if (current.actionsToday > 0) return current
   return {
@@ -165,7 +166,7 @@ export function completeCommunityAction(stats: CommunityStats, action: Community
   }
 }
 
-export function completeReliableShift(stats: CommunityStats, now = Date.now()): CommunityStats {
+export function completeReliableShift(stats: CommunityStats, now = gameNow()): CommunityStats {
   const current = resetCommunityWorkDayIfNeeded(stats, now)
   const respectGained = current.workRespectToday > 0 ? 0 : 1
   const day = communityDay(now)
@@ -187,7 +188,7 @@ export function completeReliableShift(stats: CommunityStats, now = Date.now()): 
   }
 }
 
-export function recordBrokenCommitment(stats: CommunityStats, now = Date.now()): CommunityStats {
+export function recordBrokenCommitment(stats: CommunityStats, now = gameNow()): CommunityStats {
   const day = communityDay(now)
   const alreadyPenalizedToday = stats.commitmentPenaltyDay === day
   const respectLost = alreadyPenalizedToday ? 0 : Math.min(1, stats.respect)
@@ -202,7 +203,7 @@ export function recordBrokenCommitment(stats: CommunityStats, now = Date.now()):
   }
 }
 
-export function missedSeriousWorkYesterday(stats: CommunityStats, now = Date.now()): boolean {
+export function missedSeriousWorkYesterday(stats: CommunityStats, now = gameNow()): boolean {
   const day = communityDay(now)
   if (stats.reliableShifts <= 0 || stats.seriousWorkLastDay <= 0) return false
   return stats.seriousWorkLastDay < day - 1

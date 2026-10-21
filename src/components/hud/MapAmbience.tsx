@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { useEffect } from 'react'
 import { zoneFor } from '../../game/clock'
 import { resumeAudio, startMapMusic, stopMapMusic } from '../../lib/sound'
@@ -20,7 +21,7 @@ function isNightAt(lat: number | undefined, lng: number | undefined): boolean {
   try {
     const zone = lat !== undefined && lng !== undefined ? zoneFor(lat, lng) : undefined
     const hour = Number(
-      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: zone }).format(new Date()),
+      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: zone }).format(new Date(gameNow())),
     )
     return hour < 6 || hour >= 19
   } catch {

@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { RECIPES, itemById } from '../../game/catalog'
 import { COOK_MINUTES, hasKitchen, missingFor } from '../../game/engine'
 import type { Needs } from '../../game/types'
@@ -30,7 +31,7 @@ export default function KitchenPanel() {
       const item = itemById(id)!
       const restockedAt = groceryRestockedAt[id]
       const daysLeft = restockedAt
-        ? item.shelfLifeDays! - (Date.now() - restockedAt) / (24 * 3_600_000)
+        ? item.shelfLifeDays! - (gameNow() - restockedAt) / (24 * 3_600_000)
         : item.shelfLifeDays!
       return { id, name: item.name, qty, daysLeft }
     })

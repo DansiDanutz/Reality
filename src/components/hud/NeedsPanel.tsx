@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import type { NeedKey } from '../../game/types'
 import { useGame } from '../../store/gameStore'
 
@@ -21,7 +22,7 @@ export default function NeedsPanel() {
   const openMarketForNeed = useGame((s) => s.openMarketForNeed)
   if (!citizen) return null
 
-  const illnessHoursLeft = illness ? Math.max(1, Math.ceil((illness.endsAt - Date.now()) / 3_600_000)) : 0
+  const illnessHoursLeft = illness ? Math.max(1, Math.ceil((illness.endsAt - gameNow()) / 3_600_000)) : 0
 
   return (
     <aside className="needs" aria-label="Vitals">

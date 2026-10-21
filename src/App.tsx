@@ -20,6 +20,7 @@ import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
 import WeekFanfare from './components/hud/WeekFanfare'
 import { TUTORIAL_STEPS } from './game/tutorial'
+import { beginServerClock, syncServerClock } from './lib/serverClock'
 import FounderAreaPanel from './components/panels/FounderAreaPanel'
 import FounderCovenantOperatorPanel from './components/panels/FounderCovenantOperatorPanel'
 import NeedsPanel from './components/hud/NeedsPanel'
@@ -112,6 +113,24 @@ export default function App() {
   // after load also settles everything that happened while you were away —
   // one simulation path, real time in and out of the app.
   useEffect(() => {
+    // The simulation runs on the server's clock. The tick holds until the
+    // first measurement lands (a few seconds at most), then settles the time
+    // away; the clock is re-measured on resume and every 10 minutes, since a
+    // device clock can be changed while the page sleeps.
+    beginServerClock()
+    const syncClock = () => {
+      void syncServerClock().then((measurement) => {
+        if (measurement) useGame.getState().adoptServerClock(measurement)
+        useGame.getState().tick()
+      })
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') syncClock()
+    }
+    syncClock()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', syncClock)
+    const clockId = setInterval(syncClock, 10 * 60_000)
     useGame.getState().tick()
     void useGame.getState().registerOnline()
     void useGame.getState().ensureSpawn()
@@ -128,6 +147,9 @@ export default function App() {
       clearInterval(tickId)
       clearInterval(scoreId)
       clearInterval(sessionId)
+      clearInterval(clockId)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', syncClock)
     }
   }, [])
 

@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import {
   businessDevelopmentLaborBreakdown,
   businessDevelopmentProgress,
@@ -46,7 +47,7 @@ function activeWorkerText(count: number): string | null {
   return `${count} worker${count === 1 ? '' : 's'} active`
 }
 
-export function constructionAssetView(project: ConstructionProject, now = Date.now()) {
+export function constructionAssetView(project: ConstructionProject, now = gameNow()) {
   const progress = constructionProgress(project)
   const missing = constructionShortfall(project)
   const labor = constructionLaborBreakdown(project)
@@ -78,7 +79,7 @@ export function constructionAssetNavigation(project: Pick<ConstructionProject, '
   }
 }
 
-export function businessInteriorAssetView(project: BusinessDevelopmentProject, now = Date.now()) {
+export function businessInteriorAssetView(project: BusinessDevelopmentProject, now = gameNow()) {
   const progress = businessDevelopmentProgress(project)
   const missing = businessDevelopmentShortfall(project)
   const labor = businessDevelopmentLaborBreakdown(project)
