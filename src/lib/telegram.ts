@@ -14,6 +14,9 @@ export interface VerifiedTelegramMiniAppSession {
   telegramUser: TelegramMiniAppUser
   authDate: number
   startParam?: string
+  citizenId?: string
+  online?: boolean
+  save?: string
 }
 
 export type TelegramMiniAppAuthResult =
@@ -40,6 +43,7 @@ export function telegramMiniAppInitData(source: TelegramWindow = globalThis as T
 export async function authenticateTelegramMiniApp(
   fetchImpl: typeof fetch = fetch,
   initData = telegramMiniAppInitData(),
+  restore = false,
 ): Promise<TelegramMiniAppAuthResult> {
   if (!initData) return { ok: false, reason: 'not_in_telegram' }
 
@@ -47,7 +51,7 @@ export async function authenticateTelegramMiniApp(
     const response = await fetchImpl('/api/telegram-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData }),
+      body: JSON.stringify({ initData, ...(restore ? { restore: true } : {}) }),
     })
     const data = await response.json() as Record<string, unknown>
     if (response.ok && data.ok === true && isFutureTelegramAuthDate(data.authDate)) {
@@ -73,6 +77,9 @@ export async function authenticateTelegramMiniApp(
         telegramUser: data.telegramUser,
         authDate: data.authDate,
         startParam: typeof data.startParam === 'string' ? data.startParam : undefined,
+        ...(typeof data.citizenId === 'string' ? { citizenId: data.citizenId } : {}),
+        ...(typeof data.session === 'boolean' ? { online: data.session } : {}),
+        ...(typeof data.save === 'string' ? { save: data.save } : {}),
       },
     }
   } catch {

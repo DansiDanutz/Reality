@@ -83,6 +83,7 @@ const StreetMode = lazy(loadStreetMode)
 const ScrollWorldIntro = lazy(() => import('./components/scrollworld/ScrollWorldIntro'))
 
 export default function App() {
+  const [telegramMessage, setTelegramMessage] = useState('')
   const [introDone, setIntroDone] = useState(!SCROLL_WORLD_ENABLED)
   const citizen = useGame((s) => s.citizen)
   const assets = useGame((s) => s.assets)
@@ -114,7 +115,7 @@ export default function App() {
     useGame.getState().tick()
     void useGame.getState().registerOnline()
     void useGame.getState().ensureSpawn()
-    void useGame.getState().linkTelegram()
+    void useGame.getState().linkTelegram().then((message) => setTelegramMessage(message ?? ''))
     const tickId = setInterval(() => useGame.getState().tick(), TICK_SECONDS * 1000)
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
@@ -214,7 +215,7 @@ export default function App() {
             <WorldMap />
           </Suspense>
         </ErrorBoundary>
-        {!citizen && introDone && <Welcome />}
+        {!citizen && introDone && <Welcome telegramMessage={telegramMessage} />}
         {!citizen && !introDone && (
           <Suspense fallback={<div className="globe-loading" aria-hidden />}>
             <ScrollWorldIntro onEnter={() => setIntroDone(true)} />
