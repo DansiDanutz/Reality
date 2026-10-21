@@ -150,7 +150,7 @@ import {
   telegramMiniAppInitData,
 } from '../lib/telegram'
 import { gameNow, rebaseTimestamps, rewindPolicy } from '../game/time'
-import { serverClockReady, serverTimeMeasured } from '../lib/serverClock'
+import { serverClockReady, serverTimeMeasured, sessionClockCorrection } from '../lib/serverClock'
 
 export type PanelId = 'shop' | 'work' | 'assets' | 'home' | 'business' | 'founder' | 'operator' | 'top' | 'profile' | 'health' | 'cook' | 'achievements' | 'journal' | 'boxes' | 'construction' | 'handbook' | 'journey' | null
 
@@ -1301,27 +1301,38 @@ async function serializeRegistration<T>(work: () => Promise<T>): Promise<T> {
 }
 
 /**
- * The one-time move of a save onto the trusted clock. Which clock stamped
- * an older save is unknowable (the device setting may have changed since),
- * so only what can be seen is corrected: a save whose last instant lies in
- * the future was stamped by a fast clock, and every timestamp moves back by
- * that lead, so it resumes now instead of freezing until real time catches
- * up. A save in the past is ordinary time away and is left alone.
+ * The createdAt of a citizen created this session before the server's time
+ * was measured. Keyed by createdAt so a save restored over it in the same
+ * session is not mistaken for it.
+ */
+let citizenStampedThisSession: number | null = null
+
+/**
+ * The one-time move of a save onto the trusted clock. A citizen created
+ * this session was stamped on this session's clock, so its error is known
+ * exactly and is corrected either way: no phantom day lived, no hours owed.
+ * Which clock stamped an older save is unknowable (the device setting may
+ * have changed since), so only what can be seen is corrected: a save whose
+ * last instant lies in the future was stamped by a fast clock and moves
+ * back by that lead; a save in the past is ordinary time away.
  */
 function handOffToTrustedClock(s: GameState): Partial<GameState> {
-  const lead = s.lastSeenAt - gameNow()
-  if (lead <= 0) return { clockTrusted: true }
+  const stampedThisSession = citizenStampedThisSession !== null && s.citizen?.createdAt === citizenStampedThisSession
+  const correction = stampedThisSession ? sessionClockCorrection() : null
+  citizenStampedThisSession = null
+  const shiftBy = correction ?? -Math.max(0, s.lastSeenAt - gameNow())
+  if (!shiftBy) return { clockTrusted: true }
   const data = Object.fromEntries(Object.entries(s).filter(([, value]) => typeof value !== 'function'))
-  const rebased = rebaseTimestamps(data, -lead) as Partial<GameState>
+  const rebased = rebaseTimestamps(data, shiftBy) as Partial<GameState>
   // Calendar days move with the clock that stamped them, or a streak claimed
   // "tomorrow" would block today's claim. Days counted from the citizen's
-  // birth (courier days) need nothing: createdAt moved by the same lead.
+  // birth (courier days) need nothing: createdAt moved by the same amount.
   const home = s.assets.find((a) => a.kind === 'home')
   const lat = home ? home.lat : s.citizen?.spawnLat
   const lng = home ? home.lng : s.citizen?.spawnLng
-  const localDays = dayIndexOf(s.lastSeenAt - lead, lat, lng) - dayIndexOf(s.lastSeenAt, lat, lng)
-  const utcDays = communityDay(s.lastSeenAt - lead) - communityDay(s.lastSeenAt)
-  const utcWeeks = communityWeek(s.lastSeenAt - lead) - communityWeek(s.lastSeenAt)
+  const localDays = dayIndexOf(s.lastSeenAt + shiftBy, lat, lng) - dayIndexOf(s.lastSeenAt, lat, lng)
+  const utcDays = communityDay(s.lastSeenAt + shiftBy) - communityDay(s.lastSeenAt)
+  const utcWeeks = communityWeek(s.lastSeenAt + shiftBy) - communityWeek(s.lastSeenAt)
   const move = (day: number, by: number) => (day > 0 ? day + by : day)
   return {
     ...rebased,
@@ -1347,11 +1358,13 @@ export const useGame = create<GameState>()(
 
       createCitizen: (name, spawn) => {
         citizenSessionGeneration += 1
+        const bornAt = gameNow()
+        citizenStampedThisSession = serverTimeMeasured() ? null : bornAt
         set({
           citizen: {
             name: name.trim(),
             founderNumber: 0,
-            createdAt: gameNow(),
+            createdAt: bornAt,
             homeCity: spawn?.city,
             homeCountry: spawn?.country,
             spawnLat: spawn?.lat,
@@ -1359,8 +1372,8 @@ export const useGame = create<GameState>()(
           },
           ...FRESH,
           money: FOUNDER_BALANCE,
-          firstSessionGuide: { startedAt: gameNow(), dismissed: false, completedAt: null },
-          lastSeenAt: gameNow(),
+          firstSessionGuide: { startedAt: bornAt, dismissed: false, completedAt: null },
+          lastSeenAt: bornAt,
           clockTrusted: serverTimeMeasured(),
           log: [
             spawn?.city

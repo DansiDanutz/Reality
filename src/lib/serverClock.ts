@@ -25,6 +25,7 @@ export const CLOCK_READY_TIMEOUT_MS = 5_000
 
 let pending = false
 let measured = false
+let firstCorrection: number | null = null
 let readyTimer: ReturnType<typeof setTimeout> | null = null
 
 /** False only between `beginServerClock()` and the first measurement (or its timeout). */
@@ -35,6 +36,15 @@ export function serverClockReady(): boolean {
 /** True once this session has measured the server's time. */
 export function serverTimeMeasured(): boolean {
   return measured
+}
+
+/**
+ * How far the first measurement of this session moved game time (server −
+ * what the game believed). Anything stamped this session before it — a
+ * citizen created in the first seconds — is off by exactly this much.
+ */
+export function sessionClockCorrection(): number | null {
+  return firstCorrection
 }
 
 /**
@@ -79,6 +89,7 @@ export async function syncServerClock(
     return false
   }
   const drift = serverAtReceipt - (gameNow() - (monotonicNow() - receivedAt))
+  if (!measured) firstCorrection = drift
   if (!measured || Math.abs(drift) > CLOCK_NOISE_MS) anchorGameClock(serverAtReceipt, receivedAt)
   persistOffset(offset)
   measured = true
@@ -115,5 +126,6 @@ function persistOffset(offsetMs: number): void {
 export function resetServerClockForTest(): void {
   settle()
   measured = false
+  firstCorrection = null
   resetGameClock()
 }

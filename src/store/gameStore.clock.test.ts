@@ -43,11 +43,47 @@ describe('trusted time', () => {
     expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW + 10 * MIN)
   })
 
+  test('a citizen created on a slow device clock is moved forward, not aged by the gap', async () => {
+    const DAY = 24 * HOUR
+    vi.setSystemTime(SERVER_NOW - DAY) // device one day slow, server not yet measured
+    useGame.getState().createCitizen('Ada', null)
+    const needs = useGame.getState().needs
+    const money = useGame.getState().money
+
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    useGame.getState().tick()
+
+    const s = useGame.getState()
+    expect(s.clockTrusted).toBe(true)
+    expect(s.lastSeenAt).toBe(SERVER_NOW)
+    expect(s.citizen?.createdAt).toBe(SERVER_NOW)
+    expect(s.needs).toEqual(needs)
+    expect(s.money).toBe(money)
+  })
+
+  test('a save restored over a just-created citizen keeps the old-save rule', async () => {
+    vi.setSystemTime(SERVER_NOW - HOUR) // device one hour slow
+    useGame.getState().createCitizen('Ada', null)
+    useGame.setState({
+      citizen: { name: 'Restored', founderNumber: 9, createdAt: SERVER_NOW - 30 * 24 * HOUR },
+      lastSeenAt: SERVER_NOW - 2 * HOUR, // last played two hours ago
+      clockTrusted: false,
+    })
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    useGame.getState().tick()
+    expect(useGame.getState().citizen?.createdAt).toBe(SERVER_NOW - 30 * 24 * HOUR)
+  })
+
   test('an accurately stamped old save is not moved when the phone clock changed since', async () => {
     for (const deviceSkew of [8 * HOUR, -8 * HOUR]) {
       vi.setSystemTime(SERVER_NOW - MIN)
-      useGame.getState().createCitizen('Ada', null)
-      useGame.setState({ clockTrusted: false, lastSeenAt: SERVER_NOW - MIN, activity: shift(SERVER_NOW - HOUR), money: 1_000 })
+      useGame.setState({
+        citizen: { name: 'Ada', founderNumber: 4, createdAt: SERVER_NOW - 10 * 24 * HOUR },
+        clockTrusted: false,
+        lastSeenAt: SERVER_NOW - MIN,
+        activity: shift(SERVER_NOW - HOUR),
+        money: 1_000,
+      })
 
       vi.setSystemTime(SERVER_NOW + deviceSkew) // the phone was moved before reopening
       await syncServerClock(serverSays(SERVER_NOW) as never)

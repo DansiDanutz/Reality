@@ -87,10 +87,11 @@ measurement; offline, the last measured offset for this device applies. A
 clock far behind the last simulated instant freezes accrual until real
 time catches up, so time played ahead of the real clock is paid back
 rather than re-anchored away. A save stamped before the server's time was
-known (a citizen created in the first second, a restored or pre-existing
-save) is handed off once (`clockTrusted`). If it lies in the future, it was
-stamped by a fast clock and its timestamps and calendar-day counters move
-back to now; otherwise it is left alone. (Audit finding E2.)
+known is handed off once (`clockTrusted`). A citizen created this session
+moves by exactly the first measurement's correction, either way. An older
+save moves only if it lies in the future, since it was then stamped by a
+fast clock: its timestamps and calendar-day counters move back to now.
+Otherwise it is left alone. (Audit finding E2.)
 
 **Cloud saves** are still client-asserted state, but `/api/cloud-save`
 holds the save's balance to the same age-plausibility ceiling the
