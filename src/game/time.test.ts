@@ -1,16 +1,23 @@
-import { afterEach, describe, expect, test } from 'vitest'
-import { gameNow, rebaseTimestamps, rewindPolicy, setGameClockOffset } from './time'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { anchorGameClock, gameNow, rebaseTimestamps, resetGameClock, rewindPolicy } from './time'
 
-afterEach(() => setGameClockOffset(0))
+afterEach(() => {
+  resetGameClock()
+  vi.useRealTimers()
+})
 
 describe('game clock', () => {
-  test('reads the device clock plus the trusted offset', () => {
-    const before = Date.now()
-    setGameClockOffset(-3_600_000)
-    expect(gameNow()).toBeLessThanOrEqual(Date.now() - 3_600_000 + 5)
-    expect(gameNow()).toBeGreaterThanOrEqual(before - 3_600_000)
-    setGameClockOffset(Number.NaN)
-    expect(Math.abs(gameNow() - Date.now())).toBeLessThan(5)
+  test('once anchored, advances with real elapsed time and ignores device clock changes', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    expect(gameNow()).toBe(1_000_000) // unanchored: the device clock
+    anchorGameClock(5_000_000)
+    vi.advanceTimersByTime(60_000) // a real minute passes
+    expect(gameNow()).toBe(5_060_000)
+    vi.setSystemTime(1_000_000 + 8 * 3_600_000) // someone moves the phone eight hours forward
+    expect(gameNow()).toBe(5_060_000)
+    resetGameClock()
+    expect(gameNow()).toBe(Date.now())
   })
 
   test('advances forward time, re-anchors small rewinds, freezes large ones', () => {

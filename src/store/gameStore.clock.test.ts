@@ -38,7 +38,7 @@ describe('trusted time', () => {
     expect(s.citizen?.createdAt).toBe(SERVER_NOW)
     expect(s.activity?.endsAt).toBe(SERVER_NOW + 8 * HOUR)
 
-    vi.setSystemTime(SERVER_NOW + HOUR + 10 * MIN) // ten real minutes later, device still fast
+    vi.advanceTimersByTime(10 * MIN) // ten real minutes later
     useGame.getState().tick()
     expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW + 10 * MIN)
   })
@@ -76,9 +76,25 @@ describe('trusted time', () => {
     expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW)
     expect(useGame.getState().activity?.endsAt).toBe(SERVER_NOW + 8 * HOUR)
 
-    vi.setSystemTime(SERVER_NOW + HOUR + 31 * MIN)
+    vi.advanceTimersByTime(31 * MIN)
     useGame.getState().tick()
     expect(useGame.getState().lastSeenAt).toBe(SERVER_NOW + 31 * MIN)
+  })
+
+  test('moving the phone forward mid-session does not finish a shift', async () => {
+    vi.setSystemTime(SERVER_NOW)
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    useGame.getState().createCitizen('Ada', null)
+    useGame.setState({ activity: shift(SERVER_NOW) })
+
+    vi.setSystemTime(SERVER_NOW + 8 * HOUR) // the phone jumps eight hours ahead
+    vi.advanceTimersByTime(1_000) // one real second
+    useGame.getState().tick()
+
+    const s = useGame.getState()
+    expect(s.activity?.kind).toBe('shift')
+    expect(s.shiftsWorked).toBe(0)
+    expect(s.lastSeenAt).toBe(SERVER_NOW + 1_000)
   })
 
   test('a citizen created after the measurement is trusted from the start', async () => {

@@ -1,27 +1,35 @@
 /**
  * The simulation's clock. Rule #1 (real time) used to rest on the device
  * clock alone: set it forward, collect, set it back. The client now learns
- * the server's time and keeps the difference here, so every reading of
- * "now" in the game — the tick, activity timers, day boundaries, the
- * countdowns on screen — agrees on one trusted clock.
+ * the server's time and keeps it here, so every reading of "now" in the
+ * game — the tick, activity timers, day boundaries, the countdowns on
+ * screen — agrees on one trusted clock.
  *
- * No I/O: the offset is supplied from outside (src/lib/serverClock.ts).
+ * No I/O: the server's time is supplied from outside (src/lib/serverClock.ts).
  */
 
-let offsetMs = 0
+/**
+ * Once anchored, game time advances on the monotonic clock
+ * (`performance.now()`), which changing the device's date and time cannot
+ * move. Before any anchor (tests, pure callers) it is the device clock.
+ */
+let anchor: { gameMs: number; monoMs: number } | null = null
 
-/** Real time as the server tells it: the device clock plus the learned offset. */
+const monotonicNow = (): number => performance.now()
+
+/** Real time as the server tells it. */
 export function gameNow(): number {
-  return Date.now() + offsetMs
+  return anchor ? anchor.gameMs + (monotonicNow() - anchor.monoMs) : Date.now()
 }
 
-/** server − device, in ms. */
-export function gameClockOffset(): number {
-  return offsetMs
+/** Pin game time to `gameMs` at the monotonic instant `monoMs`; it advances from there. */
+export function anchorGameClock(gameMs: number, monoMs: number = monotonicNow()): void {
+  if (Number.isFinite(gameMs) && Number.isFinite(monoMs)) anchor = { gameMs, monoMs }
 }
 
-export function setGameClockOffset(ms: number): void {
-  offsetMs = Number.isFinite(ms) ? ms : 0
+/** Forget the anchor: game time is the device clock again. */
+export function resetGameClock(): void {
+  anchor = null
 }
 
 /** Backwards moves up to this much are ordinary clock discipline (NTP): accepted silently. */
