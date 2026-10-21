@@ -28,10 +28,10 @@ export default function Toasts() {
     return () => clearTimeout(timer)
   }, [oldestId, popToast])
 
-  if (toasts.length === 0) return null
-
+  // The live region stays mounted even when empty: a region created together
+  // with its first message is often not announced by screen readers.
   return (
-    <div className="toasts" aria-live="polite">
+    <div className="toasts" role="status" aria-live="polite">
       {toasts.map((t) => (
         <button key={t.id} className={`toast ${t.tone}`} onClick={() => popToast(t.id)}>
           {t.text}

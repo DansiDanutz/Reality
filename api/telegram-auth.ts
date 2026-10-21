@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
+import { db } from './_db.js'
+import { linkedCitizenIdPg, reissueCitizenTokenPg, verifyCitizenPg } from './_registry.js'
+import { issueSessionCookies, sessionFromCookie } from './_session.js'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
 const DEFAULT_MAX_AGE_SECONDS = 24 * 60 * 60
@@ -207,7 +210,7 @@ function parseTelegramMiniAppUser(rawUser: string): TelegramMiniAppUser | null {
   if (!isRecord(value)) return null
   const id = value.id
   const firstName = optionalText(value.first_name)
-  if (!Number.isSafeInteger(id) || id <= 0 || !firstName) return null
+  if (typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0 || !firstName) return null
 
   return {
     id: String(id),
@@ -313,6 +316,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
+  // A Telegram account already linked to a citizen is a sign-in: mint a fresh
+  // token and set the session cookie so this device is online immediately,
+  // instead of handing back a record for a citizen it cannot act as. Best
+  // effort — the identity record above is already durable.
+  let session = false
+  try {
+    // The Blob mirror is best-effort (register.ts writes it after the
+    // citizens row commits), so fall back to the authoritative linkage.
+    const linkedCitizenId = accountRecord.citizenId ?? await linkedCitizenIdPg(verified.user.id)
+    if (linkedCitizenId) {
+      const existingSession = sessionFromCookie(req)
+      const existingLive = existingSession
+        ? await verifyCitizenPg(existingSession.citizenId, existingSession.token)
+        : false
+      if (existingSession && existingLive && existingSession.citizenId !== linkedCitizenId) {
+        // This browser holds another citizen's LIVE session, and the client
+        // calls this endpoint automatically at startup. Installing the linked
+        // citizen's cookie underneath a client still running as the first
+        // citizen would route its score and save writes to the linked one.
+        // A sign-in that disagrees with a live session is refused, not forced;
+        // a dead cookie protects nothing and is simply replaced below.
+        console.warn('telegram-auth: linked citizen differs from the active session; not signing in')
+      } else if (existingLive) {
+        // Already signed in as this citizen: leave the session alone. Rotating
+        // here raced the /api/session bootstrap the client starts in parallel —
+        // a bootstrap response landing after this one re-set the old, now
+        // revoked token and signed the player out.
+        session = true
+      } else {
+        const token = await reissueCitizenTokenPg(db() as never, linkedCitizenId)
+        if (token) {
+          issueSessionCookies(res, { citizenId: linkedCitizenId, token })
+          session = true
+        }
+      }
+    }
+  } catch (error) {
+    console.error('telegram-auth: session mint failed', error instanceof Error ? error.name : typeof error)
+  }
+
   res.status(200).json({
     ok: true,
     telegramUser: verified.user,
@@ -321,5 +364,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     authDate: verified.authDate,
     queryId: verified.queryId,
     startParam: verified.startParam,
+    session,
   })
 }

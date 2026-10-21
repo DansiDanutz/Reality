@@ -50,9 +50,15 @@ const WAITLIST_KEY = 'reality-waitlist-joined'
 
 function WaitlistForm() {
   const [email, setEmail] = useState('')
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>(
-    localStorage.getItem(WAITLIST_KEY) ? 'done' : 'idle',
-  )
+  // Storage can throw (Safari private mode, blocked site data) — on the very
+  // first screen that used to blank the whole app.
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>(() => {
+    try {
+      return localStorage.getItem(WAITLIST_KEY) ? 'done' : 'idle'
+    } catch {
+      return 'idle'
+    }
+  })
   const [error, setError] = useState('')
   const [count, setCount] = useState(0)
 
@@ -182,6 +188,9 @@ export default function Welcome() {
               {Math.max(0, FOUNDER_SLOTS - slotsClaimed).toLocaleString()} of {FOUNDER_SLOTS.toLocaleString()} founder slots left
             </p>
           )}
+          <p className="welcome-note">
+            Other citizens see your name on what you build and the neighbourhood of your home — never its address.
+          </p>
         </form>
         <GoogleRestore />
         <WaitlistForm />

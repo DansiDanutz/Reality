@@ -6,12 +6,23 @@
 |--------|--------|
 | Founder grant (first 2,000 citizens) | $200,000 each — max $400M seed supply |
 | Regular citizens (post-founder) | $2,500 |
-| Wages | $15–60 per game hour |
-| Business income | ~1.3–1.4% of purchase price per game day |
+| Wages | $15–60 per real hour base; × seniority 1.0–1.7 (5 ranks by shifts worked), + gear (under +60%), + education (+30%) — effective ceiling ≈ $194/h |
+| Business income | ~1.3–1.4% of purchase price per real day gross; ~1.2–1.26% net after 10% operating costs |
 
 ## Faucets & sinks (beta)
 
-**Faucets** (money in): wages (boosted by owned gear), business income.
+**Faucets** (money in): wages (boosted by seniority, owned gear and education), business income, and the engagement windfalls below.
+
+| Windfall | Amount | Where |
+|----------|--------|-------|
+| Achievement bounties | $141,800 across 28 achievements (57× the citizen grant), each once | `achievements.ts` |
+| Streak rewards | $50 at day 2 rising to $10,000 at day 100, each tier once | `streak.ts` |
+| Daily challenges | up to ~$1,850 per real day (three tasks + completion bonus) | `dailyChallenges.ts` |
+| Lucky moments | $100–5,000, 0.02% per tick while active | `luckyMoments.ts` |
+| Mystery boxes | opened with earned credits, prizes to $50,000 | `mysteryBox.ts` |
+| Golden opportunities, life events, gigs, boosters | one-off cash events and $14/h gigs | `goldenOpportunity.ts`, `catalog.ts`, `engine.ts`, `boosters.ts` |
+
+**Holding costs** (money out, continuously): businesses pay 10% of gross income as operating costs (`BUSINESS_OPEX_RATE`); homes pay property tax of 0.004% of price per real day (`HOME_TAX_DAILY`, ~1.5%/year); both floor at $0 — a broke citizen never death-spirals. A business till holds at most 3 days of income (`PENDING_CAP_DAYS`).
 **Sinks** (money out): the Market — 115 items across 13 categories (counts live in `src/game/catalog.ts`; the table below shows the main groupings):
 
 | Category | Range | What money buys |
@@ -54,13 +65,14 @@ Beta is single-player, so property/business purchases are pure sinks against sys
 | Regional Airline † | $12M | $165,000 | ~73 days |
 
 † = endgame (above the founder grant, $200,000). Prices mirror real startup costs;
-payback stays flat at 60–90 **real** days (test-enforced) — generous vs. real life,
-honest to Rule #1. Homes run $45k (micro studio) to $6M (private island); the founder
+the table shows gross payback — net of the 10% operating costs it is ~81–87 real
+days — and stays inside 60–90 **real** days (test-enforced): generous vs. real
+life, honest to Rule #1. Homes run $45k (micro studio) to $6M (private island); the founder
 grant buys a real city apartment, not a mansion — exactly like $200k in the real world.
 
 ## Founder math
 
-$200k buys: a home + 2 mid businesses, or the Tech Startup + margin, or a diversified small-cap portfolio. A founder playing 1 real hour/day reaches self-sustaining local business cash flow in ~2–3 days of real time. A non-founder ($2,500) needs ~10 shifts to afford the Food Cart — the founder head start is real but not insurmountable, which keeps the post-founder game fair.
+$200k buys: a home + 2 mid businesses, or the Tech Startup + margin, or a diversified small-cap portfolio. A founder playing 1 real hour/day reaches self-sustaining local business cash flow in ~2–3 days of real time. A non-founder ($2,500) needs ~104 Barista shifts — about five weeks of one shift a day — to afford the Food Cart from wages alone, far fewer with achievement bounties, streaks and a better job; the founder head start is real but not insurmountable, which keeps the post-founder game fair.
 
 ## Online-release levers
 

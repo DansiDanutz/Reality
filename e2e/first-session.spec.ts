@@ -157,6 +157,11 @@ test.describe('First session', () => {
     await expect(page.getByRole('button', { name: 'Shop', exact: true })).toBeVisible({ timeout: 10_000 })
     const begin = page.getByRole('button', { name: /^Begin your life in/ })
     if (await begin.isVisible().catch(() => false)) await begin.click()
+    // Wait for the day's first tick to persist (it delivers today's courier
+    // package and stamps courierLastDay). Patching a save read before that
+    // tick lets the post-reload tick deliver a fresh package, and the guide
+    // then shows the courier step instead of the recap.
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('reality-save-v1') ?? '{}').state?.courierLastDay ?? 0)).toBeGreaterThan(0)
 
     await page.evaluate(() => {
       const raw = localStorage.getItem('reality-save-v1')
@@ -171,6 +176,9 @@ test.describe('First session', () => {
       save.state.activeCourierPackage = null
       save.state.firstSessionGuide = { startedAt: Date.now(), dismissed: true, completedAt: null }
       localStorage.setItem('reality-save-v1', JSON.stringify(save))
+      // Freeze writes until the reload: the running game persists on every
+      // tick and would otherwise overwrite this patch before the page reloads.
+      Storage.prototype.setItem = () => {}
     })
     await page.reload()
 

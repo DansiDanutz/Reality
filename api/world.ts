@@ -19,6 +19,16 @@ const PLACEMENTS_PER_DAY = 20
 /** The old 3-page Blob list bound, kept as the world read ceiling. */
 const WORLD_READ_LIMIT = 3_000
 
+/**
+ * Precision a coordinate leaves the public feed with. Placements are stored
+ * at 2 dp (~1 km); homes go out at 1 dp (~11 km) because the feed also
+ * carries the owner's name, and a named 1 km pin is a home address. See
+ * docs/plan/09-RISKS-LEGAL.md ("blur my home location").
+ */
+export function publicCoordinate(value: number, kind: string): number {
+  return Number(value.toFixed(kind === 'home' ? 1 : 2))
+}
+
 type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
 
 /**
@@ -45,12 +55,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const founders = (await sql.query(
         'SELECT count(*)::int AS count FROM citizens WHERE founder_number IS NOT NULL',
       )) as Array<{ count: number }>
+      // Homes are coarsened to one decimal (~11 km) on the way out: the feed
+      // is public and joins the owner's name, and a 2-dp home pin (~1 km) next
+      // to a real name is a home address. Businesses keep 2 dp — placing a
+      // shop on the map is the point of a shop.
       const assets = rows.map((row) => ({
         cid: row.citizen_id.slice(0, 8),
         itemId: row.item_id,
         kind: row.kind,
-        lat: Number(row.lat),
-        lng: Number(row.lng),
+        lat: publicCoordinate(Number(row.lat), row.kind),
+        lng: publicCoordinate(Number(row.lng), row.kind),
         name: row.name ?? null,
       }))
       res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120')
@@ -155,10 +169,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (error instanceof Error && error.message === 'world_place_asset_mismatch') {
       res.status(409).json({ ok: false, error: 'That asset id already belongs to a different catalog item.', code: 'asset_identity_conflict' })
-      return
-    }
-    if (error instanceof Error && error.message === 'world_place_inventory_missing') {
-      res.status(422).json({ ok: false, error: 'Buy this placeable asset before placing it.', code: 'inventory_required' })
       return
     }
     console.error('world: placement failed', {

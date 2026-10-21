@@ -628,6 +628,37 @@ export function withoutPersistedToken<T extends { citizen?: { token?: string; on
   return { ...state, citizen: rehydratableCitizen } as T
 }
 
+/**
+ * Keep a long-lived page's session alive. The sliding renewal runs only on
+ * /api/session, and registerOnline stops calling it once the citizen is
+ * online — a player who keeps the tab open across the expiry date would
+ * otherwise never reach it. A session the server no longer recognises
+ * (expired, revoked, or now belonging to someone else) takes the citizen
+ * offline so every protected action re-gates on registerOnline.
+ */
+export async function refreshCitizenSession(): Promise<void> {
+  const s = useGame.getState()
+  if (!s.citizen?.citizenId || s.citizen.online !== true) return
+  const expected = s.citizen.citizenId
+  let res: Response
+  try {
+    res = await fetch('/api/session', { credentials: 'include' })
+  } catch {
+    useGame.getState().markApiOffline() // network blip: the session itself is fine
+    return
+  }
+  // A 5xx is the session service having a moment, not a verdict on the
+  // session: keep the citizen online and let the next refresh retry.
+  if (res.status >= 500) return
+  useGame.getState().markApiOk()
+  const session = (await res.json().catch(() => null)) as Record<string, unknown> | null
+  const current = useGame.getState().citizen
+  if (!current || current.citizenId !== expected) return
+  const rejected = res.status === 401 || res.status === 403
+  const someoneElse = session?.ok === true && session.citizenId !== expected
+  if (rejected || someoneElse) useGame.setState({ citizen: { ...current, online: false } })
+}
+
 function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
   if (!citizen?.citizenId) return
   if (citizen.online !== true) {
@@ -639,12 +670,18 @@ function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
     })
     return
   }
+  // The placement IS the server-side purchase (reality_place_asset charges the
+  // catalog price once, atomically). A refusal leaves the asset local-only —
+  // the client's balance includes faucets the ledger does not model yet, so
+  // it is not snapped — but it must not pass silently.
   void tryPost('/api/world', {
     assetId: asset.id,
     itemId: asset.itemId,
     kind: asset.kind,
     lat: asset.lat,
     lng: asset.lng,
+  }).then((d) => {
+    if (d && d.ok !== true) console.warn('world: placement not recorded on the shared map', d.code ?? d.error)
   })
 }
 

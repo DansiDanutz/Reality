@@ -5,7 +5,7 @@
 Single-player life sim on the 3D Earth: needs, jobs, shop, placeable homes & businesses, demand-led business revenue, local saves. Goal: prove the loop is fun, gather a community around the repo, start the founder waitlist.
 
 **Beta marketing checklist**
-- [ ] Deploy the beta to a public URL (Vercel/Cloudflare — `npm run build`, zero config)
+- [x] Deploy the beta to a public URL (Vercel, deploys from `main`)
 - [ ] Landing copy: "First 2,000 founders get $200,000" — the hook is the headline
 - [ ] Founder waitlist form (email) so launch-day slots are contested
 - [ ] Clips: 15–30s of buying a business and placing it on the spinning Earth

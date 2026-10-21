@@ -4634,3 +4634,21 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
 .booster-desc { font-size: 11px; color: var(--muted); }
 .booster-timer { font-size: 12px; color: var(--gold); font-weight: 600; }
 .booster-price { font-size: 14px; font-weight: 700; color: var(--gold); flex-shrink: 0; }
+
+/* Error boundary fallbacks (components/ErrorBoundary.tsx) */
+.error-fallback {
+  position: fixed; inset: 0; z-index: 400;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 24px; text-align: center; background: var(--bg); color: var(--text);
+}
+.error-fallback h1 { font-size: 20px; margin: 0; }
+.error-fallback p { max-width: 420px; color: var(--muted); margin: 0; }
+.error-fallback.inline { position: static; inset: auto; z-index: auto; padding: 24px 16px; background: transparent; }
+
+/* Basemap never arrived (WorldMap tilesUnreachable) */
+.map-tiles-unreachable {
+  position: fixed; left: 50%; top: 40%; transform: translateX(-50%); z-index: 5;
+  max-width: min(420px, calc(100vw - 32px)); margin: 0; padding: 12px 16px;
+  border-radius: 10px; background: var(--surface, rgba(13, 20, 36, 0.92)); color: var(--text);
+  text-align: center; font-size: 14px;
+}

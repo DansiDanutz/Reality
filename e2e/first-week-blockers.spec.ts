@@ -32,6 +32,9 @@ test('unaffordable Market actions expose current and required cash accessibly', 
     save.state.jobId = 'barista'
     save.state.needs = { hunger: 80, hydration: 5, energy: 80, hygiene: 80, fun: 80 }
     localStorage.setItem('reality-save-v1', JSON.stringify(save))
+    // Freeze writes until the reload: the running game persists on every
+    // tick and would otherwise overwrite this patch before the page reloads.
+    Storage.prototype.setItem = () => {}
   })
   await page.reload()
   await page.getByRole('button', { name: 'Work', exact: true }).click()

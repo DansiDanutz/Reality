@@ -11,8 +11,8 @@ import { trustedClientIp } from './_clientIp.js'
  * relay) and builds the exact discovery query the client used to send.
  *
  * Keep the query in sync with src/game/mapDiscovery.ts buildDiscoveryQuery
- * — api/ stays self-contained (no src/ imports), and overpass.test.ts
- * enforces the sync.
+ * — this handler keeps its own copy, and overpass.test.ts enforces the
+ * sync.
  */
 
 const OVERPASS_ENDPOINTS = [

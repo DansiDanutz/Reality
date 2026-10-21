@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
-import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
+import { SHIFT_HOURS, XP_PER_SHIFT, applyXp, careerRankOf } from '../src/game/engine.js'
 import { itemById, jobById } from '../src/game/catalog.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
@@ -83,17 +83,22 @@ export function normalizeIntent(input: unknown): Normalized {
  * and engine constants the client simulation uses — the server never trusts
  * a client number and never re-implements a rule.
  */
-export function evaluateIntent(intent: Intent, citizenLevel: number): Evaluated {
+export function evaluateIntent(intent: Intent, citizenLevel: number, shiftsWorked = 0): Evaluated {
   if (intent.type === 'workShift') {
     const job = jobById(intent.jobId)
     if (!job) return reject('unknown_job', 'That job does not exist.')
     if (citizenLevel < job.requiredLevel) {
       return reject('level_too_low', `${job.title} requires level ${job.requiredLevel}.`)
     }
+    // Seniority is the one wage multiplier the ledger can see for itself:
+    // it is earned with shifts, and every accepted shift is a ledger row.
+    // Gear and education bonuses live only in the client save, so the
+    // leaderboard's reconciliation tolerance covers them (_scoresPg.ts).
+    const rank = careerRankOf(shiftsWorked)
     return {
       ok: true,
-      amount: job.wage * SHIFT_HOURS,
-      meta: { jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT },
+      amount: Math.round(job.wage * rank.wageMultiplier * SHIFT_HOURS),
+      meta: { jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT, rank: rank.rank, rankMultiplier: rank.wageMultiplier },
     }
   }
   const item = itemById(intent.itemId)
@@ -127,7 +132,13 @@ const CITIZEN_CONTEXT_SQL = `
         AND l.intent LIKE 'intent.%'
         AND l.balance_after IS NOT NULL
         AND jsonb_typeof(l.meta->'xp') = 'number'
-    ), 0) AS xp
+    ), 0) AS xp,
+    COALESCE((
+      SELECT count(*) FROM ledger l
+      WHERE l.citizen_id = c.citizen_id
+        AND l.intent = 'intent.workShift'
+        AND l.balance_after IS NOT NULL
+    ), 0) AS shifts
   FROM citizens c
   WHERE c.citizen_id = $1
 `.trim()
@@ -195,12 +206,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ xp: string | number | null }>
-    // SUM() is a bigint aggregate — Neon returns it as a string
+    const context = (await sql.query(CITIZEN_CONTEXT_SQL, [citizenId])) as Array<{ xp: string | number | null; shifts?: string | number | null }>
+    // SUM()/count() are bigint aggregates — Neon returns them as strings
     const totalXp = Number(context[0]?.xp ?? 0)
     const level = applyXp(1, 0, Number.isFinite(totalXp) ? totalXp : 0).level
+    const shiftsWorked = Number(context[0]?.shifts ?? 0)
 
-    const evaluated = evaluateIntent(normalized.intent, level)
+    const evaluated = evaluateIntent(normalized.intent, level, Number.isFinite(shiftsWorked) ? shiftsWorked : 0)
     if (!evaluated.ok) {
       res.status(422).json(evaluated)
       return

@@ -166,3 +166,47 @@ describe('claimFounderNumberPg', () => {
     expect(queryMock.mock.calls.length).toBeGreaterThanOrEqual(8)
   })
 })
+
+describe('session lifetime', () => {
+  test('renewCitizenTokenPg extends only a live token inside its renewal window, never rotating it', async () => {
+    const { renewCitizenTokenPg } = await import('./_registry')
+    queryMock.mockResolvedValueOnce([{ citizen_id: CITIZEN }])
+    await expect(renewCitizenTokenPg({ query: queryMock }, CITIZEN)).resolves.toBe(true)
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]]
+    expect(sql).toMatch(/^UPDATE citizens SET token_expires_at = now\(\) \+ make_interval\(days => \$2\)/)
+    expect(sql).not.toContain('token_hash')
+    expect(sql).toContain('token_revoked_at IS NULL')
+    expect(sql).toContain('token_expires_at IS NOT NULL AND token_expires_at < now() + make_interval(days => $3)')
+    expect(params).toEqual([CITIZEN, 30, 15])
+  })
+
+  test('renewCitizenTokenPg reports false when the token is not yet in its window or is revoked', async () => {
+    const { renewCitizenTokenPg } = await import('./_registry')
+    queryMock.mockResolvedValueOnce([])
+    await expect(renewCitizenTokenPg({ query: queryMock }, CITIZEN)).resolves.toBe(false)
+  })
+
+  test('renewCitizenTokenPg refuses a malformed citizen id without touching the database', async () => {
+    const { renewCitizenTokenPg } = await import('./_registry')
+    await expect(renewCitizenTokenPg({ query: queryMock }, 'not-a-uuid')).resolves.toBe(false)
+    expect(queryMock).not.toHaveBeenCalled()
+  })
+
+  test('reissueCitizenTokenPg mints a fresh token, stores only its hash, and un-revokes the row', async () => {
+    const { hashCitizenToken, reissueCitizenTokenPg } = await import('./_registry')
+    queryMock.mockResolvedValueOnce([{ citizen_id: CITIZEN }])
+    const token = await reissueCitizenTokenPg({ query: queryMock }, CITIZEN)
+    expect(token).toMatch(/^[0-9a-f-]{36}$/)
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]]
+    expect(sql).toMatch(/^UPDATE citizens SET token_hash = \$2, token_expires_at = now\(\) \+ make_interval\(days => \$3\), token_revoked_at = NULL WHERE citizen_id = \$1 RETURNING citizen_id$/)
+    expect(params).toEqual([CITIZEN, hashCitizenToken(token!), 30])
+    expect(params[1]).not.toBe(token)
+    expect(params[1]).toBe(createHash('sha256').update(token!).digest('hex').slice(0, 24))
+  })
+
+  test('reissueCitizenTokenPg returns null for an unknown citizen', async () => {
+    const { reissueCitizenTokenPg } = await import('./_registry')
+    queryMock.mockResolvedValueOnce([])
+    await expect(reissueCitizenTokenPg({ query: queryMock }, CITIZEN)).resolves.toBeNull()
+  })
+})

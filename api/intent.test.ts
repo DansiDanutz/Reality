@@ -74,7 +74,7 @@ describe('evaluateIntent — engine rules, no duplication', () => {
     expect(result).toEqual({
       ok: true,
       amount: 15 * SHIFT_HOURS,
-      meta: { jobId: 'barista', wage: 15, hours: SHIFT_HOURS, xp: XP_PER_SHIFT },
+      meta: { jobId: 'barista', wage: 15, hours: SHIFT_HOURS, xp: XP_PER_SHIFT, rank: 1, rankMultiplier: 1 },
     })
   })
 
@@ -469,3 +469,19 @@ function responseRecorder(): {
   }
   return recorder
 }
+
+describe('evaluateIntent — seniority', () => {
+  test('pays the career-rank multiplier the ledger can see for itself', async () => {
+    const { evaluateIntent } = await import('./intent')
+    const { SHIFT_HOURS, careerRankOf } = await import('../src/game/engine')
+    const rookie = evaluateIntent({ type: 'workShift', jobId: 'barista' }, 1, 0)
+    const veteran = evaluateIntent({ type: 'workShift', jobId: 'barista' }, 1, 70)
+    expect(rookie).toMatchObject({ ok: true, amount: 15 * SHIFT_HOURS, meta: { rank: 1, rankMultiplier: 1 } })
+    expect(veteran).toMatchObject({
+      ok: true,
+      amount: Math.round(15 * careerRankOf(70).wageMultiplier * SHIFT_HOURS),
+      meta: { rank: 5, rankMultiplier: 1.7 },
+    })
+    expect((veteran as { amount: number }).amount).toBeGreaterThan((rookie as { amount: number }).amount)
+  })
+})

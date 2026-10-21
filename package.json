@@ -1,5 +1,5 @@
 {
-  "name": "fable",
+  "name": "reality",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,9 +10,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "verify": "vitest run && npm run build",
+    "verify": "vitest run && npm run build && npm run lint",
     "roadmap": "node scripts/generate-roadmap.mjs",
-    "setup": "sh scripts/setup.sh"
+    "setup": "sh scripts/setup.sh",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -33,7 +34,10 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1",
-    "vitest": "^4.1.9"
+    "vite": "^8.1.6",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=22.22.2"
   }
 }

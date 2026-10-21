@@ -1,6 +1,7 @@
 import { put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { verifyCitizenPg } from './_registry.js'
+import { citizenScoreProfilePg, maxPlausibleWorth } from './_scoresPg.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
 import { saveCloudSnapshotPg } from './_cloudSavePg.js'
 
@@ -54,6 +55,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(401).json({ ok: false, error: 'Not a registered citizen.' })
       return
     }
+    // The save is client-asserted state and is restored verbatim on a new
+    // device, so it is the one place an edited localStorage balance becomes
+    // durable. Hold it to the same age-plausibility ceiling the leaderboard
+    // applies (FAIL CLOSED: unknown age means the day-0 ceiling). A refused
+    // save never overwrites the last accepted one.
+    const money = persistedSaveMoney(parsedSave)
+    if (money === 'malformed') {
+      res.status(400).json({ ok: false, error: 'This save could not be verified.', code: 'invalid_save' })
+      return
+    }
+    if (money !== null) {
+      const profile = await citizenScoreProfilePg(String(citizenId))
+      const ceiling = maxPlausibleWorth(profile.ageDays ?? 0)
+      if (money > ceiling) {
+        console.error('cloud-save: implausible balance refused', { citizenId: String(citizenId), money, ceiling })
+        res.status(422).json({ ok: false, error: 'This save could not be verified.', code: 'implausible_save' })
+        return
+      }
+    }
     const accepted = await saveCloudSnapshotPg(String(citizenId), savedAt, JSON.parse(sanitizedSave))
     if (!accepted) {
       res.status(409).json({ ok: false, error: 'A newer cloud save already exists.', code: 'stale_save' })
@@ -93,6 +113,18 @@ function persistedSaveCitizenId(value: unknown): string | null {
   const record = citizen as Record<string, unknown>
   const candidate = record.citizenId ?? record.id
   return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
+}
+
+/**
+ * The save's cash balance; null when it carries none ("nothing to judge").
+ * A balance that is present but not a finite number ("5000000", NaN) is
+ * 'malformed' — it would otherwise skip the ceiling and be restored verbatim.
+ */
+function persistedSaveMoney(value: unknown): number | null | 'malformed' {
+  const state = persistedState(value)
+  if (!state || !('money' in state) || state.money === undefined) return null
+  const candidate = state.money
+  return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : 'malformed'
 }
 
 function persistedSaveTimestamp(value: unknown): number {

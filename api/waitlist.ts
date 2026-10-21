@@ -1,9 +1,17 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
+import { trustedClientIp } from './_clientIp.js'
+import { db } from './_db.js'
+import { claimRegistrationSlotPg } from './_registry.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const FOUNDER_SEAT_LIMIT = 2_000
+// A handful of signups per IP per day is plenty for humans; before this the
+// honeypot was the only brake, so anyone could enrol arbitrary addresses or
+// fill the store. Same Postgres counter as registration, namespaced so the
+// two budgets never share a key.
+export const WAITLIST_IP_LIMIT = 5
 
 const FOUNDER_WAITLIST_POLICY = {
   founderSeatLimit: FOUNDER_SEAT_LIMIT,
@@ -65,6 +73,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const clean = (email ?? '').trim().toLowerCase()
   if (!clean || clean.length > 254 || !EMAIL_RE.test(clean)) {
     res.status(400).json({ ok: false, error: 'That email address does not look right.' })
+    return
+  }
+
+  try {
+    const ipHash = createHash('sha256').update(`waitlist|${trustedClientIp(req.headers ?? {})}`).digest('hex').slice(0, 16)
+    const day = new Date().toISOString().slice(0, 10)
+    if (!(await claimRegistrationSlotPg(db() as never, ipHash, day, WAITLIST_IP_LIMIT))) {
+      res.status(429).json({ ok: false, error: 'Too many waitlist signups from this connection today. Try again tomorrow.' })
+      return
+    }
+  } catch {
+    res.status(503).json({ ok: false, error: 'The waitlist is briefly unavailable. Try again in a minute.' })
     return
   }
 

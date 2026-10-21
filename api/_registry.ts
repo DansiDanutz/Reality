@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { db } from './_db.js'
 
 /**
@@ -14,8 +14,16 @@ import { db } from './_db.js'
 
 export const FOUNDER_SLOTS = 2_000
 export const REGISTRATION_IP_LIMIT = 5
+/** A citizen token lives 30 days from issue; a session bootstrap inside the last 15 extends it. */
+export const TOKEN_LIFETIME_DAYS = 30
+export const TOKEN_RENEWAL_WINDOW_DAYS = 15
 const CLAIM_RETRY_BUDGET = 8
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/** The only credential derivative ever stored: sha256, first 24 hex chars. */
+export function hashCitizenToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex').slice(0, 24)
+}
 
 export type CitizenRow = {
   citizenId: string
@@ -131,13 +139,64 @@ export async function verifyCitizenPg(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<boolean> {
   if (!UUID_RE.test(citizenId) || typeof token !== 'string' || token.length > 64) return false
-  const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 24)
+  const tokenHash = hashCitizenToken(token)
   const sql = db(env) as unknown as SqlClient
   const rows = (await sql.query(
     "SELECT 1 AS ok FROM citizens WHERE citizen_id = $1 AND token_hash = $2 AND token_revoked_at IS NULL AND (token_expires_at IS NULL OR token_expires_at > now()) LIMIT 1",
     [citizenId, tokenHash],
   )) as unknown[]
   return rows.length > 0
+}
+
+/**
+ * Sliding session. The schema stamps token_expires_at = now() + 30 days at
+ * registration and nothing used to move it, so every citizen was locked out
+ * of their server identity a month after signing up. A session bootstrap in
+ * the last 15 days of the window pushes the expiry out to a fresh 30 days.
+ * The token itself is not rotated — the browser already holds it, and a
+ * citizen may be signed in on several devices. Rows with a NULL expiry are
+ * left alone (NULL means "never expires" to verifyCitizenPg).
+ */
+export async function renewCitizenTokenPg(sql: SqlClient, citizenId: string): Promise<boolean> {
+  if (!UUID_RE.test(citizenId)) return false
+  const rows = (await sql.query(
+    `UPDATE citizens SET token_expires_at = now() + make_interval(days => $2)
+     WHERE citizen_id = $1 AND token_revoked_at IS NULL
+       AND token_expires_at IS NOT NULL AND token_expires_at < now() + make_interval(days => $3)
+     RETURNING citizen_id`.replace(/\s+/g, ' ').trim(),
+    [citizenId, TOKEN_LIFETIME_DAYS, TOKEN_RENEWAL_WINDOW_DAYS],
+  )) as unknown[]
+  return rows.length > 0
+}
+
+/**
+ * Re-authentication for the Google / Telegram restore flows: mint a fresh
+ * token for a citizen the identity provider has just vouched for. Only the
+ * hash is stored, so an existing token can never be re-issued — this
+ * rotates the credential and un-revokes the row, which signs out other
+ * devices until they restore too. Returns the plaintext token for the
+ * cookie, or null when no such citizen exists.
+ */
+export async function reissueCitizenTokenPg(sql: SqlClient, citizenId: string): Promise<string | null> {
+  if (!UUID_RE.test(citizenId)) return null
+  const token = randomUUID()
+  const rows = (await sql.query(
+    `UPDATE citizens SET token_hash = $2, token_expires_at = now() + make_interval(days => $3), token_revoked_at = NULL
+     WHERE citizen_id = $1 RETURNING citizen_id`.replace(/\s+/g, ' ').trim(),
+    [citizenId, hashCitizenToken(token), TOKEN_LIFETIME_DAYS],
+  )) as unknown[]
+  return rows.length > 0 ? token : null
+}
+
+/** The citizen a verified Telegram user is linked to, from the authoritative citizens row. */
+export async function linkedCitizenIdPg(telegramUserId: string, env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
+  if (!/^\d{1,20}$/.test(telegramUserId)) return null
+  const sql = db(env) as unknown as SqlClient
+  const rows = (await sql.query(
+    'SELECT citizen_id FROM citizens WHERE telegram_user_id = $1::bigint LIMIT 1',
+    [telegramUserId],
+  )) as Array<{ citizen_id: string }>
+  return rows[0]?.citizen_id ?? null
 }
 
 export async function revokeCitizenTokenPg(sql: SqlClient, citizenId: string): Promise<boolean> {

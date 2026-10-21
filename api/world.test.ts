@@ -59,7 +59,8 @@ describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
     expect(res.body).toEqual({
       ok: true,
       assets: [
-        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.45, lng: 26.08, name: 'Ana' },
+        // Homes leave at 1 dp (~11 km) — a named 1 km pin is a home address; businesses keep 2 dp.
+        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.5, lng: 26.1, name: 'Ana' },
         { cid: 'deadbeef', itemId: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65, name: null },
       ],
       stats: { assets: 2, founders: 8 },
@@ -214,22 +215,18 @@ describe('world API placement writes', () => {
     })
   })
 
-  test('rejects placement without server-owned inventory', async () => {
+  test('refuses a placement the server ledger cannot pay for, returning the authoritative balance', async () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }])
       .mockResolvedValueOnce([{ count: 0 }])
-      .mockResolvedValueOnce([{ new_balance: '200000', refusal: 'inventory' }])
+      .mockResolvedValueOnce([{ new_balance: '1200', refusal: 'insufficient_funds' }])
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...VALID_BODY } } as never, res as never)
 
     expect(res.statusCode).toBe(422)
-    expect(res.body).toEqual({
-      ok: false,
-      error: 'Buy this placeable asset before placing it.',
-      code: 'inventory_required',
-    })
+    expect(res.body).toMatchObject({ ok: false, code: 'insufficient_funds' })
   })
 
   test('rejects unknown or kind-mismatched catalog items before authentication or writes', async () => {

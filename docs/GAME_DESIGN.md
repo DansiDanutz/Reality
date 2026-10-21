@@ -19,8 +19,10 @@ Reality runs on the actual clock. This is the game's founding rule and its name.
   refills continuously, so waking early is always fair.
 - **Life goes on without you.** Away from the game, your citizen takes care of
   themselves: they buy meals when hungry (~$12 from your balance) and sleep when
-  exhausted. Businesses keep earning per real day. If your money runs out, they
-  starve and health drains — the cost of living is real too.
+  exhausted. Businesses keep earning per real day — but each till holds at most
+  **3 days** of income (`PENDING_CAP_DAYS`); collect, or it stops accruing. If
+  your money runs out, they starve and health drains — the cost of living is
+  real too.
 - One simulation path: everything routes through `liveRealtime()` in
   `src/game/engine.ts` — a 1-second live tick and a 3-day absence are computed
   by the same function.
@@ -30,16 +32,18 @@ Reality runs on the actual clock. This is the game's founding rule and its name.
 | Need | Awake | Working | Sleeping (home / rough) | Restored by |
 |------|-------|---------|--------------------------|-------------|
 | Food | −4.5 | −6.0 | −1.5 / −2.0 | Eating ~3× a real day |
+| Hydration | −4.2 | −5.5 | −1.2 / −1.5 | Drinking (~2–2.5 L a day; the bar empties in ~24 h awake) |
 | Energy | −4.5 | −7.5 | **+16 / +11** | A real night's sleep |
 | Hygiene | −3.0 | −4.0 | +4 (home shower) / −1 | Showers |
 | Fun | −3.5 | −4.5 | 0 / −1 | Leisure |
 
-**Health**: drains 3/h while food or energy is at 0; regenerates 2/h while both are above 60. Working is blocked below 20 health, 25 energy, or 15 food — the simulation forces the real-life loop.
+**Health** (`src/game/healthPolicy.ts`): drains 3/h while food or energy is at 0 and **6/h while hydration is at 0** (dehydration is the fastest way down); regenerates 2/h while food and energy are above 60 **and hydration is above 50**. Working is blocked below 20 health, 25 energy, 15 food or **15 hydration**, and while down with the flu — the simulation forces the real-life loop.
 
 ## Work & progression
 
 - 10 careers from Barista ($15/h) to Pilot ($60/h); higher tiers gated by level.
-- A shift = 8 real hours (matching Rule #1 above), paid instantly, costs needs, grants 40 XP. Level N requires N×100 XP.
+- A shift = 8 real hours (matching Rule #1 above), **paid when it ends** (leave early for pro-rata pay and no XP), costs needs, grants 40 XP. Level N requires N×100 XP.
+- **Seniority** (`CAREER_RANKS`): the same job pays more as you show up — Rookie ×1.0, Reliable ×1.1 after 5 shifts, Senior ×1.25 after 15, Lead ×1.45 after 35, Veteran ×1.7 after 70. Earned with shifts worked, never bought.
 - Design intent: wages alone keep you alive and slowly saving; businesses are how you get rich. Founders skip the grind — that's the founder privilege.
 
 ## Property & businesses

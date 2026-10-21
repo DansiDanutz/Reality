@@ -92,8 +92,8 @@ function isRealityOperatorQueueTokenClaims(value: unknown): value is RealityOper
     value.kind === OPERATOR_QUEUE_TOKEN_KIND &&
     typeof value.telegramUserId === 'string' &&
     TELEGRAM_USER_ID_RE.test(value.telegramUserId) &&
-    Number.isSafeInteger(value.issuedAt) &&
-    Number.isSafeInteger(value.expiresAt) &&
+    typeof value.issuedAt === 'number' && Number.isSafeInteger(value.issuedAt) &&
+    typeof value.expiresAt === 'number' && Number.isSafeInteger(value.expiresAt) &&
     value.expiresAt > value.issuedAt
 }
 

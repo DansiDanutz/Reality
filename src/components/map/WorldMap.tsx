@@ -111,6 +111,7 @@ function syncBuildingElement(el: HTMLDivElement, asset: PlacedAsset): void {
 function resourceElement(kind: string, name: string, source: string, count = 1): HTMLButtonElement {
   const el = document.createElement('button')
   el.type = 'button'
+  el.tabIndex = -1 // keyboard path is the semantic holdings list; the map stage is aria-hidden
   el.className = `map-resource map-resource-${kind}`
   el.title = count > 1
     ? `${count} ${kind} spots here — tap to gather`
@@ -138,6 +139,7 @@ function constructionElement(project: ConstructionProject, progress: ReturnType<
   })
   const el = document.createElement('button')
   el.type = 'button'
+  el.tabIndex = -1 // keyboard path is the semantic holdings list; the map stage is aria-hidden
   el.className = view.className
   el.title = view.title
   el.setAttribute('aria-label', view.ariaLabel)
@@ -148,6 +150,7 @@ function constructionElement(project: ConstructionProject, progress: ReturnType<
 function workersHallElement(hall: WorkersHall): HTMLButtonElement {
   const el = document.createElement('button')
   el.type = 'button'
+  el.tabIndex = -1 // keyboard path is the semantic holdings list; the map stage is aria-hidden
   el.className = 'map-workers-hall'
   el.title = `${hall.name} — ${hall.description}`
   el.setAttribute('aria-label', `${hall.name}. ${hall.description}`)
@@ -166,6 +169,8 @@ export default function WorldMap() {
   const knownAssetIdsRef = useRef<Set<string> | null>(null)
   const workersHallMarkerRef = useRef<maplibregl.Marker | null>(null)
   const [styleReady, setStyleReady] = useState(false)
+  /** The basemap never arrived (tiles blocked or offline) — say so instead of a silent empty globe. */
+  const [tilesUnreachable, setTilesUnreachable] = useState(false)
   /** Your own building the interior overlay is open for (null = closed). In
    *  the store so ambience can duck the map bed while you're inside. */
   const enteredAssetId = useGame((s) => s.enteredAssetId)
@@ -195,6 +200,24 @@ export default function WorldMap() {
   const level = useGame((s) => s.level)
   const money = useGame((s) => s.money)
   const inventory = useGame((s) => s.inventory)
+  // A business till grows every tick, so `assets` changes identity every
+  // second. Everything that only needs WHERE things are (the reach ring, the
+  // empire routes, neighbour sorting, the intro flight) keys on this
+  // geometry signature instead, so the map isn't re-tiled at 1 Hz.
+  const assetPointsKey = JSON.stringify(assets.map((a) => ({ id: a.id, kind: a.kind, lat: a.lat, lng: a.lng })))
+  const assetPoints = useMemo(
+    () => JSON.parse(assetPointsKey) as Array<{ id: string; kind: PlacedAsset['kind']; lat: number; lng: number }>,
+    [assetPointsKey],
+  )
+  const reachCenter =
+    spawnLat !== undefined && spawnLng !== undefined
+      ? { lat: spawnLat, lng: spawnLng }
+      : assetPoints[0] ?? (hasCitizen ? DEFAULT_MAP_ANCHOR : null)
+  const reachKm = reachCenter
+    ? reachOf(level, assets.filter((a) => a.kind === 'business').length, assets.some((a) => a.kind === 'home'), netWorthOf(money, inventory, assets)).km
+    : null
+  const reachCenterLat = reachCenter?.lat
+  const reachCenterLng = reachCenter?.lng
   const workersHall = useMemo(() => workersHallFor(citizen, assets, servicePois), [citizen, assets, servicePois])
   const discoveryAnchor = useMemo(() => playableMapAnchorFor(citizen, assets), [citizen, assets])
   const discoveryKey = discoveryAnchor ? `${discoveryAnchor.lat.toFixed(3)},${discoveryAnchor.lng.toFixed(3)}` : null
@@ -246,6 +269,12 @@ export default function WorldMap() {
     mapRef.current = map
     // Programmatic camera access for tests and future "fly to asset" features
     ;(window as unknown as { __realityMap?: maplibregl.Map }).__realityMap = map
+    // The canvas sits inside the aria-hidden stage: focusable there means a
+    // tab stop assistive tech cannot describe. The holdings list is the
+    // keyboard path, and it flies the camera.
+    map.getCanvas().tabIndex = -1
+    const tilesTimer = window.setTimeout(() => setTilesUnreachable(true), 15_000)
+    map.once('style.load', () => window.clearTimeout(tilesTimer))
 
     map.on('style.load', () => {
       map.setProjection({ type: 'globe' })
@@ -355,6 +384,7 @@ export default function WorldMap() {
       // destroyed instance and they never reattach to the next one.
       for (const marker of markersRef.current.values()) marker.remove()
       markersRef.current.clear()
+      window.clearTimeout(tilesTimer)
       map.remove()
       mapRef.current = null
     }
@@ -697,14 +727,14 @@ export default function WorldMap() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !styleReady || introDone.current) return
-    const home = assets.find((a) => a.kind === 'home')
+    const home = assetPoints.find((a) => a.kind === 'home')
     const target = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : hasCitizen ? DEFAULT_MAP_ANCHOR : null)
     if (!target) return
     introDone.current = true
     ;(map as unknown as { __stopSpin?: () => void }).__stopSpin?.()
     if (prefersReducedMotion()) map.jumpTo({ center: [target.lng, target.lat], zoom: 13.5 })
     else map.flyTo({ center: [target.lng, target.lat], zoom: 13.5, duration: 6000, essential: false })
-  }, [styleReady, assets, spawnLat, spawnLng, hasCitizen])
+  }, [styleReady, assetPoints, spawnLat, spawnLng, hasCitizen])
 
   // Citizen One on the streets — parked until player avatars drive the
   // character (David's call: not yet). Flip to true to bring him back;
@@ -732,19 +762,12 @@ export default function WorldMap() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !styleReady) return
-    const center =
-      spawnLat !== undefined && spawnLng !== undefined
-        ? { lat: spawnLat, lng: spawnLng }
-        : assets[0] ?? (hasCitizen ? DEFAULT_MAP_ANCHOR : null)
-    const reach = center
-      ? reachOf(level, assets.filter((a) => a.kind === 'business').length, assets.some((a) => a.kind === 'home'), netWorthOf(money, inventory, assets))
-      : null
 
     const empty = { type: 'FeatureCollection', features: [] } as const
     let ringData: unknown = empty
     let dimData: unknown = empty
-    if (center && reach && Number.isFinite(reach.km)) {
-      const ring = circleRing(center.lat, center.lng, reach.km)
+    if (reachCenterLat !== undefined && reachCenterLng !== undefined && reachKm !== null && Number.isFinite(reachKm)) {
+      const ring = circleRing(reachCenterLat, reachCenterLng, reachKm)
       ringData = {
         type: 'FeatureCollection',
         features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: ring } }],
@@ -794,7 +817,7 @@ export default function WorldMap() {
         },
       })
     }
-  }, [styleReady, spawnLat, spawnLng, assets, level, money, inventory, hasCitizen])
+  }, [styleReady, reachCenterLat, reachCenterLng, reachKm])
 
   // "Fly to my holdings" (issue #33): frame every placed asset at once. With
   // a single asset this is just a center+zoom; with 2+ it fits them all with
@@ -841,10 +864,10 @@ export default function WorldMap() {
   // nearest few as focusable controls so their owner (P6) is reachable without
   // a pointer (keyboard / screen reader).
   const accessibleNeighbors = useMemo(() => {
-    const home = assets.find((a) => a.kind === 'home')
+    const home = assetPoints.find((a) => a.kind === 'home')
     const anchor = home ?? (spawnLat !== undefined && spawnLng !== undefined ? { lat: spawnLat, lng: spawnLng } : null)
     return nearestForeignProperties(world, citizenId?.slice(0, 8), anchor, 24)
-  }, [world, citizenId, assets, spawnLat, spawnLng])
+  }, [world, citizenId, assetPoints, spawnLat, spawnLng])
 
   // The inspect card is transient (HoMM right-click): the next tap anywhere,
   // any map movement, Escape, or a few seconds of silence dismisses it.
@@ -873,12 +896,12 @@ export default function WorldMap() {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !styleReady) return
-    const features = assets.slice(1).map((a, i) => ({
+    const features = assetPoints.slice(1).map((a, i) => ({
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: greatCircle([assets[i].lng, assets[i].lat], [a.lng, a.lat]),
+        coordinates: greatCircle([assetPoints[i].lng, assetPoints[i].lat], [a.lng, a.lat]),
       },
     }))
     const data = { type: 'FeatureCollection' as const, features }
@@ -899,11 +922,16 @@ export default function WorldMap() {
         },
       })
     }
-  }, [assets, styleReady])
+  }, [assetPoints, styleReady])
 
   return (
     <>
       <div ref={containerRef} className={`map-stage${placing || placingConstruction ? ' is-placing' : ''}`} aria-hidden />
+      {tilesUnreachable && !styleReady && (
+        <p className="map-tiles-unreachable" role="status">
+          The world map can't load right now — your life keeps running, and your holdings list still works.
+        </p>
+      )}
       <aside className="map-accessible-list" aria-label="Your holdings on the map">
         <h2>Your holdings</h2>
         {assets.length === 0 ? (

@@ -133,7 +133,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }))
     } catch (error) {
       if ((error as { code?: string }).code === '23505') {
-        if (verifiedTelegramSession) {
+        // Two unique indexes can raise 23505 here; the constraint name says
+        // which claim lost. Mapping every collision to the Telegram code while
+        // a Telegram session was present hid plain name collisions behind the
+        // wrong error, so the client's name-variant retry never fired.
+        const constraint = String((error as { constraint?: string }).constraint ?? '')
+        const telegramCollision = constraint === 'citizens_telegram_user_id_key'
+          || (constraint === '' && Boolean(verifiedTelegramSession))
+        if (telegramCollision) {
           res.status(409).json({
             ok: false,
             code: 'telegram_already_linked',

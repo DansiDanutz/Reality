@@ -57,11 +57,29 @@ wage/price from its own copy of `src/game/catalog.ts`/`engine.ts` (imported
 directly on purpose — see `AGENTS.md`'s ownership map — so the server can
 never drift from the client's own economy rules) and appends the result to
 the ledger in one atomic Postgres statement (`reality_append_intent`) that
-carries the running balance, a cooldown, and overdraft gating. The client's
-`predictedBalance` is only an optimistic seed, clamped by a plausibility cap;
-when the server's authoritative balance diverges, the response carries a
-correction frame the client snaps to. The ledger — not a mutable balance
-column — is the source of truth.
+carries the running balance, a cooldown, and overdraft gating. The ledger —
+not a mutable balance column — is the source of truth.
+
+What the client actually sends today (audit 2026-10-20, finding E1):
+
+- **Placements** go through `/api/world` POST, and the placement IS the
+  purchase: `reality_place_asset` charges the catalog price once,
+  atomically, with the daily cap and overdraft gate. It no longer requires
+  a prior `buyItem` row (that gate refused every placement, since nothing
+  ever sent one, and would have charged twice if something had).
+- The `workShift`/`buyItem`/`placeAsset` intents are valid (a shift pays
+  `wage × seniority × 8h`; seniority is the one multiplier the ledger can
+  count for itself) but have no client caller yet. Reporting shifts from
+  the client needs a durable outbox with retries, a hand-off from device
+  time to trusted server time, and server-side level reconciliation (the
+  client also levels through education); that is designed as its own
+  change, not bolted on. Until then the ledger sees genesis and placements,
+  the client does **not** snap its balance to the server's, and the
+  device clock remains the time authority (audit finding E2, open).
+
+**Cloud saves** are still client-asserted state, but `/api/cloud-save`
+holds the save's balance to the same age-plausibility ceiling the
+leaderboard uses (`maxPlausibleWorth`) and refuses anything above it.
 
 ### The area economy — server-side, still Blob-backed
 

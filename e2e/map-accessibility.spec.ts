@@ -66,6 +66,9 @@ test.describe('Semantic map controls', () => {
         placedAt: Date.now(),
       }]
       localStorage.setItem('reality-save-v1', JSON.stringify(save))
+      // Freeze writes until the reload: the running game persists on every
+      // tick and would otherwise overwrite this patch before the page reloads.
+      Storage.prototype.setItem = () => {}
     })
     await page.reload()
 
