@@ -97,6 +97,32 @@ describe('trusted time', () => {
     expect(s.lastSeenAt).toBe(SERVER_NOW + 1_000)
   })
 
+  test('a fast-stamped save also moves its calendar days, so a kept streak survives', async () => {
+    const DAY = 24 * HOUR
+    vi.setSystemTime(SERVER_NOW + 3 * DAY) // a phone three days fast stamped this save
+    useGame.getState().createCitizen('Ada', null)
+    const fastDay = Math.floor((SERVER_NOW + 3 * DAY) / DAY)
+    const { community, dailyCounters } = useGame.getState()
+    useGame.setState({
+      clockTrusted: false,
+      streakLength: 7,
+      streakLastClaimDay: 20_000,
+      dailyCounters: { ...dailyCounters, day: 20_000 },
+      community: { ...community, actionDay: fastDay, week: Math.floor(fastDay / 7) },
+    })
+
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    useGame.getState().tick()
+
+    const s = useGame.getState()
+    expect(s.lastSeenAt).toBe(SERVER_NOW)
+    expect(s.streakLength).toBe(7)
+    expect(s.streakLastClaimDay).toBe(20_000 - 3)
+    expect(s.dailyCounters.day).toBe(20_000 - 3)
+    expect(s.community.actionDay).toBe(fastDay - 3)
+    expect(s.community.week).toBe(Math.floor(SERVER_NOW / (7 * DAY)))
+  })
+
   test('a citizen created after the measurement is trusted from the start', async () => {
     vi.setSystemTime(SERVER_NOW + HOUR)
     await syncServerClock(serverSays(SERVER_NOW) as never)

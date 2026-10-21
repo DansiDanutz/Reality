@@ -55,6 +55,8 @@ import {
 import {
   canStartCommunityAction,
   communityActionById,
+  communityDay,
+  communityWeek,
   availableCommunityHelperMinutes,
   completeCommunityAction,
   completeReliableShift,
@@ -1310,7 +1312,31 @@ function handOffToTrustedClock(s: GameState): Partial<GameState> {
   const lead = s.lastSeenAt - gameNow()
   if (lead <= 0) return { clockTrusted: true }
   const data = Object.fromEntries(Object.entries(s).filter(([, value]) => typeof value !== 'function'))
-  return { ...rebaseTimestamps(data, -lead), clockTrusted: true }
+  const rebased = rebaseTimestamps(data, -lead) as Partial<GameState>
+  // Calendar days move with the clock that stamped them, or a streak claimed
+  // "tomorrow" would block today's claim. Days counted from the citizen's
+  // birth (courier days) need nothing: createdAt moved by the same lead.
+  const home = s.assets.find((a) => a.kind === 'home')
+  const lat = home ? home.lat : s.citizen?.spawnLat
+  const lng = home ? home.lng : s.citizen?.spawnLng
+  const localDays = dayIndexOf(s.lastSeenAt - lead, lat, lng) - dayIndexOf(s.lastSeenAt, lat, lng)
+  const utcDays = communityDay(s.lastSeenAt - lead) - communityDay(s.lastSeenAt)
+  const utcWeeks = communityWeek(s.lastSeenAt - lead) - communityWeek(s.lastSeenAt)
+  const move = (day: number, by: number) => (day > 0 ? day + by : day)
+  return {
+    ...rebased,
+    streakLastClaimDay: move(s.streakLastClaimDay, localDays),
+    dailyCounters: { ...s.dailyCounters, day: move(s.dailyCounters.day, localDays) },
+    community: {
+      ...s.community,
+      week: move(s.community.week, utcWeeks),
+      actionDay: move(s.community.actionDay, utcDays),
+      workRespectDay: move(s.community.workRespectDay, utcDays),
+      seriousWorkLastDay: move(s.community.seriousWorkLastDay, utcDays),
+      commitmentPenaltyDay: move(s.community.commitmentPenaltyDay, utcDays),
+    },
+    clockTrusted: true,
+  }
 }
 
 export const useGame = create<GameState>()(

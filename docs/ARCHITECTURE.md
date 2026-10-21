@@ -89,8 +89,8 @@ time catches up, so time played ahead of the real clock is paid back
 rather than re-anchored away. A save stamped before the server's time was
 known (a citizen created in the first second, a restored or pre-existing
 save) is handed off once (`clockTrusted`). If it lies in the future, it was
-stamped by a fast clock and all its timestamps move back to now; otherwise
-it is left alone. (Audit finding E2.)
+stamped by a fast clock and its timestamps and calendar-day counters move
+back to now; otherwise it is left alone. (Audit finding E2.)
 
 **Cloud saves** are still client-asserted state, but `/api/cloud-save`
 holds the save's balance to the same age-plausibility ceiling the
