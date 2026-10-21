@@ -59,7 +59,8 @@ describe('world API reads (Postgres-authoritative since Phase 1b.6)', () => {
     expect(res.body).toEqual({
       ok: true,
       assets: [
-        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.45, lng: 26.08, name: 'Ana' },
+        // Homes leave at 1 dp (~11 km) — a named 1 km pin is a home address; businesses keep 2 dp.
+        { cid: '12345678', itemId: 'small_home', kind: 'home', lat: 44.5, lng: 26.1, name: 'Ana' },
         { cid: 'deadbeef', itemId: 'coffee_shop', kind: 'business', lat: -33.87, lng: -70.65, name: null },
       ],
       stats: { assets: 2, founders: 8 },

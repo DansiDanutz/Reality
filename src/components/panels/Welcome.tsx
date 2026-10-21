@@ -182,6 +182,9 @@ export default function Welcome() {
               {Math.max(0, FOUNDER_SLOTS - slotsClaimed).toLocaleString()} of {FOUNDER_SLOTS.toLocaleString()} founder slots left
             </p>
           )}
+          <p className="welcome-note">
+            Other citizens see your name on what you build and the neighbourhood of your home — never its address.
+          </p>
         </form>
         <GoogleRestore />
         <WaitlistForm />

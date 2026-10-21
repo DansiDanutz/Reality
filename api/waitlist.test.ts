@@ -1,11 +1,17 @@
 import { createHash } from 'node:crypto'
 import { list, put } from '@vercel/blob'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { resetDbForTest } from './_db'
 import handler from './waitlist'
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
   put: vi.fn(async () => ({ url: 'blob://waitlist/signup.json' })),
+}))
+
+const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [{ allowed: true }])
+vi.mock('@neondatabase/serverless', () => ({
+  neon: () => ({ query: pgQueryMock }),
 }))
 
 const POLICY = {
@@ -23,10 +29,18 @@ const POLICY = {
   manualReviewRequired: true,
 }
 
+beforeEach(() => {
+  vi.stubEnv('POSTGRES_URL', 'postgres://reality-test')
+})
+
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllEnvs()
   vi.mocked(list).mockReset()
   vi.mocked(put).mockClear()
+  pgQueryMock.mockReset()
+  pgQueryMock.mockResolvedValue([{ allowed: true }])
+  resetDbForTest()
 })
 
 describe('founder waitlist API', () => {
@@ -99,6 +113,47 @@ describe('founder waitlist API', () => {
     )
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ ok: true, policy: POLICY })
+  })
+
+  test('reserves one Postgres signup slot per IP per day, namespaced away from registration', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-07T08:00:00.000Z'))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': '203.0.113.9' },
+      body: { email: 'founder@reality.game' },
+    } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const [sql, params] = pgQueryMock.mock.calls[0] as [string, unknown[]]
+    expect(sql).toMatch(/reality_claim_registration_slot/)
+    const waitlistKey = createHash('sha256').update('waitlist|203.0.113.9').digest('hex').slice(0, 16)
+    const registrationKey = createHash('sha256').update('203.0.113.9').digest('hex').slice(0, 16)
+    expect(params).toEqual([waitlistKey, '2026-07-07', 5])
+    expect(waitlistKey).not.toBe(registrationKey)
+  })
+
+  test('returns 429 and writes nothing once the per-IP daily budget is spent', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ allowed: false }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', headers: { 'x-forwarded-for': '203.0.113.9' }, body: { email: 'founder@reality.game' } } as never, res as never)
+
+    expect(res.statusCode).toBe(429)
+    expect(res.body).toEqual({ ok: false, error: 'Too many waitlist signups from this connection today. Try again tomorrow.' })
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  test('fails closed with 503 when the rate-limit store is unavailable', async () => {
+    pgQueryMock.mockRejectedValueOnce(new Error('connection refused'))
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', headers: { 'x-forwarded-for': '203.0.113.9' }, body: { email: 'founder@reality.game' } } as never, res as never)
+
+    expect(res.statusCode).toBe(503)
+    expect(put).not.toHaveBeenCalled()
   })
 
   test('rejects invalid emails without writing a waitlist record', async () => {

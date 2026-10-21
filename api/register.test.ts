@@ -218,7 +218,7 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
     stubPg()
     pgQueryMock.mockResolvedValueOnce([{ allowed: true }])
-    pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate telegram key'), { code: '23505' }))
+    pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate telegram key'), { code: '23505', constraint: 'citizens_telegram_user_id_key' }))
     vi.mocked(list).mockResolvedValueOnce(blobList([]))
     const res = responseRecorder()
 
@@ -241,6 +241,33 @@ describe('register API (Postgres-authoritative since Phase 1b.6)', () => {
       error: 'That Telegram account is already linked to a citizen.',
     })
     expect(pgQueryMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('returns 409 name_taken, not telegram_already_linked, when a Telegram registrant loses the name claim', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(NOW_SECONDS * 1000))
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', BOT_TOKEN)
+    stubPg()
+    pgQueryMock.mockResolvedValueOnce([{ allowed: true }])
+    pgQueryMock.mockRejectedValueOnce(Object.assign(new Error('duplicate key'), { code: '23505', constraint: 'citizens_name_lower_key' }))
+    vi.mocked(list).mockResolvedValueOnce(blobList([]))
+    const res = responseRecorder()
+
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': REGISTER_IP },
+      body: {
+        name: 'David',
+        telegramInitData: signedInitData({
+          auth_date: String(NOW_SECONDS),
+          user: JSON.stringify({ id: 42424242, first_name: 'David' }),
+        }),
+      },
+    } as never, res as never)
+
+    // The client retries name collisions with a variant; the Telegram code would have stopped it.
+    expect(res.statusCode).toBe(409)
+    expect(res.body).toEqual({ ok: false, code: 'name_taken', error: 'That name already belongs to a citizen.' })
   })
 
   test('fails the registration when Postgres is down — the registry is authoritative now', async () => {
