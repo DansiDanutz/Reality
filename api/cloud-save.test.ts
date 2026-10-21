@@ -179,6 +179,19 @@ describe('cloud save API', () => {
     expect(put).not.toHaveBeenCalled()
   })
 
+  test('refuses a present balance that is not a finite number instead of letting it skip the ceiling', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    const res = responseRecorder()
+    const save = JSON.stringify({ state: { citizen: { id: CITIZEN_ID }, money: '5000000', lastSeenAt: 123 }, version: 6 })
+
+    await handler({ method: 'POST', body: { save } } as never, res as never)
+
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toEqual({ ok: false, error: 'This save could not be verified.', code: 'invalid_save' })
+    expect(pgQueryMock).toHaveBeenCalledTimes(1) // never reaches the snapshot write
+    expect(put).not.toHaveBeenCalled()
+  })
+
   test('accepts a plausible balance, failing closed to the day-0 ceiling when the age is unknown', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
     pgQueryMock.mockResolvedValueOnce([{ name: 'David', created_at: null, credited: null }]) // unknown age → $300k ceiling

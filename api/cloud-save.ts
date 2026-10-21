@@ -61,6 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // applies (FAIL CLOSED: unknown age means the day-0 ceiling). A refused
     // save never overwrites the last accepted one.
     const money = persistedSaveMoney(parsedSave)
+    if (money === 'malformed') {
+      res.status(400).json({ ok: false, error: 'This save could not be verified.', code: 'invalid_save' })
+      return
+    }
     if (money !== null) {
       const profile = await citizenScoreProfilePg(String(citizenId))
       const ceiling = maxPlausibleWorth(profile.ageDays ?? 0)
@@ -111,10 +115,16 @@ function persistedSaveCitizenId(value: unknown): string | null {
   return typeof candidate === 'string' && candidate.length > 0 ? candidate : null
 }
 
-/** The save's cash balance when it carries a finite one; null means "nothing to judge". */
-function persistedSaveMoney(value: unknown): number | null {
-  const candidate = persistedState(value)?.money
-  return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : null
+/**
+ * The save's cash balance; null when it carries none ("nothing to judge").
+ * A balance that is present but not a finite number ("5000000", NaN) is
+ * 'malformed' — it would otherwise skip the ceiling and be restored verbatim.
+ */
+function persistedSaveMoney(value: unknown): number | null | 'malformed' {
+  const state = persistedState(value)
+  if (!state || !('money' in state) || state.money === undefined) return null
+  const candidate = state.money
+  return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : 'malformed'
 }
 
 function persistedSaveTimestamp(value: unknown): number {
