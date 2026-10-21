@@ -8,7 +8,8 @@
 # The plan of record and the honest loop ledger.
 /docs/plan/           @DansiDanutz
 
-# Serverless functions must stay self-contained (no src/ imports).
+# Serverless functions. Pure value imports from src/game/ are allowed with
+# .js specifiers (see AGENTS.md ownership map; api/esmImports.test.ts guards it).
 /api/                 @DansiDanutz
 
 # CI, protection-adjacent config, and agent coordination rules.

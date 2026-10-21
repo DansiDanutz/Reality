@@ -24,18 +24,18 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | System | Status |
 |--------|--------|
 | Real Earth — spinning globe that becomes a 3D city with real streets & buildings | ✅ |
-| Needs simulation — food, energy, hygiene, fun, health | ✅ |
+| Needs simulation — food, hydration, energy, hygiene, fun, health (illness included) | ✅ |
 | **Real time (Rule #1)** — real local clocks per home timezone; 8-real-hour shifts; your citizen self-cares (and spends) while you're away | ✅ |
-| Jobs & shifts — 5 careers, XP, level-ups | ✅ |
-| The Market — 78 items in 10 categories with search: food, drinks, clothing, electronics, furniture, vehicles, education, leisure, homes, businesses | ✅ |
-| Career gear with wage bonuses · education with instant XP · endgame purchases up to a $1.2M airline | ✅ |
+| Jobs & shifts — 10 careers, XP, level-ups, seniority ranks | ✅ |
+| The Market — 115 items in 13 categories with search: food, drinks, groceries, clothing, electronics, furniture, vehicles, education, leisure, pets, health, homes, businesses | ✅ |
+| Career gear with wage bonuses · education with instant XP · endgame purchases up to a $12M regional airline | ✅ |
 | Businesses placed anywhere on Earth, in-game operating income | ✅ |
 | **Real founder registry** — exactly 2,000 slots, first-come, live counter | ✅ online |
 | **Shared world map** — see every citizen's businesses on the globe | ✅ online |
 | **Global net-worth leaderboard** | ✅ online |
 | Founder grant ($200,000) | ✅ |
 | Guided onboarding — 7 objectives with XP rewards | ✅ |
-| Offline in-game accrual — businesses simulate while you're away (capped at 3 game days) | ✅ |
+| Offline in-game accrual — businesses keep earning while you're away (each till holds up to 3 real days) | ✅ |
 | Random life events | ✅ |
 | Trade-route arcs between your holdings on the globe | ✅ |
 | Save game (browser localStorage + optional cloud backup) | ✅ |

@@ -12,7 +12,7 @@ cd Reality && npm install && npm run dev
 ## Ground rules
 
 1. **`src/game/` stays pure** — no React, no DOM, no side effects. It becomes the shared client/server engine.
-2. **One simulation path** — anything that consumes time must go through `advance()`.
+2. **One simulation path** — anything that consumes time goes through `tick()` in `src/store/gameStore.ts`, which calls `liveRealtime()` in `src/game/engine.ts`.
 3. **Immutable state** — store actions spread, never mutate.
 4. **No hardcoded magic numbers** — economy values live in `src/game/catalog.ts`, visual tokens in `src/styles/tokens.css`.
 5. `npm run build` must pass before you open a PR.

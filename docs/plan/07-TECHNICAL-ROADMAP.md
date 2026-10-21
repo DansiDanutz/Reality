@@ -6,7 +6,11 @@ simulation package; the client predicts, the server decides.*
 
 ---
 
-## Phase 0 — today (shipped)
+> **Superseded in part (2026-10-21):** Phase 1b's Postgres registry, world,
+> leaderboard and intent ledger have shipped — see `docs/ARCHITECTURE.md` for
+> the current system. Phase 0 below is kept as history.
+
+## Phase 0 — shipped (July 2026)
 
 Client-only React/Vite; realtime engine (`liveRealtime()`, one simulation path);
 MapLibre real-Earth map + three.js Street Mode; Vercel functions + private Blob for
