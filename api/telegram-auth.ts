@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { list, put } from '@vercel/blob'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { db } from './_db.js'
-import { reissueCitizenTokenPg } from './_registry.js'
+import { reissueCitizenTokenPg, verifyCitizenPg } from './_registry.js'
 import { issueSessionCookies, sessionFromCookie } from './_session.js'
 
 const WEB_APP_DATA_KEY = 'WebAppData'
@@ -332,10 +332,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.warn('telegram-auth: linked citizen differs from the active session; not signing in')
   } else if (accountRecord.citizenId) {
     try {
-      const token = await reissueCitizenTokenPg(db() as never, accountRecord.citizenId)
-      if (token) {
-        issueSessionCookies(res, { citizenId: accountRecord.citizenId, token })
+      // Already signed in as this citizen: leave the session alone. Rotating
+      // here raced the /api/session bootstrap the client starts in parallel —
+      // a bootstrap response landing after this one re-set the old, now
+      // revoked token and signed the player out. Only a missing or dead
+      // session is replaced.
+      if (existingSession && await verifyCitizenPg(existingSession.citizenId, existingSession.token)) {
         session = true
+      } else {
+        const token = await reissueCitizenTokenPg(db() as never, accountRecord.citizenId)
+        if (token) {
+          issueSessionCookies(res, { citizenId: accountRecord.citizenId, token })
+          session = true
+        }
       }
     } catch (error) {
       console.error(`telegram-auth: session mint failed for citizen ${accountRecord.citizenId}`, error)
