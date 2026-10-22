@@ -29,7 +29,7 @@ import type { Needs } from './types'
 
 /** Per-tick input to decideNotifications. */
 export interface NotificationSnapshot {
-  /** ms timestamp of the decision point (usually Date.now()). */
+  /** ms timestamp of the decision point (usually gameNow()). */
   now: number
   /** The citizen's local day index (see streak.ts / store dayIndexOf). */
   todayDay: number

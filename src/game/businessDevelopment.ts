@@ -1,3 +1,4 @@
+import { gameNow } from './time'
 import { upgradeOutcome, type UpgradeOutcome } from './businessUpgrades'
 import {
   type ConstructionWorker,
@@ -82,7 +83,7 @@ export function businessDevelopmentPlanFor(asset: PlacedAsset): BusinessDevelopm
   }
 }
 
-export function createBusinessDevelopmentProject(asset: PlacedAsset, now = Date.now()): BusinessDevelopmentProject | null {
+export function createBusinessDevelopmentProject(asset: PlacedAsset, now = gameNow()): BusinessDevelopmentProject | null {
   const plan = businessDevelopmentPlanFor(asset)
   if (!plan) return null
   const level = asset.level ?? 1
@@ -124,8 +125,8 @@ function normalizeBusinessDevelopmentWorkerContracts(
       source: 'workers-hall',
       workerId: worker.id,
       workerName: String(contract.workerName ?? worker.name),
-      hiredAt: Number.isFinite(contract.hiredAt) ? Number(contract.hiredAt) : Date.now(),
-      paidUntil: Number.isFinite(contract.paidUntil) ? Number(contract.paidUntil) : Date.now(),
+      hiredAt: Number.isFinite(contract.hiredAt) ? Number(contract.hiredAt) : gameNow(),
+      paidUntil: Number.isFinite(contract.paidUntil) ? Number(contract.paidUntil) : gameNow(),
       paidMinutes,
       workedMinutes: Math.min(paidMinutes, Math.max(0, safeNumber(contract.workedMinutes, 0))),
       laborMultiplier: Math.max(0, safeNumber(contract.laborMultiplier, worker.laborMultiplier)),
@@ -162,7 +163,7 @@ export function normalizeBusinessDevelopmentProject(project: Partial<BusinessDev
     workerContracts: normalizeBusinessDevelopmentWorkerContracts(project.workerContracts, String(project.id)),
     budgetCost: nonNegative(project.budgetCost),
     budgetPaid: Boolean(project.budgetPaid),
-    startedAt: finite(project.startedAt, Date.now()),
+    startedAt: finite(project.startedAt, gameNow()),
   }
 }
 
@@ -301,7 +302,7 @@ function activePaidMinutes(contract: BusinessDevelopmentWorkerContract, now: num
 
 export function advanceBusinessDevelopmentWorkerContracts(
   project: BusinessDevelopmentProject,
-  now = Date.now(),
+  now = gameNow(),
 ): { project: BusinessDevelopmentProject; laborMinutes: number } {
   const contracts = project.workerContracts ?? []
   if (contracts.length === 0) return { project: { ...project, workerContracts: [] }, laborMinutes: 0 }
@@ -342,7 +343,7 @@ export function hireBusinessDevelopmentWorker(
   workerId: ConstructionWorkerId,
   money: number,
   hours = 1,
-  now = Date.now(),
+  now = gameNow(),
   communityCreditMinutes = 0,
 ): { project: BusinessDevelopmentProject; money: number; hired: boolean; cost: number; laborMinutes: number; contract: BusinessDevelopmentWorkerContract | null; reason: 'unknown_worker' | 'materials' | 'budget' | 'labor' | 'money' | null } {
   const estimate = estimateBusinessDevelopmentWorkerHire(project, workerId, hours, communityCreditMinutes)

@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { useState } from 'react'
 import { isStandalone, markInstallDismissed, recentlyDismissed, useInstallPrompt } from '../../lib/useInstallPrompt'
 import { useGame } from '../../store/gameStore'
@@ -45,7 +46,7 @@ export default function InstallBanner() {
 
   // Engagement gate: 3 min old + at least one action.
   const threeMin = citizen ? 3 * 60_000 : Infinity
-  const engaged = citizen !== null && Date.now() - citizen.createdAt >= threeMin && (timesEaten > 0 || shiftsWorked > 0)
+  const engaged = citizen !== null && gameNow() - citizen.createdAt >= threeMin && (timesEaten > 0 || shiftsWorked > 0)
 
   // "Later" means later: hide for the session AND start the 7-day cooldown
   // (localStorage isn't reactive, so the state flag handles the current session).

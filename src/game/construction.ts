@@ -1,3 +1,4 @@
+import { gameNow } from './time'
 import type { AssetKind, PlacedAsset, ShopItem } from './types'
 import {
   EMPTY_RESOURCES,
@@ -196,7 +197,7 @@ export function createConstructionProject(
   recipeId: ConstructionRecipeId,
   lat: number,
   lng: number,
-  now = Date.now(),
+  now = gameNow(),
 ): ConstructionProject {
   const recipe = recipeFor(recipeId)
   return createConstructionProjectFromRecipe(recipe, lat, lng, now)
@@ -206,7 +207,7 @@ export function createConstructionProjectFromRecipe(
   recipe: ConstructionRecipe,
   lat: number,
   lng: number,
-  now = Date.now(),
+  now = gameNow(),
 ): ConstructionProject {
   return {
     id: `${recipe.id}-${now}`,
@@ -309,7 +310,7 @@ function activePaidMinutes(contract: ConstructionWorkerContract, now: number): n
 
 export function advanceConstructionWorkerContracts(
   project: ConstructionProject,
-  now = Date.now(),
+  now = gameNow(),
 ): { project: ConstructionProject; laborMinutes: number } {
   const contracts = project.workerContracts ?? []
   if (contracts.length === 0) return { project: { ...project, workerContracts: [] }, laborMinutes: 0 }
@@ -422,7 +423,7 @@ export function hireConstructionWorker(
   workerId: ConstructionWorkerId,
   money: number,
   hours = 1,
-  now = Date.now(),
+  now = gameNow(),
   communityCreditMinutes = 0,
 ): { project: ConstructionProject; money: number; hired: boolean; cost: number; laborMinutes: number; contract: ConstructionWorkerContract | null; reason: 'unknown_worker' | 'materials' | 'permit' | 'labor' | 'money' | null } {
   const estimate = estimateConstructionWorkerHire(project, workerId, hours, communityCreditMinutes)
@@ -470,7 +471,7 @@ export function completeConstructionProject(project: ConstructionProject): {
   return {
     project: completeProject,
     asset: {
-      id: `${idPrefix}-${project.resultKind}-${Date.now()}`,
+      id: `${idPrefix}-${project.resultKind}-${gameNow()}`,
       itemId: project.itemId,
       kind: project.resultKind,
       name: project.name,

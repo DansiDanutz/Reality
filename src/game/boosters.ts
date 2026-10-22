@@ -20,6 +20,7 @@
  * both active = both doubled). The multipliers are applied in the tick when
  * computing wages, XP gains, and business pending income.
  */
+import { gameNow } from './time'
 
 export type BoosterType = 'wage' | 'xp' | 'income'
 
@@ -72,7 +73,7 @@ export const BOOSTER_LIST: BoosterType[] = ['wage', 'xp', 'income']
 export function isBoosterActive(
   active: { type: BoosterType; expiresAt: number }[],
   type: BoosterType,
-  now: number = Date.now(),
+  now: number = gameNow(),
 ): boolean {
   return active.some((b) => b.type === type && b.expiresAt > now)
 }
@@ -81,7 +82,7 @@ export function isBoosterActive(
 export function boosterMultiplier(
   active: { type: BoosterType; expiresAt: number }[],
   type: BoosterType,
-  now: number = Date.now(),
+  now: number = gameNow(),
 ): number {
   return isBoosterActive(active, type, now) ? BOOSTERS[type].multiplier : 1
 }
@@ -89,7 +90,7 @@ export function boosterMultiplier(
 /** Remove expired boosters. Returns the cleaned array. */
 export function cleanExpiredBoosters(
   active: { type: BoosterType; expiresAt: number }[],
-  now: number = Date.now(),
+  now: number = gameNow(),
 ): { type: BoosterType; expiresAt: number }[] {
   return active.filter((b) => b.expiresAt > now)
 }
@@ -98,7 +99,7 @@ export function cleanExpiredBoosters(
 export function boosterRemaining(
   active: { type: BoosterType; expiresAt: number }[],
   type: BoosterType,
-  now: number = Date.now(),
+  now: number = gameNow(),
 ): number {
   const b = active.find((a) => a.type === type)
   return b ? Math.max(0, b.expiresAt - now) : 0

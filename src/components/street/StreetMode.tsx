@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { zoneFor } from '../../game/clock'
 import { formatMoney } from '../../game/engine'
@@ -29,10 +30,10 @@ function hourAt(lat: number, lng: number): number {
   }
   try {
     return Number(
-      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: zoneFor(lat, lng) }).format(new Date()),
+      new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: zoneFor(lat, lng) }).format(new Date(gameNow())),
     )
   } catch {
-    return new Date().getHours()
+    return new Date(gameNow()).getHours()
   }
 }
 
@@ -102,7 +103,7 @@ export default function StreetMode() {
     const markers: StreetMarker[] = assets.map((a) => ({ id: a.id, lat: a.lat, lng: a.lng, name: a.name, kind: a.kind }))
     // Real weather at the street's location (Rule #1): rain renders any time;
     // snow only in the real winter hemisphere. Fire-and-forget — defaults clear.
-    const month = new Date().getMonth() + 1
+    const month = new Date(gameNow()).getMonth() + 1
     void Promise.all([fetchWeather(anchor.lat, anchor.lng), loadStreetScene()])
       .then(([rawWeather, { createStreetScene }]) => {
         if (disposed) return

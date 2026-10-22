@@ -74,8 +74,24 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   time to trusted server time, and server-side level reconciliation (the
   client also levels through education); that is designed as its own
   change, not bolted on. Until then the ledger sees genesis and placements,
-  the client does **not** snap its balance to the server's, and the
-  device clock remains the time authority (audit finding E2, open).
+  and the client does **not** snap its balance to the server's.
+
+**Time is the server's.** The client measures the server's time from
+`/api/time` (round-trip midpoint) at startup, on resume, when it comes back
+online, and every 10 minutes. Between measurements, game time advances on
+the monotonic clock (`performance.now()`), so changing the device's date
+and time mid-session moves nothing. `src/game/time.ts` holds it. Every reading of
+"now" in the game uses it: the tick, activity timers, day boundaries and
+the countdowns on screen. At startup the tick holds (≤5 s) for the first
+measurement; offline, the last measured offset for this device applies. A
+clock far behind the last simulated instant freezes accrual until real
+time catches up, so time played ahead of the real clock is paid back
+rather than re-anchored away. A save stamped before the server's time was
+known is handed off once (`clockTrusted`). A citizen created this session
+moves by exactly the first measurement's correction, either way. An older
+save moves only if it lies in the future, since it was then stamped by a
+fast clock: its timestamps and calendar-day counters move back to now.
+Otherwise it is left alone. (Audit finding E2.)
 
 **Cloud saves** are still client-asserted state, but `/api/cloud-save`
 holds the save's balance to the same age-plausibility ceiling the

@@ -1,3 +1,4 @@
+import { gameNow } from './time'
 import { JOBS } from './catalog'
 import { applyXp } from './engine'
 import type { Job } from './types'
@@ -110,7 +111,7 @@ export function educationCourseForItem(itemId: string): EducationCourse | null {
   return educationCourseById(itemId)
 }
 
-export function createEducationProgress(course: EducationCourse, now = Date.now()): EducationProgress {
+export function createEducationProgress(course: EducationCourse, now = gameNow()): EducationProgress {
   return {
     courseId: course.id,
     itemId: course.itemId,
@@ -126,7 +127,7 @@ export function normalizeEducationProgress(progress: Partial<EducationProgress>)
   return {
     courseId: course.id,
     itemId: course.itemId,
-    enrolledAt: Number.isFinite(progress.enrolledAt) ? Number(progress.enrolledAt) : Date.now(),
+    enrolledAt: Number.isFinite(progress.enrolledAt) ? Number(progress.enrolledAt) : gameNow(),
     studiedMinutes: Math.max(0, Math.floor(progress.studiedMinutes ?? 0)),
     completedAt: progress.completedAt ?? null,
   }
@@ -150,7 +151,7 @@ export function addStudyMinutes(
   course: EducationCourse,
   progress: EducationProgress,
   minutes: number,
-  now = Date.now(),
+  now = gameNow(),
 ): { progress: EducationProgress; completedNow: boolean; xpGained: number } {
   if (progress.completedAt !== null) return { progress, completedNow: false, xpGained: 0 }
   const studiedMinutes = Math.min(course.studyMinutesRequired, progress.studiedMinutes + Math.max(0, Math.floor(minutes)))

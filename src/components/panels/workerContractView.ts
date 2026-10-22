@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { formatMoney } from '../../game/engine'
 import type { WorkerContractSource } from '../../game/construction'
 
@@ -59,7 +60,7 @@ function activeMinutesRemaining(contract: WorkerContractViewInput, now: number):
 
 export function activeWorkerContractViews(
   contracts: readonly WorkerContractViewInput[] = [],
-  now = Date.now(),
+  now = gameNow(),
 ): ActiveWorkerContractView[] {
   return contracts
     .filter((contract) => contract.workedMinutes < contract.paidMinutes)
@@ -79,7 +80,7 @@ export function activeWorkerContractViews(
 
 export function activeWorkerSummaryText(
   contracts: readonly WorkerContractViewInput[] = [],
-  now = Date.now(),
+  now = gameNow(),
 ): string | null {
   const views = activeWorkerContractViews(contracts, now)
   if (views.length <= 0) return null

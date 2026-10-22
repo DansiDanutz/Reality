@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { formatMoney } from '../../game/engine'
 import { thoughtForDay } from '../../game/thoughts'
 import { useGame } from '../../store/gameStore'
@@ -26,11 +27,11 @@ export default function AwayReport() {
   // Time away is approximate — lastSeenAt was the end of the previous tick,
   // which was within a second of when the player actually left. Good enough
   // for a "3 days, 4 hours away" headline.
-  const awayMs = Date.now() - lastSeenAt
+  const awayMs = gameNow() - lastSeenAt
   const awayLabel = formatAwayDuration(awayMs)
   // Thought of the day — seeded by the calendar day index so it's stable
   // across reloads and shared across players. Adds voice to the return moment.
-  const dayIndex = Math.floor(Date.now() / 86_400_000)
+  const dayIndex = Math.floor(gameNow() / 86_400_000)
   const thought = thoughtForDay(dayIndex)
 
   return (
