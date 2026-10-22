@@ -3538,6 +3538,13 @@ export const useGame = create<GameState>()(
           set({ activity: null, log: note(s.log, 'Stopped interior work before this block counted.') })
           return
         }
+        // Pro-rata pay reads the clock, so it waits for the trusted one: during
+        // the startup hold, or before an old save is handed off, a device set
+        // ahead would otherwise be paid for hours that never passed.
+        if (!serverClockReady() || (!s.clockTrusted && serverTimeMeasured())) {
+          set({ log: note(s.log, 'Checking the time with the server — try leaving again in a moment.') })
+          return
+        }
         // Leaving a shift early: pro-rata pay, no XP, and one humane reliability hit per day.
         // The stamped wage booster still applies to the hours actually worked.
         const now = gameNow()

@@ -161,6 +161,23 @@ describe('trusted time', () => {
     expect(s.community.week).toBe(Math.floor(SERVER_NOW / (7 * DAY)))
   })
 
+  test('leaving a shift early waits for the trusted clock instead of paying device-clock hours', async () => {
+    vi.setSystemTime(SERVER_NOW)
+    useGame.getState().createCitizen('Ada', null)
+    useGame.setState({ clockTrusted: true, activity: shift(SERVER_NOW - HOUR), money: 1_000 })
+    vi.setSystemTime(SERVER_NOW + 8 * HOUR) // the phone was set eight hours ahead while closed
+    beginServerClock(5_000)
+    useGame.getState().leaveActivity()
+    expect(useGame.getState().activity?.kind).toBe('shift')
+    expect(useGame.getState().money).toBe(1_000)
+
+    await syncServerClock(serverSays(SERVER_NOW) as never)
+    useGame.getState().leaveActivity()
+    const s = useGame.getState()
+    expect(s.activity).toBeNull()
+    expect(s.money).toBeLessThan(1_000 + 15 * 2) // about one hour of a $15 shift, not eight
+  })
+
   test('a citizen created after the measurement is trusted from the start', async () => {
     vi.setSystemTime(SERVER_NOW + HOUR)
     await syncServerClock(serverSays(SERVER_NOW) as never)
