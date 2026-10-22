@@ -20,6 +20,13 @@ describe('game clock', () => {
     expect(gameNow()).toBe(Date.now())
   })
 
+  test('anchored time is whole milliseconds, like Date.now()', () => {
+    vi.useFakeTimers()
+    anchorGameClock(1_000_000, performance.now() - 0.4)
+    vi.advanceTimersByTime(0.7)
+    expect(Number.isSafeInteger(gameNow())).toBe(true)
+  })
+
   test('advances forward time, re-anchors small rewinds, freezes large ones', () => {
     expect(rewindPolicy(2_000, 1_000)).toBe('advance')
     expect(rewindPolicy(1_000, 1_000)).toBe('reanchor')

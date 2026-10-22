@@ -1326,7 +1326,8 @@ function handOffToTrustedClock(s: GameState): Partial<GameState> {
   const rebased = rebaseTimestamps(data, shiftBy) as Partial<GameState>
   // Calendar days move with the clock that stamped them, or a streak claimed
   // "tomorrow" would block today's claim. Days counted from the citizen's
-  // birth (courier days) need nothing: createdAt moved by the same amount.
+  // birth (the courier's completed/opened days) need nothing: createdAt
+  // moved by the same amount.
   const home = s.assets.find((a) => a.kind === 'home')
   const lat = home ? home.lat : s.citizen?.spawnLat
   const lng = home ? home.lng : s.citizen?.spawnLng
@@ -1337,6 +1338,7 @@ function handOffToTrustedClock(s: GameState): Partial<GameState> {
   return {
     ...rebased,
     streakLastClaimDay: move(s.streakLastClaimDay, localDays),
+    courierLastDay: move(s.courierLastDay, localDays),
     dailyCounters: { ...s.dailyCounters, day: move(s.dailyCounters.day, localDays) },
     community: {
       ...s.community,

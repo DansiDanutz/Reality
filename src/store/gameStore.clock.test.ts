@@ -143,6 +143,7 @@ describe('trusted time', () => {
       clockTrusted: false,
       streakLength: 7,
       streakLastClaimDay: 20_000,
+      courierLastDay: 20_000,
       dailyCounters: { ...dailyCounters, day: 20_000 },
       community: { ...community, actionDay: fastDay, week: Math.floor(fastDay / 7) },
     })
@@ -154,6 +155,7 @@ describe('trusted time', () => {
     expect(s.lastSeenAt).toBe(SERVER_NOW)
     expect(s.streakLength).toBe(7)
     expect(s.streakLastClaimDay).toBe(20_000 - 3)
+    expect(s.courierLastDay).toBe(20_000 - 3)
     expect(s.dailyCounters.day).toBe(20_000 - 3)
     expect(s.community.actionDay).toBe(fastDay - 3)
     expect(s.community.week).toBe(Math.floor(SERVER_NOW / (7 * DAY)))

@@ -17,9 +17,9 @@ let anchor: { gameMs: number; monoMs: number } | null = null
 
 const monotonicNow = (): number => performance.now()
 
-/** Real time as the server tells it. */
+/** Real time as the server tells it, in whole milliseconds like `Date.now()`. */
 export function gameNow(): number {
-  return anchor ? anchor.gameMs + (monotonicNow() - anchor.monoMs) : Date.now()
+  return anchor ? Math.round(anchor.gameMs + (monotonicNow() - anchor.monoMs)) : Date.now()
 }
 
 /** Pin game time to `gameMs` at the monotonic instant `monoMs`; it advances from there. */
