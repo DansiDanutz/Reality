@@ -113,6 +113,13 @@ export const CHALLENGE_REWARD: Record<ChallengeDifficulty, { cash: number; xp: n
 
 /** Bonus for completing all 3 challenges in a day. */
 export const DAILY_COMPLETE_BONUS = { cash: 1_000, xp: 200 }
+/**
+ * Daily challenge cash is capped at this share of what the citizen can
+ * realistically EARN in a day (wages + income waiting to be collected) — for
+ * everyone, business owners included. Owning any business used to unlock the
+ * full static $1,850/day regardless of income, a flat faucet against $120 for
+ * an 8h shift; a real business's income lifts the cap on its own.
+ */
 export const PRE_BUSINESS_DAILY_CASH_FRACTION = 0.5
 
 const DAILY_CASH_WEIGHTS: Record<ChallengeDifficulty | 'bonus', number> = {
@@ -129,13 +136,13 @@ const STATIC_DAILY_CASH_TOTAL =
   DAILY_COMPLETE_BONUS.cash
 
 export function dailyChallengeCashBudget(context?: DailyChallengeContext): number {
-  if (!context || context.hasBusiness) return STATIC_DAILY_CASH_TOTAL
+  if (!context) return STATIC_DAILY_CASH_TOTAL
   const workdayValue = Math.max(0, Math.floor(context.maxEarnedToday))
   return Math.min(STATIC_DAILY_CASH_TOTAL, Math.max(20, Math.floor(workdayValue * PRE_BUSINESS_DAILY_CASH_FRACTION)))
 }
 
 function scaledCash(weight: number, context?: DailyChallengeContext): number {
-  if (!context || context.hasBusiness) return -1
+  if (!context) return -1
   return Math.max(1, Math.floor((dailyChallengeCashBudget(context) * weight) / DAILY_CASH_WEIGHT_TOTAL))
 }
 

@@ -182,7 +182,8 @@ describe('liveRealtime — the single simulation path', () => {
     const gig: Activity = { kind: 'shift', startedAt: 0, endsAt: 30 * 60_000, wage: 14, title: 'Delivery gig' }
     const out = liveRealtime(base({ activity: gig }), 0, 31 * 60_000)
     expect(out.wagesEarned).toBe(7) // $14/h × 0.5h
-    expect(out.shiftsCompleted).toBe(1)
+    // A gig is paid by the hour but is not a "shift worked": no career rank, reliability or shift achievements.
+    expect(out.shiftsCompleted).toBe(0)
     expect(out.xpGained).toBeGreaterThanOrEqual(1)
     expect(out.xpGained).toBeLessThan(XP_PER_SHIFT)
   })

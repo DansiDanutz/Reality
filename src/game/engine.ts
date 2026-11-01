@@ -332,7 +332,10 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
         const pay = Math.round((activity.wage ?? 0) * hours * (1 + input.wageBonus))
         money += pay
         wagesEarned += pay
-        shiftsCompleted += 1
+        // Only a (nearly) full shift is a "shift worked": the 30-minute gig
+        // pays by the hour but must not buy career rank, reliability, serious-work
+        // streaks or the shift achievements at 1/16th the effort.
+        if (hours >= SHIFT_HOURS * 0.9) shiftsCompleted += 1
         xpGained += Math.max(1, Math.round((XP_PER_SHIFT * hours) / SHIFT_HOURS))
       } else if (activity.kind === 'cook') {
         const recipe = activity.recipeId ? recipeById(activity.recipeId) : undefined
@@ -541,6 +544,8 @@ export const xpForLevel = (level: number) => level * 100
 
 /** Apply an XP gain, cascading through as many level-ups as it earns */
 export function applyXp(level: number, xp: number, gain: number): { level: number; xp: number; levelsGained: number } {
+  // Defensive: a NaN/Infinity gain would poison the save or spin the loop below forever.
+  if (!Number.isFinite(gain) || gain <= 0) return { level, xp, levelsGained: 0 }
   let l = level
   let x = xp + gain
   let gained = 0
@@ -830,8 +835,8 @@ export function adviceOf(i: AdviceInput): Advice {
  * Roll for a random life event. `rng` is injectable for tests.
  * Returns null on the (very common) quiet tick.
  */
-export function rollEvent(hasBusiness: boolean, rng: () => number = Math.random): LifeEvent | null {
-  if (rng() > EVENT_CHANCE) return null
+export function rollEvent(hasBusiness: boolean, rng: () => number = Math.random, chanceScale = 1): LifeEvent | null {
+  if (rng() > EVENT_CHANCE * chanceScale) return null
   const pool = LIFE_EVENTS.filter((e) => !e.requiresBusiness || hasBusiness)
   return pool[Math.floor(rng() * pool.length)] ?? null
 }

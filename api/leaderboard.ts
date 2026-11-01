@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cleanName = String(profile.name ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'citizen'
     const ageDays = profile.ageDays
     const ageCap = ageDays !== null ? maxPlausibleWorth(ageDays) : FALLBACK_MAX_PLAUSIBLE
-    const ledgerCap = maxReconciledWorth(profile.ledgerCredits)
+    const ledgerCap = maxReconciledWorth(profile.ledgerCredits, profile.founder)
     const cappedWorth = Math.min(worth, ageCap, ledgerCap)
 
     // One atomic statement: replace the score, audit the cap if it bit.
