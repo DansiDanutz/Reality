@@ -137,4 +137,32 @@ describe('shift reporting (audit E4)', () => {
     expect(sent).toEqual([])
     expect(outboxEntries()).toEqual([])
   })
+
+  test('a clock correction that moves createdAt does not strand queued reports', async () => {
+    // Offline-created citizen on a device 2h fast; a full shift finishes before the first server measurement.
+    useGame.setState({ citizen: { ...g().citizen!, citizenId: undefined, online: false } })
+    g().takeJob('barista')
+    useGame.setState({ needs: fullBody, health: 100 })
+    g().startShift()
+    worked(49)
+    await flushMicrotasks()
+    const queued = outboxEntries()
+    expect(queued).toHaveLength(1)
+    const oldOwner = queued[0].owner
+    const oldKey = queued[0].key
+    // The tick's one-time hand-off to the trusted clock shifts every timestamp, createdAt included.
+    const { beginServerClock, syncServerClock } = await import('../lib/serverClock')
+    beginServerClock()
+    const serverNow = Date.now() - 2 * 3_600_000
+    await syncServerClock((async () => new Response(JSON.stringify({ ok: true, now: serverNow }))) as never)
+    useGame.setState({ clockTrusted: false })
+    g().tick()
+    const moved = g().citizen!.createdAt
+    expect(moved).not.toBe(oldOwner)
+    expect(outboxEntries()[0].owner).toBe(moved) // re-owned…
+    expect(outboxEntries()[0].key).toBe(oldKey) // …with its idempotency key untouched
+    useGame.setState({ citizen: { ...g().citizen!, citizenId: 'late-2', online: true } })
+    await flushShiftReports()
+    expect(sent.map((x) => x.body.idempotencyKey)).toEqual([oldKey])
+  })
 })

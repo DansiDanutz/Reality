@@ -108,6 +108,17 @@ export function enqueueIntent(entry: Omit<OutboxEntry, 'attempts' | 'nextAttempt
   update((entries) => (entries.some((e) => e.key === entry.key) ? entries : [...entries, { ...entry, attempts: 0, nextAttemptAt: 0 }]))
 }
 
+/**
+ * The trusted-clock hand-off moves a citizen's `createdAt` (it is a timestamp
+ * like any other). Re-own that citizen's queued reports so they keep flowing;
+ * idempotency keys are left exactly as they were, so a report the server has
+ * already accepted can never be accepted twice.
+ */
+export function reassignOutboxOwner(from: number, to: number): void {
+  if (from === to) return
+  update((entries) => entries.map((e) => (e.owner === from ? { ...e, owner: to } : e)))
+}
+
 export function clearOutbox(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)

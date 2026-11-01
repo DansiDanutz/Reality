@@ -137,7 +137,7 @@ import {
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { millionairePathOf } from '../game/millionairePath'
-import { enqueueIntent, flushIntentOutbox, shiftIntentKey } from '../lib/intentOutbox'
+import { enqueueIntent, flushIntentOutbox, reassignOutboxOwner, shiftIntentKey } from '../lib/intentOutbox'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessages'
@@ -1685,7 +1685,13 @@ export const useGame = create<GameState>()(
         // Startup waits (briefly) for the server's time: a device clock set
         // forward while the app was closed must not be simulated first.
         if (!get().citizen || !serverClockReady()) return
-        if (!get().clockTrusted && serverTimeMeasured()) set(handOffToTrustedClock(get()))
+        if (!get().clockTrusted && serverTimeMeasured()) {
+          const ownerBefore = get().citizen?.createdAt
+          set(handOffToTrustedClock(get()))
+          // The hand-off shifts createdAt: queued shift reports follow their citizen.
+          const ownerAfter = get().citizen?.createdAt
+          if (ownerBefore !== undefined && ownerAfter !== undefined) reassignOutboxOwner(ownerBefore, ownerAfter)
+        }
         const s = get()
         if (!s.citizen) return
         const now = gameNow()
