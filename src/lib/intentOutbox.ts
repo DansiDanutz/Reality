@@ -13,6 +13,8 @@
  * ledger is the audit trail the server checks claims against.
  */
 
+import { gameNow } from '../game/time'
+
 const STORAGE_KEY = 'reality-outbox-v1'
 /** Entries older than this are dropped: the ledger is a recent-activity check, not an archive. */
 export const OUTBOX_MAX_AGE_MS = 14 * 24 * 3_600_000
@@ -129,19 +131,26 @@ export function clearOutbox(): void {
 
 let flushing = false
 
+/** Who is signed in and registered right now (their `createdAt`), or null. Re-read before every send. */
+export type OwnerSource = () => number | null
+
 /**
  * Send queued entries oldest-first through `send`. Only entries owned by
- * `activeOwner` are sent (null = nobody is signed in: nothing is sent), so a
- * report can never be credited to a different citizen's session. Stops at
+ * the signed-in citizen are sent (null = nobody: nothing is sent), so a
+ * report can never be credited to a different citizen's session. The owner
+ * is re-read before EVERY send — a reset and re-registration while a backlog
+ * is flushing stops the batch instead of sending the rest under the new
+ * session cookie. Stops at
  * the first entry that must wait (`retry`/`retry-later`) — the cooldown,
  * rate limit or session applies to everything behind it too. Returns how
  * many entries were delivered.
  */
 export async function flushOutbox(
   send: (entry: OutboxEntry) => Promise<SendOutcome>,
-  activeOwner: number | null,
-  now: number = Date.now(),
+  currentOwner: OwnerSource,
+  now: number = gameNow(),
 ): Promise<number> {
+  const activeOwner = currentOwner()
   if (flushing || activeOwner === null) return 0
   flushing = true
   let delivered = 0
@@ -153,6 +162,7 @@ export async function flushOutbox(
     const firstWaiting = mine.findIndex((e) => e.nextAttemptAt > now)
     const due = firstWaiting === -1 ? mine : mine.slice(0, firstWaiting)
     for (const entry of due) {
+      if (currentOwner() !== activeOwner) break // the session changed under us
       let outcome: SendOutcome
       try {
         outcome = await send(entry)
@@ -207,8 +217,8 @@ export async function sendIntent(entry: OutboxEntry, fetchImpl: typeof fetch = f
 }
 
 /** Flush the outbox through the real endpoint. Safe to call often. */
-export function flushIntentOutbox(activeOwner: number | null, fetchImpl: typeof fetch = fetch): Promise<number> {
-  return flushOutbox((entry) => sendIntent(entry, fetchImpl), activeOwner)
+export function flushIntentOutbox(currentOwner: OwnerSource, fetchImpl: typeof fetch = fetch): Promise<number> {
+  return flushOutbox((entry) => sendIntent(entry, fetchImpl), currentOwner)
 }
 
 /** Idempotency key for a finished shift: one shift, one key, forever (stable across registration). */

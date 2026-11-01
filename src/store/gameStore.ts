@@ -625,9 +625,10 @@ async function tryGet(path: string): Promise<Record<string, unknown> | null> {
  * different citizen's session (the queue outlives `reset()`).
  */
 export function flushShiftReports(): Promise<number> {
-  const citizen = useGame.getState().citizen
-  const owner = citizen?.citizenId && citizen.online === true ? citizen.createdAt : null
-  return flushIntentOutbox(owner)
+  return flushIntentOutbox(() => {
+    const citizen = useGame.getState().citizen
+    return citizen?.citizenId && citizen.online === true ? citizen.createdAt : null
+  })
 }
 
 function readCookie(name: string): string | null {

@@ -63,7 +63,7 @@ describe('outbox queue', () => {
     enqueueIntent(entry(2))
     enqueueIntent(entry(1))
     const order: string[] = []
-    const n = await flushOutbox(async (e) => (order.push(e.key), 'sent'), OWNER, NOW)
+    const n = await flushOutbox(async (e) => (order.push(e.key), 'sent'), () => OWNER, NOW)
     expect(n).toBe(2)
     expect(order).toEqual([`shift-${OWNER}-2`, `shift-${OWNER}-1`])
     expect(outboxEntries()).toEqual([])
@@ -72,20 +72,20 @@ describe('outbox queue', () => {
   test("never sends another citizen's report, and never when nobody is signed in", async () => {
     enqueueIntent(entry(1, { owner: 999 }))
     const send = vi.fn(async () => 'sent' as const)
-    expect(await flushOutbox(send, OWNER, NOW)).toBe(0)
-    expect(await flushOutbox(send, null, NOW)).toBe(0)
+    expect(await flushOutbox(send, () => OWNER, NOW)).toBe(0)
+    expect(await flushOutbox(send, () => null, NOW)).toBe(0)
     expect(send).not.toHaveBeenCalled()
     expect(outboxEntries()).toHaveLength(1)
     // …but the owner's own entries still go while a stranger's wait.
     enqueueIntent(entry(2))
-    expect(await flushOutbox(send, OWNER, NOW)).toBe(1)
+    expect(await flushOutbox(send, () => OWNER, NOW)).toBe(1)
     expect(outboxEntries().map((e) => e.owner)).toEqual([999])
   })
 
   test('a report queued while a send is in flight is not overwritten when the send completes', async () => {
     enqueueIntent(entry(2))
     let release: (v: 'sent') => void = () => {}
-    const slow = flushOutbox(() => new Promise<'sent'>((r) => { release = r }), OWNER, NOW)
+    const slow = flushOutbox(() => new Promise<'sent'>((r) => { release = r }), () => OWNER, NOW)
     await Promise.resolve()
     enqueueIntent(entry(1)) // a shift finishes while the first report is on the wire
     release('sent')
@@ -97,17 +97,17 @@ describe('outbox queue', () => {
     enqueueIntent(entry(2))
     enqueueIntent(entry(1))
     const send = vi.fn(async () => 'retry' as const)
-    expect(await flushOutbox(send, OWNER, NOW)).toBe(0)
+    expect(await flushOutbox(send, () => OWNER, NOW)).toBe(0)
     expect(send).toHaveBeenCalledTimes(1)
     const kept = outboxEntries()
     expect(kept).toHaveLength(2)
     expect(kept[0].nextAttemptAt).toBe(NOW + backoffMs(1))
     // Not due yet: nothing is sent until the backoff passes…
     send.mockClear()
-    await flushOutbox(send, OWNER, NOW + 1_000)
+    await flushOutbox(send, () => OWNER, NOW + 1_000)
     expect(send).not.toHaveBeenCalled()
     // …then it is tried again, with no cap on attempts.
-    await flushOutbox(send, OWNER, NOW + backoffMs(1) + 1)
+    await flushOutbox(send, () => OWNER, NOW + backoffMs(1) + 1)
     expect(send).toHaveBeenCalledTimes(1)
   })
 
@@ -115,7 +115,7 @@ describe('outbox queue', () => {
     enqueueIntent(entry(1))
     let now = NOW
     for (let i = 0; i < 200; i++) {
-      await flushOutbox(async () => 'retry', OWNER, now)
+      await flushOutbox(async () => 'retry', () => OWNER, now)
       now += OUTBOX_BACKOFF_MAX_MS
       if (now - (NOW - 1) > OUTBOX_MAX_AGE_MS - OUTBOX_BACKOFF_MAX_MS) break
     }
@@ -128,21 +128,21 @@ describe('outbox queue', () => {
     enqueueIntent(entry(1))
     const outcomes = ['drop', 'sent'] as const
     let i = 0
-    const n = await flushOutbox(async () => outcomes[i++], OWNER, NOW)
+    const n = await flushOutbox(async () => outcomes[i++], () => OWNER, NOW)
     expect(n).toBe(1)
     expect(outboxEntries()).toEqual([])
   })
 
   test('a thrown send is treated as a retry', async () => {
     enqueueIntent(entry(1))
-    await flushOutbox(async () => { throw new Error('offline') }, OWNER, NOW)
+    await flushOutbox(async () => { throw new Error('offline') }, () => OWNER, NOW)
     expect(outboxEntries()[0].attempts).toBe(1)
   })
 
   test('entries older than the max age are discarded unsent', async () => {
     enqueueIntent(entry(1, { createdAt: NOW - OUTBOX_MAX_AGE_MS - 1 }))
     const send = vi.fn(async () => 'sent' as const)
-    await flushOutbox(send, OWNER, NOW)
+    await flushOutbox(send, () => OWNER, NOW)
     expect(send).not.toHaveBeenCalled()
     expect(outboxEntries()).toEqual([])
   })
@@ -151,6 +151,41 @@ describe('outbox queue', () => {
     localStorage.setItem('reality-outbox-v1', '{not json')
     expect(outboxEntries()).toEqual([])
     clearOutbox()
+  })
+})
+
+describe('session changes and trusted time', () => {
+  test('a session change mid-batch stops the remaining sends', async () => {
+    enqueueIntent(entry(3))
+    enqueueIntent(entry(2))
+    enqueueIntent(entry(1))
+    let owner: number | null = OWNER
+    const sent: string[] = []
+    const n = await flushOutbox(async (e) => {
+      sent.push(e.key)
+      owner = 4242 // the player resets and registers someone else while this request is in flight
+      return 'sent'
+    }, () => owner, NOW)
+    expect(n).toBe(1)
+    expect(sent).toEqual([`shift-${OWNER}-3`])
+    expect(outboxEntries().map((e) => e.key)).toEqual([`shift-${OWNER}-2`, `shift-${OWNER}-1`])
+  })
+
+  test('expiry and backoff use the trusted game clock, not the raw device clock', async () => {
+    vi.useFakeTimers()
+    const { anchorGameClock, resetGameClock } = await import('../game/time')
+    const server = 1_800_000_000_000
+    vi.setSystemTime(server + 30 * 24 * 3_600_000) // device a month fast
+    anchorGameClock(server, performance.now())
+    try {
+      enqueueIntent(entry(1, { createdAt: server }))
+      const send = vi.fn(async () => 'sent' as const)
+      await flushOutbox(send, () => OWNER) // no explicit `now`: the default must be game time
+      expect(send).toHaveBeenCalledTimes(1)
+    } finally {
+      resetGameClock()
+      vi.useRealTimers()
+    }
   })
 })
 
