@@ -137,6 +137,7 @@ import {
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { millionairePathOf } from '../game/millionairePath'
+import { enqueueIntent, flushIntentOutbox, shiftIntentKey } from '../lib/intentOutbox'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessages'
@@ -1776,6 +1777,16 @@ export const useGame = create<GameState>()(
         // initialized from out.money (it previously appeared only in the toast).
         const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
         const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
+        if (completedShift && out.shiftsCompleted > 0 && s.citizen?.citizenId && s.jobId) {
+          // Report the finished shift to the server ledger (audit E4). Durable and
+          // idempotent: a closed tab, a dead network or a retry never double-counts.
+          enqueueIntent({
+            key: shiftIntentKey(s.citizen.citizenId, completedShift.startedAt),
+            intent: { type: 'workShift', jobId: s.jobId },
+            createdAt: now,
+          })
+          void flushIntentOutbox()
+        }
         if (out.shiftsCompleted > 0) {
           if (wageBonusEarned > 0) {
             toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(wageBonusEarned)}!`, 'gold')

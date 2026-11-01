@@ -20,6 +20,7 @@ import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
 import WeekFanfare from './components/hud/WeekFanfare'
 import { TUTORIAL_STEPS } from './game/tutorial'
+import { flushIntentOutbox } from './lib/intentOutbox'
 import { beginServerClock, syncServerClock } from './lib/serverClock'
 import FounderAreaPanel from './components/panels/FounderAreaPanel'
 import FounderCovenantOperatorPanel from './components/panels/FounderCovenantOperatorPanel'
@@ -126,9 +127,12 @@ export default function App() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncClock()
     }
+    const onlineFlush = () => void flushIntentOutbox()
     syncClock()
+    void flushIntentOutbox()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', syncClock)
+    window.addEventListener('online', onlineFlush)
     const clockId = setInterval(syncClock, 10 * 60_000)
     useGame.getState().tick()
     void useGame.getState().registerOnline()
@@ -138,6 +142,7 @@ export default function App() {
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
       void useGame.getState().pushCloudSave()
+      void flushIntentOutbox()
     }, 120_000)
     // Sliding session renewal lives on /api/session; an open tab has to keep
     // visiting it or it expires mid-play.
@@ -149,6 +154,7 @@ export default function App() {
       clearInterval(clockId)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', syncClock)
+      window.removeEventListener('online', onlineFlush)
     }
   }, [])
 
