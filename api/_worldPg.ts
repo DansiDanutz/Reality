@@ -38,7 +38,7 @@ export const WORLD_PLACE_SQL = `
 
 const PLACEMENT_COUNT_SQL = `
   SELECT count(*)::int AS count FROM ledger
-  WHERE citizen_id = $1 AND intent = 'world.place' AND created_at >= $2
+  WHERE citizen_id = $1 AND intent = 'world.place' AND balance_after IS NOT NULL AND created_at >= $2
 `.trim()
 
 /** Shapes an assets-table row from the values world.ts already validated. */

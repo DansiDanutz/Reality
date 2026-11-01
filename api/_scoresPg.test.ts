@@ -16,6 +16,7 @@ import {
   citizenScoreProfilePg,
   maxPlausibleWorth,
   maxReconciledWorth,
+  CITIZEN_GRANT,
   writeScore,
 } from './_scoresPg'
 
@@ -64,6 +65,12 @@ describe('maxReconciledWorth', () => {
     expect(maxReconciledWorth(Number.NaN)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
   })
 
+  test('a known non-founder with a silent ledger is bounded by the citizen grant, not the founder grant', () => {
+    expect(maxReconciledWorth(null, false)).toBe(Math.round(CITIZEN_GRANT * LEDGER_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(null, true)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(5_000, false)).toBe(5_500)
+  })
+
   test('never goes negative on a corrupt credit sum', () => {
     expect(maxReconciledWorth(-500)).toBe(0)
   })
@@ -75,7 +82,7 @@ describe('citizenScoreProfilePg', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'))
     queryMock.mockResolvedValueOnce([
-      { name: 'water-maker', created_at: '2026-07-05T12:00:00.000Z', credited: '12500.00' },
+      { name: 'water-maker', created_at: '2026-07-05T12:00:00.000Z', credited: '12500.00', founder: false },
     ])
 
     const profile = await citizenScoreProfilePg(CITIZEN_ID)
@@ -86,7 +93,7 @@ describe('citizenScoreProfilePg', () => {
     expect(statement).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
     expect(statement).toMatch(/balance_after IS NOT NULL/i)
     expect(params).toEqual([CITIZEN_ID])
-    expect(profile).toEqual({ ageDays: 5, name: 'water-maker', ledgerCredits: 12_500 })
+    expect(profile).toEqual({ ageDays: 5, name: 'water-maker', ledgerCredits: 12_500, founder: false })
   })
 
   test('reports null ledger credits for a citizen with no accepted ledger rows', async () => {

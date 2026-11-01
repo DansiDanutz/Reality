@@ -365,21 +365,16 @@ describe('challenge rewards — balance', () => {
     expect(total).toBe(20)
   })
 
-  test('business owners and legacy callers keep the full static daily reward curve', () => {
-    const owner = context({ hasBusiness: true, maxEarnedToday: 120 })
-    const ownerTotal =
-      challengeRewardFor({ difficulty: 'easy' }, owner).cash +
-      challengeRewardFor({ difficulty: 'medium' }, owner).cash +
-      challengeRewardFor({ difficulty: 'hard' }, owner).cash +
-      dailyCompleteBonusForContext(owner).cash
+  test('owning a business no longer unlocks the full static reward — income does', () => {
+    const smallOwner = context({ hasBusiness: true, maxEarnedToday: 120 })
+    expect(dailyChallengeCashBudget(smallOwner)).toBe(Math.floor(120 * PRE_BUSINESS_DAILY_CASH_FRACTION))
+    const bigOwner = context({ hasBusiness: true, maxEarnedToday: 50_000 })
     const staticTotal =
       CHALLENGE_REWARD.easy.cash +
       CHALLENGE_REWARD.medium.cash +
       CHALLENGE_REWARD.hard.cash +
       DAILY_COMPLETE_BONUS.cash
-
-    expect(ownerTotal).toBe(staticTotal)
-    expect(dailyChallengeCashBudget(owner)).toBe(staticTotal)
+    expect(dailyChallengeCashBudget(bigOwner)).toBe(staticTotal)
     expect(challengeRewardFor({ difficulty: 'hard' })).toEqual(CHALLENGE_REWARD.hard)
     expect(dailyCompleteBonusForContext()).toEqual(DAILY_COMPLETE_BONUS)
   })

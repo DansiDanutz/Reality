@@ -398,7 +398,7 @@ export function estimateConstructionWorkerHire(
 ): { worker: ConstructionWorker; hours: number; cost: number; laborMinutes: number; communityCreditMinutes: number; communityCreditValue: number; blockedBy: ReturnType<typeof constructionWorkerBlocker> } | null {
   const worker = workerById(workerId)
   if (!worker) return null
-  const requestedHours = Math.min(Math.max(hours, 1), worker.maxHours)
+  const requestedHours = Math.min(Math.max(Number.isFinite(hours) ? hours : 1, 1), worker.maxHours)
   const paidMinutes = requestedHours * 60
   const creditMinutes = Math.min(paidMinutes, Math.max(0, Math.floor(communityCreditMinutes)))
   const creditValue = Math.min(worker.ratePerHour * requestedHours, Math.round((worker.ratePerHour / 60) * creditMinutes))
