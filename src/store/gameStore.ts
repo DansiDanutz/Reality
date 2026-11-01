@@ -337,7 +337,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 22
+export const SAVE_VERSION = 23
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -1125,6 +1125,17 @@ function businessDevelopmentBlockerText(project: BusinessDevelopmentProject, mon
  * counts every catalog item the citizen has ever possessed: current inventory,
  * placed assets, and pets — the completionist's total.
  */
+/**
+ * A sleep counts when it has lasted an hour (leaving earlier takes the credit
+ * back). Until then its start-time credit is pending: achievements and daily
+ * challenges must not see it, or a tick between start and wake would pay out
+ * on a sleep that is later rolled back.
+ */
+function pendingSleepCredit(s: Pick<GameState, 'activity'>, now: number = gameNow()): number {
+  return s.activity?.kind === 'sleep' && now - s.activity.startedAt < SLEEP_CREDIT_MS ? 1 : 0
+}
+const SLEEP_CREDIT_MS = 60 * 60_000
+
 export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   const inventoryKinds = new Set(Object.keys(s.inventory))
   const assetKinds = new Set(s.assets.map((a) => a.itemId))
@@ -1137,7 +1148,7 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   const daysLived = s.citizen ? dayOfLife(s.citizen.createdAt) - 1 : 0
   return {
     timesEaten: s.timesEaten,
-    timesSlept: s.timesSlept,
+    timesSlept: Math.max(0, s.timesSlept - pendingSleepCredit(s)),
     shiftsWorked: s.shiftsWorked,
     jobId: s.jobId,
     assets: s.assets,
@@ -1784,8 +1795,8 @@ export const useGame = create<GameState>()(
         // The bonus is REAL money — added to the balance below once `money` is
         // initialized from out.money (it previously appeared only in the toast).
         const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
-        const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
-        if (out.shiftsCompleted > 0) {
+        const wageBonusEarned = out.jobsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
+        if (out.jobsCompleted > 0) {
           if (wageBonusEarned > 0) {
             toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(wageBonusEarned)}!`, 'gold')
           }
@@ -2470,7 +2481,7 @@ export const useGame = create<GameState>()(
             hygieneToday: dailyCounters.hygieneToday,
             shiftsToday: dailyCounters.shiftsToday,
             earnedToday: dailyCounters.earnedToday,
-            sleptToday: dailyCounters.sleptToday,
+            sleptToday: Math.max(0, dailyCounters.sleptToday - pendingSleepCredit(s, now)),
             boughtToday: dailyCounters.boughtToday,
             studiedToday: dailyCounters.studiedToday,
             gatheredToday: dailyCounters.gatheredToday,
@@ -3553,7 +3564,7 @@ export const useGame = create<GameState>()(
           // night is the only thing worth counting: waking within the first
           // hour takes the credit back, so start→leave can't farm the
           // "sleep N nights" achievement or the daily sleep challenge.
-          const barelySlept = gameNow() - a.startedAt < 60 * 60_000
+          const barelySlept = pendingSleepCredit(s) > 0
           set({
             activity: null,
             ...(barelySlept

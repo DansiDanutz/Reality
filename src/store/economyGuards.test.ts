@@ -103,3 +103,48 @@ describe('daily slate', () => {
     expect(g().dailyBonusClaimed).toBe(false)
   })
 })
+
+describe('review regressions', () => {
+  test('a boosted 30-minute gig pays its booster, and daily earnings match the cash credited', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // no luck: isolate wages
+    const now = Date.now()
+    useGame.setState({
+      money: 1_000,
+      activity: { kind: 'shift', startedAt: now, endsAt: now + 30 * 60_000, wage: 14, title: 'Delivery gig', wageMult: 2 },
+    })
+    const before = g().dailyCounters.earnedToday
+    // Live-sized ticks: a gap over 15 minutes counts as time away and is kept out of daily earnings.
+    for (let i = 1; i <= 4; i++) {
+      vi.setSystemTime(now + i * 10 * 60_000)
+      g().tick()
+    }
+    expect(g().money - 1_000).toBe(14) // $7 × 2
+    expect(g().dailyCounters.earnedToday - before).toBe(14)
+    expect(g().shiftsWorked).toBe(0) // still not a career shift
+  })
+
+  test('a tick between starting and leaving sleep pays no sleep reward', () => {
+    useGame.setState({ timesSlept: 24, needs: { hunger: 80, hydration: 80, energy: 20, hygiene: 80, fun: 80 } })
+    g().tick()
+    const claimedBefore = [...g().achievementsClaimed]
+    const money = g().money
+    g().startSleep()
+    vi.setSystemTime(Date.now() + 2_000)
+    g().tick()
+    expect(g().achievementsClaimed).toEqual(claimedBefore)
+    expect(g().money).toBe(money)
+    g().leaveActivity()
+    expect(g().timesSlept).toBe(24)
+  })
+
+  test('the save version moved, and a v22 daily-counter shape backfills the new fields', async () => {
+    const { migrateSave, SAVE_VERSION } = await import('./gameStore')
+    // zustand/persist only runs migrate when the stored version differs: without the bump, v22 saves skip it.
+    expect(SAVE_VERSION).toBeGreaterThan(22)
+    const dc = { day: 20_000, mealsToday: 0, drinksToday: 0, hygieneToday: 0, shiftsToday: 0, earnedToday: 0, sleptToday: 0, boughtToday: 0, studiedToday: 0, gatheredToday: 0, constructionMinutesToday: 0, workersHiredToday: 0, communityToday: 0, businessDevelopmentMinutesToday: 0 }
+    const out = migrateSave({ money: 5_000, dailyCounters: dc, dailyClaimed: ['a'], dailyBonusClaimed: true })
+    expect(out.dailyCounters.windfallToday).toBe(0)
+    expect(out.dailyClaimedDay).toBe(20_000)
+    expect(out.dailyClaimed).toEqual(['a'])
+  })
+})

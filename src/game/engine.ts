@@ -211,6 +211,8 @@ export interface LiveOutput extends WorldSlice {
   money: number
   activity: Activity | null
   shiftsCompleted: number
+  /** Every paid work block that finished, gigs included — wage boosters apply to these; career credit uses shiftsCompleted. */
+  jobsCompleted: number
   xpGained: number
   autoMeals: number
   autoDrinks: number
@@ -264,6 +266,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
   let caughtIllness: Illness['kind'] | null = null
   let recoveredFrom: Illness['kind'] | null = null
   let shiftsCompleted = 0
+  let jobsCompleted = 0
   let xpGained = 0
   let autoMeals = 0
   let autoDrinks = 0
@@ -332,6 +335,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
         const pay = Math.round((activity.wage ?? 0) * hours * (1 + input.wageBonus))
         money += pay
         wagesEarned += pay
+        jobsCompleted += 1
         // Only a (nearly) full shift is a "shift worked": the 30-minute gig
         // pays by the hour but must not buy career rank, reliability, serious-work
         // streaks or the shift achievements at 1/16th the effort.
@@ -404,7 +408,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
   if (usedFountain) summary.push('drank from the public fountain')
   if (usedFoodBank) summary.push('got a food-bank meal')
   if (autoSleeps > 0) summary.push(`slept ${autoSleeps} night${autoSleeps > 1 ? 's' : ''}`)
-  if (wagesEarned > 0) summary.push(`finished ${shiftsCompleted} shift${shiftsCompleted > 1 ? 's' : ''} (+$${wagesEarned})`)
+  if (wagesEarned > 0) summary.push(`finished ${jobsCompleted} job${jobsCompleted > 1 ? 's' : ''} (+$${wagesEarned})`)
   if (petFoodPaid >= 1) summary.push(`fed the pets (−$${Math.round(petFoodPaid)})`)
   if (world.assets.some((a) => a.incomePerDay > 0 && a.pendingIncome >= a.incomePerDay * PENDING_CAP_DAYS - 0.01))
     summary.push('a till filled up — it holds 3 days, then customers walk past')
@@ -425,6 +429,7 @@ export function liveRealtime(input: LiveInput, fromMs: number, toMs: number, rng
     money,
     activity,
     shiftsCompleted,
+    jobsCompleted,
     xpGained,
     autoMeals,
     autoDrinks,

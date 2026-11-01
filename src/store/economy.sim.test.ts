@@ -139,6 +139,7 @@ describe('economy invariants — labor is the engine', () => {
     let oneTime = 0
     let claimed = g().achievementsClaimed.length
     let best = g().streakBest
+    let sawEarned = 0
     const tick = (ms: number) => {
       vi.setSystemTime(Date.now() + ms)
       g().tick()
@@ -152,14 +153,32 @@ describe('economy invariants — labor is the engine', () => {
       // A player who looks after themselves: fed, rested, healthy at clock-in.
       useGame.setState({ needs: { hunger: 90, hydration: 90, energy: 95, hygiene: 90, fun: 70 }, health: 100 })
       if (!g().activity) g().startShift()
-      for (let i = 0; i < 40; i++) tick(36 * MIN)
+      // Live-sized ticks (a gap over 15 minutes counts as time away and skips live rewards).
+      for (let i = 0; i < 144; i++) {
+        tick(10 * MIN)
+        sawEarned = Math.max(sawEarned, g().dailyCounters.earnedToday)
+      }
     }
     const shifts = g().shiftsWorked - startShifts
     const wages = shifts * SHIFT_PAY // base barista pay; rank/gear bonuses only make this larger
     const recurringWindfalls = g().money - startMoney - wages - oneTime
+    expect(sawEarned, 'wages must reach the daily earnings counter, or the luck budget is untested').toBeGreaterThan(0)
     expect(shifts).toBeGreaterThanOrEqual(Math.floor(DAYS * 0.8))
     expect(recurringWindfalls, `60 days: wages ~$${wages}, one-time ~$${oneTime}, recurring luck ~$${recurringWindfalls}`).toBeLessThan(wages * 2)
   }, 120_000)
+
+  test('the windfall budget holds even when luck rolls every single tick', () => {
+    citizen()
+    useGame.setState({ jobId: null, luckyMomentsSeen: 1 })
+    advance(2 * DAY, DAY) // past onboarding
+    advance(16 * HOUR, 16 * HOUR) // land on local midnight
+    // Worst-case luck: every roll hits (lucky moments, opportunities, events).
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    const book: Book = { inflow: 0, outflow: 0 }
+    advance(HOUR, 1_000, book)
+    // Budget for a day with no labor is $100; without the governor this is thousands.
+    expect(book.inflow, `inflow with always-lucky rolls was $${book.inflow}`).toBeLessThanOrEqual(150)
+  }, 60_000)
 
   test('one-time bounties stay bounded by the catalog', () => {
     // The ceiling the design doc promises: every achievement, once, is a founder-grant-scale windfall.
