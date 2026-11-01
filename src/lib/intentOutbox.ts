@@ -112,13 +112,22 @@ export function enqueueIntent(entry: Omit<OutboxEntry, 'attempts' | 'nextAttempt
 
 /**
  * The trusted-clock hand-off moves a citizen's `createdAt` (it is a timestamp
- * like any other). Re-own that citizen's queued reports so they keep flowing;
- * idempotency keys are left exactly as they were, so a report the server has
- * already accepted can never be accepted twice.
+ * like any other) by some delta. Re-own that citizen's queued reports and
+ * move THEIR timestamps by the same delta, so a report written on a slow or
+ * fast device clock lands on the corrected clock instead of looking expired
+ * or not yet due. Idempotency keys are left exactly as they were, so a report
+ * the server has already accepted can never be accepted twice.
  */
 export function reassignOutboxOwner(from: number, to: number): void {
   if (from === to) return
-  update((entries) => entries.map((e) => (e.owner === from ? { ...e, owner: to } : e)))
+  const delta = to - from
+  update((entries) =>
+    entries.map((e) =>
+      e.owner === from
+        ? { ...e, owner: to, createdAt: e.createdAt + delta, nextAttemptAt: e.nextAttemptAt > 0 ? e.nextAttemptAt + delta : 0 }
+        : e,
+    ),
+  )
 }
 
 export function clearOutbox(): void {

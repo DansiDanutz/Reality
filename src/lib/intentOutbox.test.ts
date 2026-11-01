@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   backoffMs,
+  reassignOutboxOwner,
   classifyIntentResponse,
   clearOutbox,
   enqueueIntent,
@@ -186,6 +187,20 @@ describe('session changes and trusted time', () => {
       resetGameClock()
       vi.useRealTimers()
     }
+  })
+})
+
+describe('clock hand-off', () => {
+  test('a report written on a device clock 20 days slow moves onto the corrected clock instead of expiring', async () => {
+    const delta = 20 * 24 * 3_600_000
+    enqueueIntent(entry(1, { createdAt: NOW - delta })) // stamped by the slow device clock
+    reassignOutboxOwner(OWNER, OWNER + delta) // the hand-off moves the citizen by the correction
+    const e = outboxEntries()[0]
+    expect(e.owner).toBe(OWNER + delta)
+    expect(e.createdAt).toBe(NOW)
+    expect(e.key).toBe(`shift-${OWNER}-1`) // idempotency key preserved
+    const send = vi.fn(async () => 'sent' as const)
+    expect(await flushOutbox(send, () => OWNER + delta, NOW)).toBe(1)
   })
 })
 

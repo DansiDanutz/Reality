@@ -161,6 +161,8 @@ describe('shift reporting (audit E4)', () => {
     expect(moved).not.toBe(oldOwner)
     expect(outboxEntries()[0].owner).toBe(moved) // re-owned…
     expect(outboxEntries()[0].key).toBe(oldKey) // …with its idempotency key untouched
+    // …and its own timestamp moved onto the corrected clock, so it cannot look expired.
+    expect(outboxEntries()[0].createdAt - queued[0].createdAt).toBe(moved - oldOwner)
     useGame.setState({ citizen: { ...g().citizen!, citizenId: 'late-2', online: true } })
     await flushShiftReports()
     expect(sent.map((x) => x.body.idempotencyKey)).toEqual([oldKey])
