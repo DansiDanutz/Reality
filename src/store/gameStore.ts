@@ -137,6 +137,7 @@ import {
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { millionairePathOf } from '../game/millionairePath'
+import { enqueueIntent, flushIntentOutbox, reassignOutboxOwner, shiftIntentKey } from '../lib/intentOutbox'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessages'
@@ -616,6 +617,18 @@ async function tryGet(path: string): Promise<Record<string, unknown> | null> {
     useGame.getState().markApiOffline()
     return null
   }
+}
+
+/**
+ * Send queued shift reports for the citizen who is signed in right now — and
+ * only while they are registered online, so a report is never credited to a
+ * different citizen's session (the queue outlives `reset()`).
+ */
+export function flushShiftReports(): Promise<number> {
+  return flushIntentOutbox(() => {
+    const citizen = useGame.getState().citizen
+    return citizen?.citizenId && citizen.online === true ? citizen.createdAt : null
+  })
 }
 
 function readCookie(name: string): string | null {
@@ -1673,7 +1686,13 @@ export const useGame = create<GameState>()(
         // Startup waits (briefly) for the server's time: a device clock set
         // forward while the app was closed must not be simulated first.
         if (!get().citizen || !serverClockReady()) return
-        if (!get().clockTrusted && serverTimeMeasured()) set(handOffToTrustedClock(get()))
+        if (!get().clockTrusted && serverTimeMeasured()) {
+          const ownerBefore = get().citizen?.createdAt
+          set(handOffToTrustedClock(get()))
+          // The hand-off shifts createdAt: queued shift reports follow their citizen.
+          const ownerAfter = get().citizen?.createdAt
+          if (ownerBefore !== undefined && ownerAfter !== undefined) reassignOutboxOwner(ownerBefore, ownerAfter)
+        }
         const s = get()
         if (!s.citizen) return
         const now = gameNow()
@@ -1776,6 +1795,20 @@ export const useGame = create<GameState>()(
         // initialized from out.money (it previously appeared only in the toast).
         const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
         const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
+        if (completedShift && out.shiftsCompleted > 0 && s.citizen && completedShift.jobId) {
+          // Report the finished shift to the server ledger (audit E4). Durable and
+          // idempotent: a closed tab, a dead network or a retry never double-counts.
+          // Only a full employer shift, and only for the job stamped when it STARTED
+          // (an activity from before the stamp existed is not reported — no guessing).
+          // The entry belongs to this citizen even before they are registered online.
+          enqueueIntent({
+            key: shiftIntentKey(s.citizen.createdAt, completedShift.startedAt),
+            owner: s.citizen.createdAt,
+            intent: { type: 'workShift', jobId: completedShift.jobId },
+            createdAt: now,
+          })
+          void flushShiftReports()
+        }
         if (out.shiftsCompleted > 0) {
           if (wageBonusEarned > 0) {
             toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(wageBonusEarned)}!`, 'gold')
@@ -3486,6 +3519,8 @@ export const useGame = create<GameState>()(
             endsAt: now + SHIFT_HOURS * 3_600_000,
             wage: job.wage * rank.wageMultiplier,
             title: job.title,
+            // The job actually worked: a later takeJob() must not change what gets reported.
+            jobId: job.id,
             // Stamp active booster multipliers at shift START — a booster
             // bought now must pay out when the 8h shift resolves, long after
             // the 30-min booster window itself expired (see Activity docs).

@@ -68,9 +68,14 @@ export const CITIZEN_PROFILE_SQL = `
 // silent about a citizen.
 export const FOUNDER_GRANT = 200_000
 
-// Client-only assets (uncollected pending income) are not in the ledger yet;
-// a 10% allowance covers them without reopening the client-asserted hole.
-export const LEDGER_WORTH_TOLERANCE = 1.1
+// The ledger records each shift at BASE wage × seniority. Gear (+46% max) and
+// education (+30%) multiply it on the client (1.76× together), and client-only
+// assets (uncollected pending income) are not in the ledger yet — 1.9 covers
+// both without reopening the client-asserted hole.
+export const LEDGER_WORTH_TOLERANCE = 1.9
+
+// With no accepted ledger rows there are no shifts to multiply: the bound stays the registration grant plus pending income.
+export const GRANT_WORTH_TOLERANCE = 1.1
 
 /**
  * Server-reconciled ceiling on a claimed net worth: total accepted ledger
@@ -79,8 +84,8 @@ export const LEDGER_WORTH_TOLERANCE = 1.1
  * ledger never yields more headroom than the registration grant.
  */
 export function maxReconciledWorth(ledgerCredits: number | null): number {
-  const known = ledgerCredits === null || !Number.isFinite(ledgerCredits) ? FOUNDER_GRANT : Math.max(0, ledgerCredits)
-  return Math.round(known * LEDGER_WORTH_TOLERANCE)
+  if (ledgerCredits === null || !Number.isFinite(ledgerCredits)) return Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE)
+  return Math.round(Math.max(0, ledgerCredits) * LEDGER_WORTH_TOLERANCE)
 }
 
 export type CitizenScoreProfile = { ageDays: number | null; name: string | null; ledgerCredits: number | null }

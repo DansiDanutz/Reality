@@ -48,7 +48,7 @@ import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
 import { useIsMobile } from './lib/useIsMobile'
 import { useNotifications } from './lib/useNotifications'
-import { refreshCitizenSession, useGame } from './store/gameStore'
+import { flushShiftReports, refreshCitizenSession, useGame } from './store/gameStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import { loadStreetMode, preloadStreetMode } from './components/street/loadStreetMode'
 import { preloadNeighborhood } from './components/street/osm'
@@ -126,9 +126,12 @@ export default function App() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncClock()
     }
+    const onlineFlush = () => void flushShiftReports()
     syncClock()
+    void flushShiftReports()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', syncClock)
+    window.addEventListener('online', onlineFlush)
     const clockId = setInterval(syncClock, 10 * 60_000)
     useGame.getState().tick()
     void useGame.getState().registerOnline()
@@ -138,6 +141,7 @@ export default function App() {
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
       void useGame.getState().pushCloudSave()
+      void flushShiftReports()
     }, 120_000)
     // Sliding session renewal lives on /api/session; an open tab has to keep
     // visiting it or it expires mid-play.
@@ -149,6 +153,7 @@ export default function App() {
       clearInterval(clockId)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', syncClock)
+      window.removeEventListener('online', onlineFlush)
     }
   }, [])
 
