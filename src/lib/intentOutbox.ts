@@ -17,18 +17,27 @@ const STORAGE_KEY = 'reality-outbox-v1'
 /** Entries older than this are dropped: the ledger is a recent-activity check, not an archive. */
 export const OUTBOX_MAX_AGE_MS = 14 * 24 * 3_600_000
 export const OUTBOX_MAX_ENTRIES = 50
-/** Failed sends (server errors, network) before an entry is given up on. */
-export const OUTBOX_MAX_ATTEMPTS = 30
+/** Failed sends back off exponentially between these bounds; an outage never deletes a report. */
+export const OUTBOX_BACKOFF_BASE_MS = 60_000
+export const OUTBOX_BACKOFF_MAX_MS = 6 * 3_600_000
 
 export interface OutboxEntry {
   /** Idempotency key: the same shift always has the same key. */
   key: string
+  /**
+   * Which citizen did the work: their `createdAt`, stable from the first
+   * offline moment through registration. A report is only ever sent while
+   * that same citizen is the active, registered one.
+   */
+  owner: number
   intent: { type: 'workShift'; jobId: string }
   createdAt: number
   attempts: number
+  /** Earliest time this entry is tried again (backoff after a failure). */
+  nextAttemptAt: number
 }
 
-/** What happened to one send. `sent`/`drop` remove the entry; `retry` keeps it. */
+/** What happened to one send. `sent`/`drop` remove the entry; `retry` backs it off; `retry-later` keeps it for the next flush. */
 export type SendOutcome = 'sent' | 'drop' | 'retry' | 'retry-later'
 
 /** Turn an /api/intent response into an outcome. Pure. */
@@ -36,13 +45,18 @@ export function classifyIntentResponse(status: number, body: unknown): SendOutco
   if (status === 200) return 'sent'
   const code = body && typeof body === 'object' ? (body as { code?: unknown }).code : undefined
   // The shift cooldown is real time (8h between reports): wait it out, never lose the credit.
-  if (code === 'shift_too_soon') return 'retry-later'
-  if (code === 'intent_rate_limited') return 'retry-later'
+  if (code === 'shift_too_soon') return 'retry'
+  if (code === 'intent_rate_limited') return 'retry'
   // No session / CSRF yet (offline-created citizen, expired cookie): the entry waits for one.
   if (status === 401 || status === 403) return 'retry-later'
   // The server will never accept this entry as written.
   if (status === 400 || status === 422) return 'drop'
   return 'retry'
+}
+
+/** Exponential backoff for the nth failed attempt (1-based). */
+export function backoffMs(attempts: number): number {
+  return Math.min(OUTBOX_BACKOFF_MAX_MS, OUTBOX_BACKOFF_BASE_MS * 2 ** Math.max(0, attempts - 1))
 }
 
 function read(): OutboxEntry[] {
@@ -54,10 +68,15 @@ function read(): OutboxEntry[] {
     return parsed.filter(
       (e): e is OutboxEntry =>
         !!e && typeof e === 'object' && typeof (e as OutboxEntry).key === 'string'
+        && typeof (e as OutboxEntry).owner === 'number'
         && typeof (e as OutboxEntry).createdAt === 'number'
         && (e as OutboxEntry).intent?.type === 'workShift'
         && typeof (e as OutboxEntry).intent.jobId === 'string',
-    ).map((e) => ({ ...e, attempts: Number.isFinite(e.attempts) ? e.attempts : 0 }))
+    ).map((e) => ({
+      ...e,
+      attempts: Number.isFinite(e.attempts) ? e.attempts : 0,
+      nextAttemptAt: Number.isFinite(e.nextAttemptAt) ? e.nextAttemptAt : 0,
+    }))
   } catch {
     return []
   }
@@ -71,15 +90,22 @@ function write(entries: OutboxEntry[]): void {
   }
 }
 
+/**
+ * Read-modify-write against the CURRENT storage contents. Every change goes
+ * through here (never through a snapshot held across an `await`), so an
+ * enqueue that lands while a send is in flight is never overwritten.
+ */
+function update(fn: (entries: OutboxEntry[]) => OutboxEntry[]): void {
+  write(fn(read()))
+}
+
 export function outboxEntries(): OutboxEntry[] {
   return read()
 }
 
 /** Queue an intent. A key already queued is not queued twice. */
-export function enqueueIntent(entry: Omit<OutboxEntry, 'attempts'>): void {
-  const entries = read()
-  if (entries.some((e) => e.key === entry.key)) return
-  write([...entries, { ...entry, attempts: 0 }])
+export function enqueueIntent(entry: Omit<OutboxEntry, 'attempts' | 'nextAttemptAt'>): void {
+  update((entries) => (entries.some((e) => e.key === entry.key) ? entries : [...entries, { ...entry, attempts: 0, nextAttemptAt: 0 }]))
 }
 
 export function clearOutbox(): void {
@@ -93,21 +119,29 @@ export function clearOutbox(): void {
 let flushing = false
 
 /**
- * Send queued entries oldest-first through `send`. Stops at the first
- * `retry-later` (the cooldown/rate limit/session applies to everything
- * behind it too). Returns how many entries were delivered.
+ * Send queued entries oldest-first through `send`. Only entries owned by
+ * `activeOwner` are sent (null = nobody is signed in: nothing is sent), so a
+ * report can never be credited to a different citizen's session. Stops at
+ * the first entry that must wait (`retry`/`retry-later`) — the cooldown,
+ * rate limit or session applies to everything behind it too. Returns how
+ * many entries were delivered.
  */
 export async function flushOutbox(
   send: (entry: OutboxEntry) => Promise<SendOutcome>,
+  activeOwner: number | null,
   now: number = Date.now(),
 ): Promise<number> {
-  if (flushing) return 0
+  if (flushing || activeOwner === null) return 0
   flushing = true
   let delivered = 0
   try {
-    let entries = read().filter((e) => now - e.createdAt <= OUTBOX_MAX_AGE_MS && e.attempts < OUTBOX_MAX_ATTEMPTS)
-    write(entries)
-    for (const entry of [...entries]) {
+    update((entries) => entries.filter((e) => now - e.createdAt <= OUTBOX_MAX_AGE_MS))
+    // Oldest-first, and an entry still backing off holds back everything behind it
+    // (the same cooldown, rate limit or outage applies to them too).
+    const mine = read().filter((e) => e.owner === activeOwner)
+    const firstWaiting = mine.findIndex((e) => e.nextAttemptAt > now)
+    const due = firstWaiting === -1 ? mine : mine.slice(0, firstWaiting)
+    for (const entry of due) {
       let outcome: SendOutcome
       try {
         outcome = await send(entry)
@@ -116,13 +150,13 @@ export async function flushOutbox(
       }
       if (outcome === 'sent') delivered += 1
       if (outcome === 'sent' || outcome === 'drop') {
-        entries = entries.filter((e) => e.key !== entry.key)
-        write(entries)
+        update((entries) => entries.filter((e) => e.key !== entry.key))
         continue
       }
       if (outcome === 'retry') {
-        entries = entries.map((e) => (e.key === entry.key ? { ...e, attempts: e.attempts + 1 } : e))
-        write(entries)
+        update((entries) =>
+          entries.map((e) => (e.key === entry.key ? { ...e, attempts: e.attempts + 1, nextAttemptAt: now + backoffMs(e.attempts + 1) } : e)),
+        )
       }
       break
     }
@@ -162,11 +196,11 @@ export async function sendIntent(entry: OutboxEntry, fetchImpl: typeof fetch = f
 }
 
 /** Flush the outbox through the real endpoint. Safe to call often. */
-export function flushIntentOutbox(fetchImpl: typeof fetch = fetch): Promise<number> {
-  return flushOutbox((entry) => sendIntent(entry, fetchImpl))
+export function flushIntentOutbox(activeOwner: number | null, fetchImpl: typeof fetch = fetch): Promise<number> {
+  return flushOutbox((entry) => sendIntent(entry, fetchImpl), activeOwner)
 }
 
-/** Idempotency key for a finished shift: one shift, one key, forever. */
-export function shiftIntentKey(citizenId: string, startedAt: number): string {
-  return `shift-${citizenId}-${Math.floor(startedAt)}`.slice(0, 128).replace(/[^A-Za-z0-9._:-]/g, '_')
+/** Idempotency key for a finished shift: one shift, one key, forever (stable across registration). */
+export function shiftIntentKey(owner: number, startedAt: number): string {
+  return `shift-${Math.floor(owner)}-${Math.floor(startedAt)}`
 }

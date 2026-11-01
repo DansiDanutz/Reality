@@ -73,14 +73,23 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   outbox (`src/lib/intentOutbox.ts`, localStorage `reality-outbox-v1`) and
   flushes it on completion, on the 2-minute heartbeat, and when the browser
   comes back online. The idempotency key is derived from the shift itself
-  (`shift-<citizenId>-<startedAt>`), so a retry replays the original ledger
-  row rather than paying twice. A shift pays `wage × seniority × 8h`
-  (seniority is the one multiplier the ledger can count for itself); the
-  8-hour server cooldown means a backlog catches up one shift per real
-  8 hours — queued shifts wait (`shift_too_soon`, rate limits, missing
-  session) and are never lost, terminal rejections are dropped, and entries
-  older than 14 days are discarded. Gigs are not shifts and are not
-  reported. The leaderboard worth ceiling is `1.9×` the ledger's accepted
+  (`shift-<citizen createdAt>-<startedAt>`), so a retry replays the original ledger
+  row rather than paying twice; only accepted rows replay, while a refusal
+  (cooldown, rate limit) is stored unkeyed so the same shift can be retried
+  once the condition clears. Each entry belongs to the citizen who did the
+  work (their `createdAt`, stable from the first offline moment) and is only
+  ever sent while that citizen is the signed-in, registered one, so the queue
+  surviving a `reset()` cannot credit a different account. The job reported
+  is the one stamped when the shift **started**. A shift pays
+  `wage × seniority × 8h` (seniority is the one multiplier the ledger can
+  count for itself). Failed or refused sends back off exponentially (1 min
+  to 6 h); an outage never deletes a report, a backlog catches up one shift
+  per real 8 hours, terminal rejections are dropped and entries older than
+  14 days are discarded. Every queue change is a read-modify-write against
+  current storage, so a shift finishing while a send is in flight is never
+  overwritten. Gigs and activities started before the job stamp existed are
+  not reported.
+  The leaderboard worth ceiling is `1.9×` the ledger's accepted
   credits (gear +46% and education +30% multiply wages on the client only),
   and stays at `1.1×` the registration grant while the ledger is silent.
   Still open: the ledger accepts a `workShift` without proof a shift was

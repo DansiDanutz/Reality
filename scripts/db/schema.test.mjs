@@ -83,3 +83,21 @@ describe('ledger genesis schema contract', () => {
     expect(schema).toMatch(/p_global_limit integer/)
   })
 })
+
+describe('idempotent intent append (retry semantics)', () => {
+  const fn = schema.split('\n').find((l) => l.startsWith('CREATE OR REPLACE FUNCTION reality_append_intent(') && l.includes('p_idempotency_key text')) ?? ''
+
+  test('only accepted rows replay a key', () => {
+    expect(fn).toMatch(/idempotency_key = p_idempotency_key AND l\.balance_after IS NOT NULL LIMIT 1/)
+  })
+
+  test('refusals are stored unkeyed so a retry can succeed once the condition clears', () => {
+    for (const refusal of ['rate_limited', 'cooldown', 'insufficient_funds']) {
+      expect(fn).toContain(`jsonb_build_object('refusal', '${refusal}'), NULL)`)
+    }
+  })
+
+  test('a refusal previously saved under a key is released when that key is accepted', () => {
+    expect(fn).toMatch(/UPDATE ledger SET idempotency_key = NULL WHERE citizen_id = p_citizen AND idempotency_key = p_idempotency_key AND balance_after IS NULL/)
+  })
+})

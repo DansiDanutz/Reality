@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { useGame } from './gameStore'
+import { flushShiftReports, useGame } from './gameStore'
 import { resetServerClockForTest } from '../lib/serverClock'
 import { clearOutbox, outboxEntries, shiftIntentKey } from '../lib/intentOutbox'
 
@@ -56,7 +56,7 @@ describe('shift reporting (audit E4)', () => {
     }
     await flushMicrotasks()
     expect(g().activity).toBeNull()
-    const key = shiftIntentKey(g().citizen!.citizenId!, startedAt)
+    const key = shiftIntentKey(g().citizen!.createdAt, startedAt)
     expect(sent.map((s) => s.body)).toEqual([{ intent: { type: 'workShift', jobId: 'barista' }, idempotencyKey: key }])
     expect(outboxEntries()).toEqual([])
   })
@@ -73,5 +73,68 @@ describe('shift reporting (audit E4)', () => {
     await flushMicrotasks()
     expect(outboxEntries()).toHaveLength(1)
     expect(outboxEntries()[0].intent).toEqual({ type: 'workShift', jobId: 'barista' })
+  })
+
+  const worked = (hours10min: number) => {
+    for (let i = 0; i < hours10min; i++) {
+      vi.setSystemTime(Date.now() + 10 * MIN)
+      g().tick()
+    }
+  }
+  const fullBody = { hunger: 90, hydration: 90, energy: 95, hygiene: 90, fun: 70 }
+
+  test('a shift finished BEFORE registration is reported once the citizen is online', async () => {
+    useGame.setState({ citizen: { ...g().citizen!, citizenId: undefined, online: false } })
+    g().takeJob('barista')
+    useGame.setState({ needs: fullBody, health: 100 })
+    g().startShift()
+    worked(49)
+    await flushMicrotasks()
+    expect(sent).toEqual([]) // offline: nothing can be sent yet…
+    expect(outboxEntries()).toHaveLength(1) // …but the report is not lost
+    useGame.setState({ citizen: { ...g().citizen!, citizenId: 'late-1', online: true } })
+    await flushShiftReports()
+    expect(sent).toHaveLength(1)
+    expect(outboxEntries()).toEqual([])
+  })
+
+  test("citizen A's pending report is never sent under citizen B's session", async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    g().takeJob('barista')
+    useGame.setState({ needs: fullBody, health: 100 })
+    g().startShift()
+    worked(49)
+    await flushMicrotasks()
+    expect(outboxEntries()).toHaveLength(1)
+    // Switch to a different citizen on the same browser; the queue survives.
+    g().reset()
+    g().createCitizen('Other', null)
+    vi.setSystemTime(Date.now() + 1_000)
+    useGame.setState({ citizen: { ...g().citizen!, citizenId: 'other-1', online: true } })
+    const spy = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    vi.stubGlobal('fetch', spy)
+    await flushShiftReports()
+    expect(spy).not.toHaveBeenCalled()
+    expect(outboxEntries()).toHaveLength(1)
+  })
+
+  test('the report names the job the shift STARTED as, even if the player switches jobs mid-shift', async () => {
+    g().takeJob('barista')
+    useGame.setState({ needs: fullBody, health: 100 })
+    g().startShift()
+    g().takeJob('courier')
+    worked(49)
+    await flushMicrotasks()
+    expect(sent.map((s) => s.body.intent)).toEqual([{ type: 'workShift', jobId: 'barista' }])
+  })
+
+  test('a 30-minute gig is never reported as an employer shift', async () => {
+    g().takeJob('barista')
+    g().startGig()
+    worked(4)
+    await flushMicrotasks()
+    expect(g().activity).toBeNull()
+    expect(sent).toEqual([])
+    expect(outboxEntries()).toEqual([])
   })
 })

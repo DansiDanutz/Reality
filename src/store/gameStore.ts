@@ -619,6 +619,17 @@ async function tryGet(path: string): Promise<Record<string, unknown> | null> {
   }
 }
 
+/**
+ * Send queued shift reports for the citizen who is signed in right now — and
+ * only while they are registered online, so a report is never credited to a
+ * different citizen's session (the queue outlives `reset()`).
+ */
+export function flushShiftReports(): Promise<number> {
+  const citizen = useGame.getState().citizen
+  const owner = citizen?.citizenId && citizen.online === true ? citizen.createdAt : null
+  return flushIntentOutbox(owner)
+}
+
 function readCookie(name: string): string | null {
   if (typeof document === 'undefined') return null
   const value = document.cookie.split('; ').find((part) => part.startsWith(`${name}=`))
@@ -1777,15 +1788,19 @@ export const useGame = create<GameState>()(
         // initialized from out.money (it previously appeared only in the toast).
         const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
         const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
-        if (completedShift && out.shiftsCompleted > 0 && s.citizen?.citizenId && s.jobId) {
+        if (completedShift && out.shiftsCompleted > 0 && s.citizen && completedShift.jobId) {
           // Report the finished shift to the server ledger (audit E4). Durable and
           // idempotent: a closed tab, a dead network or a retry never double-counts.
+          // Only a full employer shift, and only for the job stamped when it STARTED
+          // (an activity from before the stamp existed is not reported — no guessing).
+          // The entry belongs to this citizen even before they are registered online.
           enqueueIntent({
-            key: shiftIntentKey(s.citizen.citizenId, completedShift.startedAt),
-            intent: { type: 'workShift', jobId: s.jobId },
+            key: shiftIntentKey(s.citizen.createdAt, completedShift.startedAt),
+            owner: s.citizen.createdAt,
+            intent: { type: 'workShift', jobId: completedShift.jobId },
             createdAt: now,
           })
-          void flushIntentOutbox()
+          void flushShiftReports()
         }
         if (out.shiftsCompleted > 0) {
           if (wageBonusEarned > 0) {
@@ -3497,6 +3512,8 @@ export const useGame = create<GameState>()(
             endsAt: now + SHIFT_HOURS * 3_600_000,
             wage: job.wage * rank.wageMultiplier,
             title: job.title,
+            // The job actually worked: a later takeJob() must not change what gets reported.
+            jobId: job.id,
             // Stamp active booster multipliers at shift START — a booster
             // bought now must pay out when the 8h shift resolves, long after
             // the 30-min booster window itself expired (see Activity docs).

@@ -20,7 +20,6 @@ import MoodCard from './components/hud/MoodCard'
 import Toasts from './components/hud/Toasts'
 import WeekFanfare from './components/hud/WeekFanfare'
 import { TUTORIAL_STEPS } from './game/tutorial'
-import { flushIntentOutbox } from './lib/intentOutbox'
 import { beginServerClock, syncServerClock } from './lib/serverClock'
 import FounderAreaPanel from './components/panels/FounderAreaPanel'
 import FounderCovenantOperatorPanel from './components/panels/FounderCovenantOperatorPanel'
@@ -49,7 +48,7 @@ import { TICK_SECONDS } from './game/catalog'
 import { useFocusTrap } from './lib/useFocusTrap'
 import { useIsMobile } from './lib/useIsMobile'
 import { useNotifications } from './lib/useNotifications'
-import { refreshCitizenSession, useGame } from './store/gameStore'
+import { flushShiftReports, refreshCitizenSession, useGame } from './store/gameStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import { loadStreetMode, preloadStreetMode } from './components/street/loadStreetMode'
 import { preloadNeighborhood } from './components/street/osm'
@@ -127,9 +126,9 @@ export default function App() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') syncClock()
     }
-    const onlineFlush = () => void flushIntentOutbox()
+    const onlineFlush = () => void flushShiftReports()
     syncClock()
-    void flushIntentOutbox()
+    void flushShiftReports()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', syncClock)
     window.addEventListener('online', onlineFlush)
@@ -142,7 +141,7 @@ export default function App() {
     const scoreId = setInterval(() => {
       void useGame.getState().reportScore()
       void useGame.getState().pushCloudSave()
-      void flushIntentOutbox()
+      void flushShiftReports()
     }, 120_000)
     // Sliding session renewal lives on /api/session; an open tab has to keep
     // visiting it or it expires mid-play.
