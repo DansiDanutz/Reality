@@ -19,7 +19,7 @@ import {
 } from '../../game/dailyChallenges'
 import { COMMUNITY_ACTIONS, type CommunityActionId, type CommunityStats } from '../../game/community'
 import { LUCKY_MOMENT_DEFS, RARITY_META } from '../../game/luckyMoments'
-import { rewardForStreakDay, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
+import { nextStreakMilestone, STREAK_REWARD_TIERS, streakLabel } from '../../game/streak'
 import { achievementSnapshotOf, dailyChallengeContextOf, useGame } from '../../store/gameStore'
 
 /**
@@ -163,6 +163,7 @@ export default function AchievementsPanel() {
           <NextGoalsBlock
             shiftsWorked={shiftsWorked}
             streakLength={streakLength}
+            streakBest={streakBest}
             snapshot={snapshot}
             claimed={claimed}
           />
@@ -412,17 +413,19 @@ function DailyChallengesBlock({
 function NextGoalsBlock({
   shiftsWorked,
   streakLength,
+  streakBest,
   snapshot,
   claimed,
 }: {
   shiftsWorked: number
   streakLength: number
+  streakBest: number
   snapshot: AchievementSnapshot
   claimed: string[]
 }) {
   const nextRank = nextRankOf(shiftsWorked)
+  const nextMilestone = nextStreakMilestone(streakLength, streakBest)
   const currentRank = careerRankOf(shiftsWorked)
-  const tomorrowReward = rewardForStreakDay(streakLength + 1)
   // Pick up to 3 unclaimed achievements, prioritizing category diversity so
   // the player sees a spread of options rather than three from one category.
   const unclaimed = ACHIEVEMENTS.filter((a) => !claimed.includes(a.id) && !a.isUnlocked(snapshot))
@@ -447,7 +450,7 @@ function NextGoalsBlock({
   }
 
   // Don't render the block if there's nothing to chase (maxed-out player).
-  if (!nextRank && tomorrowReward.cash === 0 && nextAchievements.length === 0) return null
+  if (!nextRank && !nextMilestone && nextAchievements.length === 0) return null
 
   return (
     <div className="next-goals" aria-label="Next goals">
@@ -479,14 +482,16 @@ function NextGoalsBlock({
         <div className="next-goal-label">
           <span className="next-goal-icon">🔥</span>
           <div>
-            <span className="next-goal-title">Tomorrow's streak</span>
-            <span className="next-goal-sub">Day {streakLength + 1} · come back for the reward</span>
+            <span className="next-goal-title">{nextMilestone ? `Streak day ${nextMilestone.day}` : 'Streak milestones'}</span>
+            <span className="next-goal-sub">{nextMilestone ? `${Math.max(nextMilestone.day - streakLength, 1)} days to go · paid once` : 'Every milestone claimed'}</span>
           </div>
         </div>
         <div className="next-goal-progress">
-          <span className="next-goal-reward mono gold">
-            +{formatMoney(tomorrowReward.cash)} · +{tomorrowReward.xp} XP
-          </span>
+          {nextMilestone && (
+            <span className="next-goal-reward mono gold">
+              +{formatMoney(nextMilestone.cash)} · +{nextMilestone.xp} XP
+            </span>
+          )}
         </div>
       </div>
       {nextAchievements.length > 0 && (
@@ -516,10 +521,10 @@ function NextGoalsBlock({
  * "I should play again" from a vague feeling to a concrete number.
  */
 function StreakBlock({ length, best }: { length: number; best: number }) {
-  const tomorrow = rewardForStreakDay(length + 1)
-  // Show the next three named tiers above the player's current length, so the
-  // long-term horizon is always visible (the "I'll reach day 30" drive).
-  const upcoming = STREAK_REWARD_TIERS.filter(([d]) => d > length).slice(0, 3)
+  // Milestones pay once, the first time the streak reaches them (best-ever
+  // decides) — so the preview names the NEXT unpaid one, not "tomorrow's pay".
+  const next = nextStreakMilestone(length, best)
+  const upcoming = STREAK_REWARD_TIERS.filter(([d, cash]) => d > Math.max(length, best) && cash > 0).slice(0, 3)
   return (
     <div className="streak-block" aria-label="Daily streak">
       <div className="streak-current">
@@ -530,15 +535,17 @@ function StreakBlock({ length, best }: { length: number; best: number }) {
         </div>
       </div>
       <div className="streak-next">
-        <span className="stat-label">Come back tomorrow</span>
-        <span className="streak-next-reward mono gold">
-          +{formatMoney(tomorrow.cash)} · +{tomorrow.xp} XP
-        </span>
+        <span className="stat-label">{next ? `Next milestone · day ${next.day}` : 'Every milestone claimed'}</span>
+        {next && (
+          <span className="streak-next-reward mono gold">
+            +{formatMoney(next.cash)} · +{next.xp} XP
+          </span>
+        )}
       </div>
       {upcoming.length > 0 && (
         <ul className="streak-milestones" aria-label="Upcoming streak milestones">
           {upcoming.map(([day, cash, xp]) => (
-            <li key={day} className={day === length + 1 ? 'next' : ''}>
+            <li key={day} className={next?.day === day ? 'next' : ''}>
               <span className="streak-milestone-day mono">Day {day}</span>
               <span className="streak-milestone-reward mono">+{formatMoney(cash)} · +{xp} XP</span>
             </li>

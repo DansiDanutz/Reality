@@ -100,9 +100,30 @@ body {
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--ink) 92%, transparent);
-  color: var(--paper);
+  background: var(--surface-solid);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
+/* A working map is the visual interface: the list stays reachable by keyboard
+   and assistive tech but is not painted until something inside it has focus
+   (the skip-link pattern), when it rises above the HUD. */
+.map-accessible-list:not(.is-fallback):not(:focus-within) {
+  clip-path: inset(50%);
+  opacity: 0;
+  pointer-events: none;
+}
+.map-accessible-list:not(.is-fallback):focus-within { position: fixed; z-index: 95; }
+/* No map tiles: the list is the map. Sit it under the notice, clear of the HUD. */
+.map-accessible-list.is-fallback {
+  position: fixed;
+  left: 50%;
+  bottom: auto;
+  top: calc(40% + 64px);
+  transform: translateX(-50%);
+  z-index: 5;
+  max-height: 26vh;
+}
+:root:has(.welcome-backdrop) .map-accessible-list.is-fallback { display: none; }
 .map-accessible-list h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .map-accessible-list section + section { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .map-accessible-group { margin: 4px 0; }
@@ -115,6 +136,7 @@ body {
 @media (max-width: 768px) {
   .map-fly-btn { top: 116px; right: 12px; padding: 7px 10px; font-size: 12px; }
   .map-accessible-list button { min-height: 40px; padding: 8px; }
+  .map-accessible-list.is-fallback { top: 196px; max-height: 22vh; }
 }
 
 .map-beacon {
@@ -3362,6 +3384,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   .welcome-row .btn { flex: 1; }
 }
 .welcome-note { font-size: 12px; color: var(--muted); }
+.welcome-legal a { color: var(--sky, #7dd3fc); }
+.welcome-legal a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .welcome-slots { font-size: 11px; color: var(--gold); letter-spacing: 0.08em; text-align: left; }
 .targets { text-align: left; }
@@ -4651,4 +4675,8 @@ button:focus-visible, .tab:focus-visible, input:focus-visible, select:focus-visi
   max-width: min(420px, calc(100vw - 32px)); margin: 0; padding: 12px 16px;
   border-radius: 10px; background: var(--surface, rgba(13, 20, 36, 0.92)); color: var(--text);
   text-align: center; font-size: 14px;
+}
+@media (max-width: 768px) {
+  /* Phones: notice under the vitals strip, holdings list right below it, both clear of the day card. */
+  .map-tiles-unreachable { top: 128px; width: calc(100vw - 24px); max-width: none; padding: 8px 12px; font-size: 13px; }
 }

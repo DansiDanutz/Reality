@@ -4,9 +4,9 @@
 
 The first **2,000 founders** receive **$200,000 in-game credits** to bootstrap the world's economy: claim an area, open businesses, hire, trade, and build. Real payouts, withdrawals, land sales, and crypto settlement are disabled until server authority and compliance review are ready.
 
-![status](https://img.shields.io/badge/status-open%20beta-f0b429) ![stack](https://img.shields.io/badge/stack-React%20%2B%20Three.js-5b8def)
+![status](https://img.shields.io/badge/release-1.0-f0b429) ![stack](https://img.shields.io/badge/stack-React%20%2B%20Three.js-5b8def)
 
-### ▶️ [Play the beta now — reality-gamma.vercel.app](https://reality-gamma.vercel.app)
+### ▶️ [Play now — reality-gamma.vercel.app](https://reality-gamma.vercel.app)
 
 ## Play it locally in 30 seconds
 
@@ -19,7 +19,7 @@ npm run dev
 
 Open http://localhost:5173, claim your founder slot, and start living.
 
-## What's in the beta
+## What's in 1.0
 
 | System | Status |
 |--------|--------|
@@ -40,14 +40,19 @@ Open http://localhost:5173, claim your founder slot, and start living.
 | Trade-route arcs between your holdings on the globe | ✅ |
 | Save game (browser localStorage + optional cloud backup) | ✅ |
 | Engine test suite (`npm test`) | ✅ |
-| Server-authoritative Founder Area, ledger intents, and world placement | 🟡 staged authority; production cutover pending |
+| Server clock — the game runs on server time; changing a device's clock earns nothing | ✅ |
+| Server ledger — shifts, building purchases and business income are recorded server-side and bound the leaderboard | ✅ |
+| Founder Area on Postgres | 🟡 runs on Blob with compare-and-swap writes; Postgres cutover is a deployment switch |
+| Real payouts, deposits, land sales, crypto settlement | ⛔ off by design |
 
 ## Documentation
 
 - [Game Design](docs/GAME_DESIGN.md) — mechanics, needs, jobs, progression
 - [Economy](docs/ECONOMY.md) — money supply, prices, yields, sinks & faucets
 - [Architecture](docs/ARCHITECTURE.md) — code layout today, server design for v1
-- [Roadmap](docs/ROADMAP.md) — beta → online launch → society
+- [Launch checklist](docs/LAUNCH.md) — what to do on the deployment, and the known limits of 1.0
+- [Changelog](CHANGELOG.md)
+- [Roadmap](docs/ROADMAP.md) — 1.0 → society → civilization
 - [All roadmaps & implementation status](docs/ROADMAPS.md) — one consolidated view of product, technical, content, and monetization roadmaps
 - [Presentation page](https://reality-gamma.vercel.app/presentation.html) — shareable one-page pitch for the game (`/presentation.html`)
 - [Contributing](CONTRIBUTING.md) — the game is built in the open; PRs welcome

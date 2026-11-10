@@ -84,14 +84,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. Age plausibility: founder grant + a generous $100k per day of
     //    citizenship, from the citizen's authoritative created_at. Unknown
     //    age means the day-0 ceiling, never the raw client number.
-    // 2. Ledger reconciliation: real worth can never exceed the citizen's
-    //    accepted ledger credits (plus a small pending-income tolerance) —
-    //    spending converts cash into assets, it never mints new worth.
+    // 2. Ledger reconciliation: real worth can never exceed what the
+    //    citizen's accepted ledger credits, server-recorded businesses and
+    //    age could have produced (maxReconciledWorth) — spending converts
+    //    cash into assets, it never mints new worth.
     const profile = await citizenScoreProfilePg(String(citizenId))
     const cleanName = String(profile.name ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'citizen'
     const ageDays = profile.ageDays
     const ageCap = ageDays !== null ? maxPlausibleWorth(ageDays) : FALLBACK_MAX_PLAUSIBLE
-    const ledgerCap = maxReconciledWorth(profile.ledgerCredits)
+    const ledgerCap = maxReconciledWorth(profile)
     const cappedWorth = Math.min(worth, ageCap, ledgerCap)
 
     // One atomic statement: replace the score, audit the cap if it bit.

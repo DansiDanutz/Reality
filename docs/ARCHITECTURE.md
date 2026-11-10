@@ -67,15 +67,70 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   atomically, with the daily cap and overdraft gate. It no longer requires
   a prior `buyItem` row (that gate refused every placement, since nothing
   ever sent one, and would have charged twice if something had).
-- The `workShift`/`buyItem`/`placeAsset` intents are valid (a shift pays
-  `wage × seniority × 8h`; seniority is the one multiplier the ledger can
-  count for itself) but have no client caller yet. Reporting shifts from
-  the client needs a durable outbox with retries, a hand-off from device
-  time to trusted server time, and server-side level reconciliation (the
-  client also levels through education); that is designed as its own
-  change, not bolted on. Until then the ledger sees genesis and placements,
-  the client does **not** snap its balance to the server's, and the
-  device clock remains the time authority (audit finding E2, open).
+- The `buyItem`/`placeAsset` intents are valid but have no client caller yet.
+  **Finished shifts are reported** (audit E4): when a full 8-hour shift
+  completes in `tick()`, the client queues a `workShift` intent in a durable
+  outbox (`src/lib/intentOutbox.ts`, localStorage `reality-outbox-v1`) and
+  flushes it on completion, on the 2-minute heartbeat, and when the browser
+  comes back online. The idempotency key is derived from the shift itself
+  (`shift-<citizen createdAt>-<startedAt>`), so a retry replays the original ledger
+  row rather than paying twice; only accepted rows replay, while a refusal
+  (cooldown, rate limit) is stored unkeyed so the same shift can be retried
+  once the condition clears. Each entry belongs to the citizen who did the
+  work (their `createdAt`, stable from the first offline moment) and is only
+  ever sent while that citizen is the signed-in, registered one, so the queue
+  surviving a `reset()` cannot credit a different account. The job reported
+  is the one stamped when the shift **started**. A shift pays
+  `wage × seniority × 8h` (seniority is the one multiplier the ledger can
+  count for itself). Failed or refused sends back off exponentially (1 min
+  to 6 h); an outage never deletes a report, a backlog catches up one shift
+  per real 8 hours, terminal rejections are dropped and entries older than
+  14 days are discarded. Every queue change is a read-modify-write against
+  current storage, so a shift finishing while a send is in flight is never
+  overwritten. Gigs and activities started before the job stamp existed are
+  not reported.
+  **Business income is paid by the server** (1.0): `collectIncome` in the
+  store queues a `collectIncome` intent that carries no amount. The server
+  reads the businesses it charged for (`assets.placed_at`) and its last
+  accepted collection, and pays base catalog income net of operating costs
+  for that span, capped at the 3-day till (`src/game/serverIncome.ts`). A
+  one-hour cooldown inside the citizen's advisory lock makes two racing
+  collections pay once. The outbox keeps one waiting collection per citizen
+  and sends each kind of intent in its own lane, so a shift's 8-hour
+  cooldown never holds back a collection.
+  **The leaderboard ceiling is built from evidence only**
+  (`maxReconciledWorth`, `api/_scoresPg.ts`): non-shift ledger credits
+  × 1.1 (income still in the till), shift credits × 1.9 (gear +46% and
+  education +30% multiply wages on the client only), plus the most the
+  server-recorded businesses could have earned at the top upgrade level
+  since they were placed, plus a flat allowance for client-only faucets
+  ($2,000 + $5,000 per completed day of citizenship). A silent ledger falls back to
+  the registration grant.
+  A shift for a job above the ledger's own level (the client's level
+  includes course, tutorial and achievement XP the ledger never sees) is
+  recorded at the best wage the ledger level allows, never rejected.
+  Still open: the ledger accepts a `workShift` without proof a shift was
+  started (the cooldown bounds it to three per real day), level is not
+  reconciled server-side, and upgrades, gigs and bounties exist only in the
+  save. The client does **not** snap its balance to the server's. The
+  accepted limits of 1.0 are listed in `docs/LAUNCH.md`.
+
+**Time is the server's.** The client measures the server's time from
+`/api/time` (round-trip midpoint) at startup, on resume, when it comes back
+online, and every 10 minutes. Between measurements, game time advances on
+the monotonic clock (`performance.now()`), so changing the device's date
+and time mid-session moves nothing. `src/game/time.ts` holds it. Every reading of
+"now" in the game uses it: the tick, activity timers, day boundaries and
+the countdowns on screen. At startup the tick holds (≤5 s) for the first
+measurement; offline, the last measured offset for this device applies. A
+clock far behind the last simulated instant freezes accrual until real
+time catches up, so time played ahead of the real clock is paid back
+rather than re-anchored away. A save stamped before the server's time was
+known is handed off once (`clockTrusted`). A citizen created this session
+moves by exactly the first measurement's correction, either way. An older
+save moves only if it lies in the future, since it was then stamped by a
+fast clock: its timestamps and calendar-day counters move back to now.
+Otherwise it is left alone. (Audit finding E2.)
 
 **Cloud saves** are still client-asserted state, but `/api/cloud-save`
 holds the save's balance to the same age-plausibility ceiling the

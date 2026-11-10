@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { useMemo, useState } from 'react'
 import { CATEGORIES, ENDGAME_IDS, SHOP_ITEMS } from '../../game/catalog'
 import {
@@ -132,7 +133,7 @@ export default function Market() {
   const spawnLat = useGame((s) => s.citizen?.spawnLat)
 
   // Rule #1: the shelves follow the REAL season outside the player's window
-  const season = seasonOf(new Date().getMonth() + 1, spawnLat ?? 45)
+  const season = seasonOf(new Date(gameNow()).getMonth() + 1, spawnLat ?? 45)
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase()

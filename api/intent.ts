@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp, careerRankOf } from '../src/game/engine.js'
-import { itemById, jobById } from '../src/game/catalog.js'
+import { JOBS, itemById, jobById } from '../src/game/catalog.js'
+import { serverCollectableIncome, type ServerBusiness } from '../src/game/serverIncome.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
 import { csrfMatches, sessionFromCookie } from './_session.js'
@@ -27,6 +28,7 @@ export type Intent =
   | { type: 'workShift'; jobId: string }
   | { type: 'buyItem'; itemId: string; quantity: number }
   | { type: 'placeAsset'; itemId: string }
+  | { type: 'collectIncome' }
 
 type Rejection = { ok: false; code: string; error: string }
 type Normalized = { ok: true; intent: Intent } | Rejection
@@ -37,6 +39,7 @@ const INTENT_FIELDS: Record<Intent['type'], ReadonlySet<string>> = {
   workShift: new Set(['type', 'jobId']),
   buyItem: new Set(['type', 'itemId', 'quantity']),
   placeAsset: new Set(['type', 'itemId']),
+  collectIncome: new Set(['type']),
 }
 
 function reject(code: string, error: string): Rejection {
@@ -54,13 +57,14 @@ export function normalizeIntent(input: unknown): Normalized {
   }
   const raw = input as Record<string, unknown>
   const type = raw.type
-  if (type !== 'workShift' && type !== 'buyItem' && type !== 'placeAsset') {
+  if (type !== 'workShift' && type !== 'buyItem' && type !== 'placeAsset' && type !== 'collectIncome') {
     return reject('unsupported_intent', 'Unknown intent type.')
   }
   if (Object.keys(raw).some((key) => !INTENT_FIELDS[type].has(key))) {
     return reject('client_controlled_server_field', 'Client-controlled server fields are not allowed.')
   }
 
+  if (type === 'collectIncome') return { ok: true, intent: { type } }
   if (type === 'workShift') {
     const jobId = String(raw.jobId ?? '')
     if (!jobId) return reject('invalid_job', 'A job id is required.')
@@ -78,18 +82,27 @@ export function normalizeIntent(input: unknown): Normalized {
   return { ok: true, intent: { type, itemId, quantity } }
 }
 
+/** The best-paying job a ledger level qualifies for (null only if the catalog has none). */
+export function bestJobForLevel(level: number) {
+  return JOBS.filter((job) => job.requiredLevel <= level).sort((a, b) => b.wage - a.wage)[0] ?? null
+}
+
 /**
  * Rule validation: prices, wages and requirements come from the SAME catalog
  * and engine constants the client simulation uses — the server never trusts
  * a client number and never re-implements a rule.
  */
-export function evaluateIntent(intent: Intent, citizenLevel: number, shiftsWorked = 0): Evaluated {
+export function evaluateIntent(intent: Exclude<Intent, { type: 'collectIncome' }>, citizenLevel: number, shiftsWorked = 0): Evaluated {
   if (intent.type === 'workShift') {
-    const job = jobById(intent.jobId)
-    if (!job) return reject('unknown_job', 'That job does not exist.')
-    if (citizenLevel < job.requiredLevel) {
-      return reject('level_too_low', `${job.title} requires level ${job.requiredLevel}.`)
-    }
+    const worked = jobById(intent.jobId)
+    if (!worked) return reject('unknown_job', 'That job does not exist.')
+    // The client's level includes XP the ledger never sees (courses, tutorial,
+    // achievements), so a citizen can honestly hold a job the ledger's own
+    // level does not reach yet. The shift still happened: record it, paid at
+    // the best job the LEDGER level allows. The client's level is never
+    // trusted, and each recorded shift's XP raises the ledger level in turn.
+    const job = citizenLevel >= worked.requiredLevel ? worked : bestJobForLevel(citizenLevel)
+    if (!job) return reject('level_too_low', `${worked.title} requires level ${worked.requiredLevel}.`)
     // Seniority is the one wage multiplier the ledger can see for itself:
     // it is earned with shifts, and every accepted shift is a ledger row.
     // Gear and education bonuses live only in the client save, so the
@@ -98,7 +111,10 @@ export function evaluateIntent(intent: Intent, citizenLevel: number, shiftsWorke
     return {
       ok: true,
       amount: Math.round(job.wage * rank.wageMultiplier * SHIFT_HOURS),
-      meta: { jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT, rank: rank.rank, rankMultiplier: rank.wageMultiplier },
+      meta: {
+        jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT, rank: rank.rank, rankMultiplier: rank.wageMultiplier,
+        ...(job.id !== worked.id ? { workedJobId: worked.id } : {}),
+      },
     }
   }
   const item = itemById(intent.itemId)
@@ -112,6 +128,49 @@ export function evaluateIntent(intent: Intent, citizenLevel: number, shiftsWorke
     amount: -item.price * intent.quantity,
     meta: { itemId: item.id, quantity: intent.quantity, unitPrice: item.price },
   }
+}
+
+/** Below this there is nothing worth a ledger row. */
+export const MIN_COLLECT = 1
+/** One collection per real hour: also what makes two racing collections pay once. */
+export const COLLECT_COOLDOWN = '1 hour'
+
+/**
+ * Business income is paid from what the SERVER holds: the businesses it
+ * charged for and when, and when it last paid. The client sends no amount.
+ */
+export function evaluateCollectIncome(businesses: readonly ServerBusiness[], lastCollectedAt: number | null, now: number): Evaluated {
+  const amount = serverCollectableIncome(businesses, lastCollectedAt, now)
+  if (amount < MIN_COLLECT) return reject('nothing_to_collect', 'Your businesses have nothing to collect yet.')
+  return { ok: true, amount, meta: { businesses: businesses.length, since: lastCollectedAt } }
+}
+
+const BUSINESS_INCOME_SQL = `
+  SELECT
+    (SELECT max(l.created_at) FROM ledger l
+      WHERE l.citizen_id = $1 AND l.intent = 'intent.collectIncome' AND l.balance_after IS NOT NULL) AS last_collected,
+    COALESCE((SELECT jsonb_agg(jsonb_build_object('itemId', a.item_id, 'placedAt', a.placed_at))
+      FROM assets a WHERE a.citizen_id = $1 AND a.kind = 'business'), '[]'::jsonb) AS businesses
+`.trim()
+
+function toMs(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const ms = value instanceof Date ? value.getTime() : Date.parse(String(value))
+  return Number.isFinite(ms) ? ms : null
+}
+
+/** Rows from BUSINESS_INCOME_SQL → the pure rule's inputs. Anything unreadable is left out, never guessed. */
+export function businessIncomeInputs(row: { last_collected?: unknown; businesses?: unknown } | undefined): { businesses: ServerBusiness[]; lastCollectedAt: number | null } {
+  const raw = typeof row?.businesses === 'string' ? (JSON.parse(row.businesses) as unknown) : row?.businesses
+  const businesses: ServerBusiness[] = []
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      const placedAt = toMs((entry as { placedAt?: unknown } | null)?.placedAt)
+      const itemId = (entry as { itemId?: unknown } | null)?.itemId
+      if (placedAt !== null && typeof itemId === 'string') businesses.push({ itemId, placedAt })
+    }
+  }
+  return { businesses, lastCollectedAt: toMs(row?.last_collected) }
 }
 
 type SqlClient = { query: (statement: string, params?: unknown[]) => Promise<unknown> }
@@ -159,6 +218,7 @@ const APPEND_SQL = `
 
 /** A shift pays out at most once per real shift window — Rule #1, real time. */
 function cooldownFor(intent: Intent): string | null {
+  if (intent.type === 'collectIncome') return COLLECT_COOLDOWN
   return intent.type === 'workShift' ? `${SHIFT_HOURS} hours` : null
 }
 
@@ -212,7 +272,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const level = applyXp(1, 0, Number.isFinite(totalXp) ? totalXp : 0).level
     const shiftsWorked = Number(context[0]?.shifts ?? 0)
 
-    const evaluated = evaluateIntent(normalized.intent, level, Number.isFinite(shiftsWorked) ? shiftsWorked : 0)
+    let evaluated: Evaluated
+    if (normalized.intent.type === 'collectIncome') {
+      const rows = (await sql.query(BUSINESS_INCOME_SQL, [citizenId])) as Array<{ last_collected?: unknown; businesses?: unknown }>
+      const inputs = businessIncomeInputs(rows[0])
+      evaluated = evaluateCollectIncome(inputs.businesses, inputs.lastCollectedAt, Date.now())
+    } else {
+      evaluated = evaluateIntent(normalized.intent, level, Number.isFinite(shiftsWorked) ? shiftsWorked : 0)
+    }
     if (!evaluated.ok) {
       res.status(422).json(evaluated)
       return
@@ -229,6 +296,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ])) as Array<{ new_balance: string | number | null; refusal: string | null }>
 
     const outcome = appended[0]
+    if (outcome?.refusal === 'cooldown' && normalized.intent.type === 'collectIncome') {
+      res.status(429).json({ ok: false, code: 'collect_too_soon', error: 'Business income is collected at most once an hour.' })
+      return
+    }
     if (outcome?.refusal === 'cooldown') {
       res.status(429).json({
         ok: false,
@@ -256,10 +327,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body: Record<string, unknown> = {
       ok: true,
       intent: normalized.intent.type,
-      amount: evaluated.amount,
       level,
       balance,
     }
+    // A retried collection replays its original ledger row, while the amount
+    // above was recomputed for THIS request — so only the balance is reported.
+    if (normalized.intent.type !== 'collectIncome') body.amount = evaluated.amount
     if (normalized.intent.type === 'workShift') body.xp = XP_PER_SHIFT
     // Correction frame: the client predicted a post-intent balance; when the
     // authoritative number disagrees, the client must snap to the server's.

@@ -22,7 +22,17 @@ Single-player life sim on the 3D Earth: needs, jobs, shop, placeable homes & bus
 **Phase 1b — shipped ✅** (2026-07-09/10)
 - ✅ Server-authoritative simulation: `/api/intent` validates `workShift`/`buyItem`/`placeAsset` against the server's own copy of the economy rules and appends to a Postgres ledger — see ARCHITECTURE
 - ✅ Registry, world, and leaderboard moved from Blob to Postgres; citizen auth verifies against Postgres, not the old Blob mirror
-- Still open: no live-tick/WebSocket world (the shared area economy ticks via a polling/cron job, not a push); anti-cheat covers the intents above but not a full server-side replay of the personal-life sim
+
+## 1.0 — released 2026-11-10 ✅
+
+The play-money game is production-ready: see [CHANGELOG.md](../CHANGELOG.md) and the deployment steps in [LAUNCH.md](LAUNCH.md).
+
+- ✅ Trusted time: the simulation runs on the server's clock
+- ✅ Faucets capped and guarded by a whole-economy simulation test
+- ✅ Shifts and business income recorded on the server ledger; the leaderboard ceiling is built from server evidence only
+- ✅ Founder Area writes are compare-and-swap
+- ✅ Telegram sign-in without third-party scripts; privacy notice and terms published
+- Still open (accepted for play money, listed in LAUNCH.md): no server replay of the personal-life sim, no proof-of-work for shift reports, no live-tick/WebSocket world
 
 ## Phase 2 — Society
 

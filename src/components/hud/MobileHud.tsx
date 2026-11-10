@@ -224,6 +224,7 @@ export default function MobileHud() {
             className="msheet"
             ref={sheetRef}
             role="dialog"
+            aria-modal="true"
             aria-label={SHEET_TITLES[sheet]}
             onClick={(e) => e.stopPropagation()}
           >

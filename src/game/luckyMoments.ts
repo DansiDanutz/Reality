@@ -210,9 +210,10 @@ export function pickFirstLuckyMoment(rng: () => number = Math.random): LuckyMome
  *
  * @param rng  Injectable RNG (default Math.random) — matches rollEvent's API.
  */
-export function rollLuckyMoment(rng: () => number = Math.random): LuckyMoment | null {
-  // Chance gate — the rare-event filter.
-  if (rng() > LUCKY_MOMENT_CHANCE) return null
+export function rollLuckyMoment(rng: () => number = Math.random, chanceScale = 1): LuckyMoment | null {
+  // Chance gate — the rare-event filter. `chanceScale` is elapsed live time
+  // in seconds (1 at the foreground 1 Hz cadence): odds follow time, not calls.
+  if (rng() > LUCKY_MOMENT_CHANCE * chanceScale) return null
   return pickLuckyMoment(rng)
 }
 

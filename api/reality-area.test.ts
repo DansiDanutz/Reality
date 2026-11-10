@@ -80,7 +80,7 @@ vi.mock('@neondatabase/serverless', () => ({
 
 vi.mock('@vercel/blob', () => ({
   list: vi.fn(),
-  put: vi.fn(async () => ({ url: 'blob://reality-areas/founder.json' })),
+  put: vi.fn(async () => ({ url: 'blob://reality-areas/founder.json', etag: 'etag-written' })),
 }))
 
 const CITIZEN_ID = '11111111-1111-4111-8111-111111111111'
@@ -1361,7 +1361,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -2224,7 +2224,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -2399,7 +2399,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -2838,7 +2838,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -2915,7 +2915,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -3115,7 +3115,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -3392,7 +3392,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -3549,7 +3549,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -5136,7 +5136,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -5273,7 +5273,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -5386,7 +5386,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -6332,7 +6332,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -6391,7 +6391,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -6650,7 +6650,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -6720,7 +6720,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -6880,7 +6880,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -7047,7 +7047,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -7148,7 +7148,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 
@@ -7527,7 +7527,7 @@ describe('reality area authority API', () => {
     expect(put).toHaveBeenLastCalledWith(
       areaStatePath(CITIZEN_ID),
       JSON.stringify(body.state),
-      { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' },
+      expect.objectContaining({ access: 'private', addRandomSuffix: false, allowOverwrite: true, ifMatch: expect.any(String), contentType: 'application/json' }),
     )
   })
 })
@@ -8233,7 +8233,8 @@ function blobList(
   cursor?: string
 } {
   return {
-    blobs: pathnames.map((pathname) => ({ pathname, downloadUrl, ...(options.etag ? { etag: options.etag } : {}) })),
+    // The real SDK always returns an etag; writes refuse to replace a snapshot without one.
+    blobs: pathnames.map((pathname) => ({ pathname, downloadUrl, etag: options.etag ?? 'etag-listed' })),
     hasMore: options.hasMore ?? false,
     ...(options.cursor ? { cursor: options.cursor } : {}),
   }
@@ -8517,3 +8518,25 @@ function covenantReviewSchedule(input: {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
+
+describe('Founder Area Blob writes are compare-and-swap only', () => {
+  test('an existing snapshot listed without an etag is never overwritten', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-06T07:00:00.000Z'))
+    vi.mocked(put).mockClear()
+    vi.mocked(list).mockResolvedValueOnce({
+      blobs: [{ pathname: areaStatePath(CITIZEN_ID), downloadUrl: 'blob://no-etag-area' }],
+      hasMore: false,
+    } as never)
+    const stale = { ...existingState(), updatedAt: '2026-07-06T05:00:00.000Z' }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(stale), { status: 200 })))
+    const res = responseRecorder()
+
+    await handler({ method: 'GET', query: { citizenId: CITIZEN_ID, token: TOKEN } } as never, res as never)
+
+    expect(put).not.toHaveBeenCalled()
+    expect(res.statusCode).toBeGreaterThanOrEqual(500)
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+})

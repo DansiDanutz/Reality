@@ -98,3 +98,17 @@ test.describe('Semantic map controls', () => {
     expect(box?.width ?? 999).toBeLessThanOrEqual(320)
   })
 })
+
+test('the welcome screen links the terms and privacy notice, and both pages load', async ({ page }) => {
+  await page.goto('/')
+  const terms = page.getByRole('link', { name: 'terms' })
+  const privacy = page.getByRole('link', { name: 'privacy notice' })
+  await expect(terms).toHaveAttribute('href', '/terms.html')
+  await expect(privacy).toHaveAttribute('href', '/privacy.html')
+  await page.goto('/privacy.html')
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy' })).toBeVisible()
+  await page.goto('/terms.html')
+  await expect(page.getByRole('heading', { level: 1, name: 'Terms of play' })).toBeVisible()
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})

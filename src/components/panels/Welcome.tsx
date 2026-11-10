@@ -195,7 +195,11 @@ export default function Welcome({ telegramMessage = '' }: { telegramMessage?: st
         <GoogleRestore />
         {telegramMessage && <p className="welcome-note" role="status">{telegramMessage}</p>}
         <WaitlistForm />
-        <p className="welcome-note">Beta: your world is saved in this browser. Telegram-linked citizens are backed up automatically; you can also link Google in your Profile.</p>
+        <p className="welcome-note">Your world is saved in this browser. Telegram-linked citizens are backed up automatically; you can also link Google in your Profile.</p>
+        <p className="welcome-note welcome-legal">
+          Reality is free and played with play money. By creating a citizen you accept the{' '}
+          <a href="/terms.html">terms</a> and <a href="/privacy.html">privacy notice</a>.
+        </p>
       </div>
     </div>
   )

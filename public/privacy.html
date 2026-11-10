@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="What Reality stores about you, why, and how to remove it." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#05070e" />
+    <title>Privacy — Reality</title>
+    <style>
+      :root { --bg: #05070e; --surface: #0c111e; --line: rgba(255, 255, 255, 0.12); --text: #e8ecf4; --muted: #9aa7bf; --gold: #f0b429; --sky: #7dd3fc; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+      main { max-width: 720px; margin: 0 auto; padding: 40px 16px 72px; }
+      a { color: var(--sky); }
+      a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+      .brand { display: inline-block; margin-bottom: 28px; color: var(--text); font-weight: 700; letter-spacing: 0.28em; text-decoration: none; }
+      h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.2; text-wrap: balance; }
+      h2 { margin: 36px 0 8px; font-size: 19px; color: var(--gold); }
+      p, li { color: var(--text); }
+      .meta { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+      .lede { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+      ul { padding-left: 20px; }
+      li { margin: 6px 0; }
+      table { width: 100%; border-collapse: collapse; font-size: 15px; }
+      th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { color: var(--muted); font-weight: 600; }
+      .table-wrap { overflow-x: auto; }
+      footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="brand" href="/">REALITY</a>
+      <h1>Privacy</h1>
+      <p class="meta">Version 1.0 · effective 10 November 2026</p>
+      <p class="lede">
+        Reality is a game. It stores the least it needs to keep your citizen, show your buildings on the shared map and stop
+        abuse. It has no advertising and no third-party analytics, and nothing about you is sold.
+      </p>
+
+      <h2>What is stored, and why</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>What</th><th>Why</th><th>Where</th></tr></thead>
+          <tbody>
+            <tr><td>Your game save (needs, money, inventory, buildings, journal)</td><td>So the game continues where you left it</td><td>Your browser. A copy on our server only if you link Telegram or Google</td></tr>
+            <tr><td>Citizen name, founder number, registration date</td><td>Your identity in the shared world and on the leaderboard</td><td>Our database</td></tr>
+            <tr><td>A sign-in session (a cookie your browser cannot read from scripts)</td><td>To prove later requests come from your citizen</td><td>Your browser; only a hash on our server</td></tr>
+            <tr><td>Buildings you place: type and position rounded to about 1 km (homes are shown to others only to about 11 km)</td><td>The shared map everyone sees</td><td>Our database, public</td></tr>
+            <tr><td>Economy ledger: reported shifts, purchases of buildings, collected business income, claimed net worth</td><td>A fair leaderboard</td><td>Our database</td></tr>
+            <tr><td>Telegram user id, name and username — only if you open Reality inside Telegram</td><td>Sign-in and restoring your citizen on another device</td><td>Our database</td></tr>
+            <tr><td>Google account id and email — only if you link Google</td><td>Restoring your citizen on another device</td><td>Our storage</td></tr>
+            <tr><td>Email address — only if you join the waitlist</td><td>To tell you when founder slots open</td><td>Our storage</td></tr>
+            <tr><td>Avatar description you type, and the picture made from it — only if you create an avatar</td><td>Your citizen's portrait</td><td>Sent to OpenAI to draw the picture; the picture is kept in our storage</td></tr>
+            <tr><td>A shortened one-way hash of your IP address</td><td>Rate limits against spam and abuse. The address itself is not stored</td><td>Our database, as a count per day</td></tr>
+            <tr><td>Your approximate city, estimated from your connection</td><td>To start your life near where you are</td><td>Used to answer that one request; kept in your browser's save as your citizen's home city</td></tr>
+            <tr><td>Anonymous milestone counts (for example "first purchase") under a random id</td><td>To see where new players get stuck</td><td>Our storage</td></tr>
+            <tr><td>Crash reports: the error text and page</td><td>To fix bugs</td><td>Our storage</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Who else handles it</h2>
+      <ul>
+        <li><strong>Vercel</strong> hosts the game and file storage; <strong>Neon</strong> hosts the database.</li>
+        <li><strong>OpenFreeMap</strong> serves map tiles and <strong>Overpass (OpenStreetMap)</strong> serves street data. They receive the map area you look at, like any map site.</li>
+        <li><strong>Google Fonts</strong> serves the typefaces.</li>
+        <li><strong>Google</strong>, <strong>Telegram</strong> and <strong>OpenAI</strong> are involved only if you use Google sign-in, open the game in Telegram, or create an avatar.</li>
+      </ul>
+
+      <h2>What other players can see</h2>
+      <p>Your citizen name, your buildings and their rounded positions, and your place on the leaderboard. Never your email, your Telegram or Google identity, or a precise home location.</p>
+
+      <h2>Money</h2>
+      <p>All money in Reality is play money. There are no purchases, deposits, withdrawals or payouts, so no payment details are collected.</p>
+
+      <h2>Keeping and deleting</h2>
+      <ul>
+        <li>Clearing this site's data in your browser removes the local save and signs you out.</li>
+        <li>To delete your citizen and everything linked to it on our server, or to get a copy of it, open a request at
+          <a href="https://github.com/DansiDanutz/Reality/issues">github.com/DansiDanutz/Reality/issues</a> without posting private details; we will arrange verification with you.</li>
+      </ul>
+
+      <h2>Children</h2>
+      <p>Reality is not directed at children under 13, and we do not knowingly collect their data.</p>
+
+      <h2>Changes</h2>
+      <p>If this notice changes, the version and date at the top change with it, and the history is public in the source repository.</p>
+      <footer>
+        <a href="/">Back to the game</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> ·
+        <a href="https://github.com/DansiDanutz/Reality">Source code</a>
+      </footer>
+    </main>
+  </body>
+</html>
