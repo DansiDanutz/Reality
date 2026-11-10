@@ -16,11 +16,15 @@
 | Windfall | Amount | Where |
 |----------|--------|-------|
 | Achievement bounties | $141,800 across 28 achievements (57× the citizen grant), each once | `achievements.ts` |
-| Streak rewards | $50 at day 2 rising to $10,000 at day 100, each tier once | `streak.ts` |
-| Daily challenges | up to ~$1,850 per real day (three tasks + completion bonus) | `dailyChallenges.ts` |
-| Lucky moments | $100–5,000, 0.02% per tick while active | `luckyMoments.ts` |
+| Streak rewards | Milestone days only (2, 3, 4, 5, 6, 7, 14, 30, 100) — $20,500 lifetime, each once per citizen (`best` streak decides, so a reset never re-pays) | `streak.ts` |
+| Daily challenges | up to ~$1,850 per real day (three tasks + completion bonus), capped at 50% of what the citizen can actually earn that day — owning a business no longer bypasses the cap | `dailyChallenges.ts` |
+| Lucky moments, good life events, golden opportunities | Draw on one **windfall budget**: $100/day + 50% of that day's earned wages/income; odds scale with elapsed time, not tick count | `luckyMoments.ts`, `windfall.ts` |
 | Mystery boxes | opened with earned credits, prizes to $50,000 | `mysteryBox.ts` |
 | Golden opportunities, life events, gigs, boosters | one-off cash events and $14/h gigs | `goldenOpportunity.ts`, `catalog.ts`, `engine.ts`, `boosters.ts` |
+
+**Measured, not assumed** (`src/store/economy.sim.test.ts` drives the real store with a seeded RNG for weeks of simulated play). The first run found the faucets far out of proportion to labor — a citizen who only logged in once a day earned $2.66M after day 100 (streak paying an interpolated amount *daily*), a tab left open earned ~$2–16k/day from lucky moments and events, against $120 for an 8-hour barista shift. The fixes above are pinned by invariants that now fail the build if a faucet regresses: login-only income < one shift a day; an idle tab earns ≤ one shift a day; streak cash ≤ $25k lifetime; recurring luck < 2× wages for a working citizen; one-time bounties bounded by their catalogs.
+
+**Design note — founder grant vs wages.** The $200k founder grant is ~1,700 barista shifts. For a founder, wages are a minor lever by design; capital (businesses at 60–90 day payback) is the engine. Wages are the on-ramp for the $2,500 citizen. Gating by play-time rather than money is not the design (e.g. 15 courses at $80 buy level 4).
 
 **Holding costs** (money out, continuously): businesses pay 10% of gross income as operating costs (`BUSINESS_OPEX_RATE`); homes pay property tax of 0.004% of price per real day (`HOME_TAX_DAILY`, ~1.5%/year); both floor at $0 — a broke citizen never death-spirals. A business till holds at most 3 days of income (`PENDING_CAP_DAYS`).
 **Sinks** (money out): the Market — 115 items across 13 categories (counts live in `src/game/catalog.ts`; the table below shows the main groupings):

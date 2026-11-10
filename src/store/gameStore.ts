@@ -11,6 +11,7 @@ import {
   canCook,
   careerRankOf,
   COOK_MINUTES,
+  activityHours,
   distanceKm,
   feedPet,
   fluBlocksWork,
@@ -35,6 +36,7 @@ import { computeStreakClaim, streakLabel, type StreakState } from '../game/strea
 import { rollLuckyMoment, pickFirstLuckyMoment, RARITY_META } from '../game/luckyMoments'
 import { MAX_BUSINESS_LEVEL } from '../game/businessUpgrades'
 import { MYSTERY_BOXES, creditTierForSeriousWorkStreak, freshMysteryBoxCredits, openBox, type BoxReward, type BoxTier, type MysteryBoxCredits } from '../game/mysteryBox'
+import { tickChanceScale, windfallFit, windfallRoom } from '../game/windfall'
 import { rollOpportunity, type GoldenOpportunity, OPPORTUNITY_WINDOW_MS } from '../game/goldenOpportunity'
 import { BOOSTERS, boosterMultiplier, cleanExpiredBoosters, type BoosterType } from '../game/boosters'
 import { advanceCombo, comboBonusXP, comboLabel, COMBO_WINDOW_MS } from '../game/combo'
@@ -159,7 +161,8 @@ export type MapTarget =
   | { kind: 'asset'; id: string }
   | { kind: 'construction'; id: string }
 
-type DailyCounters = DailyChallengeSnapshot & { day: number }
+/** `windfallToday` is the luck cash drawn from today's windfall budget (src/game/windfall.ts). */
+type DailyCounters = DailyChallengeSnapshot & { day: number; windfallToday: number }
 
 function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): DailyCounters {
   return {
@@ -176,6 +179,7 @@ function freshDailyCounters(day = 0, overrides: Partial<DailyCounters> = {}): Da
     workersHiredToday: 0,
     communityToday: 0,
     businessDevelopmentMinutesToday: 0,
+    windfallToday: 0,
     day,
     ...overrides,
   }
@@ -196,6 +200,7 @@ function normalizeDailyCounters(counters: Partial<DailyCounters> | null | undefi
     workersHiredToday: Math.max(0, Math.floor(Number(counters?.workersHiredToday ?? 0))),
     communityToday: Math.max(0, Math.floor(Number(counters?.communityToday ?? 0))),
     businessDevelopmentMinutesToday: Math.max(0, Math.floor(Number(counters?.businessDevelopmentMinutesToday ?? 0))),
+    windfallToday: Math.max(0, Math.floor(Number(counters?.windfallToday ?? 0))),
   })
 }
 
@@ -333,7 +338,7 @@ const SAVE_KEY = 'reality-save-v1'
  * bumping this makes its backfill dead code for every existing save.
  * Exported so migrateSave.test.ts can pin it to the latest migration.
  */
-export const SAVE_VERSION = 22
+export const SAVE_VERSION = 23
 
 /**
  * Save migration — backfills fields added in later versions onto older
@@ -407,6 +412,7 @@ export function migrateSave(persisted: unknown): GameState {
         if (state) state.dailyCounters = normalizeDailyCounters(state.dailyCounters)
         if (state && !state.dailyClaimed) state.dailyClaimed = []
         if (state && state.dailyBonusClaimed === undefined) state.dailyBonusClaimed = false
+        if (state && !Number.isFinite(state.dailyClaimedDay)) state.dailyClaimedDay = state.dailyCounters?.day ?? 0
         // v7: per-item use cooldown clock (durable-effects exploit fix)
         if (state && !state.itemLastUsedAt) state.itemLastUsedAt = {}
         if (state && !state.resources) state.resources = freshResources()
@@ -802,6 +808,8 @@ interface GameState {
   dailyClaimed: string[]
   /** True once today's all-3-complete bonus has been granted. */
   dailyBonusClaimed: boolean
+  /** The day index dailyClaimed/dailyBonusClaimed belong to — separate from dailyCounters.day, which any action can advance first. */
+  dailyClaimedDay: number
   /** Daily courier package campaign state — one package per local day. */
   activeCourierPackage: CourierPackage | null
   courierLastDay: number
@@ -941,7 +949,7 @@ interface GameState {
   placeAt: (lat: number, lng: number) => void
   cancelPlacing: () => void
   collectIncome: () => void
-  claimTutorial: (stepId: string, xp: number) => void
+  claimTutorial: (stepId: string) => void
   /** Claim one achievement's XP + cash bounty (idempotent by id) */
   claimAchievement: (achievementId: string) => void
   toggleTutorial: () => void
@@ -1002,6 +1010,7 @@ const FRESH = {
   dailyCounters: freshDailyCounters(),
   dailyClaimed: [] as string[],
   dailyBonusClaimed: false,
+  dailyClaimedDay: 0,
   activeCourierPackage: null as CourierPackage | null,
   courierLastDay: 0,
   courierOpenedDays: [] as number[],
@@ -1129,6 +1138,17 @@ function businessDevelopmentBlockerText(project: BusinessDevelopmentProject, mon
  * counts every catalog item the citizen has ever possessed: current inventory,
  * placed assets, and pets — the completionist's total.
  */
+/**
+ * A sleep counts when it has lasted an hour (leaving earlier takes the credit
+ * back). Until then its start-time credit is pending: achievements and daily
+ * challenges must not see it, or a tick between start and wake would pay out
+ * on a sleep that is later rolled back.
+ */
+function pendingSleepCredit(s: Pick<GameState, 'activity'>, now: number = gameNow()): number {
+  return s.activity?.kind === 'sleep' && now - s.activity.startedAt < SLEEP_CREDIT_MS ? 1 : 0
+}
+const SLEEP_CREDIT_MS = 60 * 60_000
+
 export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   const inventoryKinds = new Set(Object.keys(s.inventory))
   const assetKinds = new Set(s.assets.map((a) => a.itemId))
@@ -1141,7 +1161,7 @@ export function achievementSnapshotOf(s: GameState): AchievementSnapshot {
   const daysLived = s.citizen ? dayOfLife(s.citizen.createdAt) - 1 : 0
   return {
     timesEaten: s.timesEaten,
-    timesSlept: s.timesSlept,
+    timesSlept: Math.max(0, s.timesSlept - pendingSleepCredit(s)),
     shiftsWorked: s.shiftsWorked,
     jobId: s.jobId,
     assets: s.assets,
@@ -1794,7 +1814,7 @@ export const useGame = create<GameState>()(
         // The bonus is REAL money — added to the balance below once `money` is
         // initialized from out.money (it previously appeared only in the toast).
         const wageMult = completedShift?.wageMult ?? boosterMultiplier(cleanBoosters, 'wage', now)
-        const wageBonusEarned = out.shiftsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
+        const wageBonusEarned = out.jobsCompleted > 0 ? Math.round(out.wagesEarned * (wageMult - 1)) : 0
         if (completedShift && out.shiftsCompleted > 0 && s.citizen && completedShift.jobId) {
           // Report the finished shift to the server ledger (audit E4). Durable and
           // idempotent: a closed tab, a dead network or a retry never double-counts.
@@ -1809,7 +1829,7 @@ export const useGame = create<GameState>()(
           })
           void flushShiftReports()
         }
-        if (out.shiftsCompleted > 0) {
+        if (out.jobsCompleted > 0) {
           if (wageBonusEarned > 0) {
             toasts = withToast(toasts, `💪 Wage boost: +${formatMoney(wageBonusEarned)}!`, 'gold')
           }
@@ -2142,8 +2162,18 @@ export const useGame = create<GameState>()(
             }
           }
         }
+        // Windfall governor: luck cash (lucky moments, good events, golden
+        // opportunities) draws on one small daily budget tied to labor
+        // earned today, and per-tick odds follow elapsed time, not call count.
+        const windfallDay = dailyCounterDayFor(s)
+        const windfallBase = s.dailyCounters.day === windfallDay ? s.dailyCounters : freshDailyCounters(windfallDay)
+        let windfallLeft = windfallRoom(windfallBase.windfallToday, windfallBase.earnedToday + cashEarnedThisTick)
+        let windfallTaken = 0
+        const chanceScale = tickChanceScale(now - from)
         if (!wasAway && !s.activity) {
-          const event = rollEvent(s.assets.some((a) => a.kind === 'business'))
+          const rolled = rollEvent(s.assets.some((a) => a.kind === 'business'), Math.random, chanceScale)
+          // A good-news event with no luck budget left simply doesn't happen today.
+          const event = rolled && (rolled.money ?? 0) > 0 && windfallLeft <= 0 ? null : rolled
           // Day-one grace: a brand-new citizen getting "your card got skimmed"
           // in their first minutes reads as the game punishing them before
           // they understand it. Good news lands from day 1; bad news waits
@@ -2154,7 +2184,13 @@ export const useGame = create<GameState>()(
               || Object.values(event?.effects ?? {}).some((v) => (v ?? 0) < 0))
           if (event && !firstDayBadNews) {
             if (event.effects) needs = applyEffects(needs, event.effects)
-            money = Math.max(0, money + (event.money ?? 0))
+            let eventCash = event.money ?? 0
+            if (eventCash > 0) {
+              eventCash = Math.floor(eventCash * windfallFit(eventCash, windfallLeft))
+              windfallLeft -= eventCash
+              windfallTaken += eventCash
+            }
+            money = Math.max(0, money + eventCash)
             log = note(log, event.text)
             toasts = withToast(toasts, event.text, (event.money ?? 0) > 0 ? 'gold' : 'sky')
           }
@@ -2177,10 +2213,14 @@ export const useGame = create<GameState>()(
           // 5% per tick for 20 min => ~100% chance the first session lands one.
           // Uses a tier-1-only picker so the tutorial hit is exciting without
           // exceeding the citizen grant before the core economy loop starts.
-          const lucky = needsFirstWin
+          let lucky = needsFirstWin
             ? (Math.random() < 0.05 ? pickFirstLuckyMoment() : null)
-            : rollLuckyMoment()
+            : windfallLeft > 0 ? rollLuckyMoment(Math.random, chanceScale) : null
           if (lucky) {
+            // The tutorial moment is exempt; every other one fits the day's budget.
+            const fit = needsFirstWin ? 1 : windfallFit(lucky.money, windfallLeft)
+            lucky = { ...lucky, money: Math.floor(lucky.money * fit), xp: Math.round(lucky.xp * fit) }
+            if (!needsFirstWin) { windfallLeft -= lucky.money; windfallTaken += lucky.money }
             const prog = applyXp(level, xp, boostedXp(cleanBoosters, lucky.xp, now))
             level = prog.level
             xp = prog.xp
@@ -2212,7 +2252,7 @@ export const useGame = create<GameState>()(
         // Rare by design (~every 30 min of live ticks — see OPPORTUNITY_CHANCE).
         // If one is already active, don't spawn another.
         if (!wasAway && !goldenOpportunity) {
-          const opp = rollOpportunity(now)
+          const opp = rollOpportunity(now, Math.random, chanceScale)
           if (opp) {
             goldenOpportunity = { ...opp, spawnedAt: now }
             toasts = withToast(toasts, `${opp.icon} Golden opportunity! Tap to claim — ${Math.round(OPPORTUNITY_WINDOW_MS / 1000)}s left.`, 'gold')
@@ -2323,7 +2363,7 @@ export const useGame = create<GameState>()(
           activeCourierPackage = null
         }
         const streakPrev: StreakState = { length: s.streakLength, lastClaimDay: s.streakLastClaimDay }
-        const streakOut = computeStreakClaim(streakPrev, todayDay)
+        const streakOut = computeStreakClaim(streakPrev, todayDay, s.streakBest)
         if (streakOut) {
           streakLength = streakOut.length
           streakLastClaimDay = todayDay
@@ -2377,9 +2417,18 @@ export const useGame = create<GameState>()(
         let dailyCounters = s.dailyCounters
         let dailyClaimed = s.dailyClaimed
         let dailyBonusClaimed = s.dailyBonusClaimed
+        let dailyClaimedDay = s.dailyClaimedDay
         // Monotonic guard (> not !==): moving the anchor westward (first home
         // in an earlier timezone) decrements todayDay — that must NOT hand out
         // a fresh challenge slate for a day that was already claimed.
+        // The claimed-challenge slate has its own day: an action taken right
+        // after midnight (before the first tick) advances dailyCounters.day,
+        // which used to skip this reset and carry yesterday's claims over.
+        if (todayDay > dailyClaimedDay) {
+          dailyClaimed = []
+          dailyBonusClaimed = false
+          dailyClaimedDay = todayDay
+        }
         if (todayDay > dailyCounters.day) {
           // Midnight rollover (or first tick of a new citizen): fresh slate.
           // On a genuine rollover (previous day was set, i.e. not the first
@@ -2454,6 +2503,9 @@ export const useGame = create<GameState>()(
             businessDevelopmentMinutesToday: dailyCounters.businessDevelopmentMinutesToday + businessDevelopmentMinutesDelta,
           }
         }
+        if (windfallTaken > 0) {
+          dailyCounters = { ...dailyCounters, windfallToday: dailyCounters.windfallToday + windfallTaken }
+        }
         // Auto-grant any newly-complete challenges (idempotent via dailyClaimed).
         if (s.citizen) {
           const csnap: DailyChallengeSnapshot = {
@@ -2462,7 +2514,7 @@ export const useGame = create<GameState>()(
             hygieneToday: dailyCounters.hygieneToday,
             shiftsToday: dailyCounters.shiftsToday,
             earnedToday: dailyCounters.earnedToday,
-            sleptToday: dailyCounters.sleptToday,
+            sleptToday: Math.max(0, dailyCounters.sleptToday - pendingSleepCredit(s, now)),
             boughtToday: dailyCounters.boughtToday,
             studiedToday: dailyCounters.studiedToday,
             gatheredToday: dailyCounters.gatheredToday,
@@ -2600,6 +2652,7 @@ export const useGame = create<GameState>()(
           dailyCounters,
           dailyClaimed,
           dailyBonusClaimed,
+          dailyClaimedDay,
           mysteryBoxCredits,
           activeCourierPackage,
           courierLastDay,
@@ -3381,6 +3434,9 @@ export const useGame = create<GameState>()(
         if (!item || !item.effects) return
         const owned = s.inventory[itemId] ?? 0
         if (owned <= 0) return
+        // A durable with no use-cooldown (the Hot Plate) is equipment that enables
+        // cooking, not food: using it as one was an unlimited free meal.
+        if (item.durable && !((item.hours ?? 0) > 0)) return
         const now = gameNow()
         // Durable items with effects (Full Kitchen, Mattress, Console...) are
         // reusable but not an infinite free-restoration tap: each use locks
@@ -3539,11 +3595,19 @@ export const useGame = create<GameState>()(
         const a = s.activity
         if (!a) return
         if (a.kind === 'sleep') {
-          // sleptToday was already counted when the sleep STARTED (see
-          // bumpSleptToday in the sleep action) — bumping again here would
-          // double-count a manual early wake-up.
+          // sleptToday/timesSlept were counted when the sleep STARTED. A real
+          // night is the only thing worth counting: waking within the first
+          // hour takes the credit back, so start→leave can't farm the
+          // "sleep N nights" achievement or the daily sleep challenge.
+          const barelySlept = pendingSleepCredit(s) > 0
           set({
             activity: null,
+            ...(barelySlept
+              ? {
+                  timesSlept: Math.max(0, s.timesSlept - 1),
+                  dailyCounters: { ...s.dailyCounters, sleptToday: Math.max(0, s.dailyCounters.sleptToday - 1) },
+                }
+              : {}),
             log: note(s.log, 'Up early. The day is yours.'),
           })
           return
@@ -3590,7 +3654,7 @@ export const useGame = create<GameState>()(
         const trustLost = beforeTrust - community.trust
         if (respectLost > 0 || trustLost > 0) track('respect_lost')
         const hoursWorked = Math.max(0, (now - a.startedAt) / 3_600_000)
-        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, SHIFT_HOURS) * (1 + totalWageBonus(s.inventory, s.educationProgress)) * (a.wageMult ?? 1))
+        const pay = Math.round((a.wage ?? 0) * Math.min(hoursWorked, activityHours(a)) * (1 + totalWageBonus(s.inventory, s.educationProgress)) * (a.wageMult ?? 1))
         const reputationNote = respectLost > 0 || trustLost > 0
           ? ` Reliability took a hit: -${respectLost} respect, -${trustLost} trust.`
           : ' Reliability noted it; no extra respect was lost today.'
@@ -3618,6 +3682,11 @@ export const useGame = create<GameState>()(
         const s = get()
         const item = itemById(itemId)
         if (!item || s.money < item.price) return
+        if (item.placeable && s.placing) {
+          // A second placeable bought mid-placement would overwrite `placing` and lose the first purchase.
+          set({ toasts: withToast(s.toasts, `Place or cancel your ${s.placing.name} first.`, 'blocked') })
+          return
+        }
         track('first_purchase')
         // Daily challenge counter: every COMPLETED purchase bumps boughtToday.
         // Placeables count at placeAt(), not here — the buy is refundable via
@@ -3861,9 +3930,14 @@ export const useGame = create<GameState>()(
         })
       },
 
-      claimTutorial: (stepId, xp) => {
+      claimTutorial: (stepId) => {
         const s = get()
         if (s.tutorialClaimed.includes(stepId)) return
+        // The reward comes from the catalog, never from the caller: an unknown
+        // step or an inflated number from outside the UI pays nothing.
+        const step = TUTORIAL_STEPS.find((t) => t.id === stepId)
+        if (!step) return
+        const xp = step.xp
         const prog = applyXp(s.level, s.xp, xp)
         const newClaimed = [...s.tutorialClaimed, stepId]
         // Completion nudge: when the player claims the FINAL tutorial step,
@@ -3920,7 +3994,7 @@ export const useGame = create<GameState>()(
       claimGoldenOpportunity: () => {
         const s = get()
         if (!s.goldenOpportunity) return
-        const opp = s.goldenOpportunity
+        let opp = s.goldenOpportunity
         // Enforce the window at claim time too — expiry normally happens on
         // the next tick, but hidden-tab timer throttling stretches ticks to
         // ~60s, letting an expired prompt linger claimable.
@@ -3928,9 +4002,13 @@ export const useGame = create<GameState>()(
           set({ goldenOpportunity: null })
           return
         }
+        const room = windfallRoom(s.dailyCounters.day === dailyCounterDayFor(s) ? s.dailyCounters.windfallToday : 0, s.dailyCounters.day === dailyCounterDayFor(s) ? s.dailyCounters.earnedToday : 0)
+        const fit = windfallFit(opp.cash, room)
+        opp = { ...opp, cash: Math.floor(opp.cash * fit), xp: Math.round(opp.xp * fit) }
         const prog = applyXp(s.level, s.xp, opp.xp)
         set({
           goldenOpportunity: null,
+          dailyCounters: { ...bumpDailyCounters(s, {}), windfallToday: (s.dailyCounters.day === dailyCounterDayFor(s) ? s.dailyCounters.windfallToday : 0) + opp.cash },
           money: s.money + opp.cash,
           level: prog.level,
           xp: prog.xp,
@@ -3971,6 +4049,8 @@ export const useGame = create<GameState>()(
         if (s.achievementsClaimed.includes(achievementId)) return
         const ach = ACHIEVEMENTS.find((a) => a.id === achievementId)
         if (!ach) return
+        // Same predicate the tick's auto-claim uses: a locked achievement pays nothing.
+        if (!ach.isUnlocked(achievementSnapshotOf(s))) return
         const prog = applyXp(s.level, s.xp, boostedXp(s.activeBoosters, ach.xp))
         set({
           achievementsClaimed: [...s.achievementsClaimed, achievementId],

@@ -91,6 +91,7 @@ function emptyDailyCounters(): StoreChallengeState['dailyCounters'] {
     workersHiredToday: 0,
     communityToday: 0,
     businessDevelopmentMinutesToday: 0,
+    windfallToday: 0,
   }
 }
 
@@ -885,7 +886,7 @@ describe('daily challenge readiness context', () => {
 })
 
 describe('sleep daily counter', () => {
-  test('starting sleep counts once for daily tasks even if the player leaves early', () => {
+  test('starting sleep counts for daily tasks, but waking within the hour takes the credit back', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-07T12:00:00Z'))
     const now = Date.now()
@@ -908,6 +909,7 @@ describe('sleep daily counter', () => {
         workersHiredToday: 0,
         communityToday: 0,
         businessDevelopmentMinutesToday: 0,
+        windfallToday: 0,
       },
       timesSlept: 0,
       log: [],
@@ -919,6 +921,13 @@ describe('sleep daily counter', () => {
 
     useGame.getState().leaveActivity()
     expect(useGame.getState().activity).toBeNull()
+    expect(useGame.getState().timesSlept).toBe(0)
+    expect(useGame.getState().dailyCounters.sleptToday).toBe(0)
+
+    // A real stretch of sleep keeps its credit when the player wakes early.
+    useGame.getState().startSleep()
+    vi.setSystemTime(Date.now() + 2 * 3_600_000)
+    useGame.getState().leaveActivity()
     expect(useGame.getState().timesSlept).toBe(1)
     expect(useGame.getState().dailyCounters.sleptToday).toBe(1)
   })
@@ -950,6 +959,7 @@ describe('sleep daily counter', () => {
         workersHiredToday: 0,
         communityToday: 0,
         businessDevelopmentMinutesToday: 0,
+        windfallToday: 0,
       },
       log: [],
       toasts: [],

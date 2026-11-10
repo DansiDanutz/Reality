@@ -95,6 +95,22 @@ describe('cloud save API', () => {
     )
   })
 
+  test('clamps a far-future lastSeenAt so it cannot lock out every real save', async () => {
+    pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
+    pgQueryMock.mockResolvedValueOnce([{ accepted: true }])
+    const res = responseRecorder()
+    const before = Date.now()
+    const save = JSON.stringify({ state: { citizen: { id: CITIZEN_ID }, lastSeenAt: 9_000_000_000_000 }, version: 6 })
+
+    await handler({ method: 'POST', body: { citizenId: CITIZEN_ID, token: TOKEN, save } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    const reservation = pgQueryMock.mock.calls[1] as [string, unknown[]]
+    const stamped = (reservation[1] as unknown[]).find((v) => typeof v === 'number' && v > 1e12) as number
+    expect(stamped).toBeLessThanOrEqual(Date.now() + 5 * 60_000)
+    expect(stamped).toBeGreaterThanOrEqual(before)
+  })
+
   test('scrubs bearer tokens from legacy saves before storing them', async () => {
     pgQueryMock.mockResolvedValueOnce([{ ok: 1 }])
     pgQueryMock.mockResolvedValueOnce([{ accepted: true }])
