@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { flushShiftReports, useGame } from './gameStore'
+import { flushShiftReports, placementRefusalMessage, useGame } from './gameStore'
 import { resetServerClockForTest } from '../lib/serverClock'
 import { clearOutbox, outboxEntries, shiftIntentKey } from '../lib/intentOutbox'
 
@@ -166,5 +166,40 @@ describe('shift reporting (audit E4)', () => {
     useGame.setState({ citizen: { ...g().citizen!, citizenId: 'late-2', online: true } })
     await flushShiftReports()
     expect(sent.map((x) => x.body.idempotencyKey)).toEqual([oldKey])
+  })
+})
+
+describe('business income reporting', () => {
+  const business = (pendingIncome: number) => ({
+    id: 'a1', itemId: 'foodcart', name: 'Food Cart', kind: 'business' as const, lat: 0, lng: 0,
+    incomePerDay: 200, pendingIncome, placedAt: T0,
+  })
+
+  test('collecting income asks the ledger to pay what ITS records show — no amount is sent', async () => {
+    useGame.setState({ assets: [business(150)] as never })
+    g().collectIncome()
+    await flushMicrotasks()
+    expect(g().money).toBe(2_650)
+    expect(sent).toHaveLength(1)
+    expect(sent[0].body.intent).toEqual({ type: 'collectIncome' })
+    expect(sent[0].body.idempotencyKey).toMatch(/^collect-\d+-\d+$/)
+    expect(outboxEntries()).toHaveLength(0)
+  })
+
+  test('nothing in the till, nothing reported', async () => {
+    useGame.setState({ assets: [business(0)] as never })
+    g().collectIncome()
+    await flushMicrotasks()
+    expect(sent).toHaveLength(0)
+    expect(outboxEntries()).toHaveLength(0)
+  })
+})
+
+describe('placementRefusalMessage', () => {
+  test('explains a ledger refusal and stays quiet about transient ones', () => {
+    expect(placementRefusalMessage('Food Cart', 'insufficient_funds')).toMatch(/isn't on the shared map yet/)
+    expect(placementRefusalMessage('Food Cart', 'asset_identity_conflict')).toMatch(/could not accept it/)
+    expect(placementRefusalMessage('Food Cart', undefined)).toBeNull()
+    expect(placementRefusalMessage('Food Cart', 'csrf_required')).toBeNull()
   })
 })

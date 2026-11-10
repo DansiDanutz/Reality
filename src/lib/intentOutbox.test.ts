@@ -3,6 +3,7 @@ import {
   backoffMs,
   reassignOutboxOwner,
   classifyIntentResponse,
+  collectIntentKey,
   clearOutbox,
   enqueueIntent,
   flushOutbox,
@@ -12,6 +13,7 @@ import {
   sendIntent,
   shiftIntentKey,
   type OutboxEntry,
+  type SendOutcome,
 } from './intentOutbox'
 
 const NOW = 1_800_000_000_000
@@ -217,5 +219,59 @@ describe('sendIntent', () => {
   test('a network error is a retry, not a loss', async () => {
     const fetchImpl = vi.fn(async () => { throw new Error('down') })
     expect(await sendIntent({ ...entry(1), attempts: 0, nextAttemptAt: 0 }, fetchImpl as unknown as typeof fetch)).toBe('retry')
+  })
+})
+
+describe('business income collections', () => {
+  const collect = (at: number, owner = OWNER) => ({
+    key: collectIntentKey(owner, at),
+    owner,
+    intent: { type: 'collectIncome' as const },
+    createdAt: at,
+  })
+
+  test('one waiting collection covers any number of taps, per citizen', () => {
+    enqueueIntent(collect(NOW))
+    enqueueIntent(collect(NOW + 1_000))
+    enqueueIntent(collect(NOW + 2_000, OWNER + 1))
+    expect(outboxEntries().map((e) => e.key)).toEqual([collectIntentKey(OWNER, NOW), collectIntentKey(OWNER + 1, NOW + 2_000)])
+  })
+
+  test('collect keys are accepted by the server key format', () => {
+    expect(collectIntentKey(OWNER, NOW + 0.7)).toMatch(/^[A-Za-z0-9_.:-]{1,128}$/)
+  })
+
+  test('the hourly cooldown and an empty till are classified correctly', () => {
+    expect(classifyIntentResponse(429, { code: 'collect_too_soon' })).toBe('retry')
+    expect(classifyIntentResponse(422, { code: 'nothing_to_collect' })).toBe('drop')
+  })
+
+  test("a shift waiting out its cooldown does not hold back a collection, nor the other way round", async () => {
+    enqueueIntent(entry(1))
+    enqueueIntent(entry(2))
+    enqueueIntent(collect(NOW))
+    const seen: string[] = []
+    const delivered = await flushOutbox(async (e) => {
+      seen.push(e.intent.type)
+      return e.intent.type === 'workShift' ? 'retry' : 'sent'
+    }, () => OWNER, NOW)
+    expect(delivered).toBe(1)
+    // The first shift backs off and stops ITS lane; the collection still goes out.
+    expect(seen).toEqual(['workShift', 'collectIncome'])
+    expect(outboxEntries().map((e) => e.intent.type)).toEqual(['workShift', 'workShift'])
+  })
+
+  test('a missing session stops every lane', async () => {
+    enqueueIntent(entry(1))
+    enqueueIntent(collect(NOW))
+    const send = vi.fn(async (): Promise<SendOutcome> => 'retry-later')
+    await flushOutbox(send, () => OWNER, NOW)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(outboxEntries()).toHaveLength(2)
+  })
+
+  test('a stored collection survives a reload', () => {
+    enqueueIntent(collect(NOW))
+    expect(outboxEntries()[0]).toMatchObject({ intent: { type: 'collectIncome' }, attempts: 0 })
   })
 })

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp } from '../src/game/engine.js'
 import { resetDbForTest } from './_db'
-import rawHandler, { evaluateIntent, normalizeIntent } from './intent'
+import rawHandler, { businessIncomeInputs, evaluateCollectIncome, evaluateIntent, normalizeIntent } from './intent'
 import { withCitizenSessionHandler } from './_sessionTest'
 
 const pgQueryMock = vi.fn(async (): Promise<unknown[]> => [])
@@ -483,5 +483,87 @@ describe('evaluateIntent — seniority', () => {
       meta: { rank: 5, rankMultiplier: 1.7 },
     })
     expect((veteran as { amount: number }).amount).toBeGreaterThan((rookie as { amount: number }).amount)
+  })
+})
+
+describe('collectIncome', () => {
+  const DAY = 86_400_000
+
+  test('takes no client fields at all', () => {
+    expect(normalizeIntent({ type: 'collectIncome' })).toEqual({ ok: true, intent: { type: 'collectIncome' } })
+    expect(normalizeIntent({ type: 'collectIncome', amount: 1_000_000 })).toMatchObject({ ok: false, code: 'client_controlled_server_field' })
+  })
+
+  test('the amount comes from server-held placements only', () => {
+    const now = Date.UTC(2026, 10, 10)
+    expect(evaluateCollectIncome([{ itemId: 'foodcart', placedAt: now - DAY }], null, now)).toMatchObject({ ok: true, amount: 180 })
+    expect(evaluateCollectIncome([], null, now)).toMatchObject({ ok: false, code: 'nothing_to_collect' })
+  })
+
+  test('reads database rows defensively', () => {
+    expect(businessIncomeInputs(undefined)).toEqual({ businesses: [], lastCollectedAt: null })
+    expect(businessIncomeInputs({
+      last_collected: '2026-11-09T00:00:00.000Z',
+      businesses: [{ itemId: 'foodcart', placedAt: '2026-11-01T00:00:00.000Z' }, { itemId: 7, placedAt: 'x' }, null],
+    })).toEqual({
+      businesses: [{ itemId: 'foodcart', placedAt: Date.UTC(2026, 10, 1) }],
+      lastCollectedAt: Date.UTC(2026, 10, 9),
+    })
+    expect(businessIncomeInputs({ businesses: JSON.stringify([{ itemId: 'bakery', placedAt: '2026-11-01T00:00:00.000Z' }]) }).businesses).toHaveLength(1)
+  })
+
+  test('appends the server-computed income with the hourly cooldown', async () => {
+    pgOn()
+    mockVerifyOk()
+    const placedAt = new Date(Date.now() - DAY).toISOString()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ xp: 0, shifts: 0 }])
+      .mockResolvedValueOnce([{ last_collected: null, businesses: [{ itemId: 'foodcart', placedAt }] }])
+      .mockResolvedValueOnce([{ new_balance: '185180.00', refusal: null }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { intent: { type: 'collectIncome' }, idempotencyKey: 'collect-1-2' } } as never, res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, intent: 'collectIncome' })
+    const append = pgQueryMock.mock.calls.at(-1) as unknown as [string, unknown[]]
+    expect(append[1][1]).toBe('intent.collectIncome')
+    expect(Number(append[1][2])).toBeGreaterThanOrEqual(180)
+    expect(Number(append[1][2])).toBeLessThan(181)
+    expect(append[1][5]).toBe('1 hour')
+    expect(append[1][6]).toBe('collect-1-2')
+  })
+
+  test('answers 422 without touching the ledger when nothing has accrued', async () => {
+    pgOn()
+    mockVerifyOk()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ xp: 0, shifts: 0 }])
+      .mockResolvedValueOnce([{ last_collected: null, businesses: [] }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { intent: { type: 'collectIncome' } } } as never, res as never)
+
+    expect(res.statusCode).toBe(422)
+    expect(res.body).toMatchObject({ ok: false, code: 'nothing_to_collect' })
+    expect(pgQueryMock).toHaveBeenCalledTimes(4)
+  })
+
+  test('a second collection inside the hour is told to wait', async () => {
+    pgOn()
+    mockVerifyOk()
+    pgQueryMock
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ xp: 0, shifts: 0 }])
+      .mockResolvedValueOnce([{ last_collected: null, businesses: [{ itemId: 'foodcart', placedAt: new Date(Date.now() - DAY).toISOString() }] }])
+      .mockResolvedValueOnce([{ new_balance: null, refusal: 'cooldown' }])
+    const res = responseRecorder()
+
+    await handler({ method: 'POST', body: { intent: { type: 'collectIncome' } } } as never, res as never)
+
+    expect(res.statusCode).toBe(429)
+    expect(res.body).toMatchObject({ ok: false, code: 'collect_too_soon' })
   })
 })

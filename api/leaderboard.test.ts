@@ -158,8 +158,8 @@ describe('leaderboard API score submissions', () => {
 
     expect(res.statusCode).toBe(200)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // 200k founder grant + 10% pending-income tolerance — tighter than the 300k day-0 age cap.
-    expect(upsertParams[3]).toBe(220_000)
+    // 200k founder grant + 10% till allowance + the flat faucet base — tighter than the 300k day-0 age cap.
+    expect(upsertParams[3]).toBe(222_000)
   })
 
   test('clamps a claimed worth to the server ledger credits, not the client number', async () => {
@@ -181,15 +181,15 @@ describe('leaderboard API score submissions', () => {
     expect(profileSql).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
     expect(profileSql).toMatch(/balance_after IS NOT NULL/i)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // 2,500 credited * the ledger tolerance — the ledger bound wins.
-    expect(upsertParams.slice(2, 4)).toEqual([300_000, Math.round(2_500 * 1.9)])
+    // 2,500 grant + 10% + the flat faucet base — the ledger bound wins, and the grant is not multiplied as labor.
+    expect(upsertParams.slice(2, 4)).toEqual([300_000, 2_750 + 2_000])
   })
 
   test('keeps the ledger bound fail-closed when the citizen has no accepted ledger rows', async () => {
     stubPg()
     pgQueryMock
       .mockResolvedValueOnce([{ ok: 1 }])
-      .mockResolvedValueOnce([{ name: 'Ledgerless Citizen', created_at: '2026-07-05T12:00:00.000Z', credited: null }])
+      .mockResolvedValueOnce([{ name: 'Ledgerless Citizen', created_at: new Date().toISOString(), credited: null }])
       .mockResolvedValueOnce([])
     const res = responseRecorder()
 
@@ -197,8 +197,8 @@ describe('leaderboard API score submissions', () => {
 
     expect(res.statusCode).toBe(200)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // No ledger rows → founder-grant bound (220k), even though the age cap allows more.
-    expect(upsertParams[3]).toBe(220_000)
+    // No ledger rows → founder-grant bound (220k + the flat faucet base), even though the age cap allows more.
+    expect(upsertParams[3]).toBe(222_000)
   })
 
   test('rejects invalid net worth before any storage call', async () => {

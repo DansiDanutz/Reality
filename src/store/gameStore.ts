@@ -139,7 +139,7 @@ import {
   type DailyChallengeSnapshot,
 } from '../game/dailyChallenges'
 import { millionairePathOf } from '../game/millionairePath'
-import { enqueueIntent, flushIntentOutbox, reassignOutboxOwner, shiftIntentKey } from '../lib/intentOutbox'
+import { collectIntentKey, enqueueIntent, flushIntentOutbox, reassignOutboxOwner, shiftIntentKey } from '../lib/intentOutbox'
 import { track } from '../lib/analytics'
 import { thoughtForDay } from '../game/thoughts'
 import { citizenGrantLog, founderSeatGrantedLog } from '../game/founderSeatMessages'
@@ -682,13 +682,24 @@ export async function refreshCitizenSession(): Promise<void> {
   if (rejected || someoneElse) useGame.setState({ citizen: { ...current, online: false } })
 }
 
-function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
+/** What the player is told when the shared world turns a placement down. Null = nothing worth saying. */
+export function placementRefusalMessage(assetName: string, code: unknown): string | null {
+  if (code === 'insufficient_funds') {
+    return `${assetName} is yours, but it isn't on the shared map yet — the world ledger doesn't cover its price. Finished shifts and collected business income add to it.`
+  }
+  if (code === 'item_not_placeable' || code === 'asset_identity_conflict') {
+    return `${assetName} is yours, but the shared map could not accept it.`
+  }
+  return null
+}
+
+function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset, announce = true): void {
   if (!citizen?.citizenId) return
   if (citizen.online !== true) {
     void useGame.getState().registerOnline().then(() => {
       const refreshed = useGame.getState().citizen
       if (refreshed?.citizenId === citizen.citizenId && refreshed?.online === true) {
-        publishPlacedAsset(refreshed, asset)
+        publishPlacedAsset(refreshed, asset, announce)
       }
     })
     return
@@ -696,7 +707,8 @@ function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
   // The placement IS the server-side purchase (reality_place_asset charges the
   // catalog price once, atomically). A refusal leaves the asset local-only —
   // the client's balance includes faucets the ledger does not model yet, so
-  // it is not snapped — but it must not pass silently.
+  // it is not snapped — but the player is told (once, at placement; the
+  // sign-in re-publish retries quietly).
   void tryPost('/api/world', {
     assetId: asset.id,
     itemId: asset.itemId,
@@ -704,7 +716,10 @@ function publishPlacedAsset(citizen: Citizen | null, asset: PlacedAsset): void {
     lat: asset.lat,
     lng: asset.lng,
   }).then((d) => {
-    if (d && d.ok !== true) console.warn('world: placement not recorded on the shared map', d.code ?? d.error)
+    if (!d || d.ok === true) return
+    console.warn('world: placement not recorded on the shared map', d.code ?? d.error)
+    const message = announce ? placementRefusalMessage(asset.name, d.code) : null
+    if (message) useGame.setState((state) => ({ toasts: withToast(state.toasts, message, 'sky'), log: note(state.log, message) }))
   })
 }
 
@@ -1579,7 +1594,7 @@ export const useGame = create<GameState>()(
         })
         const { citizen, assets } = get()
         for (const a of assets) {
-          publishPlacedAsset(citizen, a)
+          publishPlacedAsset(citizen, a, false)
         }
         void get().reportScore()
       }),
@@ -3898,6 +3913,14 @@ export const useGame = create<GameState>()(
             ? `Collected your first business income: ${formatMoney(Math.floor(total))}. The economy works.`
             : `Collected ${formatMoney(Math.floor(total))} from your businesses.`),
         })
+        // Tell the server ledger too. It pays what ITS records say the
+        // businesses earned (base income since the last collection) — no
+        // amount is sent, so there is nothing here to inflate.
+        if (s.citizen) {
+          const at = gameNow()
+          enqueueIntent({ key: collectIntentKey(s.citizen.createdAt, at), owner: s.citizen.createdAt, intent: { type: 'collectIncome' }, createdAt: at })
+          void flushShiftReports()
+        }
       },
 
       upgradeBusiness: (assetId) => {

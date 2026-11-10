@@ -23,6 +23,15 @@ export const OUTBOX_MAX_ENTRIES = 50
 export const OUTBOX_BACKOFF_BASE_MS = 60_000
 export const OUTBOX_BACKOFF_MAX_MS = 6 * 3_600_000
 
+/** What the outbox can report. The server computes every amount itself. */
+export type OutboxIntent = { type: 'workShift'; jobId: string } | { type: 'collectIncome' }
+
+function isOutboxIntent(intent: unknown): intent is OutboxIntent {
+  const type = (intent as { type?: unknown } | null)?.type
+  if (type === 'collectIncome') return true
+  return type === 'workShift' && typeof (intent as { jobId?: unknown }).jobId === 'string'
+}
+
 export interface OutboxEntry {
   /** Idempotency key: the same shift always has the same key. */
   key: string
@@ -32,7 +41,7 @@ export interface OutboxEntry {
    * that same citizen is the active, registered one.
    */
   owner: number
-  intent: { type: 'workShift'; jobId: string }
+  intent: OutboxIntent
   createdAt: number
   attempts: number
   /** Earliest time this entry is tried again (backoff after a failure). */
@@ -48,6 +57,8 @@ export function classifyIntentResponse(status: number, body: unknown): SendOutco
   const code = body && typeof body === 'object' ? (body as { code?: unknown }).code : undefined
   // The shift cooldown is real time (8h between reports): wait it out, never lose the credit.
   if (code === 'shift_too_soon') return 'retry'
+  // Business income is collected at most once an hour; whatever accrues meanwhile is paid by the next one.
+  if (code === 'collect_too_soon') return 'retry'
   if (code === 'intent_rate_limited') return 'retry'
   // No session / CSRF yet (offline-created citizen, expired cookie): the entry waits for one.
   if (status === 401 || status === 403) return 'retry-later'
@@ -72,8 +83,7 @@ function read(): OutboxEntry[] {
         !!e && typeof e === 'object' && typeof (e as OutboxEntry).key === 'string'
         && typeof (e as OutboxEntry).owner === 'number'
         && typeof (e as OutboxEntry).createdAt === 'number'
-        && (e as OutboxEntry).intent?.type === 'workShift'
-        && typeof (e as OutboxEntry).intent.jobId === 'string',
+        && isOutboxIntent((e as OutboxEntry).intent),
     ).map((e) => ({
       ...e,
       attempts: Number.isFinite(e.attempts) ? e.attempts : 0,
@@ -105,9 +115,18 @@ export function outboxEntries(): OutboxEntry[] {
   return read()
 }
 
-/** Queue an intent. A key already queued is not queued twice. */
+/**
+ * Queue an intent. A key already queued is not queued twice, and neither is a
+ * second `collectIncome` for the same citizen: the server pays everything that
+ * has accrued in one row, so one waiting collection covers any number of taps.
+ */
 export function enqueueIntent(entry: Omit<OutboxEntry, 'attempts' | 'nextAttemptAt'>): void {
-  update((entries) => (entries.some((e) => e.key === entry.key) ? entries : [...entries, { ...entry, attempts: 0, nextAttemptAt: 0 }]))
+  update((entries) => {
+    const duplicate = entries.some(
+      (e) => e.key === entry.key || (entry.intent.type === 'collectIncome' && e.intent.type === 'collectIncome' && e.owner === entry.owner),
+    )
+    return duplicate ? entries : [...entries, { ...entry, attempts: 0, nextAttemptAt: 0 }]
+  })
 }
 
 /**
@@ -149,10 +168,10 @@ export type OwnerSource = () => number | null
  * report can never be credited to a different citizen's session. The owner
  * is re-read before EVERY send — a reset and re-registration while a backlog
  * is flushing stops the batch instead of sending the rest under the new
- * session cookie. Stops at
- * the first entry that must wait (`retry`/`retry-later`) — the cooldown,
- * rate limit or session applies to everything behind it too. Returns how
- * many entries were delivered.
+ * session cookie. Each kind of intent is its own lane: a lane stops at its
+ * first entry that must wait (a shift's 8-hour cooldown holds back later
+ * shifts, never a business collection). A missing session stops every lane.
+ * Returns how many entries were delivered.
  */
 export async function flushOutbox(
   send: (entry: OutboxEntry) => Promise<SendOutcome>,
@@ -165,30 +184,35 @@ export async function flushOutbox(
   let delivered = 0
   try {
     update((entries) => entries.filter((e) => now - e.createdAt <= OUTBOX_MAX_AGE_MS))
-    // Oldest-first, and an entry still backing off holds back everything behind it
-    // (the same cooldown, rate limit or outage applies to them too).
+    // Oldest-first within a lane, and an entry still backing off holds back the
+    // rest of ITS lane (the same cooldown applies to them too).
     const mine = read().filter((e) => e.owner === activeOwner)
-    const firstWaiting = mine.findIndex((e) => e.nextAttemptAt > now)
-    const due = firstWaiting === -1 ? mine : mine.slice(0, firstWaiting)
-    for (const entry of due) {
-      if (currentOwner() !== activeOwner) break // the session changed under us
-      let outcome: SendOutcome
-      try {
-        outcome = await send(entry)
-      } catch {
-        outcome = 'retry'
+    const lanes = [...new Set(mine.map((e) => e.intent.type))]
+    lanes: for (const lane of lanes) {
+      const queued = mine.filter((e) => e.intent.type === lane)
+      const firstWaiting = queued.findIndex((e) => e.nextAttemptAt > now)
+      const due = firstWaiting === -1 ? queued : queued.slice(0, firstWaiting)
+      for (const entry of due) {
+        if (currentOwner() !== activeOwner) break lanes // the session changed under us
+        let outcome: SendOutcome
+        try {
+          outcome = await send(entry)
+        } catch {
+          outcome = 'retry'
+        }
+        if (outcome === 'sent') delivered += 1
+        if (outcome === 'sent' || outcome === 'drop') {
+          update((entries) => entries.filter((e) => e.key !== entry.key))
+          continue
+        }
+        if (outcome === 'retry') {
+          update((entries) =>
+            entries.map((e) => (e.key === entry.key ? { ...e, attempts: e.attempts + 1, nextAttemptAt: now + backoffMs(e.attempts + 1) } : e)),
+          )
+          break
+        }
+        break lanes // no session yet: nothing else can be sent either
       }
-      if (outcome === 'sent') delivered += 1
-      if (outcome === 'sent' || outcome === 'drop') {
-        update((entries) => entries.filter((e) => e.key !== entry.key))
-        continue
-      }
-      if (outcome === 'retry') {
-        update((entries) =>
-          entries.map((e) => (e.key === entry.key ? { ...e, attempts: e.attempts + 1, nextAttemptAt: now + backoffMs(e.attempts + 1) } : e)),
-        )
-      }
-      break
     }
   } finally {
     flushing = false
@@ -228,6 +252,11 @@ export async function sendIntent(entry: OutboxEntry, fetchImpl: typeof fetch = f
 /** Flush the outbox through the real endpoint. Safe to call often. */
 export function flushIntentOutbox(currentOwner: OwnerSource, fetchImpl: typeof fetch = fetch): Promise<number> {
   return flushOutbox((entry) => sendIntent(entry, fetchImpl), currentOwner)
+}
+
+/** Idempotency key for one business-income collection. */
+export function collectIntentKey(owner: number, at: number): string {
+  return `collect-${Math.floor(owner)}-${Math.floor(at)}`
 }
 
 /** Idempotency key for a finished shift: one shift, one key, forever (stable across registration). */

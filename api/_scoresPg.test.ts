@@ -18,6 +18,8 @@ import {
   maxPlausibleWorth,
   maxReconciledWorth,
   CITIZEN_GRANT,
+  CLIENT_FAUCET_BASE,
+  CLIENT_FAUCET_PER_DAY,
   writeScore,
 } from './_scoresPg'
 
@@ -56,24 +58,54 @@ describe('maxPlausibleWorth', () => {
 })
 
 describe('maxReconciledWorth', () => {
-  test('bounds a claim by the accepted ledger credits plus the pending-income tolerance', () => {
-    expect(maxReconciledWorth(2_500)).toBe(Math.round(2_500 * LEDGER_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(1_000_000)).toBe(Math.round(1_000_000 * LEDGER_WORTH_TOLERANCE))
+  const DAY = 86_400_000
+  const NOW = Date.UTC(2026, 10, 10)
+
+  test('a day-0 founder cannot post more than the grant plus the small allowances', () => {
+    // The grant is not labor: it gets the 10% till allowance, never the shift multiplier.
+    expect(maxReconciledWorth({ ledgerCredits: FOUNDER_GRANT, founder: true, ageDays: 0 }, NOW))
+      .toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE) + CLIENT_FAUCET_BASE)
+  })
+
+  test('only shift credits get the gear-and-education multiplier', () => {
+    const cap = maxReconciledWorth({ ledgerCredits: 2_500 + 960, shiftCredits: 960, founder: false, ageDays: 0 }, NOW)
+    expect(cap).toBe(Math.round(2_500 * GRANT_WORTH_TOLERANCE + 960 * LEDGER_WORTH_TOLERANCE) + CLIENT_FAUCET_BASE)
+  })
+
+  test('shift credits can never exceed the credits they are part of', () => {
+    expect(maxReconciledWorth({ ledgerCredits: 1_000, shiftCredits: 9_999_999, ageDays: 0 }, NOW))
+      .toBe(Math.round(1_000 * LEDGER_WORTH_TOLERANCE) + CLIENT_FAUCET_BASE)
+  })
+
+  test('server-recorded businesses raise the ceiling by what they could have earned', () => {
+    const base = maxReconciledWorth({ ledgerCredits: FOUNDER_GRANT, ageDays: 2 }, NOW)
+    const withCart = maxReconciledWorth({ ledgerCredits: FOUNDER_GRANT, ageDays: 2, businesses: [{ itemId: 'foodcart', placedAt: NOW - 2 * DAY }] }, NOW)
+    // Food Cart $200/day × top level 10 × 2 days
+    expect(withCart - base).toBe(4_000)
+  })
+
+  test('the client-only faucet allowance grows with real age', () => {
+    const day0 = maxReconciledWorth({ ledgerCredits: 2_500, ageDays: 0 }, NOW)
+    const day10 = maxReconciledWorth({ ledgerCredits: 2_500, ageDays: 9.2 }, NOW)
+    expect(day10 - day0).toBe(10 * CLIENT_FAUCET_PER_DAY)
   })
 
   test('fails closed to the founder grant when the ledger has no accepted rows', () => {
-    expect(maxReconciledWorth(null)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(Number.NaN)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE))
+    const grantBound = Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE) + CLIENT_FAUCET_BASE
+    expect(maxReconciledWorth({ ledgerCredits: null }, NOW)).toBe(grantBound)
+    expect(maxReconciledWorth({ ledgerCredits: Number.NaN }, NOW)).toBe(grantBound)
+    // A silent ledger has no shifts to multiply, whatever the row claims.
+    expect(maxReconciledWorth({ ledgerCredits: null, shiftCredits: 50_000 }, NOW)).toBe(grantBound)
   })
 
   test('a known non-founder with a silent ledger is bounded by the citizen grant, not the founder grant', () => {
-    expect(maxReconciledWorth(null, false)).toBe(Math.round(CITIZEN_GRANT * GRANT_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(null, true)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(5_000, false)).toBe(Math.round(5_000 * LEDGER_WORTH_TOLERANCE))
+    expect(maxReconciledWorth({ ledgerCredits: null, founder: false }, NOW)).toBe(Math.round(CITIZEN_GRANT * GRANT_WORTH_TOLERANCE) + CLIENT_FAUCET_BASE)
+    expect(maxReconciledWorth({ ledgerCredits: null, founder: true }, NOW)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE) + CLIENT_FAUCET_BASE)
   })
 
-  test('never goes negative on a corrupt credit sum', () => {
-    expect(maxReconciledWorth(-500)).toBe(0)
+  test('an unknown age earns no daily allowance, and corrupt sums never go negative', () => {
+    expect(maxReconciledWorth({ ledgerCredits: -500, ageDays: null }, NOW)).toBe(CLIENT_FAUCET_BASE)
+    expect(maxReconciledWorth({ ledgerCredits: 0, ageDays: Number.NaN }, NOW)).toBe(CLIENT_FAUCET_BASE)
   })
 })
 
@@ -83,7 +115,7 @@ describe('citizenScoreProfilePg', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'))
     queryMock.mockResolvedValueOnce([
-      { name: 'water-maker', created_at: '2026-07-05T12:00:00.000Z', credited: '12500.00', founder: false },
+      { name: 'water-maker', created_at: '2026-07-05T12:00:00.000Z', credited: '12500.00', shift_credited: '960.00', businesses: [{ itemId: 'foodcart', placedAt: '2026-07-06T12:00:00.000Z' }, { itemId: 3 }], founder: false },
     ])
 
     const profile = await citizenScoreProfilePg(CITIZEN_ID)
@@ -94,7 +126,16 @@ describe('citizenScoreProfilePg', () => {
     expect(statement).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
     expect(statement).toMatch(/balance_after IS NOT NULL/i)
     expect(params).toEqual([CITIZEN_ID])
-    expect(profile).toEqual({ ageDays: 5, name: 'water-maker', ledgerCredits: 12_500, founder: false })
+    expect(statement).toMatch(/intent = 'intent\.workShift'/)
+    expect(statement).toMatch(/FROM assets a WHERE a\.citizen_id = \$1 AND a\.kind = 'business'/)
+    expect(profile).toEqual({
+      ageDays: 5,
+      name: 'water-maker',
+      ledgerCredits: 12_500,
+      founder: false,
+      shiftCredits: 960,
+      businesses: [{ itemId: 'foodcart', placedAt: Date.parse('2026-07-06T12:00:00.000Z') }],
+    })
   })
 
   test('reports null ledger credits for a citizen with no accepted ledger rows', async () => {
@@ -106,6 +147,8 @@ describe('citizenScoreProfilePg', () => {
     const profile = await citizenScoreProfilePg(CITIZEN_ID)
 
     expect(profile.ledgerCredits).toBeNull()
+    expect(profile.shiftCredits).toBe(0)
+    expect(profile.businesses).toEqual([])
   })
 })
 
