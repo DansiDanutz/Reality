@@ -3,6 +3,7 @@ import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
   telegramDisplayName,
+  telegramLaunchInitData,
   telegramMiniAppInitData,
   type VerifiedTelegramMiniAppSession,
 } from './telegram'
@@ -22,6 +23,30 @@ describe('Telegram Mini App client bridge', () => {
     expect(telegramMiniAppInitData({
       Telegram: { WebApp: { initDataUnsafe: { user: { id: 1 } } } as never },
     })).toBeNull()
+  })
+
+  test('reads the signed launch data Telegram puts in the URL fragment, without any Telegram script', () => {
+    const initData = 'query_id=AAH&user=%7B%22id%22%3A7%7D&auth_date=1700000000&hash=abc123'
+    const store = new Map<string, string>()
+    const sessionStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) }
+    const hash = `#tgWebAppData=${encodeURIComponent(initData)}&tgWebAppVersion=8.0&tgWebAppPlatform=ios`
+
+    expect(telegramMiniAppInitData({ location: { hash }, sessionStorage })).toBe(initData)
+    // The fragment is gone after an in-app reload; the tab remembers it.
+    expect(telegramMiniAppInitData({ location: { hash: '' }, sessionStorage })).toBe(initData)
+    // A new tab with no fragment is simply not in Telegram.
+    expect(telegramLaunchInitData({ location: { hash: '#section' }, sessionStorage: { getItem: () => null, setItem: () => {} } })).toBeNull()
+    expect(telegramLaunchInitData({ location: { hash: '#tgWebAppData=' } })).toBeNull()
+  })
+
+  test('the WebApp bridge wins when Telegram provides one, and blocked storage is harmless', () => {
+    const throwing = { getItem: () => { throw new Error('blocked') }, setItem: () => { throw new Error('blocked') } }
+    expect(telegramMiniAppInitData({
+      Telegram: { WebApp: { initData: 'bridge=1' } },
+      location: { hash: '#tgWebAppData=fragment%3D1' },
+    })).toBe('bridge=1')
+    expect(telegramLaunchInitData({ location: { hash: '#tgWebAppData=fragment%3D1' }, sessionStorage: throwing })).toBe('fragment=1')
+    expect(telegramLaunchInitData({ location: { hash: '' }, sessionStorage: throwing })).toBeNull()
   })
 
   test('does nothing outside Telegram Mini Apps', async () => {

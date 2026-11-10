@@ -12,6 +12,8 @@ describe('Vercel browser security policy', () => {
     expect(values['Content-Security-Policy']).toContain('https://accounts.google.com')
     expect(values['Content-Security-Policy']).toContain('https://*.openfreemap.org')
     expect(values['Content-Security-Policy']).toContain('worker-src \'self\' blob:')
+    // Only the page itself and Telegram Web (which frames Mini Apps) may embed the game.
+    expect(values['Content-Security-Policy']).toContain("frame-ancestors 'self' https://web.telegram.org;")
     expect(values['X-Content-Type-Options']).toBe('nosniff')
     expect(values['X-Frame-Options']).toBe('DENY')
     expect(values['Referrer-Policy']).toBe('strict-origin-when-cross-origin')

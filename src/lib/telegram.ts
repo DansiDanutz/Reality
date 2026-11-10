@@ -35,9 +35,44 @@ interface TelegramWindow {
 
 const TELEGRAM_CLOCK_SKEW_SECONDS = 60
 
-export function telegramMiniAppInitData(source: TelegramWindow = globalThis as TelegramWindow): string | null {
+interface TelegramLaunchSource extends TelegramWindow {
+  location?: { hash?: string }
+  sessionStorage?: Pick<Storage, 'getItem' | 'setItem'>
+}
+
+const LAUNCH_DATA_KEY = 'reality-telegram-init-data'
+
+/**
+ * Telegram hands a Mini App its signed launch data in the URL fragment
+ * (`#tgWebAppData=<url-encoded initData>&tgWebAppVersion=…`). Reading it here
+ * means the app needs no third-party script; the server verifies the
+ * signature either way. The fragment is gone after an in-app reload, so the
+ * value is kept for the tab's lifetime.
+ */
+export function telegramLaunchInitData(source: TelegramLaunchSource = globalThis as TelegramLaunchSource): string | null {
+  let fromHash: string | null = null
+  try {
+    const hash = String(source.location?.hash ?? '').replace(/^#/, '')
+    fromHash = hash.includes('tgWebAppData=') ? new URLSearchParams(hash).get('tgWebAppData') : null
+  } catch {
+    fromHash = null
+  }
+  try {
+    if (fromHash && fromHash.trim().length > 0) {
+      source.sessionStorage?.setItem(LAUNCH_DATA_KEY, fromHash)
+      return fromHash
+    }
+    const remembered = source.sessionStorage?.getItem(LAUNCH_DATA_KEY)
+    return typeof remembered === 'string' && remembered.trim().length > 0 ? remembered : null
+  } catch {
+    return fromHash && fromHash.trim().length > 0 ? fromHash : null
+  }
+}
+
+export function telegramMiniAppInitData(source: TelegramLaunchSource = globalThis as TelegramLaunchSource): string | null {
   const initData = source.Telegram?.WebApp?.initData
-  return typeof initData === 'string' && initData.trim().length > 0 ? initData : null
+  if (typeof initData === 'string' && initData.trim().length > 0) return initData
+  return telegramLaunchInitData(source)
 }
 
 export async function authenticateTelegramMiniApp(

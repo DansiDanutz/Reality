@@ -932,7 +932,13 @@ export default function WorldMap() {
           The world map can't load right now — your life keeps running, and your holdings list still works.
         </p>
       )}
-      <aside className="map-accessible-list" aria-label="Your holdings on the map">
+      {/* The map canvas is aria-hidden; this list is its keyboard and screen-reader
+          twin. With a working map it stays out of sight until focused; when the
+          tiles cannot load it becomes the visible way to reach your holdings. */}
+      <aside
+        className={`map-accessible-list${tilesUnreachable && !styleReady ? ' is-fallback' : ''}`}
+        aria-label="Your holdings on the map"
+      >
         <h2>Your holdings</h2>
         {assets.length === 0 ? (
           <p>No holdings placed yet.</p>
