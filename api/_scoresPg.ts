@@ -120,7 +120,8 @@ export function maxReconciledWorth(evidence: WorthEvidence, now: number = Date.n
     : Math.max(0, ledgerCredits)
   const rawShift = ledgerCredits === null ? 0 : Number(evidence.shiftCredits ?? 0)
   const shiftCredits = Number.isFinite(rawShift) ? Math.min(Math.max(0, rawShift), credits) : 0
-  const days = ageDays !== null && Number.isFinite(ageDays) ? Math.ceil(Math.max(0, ageDays)) : 0
+  // Completed days only: the first day's faucets are what the flat base is for.
+  const days = ageDays !== null && Number.isFinite(ageDays) ? Math.floor(Math.max(0, ageDays)) : 0
   return Math.round(
     (credits - shiftCredits) * GRANT_WORTH_TOLERANCE
     + shiftCredits * LEDGER_WORTH_TOLERANCE

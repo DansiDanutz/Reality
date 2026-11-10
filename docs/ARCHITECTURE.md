@@ -104,7 +104,7 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   education +30% multiply wages on the client only), plus the most the
   server-recorded businesses could have earned at the top upgrade level
   since they were placed, plus a flat allowance for client-only faucets
-  ($2,000 + $5,000 per day of citizenship). A silent ledger falls back to
+  ($2,000 + $5,000 per completed day of citizenship). A silent ledger falls back to
   the registration grant.
   Still open: the ledger accepts a `workShift` without proof a shift was
   started (the cooldown bounds it to three per real day), level is not

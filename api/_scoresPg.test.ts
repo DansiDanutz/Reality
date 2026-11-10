@@ -86,7 +86,7 @@ describe('maxReconciledWorth', () => {
 
   test('the client-only faucet allowance grows with real age', () => {
     const day0 = maxReconciledWorth({ ledgerCredits: 2_500, ageDays: 0 }, NOW)
-    const day10 = maxReconciledWorth({ ledgerCredits: 2_500, ageDays: 9.2 }, NOW)
+    const day10 = maxReconciledWorth({ ledgerCredits: 2_500, ageDays: 10.9 }, NOW)
     expect(day10 - day0).toBe(10 * CLIENT_FAUCET_PER_DAY)
   })
 
