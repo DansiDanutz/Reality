@@ -4390,6 +4390,9 @@ async function persistAreaState(
     return { ...serializable, __storageRevision: revision } as FounderAreaPersistedState
   }
   const expectedEtag = '__storageEtag' in reviewed && typeof reviewed.__storageEtag === 'string' ? reviewed.__storageEtag : undefined
+  // Replacing an existing snapshot is only ever a compare-and-swap. Without the
+  // etag it was read under, this write could silently erase a concurrent one.
+  if (allowOverwrite && !expectedEtag) throw new Error('founder_area_etag_missing')
   const { __storageEtag: _ignoredEtag, __storageRevision: _ignoredRevision, ...serializable } = reviewed as FounderAreaPersistedState
   const result = await put(areaStatePath(citizenId), JSON.stringify(serializable), {
     access: 'private',
