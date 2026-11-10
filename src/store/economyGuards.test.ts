@@ -22,6 +22,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
   vi.useFakeTimers()
   vi.setSystemTime(T0)
+  // No luck in these tests: a new citizen's guaranteed first lucky moment (5% a tick) would move money at random.
+  vi.spyOn(Math, 'random').mockReturnValue(0.99)
   g().createCitizen('Guard', null)
   useGame.setState({ money: 200_000, clockTrusted: true, targetsSeen: true })
 })

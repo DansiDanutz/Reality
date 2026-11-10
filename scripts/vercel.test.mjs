@@ -15,7 +15,8 @@ describe('Vercel browser security policy', () => {
     // Only the page itself and Telegram Web (which frames Mini Apps) may embed the game.
     expect(values['Content-Security-Policy']).toContain("frame-ancestors 'self' https://web.telegram.org;")
     expect(values['X-Content-Type-Options']).toBe('nosniff')
-    expect(values['X-Frame-Options']).toBe('DENY')
+    // frame-ancestors supersedes X-Frame-Options; a DENY beside it would block the Telegram Web embed on older webviews.
+    expect(values['X-Frame-Options']).toBeUndefined()
     expect(values['Referrer-Policy']).toBe('strict-origin-when-cross-origin')
     expect(values['Permissions-Policy']).toBe('camera=(), microphone=(), geolocation=(self)')
   })

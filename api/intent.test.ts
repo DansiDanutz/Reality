@@ -527,6 +527,8 @@ describe('collectIncome', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.body).toMatchObject({ ok: true, intent: 'collectIncome' })
+    expect(res.body).toMatchObject({ balance: 185_180 })
+    expect(res.body).not.toHaveProperty('amount')
     const append = pgQueryMock.mock.calls.at(-1) as unknown as [string, unknown[]]
     expect(append[1][1]).toBe('intent.collectIncome')
     expect(Number(append[1][2])).toBeGreaterThanOrEqual(180)

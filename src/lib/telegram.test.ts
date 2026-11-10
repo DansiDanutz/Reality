@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   authenticateTelegramMiniApp,
   citizenWithTelegramSession,
+  insideTelegramContainer,
   telegramDisplayName,
   telegramLaunchInitData,
   telegramMiniAppInitData,
@@ -25,18 +26,41 @@ describe('Telegram Mini App client bridge', () => {
     })).toBeNull()
   })
 
-  test('reads the signed launch data Telegram puts in the URL fragment, without any Telegram script', () => {
-    const initData = 'query_id=AAH&user=%7B%22id%22%3A7%7D&auth_date=1700000000&hash=abc123'
+  const INIT_DATA = 'query_id=AAH&user=%7B%22id%22%3A7%7D&auth_date=1700000000&hash=abc123'
+  const LAUNCH_HASH = `#tgWebAppData=${encodeURIComponent(INIT_DATA)}&tgWebAppVersion=8.0&tgWebAppPlatform=ios`
+  const memoryStorage = () => {
     const store = new Map<string, string>()
-    const sessionStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) }
-    const hash = `#tgWebAppData=${encodeURIComponent(initData)}&tgWebAppVersion=8.0&tgWebAppPlatform=ios`
+    return { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v) }
+  }
 
-    expect(telegramMiniAppInitData({ location: { hash }, sessionStorage })).toBe(initData)
+  test('reads the signed launch data from the URL fragment inside a Telegram app, without any Telegram script', () => {
+    const sessionStorage = memoryStorage()
+    const native = { TelegramWebviewProxy: { postEvent: () => {} }, sessionStorage }
+
+    expect(telegramMiniAppInitData({ ...native, location: { hash: LAUNCH_HASH } })).toBe(INIT_DATA)
     // The fragment is gone after an in-app reload; the tab remembers it.
-    expect(telegramMiniAppInitData({ location: { hash: '' }, sessionStorage })).toBe(initData)
-    // A new tab with no fragment is simply not in Telegram.
-    expect(telegramLaunchInitData({ location: { hash: '#section' }, sessionStorage: { getItem: () => null, setItem: () => {} } })).toBeNull()
-    expect(telegramLaunchInitData({ location: { hash: '#tgWebAppData=' } })).toBeNull()
+    expect(telegramMiniAppInitData({ ...native, location: { hash: '' } })).toBe(INIT_DATA)
+    expect(telegramLaunchInitData({ TelegramWebviewProxy: {}, location: { hash: '#section' }, sessionStorage: memoryStorage() })).toBeNull()
+    expect(telegramLaunchInitData({ TelegramWebviewProxy: {}, location: { hash: '#tgWebAppData=' } })).toBeNull()
+  })
+
+  test('Telegram Web frames the app: a framed page reads the fragment too', () => {
+    const top = {}
+    const framed = { parent: top, self: {}, location: { hash: LAUNCH_HASH }, sessionStorage: memoryStorage() }
+    expect(insideTelegramContainer(framed)).toBe(true)
+    expect(telegramLaunchInitData(framed)).toBe(INIT_DATA)
+  })
+
+  test("an ordinary browser tab ignores a crafted launch link — someone else's signed data cannot sign you in", () => {
+    const tab: Record<string, unknown> = { location: { hash: LAUNCH_HASH }, sessionStorage: memoryStorage() }
+    tab.parent = tab
+    tab.self = tab
+    expect(insideTelegramContainer(tab)).toBe(false)
+    expect(telegramLaunchInitData(tab)).toBeNull()
+    expect(telegramMiniAppInitData(tab)).toBeNull()
+    // Nothing was remembered either: the same tab stays outside Telegram afterwards.
+    expect(telegramMiniAppInitData({ ...tab, location: { hash: '' } })).toBeNull()
+    expect(insideTelegramContainer({})).toBe(false)
   })
 
   test('the WebApp bridge wins when Telegram provides one, and blocked storage is harmless', () => {
@@ -45,8 +69,8 @@ describe('Telegram Mini App client bridge', () => {
       Telegram: { WebApp: { initData: 'bridge=1' } },
       location: { hash: '#tgWebAppData=fragment%3D1' },
     })).toBe('bridge=1')
-    expect(telegramLaunchInitData({ location: { hash: '#tgWebAppData=fragment%3D1' }, sessionStorage: throwing })).toBe('fragment=1')
-    expect(telegramLaunchInitData({ location: { hash: '' }, sessionStorage: throwing })).toBeNull()
+    expect(telegramLaunchInitData({ TelegramWebviewProxy: {}, location: { hash: '#tgWebAppData=fragment%3D1' }, sessionStorage: throwing })).toBe('fragment=1')
+    expect(telegramLaunchInitData({ TelegramWebviewProxy: {}, location: { hash: '' }, sessionStorage: throwing })).toBeNull()
   })
 
   test('does nothing outside Telegram Mini Apps', async () => {

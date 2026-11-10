@@ -38,6 +38,28 @@ const TELEGRAM_CLOCK_SKEW_SECONDS = 60
 interface TelegramLaunchSource extends TelegramWindow {
   location?: { hash?: string }
   sessionStorage?: Pick<Storage, 'getItem' | 'setItem'>
+  /** Injected by Telegram's native apps into the Mini App webview. */
+  TelegramWebviewProxy?: unknown
+  external?: unknown
+  parent?: unknown
+  self?: unknown
+}
+
+/**
+ * Is this page really running inside Telegram? Native apps inject a bridge
+ * object; Telegram Web frames the app (and the CSP lets nobody else frame it).
+ * A plain browser tab is neither — which is what makes a hand-made
+ * `#tgWebAppData=` link worthless there.
+ */
+export function insideTelegramContainer(source: TelegramLaunchSource = globalThis as TelegramLaunchSource): boolean {
+  try {
+    if (source.TelegramWebviewProxy !== undefined && source.TelegramWebviewProxy !== null) return true
+    const external = source.external as { notify?: unknown } | null | undefined
+    if (external && typeof external === 'object' && typeof external.notify === 'function') return true
+    return source.parent !== undefined && source.self !== undefined && source.parent !== source.self
+  } catch {
+    return true // a cross-origin parent that throws on access is still a parent
+  }
 }
 
 const LAUNCH_DATA_KEY = 'reality-telegram-init-data'
@@ -48,8 +70,14 @@ const LAUNCH_DATA_KEY = 'reality-telegram-init-data'
  * means the app needs no third-party script; the server verifies the
  * signature either way. The fragment is gone after an in-app reload, so the
  * value is kept for the tab's lifetime.
+ *
+ * Only honoured inside a real Telegram container. The signature proves which
+ * Telegram user the data belongs to, not that THIS browser is theirs: in an
+ * ordinary tab, a link carrying someone else's valid launch data would sign
+ * the visitor into that person's citizen, or bind a new citizen to them.
  */
 export function telegramLaunchInitData(source: TelegramLaunchSource = globalThis as TelegramLaunchSource): string | null {
+  if (!insideTelegramContainer(source)) return null
   let fromHash: string | null = null
   try {
     const hash = String(source.location?.hash ?? '').replace(/^#/, '')

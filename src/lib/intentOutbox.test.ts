@@ -4,6 +4,7 @@ import {
   reassignOutboxOwner,
   classifyIntentResponse,
   collectIntentKey,
+  COLLECT_WAIT_MS,
   clearOutbox,
   enqueueIntent,
   flushOutbox,
@@ -242,7 +243,7 @@ describe('business income collections', () => {
   })
 
   test('the hourly cooldown and an empty till are classified correctly', () => {
-    expect(classifyIntentResponse(429, { code: 'collect_too_soon' })).toBe('retry')
+    expect(classifyIntentResponse(429, { code: 'collect_too_soon' })).toBe('wait-hour')
     expect(classifyIntentResponse(422, { code: 'nothing_to_collect' })).toBe('drop')
   })
 
@@ -259,6 +260,17 @@ describe('business income collections', () => {
     // The first shift backs off and stops ITS lane; the collection still goes out.
     expect(seen).toEqual(['workShift', 'collectIncome'])
     expect(outboxEntries().map((e) => e.intent.type)).toEqual(['workShift', 'workShift'])
+  })
+
+  test('a collection inside the cooldown waits the whole hour instead of knocking again', async () => {
+    enqueueIntent(collect(NOW))
+    const send = vi.fn(async (): Promise<SendOutcome> => 'wait-hour')
+    await flushOutbox(send, () => OWNER, NOW)
+    expect(outboxEntries()[0]).toMatchObject({ attempts: 0, nextAttemptAt: NOW + COLLECT_WAIT_MS })
+    await flushOutbox(send, () => OWNER, NOW + COLLECT_WAIT_MS - 1)
+    expect(send).toHaveBeenCalledTimes(1)
+    await flushOutbox(send, () => OWNER, NOW + COLLECT_WAIT_MS)
+    expect(send).toHaveBeenCalledTimes(2)
   })
 
   test('a missing session stops every lane', async () => {

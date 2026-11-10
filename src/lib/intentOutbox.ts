@@ -22,6 +22,8 @@ export const OUTBOX_MAX_ENTRIES = 50
 /** Failed sends back off exponentially between these bounds; an outage never deletes a report. */
 export const OUTBOX_BACKOFF_BASE_MS = 60_000
 export const OUTBOX_BACKOFF_MAX_MS = 6 * 3_600_000
+/** The server's collection cooldown (api/intent.ts COLLECT_COOLDOWN). */
+export const COLLECT_WAIT_MS = 3_600_000
 
 /** What the outbox can report. The server computes every amount itself. */
 export type OutboxIntent = { type: 'workShift'; jobId: string } | { type: 'collectIncome' }
@@ -48,8 +50,8 @@ export interface OutboxEntry {
   nextAttemptAt: number
 }
 
-/** What happened to one send. `sent`/`drop` remove the entry; `retry` backs it off; `retry-later` keeps it for the next flush. */
-export type SendOutcome = 'sent' | 'drop' | 'retry' | 'retry-later'
+/** What happened to one send. `sent`/`drop` remove the entry; `retry` backs it off; `wait-hour` holds it for the collection cooldown; `retry-later` keeps it for the next flush. */
+export type SendOutcome = 'sent' | 'drop' | 'retry' | 'retry-later' | 'wait-hour'
 
 /** Turn an /api/intent response into an outcome. Pure. */
 export function classifyIntentResponse(status: number, body: unknown): SendOutcome {
@@ -58,7 +60,8 @@ export function classifyIntentResponse(status: number, body: unknown): SendOutco
   // The shift cooldown is real time (8h between reports): wait it out, never lose the credit.
   if (code === 'shift_too_soon') return 'retry'
   // Business income is collected at most once an hour; whatever accrues meanwhile is paid by the next one.
-  if (code === 'collect_too_soon') return 'retry'
+  // Wait the whole hour: every refused attempt is a ledger row that spends the citizen's intent rate budget.
+  if (code === 'collect_too_soon') return 'wait-hour'
   if (code === 'intent_rate_limited') return 'retry'
   // No session / CSRF yet (offline-created citizen, expired cookie): the entry waits for one.
   if (status === 401 || status === 403) return 'retry-later'
@@ -209,6 +212,10 @@ export async function flushOutbox(
           update((entries) =>
             entries.map((e) => (e.key === entry.key ? { ...e, attempts: e.attempts + 1, nextAttemptAt: now + backoffMs(e.attempts + 1) } : e)),
           )
+          break
+        }
+        if (outcome === 'wait-hour') {
+          update((entries) => entries.map((e) => (e.key === entry.key ? { ...e, nextAttemptAt: now + COLLECT_WAIT_MS } : e)))
           break
         }
         break lanes // no session yet: nothing else can be sent either

@@ -315,10 +315,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body: Record<string, unknown> = {
       ok: true,
       intent: normalized.intent.type,
-      amount: evaluated.amount,
       level,
       balance,
     }
+    // A retried collection replays its original ledger row, while the amount
+    // above was recomputed for THIS request — so only the balance is reported.
+    if (normalized.intent.type !== 'collectIncome') body.amount = evaluated.amount
     if (normalized.intent.type === 'workShift') body.xp = XP_PER_SHIFT
     // Correction frame: the client predicted a post-intent balance; when the
     // authoritative number disagrees, the client must snap to the server's.
