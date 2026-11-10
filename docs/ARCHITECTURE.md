@@ -89,13 +89,28 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   current storage, so a shift finishing while a send is in flight is never
   overwritten. Gigs and activities started before the job stamp existed are
   not reported.
-  The leaderboard worth ceiling is `1.9×` the ledger's accepted
-  credits (gear +46% and education +30% multiply wages on the client only),
-  and stays at `1.1×` the registration grant while the ledger is silent.
+  **Business income is paid by the server** (1.0): `collectIncome` in the
+  store queues a `collectIncome` intent that carries no amount. The server
+  reads the businesses it charged for (`assets.placed_at`) and its last
+  accepted collection, and pays base catalog income net of operating costs
+  for that span, capped at the 3-day till (`src/game/serverIncome.ts`). A
+  one-hour cooldown inside the citizen's advisory lock makes two racing
+  collections pay once. The outbox keeps one waiting collection per citizen
+  and sends each kind of intent in its own lane, so a shift's 8-hour
+  cooldown never holds back a collection.
+  **The leaderboard ceiling is built from evidence only**
+  (`maxReconciledWorth`, `api/_scoresPg.ts`): non-shift ledger credits
+  × 1.1 (income still in the till), shift credits × 1.9 (gear +46% and
+  education +30% multiply wages on the client only), plus the most the
+  server-recorded businesses could have earned at the top upgrade level
+  since they were placed, plus a flat allowance for client-only faucets
+  ($2,000 + $5,000 per day of citizenship). A silent ledger falls back to
+  the registration grant.
   Still open: the ledger accepts a `workShift` without proof a shift was
-  started (the cooldown bounds it to three per real day), and level is not
-  reconciled server-side. The client does **not** snap its balance to the
-  server's.
+  started (the cooldown bounds it to three per real day), level is not
+  reconciled server-side, and upgrades, gigs and bounties exist only in the
+  save. The client does **not** snap its balance to the server's. The
+  accepted limits of 1.0 are listed in `docs/LAUNCH.md`.
 
 **Time is the server's.** The client measures the server's time from
 `/api/time` (round-trip midpoint) at startup, on resume, when it comes back
