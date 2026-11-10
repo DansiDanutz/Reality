@@ -79,11 +79,16 @@ describe('evaluateIntent — engine rules, no duplication', () => {
   })
 
   test('workShift enforces the job level requirement server-side', () => {
+    // A pilot's shift at ledger level 1 is still recorded — at the best level-1 wage, never the pilot's.
     expect(evaluateIntent({ type: 'workShift', jobId: 'pilot' }, 1)).toMatchObject({
-      ok: false,
-      code: 'level_too_low',
+      ok: true,
+      amount: 16 * SHIFT_HOURS,
+      meta: { jobId: 'courier', workedJobId: 'pilot', xp: XP_PER_SHIFT },
     })
-    expect(evaluateIntent({ type: 'workShift', jobId: 'pilot' }, 4)).toMatchObject({ ok: true })
+    const cleared = evaluateIntent({ type: 'workShift', jobId: 'pilot' }, 4)
+    expect(cleared).toMatchObject({ ok: true, amount: 60 * SHIFT_HOURS, meta: { jobId: 'pilot' } })
+    expect(cleared.ok && cleared.meta).not.toHaveProperty('workedJobId')
+    expect(evaluateIntent({ type: 'workShift', jobId: 'pilot' }, 0)).toMatchObject({ ok: false, code: 'level_too_low' })
   })
 
   test('buyItem charges the canonical catalog price times quantity', () => {
@@ -378,19 +383,24 @@ describe('intent API handler', () => {
     expect(pgQueryMock).toHaveBeenCalledTimes(2) // verify + rate count only
   })
 
-  test('level gate: a level-1 citizen cannot fly the plane', async () => {
+  test('level gate: a level-1 ledger never pays the pilot wage, but the shift is still recorded', async () => {
     pgOn()
     mockVerifyOk()
     pgQueryMock
       .mockResolvedValueOnce([{ count: 0 }])
       .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z', xp: 0 }])
+      .mockResolvedValueOnce([{ new_balance: '2628.00', refusal: null }])
     const res = responseRecorder()
 
     await handler({ method: 'POST', body: { ...BODY, intent: { type: 'workShift', jobId: 'pilot' } } } as never, res as never)
 
-    expect(res.statusCode).toBe(422)
-    expect(res.body).toMatchObject({ ok: false, code: 'level_too_low' })
-    expect(pgQueryMock).toHaveBeenCalledTimes(3) // no ledger append
+    // A citizen whose level came from courses or the tutorial holds the job
+    // honestly; rejecting would lose every report they ever send.
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({ ok: true, level: 1, amount: 16 * SHIFT_HOURS })
+    const append = pgQueryMock.mock.calls[3] as unknown as [string, unknown[]]
+    expect(Number(append[1][2])).toBe(16 * SHIFT_HOURS) // best level-1 wage, not the pilot's 60
+    expect(JSON.parse(String(append[1][4]))).toMatchObject({ jobId: 'courier', workedJobId: 'pilot' })
     // The level comes from summed ledger XP — the engine's own rule, and
     // the clauses below are what make it exploit-resistant: refusal rows
     // never count, and a non-numeric meta.xp can never poison the cast.
@@ -422,12 +432,13 @@ describe('intent API handler', () => {
       pgQueryMock
         .mockResolvedValueOnce([{ count: 0 }])
         .mockResolvedValueOnce([{ created_at: '2026-07-05T12:00:00.000Z', xp }])
+        .mockResolvedValueOnce([{ new_balance: '2628.00', refusal: null }])
       const res = responseRecorder()
 
       await handler({ method: 'POST', body: { ...BODY, intent: { type: 'workShift', jobId: 'pilot' } } } as never, res as never)
 
-      expect(res.statusCode).toBe(422)
-      expect(res.body).toMatchObject({ ok: false, code: 'level_too_low' })
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toMatchObject({ ok: true, level: 1, amount: 16 * SHIFT_HOURS })
       pgQueryMock.mockReset()
       pgQueryMock.mockResolvedValue([])
     }

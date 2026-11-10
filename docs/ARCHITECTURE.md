@@ -106,6 +106,9 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   since they were placed, plus a flat allowance for client-only faucets
   ($2,000 + $5,000 per completed day of citizenship). A silent ledger falls back to
   the registration grant.
+  A shift for a job above the ledger's own level (the client's level
+  includes course, tutorial and achievement XP the ledger never sees) is
+  recorded at the best wage the ledger level allows, never rejected.
   Still open: the ledger accepts a `workShift` without proof a shift was
   started (the cooldown bounds it to three per real day), level is not
   reconciled server-side, and upgrades, gigs and bounties exist only in the

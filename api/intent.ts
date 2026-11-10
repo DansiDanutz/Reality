@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { VercelRequest, VercelResponse } from './_vercel.js'
 import { SHIFT_HOURS, XP_PER_SHIFT, applyXp, careerRankOf } from '../src/game/engine.js'
-import { itemById, jobById } from '../src/game/catalog.js'
+import { JOBS, itemById, jobById } from '../src/game/catalog.js'
 import { serverCollectableIncome, type ServerBusiness } from '../src/game/serverIncome.js'
 import { db } from './_db.js'
 import { verifyCitizenPg } from './_registry.js'
@@ -82,6 +82,11 @@ export function normalizeIntent(input: unknown): Normalized {
   return { ok: true, intent: { type, itemId, quantity } }
 }
 
+/** The best-paying job a ledger level qualifies for (null only if the catalog has none). */
+export function bestJobForLevel(level: number) {
+  return JOBS.filter((job) => job.requiredLevel <= level).sort((a, b) => b.wage - a.wage)[0] ?? null
+}
+
 /**
  * Rule validation: prices, wages and requirements come from the SAME catalog
  * and engine constants the client simulation uses — the server never trusts
@@ -89,11 +94,15 @@ export function normalizeIntent(input: unknown): Normalized {
  */
 export function evaluateIntent(intent: Exclude<Intent, { type: 'collectIncome' }>, citizenLevel: number, shiftsWorked = 0): Evaluated {
   if (intent.type === 'workShift') {
-    const job = jobById(intent.jobId)
-    if (!job) return reject('unknown_job', 'That job does not exist.')
-    if (citizenLevel < job.requiredLevel) {
-      return reject('level_too_low', `${job.title} requires level ${job.requiredLevel}.`)
-    }
+    const worked = jobById(intent.jobId)
+    if (!worked) return reject('unknown_job', 'That job does not exist.')
+    // The client's level includes XP the ledger never sees (courses, tutorial,
+    // achievements), so a citizen can honestly hold a job the ledger's own
+    // level does not reach yet. The shift still happened: record it, paid at
+    // the best job the LEDGER level allows. The client's level is never
+    // trusted, and each recorded shift's XP raises the ledger level in turn.
+    const job = citizenLevel >= worked.requiredLevel ? worked : bestJobForLevel(citizenLevel)
+    if (!job) return reject('level_too_low', `${worked.title} requires level ${worked.requiredLevel}.`)
     // Seniority is the one wage multiplier the ledger can see for itself:
     // it is earned with shifts, and every accepted shift is a ledger row.
     // Gear and education bonuses live only in the client save, so the
@@ -102,7 +111,10 @@ export function evaluateIntent(intent: Exclude<Intent, { type: 'collectIncome' }
     return {
       ok: true,
       amount: Math.round(job.wage * rank.wageMultiplier * SHIFT_HOURS),
-      meta: { jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT, rank: rank.rank, rankMultiplier: rank.wageMultiplier },
+      meta: {
+        jobId: job.id, wage: job.wage, hours: SHIFT_HOURS, xp: XP_PER_SHIFT, rank: rank.rank, rankMultiplier: rank.wageMultiplier,
+        ...(job.id !== worked.id ? { workedJobId: worked.id } : {}),
+      },
     }
   }
   const item = itemById(intent.itemId)
