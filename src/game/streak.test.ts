@@ -3,6 +3,7 @@ import {
   STREAK_RESET_GAP,
   STREAK_REWARD_TIERS,
   computeStreakClaim,
+  nextStreakMilestone,
   rewardForStreakDay,
   streakLabel,
   type StreakState,
@@ -100,14 +101,29 @@ describe('computeStreakClaim', () => {
     expect(out).toEqual({ length: 30, cash: 5_000, xp: 1_000, reset: false, advanced: true })
   })
 
-  test('interpolated day (8) is between day 7 and day 14 rewards', () => {
+  test('off-tier days (8) pay nothing: milestones, not a salary', () => {
     const state = fresh({ length: 7, lastClaimDay: 19_000 })
-    const out = computeStreakClaim(state, 19_001)
-    expect(out?.length).toBe(8)
-    expect(out!.cash).toBeGreaterThan(1_500)
-    expect(out!.cash).toBeLessThan(5_000)
-    expect(out!.xp).toBeGreaterThan(200)
-    expect(out!.xp).toBeLessThan(500)
+    const out = computeStreakClaim(state, 19_001, 7)
+    expect(out).toEqual({ length: 8, cash: 0, xp: 0, reset: false, advanced: true })
+  })
+
+  test('a milestone already reached once never pays again after a reset', () => {
+    const state = fresh({ length: 6, lastClaimDay: 19_000 })
+    expect(computeStreakClaim(state, 19_001, 7)?.cash).toBe(0)
+    expect(computeStreakClaim(state, 19_001, 6)?.cash).toBe(1_500)
+  })
+
+  test('walking the streak to day 150 pays the named tiers exactly once ($20,500)', () => {
+    let st = fresh()
+    let best = 0
+    let total = 0
+    for (let d = 1; d <= 150; d++) {
+      const out = computeStreakClaim(st, 19_000 + d, best)!
+      total += out.cash
+      best = Math.max(best, out.length)
+      st = { length: out.length, lastClaimDay: 19_000 + d }
+    }
+    expect(total).toBe(20_500)
   })
 
   test('reset is flagged advanced=false only when previous length was 1', () => {
@@ -116,6 +132,15 @@ describe('computeStreakClaim', () => {
     const out = computeStreakClaim(state, 19_010)
     expect(out?.reset).toBe(true)
     expect(out?.advanced).toBe(false)
+  })
+})
+
+describe('nextStreakMilestone', () => {
+  test('names the next unpaid milestone above both the streak and the best', () => {
+    expect(nextStreakMilestone(0, 0)).toEqual({ day: 2, cash: 50, xp: 10 })
+    expect(nextStreakMilestone(3, 3)).toEqual({ day: 4, cash: 200, xp: 35 })
+    expect(nextStreakMilestone(1, 14)).toEqual({ day: 30, cash: 5_000, xp: 1_000 })
+    expect(nextStreakMilestone(100, 100)).toBeNull()
   })
 })
 
