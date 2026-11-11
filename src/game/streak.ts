@@ -36,8 +36,12 @@
  *   day 100  → $10,000   +5,000 XP ← centurion (audit-capped: the original
  *              $100k/day dwarfed every other income loop — Rule #1 realism)
  *
- * Between named tiers the reward grows linearly (interpolated). This keeps
- * every single day meaningful — a design lesson from Wordle / Duolingo.
+ * Rewards are MILESTONES, not a salary. Only the named tier days pay, and
+ * each pays once per citizen (tracked by the best streak ever reached): the
+ * lifetime total is $20,500, a few days of honest work. The earlier design
+ * paid the interpolated amount EVERY day — measured at ~$3.2M/year for
+ * logging in and doing nothing (src/store/economy.sim.test.ts).
+ * {@link rewardForStreakDay} still interpolates, for display only.
  */
 
 /**
@@ -112,10 +116,13 @@ export function rewardForStreakDay(length: number): { cash: number; xp: number }
  *
  * @param prev      Previous streak state.
  * @param todayDay  The citizen's local calendar day index (days since epoch).
+ * @param best      The longest streak ever reached. A milestone pays only the
+ *                  first time the streak gets there — rebuilding after a
+ *                  reset re-walks the days but never re-pays them.
  * @returns         The claim outcome, or `null` if there is nothing to claim
  *                  today (already claimed, or before the first eligible day).
  */
-export function computeStreakClaim(prev: StreakState, todayDay: number): StreakReward | null {
+export function computeStreakClaim(prev: StreakState, todayDay: number, best = 0): StreakReward | null {
   // Never claim on a non-positive day index (citizen just spawned, clock
   // hasn't crossed midnight yet — the store seeds lastClaimDay on creation).
   if (todayDay <= 0) return null
@@ -129,16 +136,14 @@ export function computeStreakClaim(prev: StreakState, todayDay: number): StreakR
     // First ever claim. Day 1 of the streak (the day of spawn is day 1,
     // but the reward is $0 by design — they were going to play anyway).
     const length = 1
-    const r = rewardForStreakDay(length)
+    const r = milestoneReward(length, best)
     return { length, cash: r.cash, xp: r.xp, reset: false, advanced: true }
   }
 
   if (gap >= STREAK_RESET_GAP + 1) {
     // Missed too many days. Reset to a fresh day 1. The streak did not
     // advance — it shrank — so `advanced` is always false here.
-    const length = 1
-    const r = rewardForStreakDay(length)
-    return { length, cash: r.cash, xp: r.xp, reset: true, advanced: false }
+    return { length: 1, cash: 0, xp: 0, reset: true, advanced: false }
   }
 
   if (gap === STREAK_RESET_GAP) {
@@ -148,8 +153,21 @@ export function computeStreakClaim(prev: StreakState, todayDay: number): StreakR
 
   // gap === 1 — the normal happy path. Advance.
   const length = prev.length + 1
-  const r = rewardForStreakDay(length)
+  const r = milestoneReward(length, best)
   return { length, cash: r.cash, xp: r.xp, reset: false, advanced: true }
+}
+
+/** The tier reward for reaching exactly `length`, once: zero off-tier or when `best` already got there. */
+function milestoneReward(length: number, best: number): { cash: number; xp: number } {
+  if (length <= best) return { cash: 0, xp: 0 }
+  const tier = STREAK_REWARD_TIERS.find(([d]) => d === length)
+  return tier ? { cash: tier[1], xp: tier[2] } : { cash: 0, xp: 0 }
+}
+
+/** The next unpaid milestone ahead of a streak, for the HUD. Null past the last tier. */
+export function nextStreakMilestone(length: number, best = 0): { day: number; cash: number; xp: number } | null {
+  const tier = STREAK_REWARD_TIERS.find(([d, cash]) => d > Math.max(length, best) && cash > 0)
+  return tier ? { day: tier[0], cash: tier[1], xp: tier[2] } : null
 }
 
 /**

@@ -121,6 +121,8 @@ describe('placementsTodayPg', () => {
     expect(await placementsTodayPg(CITIZEN_ID)).toBe(3)
     const [statement, params] = queryMock.mock.calls[0] as [string, unknown[]]
     expect(statement).toMatch(/FROM ledger/i)
+    // Refused placements are ledger rows with a NULL balance — they must not eat the daily allowance.
+    expect(statement).toMatch(/balance_after IS NOT NULL/i)
     expect(params).toEqual([CITIZEN_ID, '2026-07-10T00:00:00.000Z'])
   })
 

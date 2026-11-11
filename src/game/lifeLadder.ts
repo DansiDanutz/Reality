@@ -1,3 +1,4 @@
+import { gameNow } from './time'
 import {
   educationCourseById,
   educationRemainingMinutes,
@@ -223,7 +224,7 @@ function routineBlock(
   return { id, title, detail, value, route, minutes, taskId }
 }
 
-export function lifeDayFromCreatedAt(createdAt: number, now = Date.now()): number {
+export function lifeDayFromCreatedAt(createdAt: number, now = gameNow()): number {
   if (!Number.isFinite(createdAt) || createdAt <= 0) return 1
   return Math.max(1, Math.floor(Math.max(0, now - createdAt) / 86_400_000) + 1)
 }

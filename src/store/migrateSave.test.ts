@@ -382,6 +382,7 @@ describe('migrateSave - backfills every field added after v1', () => {
       workersHiredToday: 0,
       communityToday: 0,
       businessDevelopmentMinutesToday: 0,
+      windfallToday: 0,
       day: 20_000,
     })
   })
@@ -522,7 +523,7 @@ describe('persist configuration', () => {
     const { SAVE_VERSION } = await import('./gameStore')
     // 22 = cookie-session cutover bump: strictly above main's v7 chain and the parallel
     // branch's v19 chain, so migration runs for every previously persisted save.
-    expect(SAVE_VERSION).toBe(22)
+    expect(SAVE_VERSION).toBe(23)
   })
 
   test('backfills the first-session guide lifecycle for legacy citizens', () => {

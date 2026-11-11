@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { useEffect, useState } from 'react'
 import { OPPORTUNITY_WINDOW_MS } from '../../game/goldenOpportunity'
 import { useGame } from '../../store/gameStore'
@@ -20,7 +21,7 @@ export default function GoldenOpportunityPrompt() {
   // Live countdown — re-renders every tick to shrink the ring.
   useEffect(() => {
     if (!opp) return
-    const elapsed = Date.now() - opp.spawnedAt
+    const elapsed = gameNow() - opp.spawnedAt
     setRemaining(Math.max(0, 1 - elapsed / OPPORTUNITY_WINDOW_MS))
   }, [opp, lastSeenAt])
 

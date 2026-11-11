@@ -1,3 +1,4 @@
+import { gameNow } from '../../game/time'
 import { useGame } from '../../store/gameStore'
 
 /**
@@ -19,7 +20,7 @@ export default function OfflineBanner() {
 
   if (online) return null
   // Let a recent dismissal stand — don't re-pop the banner every render.
-  if (dismissedAt && Date.now() - dismissedAt < RESHOW_MS) return null
+  if (dismissedAt && gameNow() - dismissedAt < RESHOW_MS) return null
 
   return (
     <div className="offline-banner" role="status" aria-live="polite">

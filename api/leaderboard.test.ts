@@ -181,8 +181,8 @@ describe('leaderboard API score submissions', () => {
     expect(profileSql).toMatch(/SUM\(amount\) FILTER \(WHERE amount > 0\)/i)
     expect(profileSql).toMatch(/balance_after IS NOT NULL/i)
     const [, upsertParams] = pgQueryMock.mock.calls[2] as [string, unknown[]]
-    // 2,500 credited * 1.1 tolerance = 2,750 — the ledger bound wins.
-    expect(upsertParams.slice(2, 4)).toEqual([300_000, 2_750])
+    // 2,500 credited * the ledger tolerance — the ledger bound wins.
+    expect(upsertParams.slice(2, 4)).toEqual([300_000, Math.round(2_500 * 1.9)])
   })
 
   test('keeps the ledger bound fail-closed when the citizen has no accepted ledger rows', async () => {
