@@ -11,6 +11,7 @@ import {
   CITIZEN_PROFILE_SQL,
   FOUNDER_GRANT,
   LEDGER_WORTH_TOLERANCE,
+  GRANT_WORTH_TOLERANCE,
   SCORE_UPSERT_SQL,
   citizenAgeDaysPg,
   citizenScoreProfilePg,
@@ -56,19 +57,19 @@ describe('maxPlausibleWorth', () => {
 
 describe('maxReconciledWorth', () => {
   test('bounds a claim by the accepted ledger credits plus the pending-income tolerance', () => {
-    expect(maxReconciledWorth(2_500)).toBe(2_750)
-    expect(maxReconciledWorth(1_000_000)).toBe(1_100_000)
+    expect(maxReconciledWorth(2_500)).toBe(Math.round(2_500 * LEDGER_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(1_000_000)).toBe(Math.round(1_000_000 * LEDGER_WORTH_TOLERANCE))
   })
 
   test('fails closed to the founder grant when the ledger has no accepted rows', () => {
-    expect(maxReconciledWorth(null)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(Number.NaN)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(null)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(Number.NaN)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE))
   })
 
   test('a known non-founder with a silent ledger is bounded by the citizen grant, not the founder grant', () => {
-    expect(maxReconciledWorth(null, false)).toBe(Math.round(CITIZEN_GRANT * LEDGER_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(null, true)).toBe(Math.round(FOUNDER_GRANT * LEDGER_WORTH_TOLERANCE))
-    expect(maxReconciledWorth(5_000, false)).toBe(5_500)
+    expect(maxReconciledWorth(null, false)).toBe(Math.round(CITIZEN_GRANT * GRANT_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(null, true)).toBe(Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE))
+    expect(maxReconciledWorth(5_000, false)).toBe(Math.round(5_000 * LEDGER_WORTH_TOLERANCE))
   })
 
   test('never goes negative on a corrupt credit sum', () => {

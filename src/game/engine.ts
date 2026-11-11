@@ -106,6 +106,8 @@ export interface Activity {
   /** Hourly wage for shifts, already excluding gear bonus */
   wage?: number
   title?: string
+  /** Job a full shift was started for (stamped at start; gigs and older activities have none). */
+  jobId?: string
   /** Recipe being cooked, for 'cook' activities */
   recipeId?: string
   /**

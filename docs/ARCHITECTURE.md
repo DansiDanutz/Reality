@@ -67,14 +67,35 @@ What the client actually sends today (audit 2026-10-20, finding E1):
   atomically, with the daily cap and overdraft gate. It no longer requires
   a prior `buyItem` row (that gate refused every placement, since nothing
   ever sent one, and would have charged twice if something had).
-- The `workShift`/`buyItem`/`placeAsset` intents are valid (a shift pays
-  `wage × seniority × 8h`; seniority is the one multiplier the ledger can
-  count for itself) but have no client caller yet. Reporting shifts from
-  the client needs a durable outbox with retries, a hand-off from device
-  time to trusted server time, and server-side level reconciliation (the
-  client also levels through education); that is designed as its own
-  change, not bolted on. Until then the ledger sees genesis and placements,
-  and the client does **not** snap its balance to the server's.
+- The `buyItem`/`placeAsset` intents are valid but have no client caller yet.
+  **Finished shifts are reported** (audit E4): when a full 8-hour shift
+  completes in `tick()`, the client queues a `workShift` intent in a durable
+  outbox (`src/lib/intentOutbox.ts`, localStorage `reality-outbox-v1`) and
+  flushes it on completion, on the 2-minute heartbeat, and when the browser
+  comes back online. The idempotency key is derived from the shift itself
+  (`shift-<citizen createdAt>-<startedAt>`), so a retry replays the original ledger
+  row rather than paying twice; only accepted rows replay, while a refusal
+  (cooldown, rate limit) is stored unkeyed so the same shift can be retried
+  once the condition clears. Each entry belongs to the citizen who did the
+  work (their `createdAt`, stable from the first offline moment) and is only
+  ever sent while that citizen is the signed-in, registered one, so the queue
+  surviving a `reset()` cannot credit a different account. The job reported
+  is the one stamped when the shift **started**. A shift pays
+  `wage × seniority × 8h` (seniority is the one multiplier the ledger can
+  count for itself). Failed or refused sends back off exponentially (1 min
+  to 6 h); an outage never deletes a report, a backlog catches up one shift
+  per real 8 hours, terminal rejections are dropped and entries older than
+  14 days are discarded. Every queue change is a read-modify-write against
+  current storage, so a shift finishing while a send is in flight is never
+  overwritten. Gigs and activities started before the job stamp existed are
+  not reported.
+  The leaderboard worth ceiling is `1.9×` the ledger's accepted
+  credits (gear +46% and education +30% multiply wages on the client only),
+  and stays at `1.1×` the registration grant while the ledger is silent.
+  Still open: the ledger accepts a `workShift` without proof a shift was
+  started (the cooldown bounds it to three per real day), and level is not
+  reconciled server-side. The client does **not** snap its balance to the
+  server's.
 
 **Time is the server's.** The client measures the server's time from
 `/api/time` (round-trip midpoint) at startup, on resume, when it comes back

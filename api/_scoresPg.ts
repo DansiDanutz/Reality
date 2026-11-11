@@ -71,9 +71,14 @@ export const FOUNDER_GRANT = 200_000
 // Registration grant of an ordinary (non-founder) citizen: what the ledger's genesis row holds.
 export const CITIZEN_GRANT = 2_500
 
-// Client-only assets (uncollected pending income) are not in the ledger yet;
-// a 10% allowance covers them without reopening the client-asserted hole.
-export const LEDGER_WORTH_TOLERANCE = 1.1
+// The ledger records each shift at BASE wage × seniority. Gear (+46% max) and
+// education (+30%) multiply it on the client (1.76× together), and client-only
+// assets (uncollected pending income) are not in the ledger yet — 1.9 covers
+// both without reopening the client-asserted hole.
+export const LEDGER_WORTH_TOLERANCE = 1.9
+
+// With no accepted ledger rows there are no shifts to multiply: the bound stays the registration grant plus pending income.
+export const GRANT_WORTH_TOLERANCE = 1.1
 
 /**
  * Server-reconciled ceiling on a claimed net worth: total accepted ledger
@@ -82,10 +87,12 @@ export const LEDGER_WORTH_TOLERANCE = 1.1
  * ledger never yields more headroom than the registration grant.
  */
 export function maxReconciledWorth(ledgerCredits: number | null, founder: boolean | null = null): number {
-  // Only a citizen KNOWN not to be a founder gets the smaller grant; unknown stays at the founder ceiling.
-  const fallback = founder === false ? CITIZEN_GRANT : FOUNDER_GRANT
-  const known = ledgerCredits === null || !Number.isFinite(ledgerCredits) ? fallback : Math.max(0, ledgerCredits)
-  return Math.round(known * LEDGER_WORTH_TOLERANCE)
+  if (ledgerCredits === null || !Number.isFinite(ledgerCredits)) {
+    // Only a citizen KNOWN not to be a founder gets the smaller grant; unknown stays at the founder ceiling.
+    const grant = founder === false ? CITIZEN_GRANT : FOUNDER_GRANT
+    return Math.round(grant * GRANT_WORTH_TOLERANCE)
+  }
+  return Math.round(Math.max(0, ledgerCredits) * LEDGER_WORTH_TOLERANCE)
 }
 
 export type CitizenScoreProfile = { ageDays: number | null; name: string | null; ledgerCredits: number | null; founder: boolean | null }
