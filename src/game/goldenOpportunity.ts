@@ -57,9 +57,9 @@ export const OPPORTUNITY_WINDOW_MS = 15_000
  * returns a fully-formed opportunity. The store sets a timer to auto-expire
  * if not tapped.
  */
-export function rollOpportunity(now: number, rng: () => number = Math.random): GoldenOpportunity | null {
+export function rollOpportunity(now: number, rng: () => number = Math.random, chanceScale = 1): GoldenOpportunity | null {
   if (!Number.isFinite(now) || now < 0) return null
-  if (rng() > OPPORTUNITY_CHANCE) return null
+  if (rng() > OPPORTUNITY_CHANCE * chanceScale) return null
   const def = OPPORTUNITY_POOL[Math.floor(rng() * OPPORTUNITY_POOL.length)]
   return { ...def, id: `opp-${Math.floor(now)}` }
 }

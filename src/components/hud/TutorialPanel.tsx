@@ -43,7 +43,7 @@ export default function TutorialPanel() {
                 {isCurrent && !isDone && <span className="tstep-detail">{step.detail}</span>}
               </span>
               {isDone && !isClaimed && (
-                <button className="btn small primary" onClick={() => claimTutorial(step.id, step.xp)}>
+                <button className="btn small primary" onClick={() => claimTutorial(step.id)}>
                   +{step.xp} XP
                 </button>
               )}

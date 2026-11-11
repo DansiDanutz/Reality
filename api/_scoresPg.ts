@@ -56,7 +56,7 @@ export const SCORE_UPSERT_SQL = `
 // at purchase price — it never mints new worth. NULL when the citizen has no
 // accepted ledger rows yet (genesis lands on the first intent).
 export const CITIZEN_PROFILE_SQL = `
-  SELECT name, created_at,
+  SELECT name, created_at, (founder_number IS NOT NULL) AS founder,
     (SELECT SUM(amount) FILTER (WHERE amount > 0)
        FROM ledger
       WHERE citizen_id = $1 AND balance_after IS NOT NULL) AS credited
@@ -67,6 +67,9 @@ export const CITIZEN_PROFILE_SQL = `
 // their first ledger entry exists. The fail-closed bound when the ledger is
 // silent about a citizen.
 export const FOUNDER_GRANT = 200_000
+
+// Registration grant of an ordinary (non-founder) citizen: what the ledger's genesis row holds.
+export const CITIZEN_GRANT = 2_500
 
 // The ledger records each shift at BASE wage × seniority. Gear (+46% max) and
 // education (+30%) multiply it on the client (1.76× together), and client-only
@@ -83,12 +86,16 @@ export const GRANT_WORTH_TOLERANCE = 1.1
  * small tolerance for client-only pending income. FAIL CLOSED — an unknown
  * ledger never yields more headroom than the registration grant.
  */
-export function maxReconciledWorth(ledgerCredits: number | null): number {
-  if (ledgerCredits === null || !Number.isFinite(ledgerCredits)) return Math.round(FOUNDER_GRANT * GRANT_WORTH_TOLERANCE)
+export function maxReconciledWorth(ledgerCredits: number | null, founder: boolean | null = null): number {
+  if (ledgerCredits === null || !Number.isFinite(ledgerCredits)) {
+    // Only a citizen KNOWN not to be a founder gets the smaller grant; unknown stays at the founder ceiling.
+    const grant = founder === false ? CITIZEN_GRANT : FOUNDER_GRANT
+    return Math.round(grant * GRANT_WORTH_TOLERANCE)
+  }
   return Math.round(Math.max(0, ledgerCredits) * LEDGER_WORTH_TOLERANCE)
 }
 
-export type CitizenScoreProfile = { ageDays: number | null; name: string | null; ledgerCredits: number | null }
+export type CitizenScoreProfile = { ageDays: number | null; name: string | null; ledgerCredits: number | null; founder: boolean | null }
 
 /** Read the authoritative display name, age, and ledger credits in one database round trip. */
 export async function citizenScoreProfilePg(citizenId: string, env: NodeJS.ProcessEnv = process.env): Promise<CitizenScoreProfile> {
@@ -97,17 +104,20 @@ export async function citizenScoreProfilePg(citizenId: string, env: NodeJS.Proce
     name?: string | null
     created_at?: string | Date | null
     credited?: string | number | null
+    founder?: boolean | null
   }>
   const row = rows[0]
-  if (!row) return { ageDays: null, name: null, ledgerCredits: null }
+  if (!row) return { ageDays: null, name: null, ledgerCredits: null, founder: null }
+  const founder = typeof row.founder === 'boolean' ? row.founder : null
   const credited = row.credited === null || row.credited === undefined ? null : Number(row.credited)
   const ledgerCredits = credited !== null && Number.isFinite(credited) ? credited : null
-  if (!row.created_at) return { ageDays: null, name: row.name ?? null, ledgerCredits }
+  if (!row.created_at) return { ageDays: null, name: row.name ?? null, ledgerCredits, founder }
   const createdAt = new Date(row.created_at).getTime()
   return {
     ageDays: Number.isFinite(createdAt) ? Math.max(0, (Date.now() - createdAt) / 86_400_000) : null,
     name: row.name ?? null,
     ledgerCredits,
+    founder,
   }
 }
 

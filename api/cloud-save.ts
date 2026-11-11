@@ -127,11 +127,17 @@ function persistedSaveMoney(value: unknown): number | null | 'malformed' {
   return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : 'malformed'
 }
 
+/** Device clocks drift; a save may claim to be this much ahead of the server and no more. */
+const SAVE_FUTURE_SLACK_MS = 5 * 60_000
+
 function persistedSaveTimestamp(value: unknown): number {
   const state = persistedState(value)
   const candidate = state?.lastSeenAt
-  if (typeof candidate === 'number' && Number.isSafeInteger(candidate) && candidate >= 0) return candidate
-  return Date.now()
+  const now = Date.now()
+  // A save stamped in the future would win every "newest save" comparison
+  // forever and lock the real device out of cloud restore: clamp it.
+  if (typeof candidate === 'number' && Number.isSafeInteger(candidate) && candidate >= 0) return Math.min(candidate, now + SAVE_FUTURE_SLACK_MS)
+  return now
 }
 
 function scrubPersistedToken(value: unknown): string {
